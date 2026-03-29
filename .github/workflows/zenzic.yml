@@ -1,0 +1,50 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+#
+# Zenzic self-check — runs Zenzic against its own documentation.
+#
+# Template for external projects:
+#   Replace `uv run zenzic check all` with `uvx zenzic check all`
+#   (after the package is published to PyPI).
+
+name: Docs Lint
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - "mkdocs.yml"
+      - "zenzic.toml"
+      - "src/**"
+      - ".github/workflows/zenzic.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - "mkdocs.yml"
+      - "zenzic.toml"
+      - "src/**"
+      - ".github/workflows/zenzic.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  zenzic:
+    name: Documentation Quality (Zenzic)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Generate build artifacts
+        run: zip -qr docs/assets/brand-kit.zip docs/assets/brand/
+
+      - name: Lint documentation
+        run: uv run zenzic check all --strict

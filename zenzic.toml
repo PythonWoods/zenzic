@@ -1,0 +1,81 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# zenzic.toml — Zenzic configuration for this repository.
+
+docs_dir = "docs"
+
+# Assets referenced by mkdocs.yml or theme templates rather than by Markdown pages.
+# These are excluded to prevent false positives in the unused-assets check.
+excluded_assets = [
+    # favicon — referenced by mkdocs.yml (theme.favicon) and main.html (extrahead)
+    "assets/favicon/zenzic-icon.svg",
+    "assets/favicon/png/zenzic-icon-32.png",
+    "assets/favicon/png/zenzic-icon-64.png",
+    "assets/favicon/png/zenzic-icon-180.png",
+    "assets/favicon/png/zenzic-icon-512.png",
+    # brand — referenced by mkdocs.yml (theme.logo) or distributed as brand assets
+    "assets/brand/svg/zenzic-icon.svg",
+    "assets/brand/svg/zenzic-nav-dark.svg",
+    "assets/brand/svg/zenzic-nav-light.svg",
+    "assets/brand/svg/zenzic-wordmark.svg",
+    "assets/brand/svg/zenzic-wordmark-dark.svg",
+    "assets/brand/png/zenzic-icon-512.png",
+    "assets/brand/png/zenzic-nav-dark.png",
+    "assets/brand/png/zenzic-nav-light.png",
+    "assets/brand/png/zenzic-wordmark.png",
+    # social card — SVG source + PNG referenced by main.html (og:image, twitter:image)
+    "assets/social/social-card.svg",
+    "assets/social/social-card.png",
+    # brand-kit.zip — build artifact linked via plain [text](url) in brand-kit.md;
+    # the asset scanner only tracks image references so this would always appear unused.
+    "assets/brand-kit.zip",
+]
+
+# Directories to be ignored by the scanner.
+excluded_dirs = ["overrides"]
+
+# Glob patterns for assets generated at build time (e.g. to-pdf, CI artifact steps).
+# Links to these paths are not flagged as broken even when the file does not exist at lint time.
+excluded_build_artifacts = ["assets/brand-kit.zip", "it/assets/brand-kit.zip"]
+
+# External URLs excluded from the broken-link check.
+# These URLs are correct but the target is not yet publicly reachable at lint time.
+excluded_external_urls = [
+    "https://github.com/PythonWoods/zenzic",
+    "https://zenzic.pythonwoods.dev",
+]
+
+snippet_min_lines = 1
+placeholder_max_words = 50
+
+# Minimum quality threshold for CI. zenzic score exits with code 1 if below this value.
+# The --fail-under CLI flag overrides this when explicitly provided.
+fail_under = 80
+
+# Pattern matching disabled for this repo: the documentation itself describes
+# placeholder patterns as examples, which would cause false positives.
+placeholder_patterns = []
+
+[build_context]
+engine = "mkdocs"
+default_locale = "en"
+locales = ["it"]
+
+# ── Internal dogfood rules ────────────────────────────────────────────────────
+# These rules enforce the writing standards Zenzic recommends to its users.
+# They demonstrate the [[custom_rules]] DSL on a real project.
+#
+# Note: ZZ-NODRAFT is intentionally omitted here. The Zenzic documentation
+# explains the DRAFT pattern as an example in multiple pages (custom-rules-dsl.md,
+# checks.md, migration.md), which would produce false positives — the same
+# reason placeholder_patterns is set to [] above.
+#
+# ZZ-BRAND-CAPS is intentionally omitted: the line-level scanner cannot
+# distinguish prose from code blocks, and "zenzic" appears legitimately in
+# shell commands, JSON output, and package names on almost every page.
+
+[[custom_rules]]
+id       = "ZZ-NOCLICKHERE"
+pattern  = "(?i)\\bclick here\\b|\\bclicca qui\\b"
+message  = "Avoid generic link text. Use a meaningful description for accessibility."
+severity = "error"

@@ -1,0 +1,8 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# zenzic.toml — CLI configuration for the broken-docs example.
+# api.md is intentionally absent from the nav (see mkdocs.yml) to trigger the orphan check.
+
+docs_dir = "docs"
+placeholder_max_words = 50
+placeholder_patterns = ["TODO", "coming soon", "stub"]

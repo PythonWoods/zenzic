@@ -1,0 +1,16 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+#
+# markdownlint-cli2 configuration — global defaults + per-file overrides.
+# Global rules are in .markdownlint.json; this file adds file-level overrides.
+#
+# Rules disabled globally in .markdownlint.json:
+#   MD051 — MkDocs Material { #custom-id } anchor syntax is not resolved statically by
+#            markdownlint. Zenzic handles these correctly via slug_heading() since v0.4.0.
+
+overrides:
+  - files: ["CHANGELOG.md"]
+    config:
+      # Keep a Changelog uses repeated ### Added / ### Fixed / ### Changed
+      # headings under each version block — this is intentional and correct.
+      MD024: false

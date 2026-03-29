@@ -1,0 +1,32 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# mkdocs.yml — Gold Standard: suffix mode, bilingual, strict.
+
+site_name: i18n Standard Example
+
+plugins:
+  - i18n:
+      docs_structure: suffix
+      fallback_to_default: true
+      languages:
+        - locale: en
+          name: English
+          default: true
+          build: true
+        - locale: it
+          name: Italiano
+          build: true
+          nav_translations:
+            Home: Home
+            Guides: Guide
+            Advanced: Avanzato
+            Reference: Riferimento
+
+nav:
+  - Home: index.md
+  - Guides:
+      - guides/index.md
+      - Advanced:
+          - guides/advanced/setup.md
+          - guides/advanced/tuning.md
+  - Reference: reference/api.md

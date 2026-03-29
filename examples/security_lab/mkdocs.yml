@@ -1,0 +1,10 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# mkdocs.yml — Security Lab: intentional Shield triggers.
+
+site_name: Zenzic Security Lab
+
+nav:
+  - Shield Layer 1 — Path Traversal: traversal.md
+  - Shield Layer 2 — Credential Detection: attack.md
+  - Portability Enforcement — Absolute Links: absolute.md

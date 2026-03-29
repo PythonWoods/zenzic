@@ -1,0 +1,105 @@
+{# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> #}
+{# SPDX-License-Identifier: Apache-2.0 #}
+{#
+  header.html — Global site header with marketing nav (Home · Docs).
+  About is surfaced in the Docs sidebar, not in the top nav.
+  Active link is emphasised based on the current page URL.
+#}
+
+{# Determine active section #}
+{% set is_home = page.url in ["", ".", "en/", "it/"] or page.url == "./" %}
+{% set is_docs = not is_home %}
+
+{# Labels (language-aware) #}
+{% if config.theme.language == "it" %}
+  {% set label_home = "Home" %}
+  {% set label_docs = "Docs" %}
+{% else %}
+  {% set label_home = "Home" %}
+  {% set label_docs = "Docs" %}
+{% endif %}
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="{{ lang.t('header') }}">
+
+    {# Logo #}
+    <a href="{{ config.extra.homepage | d(nav.homepage.url, true) | url }}"
+       title="{{ config.site_name | e }}"
+       class="md-header__button md-logo"
+       aria-label="{{ config.site_name }}"
+       data-md-component="logo">
+      {% include "partials/logo.html" %}
+    </a>
+
+    {# Mobile drawer toggle #}
+    <label class="md-header__button md-icon" for="__drawer" aria-label="{{ lang.t('nav') }}">
+      {% set icon = config.theme.icon.menu or "material/menu" %}
+      {% include ".icons/" ~ icon ~ ".svg" %}
+    </label>
+
+    {# Site title (mobile) #}
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">{{ config.site_name }}</span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            {% if page.meta and page.meta.title %}
+              {{ page.meta.title }}
+            {% else %}
+              {{ page.title }}
+            {% endif %}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    {# Nav — Home · Docs #}
+    <nav class="zz-home-nav" aria-label="Site sections">
+      <a href="{{ '' | url }}"
+         class="zz-home-nav__link{% if is_home %} zz-home-nav__link--active{% endif %}">
+        {{ label_home }}
+      </a>
+      <a href="{{ 'docs/' | url }}"
+         class="zz-home-nav__link{% if is_docs %} zz-home-nav__link--active{% endif %}">
+        {{ label_docs }}
+      </a>
+    </nav>
+
+    {# Dark/light toggle #}
+    {% if config.theme.palette %}
+      {% if not config.theme.palette is mapping %}
+        {% include "partials/palette.html" %}
+      {% endif %}
+    {% endif %}
+    {% if not config.theme.palette is mapping %}
+      {% include "partials/javascripts/palette.html" %}
+    {% endif %}
+
+    {# Language switcher #}
+    {% if config.extra.alternate %}
+      {% include "partials/alternate.html" %}
+    {% endif %}
+
+    {# Search #}
+    {% if "search" in config.plugins %}
+      {% set search = config.plugins["search"] | attr("config") %}
+      {% if search.enabled %}
+        <label class="md-header__button md-icon" for="__search" aria-label="{{ lang.t('search') }}">
+          {% set icon = config.theme.icon.search or "material/magnify" %}
+          {% include ".icons/" ~ icon ~ ".svg" %}
+        </label>
+        {% include "partials/search.html" %}
+      {% endif %}
+    {% endif %}
+
+    {# GitHub repo #}
+    <div class="md-header__source">
+      {% if config.repo_url %}
+        {% include "partials/source.html" %}
+      {% endif %}
+    </div>
+
+  </nav>
+</header>

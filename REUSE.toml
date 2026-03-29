@@ -1,0 +1,130 @@
+version = 1
+
+# ── Generated / build artefacts ───────────────────────────────────────────────
+# These files are produced at runtime or by build tools and are not authored
+# source. They are excluded from git via .gitignore but may be present locally.
+
+[[annotations]]
+path = "**/__pycache__/**"
+SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
+SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = ".wrangler/**"
+SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
+SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = ".zenzic-score.json"
+SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
+SPDX-License-Identifier = "Apache-2.0"
+
+# ── Source ────────────────────────────────────────────────────────────────────
+
+[[annotations]]
+path = "src/**/*.py"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
+SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = "tests/**/*.py"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
+SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = "scripts/**"
+SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
+SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = "noxfile.py"
+SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
+SPDX-License-Identifier = "Apache-2.0"
+
+# ── Documentation ─────────────────────────────────────────────────────────────
+
+[[annotations]]
+path = "docs/**/*.md"
+SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
+SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = "docs/**/*.j2"
+SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
+SPDX-License-Identifier = "Apache-2.0"
+
+# docs/assets: SVG/PNG carry .license sidecars; .j2 carry inline headers.
+# Structure: brand/{svg,png}/ favicon/ screenshots/ social/ stylesheets/
+
+[[annotations]]
+path = "docs/assets/brand/**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
+SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = "docs/assets/brand-kit.zip"
+SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
+SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = "docs/assets/favicon/**"
+SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
+SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = "docs/assets/screenshots/**"
+SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
+SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = "docs/assets/social/**"
+SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
+SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = "docs/assets/stylesheets/**"
+SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
+SPDX-License-Identifier = "Apache-2.0"
+
+# ── Examples ──────────────────────────────────────────────────────────────────
+
+[[annotations]]
+path = "examples/**"
+SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
+SPDX-License-Identifier = "Apache-2.0"
+
+# ── Project root — prose ──────────────────────────────────────────────────────
+
+[[annotations]]
+path = ["README.md", "CHANGELOG.md", "CONTRIBUTING.md", "CONTRIBUTING.it.md", "ROADMAP.md", "SECURITY.md", "CODE_OF_CONDUCT.md", "NOTICE", "LICENSE"]
+SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
+SPDX-License-Identifier = "Apache-2.0"
+
+# ── Project root — configuration ──────────────────────────────────────────────
+
+[[annotations]]
+path = ["pyproject.toml", "mkdocs.yml", "zenzic.toml", "zensical.toml", "uv.lock", "justfile"]
+SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
+SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = [".gitignore", ".markdownlint.json", ".pre-commit-config.yaml"]
+SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
+SPDX-License-Identifier = "Apache-2.0"
+
+# ── CI ────────────────────────────────────────────────────────────────────────
+
+[[annotations]]
+path = ".github/**"
+SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
+SPDX-License-Identifier = "Apache-2.0"
+
+# ── MkDocs theme overrides ────────────────────────────────────────────────────
+
+[[annotations]]
+path = "docs/overrides/**"
+SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
+SPDX-License-Identifier = "Apache-2.0"

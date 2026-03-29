@@ -1,0 +1,14 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# mkdocs.yml — nav intentionally omits api.md to trigger the orphan check.
+
+site_name: Broken Docs Example
+
+plugins:
+  - zenzic:
+      fail_on_error: true
+      checks: [orphans, snippets, placeholders, assets]
+
+nav:
+  - Home: index.md
+  - Tutorial: tutorial.md

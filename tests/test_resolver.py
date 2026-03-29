@@ -1,0 +1,467 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+"""QA test suite for InMemoryPathResolver.
+
+Coverage matrix:
+- Happy paths (relative, absolute, implicit .md, directory index)
+- Zenzic Shield: path traversal in all obfuscation variants
+- FileNotFound (missing files, typos)
+- Anchor validation (hit, miss, fuzzing, case-insensitivity)
+- Windows backslash normalisation
+- Percent-encoding in paths and fragments
+- Cache incoherence (anchor_cache ≠ md_contents)
+- Case-sensitive dict keys
+- _coerce_path on non-Path inputs
+- Circular-link graphs (no recursion limit)
+- Performance baseline: 5 000 resolutions < 100 ms
+"""
+
+from __future__ import annotations
+
+import time
+from pathlib import Path
+
+import pytest
+
+from zenzic.core.resolver import (
+    AnchorMissing,
+    FileNotFound,
+    InMemoryPathResolver,
+    PathTraversal,
+    Resolved,
+)
+
+
+# ─── Shared fixtures ──────────────────────────────────────────────────────────
+
+ROOT = Path("/docs")
+
+_CONTENTS: dict[Path, str] = {
+    ROOT / "index.md": "# Home\n",
+    ROOT / "guide" / "install.md": "# Install\n## Quick Start\n## Requirements\n",
+    ROOT / "guide" / "index.md": "# Guide\n## Overview\n",
+    ROOT / "reference" / "api.md": "# API Reference\n## Endpoints\n",
+    ROOT / "about" / "team.md": "# Team\n",
+}
+
+_ANCHORS: dict[Path, set[str]] = {
+    ROOT / "index.md": {"home"},
+    ROOT / "guide" / "install.md": {"install", "quick-start", "requirements"},
+    ROOT / "guide" / "index.md": {"guide", "overview"},
+    ROOT / "reference" / "api.md": {"api-reference", "endpoints"},
+    ROOT / "about" / "team.md": {"team"},
+}
+
+
+@pytest.fixture()
+def resolver() -> InMemoryPathResolver:
+    return InMemoryPathResolver(ROOT, _CONTENTS, _ANCHORS)
+
+
+# ─── Happy paths ──────────────────────────────────────────────────────────────
+
+
+class TestHappyPaths:
+    """Standard resolution scenarios — must all return Resolved."""
+
+    def test_relative_file(self, resolver: InMemoryPathResolver) -> None:
+        outcome = resolver.resolve(ROOT / "index.md", "guide/install.md")
+        assert isinstance(outcome, Resolved)
+        assert outcome.target == ROOT / "guide" / "install.md"
+
+    def test_relative_file_with_valid_anchor(self, resolver: InMemoryPathResolver) -> None:
+        outcome = resolver.resolve(ROOT / "index.md", "guide/install.md#quick-start")
+        assert isinstance(outcome, Resolved)
+        assert outcome.target == ROOT / "guide" / "install.md"
+
+    def test_site_absolute_path(self, resolver: InMemoryPathResolver) -> None:
+        outcome = resolver.resolve(ROOT / "guide" / "install.md", "/reference/api.md")
+        assert isinstance(outcome, Resolved)
+        assert outcome.target == ROOT / "reference" / "api.md"
+
+    def test_implicit_md_suffix(self, resolver: InMemoryPathResolver) -> None:
+        """'guide/install' (no extension) resolves to 'guide/install.md'."""
+        outcome = resolver.resolve(ROOT / "index.md", "guide/install")
+        assert isinstance(outcome, Resolved)
+        assert outcome.target == ROOT / "guide" / "install.md"
+
+    def test_directory_index(self, resolver: InMemoryPathResolver) -> None:
+        """'guide/' resolves to 'guide/index.md'."""
+        outcome = resolver.resolve(ROOT / "index.md", "guide/")
+        assert isinstance(outcome, Resolved)
+        assert outcome.target == ROOT / "guide" / "index.md"
+
+    def test_dot_prefix_relative(self, resolver: InMemoryPathResolver) -> None:
+        """'./guide/install.md' is equivalent to 'guide/install.md'."""
+        outcome = resolver.resolve(ROOT / "index.md", "./guide/install.md")
+        assert isinstance(outcome, Resolved)
+        assert outcome.target == ROOT / "guide" / "install.md"
+
+    def test_parent_relative_stays_inside_root(self, resolver: InMemoryPathResolver) -> None:
+        """'../about/team.md' from 'guide/install.md' stays within /docs."""
+        outcome = resolver.resolve(ROOT / "guide" / "install.md", "../about/team.md")
+        assert isinstance(outcome, Resolved)
+        assert outcome.target == ROOT / "about" / "team.md"
+
+    def test_site_absolute_with_anchor(self, resolver: InMemoryPathResolver) -> None:
+        outcome = resolver.resolve(ROOT / "index.md", "/guide/install.md#requirements")
+        assert isinstance(outcome, Resolved)
+
+
+# ─── Zenzic Shield: path traversal ───────────────────────────────────────────
+
+
+class TestPathTraversal:
+    """Every variant must return PathTraversal and preserve the raw href."""
+
+    def test_classic_dotdot_sequence(self, resolver: InMemoryPathResolver) -> None:
+        href = "../../../../etc/passwd"
+        outcome = resolver.resolve(ROOT / "index.md", href)
+        assert isinstance(outcome, PathTraversal)
+        assert outcome.raw_href == href
+
+    def test_windows_backslash_traversal(self, resolver: InMemoryPathResolver) -> None:
+        """Backslash-encoded traversal must be caught after normalisation."""
+        href = "..\\..\\..\\etc\\passwd"
+        outcome = resolver.resolve(ROOT / "index.md", href)
+        assert isinstance(outcome, PathTraversal)
+
+    def test_mixed_slash_traversal(self, resolver: InMemoryPathResolver) -> None:
+        href = "..//..//../../etc/passwd"
+        outcome = resolver.resolve(ROOT / "index.md", href)
+        assert isinstance(outcome, PathTraversal)
+
+    def test_percent_encoded_dotdot(self, resolver: InMemoryPathResolver) -> None:
+        """%2e%2e is decoded to '..' by unquote before normpath sees it."""
+        href = "%2e%2e/%2e%2e/%2e%2e/etc/passwd"
+        outcome = resolver.resolve(ROOT / "index.md", href)
+        assert isinstance(outcome, PathTraversal)
+
+    def test_parallel_directory_escape(self, resolver: InMemoryPathResolver) -> None:
+        """Two levels up from a deeply nested source exits /docs."""
+        href = "../../sibling/page.md"
+        outcome = resolver.resolve(ROOT / "guide" / "install.md", href)
+        assert isinstance(outcome, PathTraversal)
+
+    def test_backslash_dotdot_mixed(self, resolver: InMemoryPathResolver) -> None:
+        """Windows path with mixed separators: ..\\../etc/passwd."""
+        href = "..\\../etc/passwd"
+        outcome = resolver.resolve(ROOT / "guide" / "install.md", href)
+        assert isinstance(outcome, PathTraversal)
+
+    def test_raw_href_preserved_on_traversal(self, resolver: InMemoryPathResolver) -> None:
+        """The exact raw href is preserved for accurate error reporting."""
+        href = "../../../../secret"
+        outcome = resolver.resolve(ROOT / "index.md", href)
+        assert isinstance(outcome, PathTraversal)
+        assert outcome.raw_href == href
+
+
+# ─── FileNotFound ─────────────────────────────────────────────────────────────
+
+
+class TestFileNotFound:
+    """Paths that are syntactically valid but absent from md_contents."""
+
+    def test_missing_file(self, resolver: InMemoryPathResolver) -> None:
+        outcome = resolver.resolve(ROOT / "index.md", "nonexistent.md")
+        assert isinstance(outcome, FileNotFound)
+        assert outcome.path_part == "nonexistent.md"
+
+    def test_typo_in_filename(self, resolver: InMemoryPathResolver) -> None:
+        outcome = resolver.resolve(ROOT / "index.md", "guide/instal.md")  # missing 'l'
+        assert isinstance(outcome, FileNotFound)
+
+    def test_nonexistent_subdirectory(self, resolver: InMemoryPathResolver) -> None:
+        outcome = resolver.resolve(ROOT / "index.md", "changelog/v0.2.md")
+        assert isinstance(outcome, FileNotFound)
+
+    def test_site_absolute_missing(self, resolver: InMemoryPathResolver) -> None:
+        """Site-absolute path that stays within root but has no matching file."""
+        outcome = resolver.resolve(ROOT / "index.md", "/this/does/not/exist.md")
+        assert isinstance(outcome, FileNotFound)
+
+    def test_space_encoded_path_no_match(self, resolver: InMemoryPathResolver) -> None:
+        """%20 decodes to a space; no file with spaces exists in fixture."""
+        outcome = resolver.resolve(ROOT / "index.md", "guide%20extra/install.md")
+        assert isinstance(outcome, FileNotFound)
+        assert outcome.path_part == "guide extra/install.md"
+
+
+# ─── Anchor validation ────────────────────────────────────────────────────────
+
+
+class TestAnchorValidation:
+    """File-found cases where the fragment determines the outcome."""
+
+    def test_valid_anchor_lowercase(self, resolver: InMemoryPathResolver) -> None:
+        outcome = resolver.resolve(ROOT / "index.md", "guide/install.md#quick-start")
+        assert isinstance(outcome, Resolved)
+
+    def test_anchor_case_insensitive(self, resolver: InMemoryPathResolver) -> None:
+        """Fragment lookup uses fragment.lower(); QUICK-START must match quick-start."""
+        outcome = resolver.resolve(ROOT / "index.md", "guide/install.md#QUICK-START")
+        assert isinstance(outcome, Resolved)
+
+    def test_anchor_mixed_case(self, resolver: InMemoryPathResolver) -> None:
+        outcome = resolver.resolve(ROOT / "index.md", "guide/install.md#Quick-Start")
+        assert isinstance(outcome, Resolved)
+
+    def test_missing_anchor(self, resolver: InMemoryPathResolver) -> None:
+        outcome = resolver.resolve(ROOT / "index.md", "guide/install.md#does-not-exist")
+        assert isinstance(outcome, AnchorMissing)
+        assert outcome.anchor == "does-not-exist"
+        assert outcome.path_part == "guide/install.md"
+        assert outcome.resolved_file == ROOT / "guide" / "install.md"
+
+    def test_anchor_with_special_characters(self, resolver: InMemoryPathResolver) -> None:
+        """Anchors with chars not present in any slug must be reported as missing."""
+        outcome = resolver.resolve(ROOT / "index.md", "guide/install.md#quick@start!")
+        assert isinstance(outcome, AnchorMissing)
+
+    def test_anchor_with_encoded_space(self, resolver: InMemoryPathResolver) -> None:
+        """%20 in fragment is NOT decoded by urlsplit — raw fragment is 'quick%20start'."""
+        outcome = resolver.resolve(ROOT / "index.md", "guide/install.md#quick%20start")
+        # "quick%20start".lower() is not in {"install", "quick-start", "requirements"}
+        assert isinstance(outcome, AnchorMissing)
+        assert outcome.anchor == "quick%20start"
+
+    def test_no_anchor_in_href_always_resolves(self, resolver: InMemoryPathResolver) -> None:
+        """A file href with no fragment never triggers AnchorMissing."""
+        outcome = resolver.resolve(ROOT / "index.md", "reference/api.md")
+        assert isinstance(outcome, Resolved)
+
+
+# ─── Windows backslash normalisation ─────────────────────────────────────────
+
+
+class TestWindowsNormalization:
+    """All backslash forms must resolve identically to their forward-slash form."""
+
+    def test_single_backslash_separator(self, resolver: InMemoryPathResolver) -> None:
+        outcome = resolver.resolve(ROOT / "index.md", "guide\\install.md")
+        assert isinstance(outcome, Resolved)
+        assert outcome.target == ROOT / "guide" / "install.md"
+
+    def test_backslash_with_anchor(self, resolver: InMemoryPathResolver) -> None:
+        outcome = resolver.resolve(ROOT / "index.md", "guide\\install.md#quick-start")
+        assert isinstance(outcome, Resolved)
+
+    def test_mixed_backslash_and_forwardslash(self, resolver: InMemoryPathResolver) -> None:
+        outcome = resolver.resolve(ROOT / "index.md", "guide\\..\\guide\\install.md")
+        assert isinstance(outcome, Resolved)
+
+    def test_multiple_backslash_levels(self, resolver: InMemoryPathResolver) -> None:
+        outcome = resolver.resolve(ROOT / "index.md", "guide\\install.md")
+        assert outcome == resolver.resolve(ROOT / "index.md", "guide/install.md")
+
+
+# ─── Percent-encoding in paths ────────────────────────────────────────────────
+
+
+class TestPercentEncoding:
+    """Percent-encoded sequences in the path component are decoded before lookup."""
+
+    def test_encoded_slash_in_path(self, resolver: InMemoryPathResolver) -> None:
+        """%2f decodes to '/' — the path 'guide%2finstall.md' becomes 'guide/install.md'."""
+        outcome = resolver.resolve(ROOT / "index.md", "guide%2finstall.md")
+        assert isinstance(outcome, Resolved)
+        assert outcome.target == ROOT / "guide" / "install.md"
+
+    def test_encoded_dot_in_path(self, resolver: InMemoryPathResolver) -> None:
+        """%2e decodes to '.'; path 'guide/%2e%2e/guide/install.md' normalises safely."""
+        outcome = resolver.resolve(ROOT / "index.md", "guide/%2e%2e/guide/install.md")
+        assert isinstance(outcome, Resolved)
+
+    def test_encoded_traversal_via_percent(self, resolver: InMemoryPathResolver) -> None:
+        """%2e%2e/../../../etc/passwd must still be caught by the Shield."""
+        outcome = resolver.resolve(ROOT / "index.md", "%2e%2e/%2e%2e/%2e%2e/etc/passwd")
+        assert isinstance(outcome, PathTraversal)
+
+    def test_encoded_space_gives_file_not_found(self, resolver: InMemoryPathResolver) -> None:
+        outcome = resolver.resolve(ROOT / "index.md", "guide%20notes/install.md")
+        assert isinstance(outcome, FileNotFound)
+        assert "guide notes" in outcome.path_part
+
+
+# ─── Cache incoherence ────────────────────────────────────────────────────────
+
+
+class TestCacheIncoherence:
+    """anchors_cache may reference files not present in md_contents.
+    The resolver must degrade gracefully — no KeyError, no crash."""
+
+    def test_anchor_exists_in_cache_but_file_not_in_contents(self) -> None:
+        """Ghost entry in anchors_cache must not cause a crash."""
+        ghost = ROOT / "ghost.md"
+        r = InMemoryPathResolver(
+            root_dir=ROOT,
+            md_contents={ROOT / "index.md": "# Home\n"},
+            anchors_cache={
+                ROOT / "index.md": {"home"},
+                ghost: {"phantom-section"},  # ← file absent from md_contents
+            },
+        )
+        # Attempting to link to ghost.md must return FileNotFound,
+        # not a KeyError from accessing the orphaned anchors_cache entry.
+        outcome = r.resolve(ROOT / "index.md", "ghost.md#phantom-section")
+        assert isinstance(outcome, FileNotFound)
+
+    def test_empty_anchor_set_in_cache(self) -> None:
+        """A file with an empty anchor set returns AnchorMissing for any fragment."""
+        target = ROOT / "empty-headings.md"
+        r = InMemoryPathResolver(
+            root_dir=ROOT,
+            md_contents={
+                ROOT / "index.md": "# Home\n",
+                target: "no headings here\n",
+            },
+            anchors_cache={
+                ROOT / "index.md": {"home"},
+                target: set(),  # ← explicit empty set
+            },
+        )
+        outcome = r.resolve(ROOT / "index.md", "empty-headings.md#anything")
+        assert isinstance(outcome, AnchorMissing)
+
+    def test_file_in_contents_absent_from_anchor_cache(self) -> None:
+        """File present in md_contents but NOT in anchors_cache.
+        The resolver defaults to an empty set for anchor lookups."""
+        target = ROOT / "no-cache.md"
+        r = InMemoryPathResolver(
+            root_dir=ROOT,
+            md_contents={ROOT / "index.md": "# Home\n", target: "# Page\n"},
+            anchors_cache={ROOT / "index.md": {"home"}},  # target intentionally absent
+        )
+        outcome = r.resolve(ROOT / "index.md", "no-cache.md#section")
+        assert isinstance(outcome, AnchorMissing)
+        assert outcome.anchor == "section"
+
+
+# ─── Case sensitivity ─────────────────────────────────────────────────────────
+
+
+class TestCaseSensitivity:
+    """Dict keys are compared verbatim; case mismatches behave like missing files."""
+
+    def test_uppercase_file_not_found_if_dict_key_is_lowercase(
+        self, resolver: InMemoryPathResolver
+    ) -> None:
+        """md_contents key is 'install.md'; 'Install.md' must not match."""
+        outcome = resolver.resolve(ROOT / "index.md", "guide/Install.md")
+        assert isinstance(outcome, FileNotFound)
+
+    def test_exact_case_resolves(self, resolver: InMemoryPathResolver) -> None:
+        outcome = resolver.resolve(ROOT / "index.md", "guide/install.md")
+        assert isinstance(outcome, Resolved)
+
+
+# ─── _coerce_path: type safety ────────────────────────────────────────────────
+
+
+class TestCoercePath:
+    """InMemoryPathResolver must accept str keys in all mappings."""
+
+    def test_str_root_dir(self) -> None:
+        r = InMemoryPathResolver(
+            root_dir="/docs",  # type: ignore[arg-type]
+            md_contents={"/docs/index.md": "# Home\n"},  # type: ignore[dict-item]
+            anchors_cache={"/docs/index.md": {"home"}},  # type: ignore[dict-item]
+        )
+        outcome = r.resolve("/docs/index.md", "index.md")  # type: ignore[arg-type]
+        assert isinstance(outcome, Resolved)
+
+    def test_str_source_file(self) -> None:
+        r = InMemoryPathResolver(ROOT, _CONTENTS, _ANCHORS)
+        outcome = r.resolve("/docs/index.md", "guide/install.md")  # type: ignore[arg-type]
+        assert isinstance(outcome, Resolved)
+
+    def test_mixed_str_and_path_keys(self) -> None:
+        r = InMemoryPathResolver(
+            root_dir=ROOT,
+            md_contents={
+                ROOT / "index.md": "# Home\n",
+                "/docs/guide/install.md": "# Install\n",  # type: ignore[dict-item]
+            },
+            anchors_cache={},
+        )
+        outcome = r.resolve(ROOT / "index.md", "guide/install.md")
+        assert isinstance(outcome, Resolved)
+
+
+# ─── Circular-link graphs ─────────────────────────────────────────────────────
+
+
+class TestCircularLinks:
+    """The resolver is iterative, not recursive.
+    Circular reference graphs must never hit Python's recursion limit."""
+
+    def test_1000_circular_links_no_recursion(self) -> None:
+        n = 1_000
+        contents: dict[Path, str] = {}
+        anchors: dict[Path, set[str]] = {}
+        for i in range(n):
+            page = ROOT / f"page_{i}.md"
+            contents[page] = f"# Page {i}\n"
+            anchors[page] = {f"page-{i}"}
+
+        r = InMemoryPathResolver(ROOT, contents, anchors)
+
+        # Each page links to the next; the last links back to the first (A→B→A cycle).
+        for i in range(n):
+            src = ROOT / f"page_{i}.md"
+            target_name = f"page_{(i + 1) % n}.md"
+            outcome = r.resolve(src, target_name)
+            assert isinstance(outcome, Resolved), f"page_{i} → {target_name} failed"
+
+    def test_self_referential_link(self) -> None:
+        """A file linking to itself must resolve without issues."""
+        page = ROOT / "self.md"
+        r = InMemoryPathResolver(
+            root_dir=ROOT,
+            md_contents={page: "# Self\n[here](self.md)\n"},
+            anchors_cache={page: {"self"}},
+        )
+        outcome = r.resolve(page, "self.md")
+        assert isinstance(outcome, Resolved)
+        assert outcome.target == page
+
+
+# ─── Performance baseline ─────────────────────────────────────────────────────
+
+
+class TestPerformanceBaseline:
+    """5 000 mixed resolutions must complete in under 100 ms.
+
+    Tests a realistic mix: hits, misses, traversal attempts, and anchor checks.
+    All lookups are in-memory; no I/O, no subprocess.
+    """
+
+    _HREFS: list[str] = [
+        "guide/install.md#quick-start",  # Resolved
+        "guide/install.md#no-such-anchor",  # AnchorMissing
+        "missing.md",  # FileNotFound
+        "../../../../etc/passwd",  # PathTraversal
+        "/reference/api.md",  # Resolved (site-absolute)
+        "guide\\install.md",  # Resolved (backslash)
+    ]
+
+    def test_5000_resolutions_under_100ms(self, resolver: InMemoryPathResolver) -> None:
+        source = ROOT / "index.md"
+        hrefs = (self._HREFS * 834)[:5_000]  # exactly 5 000
+
+        start = time.perf_counter()
+        for href in hrefs:
+            resolver.resolve(source, href)
+        elapsed_ms = (time.perf_counter() - start) * 1_000
+
+        assert elapsed_ms < 100.0, (
+            f"5 000 resolutions took {elapsed_ms:.1f} ms — limit is 100 ms. "
+            "Investigate _lookup or _build_target overhead."
+        )
+
+    def test_outcome_distribution_is_correct(self, resolver: InMemoryPathResolver) -> None:
+        """Sanity-check that the mix produces all four outcome types."""
+        source = ROOT / "index.md"
+        outcomes = {type(resolver.resolve(source, h)) for h in self._HREFS}
+        assert outcomes == {Resolved, AnchorMissing, FileNotFound, PathTraversal}

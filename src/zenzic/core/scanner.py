@@ -1,0 +1,896 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+"""Filesystem scanning utilities: repo root discovery, orphan page detection,
+placeholder scanning, and the Two-Pass Reference Pipeline.
+
+v0.2.0 additions
+----------------
+* ``ReferenceScanner`` — stateful per-file scanner implementing the three-phase
+  pipeline (Harvest → Cross-Check → Integrity Report).
+* ``check_image_alt_text`` — pure function that flags images without alt text.
+* ``scan_docs_references`` — I/O wrapper that runs ReferenceScanner over every
+  .md file under docs/ and returns consolidated results.
+"""
+
+from __future__ import annotations
+
+import fnmatch
+import posixpath
+import re
+from collections.abc import Generator
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+from urllib.parse import unquote
+
+from zenzic.core.adapter import get_adapter
+from zenzic.core.rules import RuleEngine
+from zenzic.core.shield import SecurityFinding, scan_line_for_secrets, scan_url_for_secrets
+from zenzic.core.validator import LinkValidator
+from zenzic.models.config import ZenzicConfig
+from zenzic.models.references import IntegrityReport, ReferenceFinding, ReferenceMap
+
+
+# ─── Reference pipeline regexes ───────────────────────────────────────────────
+
+# Reference definition: [id]: url  (up to 3 leading spaces per CommonMark §4.7)
+# Optional title on the same line is ignored (we only need the URL for Shield scan).
+_RE_REF_DEF = re.compile(r"^ {0,3}\[([^\]]+)\]:\s+(\S+)")
+
+# Reference link usage: [text][id] or [text][] (collapsed reference).
+# Negative lookbehind (?<!!) prevents matching image reference links ![alt][id].
+_RE_REF_LINK = re.compile(r"(?<!!)(\[([^\]]*)\]\[([^\]]*)\])")
+
+# Inline image: ![alt](url)
+_RE_IMAGE_INLINE = re.compile(r"!\[([^\]]*)\]\(([^)]+)\)")
+
+# HTML image tag — captures the entire tag for alt extraction
+_RE_HTML_IMG = re.compile(r"<img\b[^>]*>", re.IGNORECASE)
+_RE_HTML_ALT = re.compile(r'\balt=["\']([^"\']*)["\']', re.IGNORECASE)
+
+
+_MARKDOWN_ASSET_LINK_RE = re.compile(r"!\[.*?\]\((.*?)\)|<img.*?src=[\"'](.*?)[\"'].*?>")
+
+
+def find_repo_root() -> Path:
+    """Walk upward from CWD until a Zenzic project root marker is found.
+
+    Root markers (first match wins, checked in order):
+    - ``.git/``  — universal VCS marker.
+    - ``zenzic.toml`` — Zenzic's own configuration file.
+
+    Using engine-neutral markers keeps the Core independent of any specific
+    documentation build engine (e.g. ``mkdocs.yml`` is intentionally excluded).
+
+    This is more robust than ``Path(__file__).parents[N]`` because it works
+    regardless of where the CLI is invoked from inside the repo.
+
+    Raises:
+        RuntimeError: if no root marker is found in any ancestor.
+    """
+    cwd = Path.cwd().resolve()
+    for candidate in [cwd, *cwd.parents]:
+        if (candidate / ".git").is_dir() or (candidate / "zenzic.toml").is_file():
+            return candidate
+    raise RuntimeError(
+        "Could not locate repo root: no .git directory or zenzic.toml found in any "
+        f"ancestor of {cwd}. Run Zenzic from inside the repository."
+    )
+
+
+# ─── Pure / I/O-agnostic functions ────────────────────────────────────────────
+
+
+def calculate_orphans(all_md: set[str], nav_paths: set[str] | frozenset[str]) -> list[str]:
+    """Pure function: return sorted list of .md paths present in all_md but absent from nav_paths.
+
+    Args:
+        all_md: Set of all .md src_uri paths (relative to docs root).
+        nav_paths: Set of .md src_uri paths explicitly listed in the nav.
+
+    Returns:
+        Sorted list of orphaned paths.
+    """
+    return sorted(all_md - nav_paths)
+
+
+@dataclass(slots=True)
+class PlaceholderFinding:
+    file_path: Path
+    line_no: int
+    issue: str
+    detail: str
+
+
+def check_placeholder_content(
+    text: str,
+    file_path: Path | str,
+    config: ZenzicConfig | None = None,
+) -> list[PlaceholderFinding]:
+    """Pure function: analyse markdown text for placeholder patterns. No I/O.
+
+    Args:
+        text: Raw markdown content to analyse.
+        file_path: Path identifier used to label findings (no disk access).
+        config: Optional Zenzic configuration.
+
+    Returns:
+        List of PlaceholderFinding instances.
+    """
+    if config is None:
+        config = ZenzicConfig()
+
+    path = Path(file_path)
+    findings: list[PlaceholderFinding] = []
+    patterns = config.placeholder_patterns_compiled
+
+    words = text.split()
+    if len(words) < config.placeholder_max_words:
+        findings.append(
+            PlaceholderFinding(
+                file_path=path,
+                line_no=1,
+                issue="short-content",
+                detail=f"Page has only {len(words)} words (minimum {config.placeholder_max_words}).",
+            )
+        )
+
+    for i, line in enumerate(text.splitlines(), start=1):
+        for pattern in patterns:
+            if pattern.search(line):
+                findings.append(
+                    PlaceholderFinding(
+                        file_path=path,
+                        line_no=i,
+                        issue="placeholder-text",
+                        detail=f"Found placeholder text matching pattern: '{pattern.pattern}'",
+                    )
+                )
+
+    return findings
+
+
+def check_asset_references(text: str, page_dir: str = "") -> set[str]:
+    """Pure function: extract normalised asset paths referenced in markdown text.
+
+    Args:
+        text: Raw markdown content.
+        page_dir: POSIX directory of the page relative to docs root (e.g. ``"guide"``).
+                  Pass an empty string for pages at the root.
+
+    Returns:
+        Set of normalised asset paths relative to docs root.
+    """
+    referenced: set[str] = set()
+    for match in _MARKDOWN_ASSET_LINK_RE.finditer(text):
+        url = match.group(1) or match.group(2)
+        if not url or url.startswith(("http://", "https://", "data:", "#")):
+            continue
+        clean_url = unquote(url.split("?")[0].split("#")[0])
+        base = page_dir if page_dir else "."
+        normalized = posixpath.normpath(posixpath.join(base, clean_url))
+        if not normalized.startswith(".."):  # skip paths that escape the docs root
+            referenced.add(normalized)
+    return referenced
+
+
+def calculate_unused_assets(all_assets: set[str], used_assets: set[str]) -> list[str]:
+    """Pure function: return sorted list of assets not referenced by any page.
+
+    Args:
+        all_assets: Set of all known asset paths (relative to docs root).
+        used_assets: Set of asset paths referenced in documentation pages.
+
+    Returns:
+        Sorted list of unused asset paths.
+    """
+    return sorted(all_assets - used_assets)
+
+
+# ─── CLI / I/O wrappers ───────────────────────────────────────────────────────
+
+
+def find_orphans(repo_root: Path, config: ZenzicConfig | None = None) -> list[Path]:
+    """Return docs/*.md files that are not referenced in the mkdocs.yml nav.
+
+    Args:
+        repo_root: Path to the repository root (contains mkdocs.yml).
+        config: Optional configuration model.
+
+    Returns:
+        List of Path objects relative to docs_root that are not in the nav.
+    """
+    if config is None:
+        config = ZenzicConfig()
+
+    docs_root = repo_root / config.docs_dir
+    if not docs_root.exists() or not docs_root.is_dir():
+        return []
+
+    # The adapter factory owns all engine-specific knowledge: config loading,
+    # nav extraction, locale detection, and Zensical enforcement.
+    adapter = get_adapter(config.build_context, docs_root, repo_root)
+
+    # No engine config means no nav to compare against — skip orphan detection.
+    if not adapter.has_engine_config():
+        return []
+
+    nav_paths = adapter.get_nav_paths()
+    exclusion_patterns = set(config.excluded_file_patterns) | adapter.get_ignored_patterns()
+
+    all_md: set[str] = set()
+    for md_file in sorted(docs_root.rglob("*.md")):
+        if md_file.is_symlink():
+            continue
+        rel = md_file.relative_to(docs_root)
+        if any(part in config.excluded_dirs for part in rel.parts):
+            continue
+        # Skip all files inside a locale directory — managed by the i18n plugin.
+        if rel.parts and adapter.is_locale_dir(rel.parts[0]):
+            continue
+        if any(fnmatch.fnmatch(md_file.name, pat) for pat in exclusion_patterns):
+            continue
+        all_md.add(rel.as_posix())
+
+    return [Path(p) for p in calculate_orphans(all_md, nav_paths)]
+
+
+def find_placeholders(
+    repo_root: Path, config: ZenzicConfig | None = None
+) -> list[PlaceholderFinding]:
+    """Scan docs for placeholder/stub patterns and short word counts.
+
+    Args:
+        repo_root: Path to the repository root.
+        config: Optional configuration model.
+
+    Returns:
+        List of PlaceholderFinding instances detailing the issues found.
+    """
+    if config is None:
+        config = ZenzicConfig()
+
+    docs_root = repo_root / config.docs_dir
+    findings: list[PlaceholderFinding] = []
+
+    if not docs_root.exists() or not docs_root.is_dir():
+        return findings
+
+    for md_file in sorted(docs_root.rglob("*.md")):
+        if md_file.is_symlink():
+            continue
+        rel_path = md_file.relative_to(docs_root)
+        if any(part in config.excluded_dirs for part in rel_path.parts):
+            continue
+        content = md_file.read_text(encoding="utf-8")
+        findings.extend(check_placeholder_content(content, rel_path, config))
+
+    return findings
+
+
+def find_unused_assets(repo_root: Path, config: ZenzicConfig | None = None) -> list[Path]:
+    """Return asset files in docs/ that are not referenced by any markdown file.
+
+    Args:
+        repo_root: Path to the repository root.
+        config: Optional configuration model.
+
+    Returns:
+        List of Path objects relative to docs_root that are unused.
+    """
+    if config is None:
+        config = ZenzicConfig()
+
+    docs_root = repo_root / config.docs_dir
+
+    if not docs_root.exists() or not docs_root.is_dir():
+        return []
+
+    all_assets: set[str] = set()
+    for file_path in sorted(docs_root.rglob("*")):
+        if file_path.is_dir() or file_path.is_symlink() or file_path.suffix == ".md":
+            continue
+        rel_path = file_path.relative_to(docs_root)
+        if rel_path.suffix in {".css", ".js", ".yml", ".license", ".j2"}:
+            continue
+        if any(part in config.excluded_asset_dirs for part in rel_path.parts):
+            continue
+        rel_posix = rel_path.as_posix()
+        if any(fnmatch.fnmatch(rel_posix, pat) for pat in config.excluded_build_artifacts):
+            continue
+        all_assets.add(rel_posix)
+
+    if not all_assets:
+        return []
+
+    # Remove explicitly excluded assets before comparison.
+    # excluded_assets paths are relative to docs_dir, matching the format of all_assets.
+    excluded = {e.lstrip("/") for e in config.excluded_assets}
+    all_assets -= excluded
+
+    if not all_assets:
+        return []
+
+    used_assets: set[str] = set()
+    for md_file in sorted(docs_root.rglob("*.md")):
+        if md_file.is_symlink():
+            continue
+        content = md_file.read_text(encoding="utf-8")
+        rel_md = md_file.relative_to(docs_root)
+        page_dir = rel_md.parent.as_posix()
+        if page_dir == ".":
+            page_dir = ""
+        used_assets |= check_asset_references(content, page_dir)
+
+    return [Path(p) for p in calculate_unused_assets(all_assets, used_assets)]
+
+
+# ─── Two-Pass Reference Pipeline ──────────────────────────────────────────────
+
+# Harvest event type aliases (yielded by ReferenceScanner.harvest())
+# (lineno, "DEF",           (ref_id_norm, url))      — definition accepted
+# (lineno, "DUPLICATE_DEF", (ref_id_norm, url))      — duplicate ignored
+# (lineno, "IMG",           (alt_text, url))          — image found
+# (lineno, "MISSING_ALT",   url)                      — image without alt-text
+# (lineno, "SECRET",        SecurityFinding)          — secret detected by Shield
+
+HarvestEvent = tuple[int, str, Any]
+
+
+def _iter_content_lines(
+    file_path: Path,
+) -> Generator[tuple[int, str], None, None]:
+    """Stream non-code, non-frontmatter lines from a Markdown file one at a time.
+
+    Opens the file in text mode and iterates line-by-line (no .read() /
+    .readlines()).  Two categories of lines are silently skipped:
+
+    * **YAML frontmatter**: A leading ``---`` block (line 1 only) is skipped in
+      its entirety up to and including the closing ``---`` or ``...`` delimiter.
+      This prevents reference definitions embedded in YAML from being harvested
+      as Markdown content.
+    * **Fenced code blocks**: Lines inside ``` or ~~~ fences are skipped so that
+      example URLs inside code never trigger false positives.
+
+    Args:
+        file_path: Path to the Markdown source file.
+
+    Yields:
+        ``(1-based line number, raw line string)`` for every content line.
+    """
+    in_block = False
+    in_frontmatter = False
+    frontmatter_checked = False
+
+    with file_path.open(encoding="utf-8") as fh:
+        for lineno, line in enumerate(fh, start=1):
+            stripped = line.strip()
+
+            # ── YAML frontmatter skip (first line only) ───────────────────
+            if not frontmatter_checked:
+                frontmatter_checked = True
+                if stripped == "---":
+                    in_frontmatter = True
+                    continue
+
+            if in_frontmatter:
+                if stripped in ("---", "..."):
+                    in_frontmatter = False
+                continue
+
+            # ── Fenced code block skip ────────────────────────────────────
+            if not in_block:
+                if stripped.startswith("```") or stripped.startswith("~~~"):
+                    in_block = True
+                    continue
+            else:
+                if stripped.startswith("```") or stripped.startswith("~~~"):
+                    in_block = False
+                continue  # always skip lines inside fenced block
+
+            yield lineno, line
+
+
+def check_image_alt_text(
+    text: str,
+    file_path: Path | str,
+) -> list[ReferenceFinding]:
+    """Pure function: find images that are missing alt text.
+
+    Checks both inline Markdown images ``![alt](url)`` and HTML ``<img>`` tags.
+    An empty alt attribute (``alt=""``) is treated as intentionally decorative
+    and is *not* flagged — the issue is a completely absent or blank alt string.
+
+    Args:
+        text: Raw Markdown content.
+        file_path: Path identifier for labelling findings (no disk access).
+
+    Returns:
+        List of :class:`ReferenceFinding` with ``issue="missing-alt"`` and
+        ``is_warning=True`` for every offending image.
+    """
+    path = Path(file_path)
+    findings: list[ReferenceFinding] = []
+
+    for lineno, line in enumerate(text.splitlines(), start=1):
+        # Inline Markdown images
+        for m in _RE_IMAGE_INLINE.finditer(line):
+            alt_text = m.group(1)
+            url = m.group(2)
+            if not alt_text.strip():
+                findings.append(
+                    ReferenceFinding(
+                        file_path=path,
+                        line_no=lineno,
+                        issue="missing-alt",
+                        detail=f"Image '{url}' has no alt text.",
+                        is_warning=True,
+                    )
+                )
+
+        # HTML <img> tags
+        for img_match in _RE_HTML_IMG.finditer(line):
+            tag = img_match.group()
+            alt_match = _RE_HTML_ALT.search(tag)
+            src = tag  # fallback label when src is hard to extract
+            if alt_match is None or not alt_match.group(1).strip():
+                findings.append(
+                    ReferenceFinding(
+                        file_path=path,
+                        line_no=lineno,
+                        issue="missing-alt",
+                        detail=f"HTML <img> tag has no alt text: {src[:60]}",
+                        is_warning=True,
+                    )
+                )
+
+    return findings
+
+
+class ReferenceScanner:
+    """Per-file stateful scanner implementing the Three-Phase Reference Pipeline.
+
+    State lives entirely inside the instance via ``self.ref_map``.  There is no
+    global scope pollution: create one ``ReferenceScanner`` per file.
+
+    Usage::
+
+        scanner = ReferenceScanner(Path("docs/guide.md"))
+
+        # Pass 1 — drive the generator; bail immediately on SECRET events
+        for event in scanner.harvest():
+            lineno, event_type, data = event
+            if event_type == "SECRET":
+                raise SystemExit(2)  # or typer.Exit(2) in CLI layer
+
+        # Pass 2 — resolve reference links (ref_map must be fully populated)
+        cross_check_findings = scanner.cross_check()
+
+        # Pass 3 — compute integrity score and collect all findings
+        report = scanner.get_integrity_report(cross_check_findings)
+    """
+
+    def __init__(self, file_path: Path, config: ZenzicConfig | None = None) -> None:
+        self.file_path = file_path
+        self.ref_map: ReferenceMap = ReferenceMap()
+        self._config = config or ZenzicConfig()
+
+    # ── Pass 1: Harvesting & Shield ────────────────────────────────────────────
+
+    def harvest(self) -> Generator[HarvestEvent, None, None]:
+        """Pass 1: stream the file, extract reference definitions, run the Shield.
+
+        Populates ``self.ref_map.definitions`` as a side effect.  Security
+        findings are yielded immediately as ``("SECRET", SecurityFinding)``
+        events so callers can abort with Exit Code 2 before Pass 2 begins.
+
+        Yields:
+            ``(lineno, event_type, data)`` tuples.  See module-level type alias
+            ``HarvestEvent`` for the full list of event types and data shapes.
+        """
+        for lineno, line in _iter_content_lines(self.file_path):
+            # ── 1.b Reference definition detection ───────────────────────────
+            def_match = _RE_REF_DEF.match(line)
+            if def_match:
+                raw_id, url = def_match.group(1), def_match.group(2)
+                accepted = self.ref_map.add_definition(raw_id, url, lineno)
+                norm_id = raw_id.lower().strip()
+
+                if accepted:
+                    yield (lineno, "DEF", (norm_id, url))
+
+                    # ── 1.c Shield: scan URL for secrets ─────────────────────
+                    for finding in scan_url_for_secrets(url, self.file_path, lineno):
+                        yield (lineno, "SECRET", finding)
+                else:
+                    yield (lineno, "DUPLICATE_DEF", (norm_id, url))
+                continue
+
+            # ── 1.d Shield: scan entire line for secrets (defence-in-depth) ──
+            # Applied only to non-definition lines to avoid duplicate SECRET
+            # events — definition URLs are already scanned by scan_url_for_secrets.
+            for finding in scan_line_for_secrets(line, self.file_path, lineno):
+                yield (lineno, "SECRET", finding)
+
+            # ── Alt-text: inline images ───────────────────────────────────────
+            for img_match in _RE_IMAGE_INLINE.finditer(line):
+                alt_text = img_match.group(1)
+                url = img_match.group(2)
+                if alt_text.strip():
+                    yield (lineno, "IMG", (alt_text, url))
+                else:
+                    yield (lineno, "MISSING_ALT", url)
+
+    # ── Pass 2: Cross-Check & Validation ──────────────────────────────────────
+
+    def cross_check(self) -> list[ReferenceFinding]:
+        """Pass 2: resolve reference links against the populated ReferenceMap.
+
+        Must be called **after** ``harvest()`` has been fully consumed so that
+        ``self.ref_map.definitions`` is complete.
+
+        Returns:
+            List of :class:`ReferenceFinding` for dangling references (links
+            that use an undefined ID).
+        """
+        findings: list[ReferenceFinding] = []
+
+        for lineno, line in _iter_content_lines(self.file_path):
+            # Blank out inline code to avoid false matches inside `[code][spans]`
+            clean = re.sub(r"`[^`]+`", lambda m: " " * len(m.group()), line)
+
+            for m in _RE_REF_LINK.finditer(clean):
+                text = m.group(2)
+                ref_id = m.group(3) if m.group(3) else text  # collapsed ref
+                url = self.ref_map.resolve(ref_id)
+                if url is None:
+                    norm_id = ref_id.lower().strip()
+                    findings.append(
+                        ReferenceFinding(
+                            file_path=self.file_path,
+                            line_no=lineno,
+                            issue="DANGLING",
+                            detail=(
+                                f"Reference '[{text}][{ref_id}]' uses undefined ID '{norm_id}'."
+                            ),
+                            is_warning=False,
+                        )
+                    )
+
+        return findings
+
+    # ── Pass 3: Cleanup & Metrics ──────────────────────────────────────────────
+
+    def get_integrity_report(
+        self,
+        cross_check_findings: list[ReferenceFinding] | None = None,
+        security_findings: list[SecurityFinding] | None = None,
+    ) -> IntegrityReport:
+        """Pass 3: compute integrity score and consolidate all findings.
+
+        Args:
+            cross_check_findings: Findings from :meth:`cross_check` (dangling
+                refs).  Pass ``None`` or omit to skip.
+            security_findings: Shield findings collected during
+                :meth:`harvest`.  Pass ``None`` or omit to skip.
+
+        Returns:
+            :class:`IntegrityReport` with the integrity score and the full
+            ordered list of findings (errors first, warnings last).
+        """
+        findings: list[ReferenceFinding] = list(cross_check_findings or [])
+
+        # Orphan definitions — defined but never used (warning)
+        for norm_id in sorted(self.ref_map.orphan_definitions):
+            url, def_line = self.ref_map.definitions[norm_id]
+            findings.append(
+                ReferenceFinding(
+                    file_path=self.file_path,
+                    line_no=def_line,
+                    issue="DEAD_DEF",
+                    detail=(f"Reference '[{norm_id}]: {url}' is defined but never used."),
+                    is_warning=True,
+                )
+            )
+
+        # Duplicate definitions — subsequent occurrences ignored (warning)
+        for norm_id in sorted(self.ref_map.duplicate_ids):
+            url, def_line = self.ref_map.definitions[norm_id]
+            findings.append(
+                ReferenceFinding(
+                    file_path=self.file_path,
+                    line_no=def_line,
+                    issue="duplicate-def",
+                    detail=(
+                        f"Reference ID '[{norm_id}]' is defined more than once. "
+                        "First definition wins (CommonMark §4.7)."
+                    ),
+                    is_warning=True,
+                )
+            )
+
+        return IntegrityReport(
+            file_path=self.file_path,
+            score=self.ref_map.integrity_score,
+            findings=findings,
+            security_findings=list(security_findings or []),
+        )
+
+
+# ─── I/O wrapper: scan all docs ───────────────────────────────────────────────
+
+
+def _scan_single_file(
+    md_file: Path,
+    config: ZenzicConfig,
+    rule_engine: RuleEngine | None = None,
+) -> tuple[IntegrityReport, ReferenceScanner | None]:
+    """Run the Three-Phase Pipeline on one Markdown file.
+
+    Returns the scanner alongside the report so callers that need the
+    populated ``ref_map`` (e.g. for external URL registration) can reuse it
+    without triggering a second read of the file.
+
+    Args:
+        md_file: Absolute path to the Markdown file to process.
+        config: Zenzic configuration.
+        rule_engine: Optional :class:`~zenzic.core.rules.RuleEngine` to apply
+            after the reference pipeline.  When provided, the file is read once
+            more as a string for the rule pass (rules receive the full text, not
+            the line-by-line generator output).  When ``None`` or empty, the
+            rule pass is skipped entirely.
+
+    Returns:
+        ``(report, scanner)`` where ``scanner`` is ``None`` when the Shield
+        detected secrets (no external URLs should be registered from such files).
+    """
+    scanner = ReferenceScanner(md_file, config)
+    security_findings: list[SecurityFinding] = []
+
+    # Pass 1 — harvest; collect security findings
+    for _lineno, event_type, data in scanner.harvest():
+        if event_type == "SECRET":
+            security_findings.append(data)
+
+    # Pass 2 — cross-check (only if no secrets; Shield is a firewall)
+    cross_findings: list[ReferenceFinding] = []
+    if not security_findings:
+        cross_findings = scanner.cross_check()
+
+    # Pass 3 — integrity report
+    report = scanner.get_integrity_report(cross_findings, security_findings)
+
+    # Rule Engine pass — applied after reference pipeline, only when configured.
+    # Files with security findings are also excluded from rule scanning to avoid
+    # further processing of potentially compromised content.
+    if rule_engine and not security_findings:
+        text = md_file.read_text(encoding="utf-8")
+        report.rule_findings = rule_engine.run(md_file, text)
+
+    # Return scanner only when the file is secure — callers must not register
+    # URLs from files that failed the Shield (they may embed leaked credentials).
+    secure_scanner: ReferenceScanner | None = None if security_findings else scanner
+    return report, secure_scanner
+
+
+def _iter_md_files(
+    docs_root: Path,
+    config: ZenzicConfig,
+) -> Generator[Path, None, None]:
+    """Yield absolute paths to .md files under docs_root, honouring exclusions."""
+    for md_file in sorted(docs_root.rglob("*.md")):
+        if md_file.is_symlink():
+            continue
+        rel = md_file.relative_to(docs_root)
+        if any(part in config.excluded_dirs for part in rel.parts):
+            continue
+        yield md_file
+
+
+def _build_rule_engine(config: ZenzicConfig) -> RuleEngine | None:
+    """Construct a :class:`~zenzic.core.rules.RuleEngine` from the config.
+
+    Returns ``None`` when no custom rules are configured, avoiding the
+    overhead of engine construction on projects that do not use the feature.
+    """
+    from zenzic.core.rules import CustomRule  # deferred to keep import graph clean
+
+    if not config.custom_rules:
+        return None
+    rules = [
+        CustomRule(
+            id=cr.id,
+            pattern=cr.pattern,
+            message=cr.message,
+            severity=cr.severity,
+        )
+        for cr in config.custom_rules
+    ]
+    return RuleEngine(rules)
+
+
+def scan_docs_references(
+    repo_root: Path,
+    config: ZenzicConfig | None = None,
+) -> list[IntegrityReport]:
+    """Run the Three-Phase Pipeline over every .md file in docs/.
+
+    Returns one :class:`IntegrityReport` per file, sorted by file path.
+    Exit Code 2 must be enforced by the CLI layer when any report contains
+    security findings.
+
+    Args:
+        repo_root: Repository root (must contain ``docs/``).
+        config: Optional Zenzic configuration.
+
+    Returns:
+        Sorted list of :class:`IntegrityReport` objects.
+    """
+    if config is None:
+        config, _ = ZenzicConfig.load(repo_root)
+
+    docs_root = repo_root / config.docs_dir
+    if not docs_root.exists() or not docs_root.is_dir():
+        return []
+
+    rule_engine = _build_rule_engine(config)
+    reports: list[IntegrityReport] = []
+    for md_file in _iter_md_files(docs_root, config):
+        report, _scanner = _scan_single_file(md_file, config, rule_engine)
+        reports.append(report)
+
+    return reports
+
+
+def scan_docs_references_with_links(
+    repo_root: Path,
+    *,
+    validate_links: bool = False,
+    config: ZenzicConfig | None = None,
+) -> tuple[list[IntegrityReport], list[str]]:
+    """Run the full Three-Phase Pipeline, optionally validating external URLs.
+
+    This is the top-level orchestrator for ``zenzic check references --links``.
+    It collects all reports and — when ``validate_links=True`` — fires a single
+    async pass over all unique HTTP/HTTPS URLs found across the entire docs tree.
+
+    **Deduplication guarantee:** If 50 files all define a reference to
+    ``https://github.com``, the :class:`~zenzic.core.validator.LinkValidator`
+    issues exactly one HEAD request.  This is enforced at registration time, not
+    inside the HTTP layer.
+
+    **Shield-as-firewall:** Files with security findings are excluded from link
+    validation.  We do not ping URLs that contain leaked credentials.
+
+    **O(N) reads:** Each file is read exactly once regardless of whether link
+    validation is enabled.  The scanner from Pass 1 is retained and its
+    ``ref_map`` is passed directly to the validator — no second harvest.
+
+    Args:
+        repo_root: Repository root (must contain ``docs/``).
+        validate_links: When ``True``, perform async HTTP validation of all
+            external reference URLs (equivalent to ``--links`` on the CLI).
+            Disabled by default to preserve the fast-by-default principle.
+        config: Optional Zenzic configuration.
+
+    Returns:
+        A ``(reports, link_errors)`` tuple where:
+        - ``reports`` is the sorted list of :class:`IntegrityReport` objects.
+        - ``link_errors`` is a sorted list of HTTP error strings (empty when
+          ``validate_links=False`` or all URLs pass).
+    """
+    if config is None:
+        config, _ = ZenzicConfig.load(repo_root)
+
+    docs_root = repo_root / config.docs_dir
+    if not docs_root.exists() or not docs_root.is_dir():
+        return [], []
+
+    rule_engine = _build_rule_engine(config)
+    reports: list[IntegrityReport] = []
+    # Retain secure scanners for Phase B URL registration (avoids double-read).
+    secure_scanners: list[ReferenceScanner] = []
+
+    for md_file in _iter_md_files(docs_root, config):
+        report, secure_scanner = _scan_single_file(md_file, config, rule_engine)
+        reports.append(report)
+        if validate_links and secure_scanner is not None:
+            secure_scanners.append(secure_scanner)
+
+    if not validate_links:
+        return reports, []
+
+    # Phase B — global URL deduplication and async HTTP validation.
+    # Uses the already-populated ref_maps from Phase A — no second file read.
+    validator = LinkValidator()
+    for scanner in secure_scanners:
+        validator.register_from_map(scanner.ref_map, scanner.file_path)
+
+    link_errors = validator.validate()
+    return reports, link_errors
+
+
+# ─── Parallel scan ────────────────────────────────────────────────────────────
+
+
+def _worker(args: tuple[Path, ZenzicConfig, RuleEngine | None]) -> IntegrityReport:
+    """Top-level worker function for ``ProcessPoolExecutor``.
+
+    Must be a module-level function (not a lambda or nested function) so that
+    ``pickle`` can serialise it for inter-process transport.
+
+    **Immutability contract:** ``config`` and ``rule_engine`` are serialised by
+    ``pickle`` when dispatched to a worker process.  Each worker receives an
+    independent copy — there is no shared state between processes.  Workers
+    must never mutate ``config``; :func:`_scan_single_file` and all functions
+    it calls are pure and honour this contract.
+
+    Args:
+        args: ``(md_file, config, rule_engine)`` tuple.
+
+    Returns:
+        The :class:`IntegrityReport` for *md_file*.  The ``ReferenceScanner``
+        is discarded — workers do not participate in Phase B URL registration.
+    """
+    md_file, config, rule_engine = args
+    report, _scanner = _scan_single_file(md_file, config, rule_engine)
+    return report
+
+
+def scan_docs_references_parallel(
+    repo_root: Path,
+    config: ZenzicConfig | None = None,
+    *,
+    workers: int | None = None,
+) -> list[IntegrityReport]:
+    """Run the Three-Phase Pipeline in parallel using multiple CPU cores.
+
+    Each file is processed independently by a worker process, exploiting the
+    pureness of :func:`_scan_single_file`.  Results are sorted by file path
+    after collection to guarantee deterministic output regardless of scheduling
+    order.
+
+    **When to use:** Large repos (> ~200 files) where I/O wait and CPU-bound
+    regex work dominate.  For smaller repos the process-spawn overhead exceeds
+    the parallelism benefit — prefer :func:`scan_docs_references` instead.
+
+    **Shield behaviour:** The Shield is enforced per-worker.  Files with
+    security findings are flagged in their :class:`IntegrityReport` as usual;
+    the caller is responsible for checking ``report.security_findings``.
+
+    **External URL validation** is not supported in parallel mode.  Use
+    :func:`scan_docs_references_with_links` for sequential scan with link
+    validation.
+
+    Args:
+        repo_root: Repository root (must contain ``docs/``).
+        config: Optional Zenzic configuration.
+        workers: Number of worker processes.  Defaults to ``None`` (let
+            :class:`~concurrent.futures.ProcessPoolExecutor` choose based on
+            CPU count).  Pass ``1`` to disable parallelism (useful for testing).
+
+    Returns:
+        Sorted list of :class:`IntegrityReport` objects, one per ``.md`` file.
+    """
+    import concurrent.futures
+
+    if config is None:
+        config, _ = ZenzicConfig.load(repo_root)
+
+    docs_root = repo_root / config.docs_dir
+    if not docs_root.exists() or not docs_root.is_dir():
+        return []
+
+    rule_engine = _build_rule_engine(config)
+    md_files = list(_iter_md_files(docs_root, config))
+
+    if not md_files:
+        return []
+
+    work_items = [(f, config, rule_engine) for f in md_files]
+
+    with concurrent.futures.ProcessPoolExecutor(max_workers=workers) as executor:
+        results = list(executor.map(_worker, work_items))
+
+    # Sort by file path to guarantee deterministic output order.
+    return sorted(results, key=lambda r: r.file_path)

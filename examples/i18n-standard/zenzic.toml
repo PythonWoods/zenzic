@@ -1,0 +1,10 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# zenzic.toml — Gold Standard configuration.
+# Every check enabled, fail_under = 100.
+
+docs_dir = "docs"
+fail_under = 100
+# Paths relative to docs_dir. These files are generated at build time and
+# must not exist on disk for Zenzic to give a green result — that is the point.
+excluded_build_artifacts = ["assets/manual.pdf", "assets/brand-kit.zip"]

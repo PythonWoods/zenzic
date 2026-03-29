@@ -1,0 +1,156 @@
+#!/usr/bin/env python
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+"""Zenzic Performance Benchmark — Single-thread vs Multi-process.
+
+Generates a synthetic docs tree of N Markdown files with reference links,
+then measures the wall-clock time for sequential and parallel scans.
+
+Usage::
+
+    python scripts/benchmark.py                  # default: 200 files, 4 workers
+    python scripts/benchmark.py --files 1000 --workers 8
+    python scripts/benchmark.py --files 5000 --no-parallel
+
+Output is a Rich-formatted table with ms/file figures for each strategy.
+"""
+
+from __future__ import annotations
+
+import argparse
+import statistics
+import tempfile
+import time
+from pathlib import Path
+
+from rich.console import Console
+from rich.table import Table
+
+from zenzic.core.scanner import scan_docs_references, scan_docs_references_parallel
+from zenzic.models.config import ZenzicConfig
+
+
+console = Console()
+
+_MD_TEMPLATE = """\
+# Page {i}
+
+This is the content of page {i}.  It contains [a reference link][ref-{i}] and
+some prose text to ensure the parser has real work to do.
+
+## Section A
+
+More content for page {i}.  Lorem ipsum dolor sit amet, consectetur
+adipiscing elit.  Sed do eiusmod tempor incididunt ut labore.
+
+[ref-{i}]: https://example.com/page-{i}
+[ref-shared]: https://docs.example.com/api
+"""
+
+
+def _create_synthetic_repo(n_files: int) -> Path:
+    """Create a temporary repo with *n_files* Markdown files and return its path."""
+    base = Path(tempfile.mkdtemp(prefix="zenzic-bench-"))
+    docs = base / "docs"
+    docs.mkdir()
+    for i in range(n_files):
+        (docs / f"page_{i:05d}.md").write_text(_MD_TEMPLATE.format(i=i))
+    return base
+
+
+def _bench(label: str, fn: object, repo: Path, config: ZenzicConfig, runs: int = 3) -> dict:
+    """Run *fn(repo, config)* *runs* times and return timing statistics."""
+    times: list[float] = []
+    n_reports = 0
+    for _ in range(runs):
+        t0 = time.perf_counter()
+        reports = fn(repo, config)  # type: ignore[call-arg]
+        elapsed = time.perf_counter() - t0
+        times.append(elapsed)
+        n_reports = len(reports)
+    return {
+        "label": label,
+        "n_files": n_reports,
+        "runs": runs,
+        "min_s": min(times),
+        "mean_s": statistics.mean(times),
+        "median_s": statistics.median(times),
+        "ms_per_file": statistics.median(times) / n_reports * 1000 if n_reports else 0,
+    }
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Zenzic performance benchmark")
+    parser.add_argument("--files", type=int, default=200, help="Number of synthetic .md files")
+    parser.add_argument("--workers", type=int, default=4, help="Worker processes for parallel scan")
+    parser.add_argument("--runs", type=int, default=3, help="Benchmark repetitions (best of N)")
+    parser.add_argument("--no-parallel", action="store_true", help="Skip parallel benchmark")
+    args = parser.parse_args()
+
+    console.print(
+        f"\n[bold cyan]Zenzic Benchmark[/] — {args.files} synthetic files, "
+        f"{args.runs} run(s) each\n"
+    )
+
+    console.print("[dim]Generating synthetic repo…[/]")
+    repo = _create_synthetic_repo(args.files)
+    config = ZenzicConfig()
+
+    results: list[dict] = []
+
+    console.print("[dim]Running sequential scan…[/]")
+    results.append(
+        _bench("Sequential (single-thread)", scan_docs_references, repo, config, args.runs)
+    )
+
+    if not args.no_parallel:
+        console.print(f"[dim]Running parallel scan ({args.workers} workers)…[/]")
+
+        def parallel_fn(r: Path, c: ZenzicConfig) -> list:
+            return scan_docs_references_parallel(r, c, workers=args.workers)
+
+        results.append(
+            _bench(f"Parallel ({args.workers} workers)", parallel_fn, repo, config, args.runs)
+        )
+
+    # ── Output table ───────────────────────────────────────────────────────────
+    table = Table(title=f"Results — {args.files} files, {args.runs} run(s)")
+    table.add_column("Strategy", style="bold")
+    table.add_column("Files", justify="right")
+    table.add_column("Median (s)", justify="right")
+    table.add_column("Min (s)", justify="right")
+    table.add_column("ms / file", justify="right", style="cyan")
+
+    for r in results:
+        speedup = ""
+        if len(results) > 1 and r is not results[0]:
+            factor = results[0]["median_s"] / r["median_s"] if r["median_s"] > 0 else 0
+            speedup = f" [green]({factor:.1f}×)[/]"
+        table.add_row(
+            r["label"],
+            str(r["n_files"]),
+            f"{r['median_s']:.3f}",
+            f"{r['min_s']:.3f}",
+            f"{r['ms_per_file']:.2f}{speedup}",
+        )
+
+    console.print(table)
+
+    # ── Speedup summary ────────────────────────────────────────────────────────
+    if len(results) == 2:
+        speedup = (
+            results[0]["median_s"] / results[1]["median_s"] if results[1]["median_s"] > 0 else 0
+        )
+        console.print(
+            f"\n[bold]Speedup:[/] parallel is [cyan]{speedup:.2f}×[/] faster than sequential "
+            f"({args.workers} workers, {args.files} files)\n"
+        )
+
+    # Cleanup
+    import shutil
+
+    shutil.rmtree(repo, ignore_errors=True)
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,42 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  release:
+    name: Build and Release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Build
+        run: uv build
+
+      # --- DISABILITATO TEMPORANEAMENTE ---
+      # - name: Publish to PyPI
+      #   run: uv publish
+      # -------------------------------------
+
+      - name: Generate GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/* # Carica i file .whl e .tar.gz come asset della release
+          generate_release_notes: true
+          make_latest: true

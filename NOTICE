@@ -1,0 +1,73 @@
+# Zenzic
+
+Copyright 2026 PythonWoods <dev@pythonwoods.dev>
+
+This product includes software developed by the PythonWoods contributors.
+
+================================================================================
+
+## Runtime Dependencies
+
+1. Pydantic v2 (https://github.com/pydantic/pydantic)
+   Copyright (c) Samuel Colvin and other contributors
+   License: MIT
+   Used for: Configuration model validation and settings management
+
+2. Typer (https://github.com/tiangolo/typer)
+   Copyright (c) Sebastián Ramírez
+   License: MIT
+   Used for: Command-line interface and argument parsing
+
+3. Rich (https://github.com/Textualize/rich)
+   Copyright (c) Will McGugan
+   License: MIT
+   Used for: Terminal output formatting, tables, and progress display
+
+4. PyYAML (https://github.com/yaml/pyyaml)
+   Copyright (c) Ingy döt Net and Kirill Simonov
+   License: MIT
+   Used for: YAML configuration parsing (mkdocs.yml, zenzic.yml)
+
+5. httpx (https://github.com/encode/httpx)
+   Copyright (c) Encode OSS Ltd.
+   License: BSD-3-Clause
+   Used for: Async HTTP client for external link validation
+
+6. Shellingham (https://github.com/sarugaku/shellingham)
+   Copyright (c) Tzu-ping Chung
+   License: MIT
+   Used for: Shell detection (transitive dependency of Typer)
+
+================================================================================
+
+## Development & Docs Tools
+
+These packages are used during development, testing, and documentation builds.
+They are not included in the distributed wheel.
+
+7. MkDocs (https://github.com/mkdocs/mkdocs)
+   Copyright (c) 2014-present, Tom Christie
+   License: BSD-2-Clause
+   Used for: Documentation build backend (via Zensical)
+
+8. Material for MkDocs (https://github.com/squidfunk/mkdocs-material)
+   Copyright (c) 2016-present, Martin Donath
+   License: MIT
+   Used for: Documentation theme
+
+9. bump-my-version (https://github.com/callowayproject/bump-my-version)
+   Copyright (c) Corey Oordt and contributors
+   License: MIT
+   Used for: Automated version bumping across pyproject.toml, __init__.py, mkdocs.yml
+
+10. Zensical (https://zensical.org/)
+    License: Proprietary (free tier)
+    Used for: Primary documentation build engine (reads mkdocs.yml natively)
+
+================================================================================
+
+Full license texts for third-party dependencies can be found in their
+respective project repositories or package installations.
+
+This NOTICE file is provided in accordance with the Apache License 2.0
+requirements for attribution.

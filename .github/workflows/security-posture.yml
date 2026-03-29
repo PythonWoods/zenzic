@@ -1,0 +1,52 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+
+name: Security Posture
+
+on:
+  push:
+    branches: [ main ]
+  schedule:
+    - cron: "0 6 * * 1"
+
+jobs:
+  check-posture:
+    name: Evaluate Repository Security Posture
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Check for SECURITY.md
+        run: |
+          if [ -f "SECURITY.md" ] || [ -f ".github/SECURITY.md" ]; then
+            echo "SECURITY.md found."
+          else
+            echo "SECURITY.md missing." && exit 1
+          fi
+
+      - name: Check for secret-scan workflow
+        run: |
+          if [ -f ".github/workflows/secret-scan.yml" ]; then
+            echo "Secret scan workflow found."
+          else
+            echo "Secret scan workflow missing." && exit 1
+          fi
+
+      - name: Check for Dependabot
+        run: |
+          if [ -f ".github/dependabot.yml" ]; then
+            echo "Dependabot configuration found."
+          else
+            echo "Dependabot configuration missing." && exit 1
+          fi
+
+      - name: Check for CI workflow
+        run: |
+          if [ -f ".github/workflows/ci.yml" ]; then
+            echo "CI workflow found."
+          else
+            echo "CI workflow missing." && exit 1
+          fi

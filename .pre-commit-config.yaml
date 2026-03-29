@@ -1,0 +1,77 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+
+repos:
+  # 1. Generic file hygiene
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+        args: [--unsafe]
+      - id: check-json
+      - id: check-toml
+      - id: check-added-large-files
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: mixed-line-ending
+      - id: no-commit-to-branch
+        args: ["--branch", "main"]
+
+  # 2. Markdown linting
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.41.0
+    hooks:
+      - id: markdownlint
+        args: ["--fix"]
+
+  # 3. Ruff (linting & formatting)
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.11.2
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+        exclude: ^examples/
+      - id: ruff-format
+        exclude: ^examples/
+
+  # 4. Purge __pycache__ before REUSE — bytecode in untracked dirs fails the check
+  - repo: local
+    hooks:
+      - id: clean-pycache
+        name: Clean __pycache__ before REUSE lint
+        entry: bash -c "find . -path './.git' -prune -o -name '__pycache__' -type d -print -exec rm -rf {} + 2>/dev/null || true"
+        language: system
+        pass_filenames: false
+        always_run: true
+
+  # 5. REUSE/SPDX license compliance
+  - repo: https://github.com/fsfe/reuse-tool
+    rev: v5.0.2
+    hooks:
+      - id: reuse
+
+  # 6. Local: type checking, tests, zenzic self-check
+  - repo: local
+    hooks:
+      - id: mypy
+        name: Type Checking (mypy)
+        entry: uv run mypy src/
+        language: system
+        types: [python]
+        pass_filenames: false
+
+      - id: pytest
+        name: Run Tests (pytest)
+        entry: uv run pytest -q -x
+        language: system
+        types: [python]
+        pass_filenames: false
+
+      - id: zenzic
+        name: Zenzic self-check
+        entry: bash -c "mkdir -p docs/assets && zip -qr docs/assets/brand-kit.zip docs/assets/brand/ && uv run zenzic check all --strict"
+        language: system
+        types_or: [python, markdown, yaml]
+        pass_filenames: false
