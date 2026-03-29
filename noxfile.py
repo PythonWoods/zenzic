@@ -17,13 +17,19 @@ nox.options.default_venv_backend = "uv"
 nox.options.sessions = ["lint", "format", "typecheck"]
 
 PYTHONS = ["3.11", "3.12", "3.13"]
-_DEV = ("uv", "sync", "--active", "--group", "dev")
+
+# Per-group sync tuples — each session installs only what it needs.
+_SYNC_TEST = ("uv", "sync", "--active", "--group", "test")
+_SYNC_LINT = ("uv", "sync", "--active", "--group", "lint")
+_SYNC_DOCS = ("uv", "sync", "--active", "--group", "docs")
+_SYNC_RELEASE = ("uv", "sync", "--active", "--group", "release")
+_SYNC_DEV = ("uv", "sync", "--active", "--group", "dev")
 
 
 @nox.session(python=PYTHONS)
 def tests(session: nox.Session) -> None:
     """Run the test suite with branch coverage across all supported Python versions."""
-    session.run(*_DEV, external=True)
+    session.run(*_SYNC_TEST, external=True)
     session.run(
         "pytest",
         "--cov=src/zenzic",
@@ -39,35 +45,35 @@ def lint(session: nox.Session) -> None:
 
     Read-only by default (used in CI). To auto-fix: nox -s lint -- --fix
     """
-    session.run(*_DEV, external=True)
+    session.run(*_SYNC_LINT, external=True)
     session.run("ruff", "check", *session.posargs, "src/", "tests/")
 
 
 @nox.session(python="3.11")
 def format(session: nox.Session) -> None:  # noqa: A001
     """Check code formatting with ruff (read-only, used in CI)."""
-    session.run(*_DEV, external=True)
+    session.run(*_SYNC_LINT, external=True)
     session.run("ruff", "format", "--check", "src/", "tests/")
 
 
 @nox.session(python="3.11")
 def fmt(session: nox.Session) -> None:
     """Auto-format code with ruff in place (use during development)."""
-    session.run(*_DEV, external=True)
+    session.run(*_SYNC_LINT, external=True)
     session.run("ruff", "format", "src/", "tests/")
 
 
 @nox.session(python="3.11")
 def typecheck(session: nox.Session) -> None:
     """Run static type checking with mypy."""
-    session.run(*_DEV, external=True)
+    session.run(*_SYNC_LINT, external=True)
     session.run("mypy", "src/")
 
 
 @nox.session(python="3.11")
 def reuse(session: nox.Session) -> None:
     """Verify REUSE/SPDX license compliance."""
-    session.run(*_DEV, external=True)
+    session.run(*_SYNC_LINT, external=True)
     session.run("reuse", "lint")
 
 
@@ -134,7 +140,7 @@ def _download_lucide_icons() -> None:
 @nox.session(python="3.11")
 def docs(session: nox.Session) -> None:
     """Build documentation with mkdocs in strict mode."""
-    session.run(*_DEV, external=True)
+    session.run(*_SYNC_DOCS, external=True)
     _download_lucide_icons()
     _build_brand_kit_zip()
     session.run("mkdocs", "build", "--strict")
@@ -146,7 +152,7 @@ def docs_serve(session: nox.Session) -> None:
 
     Pass a custom bind address via posargs: nox -s docs_serve -- -a 127.0.0.1:8001
     """
-    session.run(*_DEV, external=True)
+    session.run(*_SYNC_DOCS, external=True)
     _download_lucide_icons()
     session.run("mkdocs", "serve", *session.posargs)
 
@@ -165,7 +171,7 @@ def _build_brand_kit_zip() -> None:
 @nox.session(python="3.11")
 def preflight(session: nox.Session) -> None:
     """Run all quality checks — equivalent to a full CI pipeline."""
-    session.run(*_DEV, external=True)
+    session.run(*_SYNC_DEV, external=True)
     session.run("ruff", "check", "src/", "tests/")
     session.run("ruff", "format", "--check", "src/", "tests/")
     session.run("mypy", "src/")
@@ -185,7 +191,7 @@ def preflight(session: nox.Session) -> None:
 @nox.session(python="3.11")
 def screenshot(session: nox.Session) -> None:
     """Regenerate docs/assets/screenshot.svg from examples/broken-docs output."""
-    session.run(*_DEV, external=True)
+    session.run(*_SYNC_DEV, external=True)
     session.run("python", "scripts/generate_screenshot.py")
 
 

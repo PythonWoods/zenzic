@@ -5,7 +5,7 @@
 
 This page documents the programmatic interface exposed by the i18n Standard example.
 It is intentionally simple — the goal is to demonstrate a valid reference page with
-working cross-links, not to document a real API.
+working cross-links, not to describe a real API.
 
 ## `check_links(docs_dir)`
 

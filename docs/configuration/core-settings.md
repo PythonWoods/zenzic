@@ -240,3 +240,46 @@ To run in observational mode regardless of what `zenzic.toml` contains:
 ```bash
 zenzic score --fail-under 0
 ```
+
+---
+
+## `strict`
+
+**Type:** boolean — **Default:** `false`
+
+When `true`, every invocation of `zenzic check all`, `zenzic score`, and `zenzic diff` behaves
+as if `--strict` were passed: external URLs are validated via network requests and warnings are
+treated as errors.
+
+Use this to make strict mode the permanent default for a project, without adding `--strict` to
+every CI command:
+
+```toml
+strict = true
+```
+
+The `--strict` CLI flag overrides this value for a single run (setting it for that run
+regardless of what `zenzic.toml` contains).
+
+---
+
+## `exit_zero`
+
+**Type:** boolean — **Default:** `false`
+
+When `true`, `zenzic check all` always exits with code `0` even when issues are found. All
+findings are still printed and included in the quality score — only the exit code is suppressed.
+
+Use this during an active documentation improvement sprint when you want full visibility without
+blocking the pipeline:
+
+```toml
+exit_zero = true
+```
+
+The `--exit-zero` CLI flag overrides this value for a single run.
+
+!!! warning "Use sparingly"
+    Setting `exit_zero = true` in `zenzic.toml` disables the quality gate globally. Prefer
+    using `--exit-zero` as a temporary CLI flag during cleanup sprints, and removing it once
+    the baseline is clean.

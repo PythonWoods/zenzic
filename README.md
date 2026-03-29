@@ -68,7 +68,7 @@ Zenzic provides an extensive, engineering-grade documentation portal:
 | --- | --- | --- |
 | Links | `zenzic check links` | Broken internal links, dead anchors, and **path traversal** attempts |
 | Orphans | `zenzic check orphans` | `.md` files absent from `nav` |
-| Snippets | `zenzic check snippets` | Python code blocks that fail to compile |
+| Snippets | `zenzic check snippets` | Python, YAML, JSON, and TOML blocks with syntax errors |
 | Placeholders | `zenzic check placeholders` | Stub pages and forbidden text patterns |
 | Assets | `zenzic check assets` | Images and files not referenced anywhere |
 | **References** | `zenzic check references` | Dangling References, Dead Definitions, **Zenzic Shield** |
@@ -267,8 +267,23 @@ source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install zenzic
 ```
 
+### MkDocs rendering — `zenzic[docs]` extra
+
+Zenzic's core is dependency-free: linting raw Markdown requires nothing beyond `zenzic`.
+The MkDocs stack is only needed to **render** your site, not to validate it.
+
+If you use MkDocs and also want the full build stack available:
+
+```bash
+# uv
+uv add --dev "zenzic[docs]"
+
+# pip
+pip install "zenzic[docs]"
+```
+
 > **Note:**
-> All six checks — including `check links --strict` and `check references` — work on raw Markdown
+> All seven checks — including `check links --strict` and `check references` — work on raw Markdown
 > source files via a native Python parser and `httpx`. **No MkDocs or Zensical installation is required**
 > for `check`, `score`, or `diff`.
 >
@@ -370,13 +385,21 @@ Build aborted. Rotate the exposed credential immediately.
 1. The Shield runs *inside* Pass 1 — before Pass 2 validates links and before any HTTP ping is
    issued. A document containing a leaked credential is never used to make outbound requests.
 2. Patterns use exact-length quantifiers (`{48}`, `{36}`, `{16}`) — no backtracking, O(1) per line.
-3. Three credential families are covered out of the box:
+3. Seven credential families are covered out of the box:
 
 | Type | Pattern |
 | --- | --- |
 | OpenAI API key | `sk-[a-zA-Z0-9]{48}` |
 | GitHub token | `gh[pousr]_[a-zA-Z0-9]{36}` |
 | AWS access key | `AKIA[0-9A-Z]{16}` |
+| Stripe live key | `sk_live_[0-9a-zA-Z]{24}` |
+| Slack token | `xox[baprs]-[0-9a-zA-Z]{10,48}` |
+| Google API key | `AIza[0-9A-Za-z\-_]{35}` |
+| PEM private key | `-----BEGIN [A-Z ]+ PRIVATE KEY-----` |
+
+1. **No blind spots** — the Shield scans every line of the source file, including lines inside
+   fenced code blocks (`bash`, `yaml`, unlabelled, etc.). A credential committed inside a code
+   example is still a committed credential.
 
 > **Tip:**
 > Add `zenzic check references` to your pre-commit hooks to catch leaked credentials before they
@@ -458,6 +481,21 @@ nox -s preflight   # zenzic check all (self-check)
 
 ---
 
+## Contributing
+
+We welcome bug reports, documentation improvements, and pull requests. Before you start:
+
+1. Open an issue to discuss the change — use the [bug report][issues], [feature request][issues], or [docs issue][issues] template.
+2. Read the [Contributing Guide][contributing] — especially the **Local development setup** and the **Zenzic Way** checklist (pure functions, no subprocesses, source-first).
+3. Every PR must pass `nox -s preflight` (tests + lint + typecheck + self-dogfood) and include REUSE/SPDX headers on new files.
+
+Please also review our [Code of Conduct][coc] and [Security Policy][security].
+
+## Citing Zenzic
+
+A [`CITATION.cff`][citation-cff] file is present at the root of the repository. GitHub renders
+it automatically — click **"Cite this repository"** on the repo page for APA or BibTeX output.
+
 ## License
 
 Apache-2.0 — see [LICENSE][license].
@@ -484,3 +522,7 @@ Apache-2.0 — see [LICENSE][license].
 [ci-workflow]:       .github/workflows/zenzic.yml
 [contributing]:      CONTRIBUTING.md
 [license]:           LICENSE
+[citation-cff]:      CITATION.cff
+[coc]:               CODE_OF_CONDUCT.md
+[security]:          SECURITY.md
+[issues]:            https://github.com/PythonWoods/zenzic/issues

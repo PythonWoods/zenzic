@@ -19,9 +19,11 @@ qui sotto o usa la barra di ricerca per trovare ciò di cui hai bisogno.
 
 **Cos'è Zenzic?**
 
-Zenzic è un linter di documentazione di livello ingegneristico per siti MkDocs e Zensical. Rileva
-link interrotti, pagine orfane, stub placeholder, asset mancanti e altro ancora — a livello sorgente,
-prima che venga eseguita la build.
+Zenzic è un linter di documentazione di livello ingegneristico per qualsiasi progetto basato su
+Markdown. Opera sui file sorgente grezzi — mai sull'output generato — quindi funziona con qualsiasi
+motore di build: MkDocs, Zensical o qualsiasi altro generatore di siti statici tramite il sistema
+di adapter. Rileva link interrotti, pagine orfane, stub placeholder, asset non utilizzati,
+credenziali esposte e altro ancora — prima che venga eseguita la build.
 
 **Zenzic è gratuito?**
 
@@ -47,13 +49,15 @@ Oppure installalo nel progetto con `uv add --dev zenzic` (raccomandato) o `pip i
 **Devo creare un file `zenzic.toml`?**
 
 No. Zenzic funziona con configurazione zero — i valori predefiniti coprono la maggior parte dei
-progetti MkDocs standard. Il file `zenzic.toml` è necessario solo per personalizzare il comportamento,
-ad esempio per escludere directory, asset o URL esterni specifici.
+progetti standard senza alcuna configurazione aggiuntiva. Il file `zenzic.toml` è necessario solo
+per personalizzare il comportamento, ad esempio per escludere directory, asset o URL esterni specifici.
 
 **Posso usare Zenzic con un progetto non-MkDocs?**
 
-Attualmente Zenzic supporta MkDocs e Zensical. Il supporto per altri engine è pianificato.
-Consulta la guida [Motori](../guides/engines.md) per i dettagli.
+Sì. Zenzic funziona su qualsiasi cartella di file Markdown senza richiedere alcun motore di
+build (modalità Vanilla). Gli adapter nativi per MkDocs e Zensical aggiungono la consapevolezza
+della nav e il supporto i18n. Adapter di terze parti possono estendere questa funzionalità a
+qualsiasi altro motore. Consulta la guida [Motori](../guides/engines.md) per i dettagli.
 
 ## Checks e risultati
 
@@ -66,13 +70,23 @@ utile per il monitoraggio continuo e i badge.
 **Cosa significa "orphan page"?**
 
 Una pagina orfana è un file Markdown presente nella directory `docs/` ma assente dalla
-navigazione (`nav:`) in `mkdocs.yml`. Le pagine orfane non sono raggiungibili dagli utenti
-ma occupano spazio e creano confusione. Zenzic le segnala per tenerti in controllo.
+navigazione del sito dichiarata nel file di configurazione del motore di build. Le pagine
+orfane non sono raggiungibili dagli utenti che navigano la struttura del sito. Zenzic le
+segnala per tenerti in controllo.
 
 **Il check dei link esterni è lento. Posso disabilitarlo?**
 
-Puoi escludere URL specifici con `excluded_external_urls` in `zenzic.toml`. Per saltare
-completamente il controllo dei link esterni usa `zenzic check links --no-external`.
+La verifica dei link esterni viene eseguita solo quando viene passato il flag `--strict` —
+omettere il flag disabilita completamente tutte le richieste di rete. Per escludere
+permanentemente URL specifici senza rinunciare alla modalità strict, aggiungi i loro prefissi
+a `excluded_external_urls` in `zenzic.toml`:
+
+```toml
+excluded_external_urls = [
+    "https://internal.company.com",
+    "https://github.com/MyOrg/private-repo",
+]
+```
 
 **Zenzic controlla anche i link nelle immagini?**
 
@@ -93,8 +107,14 @@ guida [CI/CD](../ci-cd.md).
 
 **Cosa fa il flag `--strict`?**
 
-In modalità strict, qualsiasi warning diventa un errore. È consigliato nelle pipeline CI
-per garantire che nessuna issue passi inosservata.
+Il flag `--strict` ha due effetti a seconda del comando:
+
+- `zenzic check links --strict` / `zenzic check all --strict`: abilita anche la verifica
+  dei link HTTP/HTTPS esterni tramite richieste di rete (disabilitata per default per velocità).
+- `zenzic check references --strict`: tratta le Dead Definitions (link di riferimento definiti
+  ma mai usati) come errori bloccanti anziché warning.
+
+Consigliato nelle pipeline CI per intercettare tutte le categorie di problemi.
 
 **Cos'è il Zenzic Shield (exit code 2)?**
 

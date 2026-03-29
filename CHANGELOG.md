@@ -13,6 +13,92 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.4.0-rc3] — 2026-03-29 — i18n Anchor Fix, Multi-language Snippets & Shield Deep-Scan
+
+> **Sprint 7.** The `AnchorMissing` i18n fallback gap closed. Dead code eliminated. Shared
+> locale path-remapping utility extracted. Visual Snippets for custom rule findings. Usage docs
+> split into three focused pages. JSON schema stabilised at 7 keys. Multi-language snippet
+> validation (Python/YAML/JSON/TOML) and full-file Shield deep-scan added.
+
+### Added
+
+- **Multi-language snippet validation** — `check_snippet_content` now validates fenced code
+  blocks for four languages using pure Python parsers (no subprocesses):
+  `python`/`py` → `compile()`; `yaml`/`yml` → `yaml.safe_load()`; `json` → `json.loads()`;
+  `toml` → `tomllib.loads()`. Blocks with unsupported language tags (e.g. `bash`) are silently
+  skipped. `_extract_python_blocks` renamed to `_extract_code_blocks` to reflect the broader
+  scope.
+
+- **Shield deep-scan — credentials in fenced blocks** — The credential scanner now operates on
+  every line of the source file, including lines inside fenced code blocks (labelled or
+  unlabelled). Previously, `_iter_content_lines` fed both the Shield and the reference harvester,
+  causing fenced content to be invisible to the Shield. A new `_skip_frontmatter` generator
+  provides a raw line stream (minus frontmatter only); `harvest()` now runs two independent
+  passes — Shield on the raw stream, ref-defs + alt-text on the filtered content stream. Links
+  and reference definitions inside fenced blocks remain ignored to prevent false positives.
+
+- **Shield extended to 7 credential families** — Added Stripe live keys
+  (`sk_live_[0-9a-zA-Z]{24}`), Slack tokens (`xox[baprs]-[0-9a-zA-Z]{10,48}`), Google API
+  keys (`AIza[0-9A-Za-z\-_]{35}`), and generic PEM private keys
+  (`-----BEGIN [A-Z ]+ PRIVATE KEY-----`) to `_SECRETS` in `core/shield.py`.
+
+- **`resolve_anchor()` method on `BaseAdapter` protocol** — New adapter method that returns
+  `True` when an anchor miss on a locale file should be suppressed because the anchor exists
+  in the default-locale equivalent. Implemented in `MkDocsAdapter`, `ZensicalAdapter` (via
+  `remap_to_default_locale()`), and `VanillaAdapter` (always returns `False`).
+
+- **`adapters/_utils.py` — `remap_to_default_locale()` pure utility** — Extracts the shared
+  locale path-remapping logic that was independently duplicated across `resolve_asset()` and
+  `is_shadow_of_nav_page()` in both adapters. Pure function: takes `(abs_path, docs_root,
+  locale_dirs)`, returns the default-locale equivalent `Path` or `None`. Zero I/O.
+
+- **Visual Snippets for `[[custom_rules]]` findings** — Custom rule violations now display the
+  offending source line below the finding header, prefixed with the `│` indicator rendered in
+  the finding's severity colour. Standard check findings are unaffected.
+
+- **`strict` and `exit_zero` as `zenzic.toml` fields** — Both flags are now first-class
+  `ZenzicConfig` fields (type `bool | None`, sentinel `None` = not set). CLI flags override
+  TOML values. Enables project-level defaults without CLI ceremony.
+
+- **JSON output schema — 7 stable keys** — `--format json` emits:
+  `links`, `orphans`, `snippets`, `placeholders`, `unused_assets`, `references`, `nav_contract`.
+
+- **Usage docs split** — `docs/usage/index.md` split into three focused pages:
+  `usage/index.md` (install + workflow), `usage/commands.md` (CLI reference),
+  `usage/advanced.md` (three-pass pipeline, Shield, programmatic API, multi-language).
+  Italian mirrors (`docs/it/usage/`) at full parity. `mkdocs.yml` nav updated.
+
+### Fixed
+
+- **`AnchorMissing` had no i18n fallback suppression** — The `AnchorMissing` branch in
+  `validate_links_async` reported unconditionally. Links to translated headings in locale files
+  generated false positives. Fix: `AnchorMissing` branch now calls `adapter.resolve_anchor()`.
+  Five new integration tests in `TestI18nFallbackIntegration` cover: suppressed miss, miss in
+  both locales, fallback disabled, EN source file, direct resolution.
+
+### Removed
+
+- **`_should_suppress_via_i18n_fallback()`** — Dead code. Was defined in `validator.py` but
+  never called. Removed permanently.
+- **`I18nFallbackConfig` NamedTuple** — Internal data structure for the above deleted function.
+  Removed.
+- **`_I18N_FALLBACK_DISABLED` sentinel** — Constant for the above deleted function. Removed.
+- **`_extract_i18n_fallback_config()`** — Also dead. Was tested by `TestI18nFallbackConfig`
+  (6 tests), which is also removed. Total removal: ~118 lines from `validator.py`.
+
+### Tests
+
+- 5 new anchor fallback integration tests in `TestI18nFallbackIntegration`.
+- `TestI18nFallbackConfig` (6 tests for deleted functions) removed.
+- 8 new snippet validation tests (YAML valid/invalid, `yml` alias, JSON valid/invalid,
+  JSON line-number accuracy, TOML valid/invalid).
+- 5 new Shield deep-scan tests: secret in unlabelled fence, secret in `bash` fence,
+  secret in fence with no ref-def created, clean code block no findings, combined invariant.
+- **446 tests pass.** `nox preflight` — all gates green: ruff ✓ mypy ✓ pytest ✓ reuse ✓
+  mkdocs build --strict ✓ zenzic check all --strict ✓.
+
+---
+
 ## [0.4.0-rc2] — 2026-03-28 — The Great Decoupling
 
 > **Sprint 6.** Zenzic ceases to own its adapters. Third-party adapters install as Python

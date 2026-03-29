@@ -1,0 +1,14 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# zenzic.toml — Security Lab configuration.
+#
+# This example intentionally triggers the Zenzic Shield (credential detection)
+# and the link checker (path traversal, absolute links).
+#
+# Expected results:
+#   zenzic check links   → EXIT 1  (path traversal in traversal.md + attack.md)
+#   zenzic check references → EXIT 2  (Shield: credentials in attack.md)
+#   zenzic check all     → EXIT 2  (Shield takes priority)
+
+engine   = "mkdocs"
+docs_dir = "docs"

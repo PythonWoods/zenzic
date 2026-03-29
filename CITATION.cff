@@ -1,0 +1,31 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+
+cff-version: 1.2.0
+message: "If you use Zenzic in your research or documentation pipelines, please cite it as follows."
+type: software
+authors:
+  - name: "PythonWoods"
+    email: "dev@pythonwoods.dev"
+title: "Zenzic: The Agnostic Documentation Integrity Framework"
+abstract: >
+  A high-performance, engine-agnostic framework for Markdown documentation integrity.
+  Zenzic validates links, orphan pages, code snippets (Python, YAML, JSON, TOML), placeholder
+  content, and unreferenced assets while enforcing security through a dedicated credential
+  scanner (the Shield). Built on pure functional principles in Python 3.11+, it operates
+  source-first — no build framework required — and integrates with any Markdown-based
+  documentation system via a plugin adapter protocol.
+version: 0.4.0rc3
+date-released: 2026-03-29
+url: "https://zenzic.pythonwoods.dev/"
+repository-code: "https://github.com/PythonWoods/zenzic"
+license: Apache-2.0
+keywords:
+  - documentation
+  - linter
+  - markdown
+  - link-checker
+  - security
+  - yaml
+  - mkdocs
+  - ci-cd

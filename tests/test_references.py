@@ -361,6 +361,50 @@ class TestReferenceScannerHarvest:
         assert scanner.ref_map.resolve("myref") == "https://example.com"
         assert scanner.ref_map.resolve("MYREF") == "https://example.com"
 
+    def test_shield_detects_secret_in_unlabelled_fence(self, tmp_path: Path) -> None:
+        """A credential inside an unlabelled ``` block must be caught by the Shield."""
+        aws_key = "AKIA" + "Z" * 16
+        content = f"Some prose.\n```\nexport AWS_KEY={aws_key}\n```\n"
+        md = self._write_md(tmp_path, content)
+        scanner = ReferenceScanner(md)
+        events = list(scanner.harvest())
+        secret_events = [e for e in events if e[1] == "SECRET"]
+        assert len(secret_events) == 1
+        assert secret_events[0][2].secret_type == "aws-access-key"
+
+    def test_shield_detects_secret_in_bash_fence(self, tmp_path: Path) -> None:
+        """A credential inside a ```bash block must be caught by the Shield."""
+        stripe_key = "sk_live_" + "X" * 24
+        content = f"Example:\n```bash\nexport STRIPE_KEY={stripe_key}\n```\n"
+        md = self._write_md(tmp_path, content)
+        scanner = ReferenceScanner(md)
+        events = list(scanner.harvest())
+        secret_events = [e for e in events if e[1] == "SECRET"]
+        assert len(secret_events) == 1
+        assert secret_events[0][2].secret_type == "stripe-live-key"
+
+    def test_shield_fenced_secret_does_not_create_ref_definition(self, tmp_path: Path) -> None:
+        """A credential inside a fence fires the Shield but must NOT be harvested as a ref-def."""
+        github_token = "ghp_" + "B" * 36
+        content = f"```\n[secret_ref]: https://example.com/{github_token}\n```\n"
+        md = self._write_md(tmp_path, content)
+        scanner = ReferenceScanner(md)
+        events = list(scanner.harvest())
+        # Shield must fire
+        secret_events = [e for e in events if e[1] == "SECRET"]
+        assert len(secret_events) == 1
+        assert secret_events[0][2].secret_type == "github-token"
+        # The ref-def must NOT be added to the map (it's inside a fence)
+        assert "secret_ref" not in scanner.ref_map
+
+    def test_shield_clean_code_block_no_findings(self, tmp_path: Path) -> None:
+        """A code block with no credentials must not produce SECRET events."""
+        content = "```bash\nexport DATABASE_URL=postgres://localhost/mydb\n```\n"
+        md = self._write_md(tmp_path, content)
+        scanner = ReferenceScanner(md)
+        events = list(scanner.harvest())
+        assert not any(e[1] == "SECRET" for e in events)
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # ReferenceScanner — cross_check (Pass 2)

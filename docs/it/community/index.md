@@ -55,4 +55,31 @@ In quanto software Open Source, Zenzic beneficia di diversi tipi di contributi d
 
 [Come contribuire](contribute/index.md){ .md-button .md-button--primary }
 
+---
+
+## Citare Zenzic
+
+Se utilizzi Zenzic nella tua ricerca, nelle pipeline di documentazione o in report tecnici e
+desideri citarlo formalmente, il file [`CITATION.cff`][citation-cff] è presente nella root del
+repository. La maggior parte degli strumenti di ricerca (GitHub, Zenodo, Zotero) può leggere
+questo formato direttamente.
+
+__GitHub__: clicca il pulsante __"Cite this repository"__ sulla [pagina del repository][repo] —
+GitHub trasforma automaticamente il `CITATION.cff` in formato APA e BibTeX.
+
+__BibTeX manuale:__
+
+```text
+@software{zenzic,
+  author  = {PythonWoods},
+  title   = {{Zenzic: The Agnostic Documentation Integrity Framework}},
+  version = {0.4.0rc3},
+  date    = {2026-03-29},
+  url     = {https://zenzic.pythonwoods.dev/},
+  license = {Apache-2.0},
+}
+```
+
+  [citation-cff]: https://github.com/PythonWoods/zenzic/blob/main/CITATION.cff
   [issue tracker]: https://github.com/PythonWoods/zenzic/issues
+  [repo]:          https://github.com/PythonWoods/zenzic

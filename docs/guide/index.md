@@ -9,7 +9,7 @@ hide:
 
 # Documentation
 
-Zenzic is a **CI-first documentation linter** for MkDocs and Zensical sites. It analyses raw Markdown source files — never the generated HTML — and catches documentation rot before it reaches your users.
+Zenzic is a **CI-first documentation linter** for any Markdown-based project. It analyses raw source files — never the generated HTML — and catches documentation rot before it reaches your users.
 
 !!! tip "Zero install — run it now"
 

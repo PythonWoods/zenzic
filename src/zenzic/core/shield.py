@@ -9,9 +9,13 @@ never after loading the full file.
 
 Supported patterns
 ------------------
-- OpenAI API key:   ``sk-[a-zA-Z0-9]{48}``
-- GitHub token:     ``gh[pousr]_[a-zA-Z0-9]{36}``
-- AWS access key:   ``AKIA[0-9A-Z]{16}``
+- OpenAI API key:       ``sk-[a-zA-Z0-9]{48}``
+- GitHub token:         ``gh[pousr]_[a-zA-Z0-9]{36}``
+- AWS access key:       ``AKIA[0-9A-Z]{16}``
+- Stripe live key:      ``sk_live_[0-9a-zA-Z]{24}``
+- Slack token:          ``xox[baprs]-[0-9a-zA-Z]{10,48}``
+- Google API key:       ``AIza[0-9A-Za-z\\-_]{35}``
+- Generic private key:  ``-----BEGIN [A-Z ]+ PRIVATE KEY-----``
 
 Exit code contract
 ------------------
@@ -33,6 +37,10 @@ _SECRETS: list[tuple[str, re.Pattern[str]]] = [
     ("openai-api-key", re.compile(r"sk-[a-zA-Z0-9]{48}")),
     ("github-token", re.compile(r"gh[pousr]_[a-zA-Z0-9]{36}")),
     ("aws-access-key", re.compile(r"AKIA[0-9A-Z]{16}")),
+    ("stripe-live-key", re.compile(r"sk_live_[0-9a-zA-Z]{24}")),
+    ("slack-token", re.compile(r"xox[baprs]-[0-9a-zA-Z]{10,48}")),
+    ("google-api-key", re.compile(r"AIza[0-9A-Za-z\-_]{35}")),
+    ("private-key", re.compile(r"-----BEGIN [A-Z ]+ PRIVATE KEY-----")),
 ]
 
 

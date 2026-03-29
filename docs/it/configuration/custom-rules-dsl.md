@@ -54,6 +54,23 @@ Ogni header `[[custom_rules]]` aggiunge una regola alla lista (sintassi TOML arr
 
 ---
 
+## Formato dell'output
+
+Quando una regola custom scatta, Zenzic mostra il problema con uno snippet visivo della riga
+incriminata:
+
+```text
+[ZZ-NODRAFT] docs/guide/install.md:14 — Rimuovere il marker DRAFT prima della pubblicazione.
+  │ > DRAFT: sezione in costruzione
+```
+
+Per la severità `"error"` l'ID della regola viene mostrato in rosso; per `"warning"` in giallo.
+La riga `│` mostra la riga sorgente esattamente come appare nel file.
+
+Le regole con `severity = "info"` vengono stampate senza lo snippet `│`.
+
+---
+
 ## Indipendenza dall'adapter
 
 **Le regole custom sono indipendenti dall'adapter.** Una regola che cerca `DRAFT` si attiva

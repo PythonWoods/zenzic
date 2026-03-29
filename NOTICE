@@ -26,7 +26,7 @@ This product includes software developed by the PythonWoods contributors.
 4. PyYAML (https://github.com/yaml/pyyaml)
    Copyright (c) Ingy döt Net and Kirill Simonov
    License: MIT
-   Used for: YAML configuration parsing (mkdocs.yml, zenzic.yml)
+   Used for: YAML configuration parsing (mkdocs.yml)
 
 5. httpx (https://github.com/encode/httpx)
    Copyright (c) Encode OSS Ltd.
@@ -48,7 +48,7 @@ They are not included in the distributed wheel.
 7. MkDocs (https://github.com/mkdocs/mkdocs)
    Copyright (c) 2014-present, Tom Christie
    License: BSD-2-Clause
-   Used for: Documentation build backend (via Zensical)
+   Used for: Documentation build backend
 
 8. Material for MkDocs (https://github.com/squidfunk/mkdocs-material)
    Copyright (c) 2016-present, Martin Donath

@@ -1,8 +1,22 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
 # zenzic.toml — CLI configuration for the broken-docs example.
-# api.md is intentionally absent from the nav (see mkdocs.yml) to trigger the orphan check.
+#
+# This example intentionally triggers every Zenzic check except nav-contract
+# and references. Run `zenzic check all` to see the full failure report.
+# Run `zenzic check all --exit-zero` to suppress the non-zero exit code.
+#
+# api.md is intentionally absent from the nav (see mkdocs.yml) to trigger
+# the orphan check.
 
+engine = "mkdocs"
 docs_dir = "docs"
 placeholder_max_words = 50
 placeholder_patterns = ["TODO", "coming soon", "stub"]
+
+# Demonstrates the [[custom_rules]] DSL: flag any remaining FIXME markers.
+[[custom_rules]]
+id       = "ZZ-NOFIXME"
+pattern  = "(?i)\\bFIXME\\b"
+message  = "FIXME markers must be resolved before publishing."
+severity = "error"

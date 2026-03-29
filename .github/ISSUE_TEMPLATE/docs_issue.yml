@@ -1,0 +1,65 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+
+name: Documentation Issue
+description: Report an error, gap, or unclear section in the Zenzic documentation.
+title: "docs: <short description>"
+labels: ["documentation", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Documentation issues are just as important as code bugs. Thank you for helping us
+        keep the docs accurate and clear.
+
+  - type: input
+    id: page
+    attributes:
+      label: Page or file
+      description: URL or file path of the documentation page with the issue.
+      placeholder: "https://zenzic.pythonwoods.dev/usage/advanced/ or docs/usage/advanced.md"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: issue_type
+    attributes:
+      label: Type of documentation issue
+      options:
+        - Incorrect information
+        - Missing information
+        - Outdated information
+        - Unclear or confusing explanation
+        - Broken link or missing asset
+        - Typo or formatting problem
+        - Missing Italian (it/) translation parity
+        - Other
+      multiple: false
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What is wrong or missing? Quote the specific text if relevant.
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested fix
+      description: >
+        Optional — if you know what the correct content should be, describe it here.
+        You can also open a pull request directly.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Pre-submission checklist
+      options:
+        - label: I have checked the latest published version of the docs at zenzic.pythonwoods.dev.
+          required: true

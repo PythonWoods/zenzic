@@ -66,7 +66,7 @@ fallback, nessuna supposizione.
 | --- | --- | --- |
 | Links | `zenzic check links` | Link interni non raggiungibili, ancore morte, **path traversal** |
 | Orfani | `zenzic check orphans` | File `.md` assenti dalla `nav` |
-| Snippet | `zenzic check snippets` | Blocchi Python che non compilano |
+| Snippet | `zenzic check snippets` | Blocchi Python, YAML, JSON e TOML con errori di sintassi |
 | Placeholder | `zenzic check placeholders` | Pagine stub e pattern di testo proibiti |
 | Asset | `zenzic check assets` | Immagini e file non referenziati da nessuna pagina |
 | **Riferimenti** | `zenzic check references` | Dangling References, Dead Definitions, **Zenzic Shield** |
@@ -118,6 +118,21 @@ uv add --dev zenzic
 pip install zenzic
 ```
 
+### Rendering MkDocs — extra `zenzic[docs]`
+
+Il core di Zenzic non ha dipendenze: validare il Markdown grezzo richiede solo `zenzic`.
+Lo stack MkDocs è necessario solo per **renderizzare** il sito, non per validarlo.
+
+Per installare anche lo stack completo MkDocs:
+
+```bash
+# uv
+uv add --dev "zenzic[docs]"
+
+# pip
+pip install "zenzic[docs]"
+```
+
 ---
 
 ## Utilizzo CLI
@@ -166,6 +181,11 @@ zenzic serve --port 9000
 > Il **codice di uscita 2** è riservato esclusivamente agli eventi di sicurezza. Se
 > `zenzic check references` esce con codice 2, una credenziale è stata trovata nella
 > documentazione. Ruotare la credenziale immediatamente.
+
+Lo **Zenzic Shield** rileva 7 famiglie di credenziali (chiavi OpenAI, token GitHub, access key
+AWS, chiavi live Stripe, token Slack, chiavi API Google e chiavi private PEM) su **ogni riga del
+file sorgente** — incluse le righe dentro i blocchi di codice `bash`, `yaml` e senza etichetta.
+Una credenziale in un esempio di codice è comunque una credenziale esposta.
 
 ---
 
@@ -220,6 +240,22 @@ non segnalare mai i file tradotti come orfani.
 - 🚀 [RELEASE.it.md](RELEASE.it.md) — manifesto di rilascio v0.4.0 (italiano)
 
 ---
+
+## Contribuire
+
+Bug report, miglioramenti alla documentazione e pull request sono benvenuti. Prima di iniziare:
+
+1. Apri un'issue per discutere la modifica — usa il [template appropriato](https://github.com/PythonWoods/zenzic/issues).
+2. Leggi la [Guida ai Contributi](CONTRIBUTING.md) — in particolare il setup locale e la checklist **Zenzic Way**.
+3. Ogni PR deve superare `nox -s preflight` e includere le intestazioni REUSE/SPDX sui nuovi file.
+
+Consulta anche il [Codice di Condotta](CODE_OF_CONDUCT.md) e la [Policy di Sicurezza](SECURITY.md).
+
+## Citare Zenzic
+
+Il file [`CITATION.cff`](CITATION.cff) è presente nella root del repository. GitHub lo
+visualizza automaticamente — clicca **"Cite this repository"** sulla pagina del repo per
+ottenere il riferimento in formato APA o BibTeX.
 
 ## Licenza
 

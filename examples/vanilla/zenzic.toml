@@ -1,0 +1,26 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# zenzic.toml — Vanilla (engine-agnostic) example.
+#
+# No mkdocs.yml, no zensical.toml, no build engine of any kind.
+# Zenzic runs in Vanilla mode: links, snippets, placeholders, and assets
+# are all checked. The orphan check is skipped (no nav to compare against).
+#
+# Use this mode for Hugo, Docusaurus, Sphinx, Astro, hand-written HTML,
+# or any project where you want documentation quality gates without
+# committing to a specific build toolchain.
+#
+# Target: zenzic check all → SUCCESS
+
+engine   = "vanilla"
+docs_dir = "docs"
+
+# Enforce a minimum quality floor.
+fail_under = 80
+
+# Project-specific lint rule: no inline HTML in docs.
+[[custom_rules]]
+id       = "ZZ-NOHTML"
+pattern  = "<(?!--)[a-zA-Z]"
+message  = "Avoid raw HTML in Markdown — use native Markdown syntax instead."
+severity = "warning"

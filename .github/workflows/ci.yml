@@ -9,16 +9,20 @@ on:
     paths:
       - 'src/**'
       - 'tests/**'
+      - 'docs/**'
       - 'pyproject.toml'
       - 'uv.lock'
+      - 'noxfile.py'
       - '.github/workflows/ci.yml'
   pull_request:
     branches: [ main ]
     paths:
       - 'src/**'
       - 'tests/**'
+      - 'docs/**'
       - 'pyproject.toml'
       - 'uv.lock'
+      - 'noxfile.py'
       - '.github/workflows/ci.yml'
 
 permissions:

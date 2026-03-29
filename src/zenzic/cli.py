@@ -224,7 +224,15 @@ def check_references(
                 all_errors.append(msg)
 
         for rf in report.rule_findings:
-            msg = f"  [yellow]{rel}:{rf.line_no}[/] [{rf.rule_id}] — {rf.message}"
+            severity_color = "red" if rf.is_error else "yellow"
+            header = (
+                f"[{severity_color}][{rf.rule_id}][/] [dim]{rel}:{rf.line_no}[/] — {rf.message}"
+            )
+            if rf.matched_line:
+                snippet = rf.matched_line.rstrip()
+                msg = f"{header}\n  [dim]│[/] [italic]{snippet}[/]"
+            else:
+                msg = header
             if rf.is_error:
                 all_errors.append(msg)
             else:
@@ -404,10 +412,12 @@ def _collect_all_results(
 
 @check_app.command(name="all")
 def check_all(
-    strict: bool = typer.Option(False, "--strict", "-s", help="Treat warnings as errors."),
+    strict: bool | None = typer.Option(
+        None, "--strict", "-s", help="Treat warnings as errors and validate external URLs."
+    ),
     output_format: str = typer.Option("text", "--format", help="Output format: text or json."),
-    exit_zero: bool = typer.Option(
-        False, "--exit-zero", help="Always exit 0; report issues without failing."
+    exit_zero: bool | None = typer.Option(
+        None, "--exit-zero", help="Always exit 0; report issues without failing."
     ),
     engine: str | None = typer.Option(
         None,
@@ -423,7 +433,9 @@ def check_all(
     if not loaded_from_file:
         _print_no_config_hint()
     config = _apply_engine_override(config, engine)
-    results = _collect_all_results(repo_root, config, strict=strict)
+    effective_strict = strict if strict is not None else config.strict
+    effective_exit_zero = exit_zero if exit_zero is not None else config.exit_zero
+    results = _collect_all_results(repo_root, config, strict=effective_strict)
 
     if output_format == "json":
         report = {
@@ -442,7 +454,7 @@ def check_all(
             "references": results.reference_errors,
         }
         print(json.dumps(report, indent=2))
-        if results.failed and not exit_zero:
+        if results.failed and not effective_exit_zero:
             raise typer.Exit(1)
         return
 
@@ -517,7 +529,7 @@ def check_all(
 
     if results.failed:
         console.print("\n[red]FAILED:[/] One or more checks failed.")
-        if not exit_zero:
+        if not effective_exit_zero:
             raise typer.Exit(1)
     else:
         console.print("\n[green]SUCCESS:[/] All checks passed.")
@@ -755,7 +767,9 @@ def _run_all_checks(
 
 
 def score(
-    strict: bool = typer.Option(False, "--strict", "-s", help="Run link check in strict mode."),
+    strict: bool | None = typer.Option(
+        None, "--strict", "-s", help="Run link check in strict mode."
+    ),
     output_format: str = typer.Option("text", "--format", help="Output format: text or json."),
     save: bool = typer.Option(False, "--save", help="Save score snapshot to .zenzic-score.json."),
     fail_under: int = typer.Option(
@@ -765,7 +779,8 @@ def score(
     """Compute a 0–100 documentation quality score across all checks."""
     repo_root = find_repo_root()
     config, _ = ZenzicConfig.load(repo_root)
-    report = _run_all_checks(repo_root, config, strict=strict)
+    effective_strict = strict if strict is not None else config.strict
+    report = _run_all_checks(repo_root, config, strict=effective_strict)
 
     # CLI flag takes precedence; fall back to zenzic.toml; 0 means disabled.
     effective_threshold = fail_under if fail_under > 0 else config.fail_under
@@ -795,7 +810,9 @@ def score(
 
 
 def diff(
-    strict: bool = typer.Option(False, "--strict", "-s", help="Run link check in strict mode."),
+    strict: bool | None = typer.Option(
+        None, "--strict", "-s", help="Run link check in strict mode."
+    ),
     output_format: str = typer.Option("text", "--format", help="Output format: text or json."),
     threshold: int = typer.Option(
         0,
@@ -810,6 +827,7 @@ def diff(
     """
     repo_root = find_repo_root()
     config, _ = ZenzicConfig.load(repo_root)
+    effective_strict = strict if strict is not None else config.strict
 
     baseline = load_snapshot(repo_root)
     if baseline is None:
@@ -819,7 +837,7 @@ def diff(
         )
         raise typer.Exit(1)
 
-    current = _run_all_checks(repo_root, config, strict=strict)
+    current = _run_all_checks(repo_root, config, strict=effective_strict)
     delta = current.score - baseline.score
 
     if output_format == "json":

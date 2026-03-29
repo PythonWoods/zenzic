@@ -1,0 +1,85 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+
+name: Feature Request
+description: Propose a new check, adapter, Shield pattern, or CLI capability.
+title: "feat: <short description>"
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before opening a feature request, please open a discussion on the
+        [issue tracker](https://github.com/PythonWoods/zenzic/issues) so we can agree on
+        the approach before you invest time implementing it.
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Feature category
+      options:
+        - New check (link, orphan, snippet, placeholder, asset, references)
+        - New engine adapter (e.g. Hugo, Docusaurus)
+        - Shield — new credential family
+        - CLI command or flag
+        - Configuration option (zenzic.toml field)
+        - Custom rules DSL extension
+        - Performance improvement
+        - Developer / API
+        - Other
+      multiple: false
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+      description: What gap does this feature fill? What currently breaks or is missing?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: |
+        Describe the feature in concrete terms. If proposing a new adapter, describe the
+        entry-point registration, the `BaseAdapter` methods it must implement, and how
+        engine-specific config will be read.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What other approaches did you consider, and why did you rule them out?
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: pillars
+    attributes:
+      label: Zenzic design pillars
+      description: >
+        Zenzic's Core has three non-negotiable constraints. Please confirm your proposal
+        respects all that apply.
+      options:
+        - label: >
+            **Source-first** — the feature operates on raw source files; it does not require
+            a documentation engine to be installed or executed.
+        - label: >
+            **No subprocesses** — all logic uses pure Python or stdlib; no `subprocess.run`
+            calls in the linting path.
+        - label: >
+            **Pure functions** — core validation logic is deterministic, side-effect-free,
+            and testable without I/O.
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Pre-submission checklist
+      options:
+        - label: I have searched existing issues and this is not already proposed.
+          required: true

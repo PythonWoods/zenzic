@@ -16,30 +16,66 @@ terze parti. Per la guida completa in inglese, consulta
 ## Il protocollo `BaseAdapter`
 
 Ogni adapter deve implementare il protocollo `BaseAdapter`
-(`src/zenzic/core/adapters/_base.py`). Le cinque funzioni richieste:
+(`src/zenzic/core/adapters/_base.py`). I sette metodi richiesti:
+
+| Metodo | Domanda |
+|---|---|
+| `is_locale_dir(part)` | Questa directory è una locale non-default? |
+| `resolve_asset(missing_abs, docs_root)` | Esiste un fallback default-locale per questo asset mancante? |
+| `resolve_anchor(resolved_file, anchor, anchors_cache, docs_root)` | Questo anchor miss deve essere soppresso perché l'ancora esiste nel file default-locale equivalente? |
+| `is_shadow_of_nav_page(rel, nav_paths)` | Questo file è il mirror locale di una pagina nella nav? |
+| `get_ignored_patterns()` | Quali glob di filename deve saltare il controllo orfani? |
+| `get_nav_paths()` | Quali percorsi `.md` sono dichiarati nella nav di questo motore? |
+| `has_engine_config()` | È stato trovato un file di config del motore? (Controlla l'attivazione del controllo orfani.) |
 
 ```python
+from pathlib import Path
+from typing import Any
+
+
 class MyEngineAdapter:
-    def nav_paths(self) -> list[str]:
-        """Restituisce tutti i percorsi file dichiarati nella nav, relativi a docs_dir."""
-        ...
+    def __init__(self, config: dict[str, Any], docs_root: Path) -> None:
+        self._config = config
+        self._docs_root = docs_root
 
-    def locale_dirs(self) -> list[str]:
-        """Restituisce i nomi delle directory locale non-default (es. ['it', 'fr'])."""
-        ...
+    def is_locale_dir(self, part: str) -> bool:
+        return part in self._config.get("locales", [])
 
-    def asset_fallback(self, path: str, locale: str) -> str:
-        """Risolve un path asset relativo a una pagina locale nel path canonico."""
-        ...
+    def resolve_asset(self, missing_abs: Path, docs_root: Path) -> Path | None:
+        return None  # nessun fallback i18n
+
+    def resolve_anchor(
+        self, resolved_file: Path, anchor: str,
+        anchors_cache: dict[Path, set[str]], docs_root: Path,
+    ) -> bool:
+        return False  # nessun fallback i18n per le ancore
+
+    def is_shadow_of_nav_page(self, rel: Path, nav_paths: frozenset[str]) -> bool:
+        if not rel.parts or not self.is_locale_dir(rel.parts[0]):
+            return False
+        return Path(*rel.parts[1:]).as_posix() in nav_paths
+
+    def get_ignored_patterns(self) -> set[str]:
+        return set()
+
+    def get_nav_paths(self) -> frozenset[str]:
+        paths = {e for e in self._config.get("nav", [])
+                 if isinstance(e, str) and e.endswith(".md")}
+        return frozenset(p.lstrip("/") for p in paths)
 
     def has_engine_config(self) -> bool:
-        """Restituisce True quando è stato trovato e caricato un file di config del motore."""
-        ...
+        return bool(self._config)
 
     @classmethod
-    def from_repo(cls, context, docs_root, repo_root) -> "MyEngineAdapter":
-        """Fabbrica che carica la configurazione dalla root del repository."""
-        ...
+    def from_repo(cls, context: Any, docs_root: Path, repo_root: Path) -> "MyEngineAdapter":
+        """Carica la configurazione dalla root del repository."""
+        import tomllib
+        config_path = repo_root / "myengine.toml"
+        config: dict[str, Any] = {}
+        if config_path.exists():
+            with config_path.open("rb") as f:
+                config = tomllib.load(f)
+        return cls(config, docs_root)
 ```
 
 ---

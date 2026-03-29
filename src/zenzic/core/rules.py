@@ -53,6 +53,9 @@ class RuleFinding:
         rule_id: Identifier of the rule that produced this finding.
         message: Human-readable description of the issue.
         severity: ``"error"``, ``"warning"``, or ``"info"``.
+        matched_line: Raw text of the offending line. Populated by
+            :class:`CustomRule`; empty string for Python-native rules
+            that do not provide line context.
     """
 
     file_path: Path
@@ -60,6 +63,7 @@ class RuleFinding:
     rule_id: str
     message: str
     severity: Severity = "error"
+    matched_line: str = field(default="")
 
     @property
     def is_error(self) -> bool:
@@ -177,6 +181,7 @@ class CustomRule(BaseRule):
                         rule_id=self.id,
                         message=self.message,
                         severity=self.severity,
+                        matched_line=line,
                     )
                 )
         return findings
