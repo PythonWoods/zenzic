@@ -180,6 +180,23 @@ class ZenzicConfig(BaseModel):
             "The --fail-under CLI flag overrides this value when explicitly provided."
         ),
     )
+    strict: bool = Field(
+        default=False,
+        description=(
+            "When True, treat warnings as errors and validate external URLs via network "
+            "requests. Equivalent to passing --strict on every check all / score / diff "
+            "invocation. The --strict CLI flag overrides this value for a single run."
+        ),
+    )
+    exit_zero: bool = Field(
+        default=False,
+        description=(
+            "When True, zenzic check all always exits with code 0 even when issues are "
+            "found. Issues are still printed and scored. Useful for observation-only "
+            "pipelines where you want visibility without blocking. "
+            "The --exit-zero CLI flag overrides this value for a single run."
+        ),
+    )
     custom_rules: list[CustomRuleConfig] = Field(
         default=[],
         description=(

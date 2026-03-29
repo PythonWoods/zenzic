@@ -166,8 +166,52 @@ validate_same_page_anchors = true
 **Tipo:** intero — **Default:** `0`
 
 Punteggio di qualità minimo (0–100). Se `zenzic score` produce un punteggio inferiore a questo
-valore, il comando termina con codice di uscita 1.
+valore, il comando termina con codice di uscita 1. Il flag CLI `--fail-under` sovrascrive questo
+valore per una singola esecuzione.
 
 ```toml
 fail_under = 80
 ```
+
+---
+
+## `strict`
+
+**Tipo:** booleano — **Default:** `false`
+
+Quando `true`, ogni invocazione di `zenzic check all`, `zenzic score` e `zenzic diff` si comporta
+come se fosse passato `--strict`: gli URL esterni vengono validati via rete e i warning vengono
+trattati come errori.
+
+Usa questo campo per rendere la modalità strict il default permanente per un progetto, senza
+dover aggiungere `--strict` a ogni comando CI:
+
+```toml
+strict = true
+```
+
+Il flag CLI `--strict` sovrascrive questo valore per una singola esecuzione.
+
+---
+
+## `exit_zero`
+
+**Tipo:** booleano — **Default:** `false`
+
+Quando `true`, `zenzic check all` termina sempre con codice `0` anche quando vengono trovati
+problemi. Tutti i risultati vengono comunque stampati e inclusi nel punteggio qualità — viene
+soppressa solo l'uscita non-zero.
+
+Usa questo campo durante uno sprint attivo di miglioramento della documentazione per ottenere
+visibilità completa senza bloccare la pipeline:
+
+```toml
+exit_zero = true
+```
+
+Il flag CLI `--exit-zero` sovrascrive questo valore per una singola esecuzione.
+
+!!! warning "Usa con cautela"
+    Impostare `exit_zero = true` in `zenzic.toml` disabilita il quality gate globalmente.
+    Preferisci usare `--exit-zero` come flag CLI temporaneo durante gli sprint di cleanup,
+    rimuovendolo una volta che il baseline è pulito.

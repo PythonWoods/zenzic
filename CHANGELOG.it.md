@@ -12,6 +12,95 @@ Le versioni seguono il [Versionamento Semantico][semver].
 
 ---
 
+## [0.4.0-rc3] — 2026-03-29 — Fix i18n Ancore, Snippet Multilingua & Shield Deep-Scan
+
+> **Sprint 7.** Il gap di fallback i18n per `AnchorMissing` è chiuso. Codice morto eliminato.
+> Utility condivisa per la rimappatura dei percorsi locale estratta. Visual Snippets per i
+> rilevamenti delle regole custom. Documentazione usage suddivisa in tre pagine dedicate.
+> Schema JSON stabilizzato a 7 chiavi. Validazione snippet multilingua (Python/YAML/JSON/TOML)
+> e Shield deep-scan sull'intero file aggiunti.
+
+### Aggiunto
+
+- **Validazione snippet multilingua** — `check_snippet_content` valida ora i blocchi di codice
+  delimitati per quattro linguaggi usando parser puri in Python (nessun sottoprocesso):
+  `python`/`py` → `compile()`; `yaml`/`yml` → `yaml.safe_load()`; `json` → `json.loads()`;
+  `toml` → `tomllib.loads()`. I blocchi con tag di linguaggio non supportati (es. `bash`) vengono
+  silenziosamente saltati. `_extract_python_blocks` rinominato in `_extract_code_blocks`.
+
+- **Shield deep-scan — credenziali nei blocchi delimitati** — Lo scanner di credenziali opera
+  ora su ogni riga del file sorgente, incluse le righe nei blocchi di codice delimitati (con o
+  senza etichetta). In precedenza `_iter_content_lines` alimentava sia lo Shield che l'harvester
+  dei riferimenti, rendendo il contenuto nei fence invisibile allo Shield. Un nuovo generatore
+  `_skip_frontmatter` fornisce un flusso grezzo di righe (solo senza frontmatter); `harvest()`
+  esegue ora due pass indipendenti — Shield sul flusso grezzo, ref-def + alt-text sul flusso
+  filtrato dei contenuti. Link e definizioni di riferimento nei blocchi delimitati rimangono
+  ignorati per prevenire falsi positivi.
+
+- **Shield esteso a 7 famiglie di credenziali** — Aggiunte chiavi live Stripe
+  (`sk_live_[0-9a-zA-Z]{24}`), token Slack (`xox[baprs]-[0-9a-zA-Z]{10,48}`), chiavi API
+  Google (`AIza[0-9A-Za-z\-_]{35}`) e chiavi private PEM generiche
+  (`-----BEGIN [A-Z ]+ PRIVATE KEY-----`) in `core/shield.py`.
+
+- **Metodo `resolve_anchor()` nel protocollo `BaseAdapter`** — Nuovo metodo adapter che
+  restituisce `True` quando un anchor miss su un file locale deve essere soppresso perché
+  l'ancora esiste nel file equivalente della locale di default. Implementato in
+  `MkDocsAdapter`, `ZensicalAdapter` (tramite `remap_to_default_locale()`) e `VanillaAdapter`
+  (restituisce sempre `False`).
+
+- **`adapters/_utils.py` — utility pura `remap_to_default_locale()`** — Estrae la logica di
+  rimappatura dei percorsi locale che era duplicata indipendentemente in `resolve_asset()` e
+  `is_shadow_of_nav_page()` in entrambi gli adapter. Funzione pura: riceve
+  `(abs_path, docs_root, locale_dirs)`, restituisce il `Path` equivalente nella locale di
+  default o `None`. Nessun I/O.
+
+- **Visual Snippets per i rilevamenti `[[custom_rules]]`** — Le violazioni delle regole custom
+  mostrano ora la riga sorgente incriminata sotto l'intestazione del rilevamento, preceduta
+  dall'indicatore `│` nella colore della severity del rilevamento. I rilevamenti standard non
+  sono interessati.
+
+- **`strict` e `exit_zero` come campi di `zenzic.toml`** — Entrambi i flag sono ora campi
+  di prima classe in `ZenzicConfig` (tipo `bool | None`, sentinella `None` = non impostato).
+  I flag CLI sovrascrivono i valori TOML. Abilita default a livello di progetto.
+
+- **Schema output JSON — 7 chiavi stabili** — `--format json` emette:
+  `links`, `orphans`, `snippets`, `placeholders`, `unused_assets`, `references`, `nav_contract`.
+
+- **Suddivisione documentazione usage** — `docs/usage/index.md` suddivisa in tre pagine
+  dedicate: `usage/index.md` (install + workflow), `usage/commands.md` (riferimento CLI),
+  `usage/advanced.md` (pipeline tre-pass, Shield, API programmatica, multilingua).
+  Mirror italiani (`docs/it/usage/`) a piena parità. Nav `mkdocs.yml` aggiornata.
+
+### Risolto
+
+- **`AnchorMissing` non aveva la soppressione tramite fallback i18n** — Il ramo `AnchorMissing`
+  in `validate_links_async` riportava incondizionatamente. I link a intestazioni tradotte in
+  file locale generavano falsi positivi. Fix: il ramo `AnchorMissing` ora chiama
+  `adapter.resolve_anchor()`. Cinque nuovi test di integrazione in `TestI18nFallbackIntegration`.
+
+### Rimosso
+
+- **`_should_suppress_via_i18n_fallback()`** — Codice morto. Era definita in `validator.py`
+  ma non veniva mai chiamata. Rimossa permanentemente.
+- **`I18nFallbackConfig` NamedTuple** — Struttura dati interna per la funzione eliminata.
+  Rimossa.
+- **`_I18N_FALLBACK_DISABLED`** — Costante sentinella per la funzione eliminata. Rimossa.
+- **`_extract_i18n_fallback_config()`** — Anch'essa codice morto. Era testata da
+  `TestI18nFallbackConfig` (6 test), anch'essa rimossa. Totale: ~118 righe da `validator.py`.
+
+### Test
+
+- 5 nuovi test di integrazione anchor fallback in `TestI18nFallbackIntegration`.
+- `TestI18nFallbackConfig` (6 test per le funzioni eliminate) rimossa.
+- 8 nuovi test di validazione snippet (YAML valido/non valido, alias `yml`, JSON valido/non
+  valido, accuratezza numero di riga JSON, TOML valido/non valido).
+- 5 nuovi test Shield deep-scan: segreto in fence senza etichetta, segreto in fence `bash`,
+  segreto in fence senza creazione ref-def, blocco codice pulito senza findings.
+- **446 test passano.** `nox preflight` — tutti i gate verdi: ruff ✓ mypy ✓ pytest ✓
+  reuse ✓ mkdocs build --strict ✓ zenzic check all --strict ✓.
+
+---
+
 ## [0.4.0-rc2] — 2026-03-28 — Il Grande Disaccoppiamento
 
 > **Sprint 6.** Zenzic cessa di possedere i propri adapter. Gli adapter di terze parti si

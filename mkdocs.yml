@@ -81,6 +81,8 @@ plugins:
             Overview: Panoramica
             User Guide: Guida Utente
             Getting Started: Primi Passi
+            CLI Commands: Comandi CLI
+            Advanced Features: Funzionalità Avanzate
             Available Checks: Controlli Disponibili
             Configuration: Configurazione
             Core Settings: Impostazioni di Base
@@ -95,6 +97,7 @@ plugins:
             Architecture: Architettura
             API Reference: Riferimento API
             Writing an Adapter: Scrivere un Adapter
+            Example Projects: Progetti di Esempio
             About: Informazioni
             Philosophy: Filosofia
             License: Licenza
@@ -138,7 +141,7 @@ extra_css:
 extra:
   build_date: !ENV [BUILD_DATE, "dev"]
   generator: false
-  project_version: "0.4.0rc2"
+  project_version: "0.4.0rc3"
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/PythonWoods/zenzic
@@ -160,9 +163,11 @@ extra:
 nav:
   - Home: index.md
   - Docs:
-      - Overview: docs/index.md
+      - Overview: guide/index.md
       - User Guide:
           - Getting Started: usage/index.md
+          - CLI Commands: usage/commands.md
+          - Advanced Features: usage/advanced.md
           - Available Checks: checks.md
           - Configuration:
               - Overview: configuration/index.md
@@ -179,6 +184,7 @@ nav:
           - Architecture: architecture.md
           - API Reference: reference/api.md
           - Writing an Adapter: developers/writing-an-adapter.md
+          - Example Projects: developers/examples.md
       - Community:
           - Get Involved: community/index.md
           - How to Contribute: community/contribute/index.md

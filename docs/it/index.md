@@ -19,7 +19,7 @@ Linter di documentazione ad alte prestazioni per qualsiasi progetto Markdown.
 Intercetta link non validi, pagine orfane e credenziali esposte — prima dei tuoi utenti.
 {: .zz-hero__tagline }
 
-[Inizia](docs/index.md){ .md-button .md-button--primary }
+[Inizia](guide/index.md){ .md-button .md-button--primary }
 [Vedi su GitHub](https://github.com/PythonWoods/zenzic){ .md-button }
 {: .zz-hero__actions }
 

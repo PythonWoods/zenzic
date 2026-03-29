@@ -69,7 +69,7 @@ The `--fail-under` flag decouples the exit code from the score value. Teams can 
 
 `zenzic score --save` writes `.zenzic-score.json` at the repo root:
 
-```json
+```text
 {"project": "zenzic", "score": 100, "threshold": 0, "status": "success", "timestamp": "...", "categories": [...]}
 ```
 

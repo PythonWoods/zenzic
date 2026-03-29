@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
-"""Validation logic: native link checking (internal + external) and Python snippet checks.
+"""Validation logic: native link checking (internal + external) and snippet checks.
 
 Link validation no longer invokes any external process.  Instead it uses a
 pure-Python two-pass approach:
@@ -12,24 +12,34 @@ pure-Python two-pass approach:
    heading slugs extracted from the target file.
 3. *External links* (``http://`` / ``https://``) are validated lazily — only
    when ``strict=True`` — via concurrent HEAD requests through ``httpx``.
+
+Snippet validation supports four languages using pure-Python parsers:
+
+- **Python** (``python``, ``py``) — ``compile()`` in ``exec`` mode
+- **YAML** (``yaml``, ``yml``) — ``yaml.safe_load()``
+- **JSON** (``json``) — ``json.loads()``
+- **TOML** (``toml``) — ``tomllib.loads()`` (stdlib 3.11+)
+
+No subprocesses are spawned for any language.
 """
 
 from __future__ import annotations
 
 import asyncio
 import fnmatch
+import json
 import os
 import re
+import tomllib
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, NamedTuple
+from typing import Any
 from urllib.parse import urlsplit
 
 import httpx
 import yaml
 
 from zenzic.core.adapter import get_adapter
-from zenzic.core.exceptions import ConfigurationError
 from zenzic.core.resolver import (
     AnchorMissing,
     FileNotFound,
@@ -49,34 +59,6 @@ class _PermissiveSafeLoader(yaml.SafeLoader):
 
 
 _PermissiveSafeLoader.add_multi_constructor("", lambda loader, tag_suffix, node: None)  # type: ignore[no-untyped-call]
-
-
-# ─── i18n Fallback Configuration ─────────────────────────────────────────────
-
-
-class I18nFallbackConfig(NamedTuple):
-    """i18n fallback resolution config derived from the docs generator config.
-
-    When ``enabled`` is ``True``, a :class:`FileNotFound` outcome for a link
-    whose source is under a non-default locale directory is re-checked against
-    the default-locale tree before an error is emitted.  This mirrors the
-    ``fallback_to_default`` behaviour of the ``mkdocs-i18n`` plugin.
-
-    Attributes:
-        enabled: ``True`` when ``fallback_to_default`` is active in the config.
-        default_locale: Locale string of the default language (e.g. ``"en"``).
-        locale_dirs: Frozenset of non-default locale directory names
-            (e.g. ``frozenset({"it", "fr"})``).
-    """
-
-    enabled: bool
-    default_locale: str
-    locale_dirs: frozenset[str]
-
-
-_I18N_FALLBACK_DISABLED: I18nFallbackConfig = I18nFallbackConfig(
-    enabled=False, default_locale="", locale_dirs=frozenset()
-)
 
 
 # ─── Regexes ──────────────────────────────────────────────────────────────────
@@ -215,139 +197,6 @@ def anchors_in_file(content: str) -> set[str]:
         Set of lowercase anchor slugs, e.g. ``{'introduction', 'quick-start'}``.
     """
     return {slug_heading(m.group(1)) for m in _HEADING_RE.finditer(content)}
-
-
-# ─── i18n fallback pure helpers ──────────────────────────────────────────────
-
-
-def _extract_i18n_fallback_config(doc_config: dict[str, Any]) -> I18nFallbackConfig:
-    """Extract i18n fallback config from a parsed docs generator config dict.
-
-    Returns :data:`_I18N_FALLBACK_DISABLED` for any configuration that does
-    not use folder-based i18n with ``fallback_to_default: true``.
-
-    Args:
-        doc_config: Parsed YAML config dict (e.g. from ``mkdocs.yml``).
-
-    Returns:
-        :class:`I18nFallbackConfig` describing the fallback settings.
-
-    Raises:
-        :class:`~zenzic.core.exceptions.ConfigurationError`: When
-            ``fallback_to_default: true`` is set in folder mode but no
-            language entry has ``default: true``.  Zenzic cannot infer
-            the fallback target locale.
-    """
-    plugins = doc_config.get("plugins")
-    if not isinstance(plugins, list):
-        return _I18N_FALLBACK_DISABLED
-    for plugin in plugins:
-        if not isinstance(plugin, dict):
-            continue
-        i18n = plugin.get("i18n")
-        if not isinstance(i18n, dict):
-            continue
-        if i18n.get("docs_structure") != "folder":
-            break
-        if not i18n.get("fallback_to_default", False):
-            return _I18N_FALLBACK_DISABLED
-        # fallback_to_default: true — locate the default locale
-        default_locale = ""
-        locale_dirs: set[str] = set()
-        for lang in i18n.get("languages") or []:
-            if not isinstance(lang, dict):
-                continue
-            locale = lang.get("locale", "")
-            if not locale:
-                continue
-            if lang.get("default", False):
-                default_locale = locale
-            else:
-                locale_dirs.add(locale)
-        # Treat null/empty languages as "not configured" — null-safety guard.
-        # Only raise ConfigurationError when languages is a non-empty list
-        # but none of its entries declares default: true.
-        if not locale_dirs and not default_locale:
-            return _I18N_FALLBACK_DISABLED
-        if not default_locale:
-            raise ConfigurationError(
-                "i18n plugin has fallback_to_default: true but no language with "
-                "default: true — Zenzic cannot determine the fallback target locale.",
-                context={"docs_structure": "folder", "fallback_to_default": True},
-            )
-        return I18nFallbackConfig(
-            enabled=True,
-            default_locale=default_locale,
-            locale_dirs=frozenset(locale_dirs),
-        )
-    return _I18N_FALLBACK_DISABLED
-
-
-def _should_suppress_via_i18n_fallback(
-    asset_str: str,
-    source_file: Path,
-    docs_root: Path,
-    href: str,
-    fallback: I18nFallbackConfig,
-    resolver: InMemoryPathResolver,
-    known_assets: frozenset[str],
-) -> bool:
-    """Return ``True`` if a :class:`FileNotFound` is covered by i18n fallback.
-
-    Mirrors the ``fallback_to_default`` behaviour of the MkDocs i18n plugin:
-    when a translated file is absent, the build serves the default-locale
-    version.  Zenzic suppresses the error when the link would resolve
-    correctly if the source file were in the default-locale tree.
-
-    The check applies only when the resolved missing path is *inside* the
-    locale sub-tree (e.g. ``docs/it/api.md``).  Links that already navigate
-    out of the locale dir at the Markdown level (e.g. ``../api.md`` which
-    normalises to ``docs/api.md``) are :class:`Resolved` directly and never
-    reach this function.
-
-    Args:
-        asset_str: Normalised absolute path string of the missing target.
-        source_file: Absolute path of the file containing the link.
-        docs_root: Absolute documentation root directory.
-        href: Original href string (used for re-resolution from default root).
-        fallback: Fallback config extracted from ``mkdocs.yml``.
-        resolver: In-memory resolver instance (for ``.md`` fallback lookup).
-        known_assets: Pre-built frozenset of non-``.md`` asset paths.
-
-    Returns:
-        ``True`` if the error should be suppressed; ``False`` otherwise.
-    """
-    if not fallback.enabled:
-        return False
-    source_rel = source_file.relative_to(docs_root)
-    if not source_rel.parts or source_rel.parts[0] not in fallback.locale_dirs:
-        return False
-
-    locale = source_rel.parts[0]
-    locale_prefix = str(docs_root) + os.sep + locale + os.sep
-
-    # Fallback only applies when the missing target is inside the locale tree.
-    if not asset_str.startswith(locale_prefix):
-        return False
-
-    stripped = asset_str[len(locale_prefix) :]
-    fallback_str = os.path.normpath(str(docs_root) + os.sep + stripped)
-
-    # Non-.md assets: check the pre-built known_assets frozenset.
-    if fallback_str in known_assets:
-        return True
-
-    # .md files: re-resolve from the default-locale equivalent source.
-    # _build_target uses only source_file.parent — the virtual source does
-    # not need to exist on disk.
-    rest = source_rel.parts[1:]
-    if not rest:
-        return False
-    default_source = docs_root / Path(*rest)
-    match resolver.resolve(default_source, href):
-        case Resolved():
-            return True
-    return False
 
 
 # ─── Reference link pure helpers (S4-4) ──────────────────────────────────────
@@ -672,7 +521,14 @@ async def validate_links_async(
                             internal_errors.append(
                                 f"{label}:{lineno}: '{path_part}' not found in docs"
                             )
-                case AnchorMissing(path_part=path_part, anchor=anchor):
+                case AnchorMissing(path_part=path_part, anchor=anchor, resolved_file=resolved_file):
+                    # Mirror the FileNotFound i18n fallback: when a locale file
+                    # exists but lacks the anchor (because headings are translated),
+                    # suppress the error if the anchor is present in the
+                    # default-locale equivalent file.  The build engine serves the
+                    # default-locale page for this anchor at build time.
+                    if adapter.resolve_anchor(resolved_file, anchor, anchors_cache, docs_root):
+                        continue
                     internal_errors.append(
                         f"{label}:{lineno}: anchor '#{anchor}' not found in '{path_part}'"
                     )
@@ -835,22 +691,26 @@ def validate_links(repo_root: Path, *, strict: bool = False) -> list[str]:
     return asyncio.run(validate_links_async(repo_root, strict=strict))
 
 
-# ─── Python snippet validation ────────────────────────────────────────────────
+# ─── Multi-language snippet validation ────────────────────────────────────────
+
+_VALIDATABLE_LANGS = frozenset({"python", "py", "yaml", "yml", "json", "toml"})
 
 
-def _extract_python_blocks(text: str) -> list[tuple[str, int]]:
-    """Return (snippet, fence_line_no) pairs for every fenced Python block in *text*.
+def _extract_code_blocks(text: str) -> list[tuple[str, str, int]]:
+    """Return (lang, snippet, fence_line_no) triples for every validatable fenced block.
 
+    Only blocks whose language tag is in ``_VALIDATABLE_LANGS`` are returned.
     Uses a deterministic line-by-line state machine rather than a regex so that
-    inline triple-backtick code spans (e.g. `` ` ```python ` ``) cannot cause the
-    matcher to run away across the rest of the file.
+    inline triple-backtick code spans (e.g. `` ` ```python ` ``) cannot cause
+    the matcher to run away across the rest of the file.
 
     *fence_line_no* is the 1-based line number of the opening fence.  The closing
     fence must be a line whose stripped content is exactly three or more backticks
     (per CommonMark §4.5).
     """
-    blocks: list[tuple[str, int]] = []
+    blocks: list[tuple[str, str, int]] = []
     in_block = False
+    current_lang = ""
     block_lines: list[str] = []
     fence_line_no = 0
 
@@ -860,14 +720,15 @@ def _extract_python_blocks(text: str) -> list[tuple[str, int]]:
             if stripped.startswith("```"):
                 info = stripped[3:].strip()
                 lang = info.split()[0].lower() if info else ""
-                if lang in ("python", "py"):
+                if lang in _VALIDATABLE_LANGS:
                     in_block = True
+                    current_lang = lang
                     block_lines = []
                     fence_line_no = lineno
         else:
             # Closing fence: line is only backtick characters (at least 3)
             if stripped.startswith("```") and not stripped.lstrip("`"):
-                blocks.append(("\n".join(block_lines), fence_line_no))
+                blocks.append((current_lang, "\n".join(block_lines), fence_line_no))
                 in_block = False
                 block_lines = []
             else:
@@ -881,7 +742,14 @@ def check_snippet_content(
     file_path: Path | str,
     config: ZenzicConfig | None = None,
 ) -> list[SnippetError]:
-    """Pure function: compile Python fenced code blocks in text. No I/O.
+    """Pure function: validate fenced code blocks in text using pure-Python parsers. No I/O.
+
+    Supported languages:
+
+    - **Python** (``python``, ``py``) — ``compile()`` in ``exec`` mode
+    - **YAML** (``yaml``, ``yml``) — ``yaml.safe_load()``
+    - **JSON** (``json``) — ``json.loads()``
+    - **TOML** (``toml``) — ``tomllib.loads()``
 
     Args:
         text: Raw markdown content to analyse.
@@ -889,7 +757,7 @@ def check_snippet_content(
         config: Optional Zenzic configuration.
 
     Returns:
-        List of SnippetError instances for each invalid Python code block.
+        List of SnippetError instances for each invalid code block.
     """
     if config is None:
         config = ZenzicConfig()
@@ -897,28 +765,65 @@ def check_snippet_content(
     path = Path(file_path)
     errors: list[SnippetError] = []
 
-    for snippet, fence_line in _extract_python_blocks(text):
+    for lang, snippet, fence_line in _extract_code_blocks(text):
         if len(snippet.strip().splitlines()) < config.snippet_min_lines:
             continue
 
-        try:
-            compile(snippet, str(path), "exec")
-        except SyntaxError as exc:
-            errors.append(
-                SnippetError(
-                    file_path=path,
-                    line_no=fence_line + (exc.lineno or 1),
-                    message=f"SyntaxError in Python snippet — {exc.msg}",
+        if lang in ("python", "py"):
+            try:
+                compile(snippet, str(path), "exec")
+            except SyntaxError as exc:
+                errors.append(
+                    SnippetError(
+                        file_path=path,
+                        line_no=fence_line + (exc.lineno or 1),
+                        message=f"SyntaxError in Python snippet — {exc.msg}",
+                    )
                 )
-            )
-        except Exception as exc:
-            errors.append(
-                SnippetError(
-                    file_path=path,
-                    line_no=fence_line + 1,
-                    message=f"ParserError in Python snippet — {type(exc).__name__}: {exc}",
+            except Exception as exc:
+                errors.append(
+                    SnippetError(
+                        file_path=path,
+                        line_no=fence_line + 1,
+                        message=f"ParserError in Python snippet — {type(exc).__name__}: {exc}",
+                    )
                 )
-            )
+
+        elif lang in ("yaml", "yml"):
+            try:
+                yaml.safe_load(snippet)
+            except yaml.YAMLError as exc:
+                errors.append(
+                    SnippetError(
+                        file_path=path,
+                        line_no=fence_line + 1,
+                        message=f"SyntaxError in YAML snippet — {exc}",
+                    )
+                )
+
+        elif lang == "json":
+            try:
+                json.loads(snippet)
+            except json.JSONDecodeError as exc:
+                errors.append(
+                    SnippetError(
+                        file_path=path,
+                        line_no=fence_line + exc.lineno,
+                        message=f"SyntaxError in JSON snippet — {exc.msg}",
+                    )
+                )
+
+        elif lang == "toml":
+            try:
+                tomllib.loads(snippet)
+            except tomllib.TOMLDecodeError as exc:
+                errors.append(
+                    SnippetError(
+                        file_path=path,
+                        line_no=fence_line + 1,
+                        message=f"SyntaxError in TOML snippet — {exc}",
+                    )
+                )
 
     return errors
 
@@ -1027,7 +932,7 @@ class LinkValidator:
 
 
 def validate_snippets(repo_root: Path, config: ZenzicConfig | None = None) -> list[SnippetError]:
-    """Compile every Python fenced code block in docs and report syntax errors.
+    """Validate every fenced code block (Python, YAML, JSON, TOML) in docs and report syntax errors.
 
     Args:
         repo_root: Path to the repository root.

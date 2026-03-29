@@ -39,13 +39,13 @@ Zenzic runs six independent checks. Each addresses a distinct category of docume
 
     Media files that exist on disk but are never referenced. __Supports autofix.__
 
-    [`check assets`](#assets) &nbsp;&bull;&nbsp; [`clean assets`](usage/index.md#autofix-cleanup)
+    [`check assets`](#assets) &nbsp;&bull;&nbsp; [`clean assets`](usage/commands.md#autofix-cleanup)
 
 - :lucide-shield-check: &nbsp; __References__
 
     Dangling reference links, dead definitions, and leaked credentials (exit code 2).
 
-    [`zenzic check references`](usage/index.md#reference-integrity-v020)
+    [`zenzic check references`](usage/advanced.md#reference-integrity-v020)
 
 </div>
 
@@ -138,30 +138,45 @@ __CLI:__ `zenzic check snippets`
 
 Code examples in documentation are tested less rigorously than production code. A snippet that worked when it was written may have a syntax error introduced by a refactor, a copy-paste mistake, or a manual edit that was never reviewed. Readers who copy broken code waste time debugging errors that have nothing to do with their actual problem.
 
-`zenzic check snippets` extracts all fenced code blocks tagged `` ```python `` or `` ```py `` and compiles each one with Python's built-in `compile()` in `exec` mode. Only syntax is checked — runtime errors are not detected.
+`zenzic check snippets` validates the syntax of fenced code blocks using pure-Python parsers — no subprocesses are spawned for any language.
+
+__Supported languages:__
+
+| Language tag | Parser | What is checked |
+| :--- | :--- | :--- |
+| `` python ``, `` py `` | `compile()` in `exec` mode | Python 3.11+ syntax |
+| `` yaml ``, `` yml `` | `yaml.safe_load()` | YAML 1.1 structure |
+| `` json `` | `json.loads()` | JSON syntax |
+| `` toml `` | `tomllib.loads()` (stdlib 3.11+) | TOML v1.0 syntax |
+
+Blocks tagged with any other language (`` bash ``, `` javascript ``, `` mermaid ``, etc.) are treated as plain text and are not syntax-checked. However, __every fenced block is still scanned by the Zenzic Shield__ for credential patterns — syntax validation and security scanning are independent.
 
 __CLI behaviour:__ walks `docs_dir`, reads each `.md` file, and calls `check_snippet_content(text, file_path, config)` on the raw content.
 
-__Block extraction:__ Zenzic uses a deterministic line-by-line state machine rather than a regex to extract Python blocks. This prevents false positives from inline code spans (e.g., `` ` ```python ` `` in prose text) and is robust against `pymdownx.superfences` documents with interleaved Mermaid or other custom fences. See [Architecture — State-machine parsing](architecture.md#state-machine-parsing-and-superfences-false-positives) for details.
+__Block extraction:__ Zenzic uses a deterministic line-by-line state machine rather than a regex to extract code blocks. This prevents false positives from inline code spans (e.g., `` ` ```python ` `` in prose text) and is robust against `pymdownx.superfences` documents with interleaved Mermaid or other custom fences. See [Architecture — State-machine parsing](architecture.md#state-machine-parsing-and-superfences-false-positives) for details.
 
 __What it catches:__
 
-- `SyntaxError` — missing colons, unmatched brackets, invalid expressions
-- Parser crashes — `MemoryError`, `RecursionError` from pathological inputs
+- Python: `SyntaxError` — missing colons, unmatched brackets, invalid expressions; parser crashes (`MemoryError`, `RecursionError`)
+- YAML: structural errors — unclosed sequences, invalid mappings, duplicate keys
+- JSON: `JSONDecodeError` — trailing commas, missing quotes, unmatched brackets
+- TOML: `TOMLDecodeError` — missing quotes on values, invalid key syntax, type mismatches
 
 __What it does not catch:__
 
 - Runtime errors (`NameError`, `TypeError`, `ImportError`, etc.) — only syntax is checked
 - Intentionally incomplete snippets — fragments, ellipsis stubs, pseudo-code
+- Bash, JavaScript, or any other language without a pure-Python parser
 
 __Tuning:__ use `snippet_min_lines` in `zenzic.toml` to skip short blocks. The default of `1` checks everything including single-line blocks. Set it to `3` or higher to ignore import stubs and one-liners that are likely illustrative rather than executable.
 
 __Example output:__
 
 ```text
-INVALID SNIPPETS (2):
-  tutorial.md:48 - SyntaxError in Python snippet — invalid syntax
-  api/reference.md:112 - SyntaxError in Python snippet — expected ':'
+INVALID SNIPPETS (3):
+  tutorial.md:48 - SyntaxError in Python snippet — expected ':'
+  config/reference.md:22 - SyntaxError in YAML snippet — mapping values are not allowed here
+  api/reference.md:112 - SyntaxError in JSON snippet — Expecting property name enclosed in double quotes
 ```
 
 ---
@@ -184,7 +199,7 @@ __CLI behaviour:__ reads each `.md` file and calls `check_placeholder_content(te
 
 __Tuning:__
 
-```toml
+```text
 # zenzic.toml
 
 # Raise the threshold for projects with dense, concise pages

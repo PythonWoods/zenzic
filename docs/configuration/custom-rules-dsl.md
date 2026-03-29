@@ -58,6 +58,23 @@ surfaced in the report but do not affect the exit code unless `--strict` is pass
 
 ---
 
+## Output format
+
+When a custom rule fires, Zenzic prints the finding with a visual snippet showing the offending
+line:
+
+```text
+[ZZ-NODRAFT] docs/guide/install.md:14 — Remove DRAFT marker before publishing.
+  │ > DRAFT: section under construction
+```
+
+For `"error"` severity the rule ID is printed in red; for `"warning"` in yellow. The `│` line
+shows the raw source line exactly as it appears in the file.
+
+Rules with `severity = "info"` are printed without the `│` snippet.
+
+---
+
 ## Adapter-independence
 
 **Custom rules are adapter-independent.** A rule searching for `DRAFT` fires identically whether

@@ -19,7 +19,7 @@ High-performance documentation linter for any Markdown-based project.
 Catch broken links, orphan pages, and leaked credentials — before your users do.
 {: .zz-hero__tagline }
 
-[Get started](docs/index.md){ .md-button .md-button--primary }
+[Get started](guide/index.md){ .md-button .md-button--primary }
 [View on GitHub](https://github.com/PythonWoods/zenzic){ .md-button }
 {: .zz-hero__actions }
 

@@ -19,10 +19,11 @@ below or use the search bar to find what you need.
 
 **What is Zenzic?**
 
-Zenzic is a high-performance documentation linter for any Markdown-based project. It works
-natively with MkDocs and Zensical, and supports any build engine via the adapter system. It
-detects broken links, orphan pages, placeholder stubs, missing assets, and more — at source
-level, before the build runs.
+Zenzic is a high-performance documentation linter for any Markdown-based project. It operates
+on raw source files — never the generated output — so it works with any build engine: MkDocs,
+Zensical, or any other static site generator via the adapter system. It detects broken links,
+orphan pages, placeholder stubs, unused assets, leaked credentials, and more — before the
+build runs.
 
 **Is Zenzic free?**
 
@@ -49,14 +50,16 @@ Or add it to your project with `uv add --dev zenzic` (recommended) or `pip insta
 
 **Do I need a `zenzic.toml` file?**
 
-No. Zenzic works with zero configuration — the defaults cover most standard MkDocs projects.
-`zenzic.toml` is only needed to customise behaviour, such as excluding specific directories,
+No. Zenzic works with zero configuration — the defaults cover most standard projects out of the
+box. `zenzic.toml` is only needed to customise behaviour, such as excluding specific directories,
 assets, or external URLs.
 
 **Can I use Zenzic with a non-MkDocs project?**
 
-Currently Zenzic supports MkDocs and Zensical. Support for other engines is planned.
-See the [Engines guide](../guides/engines.md) for details.
+Yes. Zenzic works on any folder of Markdown files without requiring a build engine at all
+(Vanilla mode). Native adapters for MkDocs and Zensical add nav-awareness and i18n support.
+Third-party adapters can extend this to any other engine. See the [Engines guide](../guides/engines.md)
+for details.
 
 ---
 
@@ -70,14 +73,22 @@ useful for continuous monitoring and badges.
 
 **What is an "orphan page"?**
 
-An orphan page is a Markdown file present in `docs/` but absent from the navigation (`nav:`)
-in `mkdocs.yml`. Orphan pages are unreachable by users but add noise and confusion.
-Zenzic reports them so you stay in control.
+An orphan page is a Markdown file present in `docs/` but absent from the site navigation
+declared in your build engine's configuration file. Orphan pages are unreachable by users
+navigating the site structure. Zenzic reports them so you stay in control.
 
 **The external link check is slow. Can I disable it?**
 
-You can exclude specific URLs with `excluded_external_urls` in `zenzic.toml`. To skip external
-link checking entirely, use `zenzic check links --no-external`.
+External link validation only runs when `--strict` is passed — omitting the flag disables all
+network requests entirely. To permanently suppress specific URLs without removing strict mode,
+add their prefixes to `excluded_external_urls` in `zenzic.toml`:
+
+```toml
+excluded_external_urls = [
+    "https://internal.company.com",
+    "https://github.com/MyOrg/private-repo",
+]
+```
 
 **Does Zenzic check links in images too?**
 
@@ -99,8 +110,14 @@ For the full setup with dynamic badges and regression detection, see the [CI/CD 
 
 **What does the `--strict` flag do?**
 
-In strict mode, any warning becomes an error. Recommended in CI pipelines to ensure no issue
-slips through unnoticed.
+The `--strict` flag has two effects depending on the command:
+
+- `zenzic check links --strict` / `zenzic check all --strict`: also validates external HTTP/HTTPS
+  links via network requests (disabled by default for speed).
+- `zenzic check references --strict`: treats Dead Definitions (reference links defined but never
+  used) as hard errors instead of warnings.
+
+Recommended in CI pipelines to catch all classes of issues.
 
 **What is the Zenzic Shield (exit code 2)?**
 

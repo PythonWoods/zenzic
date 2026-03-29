@@ -26,6 +26,16 @@ class VanillaAdapter:
         """Always ``None`` — no fallback logic without a locale tree."""
         return None
 
+    def resolve_anchor(  # noqa: ARG002
+        self,
+        resolved_file: Path,
+        anchor: str,
+        anchors_cache: dict[Path, set[str]],
+        docs_root: Path,
+    ) -> bool:
+        """Always ``False`` — no i18n anchor fallback without a locale tree."""
+        return False
+
     def is_shadow_of_nav_page(self, rel: Path, nav_paths: frozenset[str]) -> bool:  # noqa: ARG002
         """Always ``False`` — no shadow pages without a nav."""
         return False

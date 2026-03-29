@@ -27,11 +27,13 @@ zenzic score --format json
   "status": "passed",
   "exit_code": 0,
   "checks": {
-    "links":        {"status": "passed", "errors": 0},
-    "orphans":      {"status": "passed", "errors": 0},
-    "snippets":     {"status": "passed", "errors": 0},
-    "placeholders": {"status": "passed", "errors": 0},
-    "assets":       {"status": "passed", "errors": 0}
+    "links":          {"status": "passed", "errors": 0},
+    "orphans":        {"status": "passed", "errors": 0},
+    "snippets":       {"status": "passed", "errors": 0},
+    "placeholders":   {"status": "passed", "errors": 0},
+    "unused_assets":  {"status": "passed", "errors": 0},
+    "references":     {"status": "passed", "errors": 0},
+    "nav_contract":   {"status": "passed", "errors": 0}
   }
 }
 ```

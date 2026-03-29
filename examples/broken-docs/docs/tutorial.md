@@ -4,8 +4,8 @@
 # Tutorial
 
 This tutorial page is intentionally well-formed: it has enough content to pass the placeholder
-check and does not contain any forbidden stub patterns. The only issue here is the invalid Python
-code block below.
+check and does not contain any forbidden marker patterns. The only issue here is the invalid
+Python code block below.
 
 ## Installation
 

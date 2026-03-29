@@ -39,13 +39,13 @@ Zenzic esegue sei controlli indipendenti. Ognuno affronta una categoria distinta
 
     File media presenti su disco ma mai referenziati. __Supporta l'autofix.__
 
-    [`check assets`](#asset) &nbsp;&bull;&nbsp; [`clean assets`](usage/index.md#autofix-cleanup)
+    [`check assets`](#asset) &nbsp;&bull;&nbsp; [`clean assets`](usage/commands.md#autofix-cleanup)
 
 - :lucide-shield-check: &nbsp; __Riferimenti__
 
     Riferimenti pendenti, definizioni morte e credenziali trapelate (exit code 2).
 
-    [`zenzic check references`](usage/index.md#integrita-dei-riferimenti-v020)
+    [`zenzic check references`](usage/advanced.md#integrita-dei-riferimenti-v020)
 
 </div>
 
@@ -138,32 +138,47 @@ ORPHANS (2):
 
 __CLI:__ `zenzic check snippets`
 
-Gli esempi di codice nella documentazione vengono testati meno rigorosamente del codice in produzione. Un snippet che funzionava quando è stato scritto potrebbe avere un errore di sintassi introdotto da un refactoring.
+Gli esempi di codice nella documentazione vengono testati meno rigorosamente del codice in produzione. Un snippet che funzionava quando è stato scritto potrebbe avere un errore di sintassi introdotto da un refactoring, un errore di copia-incolla o una modifica manuale mai revisionata. I lettori che copiano codice rotto perdono tempo a fare debug di errori che non c'entrano nulla con il loro problema reale.
 
-`zenzic check snippets` estrae tutti i blocchi di codice delimitati da `` ```python `` o `` ```py `` e compila ognuno con il `compile()` integrato di Python in modalità `exec`. Viene controllata solo la sintassi — gli errori runtime non vengono rilevati.
+`zenzic check snippets` valida la sintassi dei blocchi di codice delimitati usando parser puri in Python — nessun sottoprocesso viene avviato per nessun linguaggio.
+
+__Linguaggi supportati:__
+
+| Tag linguaggio | Parser | Cosa viene controllato |
+| :--- | :--- | :--- |
+| `` python ``, `` py `` | `compile()` in modalità `exec` | Sintassi Python 3.11+ |
+| `` yaml ``, `` yml `` | `yaml.safe_load()` | Struttura YAML 1.1 |
+| `` json `` | `json.loads()` | Sintassi JSON |
+| `` toml `` | `tomllib.loads()` (stdlib 3.11+) | Sintassi TOML v1.0 |
+
+I blocchi con qualsiasi altro tag (`` bash ``, `` javascript ``, `` mermaid ``, ecc.) vengono trattati come testo semplice e non vengono controllati sintatticamente. Tuttavia, __ogni blocco delimitato viene comunque scansionato dallo Zenzic Shield__ per i pattern di credenziali — la validazione sintattica e la scansione di sicurezza sono indipendenti.
 
 __Comportamento CLI:__ percorre `docs_dir`, legge ogni file `.md` e chiama `check_snippet_content(text, file_path, config)` sul contenuto grezzo.
 
-__Estrazione dei blocchi:__ Zenzic usa una macchina a stati deterministica riga per riga invece di una regex per estrarre i blocchi Python. Questo previene falsi positivi dagli inline code span (es., `` ` ```python ` `` nel testo) ed è robusto rispetto ai documenti `pymdownx.superfences` con fence Mermaid o altri fence personalizzati intercalati. Vedi [Architettura — Parsing a macchina a stati](architecture.md#parsing-a-macchina-a-stati-e-falsi-positivi-da-superfences) per i dettagli.
+__Estrazione dei blocchi:__ Zenzic usa una macchina a stati deterministica riga per riga invece di una regex per estrarre i blocchi di codice. Questo previene falsi positivi dagli inline code span (es., `` ` ```python ` `` nel testo) ed è robusto rispetto ai documenti `pymdownx.superfences` con fence Mermaid o altri fence personalizzati intercalati. Vedi [Architettura — Parsing a macchina a stati](architecture.md#parsing-a-macchina-a-stati-e-falsi-positivi-da-superfences) per i dettagli.
 
 __Cosa rileva:__
 
-- `SyntaxError` — due punti mancanti, parentesi non bilanciate, espressioni non valide
-- Crash del parser — `MemoryError`, `RecursionError` da input patologici
+- Python: `SyntaxError` — due punti mancanti, parentesi non bilanciate, espressioni non valide; crash del parser (`MemoryError`, `RecursionError`)
+- YAML: errori strutturali — sequenze non chiuse, mapping non validi, chiavi duplicate
+- JSON: `JSONDecodeError` — virgole finali, virgolette mancanti, parentesi non bilanciate
+- TOML: `TOMLDecodeError` — virgolette mancanti sui valori, sintassi chiave non valida, mismatch di tipo
 
 __Cosa NON rileva:__
 
 - Errori runtime (`NameError`, `TypeError`, `ImportError`, ecc.) — viene controllata solo la sintassi
 - Snippet intenzionalmente incompleti — frammenti, stub con ellissi, pseudo-codice
+- Bash, JavaScript o qualsiasi altro linguaggio senza un parser puro in Python
 
 __Tuning:__ usa `snippet_min_lines` in `zenzic.toml` per saltare i blocchi brevi. Il default di `1` controlla tutto inclusi i blocchi su una singola riga. Impostalo a `3` o superiore per ignorare stub di import e one-liner che sono probabilmente illustrativi piuttosto che eseguibili.
 
 __Output di esempio:__
 
 ```text
-INVALID SNIPPETS (2):
-  tutorial.md:48 - SyntaxError in Python snippet — invalid syntax
-  api/reference.md:112 - SyntaxError in Python snippet — expected ':'
+INVALID SNIPPETS (3):
+  tutorial.md:48 - SyntaxError in Python snippet — expected ':'
+  config/reference.md:22 - SyntaxError in YAML snippet — mapping values are not allowed here
+  api/reference.md:112 - SyntaxError in JSON snippet — Expecting property name enclosed in double quotes
 ```
 
 ---
@@ -186,7 +201,7 @@ __Comportamento CLI:__ legge ogni file `.md` e chiama `check_placeholder_content
 
 __Tuning:__
 
-```toml
+```text
 # zenzic.toml
 
 # Alza la soglia per progetti con pagine dense e concise

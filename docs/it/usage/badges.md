@@ -69,7 +69,7 @@ Il flag `--fail-under` disaccoppia l'exit code dal valore del punteggio. I team 
 
 `zenzic score --save` scrive `.zenzic-score.json` alla root del repository:
 
-```json
+```text
 {"project": "zenzic", "score": 100, "threshold": 0, "status": "success", "timestamp": "...", "categories": [...]}
 ```
 

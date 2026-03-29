@@ -11,6 +11,7 @@ import tomllib
 from pathlib import Path
 from typing import Any
 
+from zenzic.core.adapters._utils import remap_to_default_locale
 from zenzic.core.exceptions import ConfigurationError
 from zenzic.models.config import BuildContext
 
@@ -91,21 +92,45 @@ class ZensicalAdapter:
         """Return the default-locale fallback for a missing asset, or ``None``."""
         if not self._fallback_to_default:
             return None
-        try:
-            rel = missing_abs.relative_to(docs_root)
-        except ValueError:
-            return None
-        if not rel.parts or rel.parts[0] not in self._locale_dirs:
-            return None
-        fallback = docs_root.joinpath(*rel.parts[1:])
-        return fallback if fallback.exists() else None
+        fallback = remap_to_default_locale(missing_abs, docs_root, self._locale_dirs)
+        return fallback if fallback is not None and fallback.exists() else None
+
+    def resolve_anchor(
+        self,
+        resolved_file: Path,
+        anchor: str,
+        anchors_cache: dict[Path, set[str]],
+        docs_root: Path,
+    ) -> bool:
+        """Return ``True`` if an anchor miss should be suppressed via i18n fallback.
+
+        Locale configuration is sourced from ``BuildContext`` (``zenzic.toml``).
+
+        Args:
+            resolved_file: Absolute path of the locale file whose anchor set
+                does not contain *anchor*.
+            anchor: Fragment identifier that was not found (without ``#``).
+            anchors_cache: Pre-built ``Path`` → anchor slug set mapping.
+            docs_root: Resolved absolute ``docs/`` root.
+
+        Returns:
+            ``True`` if the anchor exists in the default-locale equivalent file.
+        """
+        if not self._fallback_to_default:
+            return False
+        default_file = remap_to_default_locale(resolved_file, docs_root, self._locale_dirs)
+        if default_file is None:
+            return False
+        return anchor.lower() in anchors_cache.get(default_file, set())
 
     def is_shadow_of_nav_page(self, rel: Path, nav_paths: frozenset[str]) -> bool:
         """Return ``True`` when *rel* is a locale-mirror of a nav-listed page."""
-        if not rel.parts or rel.parts[0] not in self._locale_dirs:
+        default_abs = remap_to_default_locale(
+            self._docs_root / rel, self._docs_root, self._locale_dirs
+        )
+        if default_abs is None:
             return False
-        default_rel = Path(*rel.parts[1:]).as_posix()
-        return default_rel in nav_paths
+        return default_abs.relative_to(self._docs_root).as_posix() in nav_paths
 
     def get_ignored_patterns(self) -> set[str]:
         """Empty set — Zensical does not use MkDocs suffix-mode i18n patterns."""

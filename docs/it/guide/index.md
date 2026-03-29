@@ -9,7 +9,7 @@ hide:
 
 # Documentazione
 
-Zenzic è un **linter di documentazione CI-first** per siti MkDocs e Zensical. Analizza file Markdown sorgente grezzi — mai l'HTML generato — e intercetta il degrado della documentazione prima che raggiunga i tuoi utenti.
+Zenzic è un **linter di documentazione CI-first** per qualsiasi progetto basato su Markdown. Analizza i file sorgente grezzi — mai l'HTML generato — e intercetta il degrado della documentazione prima che raggiunga i tuoi utenti.
 
 !!! tip "Zero installazione — eseguilo ora"
 

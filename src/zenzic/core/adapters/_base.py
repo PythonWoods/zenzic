@@ -24,6 +24,36 @@ class BaseAdapter(Protocol):
         """Return the default-locale fallback for a missing asset, or ``None``."""
         ...
 
+    def resolve_anchor(
+        self,
+        resolved_file: Path,
+        anchor: str,
+        anchors_cache: dict[Path, set[str]],
+        docs_root: Path,
+    ) -> bool:
+        """Return ``True`` if an anchor miss should be suppressed via i18n fallback.
+
+        When a file inside a locale sub-tree (e.g. ``docs/it/architecture.md``)
+        does not contain the requested anchor — because headings are translated —
+        this method checks whether the anchor exists in the corresponding
+        default-locale file (e.g. ``docs/architecture.md``).  If it does, the
+        ``AnchorMissing`` error is suppressed: MkDocs / Zensical will serve the
+        default-locale page for this anchor at build time.
+
+        Args:
+            resolved_file: Absolute path of the locale file that was found but
+                whose anchor set does not contain *anchor*.
+            anchor: The fragment identifier that was not found (without ``#``).
+            anchors_cache: Pre-built mapping of absolute ``Path`` → anchor slug
+                set.  No disk I/O is performed — this is a pure in-memory check.
+            docs_root: Resolved absolute ``docs/`` root (for path stripping).
+
+        Returns:
+            ``True`` if the anchor exists in the default-locale equivalent file
+            and the error should be suppressed; ``False`` otherwise.
+        """
+        ...
+
     def is_shadow_of_nav_page(self, rel: Path, nav_paths: frozenset[str]) -> bool:
         """Return ``True`` when *rel* is a locale-mirror of a nav-listed page."""
         ...

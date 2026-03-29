@@ -13,21 +13,31 @@ effort and ensure the integrity of the codebase.
 
 ## Local development setup
 
-Clone the repository and install Zenzic in editable mode so that your local
-changes are reflected immediately without reinstalling.
+Clone the repository and set up the full development environment in one step:
+
+```bash
+git clone https://github.com/PythonWoods/zenzic.git
+cd zenzic
+nox -s dev
+```
+
+`nox -s dev` runs `uv sync --group dev` (installing all dependency groups — test, lint, docs,
+and release tooling) and then installs the pre-commit hooks. It is the canonical one-shot
+setup command; run it once after cloning.
+
+For a lower-level setup or if you do not have `nox` installed yet, install with `uv` directly:
 
 === ":simple-astral: uv (recommended)"
 
     ```bash
     git clone https://github.com/PythonWoods/zenzic.git
     cd zenzic
-    uv venv
+    uv sync --group dev
     source .venv/bin/activate   # Windows: .venv\Scripts\activate
-    uv pip install -e .
     ```
 
-    [`uv`](https://docs.astral.sh/uv/) resolves dependencies significantly faster than pip and produces
-    a reproducible environment via `uv.lock`. Preferred for all development work.
+    [`uv`](https://docs.astral.sh/uv/) resolves dependencies significantly faster than pip and
+    produces a reproducible environment via `uv.lock`. Preferred for all development work.
 
 === ":simple-pypi: pip"
 
@@ -36,15 +46,38 @@ changes are reflected immediately without reinstalling.
     cd zenzic
     python -m venv .venv
     source .venv/bin/activate   # Windows: .venv\Scripts\activate
-    pip install -e .
+    pip install -e ".[docs]"
+    pip install pytest pytest-cov ruff mypy pre-commit reuse
     ```
+
+### Dependency groups
+
+Zenzic uses [PEP 735](https://peps.python.org/pep-0735/) dependency groups to keep CI fast
+by installing only what each job needs. The groups are:
+
+| Group | Contents | When to use |
+| :---- | :------- | :---------- |
+| `test` | `pytest`, `pytest-cov` | Running the test suite |
+| `lint` | `ruff`, `mypy`, `pre-commit`, `reuse` | Linting and type checking |
+| `docs` | MkDocs stack (`mkdocs-material`, etc.) | Building the documentation |
+| `release` | `nox`, `bump-my-version`, `pip-audit` | Releases and audits |
+| `dev` | All of the above (aggregator) | Local development |
+
+Install a single group when you only need a subset:
+
+```bash
+uv sync --group test      # just pytest
+uv sync --group lint      # just ruff + mypy
+uv sync --group docs      # just the MkDocs stack
+uv sync --group dev       # everything (recommended for contributors)
+```
 
 With an editable install, the `zenzic` binary on your `PATH` always runs the
 source you are working on. Validate the repository's own documentation at any
 time:
 
 ```bash
-zenzic check all            # all six checks
+zenzic check all            # all seven checks
 zenzic check references     # includes custom [[custom_rules]] evaluation
 pytest                      # full test suite
 ```

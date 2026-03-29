@@ -11,9 +11,7 @@ import pytest
 
 from zenzic.core.validator import (
     _MAX_CONCURRENT_REQUESTS,
-    I18nFallbackConfig,
     _build_ref_map,
-    _extract_i18n_fallback_config,
     anchors_in_file,
     extract_links,
     extract_ref_links,
@@ -445,99 +443,6 @@ def _mkdocs_i18n_folder(fallback: bool = True) -> str:
     )
 
 
-class TestI18nFallbackConfig:
-    """Unit tests for _extract_i18n_fallback_config (pure function)."""
-
-    def test_no_plugin_returns_disabled(self) -> None:
-        assert _extract_i18n_fallback_config({}) == I18nFallbackConfig(
-            enabled=False, default_locale="", locale_dirs=frozenset()
-        )
-
-    def test_suffix_mode_returns_disabled(self) -> None:
-        cfg = {
-            "plugins": [
-                {
-                    "i18n": {
-                        "docs_structure": "suffix",
-                        "fallback_to_default": True,
-                        "languages": [{"locale": "en", "default": True}],
-                    }
-                }
-            ]
-        }
-        result = _extract_i18n_fallback_config(cfg)
-        assert not result.enabled
-
-    def test_folder_mode_fallback_false_returns_disabled(self) -> None:
-        cfg = {
-            "plugins": [
-                {
-                    "i18n": {
-                        "docs_structure": "folder",
-                        "fallback_to_default": False,
-                        "languages": [{"locale": "en", "default": True}, {"locale": "it"}],
-                    }
-                }
-            ]
-        }
-        assert not _extract_i18n_fallback_config(cfg).enabled
-
-    def test_folder_mode_fallback_true_returns_enabled(self) -> None:
-        cfg = {
-            "plugins": [
-                {
-                    "i18n": {
-                        "docs_structure": "folder",
-                        "fallback_to_default": True,
-                        "languages": [
-                            {"locale": "en", "default": True},
-                            {"locale": "it"},
-                            {"locale": "fr"},
-                        ],
-                    }
-                }
-            ]
-        }
-        result = _extract_i18n_fallback_config(cfg)
-        assert result.enabled is True
-        assert result.default_locale == "en"
-        assert result.locale_dirs == frozenset({"it", "fr"})
-
-    def test_fallback_true_no_default_locale_raises(self) -> None:
-        """fallback_to_default: true with no default: true language must raise ConfigurationError."""
-        from zenzic.core.exceptions import ConfigurationError
-
-        cfg = {
-            "plugins": [
-                {
-                    "i18n": {
-                        "docs_structure": "folder",
-                        "fallback_to_default": True,
-                        "languages": [{"locale": "en"}, {"locale": "it"}],
-                    }
-                }
-            ]
-        }
-        with pytest.raises(ConfigurationError, match="fallback_to_default"):
-            _extract_i18n_fallback_config(cfg)
-
-    def test_null_safe(self) -> None:
-        assert not _extract_i18n_fallback_config({"plugins": None}).enabled
-        assert not _extract_i18n_fallback_config(
-            {
-                "plugins": [
-                    {
-                        "i18n": {
-                            "docs_structure": "folder",
-                            "fallback_to_default": True,
-                            "languages": None,
-                        }
-                    }
-                ]
-            }
-        ).enabled
-
-
 class TestI18nFallbackIntegration:
     """Integration tests: validate_links with i18n fallback semantics."""
 
@@ -615,6 +520,69 @@ class TestI18nFallbackIntegration:
         (docs / "index.md").touch()
         with pytest.raises(ConfigurationError):
             validate_links(tmp_path)
+
+    # ── Anchor i18n fallback tests ─────────────────────────────────────────────
+
+    def test_anchor_fallback_suppresses_translated_heading_miss(self, tmp_path: Path) -> None:
+        """Anchor present in EN file but absent in IT file is suppressed by fallback.
+
+        Scenario: docs/it/guide.md links to architecture.md#quick-start.
+        The resolver normalises the target to docs/it/architecture.md (exists).
+        docs/it/architecture.md uses translated headings, so "quick-start" is
+        absent from its anchor set — AnchorMissing is produced.
+        Fallback checks docs/architecture.md, finds "quick-start", and suppresses.
+        """
+        repo, docs, docs_it = self._setup(tmp_path)
+        # EN file has the target anchor; IT file has a translated heading.
+        (docs / "architecture.md").write_text("# Architecture\n\n## Quick Start\n")
+        (docs_it / "architecture.md").write_text("# Architettura\n\n## Avvio Rapido\n")
+        (docs_it / "guide.md").write_text("[qs](architecture.md#quick-start)\n")
+        assert validate_links(repo) == []
+
+    def test_anchor_fallback_reports_when_anchor_missing_in_both_locales(
+        self, tmp_path: Path
+    ) -> None:
+        """An anchor absent in BOTH the IT and EN files is always reported.
+
+        Fallback can only suppress the error when the EN file contains the anchor.
+        If neither locale has it, the link is genuinely broken.
+        """
+        repo, docs, docs_it = self._setup(tmp_path)
+        (docs / "architecture.md").write_text("# Architecture\n\n## Overview\n")
+        (docs_it / "architecture.md").write_text("# Architettura\n\n## Panoramica\n")
+        # "ghost-anchor" exists in neither EN nor IT file.
+        (docs_it / "guide.md").write_text("[x](architecture.md#ghost-anchor)\n")
+        errors = validate_links(repo)
+        assert any("ghost-anchor" in e for e in errors)
+
+    def test_anchor_fallback_disabled_reports_translated_heading_miss(self, tmp_path: Path) -> None:
+        """When fallback_to_default is false, translated-heading misses are reported."""
+        repo, docs, docs_it = self._setup(tmp_path, fallback=False)
+        (docs / "architecture.md").write_text("# Architecture\n\n## Quick Start\n")
+        (docs_it / "architecture.md").write_text("# Architettura\n\n## Avvio Rapido\n")
+        (docs_it / "guide.md").write_text("[qs](architecture.md#quick-start)\n")
+        errors = validate_links(repo)
+        assert any("quick-start" in e for e in errors)
+
+    def test_anchor_fallback_not_triggered_for_en_file_anchor_miss(self, tmp_path: Path) -> None:
+        """A broken anchor in a default-locale (EN) file is always reported.
+
+        Fallback suppression only applies when the source file is inside a
+        non-default locale directory.  A link from docs/guide.md to
+        docs/page.md#ghost must still be reported even with fallback enabled.
+        """
+        repo, docs, docs_it = self._setup(tmp_path)
+        (docs / "page.md").write_text("# Page\n\n## Real Heading\n")
+        (docs / "guide.md").write_text("[x](page.md#ghost-anchor)\n")
+        errors = validate_links(repo)
+        assert any("ghost-anchor" in e for e in errors)
+
+    def test_anchor_in_it_file_resolves_directly_without_fallback(self, tmp_path: Path) -> None:
+        """An anchor that exists in the IT file itself resolves without touching fallback."""
+        repo, docs, docs_it = self._setup(tmp_path)
+        (docs_it / "architecture.md").write_text("# Architettura\n\n## Avvio Rapido\n")
+        (docs_it / "guide.md").write_text("[ar](architecture.md#avvio-rapido)\n")
+        assert validate_links(repo) == []
 
 
 # ─── S4-4: Reference-style link resolution ───────────────────────────────────
@@ -879,3 +847,80 @@ def test_validate_snippets_generic_exception_reported(tmp_path: Path) -> None:
         errors = validate_snippets(tmp_path, ZenzicConfig(snippet_min_lines=1))
     assert len(errors) == 1
     assert "ParserError" in errors[0].message
+
+
+# ─── YAML snippet validation ──────────────────────────────────────────────────
+
+
+def test_validate_snippets_yaml_valid(tmp_path: Path) -> None:
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "page.md").write_text("```yaml\nkey: value\nlist:\n  - a\n  - b\n```\n")
+    assert validate_snippets(tmp_path, ZenzicConfig(snippet_min_lines=1)) == []
+
+
+def test_validate_snippets_yaml_invalid(tmp_path: Path) -> None:
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "page.md").write_text("```yaml\nkey: [\nunclosed bracket\n```\n")
+    errors = validate_snippets(tmp_path, ZenzicConfig(snippet_min_lines=1))
+    assert len(errors) == 1
+    assert "SyntaxError in YAML snippet" in errors[0].message
+
+
+def test_validate_snippets_yml_alias_invalid(tmp_path: Path) -> None:
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "page.md").write_text("```yml\n: bad mapping\n```\n")
+    errors = validate_snippets(tmp_path, ZenzicConfig(snippet_min_lines=1))
+    assert len(errors) == 1
+    assert "SyntaxError in YAML snippet" in errors[0].message
+
+
+# ─── JSON snippet validation ──────────────────────────────────────────────────
+
+
+def test_validate_snippets_json_valid(tmp_path: Path) -> None:
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "page.md").write_text('```json\n{"key": "value", "num": 42}\n```\n')
+    assert validate_snippets(tmp_path, ZenzicConfig(snippet_min_lines=1)) == []
+
+
+def test_validate_snippets_json_invalid(tmp_path: Path) -> None:
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "page.md").write_text('```json\n{"key": "value",}\n```\n')
+    errors = validate_snippets(tmp_path, ZenzicConfig(snippet_min_lines=1))
+    assert len(errors) == 1
+    assert "SyntaxError in JSON snippet" in errors[0].message
+
+
+def test_validate_snippets_json_line_number(tmp_path: Path) -> None:
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    # fence opens at line 3 (two preceding lines), error is on line 2 of snippet
+    (docs / "page.md").write_text("# Page\n\n```json\n{\n  bad\n}\n```\n")
+    errors = validate_snippets(tmp_path, ZenzicConfig(snippet_min_lines=1))
+    assert len(errors) == 1
+    # fence_line=3, json error lineno=2 → reported line 5
+    assert errors[0].line_no == 5
+
+
+# ─── TOML snippet validation ──────────────────────────────────────────────────
+
+
+def test_validate_snippets_toml_valid(tmp_path: Path) -> None:
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "page.md").write_text('```toml\ntitle = "Zenzic"\nversion = "0.4.0"\n```\n')
+    assert validate_snippets(tmp_path, ZenzicConfig(snippet_min_lines=1)) == []
+
+
+def test_validate_snippets_toml_invalid(tmp_path: Path) -> None:
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "page.md").write_text("```toml\ntitle = Zenzic  # missing quotes\n```\n")
+    errors = validate_snippets(tmp_path, ZenzicConfig(snippet_min_lines=1))
+    assert len(errors) == 1
+    assert "SyntaxError in TOML snippet" in errors[0].message

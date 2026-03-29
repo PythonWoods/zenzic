@@ -3,8 +3,8 @@
 
 # Zenzic v0.4.0: The Agnostic Framework for Documentation Integrity
 
-**Release date:** 2026-03-28
-**Status:** Release Candidate 2 — ready for shipment
+**Release date:** 2026-03-29
+**Status:** Release Candidate 3 — ready for shipment
 
 ---
 
@@ -55,6 +55,163 @@ into higher-order pipelines, and deterministic across environments.
 The score you get on a developer laptop is the score CI gets. The score CI gets is the score you
 track in version control. Determinism is not a feature; it is the foundation on which `zenzic diff`
 and regression detection are built.
+
+---
+
+## What Changed in rc3
+
+### i18n Anchor Fix — AnchorMissing now has i18n fallback suppression
+
+`AnchorMissing` now participates in the same i18n fallback logic as `FileNotFound`. Previously,
+a link like `[text](it/page.md#heading)` would fire a false positive when the Italian page existed
+but its heading was translated — because the `AnchorMissing` branch in `validate_links_async` had
+no suppression path. `_should_suppress_via_i18n_fallback()` was defined but never called.
+
+**Fix:** new `resolve_anchor()` method added to `BaseAdapter` protocol and all three adapters
+(`MkDocsAdapter`, `ZensicalAdapter`, `VanillaAdapter`). When an anchor is not found in a locale
+file, `resolve_anchor()` checks whether the anchor exists in the default-locale equivalent via
+the `anchors_cache` already in memory. No additional disk I/O.
+
+### Shared utility — `remap_to_default_locale()`
+
+The locale path-remapping logic that was independently duplicated in `resolve_asset()` and
+`is_shadow_of_nav_page()` is now a single pure function in `src/zenzic/core/adapters/_utils.py`.
+`resolve_asset()`, `resolve_anchor()`, and `is_shadow_of_nav_page()` in both `MkDocsAdapter` and
+`ZensicalAdapter` all delegate to it. `_should_suppress_via_i18n_fallback()`, `I18nFallbackConfig`,
+`_I18N_FALLBACK_DISABLED`, and `_extract_i18n_fallback_config()` — 118 lines of dead code —
+are permanently removed from `validator.py`.
+
+### Visual Snippets for custom rule findings
+
+Custom rule violations (`[[custom_rules]]` from `zenzic.toml`) now display the offending source
+line below the finding header:
+
+```text
+[ZZ-NODRAFT] docs/guide/install.md:14 — Remove DRAFT marker before publishing.
+  │ > DRAFT: section under construction
+```
+
+The `│` indicator is rendered in the finding's severity colour. Standard findings (broken links,
+orphans, etc.) are unaffected.
+
+### JSON schema — 7 keys
+
+`--format json` output now emits a stable 7-key schema:
+`links`, `orphans`, `snippets`, `placeholders`, `unused_assets`, `references`, `nav_contract`.
+
+### `strict` and `exit_zero` as `zenzic.toml` fields
+
+Both flags can now be declared in `zenzic.toml` as project-level defaults:
+
+```toml
+strict    = true   # equivalent to always passing --strict
+exit_zero = false  # exit code 0 even on findings (CI soft-gate)
+```
+
+CLI flags continue to override the TOML values.
+
+### Usage docs split — three focused pages
+
+`docs/usage/index.md` was a monolithic 580-line page covering install, commands, CI/CD, scoring,
+advanced features, and programmatic API. Split into three focused pages:
+
+- `usage/index.md` — Install options, init→config→check workflow, engine modes
+- `usage/commands.md` — CLI commands, flags, exit codes, JSON output, quality score
+- `usage/advanced.md` — Three-pass pipeline, Zenzic Shield, alt-text, programmatic API,
+  multi-language docs
+
+Italian mirrors (`it/usage/`) updated in full parity.
+
+### Multi-language snippet validation
+
+`zenzic check snippets` now validates four languages using pure Python parsers — no subprocesses
+for any language. Python uses `compile()`, YAML uses `yaml.safe_load()`, JSON uses `json.loads()`,
+and TOML uses `tomllib.loads()` (Python 3.11+ stdlib). Blocks with unsupported language tags
+(`bash`, `javascript`, `mermaid`, etc.) are treated as plain text and not syntax-checked.
+
+### Shield deep-scan — no more blind spots
+
+The credential scanner now operates on every line of the source file, including lines inside
+fenced code blocks. A credential committed in a `bash` example is still a committed credential —
+Zenzic will find it. The link and reference validators continue to ignore fenced block content to
+prevent false positives from illustrative example URLs.
+
+The Shield now covers seven credential families: OpenAI API keys, GitHub tokens, AWS access keys,
+Stripe live keys, Slack tokens, Google API keys, and generic PEM private keys.
+
+---
+
+## Professional Packaging & PEP 735
+
+v0.4.0-rc3 adopts the latest Python packaging standards end-to-end, making Zenzic lighter for
+end users and measurably faster in CI.
+
+### Lean core install
+
+`pip install zenzic` now installs only the five runtime dependencies (`typer`, `rich`,
+`pyyaml`, `pydantic`, `httpx`). The entire MkDocs stack — previously a transitive side-effect
+of the monolithic dev group — is no longer pulled in unless explicitly requested:
+
+```bash
+pip install "zenzic[docs]"   # MkDocs Material + mkdocstrings + plugins
+```
+
+For the vast majority of users (Hugo sites, Zensical projects, plain Markdown wikis, CI
+pipelines) this means a ~60% smaller install and proportionally faster cold-start times on
+ephemeral CI runners.
+
+### PEP 735 — atomic dependency groups
+
+Development dependencies are declared as [PEP 735](https://peps.python.org/pep-0735/) groups
+in `pyproject.toml`, managed by `uv`:
+
+| Group | Purpose | CI job |
+| :---- | :------ | :----- |
+| `test` | pytest + coverage | `quality` matrix (3.11 / 3.12 / 3.13) |
+| `lint` | ruff + mypy + pre-commit + reuse | `quality` matrix |
+| `docs` | MkDocs stack | `docs` job |
+| `release` | nox + bump-my-version + pip-audit | `security` job |
+| `dev` | All of the above (local development) | — |
+
+Each CI job syncs only the group it needs. The `quality` job never installs the MkDocs stack.
+The `docs` job never installs pytest. This eliminates install time wasted on unused packages
+and reduces the surface area for dependency conflicts across jobs. Combined with the `uv`
+cache in GitHub Actions, subsequent CI runs restore the full environment in under 3 seconds.
+
+### `CITATION.cff`
+
+A [`CITATION.cff`](CITATION.cff) file (CFF 1.2.0 format) is now present at the repository
+root. GitHub renders it automatically as a "Cite this repository" button. Zenodo, Zotero, and
+other reference managers that support the format can import it directly.
+
+---
+
+## The Documentation Firewall
+
+v0.4.0-rc3 completes a strategic shift in what Zenzic is. It began as a link checker. It became
+an engine-agnostic linter. With rc3, it becomes a **Documentation Firewall** — a single gate that
+enforces correctness, completeness, and security simultaneously.
+
+The three dimensions of the firewall:
+
+**1. Correctness** — Zenzic validates the syntax of every structured data block in your docs.
+Your Kubernetes YAML examples, your OpenAPI JSON fragments, your TOML configuration snippets — if
+you ship broken config examples, your users will copy broken config. `check snippets` catches this
+before it reaches production, using the same parsers your users will run.
+
+**2. Completeness** — Orphan detection, placeholder scanning, and the `fail_under` quality gate
+ensure that every page linked in the nav exists, contains real content, and scores above the
+team's agreed threshold. A documentation site is not "done" when all pages exist — it is done
+when all pages are complete.
+
+**3. Security** — The Shield scans every line of every file, including code blocks, for seven
+families of leaked credentials. No fencing, no labels, no annotations can hide a secret from
+Zenzic. The exit code 2 contract is non-negotiable and non-suppressible: a secret in docs is a
+build-blocking incident, not a warning.
+
+This is what "Documentation Firewall" means: not a tool you run once before a release, but a
+gate that runs on every commit, enforces three dimensions of quality simultaneously, and exits
+with a machine-readable code that your CI pipeline can act on without human interpretation.
 
 ---
 
@@ -177,11 +334,12 @@ and `diff` Python APIs has been renamed to `output_format` — update any progra
 ## Checksums and verification
 
 ```text
-zenzic check all   # self-dogfood: 6/6 OK
-pytest             # 433 passed, 0 failed in 2.47s
-coverage           # 98.4% line coverage
+zenzic check all   # self-dogfood: 7/7 OK
+pytest             # 446 passed, 0 failed
+coverage           # ≥ 80% (hard gate)
 ruff check .       # 0 violations
 mypy src/          # 0 errors
+mkdocs build --strict  # 0 warnings
 ```
 
 ---

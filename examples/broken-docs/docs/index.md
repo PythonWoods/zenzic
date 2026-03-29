@@ -20,7 +20,7 @@ Run `zenzic check all --strict` from this directory to see the full report.
 | Links — **broken i18n** | [Italian page that does not exist](missing.it.md) |
 | Orphans | `api.md` exists on disk but is absent from `nav` |
 | Snippets | `tutorial.md` contains a Python block with a `SyntaxError` |
-| Placeholders | `api.md` is a stub (fewer than 50 words, contains "TODO") |
+| Placeholders | `api.md` has only 18 words and a bare task marker — see the file |
 | Assets | `assets/unused.png` is on disk but never referenced |
 
 The path traversal link above (`../../../../etc/passwd`) demonstrates the **Zenzic Shield**:
@@ -34,5 +34,7 @@ hosted in a subdirectory. Zenzic enforces relative paths for indestructible port
 The broken i18n link (`missing.it.md`) demonstrates cross-locale link validation: Zenzic
 checks that the target translation file actually exists on disk, even when i18n fallback is
 active.
+
+![Used image](assets/used.png)
 
 See the [Tutorial](tutorial.md) to continue.

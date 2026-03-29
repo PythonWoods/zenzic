@@ -17,15 +17,17 @@ An **adapter** is a Python class that satisfies the `BaseAdapter` protocol
 scanner, orphan detector, and link validator talk exclusively to this protocol —
 they never import or call engine-specific code directly.
 
-An adapter answers four questions for each docs tree:
+An adapter answers seven questions for each docs tree:
 
 | Method | Question |
 |---|---|
 | `is_locale_dir(part)` | Is this top-level directory a non-default locale? |
 | `resolve_asset(missing_abs, docs_root)` | Does a default-locale fallback exist for this missing asset? |
+| `resolve_anchor(resolved_file, anchor, anchors_cache, docs_root)` | Should this anchor miss be suppressed because the anchor exists in the default-locale equivalent? |
 | `is_shadow_of_nav_page(rel, nav_paths)` | Is this file a locale mirror of a nav-listed page? |
 | `get_ignored_patterns()` | Which filename globs should the orphan check skip? |
 | `get_nav_paths()` | Which `.md` paths are listed in this engine's nav config? |
+| `has_engine_config()` | Was a build-engine config file found on disk? (Controls orphan check activation.) |
 
 ---
 
@@ -69,6 +71,34 @@ class MyEngineAdapter:
         If your engine does not support i18n asset fallback, always return None.
         """
         return None
+
+    def resolve_anchor(
+        self,
+        resolved_file: Path,
+        anchor: str,
+        anchors_cache: dict[Path, set[str]],
+        docs_root: Path,
+    ) -> bool:
+        """Return True if an anchor miss on a locale file should be suppressed.
+
+        Called when a link points to a heading anchor that exists in the
+        default-locale file but not in the locale translation (because
+        headings are translated). Return True to suppress the false positive.
+
+        If your engine does not support i18n, always return False.
+        """
+        return False
+
+    def has_engine_config(self) -> bool:
+        """Return True when a build-engine config was found and loaded.
+
+        When False, the orphan check is skipped — with no nav information
+        there is no reference set to compare the file list against.
+
+        Return True if your adapter successfully loaded a config file.
+        Return False only if no engine config exists (bare/vanilla mode).
+        """
+        return bool(self._config)
 
     def is_shadow_of_nav_page(self, rel: Path, nav_paths: frozenset[str]) -> bool:
         """Return True when *rel* is a locale mirror of a nav-listed page.
@@ -199,6 +229,9 @@ incorrect results:
 4. All methods must be **pure**: same inputs always produce the same outputs.
    No I/O, no global-state mutation.
 5. `resolve_asset()` must never raise — return `None` on any failure.
+6. `resolve_anchor()` must never raise — return `False` on any failure.
+   The `anchors_cache` argument is read-only; do not mutate it.
+7. `has_engine_config()` must never raise — return `False` on any failure.
 
 ---
 

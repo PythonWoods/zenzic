@@ -337,6 +337,42 @@ def find_unused_assets(repo_root: Path, config: ZenzicConfig | None = None) -> l
 HarvestEvent = tuple[int, str, Any]
 
 
+def _skip_frontmatter(
+    fh: Any,
+) -> Generator[tuple[int, str], None, None]:
+    """Yield ``(lineno, line)`` pairs from an open file handle, skipping YAML frontmatter.
+
+    Frontmatter is a leading ``---`` block that ends with ``---`` or ``...``.
+    Every other line — including lines inside fenced code blocks — is yielded.
+    This is the raw stream used by the Shield so that secrets embedded inside
+    code examples are never invisible.
+
+    Args:
+        fh: An open text file handle positioned at the start of the file.
+
+    Yields:
+        ``(1-based line number, raw line string)`` for every non-frontmatter line.
+    """
+    in_frontmatter = False
+    frontmatter_checked = False
+
+    for lineno, line in enumerate(fh, start=1):
+        stripped = line.strip()
+
+        if not frontmatter_checked:
+            frontmatter_checked = True
+            if stripped == "---":
+                in_frontmatter = True
+                continue
+
+        if in_frontmatter:
+            if stripped in ("---", "..."):
+                in_frontmatter = False
+            continue
+
+        yield lineno, line
+
+
 def _iter_content_lines(
     file_path: Path,
 ) -> Generator[tuple[int, str], None, None]:
@@ -352,6 +388,9 @@ def _iter_content_lines(
     * **Fenced code blocks**: Lines inside ``` or ~~~ fences are skipped so that
       example URLs inside code never trigger false positives.
 
+    Use :func:`_skip_frontmatter` when the Shield needs to scan every line,
+    including lines inside fenced blocks.
+
     Args:
         file_path: Path to the Markdown source file.
 
@@ -359,24 +398,10 @@ def _iter_content_lines(
         ``(1-based line number, raw line string)`` for every content line.
     """
     in_block = False
-    in_frontmatter = False
-    frontmatter_checked = False
 
     with file_path.open(encoding="utf-8") as fh:
-        for lineno, line in enumerate(fh, start=1):
+        for lineno, line in _skip_frontmatter(fh):
             stripped = line.strip()
-
-            # ── YAML frontmatter skip (first line only) ───────────────────
-            if not frontmatter_checked:
-                frontmatter_checked = True
-                if stripped == "---":
-                    in_frontmatter = True
-                    continue
-
-            if in_frontmatter:
-                if stripped in ("---", "..."):
-                    in_frontmatter = False
-                continue
 
             # ── Fenced code block skip ────────────────────────────────────
             if not in_block:
@@ -484,12 +509,38 @@ class ReferenceScanner:
         findings are yielded immediately as ``("SECRET", SecurityFinding)``
         events so callers can abort with Exit Code 2 before Pass 2 begins.
 
+        Uses two independent line streams from the same file:
+
+        * **Shield stream** — every line except YAML frontmatter, including lines
+          inside fenced code blocks.  Ensures that credentials in ``bash`` or
+          unlabelled code examples are never invisible to the Shield.
+        * **Content stream** — lines outside fenced blocks (``_iter_content_lines``).
+          Used for reference-definition harvesting and alt-text detection so that
+          example URLs inside code blocks never produce false positives.
+
+        Reference definitions (``[id]: url``) are always outside fenced blocks by
+        CommonMark §4.7 convention, so scanning them on the content stream is
+        sufficient.  The Shield additionally scans every definition URL via
+        ``scan_url_for_secrets`` to catch embedded secrets in reference URLs.
+
         Yields:
             ``(lineno, event_type, data)`` tuples.  See module-level type alias
             ``HarvestEvent`` for the full list of event types and data shapes.
         """
+        # ── 1.a Shield pass: scan every line (fences are NOT skipped) ────────
+        # Collect SECRET events keyed by line number so duplicate suppression
+        # (a definition URL that also matches scan_line_for_secrets) still works.
+        secret_line_nos: set[int] = set()
+        shield_events: list[HarvestEvent] = []
+        with self.file_path.open(encoding="utf-8") as fh:
+            for lineno, line in _skip_frontmatter(fh):
+                for finding in scan_line_for_secrets(line, self.file_path, lineno):
+                    shield_events.append((lineno, "SECRET", finding))
+                    secret_line_nos.add(lineno)
+
+        # ── 1.b Content pass: harvest ref-defs and alt-text (fences skipped) ─
+        content_events: list[HarvestEvent] = []
         for lineno, line in _iter_content_lines(self.file_path):
-            # ── 1.b Reference definition detection ───────────────────────────
             def_match = _RE_REF_DEF.match(line)
             if def_match:
                 raw_id, url = def_match.group(1), def_match.group(2)
@@ -497,29 +548,30 @@ class ReferenceScanner:
                 norm_id = raw_id.lower().strip()
 
                 if accepted:
-                    yield (lineno, "DEF", (norm_id, url))
+                    content_events.append((lineno, "DEF", (norm_id, url)))
 
                     # ── 1.c Shield: scan URL for secrets ─────────────────────
                     for finding in scan_url_for_secrets(url, self.file_path, lineno):
-                        yield (lineno, "SECRET", finding)
+                        # Only emit if scan_line_for_secrets hasn't already
+                        # emitted a SECRET for this line (avoid duplicates).
+                        if lineno not in secret_line_nos:
+                            shield_events.append((lineno, "SECRET", finding))
+                            secret_line_nos.add(lineno)
                 else:
-                    yield (lineno, "DUPLICATE_DEF", (norm_id, url))
+                    content_events.append((lineno, "DUPLICATE_DEF", (norm_id, url)))
                 continue
-
-            # ── 1.d Shield: scan entire line for secrets (defence-in-depth) ──
-            # Applied only to non-definition lines to avoid duplicate SECRET
-            # events — definition URLs are already scanned by scan_url_for_secrets.
-            for finding in scan_line_for_secrets(line, self.file_path, lineno):
-                yield (lineno, "SECRET", finding)
 
             # ── Alt-text: inline images ───────────────────────────────────────
             for img_match in _RE_IMAGE_INLINE.finditer(line):
                 alt_text = img_match.group(1)
                 url = img_match.group(2)
                 if alt_text.strip():
-                    yield (lineno, "IMG", (alt_text, url))
+                    content_events.append((lineno, "IMG", (alt_text, url)))
                 else:
-                    yield (lineno, "MISSING_ALT", url)
+                    content_events.append((lineno, "MISSING_ALT", url))
+
+        # Yield all events in line-number order
+        yield from sorted(shield_events + content_events, key=lambda e: e[0])
 
     # ── Pass 2: Cross-Check & Validation ──────────────────────────────────────
 

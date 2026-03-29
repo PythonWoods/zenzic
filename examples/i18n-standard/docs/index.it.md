@@ -14,7 +14,7 @@ di documentazione bilingue perfetta che ottiene **100/100** con `zenzic check al
 | **Zero link assoluti** | Ogni link interno è relativo (`../`, `./`) |
 | **Simmetria dei percorsi** | Un link `../assets/brand-kit.zip` si risolve identicamente da `.md` e `.it.md` |
 | **Integrità degli asset** | Tutti gli asset referenziati esistono su disco; nessun file ireferenziato |
-| **Nessun segnaposto** | Ogni pagina ha contenuto reale, nessun stub TODO |
+| **Nessun segnaposto** | Ogni pagina ha contenuto reale, nessun marcatore incompleto |
 
 ## Esplora la struttura
 
