@@ -16,7 +16,7 @@ documentation before, during, and after the switch.
 
 ## What stays the same
 
-Zensical is a superset of MkDocs. It reads `mkdocs.yml` natively, so many projects can switch
+Zensical is a compatible successor to MkDocs. It reads `mkdocs.yml` natively, so many projects can switch
 the build binary without touching a single documentation file. From Zenzic's perspective:
 
 - The `docs/` directory layout is unchanged.

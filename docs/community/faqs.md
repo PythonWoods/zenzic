@@ -58,7 +58,7 @@ assets, or external URLs.
 
 Yes. Zenzic works on any folder of Markdown files without requiring a build engine at all
 (Vanilla mode). Native adapters for MkDocs and Zensical add nav-awareness and i18n support.
-Third-party adapters can extend this to any other engine. See the [Engines guide](../guides/engines.md)
+Third-party adapters can extend this to any other engine. See the [Engines guide](../guide/engines.md)
 for details.
 
 ---

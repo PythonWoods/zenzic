@@ -76,7 +76,7 @@ Le regole con `severity = "info"` vengono stampate senza lo snippet `│`.
 **Le regole custom sono indipendenti dall'adapter.** Una regola che cerca `DRAFT` si attiva
 identicamente che il progetto usi `MkDocsAdapter`, `ZensicalAdapter` o `VanillaAdapter`. Questo
 significa che le regole scritte per un progetto MkDocs non richiedono modifiche dopo la
-[migrazione a Zensical](../../guides/migration.md).
+[migrazione a Zensical](../../guide/migration.md).
 
 ---
 

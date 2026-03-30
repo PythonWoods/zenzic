@@ -5,13 +5,21 @@
 from __future__ import annotations
 
 import sys
+from typing import Annotated
 
 import typer
 from rich.console import Console
 
+from zenzic import __version__
 from zenzic.cli import check_app, clean_app, diff, init, score, serve
 from zenzic.core.exceptions import ConfigurationError
 from zenzic.core.logging import setup_cli_logging
+
+
+def _version_callback(value: bool) -> None:
+    if value:
+        typer.echo(f"Zenzic v{__version__}")
+        raise typer.Exit()
 
 
 app = typer.Typer(
@@ -20,6 +28,23 @@ app = typer.Typer(
     rich_markup_mode="rich",
     no_args_is_help=True,
 )
+
+
+@app.callback()
+def _main(
+    version: Annotated[
+        bool | None,
+        typer.Option(
+            "--version",
+            "-V",
+            callback=_version_callback,
+            is_eager=True,
+            help="Show the Zenzic version and exit.",
+        ),
+    ] = None,
+) -> None:
+    pass
+
 
 app.add_typer(check_app, name="check")
 app.add_typer(clean_app, name="clean")
@@ -38,8 +63,6 @@ def cli_main() -> None:
     # Show an elegant banner on zero args or when starting the dev server
     if len(sys.argv) == 1 or (len(sys.argv) == 2 and sys.argv[1] == "serve"):
         from rich.panel import Panel
-
-        from zenzic import __version__
 
         _err_console.print(
             Panel.fit(

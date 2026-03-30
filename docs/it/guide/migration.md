@@ -16,7 +16,7 @@ validare la documentazione prima, durante e dopo il passaggio.
 
 ## Cosa rimane invariato
 
-Zensical è un superset di MkDocs. Legge `mkdocs.yml` nativamente, quindi molti progetti possono
+Zensical è un successore compatibile di MkDocs. Legge `mkdocs.yml` nativamente, quindi molti progetti possono
 cambiare il binario di build senza toccare un singolo file di documentazione. Dal punto di vista
 di Zenzic:
 

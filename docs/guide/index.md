@@ -48,7 +48,7 @@ Beyond reporting, Zenzic provides **autofix utilities** (like `zenzic clean asse
   - [Getting Started](../usage/index.md)
   - [Available Checks](../checks.md)
   - [Configuration](../configuration/index.md)
-  - [Engines](../guides/engines.md)
+  - [Engines](engines.md)
   - [CI/CD Integration](../ci-cd.md)
   - [Badges](../usage/badges.md)
   - [FAQs](../community/faqs.md)

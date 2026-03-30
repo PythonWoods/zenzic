@@ -174,8 +174,8 @@ nav:
               - Core Settings: configuration/core-settings.md
               - Adapters & Engine: configuration/adapters-config.md
               - Custom Rules DSL: configuration/custom-rules-dsl.md
-          - Engines: guides/engines.md
-          - Migration Guide: guides/migration.md
+          - Engines: guide/engines.md
+          - Migration Guide: guide/migration.md
           - CI/CD Integration: ci-cd.md
           - Badges: usage/badges.md
           - FAQs: community/faqs.md
