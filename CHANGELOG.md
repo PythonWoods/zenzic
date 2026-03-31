@@ -13,6 +13,58 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.4.0-rc4] — 2026-03-31 — Virtual Site Map, UNREACHABLE_LINK & Routing Collision Detection
+
+> **Sprint 8.** Zenzic gains build-engine emulation: the Virtual Site Map (VSM) projects
+> every source file to its canonical URL before the build runs.  Links to pages that exist
+> on disk but are absent from the nav are now caught as `UNREACHABLE_LINK`.  Routing
+> collisions (e.g. `index.md` + `README.md` coexisting in the same directory) are flagged
+> as `CONFLICT`.  Documentation paths unified under `/guide/`.  Terminology aligned to
+> "compatible successor".
+
+### Added
+
+- **Virtual Site Map (VSM)** — new `zenzic.models.vsm` module introduces the `Route`
+  dataclass (`url`, `source`, `status`, `anchors`, `aliases`) and `build_vsm()`, a
+  zero-I/O function that projects every `.md` source file to its canonical URL and
+  routing status (`REACHABLE`, `ORPHAN_BUT_EXISTING`, `IGNORED`, `CONFLICT`) using
+  the active build-engine adapter.  Zenzic now emulates the site router without running
+  the build.
+
+- **`UNREACHABLE_LINK` detection** — `validate_links_async` now cross-references every
+  successfully resolved internal link against the VSM.  A link to a file that exists on
+  disk but is not listed in the MkDocs `nav:` emits `UNREACHABLE_LINK`, catching the
+  class of 404s that traditional file-existence checks miss entirely.  Disabled
+  automatically for `VanillaAdapter` and `ZensicalAdapter` (filesystem-only routing).
+
+- **Routing collision detection** — `_detect_collisions()` in `vsm.py` marks any two
+  source files that map to the same canonical URL as `CONFLICT`.  The most common case
+  — `index.md` and `README.md` coexisting in the same directory (Double Index) — is
+  handled without special-casing: both produce the same URL and are therefore caught
+  automatically.
+
+- **`map_url()` and `classify_route()` adapter methods** — added to `BaseAdapter`
+  Protocol, `MkDocsAdapter`, `ZensicalAdapter`, and `VanillaAdapter`.  `map_url(rel)`
+  applies engine-specific physical → virtual URL mapping; `classify_route(rel, nav_paths)`
+  returns the routing status for a given source file.
+
+### Changed
+
+- **`MkDocsAdapter.classify_route`** — when no `nav:` section is declared in
+  `mkdocs.yml`, all files are classified as `REACHABLE` (mirrors MkDocs auto-include
+  behaviour).  `README.md` remains `IGNORED` regardless.
+
+- **Documentation paths** — all references to the stale `/guides/` path in `RELEASE.md`,
+  `RELEASE.it.md`, `CHANGELOG.md`, `CHANGELOG.it.md`, and `README.it.md` updated to
+  the canonical `/guide/` root.
+
+### Fixed
+
+- **Terminology** — "Zensical is a superset of MkDocs" replaced with "Zensical is a
+  compatible successor to MkDocs" across all documentation and changelog entries.
+
+---
+
 ## [0.4.0-rc3] — 2026-03-29 — i18n Anchor Fix, Multi-language Snippets & Shield Deep-Scan
 
 > **Sprint 7.** The `AnchorMissing` i18n fallback gap closed. Dead code eliminated. Shared
@@ -188,14 +240,14 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 - **Documentation — Italian parity** — `docs/it/` now mirrors the full English structure:
   `it/configuration/` (4 pages), `it/developers/writing-an-adapter.md`,
-  `it/guides/migration.md`.
+  `it/guide/migration.md`.
 
 - **Documentation — Writing an Adapter guide** (`docs/developers/writing-an-adapter.md`) —
   Full protocol reference: `BaseAdapter` methods, `from_repo` pattern, entry-point
   registration, test utilities (`RepoBuilder`, `assert_no_findings`, protocol compliance
   checker).
 
-- **Documentation — MkDocs → Zensical migration guide** (`docs/guides/migration.md`) —
+- **Documentation — MkDocs → Zensical migration guide** (`docs/guide/migration.md`) —
   Four-phase migration workflow: establish baseline → switch binary → declare identity →
   verify link integrity. Includes `[[custom_rules]]` portability note and quick-reference
   table.
@@ -700,7 +752,7 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
-- `_detect_engine()` — `--engine` override now validates both binary presence on `$PATH` and required config file existence before returning; `--engine zensical` accepts `mkdocs.yml` as a valid config for backwards compatibility (Zensical is a superset of MkDocs); returns `None` when no config file is present, enabling the static-server fallback instead of raising an error.
+- `_detect_engine()` — `--engine` override now validates both binary presence on `$PATH` and required config file existence before returning; `--engine zensical` accepts `mkdocs.yml` as a valid config for backwards compatibility (Zensical is a compatible successor to MkDocs); returns `None` when no config file is present, enabling the static-server fallback instead of raising an error.
 
 ### Removed
 

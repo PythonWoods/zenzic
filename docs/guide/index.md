@@ -75,6 +75,27 @@ Beyond reporting, Zenzic provides **autofix utilities** (like `zenzic clean asse
 
 ---
 
+## Private pages (Zensical engine)
+
+Files or directories starting with an underscore (`_`) are treated as **private** by
+Zenzic when using the Zensical engine.  Links to these resources are flagged as
+`UNREACHABLE_LINK` — Zensical never serves `_`-prefixed paths to the public.
+
+```toml
+# zenzic.toml
+[build_context]
+engine = "zensical"
+```
+
+```text
+docs/_private/notes.md  →  IGNORED — any link to this file fires UNREACHABLE_LINK
+```
+
+See [Nav-Aware Linking](../usage/advanced.md#private-pages-zensical) for the full rule
+table and engine comparison.
+
+---
+
 ## Built with confidence
 
 Zenzic ships with **98.4 % test coverage** measured by `pytest-cov`. Every check, every edge case in the state-machine parser, and every async code path in the link validator has a dedicated test. `ruff` enforces code quality across the entire codebase.

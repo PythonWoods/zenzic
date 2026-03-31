@@ -145,38 +145,52 @@ Zenzic scarta rigorosamente le reference con inizializzazione `/` per non vincol
 
 ---
 
-## Creazione di un nuovo Check
+## Aggiungere un nuovo check
 
-Gli strumenti di analisi del sistema Zenzic vengono raccolti in `src/zenzic/core/`.
-Ogni strumento di valutazione si affianca ad apposite specifiche moduli per funzioni su directory d'ispezione locale: elaborati fs resource loop da `scanner.py` e testo di contenuto validato via test ruleset standard `validator.py`. CLI controller risiede invece su parametrizzazioni subshell comandi in modulo base `cli.py`.
+I check di Zenzic si trovano in `src/zenzic/core/`. Ogni check è una funzione autonoma in
+`scanner.py` (traversal del filesystem) o `validator.py` (validazione del contenuto). Il
+cablaggio CLI si trova in `cli.py`.
 
-Quando si inserisce una nuova validazione o check test code è preferibile seguire:
+Quando si aggiunge un nuovo check:
 
-1. Modula logic target base a destinazione tool apposito file (`zenzic.core.scanner` o nativo text-match `zenzic.core.validator`).
-2. **Path check resolving dovrà SEMPRE dipendere da proxy interface internal resolver** — Mai chiamate API OS (`os.path.exists()`, `Path.is_file()`). `InMemoryPathResolver`. Nessun loop su sys call allocazione su memoria e istanza per-file singola disposta a buffer allocation da tree `_lookup_map` nativa da pass zero pre-read content build. Performance drops andrebbero intese su calo vertiginoso da ~430.000 resolutions-loop per-seconds a rovinose <30.000 risoluzioni/sec violando premesse "Zero I/O in the hot path". Più dettagli consultabili su: [Legge Core Zero I/O nel percorso critico](#zero-io-nel-percorso-critico).
-3. Esemplifica test configurati a determinismo validato cross locale per app properties testuale estensione IT locale compatibili se toccati link local files: testarlo via monolingua monolingual test-mode, folder i18n mode fallback test. Trovi i dettagli consultando la rule base: [Determinismo i18n](#determinismo-i18n).
-4. Fornisce e correla una specifica direttiva sub-command test runner test per avvio app tramite test in runtime subcli via core app framework wrapper arg parser integrato all'interfaccia sorgente root `cli.py`.
-5. Prepara unit testing check base test validation con test fail over su repo in locale `tests/` verificato memory corpus e timing memory block limit risolvendo test benchmark su mock in memory link res loop <= 100 ms limit runtime budget over limit quota 5000 link iterazione in loop res check testing buffer size alloc res block tests limite buffer quota pass tests rules max target runtime budget limit test 100 millisecond array array array.
-6. Assicura ed esplicita build manual validation su integrazione build tools doc files build update: la suite documenterà autonomo check locale pre pass pr `docs/` in CI zenzic linter run self pass via check target limit quota in action pipeline su file su branch.
+1. Implementa la logica nel modulo core appropriato (`zenzic.core.scanner` o `zenzic.core.validator`).
+2. **Qualsiasi logica di risoluzione link o path DEVE delegare a `InMemoryPathResolver`** — non
+   chiamare mai `os.path.exists()`, `Path.is_file()`, o qualsiasi altra verifica filesystem
+   all'interno di un loop per-link. Il resolver viene istanziato una volta prima del loop;
+   la re-istanziazione per file annulla il `_lookup_map` pre-calcolato e riduce il throughput
+   da 430 000+ a meno di 30 000 risoluzioni/s.
+   Vedi [Leggi Core — Zero I/O nel percorso critico](#zero-io-nel-percorso-critico).
+3. Se il check riguarda path di file, testalo nelle tre configurazioni i18n.
+   Vedi [Leggi Core — Determinismo i18n](#determinismo-i18n).
+4. Aggiungi un comando corrispondente (o sotto-comando) in `cli.py`.
+5. Scrivi test in `tests/` che coprono sia i casi di successo che quelli di fallimento,
+   incluso un benchmark prestazionale (5 000 link risolti in < 100 ms su corpus mock in memoria).
+6. Aggiorna `docs/` — Zenzic valida la propria documentazione ad ogni commit.
 
-> **Contratto prestazionale operazionale rule target pass fail strict buffer array limit pass benchmark limit limit max performance requirement rule:** L'applicativo kernel app system engine app in `zenzic.core` in "hot path run res check memory pass resolver resolve check execution validator check rule" **deve rimanere** e operare con allocazione RAM target quota nulla senza costrutto inneschi system app path instanze oggetti costrutti allocazioni IO e `Path` o relative sys path in loop sys call memory app OS call per cicli runtime. Maggior chiarezza e specifica operativa applicativa kernel Zenzic architecture target requirements documentata app su: `docs/architecture.md` sub target heading index `IO Purity contract` res app kernel spec docs e `Contributor rules`.
+> **Contratto prestazionale:** il percorso critico di `zenzic.core` deve rimanere privo di
+> allocazioni. Nessuna costruzione di oggetti `Path`, nessuna syscall, e nessuna chiamata
+> `relative_to()` all'interno del loop di risoluzione.
+> Vedi `docs/architecture.md` — sezioni *IO Purity contract* e *Contributor rules*.
 
 ---
 
 ## Documentazione
 
-Zenzic integra `docs/` e implementa lo standard target applicativo front-end user experience in framework front generator template documentale base con stack tool via estensione Material via plugin arch applicativo framework nativa estesa plugin **MkDocs Material** framework web generator docs in framework app standard build locale app docs generator docs tool per il deployment app web standard per estensione base app e la produzione doc test in docs tool.
-Mutazioni, miglioramenti in comportamento target UX user app manual o variazioni feature doc standard applicative framework system require manual in target documentazione test manual zenzic standard docs `zenzic check all --strict` imposta rigoroso strict rule engine build local e remoto in pipeline validation per validare branch PR pull test PR PR PR update docs PR review validation failure arresta pull check rule limit.
+Zenzic usa **MkDocs Material** per la propria documentazione (`docs/`). Qualsiasi modifica
+al comportamento o nuova funzionalità deve essere documentata. `zenzic check all --strict`
+viene eseguito su questo repository in CI — un check che fallisce blocca la PR.
 
-Standard docs app docs framework frontend installato impiega assets design vector test per icon sets asset bundle vector UX in base pack app vector UX icon pack vector vector bundle asset design asset UI applicativo UX design framework **Lucide** vector vector set pre asset download in bundle asset tool pre fetch download nox vector bundle icon fetch pre app run nox dev dev dev asset asset pre install. Estraendolo e non pushandolo nel git log app test repository `overrides/.icons/lucide/`. Fetching pre rendering command `nox -s dev` pre app deploy in init local locale run. Esecuzioni a venire `mkdocs serve` non test richiedono bundle refresh init o ricalcoli asset update.
+La documentazione usa il set di icone **Lucide**, scaricato al momento della build in
+`overrides/.icons/lucide/` (escluso da git). Esegui `nox -s dev` una volta dopo il clone
+per scaricare le icone — dopo di ciò, `mkdocs serve` funziona senza ulteriori passaggi.
 
-Modalità in visione server manual mode rapida per visione anteprima su browser app tool web locale web localhost server rendering:
+Per visualizzare la documentazione in locale:
 
 ```bash
 mkdocs serve
 ```
 
-Per l'approvazione e la compilazione d'integrità nativa finale formale build mode locale pre release action system local app terminal build test zenzic nox:
+Per verificare la build di produzione:
 
 ```bash
 nox -s docs

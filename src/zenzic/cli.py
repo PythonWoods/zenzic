@@ -28,9 +28,11 @@ from zenzic.core.scanner import (
 )
 from zenzic.core.scorer import ScoreReport, compute_score, load_snapshot, save_snapshot
 from zenzic.core.validator import (
+    LinkError,
     SnippetError,
     check_nav_contract,
     validate_links,
+    validate_links_structured,
     validate_snippets,
 )
 from zenzic.models.config import ZenzicConfig
@@ -90,17 +92,41 @@ def _apply_engine_override(config: ZenzicConfig, engine: str | None) -> ZenzicCo
     return config.model_copy(update={"build_context": new_context})
 
 
+def _render_link_error(err: LinkError, docs_root: Path) -> None:
+    """Print a single LinkError with a Visual Snippet when source context is available."""
+    try:
+        rel = err.file_path.relative_to(docs_root)
+        location = f"[dim]{rel}:{err.line_no}[/]"
+    except ValueError:
+        location = f"[dim]{err.file_path.name}:{err.line_no}[/]"
+
+    # Strip the redundant "file:lineno: " prefix the message already carries
+    # so we don't repeat it after the location badge.
+    raw_msg = err.message
+    prefix = f"{err.file_path.relative_to(docs_root).as_posix() if err.file_path != docs_root else ''}:{err.line_no}: "
+    body = raw_msg[len(prefix) :] if raw_msg.startswith(prefix) else raw_msg
+
+    type_badge = f"[[bold red]{err.error_type}[/]]" if err.error_type != "LINK_ERROR" else ""
+    header = f"  {type_badge} {location} — {body}"
+    console.print(header)
+
+    if err.source_line:
+        console.print(f"    [dim]│[/] [italic]{err.source_line}[/]")
+
+
 @check_app.command(name="links")
 def check_links(
     strict: bool = typer.Option(False, "--strict", "-s", help="Exit non-zero on any warning."),
 ) -> None:
     """Check for broken internal links. Pass --strict to also validate external URLs."""
     repo_root = find_repo_root()
-    errors = validate_links(repo_root, strict=strict)
+    config, _ = ZenzicConfig.load(repo_root)
+    docs_root = (repo_root / config.docs_dir).resolve()
+    errors = validate_links_structured(repo_root, strict=strict)
     if errors:
         console.print(f"\n[red]BROKEN LINKS ({len(errors)}):[/]")
         for err in errors:
-            console.print(f"  [yellow]{err}[/]")
+            _render_link_error(err, docs_root)
         raise typer.Exit(1)
     console.print("\n[green]OK:[/] no broken links found.")
 

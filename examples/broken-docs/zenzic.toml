@@ -6,11 +6,15 @@
 # and references. Run `zenzic check all` to see the full failure report.
 # Run `zenzic check all --exit-zero` to suppress the non-zero exit code.
 #
-# api.md is intentionally absent from the nav (see mkdocs.yml) to trigger
-# the orphan check.
+# api.md and orphan-nav.md are intentionally absent from the nav (see mkdocs.yml)
+# to trigger the orphan and UNREACHABLE_LINK checks.
+# _drafts/unreleased.md is in a private directory to trigger the Zensical
+# private-directory UNREACHABLE_LINK rule (when running with engine = "zensical").
 
-engine = "mkdocs"
 docs_dir = "docs"
+
+[build_context]
+engine = "mkdocs"
 placeholder_max_words = 50
 placeholder_patterns = ["TODO", "coming soon", "stub"]
 

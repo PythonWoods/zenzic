@@ -517,7 +517,7 @@ Apache-2.0 — see [LICENSE][license].
 [docs-badges]:       https://zenzic.pythonwoods.dev/usage/badges/
 [docs-cicd]:         https://zenzic.pythonwoods.dev/ci-cd/
 [docs-arch]:         https://zenzic.pythonwoods.dev/architecture/
-[docs-contributing]: https://zenzic.pythonwoods.dev/contributing/
+[docs-contributing]: https://zenzic.pythonwoods.dev/community/contribute/
 [screenshot]:        docs/assets/screenshots/screenshot.svg
 [ci-workflow]:       .github/workflows/zenzic.yml
 [contributing]:      CONTRIBUTING.md

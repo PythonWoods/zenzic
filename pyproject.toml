@@ -7,7 +7,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "zenzic"
-version = "0.4.0rc3"
+version = "0.4.0rc4"
 description = "Engineering-grade, engine-agnostic linter and security shield for Markdown documentation"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -164,7 +164,7 @@ exclude_lines = [
 # ─── Version bumping ───────────────────────────────────────────────────────────
 
 [tool.bumpversion]
-current_version = "0.4.0rc3"
+current_version = "0.4.0rc4"
 commit = true
 tag = true
 tag_name = "v{new_version}"

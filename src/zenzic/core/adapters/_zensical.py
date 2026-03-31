@@ -9,11 +9,15 @@ from __future__ import annotations
 
 import tomllib
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from zenzic.core.adapters._utils import remap_to_default_locale
 from zenzic.core.exceptions import ConfigurationError
 from zenzic.models.config import BuildContext
+
+
+if TYPE_CHECKING:
+    from zenzic.models.vsm import RouteStatus
 
 
 # ── Config discovery & loading ────────────────────────────────────────────────
@@ -139,6 +143,61 @@ class ZensicalAdapter:
     def has_engine_config(self) -> bool:
         """``True`` — ZensicalAdapter is constructed only when zensical.toml exists."""
         return True
+
+    # ── VSM integration ────────────────────────────────────────────────────────
+
+    def map_url(self, rel: Path) -> str:
+        """Map a physical source path to its Zensical canonical URL.
+
+        Zensical always serves clean directory-style URLs.  Both ``index.md``
+        and ``README.md`` collapse to the parent directory URL (Zensical treats
+        ``README.md`` as an implicit index).
+
+        * ``page.md``         → ``/page/``
+        * ``dir/index.md``    → ``/dir/``
+        * ``dir/README.md``   → ``/dir/``  (same URL → CONFLICT if both present)
+        * ``index.md``        → ``/``
+
+        Files inside ``_private``-prefixed path segments are mapped normally
+        here; ``classify_route()`` marks them ``IGNORED``.
+
+        Args:
+            rel: Path of the source file relative to ``docs_root``.
+
+        Returns:
+            Canonical URL string (always starts and ends with ``/``).
+        """
+        stem = rel.with_suffix("")
+        parts = list(stem.parts)
+        if not parts:
+            return "/"
+        if parts[-1] in ("index", "README"):
+            parts = parts[:-1]
+        if not parts:
+            return "/"
+        return "/" + "/".join(parts) + "/"
+
+    def classify_route(self, rel: Path, nav_paths: frozenset[str]) -> RouteStatus:
+        """Classify a Zensical route as REACHABLE or IGNORED.
+
+        Zensical derives routing purely from the filesystem: every file is
+        reachable by default.  The only exception is files whose path contains
+        a segment that starts with ``_`` (e.g. ``_private/notes.md``).
+
+        Unlike MkDocs, Zensical has no orphan concept: if a file exists on
+        disk it is served.  ``ORPHAN_BUT_EXISTING`` is never returned.
+
+        Args:
+            rel:       Source path relative to ``docs_root``.
+            nav_paths: Unused for Zensical (filesystem is the source of truth).
+
+        Returns:
+            ``'IGNORED'`` when any path segment starts with ``_``;
+            ``'REACHABLE'`` otherwise.
+        """
+        if any(part.startswith("_") for part in rel.parts):
+            return "IGNORED"
+        return "REACHABLE"
 
     def get_nav_paths(self) -> frozenset[str]:
         """Return ``.md`` paths from the ``[nav]`` section of ``zensical.toml``.

@@ -11,13 +11,17 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import yaml
 
 from zenzic.core.adapters._utils import remap_to_default_locale
 from zenzic.core.exceptions import ConfigurationError
 from zenzic.models.config import BuildContext
+
+
+if TYPE_CHECKING:
+    from zenzic.models.vsm import RouteStatus
 
 
 # ── YAML loader ───────────────────────────────────────────────────────────────
@@ -370,6 +374,85 @@ class MkDocsAdapter:
         scenario where the adapter has no nav or i18n information to contribute.
         """
         return self._config_file_found or bool(self._locale_dirs)
+
+    # ── VSM integration ────────────────────────────────────────────────────────
+
+    def map_url(self, rel: Path) -> str:
+        """Map a physical source path to its MkDocs canonical URL.
+
+        Applies the MkDocs ``use_directory_urls`` rule (default ``true``):
+
+        * ``page.md``           → ``/page/``
+        * ``dir/index.md``      → ``/dir/``
+        * ``dir/README.md``     → ``/dir/``       (same URL as index.md → CONFLICT)
+        * ``index.md``          → ``/``           (root)
+        * ``page.md`` (no-dir)  → ``/page.html``
+
+        The Double-Index case (``index.md`` **and** ``README.md`` coexist in
+        the same directory) produces two routes with the identical URL, which
+        ``_detect_collisions()`` will mark as ``CONFLICT``.
+
+        Args:
+            rel: Path of the source file relative to ``docs_root``.
+
+        Returns:
+            Canonical URL string (always starts and ends with ``/``).
+        """
+        use_dir = self._doc_config.get("use_directory_urls", True)
+        stem = rel.with_suffix("")
+        parts = list(stem.parts)
+        if not parts:
+            return "/"
+        # index.md and README.md both collapse to the parent directory URL
+        if parts[-1] in ("index", "README"):
+            parts = parts[:-1]
+        if not parts:
+            return "/"
+        if use_dir:
+            return "/" + "/".join(parts) + "/"
+        return "/" + "/".join(parts) + ".html"
+
+    def classify_route(self, rel: Path, nav_paths: frozenset[str]) -> RouteStatus:
+        """Classify a MkDocs route as REACHABLE, ORPHAN_BUT_EXISTING, or IGNORED.
+
+        Classification rules (in priority order):
+
+        0. No nav declared (``nav_paths`` empty) → all files ``REACHABLE``
+           (MkDocs auto-includes every page when ``nav:`` is absent), except
+           ``README.md`` which is always ``IGNORED``.
+        1. ``README.md`` **not** listed in nav → ``IGNORED``.
+        2. File in nav_paths (or is a locale shadow of a nav page) → ``REACHABLE``.
+        3. Otherwise → ``ORPHAN_BUT_EXISTING``.
+
+        Args:
+            rel:       Source path relative to ``docs_root``.
+            nav_paths: Nav-listed ``.md`` paths from ``get_nav_paths()``.
+
+        Returns:
+            ``RouteStatus`` literal (never ``'CONFLICT'``).
+        """
+        rel_posix = rel.as_posix()
+
+        # When no nav is declared in mkdocs.yml, MkDocs auto-includes every
+        # page — equivalent to every file being REACHABLE.  Only README.md
+        # is still excluded (MkDocs never auto-promotes it).
+        if not nav_paths:
+            if rel.name == "README.md":
+                return "IGNORED"
+            return "REACHABLE"
+
+        # README.md not in nav → IGNORED (MkDocs does not auto-promote it)
+        if rel.name == "README.md" and rel_posix not in nav_paths:
+            return "IGNORED"
+
+        if rel_posix in nav_paths:
+            return "REACHABLE"
+
+        # Locale shadows inherit their nav membership from the default locale
+        if self.is_shadow_of_nav_page(rel, nav_paths):
+            return "REACHABLE"
+
+        return "ORPHAN_BUT_EXISTING"
 
     @classmethod
     def from_repo(

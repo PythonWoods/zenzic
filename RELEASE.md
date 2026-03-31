@@ -3,8 +3,8 @@
 
 # Zenzic v0.4.0: The Agnostic Framework for Documentation Integrity
 
-**Release date:** 2026-03-29
-**Status:** Release Candidate 3 — ready for shipment
+**Release date:** 2026-03-31
+**Status:** Release Candidate 4 — routing-aware, pre-release freeze
 
 ---
 
@@ -290,7 +290,7 @@ Key structural changes:
   [Custom Rules DSL](docs/configuration/custom-rules-dsl.md).
 - **Italian parity** — `docs/it/` now mirrors the full English structure. The documentation
   is production-ready for international teams.
-- **Migration guide** — [MkDocs → Zensical](docs/guides/migration.md) four-phase workflow with
+- **Migration guide** — [MkDocs → Zensical](docs/guide/migration.md) four-phase workflow with
   the baseline/diff/gate approach as the migration safety net.
 - **Adapter guide** — [Writing an Adapter](docs/developers/writing-an-adapter.md) full
   protocol reference, `from_repo` pattern, entry-point registration, and test utilities.
