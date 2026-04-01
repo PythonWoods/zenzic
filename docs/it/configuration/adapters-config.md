@@ -94,6 +94,62 @@ con codice 1.
 
 ---
 
+## Coesistenza dei motori (`mkdocs.yml` + `zensical.toml` nella stessa repo)
+
+Alcune repository contengono sia `mkdocs.yml` che `zensical.toml` durante una transizione.
+
+Zenzic **non** rileva automaticamente quale file è presente.  L'adapter attivo è sempre
+determinato da `build_context.engine` in `zenzic.toml`: se è dichiarato `engine = "mkdocs"`,
+Zenzic legge `mkdocs.yml` anche quando esiste anche `zensical.toml`, e viceversa.
+
+Se `build_context` è assente da `zenzic.toml`, il default è `engine = "mkdocs"`, quindi
+`MkDocsAdapter` viene usato indipendentemente dalla presenza di `zensical.toml`.
+
+!!! warning "L'ambiguità è esplicita, non silenziosa"
+    Zenzic non sceglie per te.  Quando entrambi i file di configurazione esistono e non hai
+    impostato `engine = "zensical"`, stai usando il MkDocs adapter.  Questo è intenzionale:
+    **l'identità del motore deve essere una dichiarazione deliberata**, non un'inferenza.
+
+```toml
+# zenzic.toml — dichiarazione esplicita del motore richiesta
+[build_context]
+engine = "zensical"   # ← questa riga attiva ZensicalAdapter
+```
+
+---
+
+## `ZensicalAdapter` — riferimento al formato nav
+
+`ZensicalAdapter` legge tutta la navigazione da `[project].nav` in `zensical.toml`
+(Zensical v0.0.31+).  Tre forme di voci nav sono supportate e liberamente mescolabili:
+
+```toml
+[project]
+site_name = "La Mia Documentazione"
+docs_dir  = "docs"
+nav = [
+    "index.md",                          # stringa semplice — titolo inferito dall'H1
+    {"Guida" = "guide.md"},              # pagina con titolo
+    {"API" = [                            # sezione con pagine annidate
+        "api/index.md",
+        {"Endpoint" = "api/endpoints.md"},
+    ]},
+    {"GitHub" = "https://github.com/x"},  # link esterno — ignorato dall'estrattore nav
+]
+```
+
+**Classificazione delle route con nav esplicita:** Quando `[project].nav` è presente e
+non vuota, qualsiasi file `.md` che esiste su disco ma è assente dalla nav viene
+classificato `ORPHAN_BUT_EXISTING`.
+
+**Classificazione delle route senza nav:** Quando `[project].nav` è assente o vuota,
+ogni file è classificato `REACHABLE` — si applica il routing filesystem-based di Zensical.
+
+**`use_directory_urls`:** Zensical usa URL in stile directory per default (`/pagina/`).
+Impostare `use_directory_urls = false` in `[project]` per passare agli URL flat (`/pagina.html`).
+
+---
+
 ## Adapter di terze parti
 
 Gli adapter di terze parti si scoprono automaticamente una volta installati come pacchetti Python.

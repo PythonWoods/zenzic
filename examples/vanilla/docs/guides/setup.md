@@ -30,7 +30,7 @@ docs_dir = "docs"
 ```
 
 That is the entire required configuration. Run `zenzic check all` — Zenzic will
-validate links, snippets, placeholders, and assets across every `.md` file under
+validate links, snippets, content quality, and assets across every `.md` file under
 `docs/`.
 
 ## Adding custom rules
@@ -39,10 +39,10 @@ Extend enforcement without writing Python:
 
 ```toml
 [[custom_rules]]
-id       = "ZZ-NOFIXME"
-pattern  = "(?i)\\bFIXME\\b"
-message  = "FIXME markers must be resolved before publishing."
-severity = "error"
+id       = "ZZ-NOHTML"
+pattern  = "<(?!--)[a-zA-Z]"
+message  = "Avoid raw HTML in Markdown — use native Markdown syntax instead."
+severity = "warning"
 ```
 
 ## Next steps

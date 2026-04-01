@@ -70,6 +70,24 @@ Questo rende l'output di Zenzic un **certificato di qualità portabile**: se Zen
 tua documentazione è strutturalmente corretta, questa affermazione è vera indipendentemente da
 quale motore userai per renderizzarla domani.
 
+### Modello di resilienza per MkDocs 2.0
+
+Se MkDocs 2.0 uscisse domani con breaking changes, un utente Zenzic manterrebbe comunque
+un quality gate stabile sui sorgenti MkDocs 1.x esistenti.
+
+Motivi tecnici:
+
+- `MkDocsAdapter` interpreta `mkdocs.yml` come dato statico, senza importare MkDocs.
+- Zenzic non esegue mai codice plugin; legge solo la configurazione.
+- Tag YAML sconosciuti e chiavi future sono trattati in modo tollerante.
+
+Risultato: la pipeline di validazione non dipende dal ciclo di vita di un singolo
+binario di build. Puoi continuare a validare lo standard MkDocs 1.x mentre valuti
+la migrazione.
+
+Per un benchmark pratico usa il fixture `examples/mkdocs-basic/`, allineato ai pattern
+nav ufficiali MkDocs 1.6 (sezioni annidate, entry con titolo, link esterni).
+
 ---
 
 ## i18n: validare la struttura indipendentemente dal rendering
@@ -225,14 +243,13 @@ locales        = ["it"]
 E crea un `zensical.toml` minimale nella root del repository:
 
 ```toml
-# zensical.toml
-[site]
-name = "La Mia Documentazione"
-
-[nav]
+# zensical.toml  (Zensical v0.0.31+)
+[project]
+site_name = "La Mia Documentazione"
+docs_dir  = "docs"
 nav = [
-    {title = "Home",  file = "index.md"},
-    {title = "Guida", file = "guide.md"},
+    "index.md",
+    {"Guida" = "guide.md"},
 ]
 ```
 

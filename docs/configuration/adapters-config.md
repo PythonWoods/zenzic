@@ -123,6 +123,71 @@ Install a third-party adapter or choose from the list above.
 
 ---
 
+## Engine coexistence (`mkdocs.yml` + `zensical.toml` in the same repo)
+
+Some repositories carry both `mkdocs.yml` and `zensical.toml` during a transition — one
+build test-running Zensical while the other keeps serving production on MkDocs.
+
+Zenzic does **not** auto-detect which file is present.  The active adapter is always
+determined by `build_context.engine` in `zenzic.toml`:  if `engine = "mkdocs"` is
+declared, Zenzic reads `mkdocs.yml` even when `zensical.toml` also exists, and vice versa.
+
+If `build_context` is absent from `zenzic.toml`, the default is `engine = "mkdocs"`, so
+`MkDocsAdapter` is used regardless of whether `zensical.toml` is present.  This is the
+safe default — it never silently switches engines.
+
+!!! warning "Ambiguity is explicit, not silent"
+    Zenzic will not choose for you.  When both config files exist and you have not set
+    `engine = "zensical"`, you are running with the MkDocs adapter.  This is intentional:
+    **engine identity must be a deliberate declaration**, not an inference.
+
+```toml
+# zenzic.toml — explicit engine declaration required
+[build_context]
+engine = "zensical"   # ← this line is what activates ZensicalAdapter
+```
+
+---
+
+## `ZensicalAdapter` — nav format reference
+
+`ZensicalAdapter` reads all navigation from `[project].nav` in `zensical.toml`
+(Zensical v0.0.31+).  Three nav entry forms are supported and freely mixable:
+
+```toml
+[project]
+site_name = "My Docs"
+docs_dir  = "docs"
+nav = [
+    "index.md",                          # plain string — title inferred from H1
+    {"Guide" = "guide.md"},              # titled page
+    {"API" = [                            # section with nested pages
+        "api/index.md",
+        {"Endpoints" = "api/endpoints.md"},
+    ]},
+    {"GitHub" = "https://github.com/x"},  # external link — skipped by nav extractor
+]
+```
+
+**Route classification with explicit nav:** When `[project].nav` is present and non-empty,
+any `.md` file that exists on disk but is absent from the nav list is classified
+`ORPHAN_BUT_EXISTING` — the file is served by Zensical (filesystem routing) but is not
+reachable via sidebar navigation.
+
+**Route classification without nav:** When `[project].nav` is absent or empty, every file
+is classified `REACHABLE` — Zensical's default filesystem-based routing applies.
+
+**`use_directory_urls`:** Zensical defaults to directory-style URLs (`/page/`).  Set
+`use_directory_urls = false` under `[project]` to switch to flat URLs (`/page.html`).  The
+adapter reads this flag and adjusts `map_url()` accordingly.
+
+```toml
+[project]
+use_directory_urls = false   # /page.html instead of /page/
+```
+
+---
+
 ## Third-party adapters
 
 Third-party adapters (e.g. `zenzic-hugo-adapter`) are discovered automatically once installed as

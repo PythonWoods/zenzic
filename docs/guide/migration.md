@@ -69,6 +69,23 @@ This makes Zenzic's output a portable quality certificate: if Zenzic says your
 documentation is structurally sound, that claim is true independently of which engine you
 use to render it tomorrow.
 
+### MkDocs 2.0 resilience model
+
+If MkDocs 2.0 ships tomorrow with breaking changes, a Zenzic user still keeps a stable
+quality gate for existing MkDocs 1.x sources.
+
+Why this holds technically:
+
+- `MkDocsAdapter` parses `mkdocs.yml` as static data and does not import MkDocs.
+- Zenzic never executes plugin code; plugin sections are read as plain config.
+- Unknown YAML tags and future keys are tolerated by a permissive loader.
+
+Result: your validation pipeline does not depend on the lifecycle of a single build
+binary. You can keep linting MkDocs 1.x conventions while evaluating migration paths.
+
+For a concrete baseline, use the fixture at `examples/mkdocs-basic/`, which mirrors
+official MkDocs 1.6 nav patterns (nested sections, titled entries, external links).
+
 ---
 
 ## i18n: validating structure independently of rendering
@@ -222,14 +239,13 @@ locales        = ["it"]   # if you have non-default locale dirs
 And create a minimal `zensical.toml` at the repository root:
 
 ```toml
-# zensical.toml
-[site]
-name = "My Documentation"
-
-[nav]
+# zensical.toml  (Zensical v0.0.31+)
+[project]
+site_name = "My Documentation"
+docs_dir  = "docs"
 nav = [
-    {title = "Home",  file = "index.md"},
-    {title = "Guide", file = "guide.md"},
+    "index.md",
+    {"Guide" = "guide.md"},
 ]
 ```
 

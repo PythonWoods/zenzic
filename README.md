@@ -42,6 +42,21 @@ absolute links are a hard error, and if you declare `engine = "zensical"` you mu
 
 ---
 
+## RC5 Highlights (v0.4.0-rc5)
+
+- **Zensical v0.0.31+ sync**: `ZensicalAdapter` now reads navigation from
+  `[project].nav` (official TOML schema), including nested sections.
+- **Nav-aware routing**: with explicit nav, files present on disk but absent from nav are
+  classified as `ORPHAN_BUT_EXISTING`.
+- **URL mode parity**: `map_url()` now respects `[project].use_directory_urls = false`
+  (`/page.html`) and default directory URLs (`/page/`).
+- **Parallel scan API documented**: shared-nothing `ProcessPoolExecutor` model,
+  honest overhead notes, and picklability requirements for custom rules.
+- **New canonical example**: `examples/zensical-basic/` mirrors the documented TOML
+  schema and migration flow.
+
+---
+
 ## 📖 Documentation
 
 Zenzic provides an extensive, engineering-grade documentation portal:

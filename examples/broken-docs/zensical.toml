@@ -1,19 +1,17 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
-# zensical.toml — matches the schema used by the main Zenzic project.
-# api.md is intentionally absent from [nav] to demonstrate the orphan check.
-
-scope = "project"
+# zensical.toml — Zensical v0.0.31+ schema.
+# api.md is intentionally absent from [project].nav to demonstrate the orphan check.
 
 [project]
 site_name = "Broken Docs Example"
 description = "Intentionally broken documentation site — demonstrates all five Zenzic checks"
+docs_dir = "docs"
 
 [project.theme]
 name = "material"
 
-[nav]
 nav = [
-  {title = "Home",     file = "index.md"},
-  {title = "Tutorial", file = "tutorial.md"}
+  "index.md",
+  {"Tutorial" = "tutorial.md"}
 ]

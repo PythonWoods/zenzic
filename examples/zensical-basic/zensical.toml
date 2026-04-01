@@ -1,0 +1,30 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+#
+# zensical.toml — minimal Zensical v0.0.31+ project configuration.
+#
+# All settings live under the [project] scope.
+# Navigation supports three entry forms, freely mixed:
+#   - plain string              → title inferred from the first H1
+#   - {"Title" = "file.md"}    → titled page
+#   - {"Section" = [...]}      → nested section
+#
+# Zenzic reads this file to:
+#   1. Extract nav paths for ORPHAN_BUT_EXISTING detection.
+#   2. Derive use_directory_urls for canonical URL computation.
+#
+# Target: zenzic check all → SUCCESS
+
+[project]
+site_name = "Zensical Basic Example"
+site_url  = "https://example.com/"
+docs_dir  = "docs"
+
+nav = [
+    "index.md",
+    {"Guide"    = "guide.md"},
+    {"API"      = [
+        "api/index.md",
+        {"Endpoints" = "api/endpoints.md"},
+    ]},
+]

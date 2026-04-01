@@ -10,11 +10,13 @@ consumers of the adapter API and never import from this module directly.
 from __future__ import annotations
 
 import logging
+import os
 import re
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import yaml
+from yaml.nodes import MappingNode, ScalarNode, SequenceNode
 
 from zenzic.core.adapters._utils import remap_to_default_locale
 from zenzic.core.exceptions import ConfigurationError
@@ -35,7 +37,100 @@ class _PermissiveYamlLoader(yaml.SafeLoader):
     """SafeLoader that silently ignores unknown tags (e.g. MkDocs ``!ENV``)."""
 
 
-_PermissiveYamlLoader.add_multi_constructor("", lambda loader, tag_suffix, node: None)  # type: ignore[no-untyped-call]
+def _construct_unknown_tag(
+    loader: _PermissiveYamlLoader,
+    tag_suffix: str,
+    node: ScalarNode | SequenceNode | MappingNode,
+) -> Any:
+    """Best-effort constructor for unknown YAML tags.
+
+    MkDocs projects often use custom tags from plugins. Zenzic must remain
+    tolerant and preserve structure rather than dropping values to ``None``.
+    """
+    if isinstance(node, ScalarNode):
+        return loader.construct_scalar(node)
+    if isinstance(node, SequenceNode):
+        return loader.construct_sequence(node)
+    return loader.construct_mapping(node)
+
+
+def _construct_env_tag(
+    loader: _PermissiveYamlLoader,
+    node: ScalarNode | SequenceNode | MappingNode,
+) -> Any:
+    """Resolve MkDocs !ENV tag with graceful fallback semantics.
+
+    Supported forms:
+    - ``!ENV VAR``
+    - ``!ENV [VAR, default]``
+    - ``!ENV [VAR1, VAR2, default]``
+    """
+    if isinstance(node, ScalarNode):
+        key = loader.construct_scalar(node)
+        return os.getenv(key)
+
+    if isinstance(node, SequenceNode):
+        values = loader.construct_sequence(node)
+        if not values:
+            return None
+        if len(values) == 1:
+            return os.getenv(str(values[0]))
+
+        *keys, default = values
+        for key in keys:
+            if not isinstance(key, str):
+                continue
+            val = os.getenv(key)
+            if val is not None:
+                return val
+        return default
+
+    # Defensive fallback for malformed usage.
+    return loader.construct_mapping(node)
+
+
+def _construct_relative_tag(
+    loader: _PermissiveYamlLoader,
+    node: ScalarNode | SequenceNode | MappingNode,
+) -> Any:
+    """Preserve !relative payload as plain data for static analysis."""
+    if isinstance(node, ScalarNode):
+        return loader.construct_scalar(node)
+    if isinstance(node, SequenceNode):
+        return loader.construct_sequence(node)
+    return loader.construct_mapping(node)
+
+
+_PermissiveYamlLoader.add_constructor("!ENV", _construct_env_tag)
+_PermissiveYamlLoader.add_constructor("!relative", _construct_relative_tag)
+_PermissiveYamlLoader.add_multi_constructor("!", _construct_unknown_tag)  # type: ignore[no-untyped-call]
+
+
+def _iter_plugins(doc_config: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
+    """Return normalized plugin declarations from list or mapping syntax.
+
+    MkDocs supports both:
+    - list syntax: ``plugins: [search, {i18n: {...}}]``
+    - mapping syntax: ``plugins: {search: {}, i18n: {...}}``
+    """
+    raw = doc_config.get("plugins", [])
+    normalized: list[tuple[str, dict[str, Any]]] = []
+
+    if isinstance(raw, list):
+        for item in raw:
+            if isinstance(item, str):
+                normalized.append((item, {}))
+                continue
+            if isinstance(item, dict):
+                for name, cfg in item.items():
+                    normalized.append((name, cfg if isinstance(cfg, dict) else {}))
+        return normalized
+
+    if isinstance(raw, dict):
+        for name, cfg in raw.items():
+            normalized.append((name, cfg if isinstance(cfg, dict) else {}))
+
+    return normalized
 
 
 # ── Config discovery & loading ────────────────────────────────────────────────
@@ -75,14 +170,8 @@ def _extract_i18n_locale_patterns(doc_config: dict[str, Any]) -> set[str]:
     are silently rejected.
     """
     patterns: set[str] = set()
-    plugins = doc_config.get("plugins", [])
-    if not isinstance(plugins, list):
-        return patterns
-    for plugin in plugins:
-        if not isinstance(plugin, dict):
-            continue
-        i18n_config = plugin.get("i18n")
-        if not isinstance(i18n_config, dict):
+    for name, i18n_config in _iter_plugins(doc_config):
+        if name != "i18n":
             continue
         if i18n_config.get("docs_structure") != "suffix":
             break
@@ -114,14 +203,8 @@ def _extract_i18n_locale_dirs(doc_config: dict[str, Any]) -> set[str]:
         Set of non-default locale directory names, e.g. ``{'it', 'fr'}``.
     """
     dirs: set[str] = set()
-    plugins = doc_config.get("plugins", [])
-    if not isinstance(plugins, list):
-        return dirs
-    for plugin in plugins:
-        if not isinstance(plugin, dict):
-            continue
-        i18n_config = plugin.get("i18n")
-        if not isinstance(i18n_config, dict):
+    for name, i18n_config in _iter_plugins(doc_config):
+        if name != "i18n":
             continue
         if i18n_config.get("docs_structure") != "folder":
             break
@@ -156,14 +239,8 @@ def _extract_i18n_reconfigure_material(doc_config: dict[str, Any]) -> bool:
         ``True`` when ``reconfigure_material: true`` is set on the i18n plugin
         block with ``docs_structure: folder``; ``False`` otherwise.
     """
-    plugins = doc_config.get("plugins", [])
-    if not isinstance(plugins, list):
-        return False
-    for plugin in plugins:
-        if not isinstance(plugin, dict):
-            continue
-        i18n_config = plugin.get("i18n")
-        if not isinstance(i18n_config, dict):
+    for name, i18n_config in _iter_plugins(doc_config):
+        if name != "i18n":
             continue
         if i18n_config.get("docs_structure") != "folder":
             return False
@@ -204,14 +281,8 @@ def _extract_i18n_fallback_to_default(doc_config: dict[str, Any]) -> bool:
     Returns ``True`` (the plugin default) when the setting is absent or
     the plugin block cannot be found.
     """
-    plugins = doc_config.get("plugins", [])
-    if not isinstance(plugins, list):
-        return True
-    for plugin in plugins:
-        if not isinstance(plugin, dict):
-            continue
-        i18n_config = plugin.get("i18n")
-        if not isinstance(i18n_config, dict):
+    for name, i18n_config in _iter_plugins(doc_config):
+        if name != "i18n":
             continue
         return bool(i18n_config.get("fallback_to_default", True))
     return True
@@ -227,14 +298,8 @@ def _validate_i18n_fallback_config(doc_config: dict[str, Any]) -> None:
         :class:`~zenzic.core.exceptions.ConfigurationError`: When the i18n plugin
             requires fallback but cannot determine the fallback target locale.
     """
-    plugins = doc_config.get("plugins")
-    if not isinstance(plugins, list):
-        return
-    for plugin in plugins:
-        if not isinstance(plugin, dict):
-            continue
-        i18n = plugin.get("i18n")
-        if not isinstance(i18n, dict):
+    for name, i18n in _iter_plugins(doc_config):
+        if name != "i18n":
             continue
         if i18n.get("docs_structure") != "folder":
             break

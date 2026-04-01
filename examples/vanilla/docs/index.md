@@ -6,7 +6,7 @@
 This project has no build engine. There is no `mkdocs.yml`, no `zensical.toml`,
 no Hugo config, no Docusaurus config. Just Markdown files and a `zenzic.toml`.
 
-Zenzic runs in **Vanilla mode**: links, snippets, placeholders, assets, and custom
+Zenzic runs in **Vanilla mode**: links, snippets, content quality, assets, and custom
 rules are all checked. The orphan check is skipped — with no declared navigation,
 every file is reachable by definition.
 

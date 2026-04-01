@@ -162,9 +162,10 @@ def test_find_orphans_invalid_yaml(tmp_path: Path) -> None:
     docs.mkdir(parents=True)
     (repo / "mkdocs.yml").write_text("nav: [: invalid")
     (docs / "page.md").touch()
-    # Should not raise; falls back to empty nav → all files are orphans
+    # Should not raise; falls back to empty nav and MkDocs semantics treat
+    # the site as filesystem-driven rather than synthesizing orphans.
     orphans = find_orphans(repo)
-    assert any(p.name == "page.md" for p in orphans)
+    assert orphans == []
 
 
 def test_find_orphans_symlink_skipped(tmp_path: Path) -> None:
@@ -242,6 +243,24 @@ def test_find_orphans_excluded_file_patterns(tmp_path: Path) -> None:
     config = ZenzicConfig(excluded_file_patterns=["*.it.md"])
     orphans = find_orphans(repo, config)
     assert orphans == []
+
+
+def test_find_orphans_respects_mkdocs_route_classification(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    docs = repo / "docs"
+    (docs / "guide").mkdir(parents=True)
+    nav = {"nav": [{"Docs": [{"Overview": "guide/index.md"}]}]}
+    with (repo / "mkdocs.yml").open("w") as f:
+        yaml.dump(nav, f)
+
+    (docs / "guide" / "index.md").write_text("# Overview\n")
+    (docs / "guide" / "orphan.md").write_text("# Orphan\n")
+
+    orphans = find_orphans(repo)
+    orphan_paths = {p.as_posix() for p in orphans}
+
+    assert "guide/index.md" not in orphan_paths
+    assert "guide/orphan.md" in orphan_paths
 
 
 def test_extract_i18n_locale_patterns_suffix_mode() -> None:

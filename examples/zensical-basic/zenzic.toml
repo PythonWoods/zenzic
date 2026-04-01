@@ -1,0 +1,21 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+#
+# zenzic.toml — Zenzic configuration for the zensical-basic example.
+#
+# Declares engine = "zensical", which activates ZensicalAdapter.
+# ZensicalAdapter reads navigation from [project].nav in zensical.toml.
+#
+# Enforcement contract: zensical.toml MUST exist when engine = "zensical".
+# Zenzic raises ConfigurationError immediately if it is absent.
+#
+# Target: zenzic check all → SUCCESS
+
+docs_dir = "docs"
+
+# Minimum quality score. Zenzic exits 1 if the measured score drops below
+# this threshold. Set to 0 to disable the check.
+fail_under = 90
+
+[build_context]
+engine = "zensical"

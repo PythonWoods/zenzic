@@ -28,6 +28,21 @@ stesso punteggio deterministico. Questo paradigma garantisce che Zenzic rimanga 
 definitivo della tua pipeline di deployment, indipendentemente dal generatore di siti che adotterai
 domani.
 
+### Safe Harbor e resilienza a MkDocs 2.0
+
+Il ruolo di Zenzic e essere il punto stabile quando il framework cambia. Se il futuro di
+MkDocs 2.0 introduce rotture incompatibili, i progetti MkDocs 1.x non devono perdere il
+proprio quality gate.
+
+Per questo Zenzic mantiene tre garanzie operative:
+
+- continua a validare `mkdocs.yml` come contratto sorgente, senza dipendere dal binario;
+- non esegue plugin e non richiede il runtime del motore per produrre findings;
+- tratta in modo tollerante chiavi e tag YAML sconosciuti, preservando la continuita
+ della validazione durante le transizioni.
+
+In sintesi: puoi rimandare una migrazione senza rimandare la qualita.
+
 ### La Sentinella Silenziosa
 
 Un linter vale l'accuratezza con cui evita i falsi positivi. Quando gli strumenti sollevano allarmi ingiustificati, gli sviluppatori imparano a ignorarli.

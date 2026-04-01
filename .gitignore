@@ -94,7 +94,7 @@ dmypy.json
 .cache/
 zenzic_report/      # Optional HTML report exports from zenzic
 .zenzic_cache/      # Reserved for a future linter cache
-# Local score snapshot — commit intentionally on main to share a team baseline
+# Zenzic quality scores — derived local metadata, never committed
 .zenzic-score.json
 
 # ────────────────────────────────────────────────────────────────────────────

@@ -10,6 +10,17 @@ icon: lucide/play
 Zenzic reads directly from the filesystem and works with any Markdown-based project. Use it
 in local development, as a pre-commit hook, in CI pipelines, or for one-off audits.
 
+## Canonical examples
+
+The repository ships maintained fixtures that mirror the documented contracts:
+
+- `examples/mkdocs-basic/` — MkDocs 1.6 baseline (nested nav, external nav link,
+  tolerant YAML tags like `!ENV` and `!relative`).
+- `examples/i18n-standard/` — strict bilingual gold standard.
+- `examples/zensical-basic/` — Zensical v0.0.31+ baseline (`[project].nav`).
+- `examples/broken-docs/` — intentional failures (exit 1).
+- `examples/security_lab/` — security fixture (Shield exit 2).
+
 !!! tip "Just want to run it now?"
 
     ```bash

@@ -68,11 +68,20 @@
   }
 }
 
+/* On medium desktop widths, prioritise native header controls (language, search, source). */
+@media screen and (max-width: 76.234375em) {
+  .zz-home-nav {
+    display: none;
+  }
+}
+
 .zz-home-nav {
   display: flex;
   align-items: center;
   gap: 0.25rem;
-  margin: 0 auto;
+  margin-left: 1rem;
+  margin-right: auto;
+  min-width: 0;
 }
 
 .zz-home-nav__link {
