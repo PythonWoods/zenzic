@@ -90,39 +90,33 @@ in local development, as a pre-commit hook, in CI pipelines, or for one-off audi
 
     Standard dev-dependency pattern with a project-local virtual environment.
 
-### MkDocs validation — `zenzic[docs]` extra
+### The `zenzic[docs]` extra — for rendering, not linting
 
-Zenzic's core engine is dependency-free by design: validating links, snippets, references,
-and the Shield requires nothing beyond `zenzic` itself. The MkDocs stack (Material theme,
-plugins, etc.) is only needed to **render** your documentation — not to lint it.
+Zenzic reads `mkdocs.yml` as plain YAML using its own `_PermissiveYamlLoader` (a
+`yaml.SafeLoader` subclass that silently ignores engine-specific tags like `!ENV`). It
+**does not import `mkdocs`, `mkdocs-material`, or any plugin package** to parse your
+configuration. PyYAML is a core dependency — no extra required.
 
-If your project uses `mkdocs.yml` and you want to validate it as part of the Zenzic checks,
-install the optional extra:
+The `[docs]` extra (`mkdocs-material`, `mkdocstrings`, `mkdocs-minify-plugin`,
+`mkdocs-static-i18n`) is the build stack used to **render Zenzic's own documentation
+site**. It is a contributor dependency, not a user dependency:
 
-=== ":simple-astral: uv"
+- **Linting your MkDocs project:** install `zenzic` only.
+- **Building Zenzic's documentation site locally:** install `zenzic[docs]`.
 
-    ```bash
-    # Add the [docs] extra alongside Zenzic
-    uv add --dev "zenzic[docs]"
+```bash
+# Lint any MkDocs project — no extras needed
+uvx zenzic check all
 
-    # Or as an ephemeral run:
-    uvx "zenzic[docs]" check all
-    ```
+# Build Zenzic's own docs site (contributor workflow only)
+uv add --dev "zenzic[docs]"
+mkdocs serve
+```
 
-=== ":simple-pypi: pip"
-
-    ```bash
-    pip install "zenzic[docs]"
-    ```
-
-The `[docs]` extra installs `mkdocs-material`, `mkdocstrings`, `mkdocs-minify-plugin`, and
-`mkdocs-static-i18n` — the same stack used to build Zenzic's own documentation site. If you
-**only** run `zenzic check all` without rendering the site, skip the extra entirely.
-
-!!! note "Hugo, Zensical, and other engines"
-    The `[docs]` extra is specific to MkDocs. For Zensical and other engine adapters, install
-    the corresponding third-party adapter package (e.g. `pip install zenzic-hugo-adapter`).
-    No extra is required for `VanillaAdapter` (plain Markdown folders).
+!!! note "Third-party engine adapters"
+    Third-party adapters (e.g. a hypothetical `zenzic-hugo-adapter`) are separate
+    installable packages — not extras of `zenzic` itself. No extra is required for
+    `VanillaAdapter` (plain Markdown folders).
 
 ---
 
@@ -186,12 +180,13 @@ With the baseline established, run Zenzic on every commit and pull request:
 
 ```bash
 # Pre-commit hook or CI step
+# --strict: validate external URLs + treat warnings as errors
 zenzic check all --strict
 
 # Save a quality baseline on main
 zenzic score --save
 
-# Block PRs that regress the baseline
+# Block PRs that regress the baseline by more than 5 points
 zenzic diff --threshold 5
 ```
 
@@ -212,6 +207,10 @@ root, Zenzic loads the corresponding **adapter** which provides:
 - **i18n fallback** — cross-locale links are resolved correctly instead of being flagged as broken.
 - **Locale directory suppression** — files under `docs/it/`, `docs/fr/`, etc. are not reported
   as orphans.
+- **Ghost Routes** — when `mkdocs-material` with `reconfigure_material: true` generates locale
+  entry points (e.g. `/it/`) at build time, those pages never appear in `nav:`. Zenzic
+  marks them `REACHABLE` automatically in the [Virtual Site Map](../architecture.md#virtual-site-map-vsm)
+  so they are never reported as false orphans — with no manual exclusion list required.
 
 ### Vanilla mode
 

@@ -90,39 +90,33 @@ Usalo in locale, come hook di pre-commit, nelle pipeline CI o per audit una-tant
 
     Pattern standard da dipendenza dev con virtual environment locale al progetto.
 
-### Validazione MkDocs — extra `zenzic[docs]`
+### L'extra `zenzic[docs]` — per il rendering, non per il linting
 
-Il core engine di Zenzic è privo di dipendenze per design: validare link, snippet, riferimenti
-e Shield richiede solo `zenzic`. Lo stack MkDocs (tema Material, plugin, ecc.) è necessario
-solo per **renderizzare** la documentazione — non per validarla.
+Zenzic legge `mkdocs.yml` come YAML semplice tramite il proprio `_PermissiveYamlLoader`
+(una sottoclasse di `yaml.SafeLoader` che ignora silenziosamente i tag specifici degli
+engine come `!ENV`). **Non importa `mkdocs`, `mkdocs-material` né alcun pacchetto plugin**
+per analizzare la configurazione. PyYAML è una dipendenza core — nessun extra necessario.
 
-Se il tuo progetto usa `mkdocs.yml` e vuoi che Zenzic lo validi come parte dei controlli,
-installa l'extra opzionale:
+L'extra `[docs]` (`mkdocs-material`, `mkdocstrings`, `mkdocs-minify-plugin`,
+`mkdocs-static-i18n`) è lo stack di build usato per **renderizzare il sito di
+documentazione di Zenzic stesso**. È una dipendenza per i contributori, non per gli utenti:
 
-=== ":simple-astral: uv"
+- **Fare il lint del tuo progetto MkDocs:** installa solo `zenzic`.
+- **Buildare il sito di documentazione di Zenzic localmente:** installa `zenzic[docs]`.
 
-    ```bash
-    # Aggiungi l'extra [docs] insieme a Zenzic
-    uv add --dev "zenzic[docs]"
+```bash
+# Fare il lint di qualsiasi progetto MkDocs — nessun extra necessario
+uvx zenzic check all
 
-    # Oppure come esecuzione temporanea:
-    uvx "zenzic[docs]" check all
-    ```
+# Buildare il sito docs di Zenzic (solo workflow contributori)
+uv add --dev "zenzic[docs]"
+mkdocs serve
+```
 
-=== ":simple-pypi: pip"
-
-    ```bash
-    pip install "zenzic[docs]"
-    ```
-
-L'extra `[docs]` installa `mkdocs-material`, `mkdocstrings`, `mkdocs-minify-plugin` e
-`mkdocs-static-i18n` — lo stesso stack usato per costruire il sito di documentazione di
-Zenzic. Se esegui solo `zenzic check all` senza renderizzare il sito, ometti l'extra.
-
-!!! note "Hugo, Zensical e altri engine"
-    L'extra `[docs]` è specifico per MkDocs. Per Zensical e altri adapter, installa il
-    pacchetto adapter di terze parti corrispondente (es. `pip install zenzic-hugo-adapter`).
-    Nessun extra è richiesto per `VanillaAdapter` (cartelle Markdown semplici).
+!!! note "Adapter di terze parti"
+    Gli adapter di terze parti (es. un ipotetico `zenzic-hugo-adapter`) sono pacchetti
+    installabili separati — non extra di `zenzic` stesso. Nessun extra è richiesto per
+    `VanillaAdapter` (cartelle Markdown semplici).
 
 ---
 
@@ -186,12 +180,13 @@ Con il baseline stabilito, esegui Zenzic su ogni commit e pull request:
 
 ```bash
 # Hook pre-commit o step CI
+# --strict: valida URL esterni + tratta i warning come errori
 zenzic check all --strict
 
-# Salva il baseline qualità sul branch main
+# Salva il baseline (punto di riferimento) qualità sul branch main
 zenzic score --save
 
-# Blocca le PR che regrediscono il baseline
+# Blocca le PR che regrediscono il baseline di più di 5 punti
 zenzic diff --threshold 5
 ```
 
