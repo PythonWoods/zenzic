@@ -11,7 +11,9 @@ name: Docs Lint
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - 'release/**'
     paths:
       - "docs/**"
       - "mkdocs.yml"
@@ -19,7 +21,9 @@ on:
       - "src/**"
       - ".github/workflows/zenzic.yml"
   pull_request:
-    branches: [main]
+    branches:
+      - main
+      - 'release/**'
     paths:
       - "docs/**"
       - "mkdocs.yml"

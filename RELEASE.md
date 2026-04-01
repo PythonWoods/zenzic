@@ -3,8 +3,8 @@
 
 # Zenzic v0.4.0: The Agnostic Framework for Documentation Integrity
 
-**Release date:** 2026-03-31
-**Status:** Release Candidate 4 — routing-aware, pre-release freeze
+**Release date:** 2026-04-01
+**Status:** Release Candidate 4 — routing-aware, VSM Rule Engine, pre-release freeze
 
 ---
 
@@ -55,6 +55,49 @@ into higher-order pipelines, and deterministic across environments.
 The score you get on a developer laptop is the score CI gets. The score CI gets is the score you
 track in version control. Determinism is not a feature; it is the foundation on which `zenzic diff`
 and regression detection are built.
+
+---
+
+## What's New in rc4
+
+### Ghost Routes — MkDocs Material i18n entry points
+
+When `reconfigure_material: true` is active in the i18n plugin, MkDocs Material
+auto-generates locale entry points (e.g. `it/index.md`) that never appear in `nav:`.
+The VSM now marks these as `REACHABLE` Ghost Routes, eliminating false orphan warnings
+on locale root pages. A `WARNING` is emitted when both `reconfigure_material: true`
+and `extra.alternate` are declared simultaneously (redundant configuration).
+
+### VSM Rule Engine — routing-aware lint rules
+
+`BaseRule` gains an optional `check_vsm()` interface. Rules that override it receive
+the full pre-built VSM and can validate links against routing state without any I/O.
+`RuleEngine.run_vsm()` dispatches all VSM-aware rules and converts `Violation` objects
+to the standard `RuleFinding` type for uniform output.
+
+The first built-in VSM rule — `VSMBrokenLinkRule` (code `Z001`) — validates all inline
+Markdown links against the VSM. A link is valid only when its target URL is present
+and `REACHABLE`. Both "not in VSM" and "UNREACHABLE_LINK" cases produce a structured
+`Violation` with file path, line number, and the offending source line as context.
+
+### Content-addressable cache (`CacheManager`)
+
+Rule results are now cached with SHA-256 keying:
+
+| Rule type | Cache key |
+| :--- | :--- |
+| Atomic (content only) | `SHA256(content) + SHA256(config)` |
+| Global (VSM-aware) | `SHA256(content) + SHA256(config) + SHA256(vsm_snapshot)` |
+
+Timestamps are never consulted — the cache is CI-safe by construction. Writes are
+atomic (`.tmp` rename). The cache is loaded once at startup and saved once at the end
+of a run; all in-run operations are pure in-memory.
+
+### Performance — O(N) torture tests (10k nodes)
+
+The VSM Rule Engine and cache infrastructure are validated at scale: 10,000 links all
+valid completes in < 1 s; 10,000 links all broken completes in < 1 s;
+`engine.run_vsm` with a 10,000-node VSM completes in < 0.5 s.
 
 ---
 
@@ -335,7 +378,7 @@ and `diff` Python APIs has been renamed to `output_format` — update any progra
 
 ```text
 zenzic check all   # self-dogfood: 7/7 OK
-pytest             # 446 passed, 0 failed
+pytest             # 529 passed, 0 failed
 coverage           # ≥ 80% (hard gate)
 ruff check .       # 0 violations
 mypy src/          # 0 errors

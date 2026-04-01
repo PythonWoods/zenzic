@@ -7,7 +7,7 @@ on:
   push:
     branches:
       - main
-      - release/0.4.0rc4
+      - 'release/**'
     paths:
       - 'docs/**'
       - 'mkdocs.yml'
