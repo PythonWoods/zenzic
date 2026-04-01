@@ -1,0 +1,23 @@
+{# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> #}
+{# SPDX-License-Identifier: Apache-2.0 #}
+{#
+  source.html — extends Material's default with a version fact row.
+  The version fact mirrors .md-source__facts (stars/forks) so it aligns
+  at the same left edge as those items (inside .md-source__repository).
+#}
+<a href="{{ config.repo_url }}" title="{{ lang.t('source') }}" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    {% set icon = config.theme.icon.repo or "fontawesome/brands/git-alt" %}
+    {% include ".icons/" ~ icon ~ ".svg" %}
+  </div>
+  <div class="md-source__repository">
+    <span class="zz-repo-name">{{ config.repo_name }}</span>
+    {% if config.extra.version %}
+      <ul class="md-source__facts zz-version-facts">
+        <li class="md-source__fact md-source__fact--version">
+          {{ config.extra.version }}
+        </li>
+      </ul>
+    {% endif %}
+  </div>
+</a>

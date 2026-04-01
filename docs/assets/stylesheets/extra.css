@@ -638,6 +638,36 @@
   border-bottom-color: var(--zz-muted-color);
 }
 
+/* ── Version fact in header source widget ─────────────────────────────────── */
+
+/* Layout: repo name on row 1, stars+version on row 2 side by side */
+.md-source__repository {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  row-gap: 0;
+}
+
+.zz-repo-name {
+  width: 100%;      /* forces repo name onto its own line */
+  order: 0;
+}
+
+/* JS-injected stars/forks <ul>: row 2, left */
+.md-source__repository > .md-source__facts:not(.zz-version-facts) {
+  order: 1;
+  margin-top: 0.1rem;
+  flex-shrink: 0;
+}
+
+/* Static version <ul>: row 2, right — separator via gap */
+.zz-version-facts {
+  order: 2;
+  margin-top: 0.1rem;
+  margin-left: 0.4rem;
+  flex-shrink: 0;
+}
+
 /* ── Footer copyright ─────────────────────────────────────────────────────── */
 
 .md-copyright__highlight {
