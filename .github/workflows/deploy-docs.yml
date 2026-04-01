@@ -16,6 +16,9 @@ on:
       - 'SECURITY.md'
       - 'noxfile.py'
       - '.github/workflows/deploy-docs.yml'
+  # Trigger on tags regardless of paths changed
+    tags:
+      - 'v*'
   pull_request:
     branches:
       - main
@@ -78,9 +81,13 @@ jobs:
         run: uv run mkdocs build --strict
 
       - name: Deploy to Cloudflare Pages
-        if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
+        # Allow deploy on push to main, workflow_dispatch, or version tags
+        if: |
+          (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+          (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy site --project-name=zenzic --branch=${{ github.ref_name }} --commit-dirty=true
+          # Use 'main' as the production branch for Cloudflare regardless of tag name
+          command: pages deploy site --project-name=zenzic --branch=main --commit-dirty=true
