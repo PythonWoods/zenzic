@@ -20,6 +20,37 @@ Two kinds of rules coexist in the same engine:
 Both kinds are applied through the same :class:`RuleEngine.run` interface so
 the scanner only sees one surface.
 
+Rule dependency taxonomy (🔌 Dev 3 — relevant for caching)
+-----------------------------------------------------------
+Rules divide into two classes based on their input dependencies.  This
+determines which cache-key components are required (see
+:mod:`zenzic.core.cache`):
+
+**Atomic rules** — depend only on the content of a single file and the
+active configuration.  Cache key: ``SHA256(content) + SHA256(config)``.
+These cache entries survive VSM changes caused by *other* files.
+
+Examples:
+
+* :class:`CustomRule` — regex applied line-by-line; no cross-file state.
+* Any :class:`BaseRule` subclass whose :meth:`check` inspects only ``text``.
+
+**Global rules** — depend on the VSM (routing table) in addition to file
+content and configuration.  Cache key:
+``SHA256(content) + SHA256(config) + SHA256(vsm_snapshot)``.  These entries
+are invalidated whenever *any* file's routing state changes.
+
+Examples:
+
+* :class:`VSMBrokenLinkRule` — validates links against ``vsm[url].status``.
+* Any :class:`BaseRule` subclass that overrides :meth:`check_vsm` and
+  consults the ``vsm`` or ``anchors_cache`` arguments.
+
+**Cross-file rules** (future) — depend on the content of *other* files, not
+just the routing state.  These cannot be cached per-file without a
+file-level dependency graph and must be treated as always-invalidated.
+No built-in rules of this type exist yet.
+
 Zenzic Way compliance
 ---------------------
 * **Lint the Source:** Rules receive raw Markdown text — never HTML.
@@ -32,10 +63,14 @@ from __future__ import annotations
 
 import re
 from abc import ABC, abstractmethod
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
+
+
+if TYPE_CHECKING:
+    from zenzic.models.vsm import VSM, Route
 
 
 # ─── Finding ──────────────────────────────────────────────────────────────────
@@ -71,6 +106,65 @@ class RuleFinding:
         return self.severity == "error"
 
 
+# ─── Violation (structured finding for VSM-aware rules) ──────────────────────
+
+
+@dataclass(slots=True)
+class Violation:
+    """A structured finding produced by a VSM-aware rule.
+
+    This is the richer counterpart to :class:`RuleFinding` for rules that
+    operate on the :data:`~zenzic.models.vsm.VSM` rather than on raw line
+    text.  Every field is mandatory so the CLI can render a consistent visual
+    snippet without any ``None`` guards.
+
+    Violation standard (🎨 Dev 2 specification):
+
+    * ``code``    — Stable machine-readable identifier in the form ``ZXXX``
+                    (e.g. ``Z001``).  Used in ``--ignore`` flags and
+                    suppressions inside ``zenzic.toml``.
+    * ``level``   — ``"error"`` blocks a clean exit; ``"warning"`` is
+                    reported but does not fail CI; ``"info"`` is purely
+                    informational.
+    * ``context`` — The raw Markdown source line that triggered the finding
+                    (stripped of leading/trailing whitespace), exactly as it
+                    appears in the source file.  Empty string only when the
+                    finding is not tied to a specific line (e.g. a
+                    file-level structural issue).
+
+    Attributes:
+        file_path:  Absolute path of the source file containing the violation.
+        line_no:    1-based line number of the offending content.
+        code:       Machine-readable violation code (e.g. ``"Z001"``).
+        message:    Human-readable description shown in the report.
+        level:      Severity — ``"error"``, ``"warning"``, or ``"info"``.
+        context:    Raw source line that triggered the violation (stripped).
+    """
+
+    file_path: Path
+    line_no: int
+    code: str
+    message: str
+    level: Severity = "error"
+    context: str = field(default="")
+
+    @property
+    def is_error(self) -> bool:
+        """``True`` when this violation blocks a passing check."""
+        return self.level == "error"
+
+    def as_finding(self) -> RuleFinding:
+        """Convert to :class:`RuleFinding` for backwards-compatible engine output."""
+        return RuleFinding(
+            file_path=self.file_path,
+            line_no=self.line_no,
+            rule_id=self.code,
+            message=self.message,
+            severity=self.level,
+            matched_line=self.context,
+        )
+
+
 # ─── Abstract base ─────────────────────────────────────────────────────────────
 
 
@@ -91,6 +185,15 @@ class BaseRule(ABC):
     * Raising an exception inside :meth:`check` is a bug in the rule.  The engine
       catches it and emits a single ``"error"`` finding describing the failure,
       then continues with the next rule.
+
+    **VSM-aware extension:**
+
+    Subclasses that need to validate links against the routing table should
+    override :meth:`check_vsm` instead of (or in addition to) :meth:`check`.
+    The engine calls :meth:`check_vsm` when a :data:`~zenzic.models.vsm.VSM`
+    and ``anchors_cache`` are available, passing all data in-memory so the
+    rule never needs to perform I/O.  Rules that do not need VSM data simply
+    leave :meth:`check_vsm` as the default no-op.
     """
 
     @property
@@ -118,6 +221,43 @@ class BaseRule(ABC):
             A list of :class:`RuleFinding` objects, or an empty list if the
             file passes this rule.
         """
+
+    def check_vsm(
+        self,
+        file_path: Path,
+        text: str,
+        vsm: Mapping[str, Route],
+        anchors_cache: dict[Path, set[str]],
+    ) -> list[Violation]:
+        """Analyse a file against the pre-built Virtual Site Map.
+
+        Override this method to write VSM-aware rules.  The default
+        implementation is a no-op that returns an empty list, so existing
+        ``BaseRule`` subclasses that only implement :meth:`check` continue to
+        work without any modification.
+
+        **Pure function contract:**
+
+        * Do **not** call ``open()``, ``Path.exists()``, or any other I/O.
+        * Do **not** mutate ``vsm`` or ``anchors_cache``.
+        * Every link validation must consult ``vsm`` — a link is valid when
+          ``vsm[target_url].status == "REACHABLE"``.
+
+        Args:
+            file_path:     Absolute path to the file (labelling only).
+            text:          Complete raw Markdown source of the file.
+            vsm:           Pre-built :data:`~zenzic.models.vsm.VSM` mapping
+                           canonical URL → :class:`~zenzic.models.vsm.Route`.
+                           Already populated by the Core before this call;
+                           do **not** re-build it inside the rule.
+            anchors_cache: Pre-computed mapping of absolute ``Path`` → anchor
+                           slug set.  Use this for anchor validation instead
+                           of re-parsing file content.
+
+        Returns:
+            A list of :class:`Violation` objects, or an empty list.
+        """
+        return []
 
 
 # ─── CustomRule (TOML-driven) ──────────────────────────────────────────────────
@@ -246,3 +386,257 @@ class RuleEngine:
                     )
                 )
         return findings
+
+    def run_vsm(
+        self,
+        file_path: Path,
+        text: str,
+        vsm: VSM,
+        anchors_cache: dict[Path, set[str]],
+    ) -> list[RuleFinding]:
+        """Run VSM-aware rules against *text* and the pre-built routing table.
+
+        Calls :meth:`BaseRule.check_vsm` on every rule that overrides it.
+        Converts the resulting :class:`Violation` objects to :class:`RuleFinding`
+        for a uniform output type.  Exceptions are caught and wrapped exactly as
+        in :meth:`run`.
+
+        Args:
+            file_path:     Absolute path to the file (labelling only).
+            text:          Raw Markdown content.
+            vsm:           Pre-built VSM (canonical URL → Route).
+            anchors_cache: Pre-computed anchor slug sets.
+
+        Returns:
+            Flat list of :class:`RuleFinding` from all VSM-aware rules.
+        """
+        findings: list[RuleFinding] = []
+        for rule in self._rules:
+            try:
+                violations = rule.check_vsm(file_path, text, vsm, anchors_cache)
+                findings.extend(v.as_finding() for v in violations)
+            except Exception as exc:  # noqa: BLE001
+                findings.append(
+                    RuleFinding(
+                        file_path=file_path,
+                        line_no=0,
+                        rule_id="RULE-ENGINE-ERROR",
+                        message=(
+                            f"Rule '{rule.rule_id}' raised an unexpected exception "
+                            f"in check_vsm: {type(exc).__name__}: {exc}"
+                        ),
+                        severity="error",
+                    )
+                )
+        return findings
+
+
+# ─── VSMBrokenLinkRule ────────────────────────────────────────────────────────
+
+
+# Inline links: [text](url) and images ![alt](url)
+_INLINE_LINK_RE = re.compile(r"!?\[[^\[\]]*\]\(([^)]+)\)")
+# Fenced code block fence marker
+_FENCE_RE = re.compile(r"^(`{3,}|~{3,})")
+
+
+def _extract_inline_links_with_lines(text: str) -> list[tuple[str, int, str]]:
+    """Return ``(url, 1-based-lineno, raw_line)`` for every inline Markdown link.
+
+    Skips fenced code blocks and inline code spans.  Pure function — no I/O.
+
+    Args:
+        text: Raw Markdown content.
+
+    Returns:
+        List of ``(url, line_number, raw_line)`` in document order.
+    """
+    results: list[tuple[str, int, str]] = []
+    in_block = False
+    for lineno, line in enumerate(text.splitlines(), start=1):
+        stripped = line.strip()
+        if not in_block:
+            if _FENCE_RE.match(stripped):
+                in_block = True
+                continue
+        else:
+            if _FENCE_RE.match(stripped):
+                in_block = False
+            continue
+        clean = re.sub(r"`[^`]+`", lambda m: " " * len(m.group()), line)
+        for m in _INLINE_LINK_RE.finditer(clean):
+            raw = m.group(1).strip()
+            if not raw:
+                continue
+            url = re.sub(r"""\s+["'].*$""", "", raw).strip()
+            if url:
+                results.append((url, lineno, line.strip()))
+    return results
+
+
+class VSMBrokenLinkRule(BaseRule):
+    """VSM-aware broken link detector (🔌 Dev 3).
+
+    Validates every inline Markdown link against the pre-built Virtual Site Map
+    instead of the filesystem.  A link is valid when its target URL appears in
+    the VSM with status ``REACHABLE`` (including Ghost Routes auto-generated by
+    ``reconfigure_material``).
+
+    **Why VSM, not filesystem:**
+    The filesystem tells you *whether* a file exists.  The VSM tells you
+    *whether the build engine will serve it*.  A file can exist on disk and be
+    ``ORPHAN_BUT_EXISTING`` — it will never be served.  Linking to it is a
+    broken link from the user's perspective, even though the file is present.
+
+    **Pure function contract (Zenzic Way):**
+
+    * No ``open()``, no ``Path.exists()``, no I/O of any kind in
+      :meth:`check_vsm`.
+    * :meth:`check` is a no-op — this rule only makes sense with a VSM.
+      Without routing context, link reachability cannot be determined.
+
+    Rule code: ``Z001``
+    """
+
+    # Schemes we skip — not navigable internal links
+    _SKIP_SCHEMES = frozenset(
+        (
+            "http://",
+            "https://",
+            "mailto:",
+            "data:",
+            "ftp:",
+            "tel:",
+            "javascript:",
+            "irc:",
+            "xmpp://",
+        )
+    )
+
+    @property
+    def rule_id(self) -> str:
+        return "Z001"
+
+    def check(self, file_path: Path, text: str) -> list[RuleFinding]:
+        """No-op: VSMBrokenLinkRule requires VSM context — use check_vsm."""
+        return []
+
+    def check_vsm(
+        self,
+        file_path: Path,
+        text: str,
+        vsm: Mapping[str, Route],
+        anchors_cache: dict[Path, set[str]],
+    ) -> list[Violation]:
+        """Validate all inline links in *text* against the VSM.
+
+        For each inline link:
+
+        1. Skip external URLs and non-navigable schemes.
+        2. Skip bare fragment-only links (``#anchor``).
+        3. For relative paths, compute the canonical URL using the same
+           clean-URL logic the build engines use (``/page/``).
+        4. Look up the URL in the VSM.  If absent or not ``REACHABLE``,
+           emit a :class:`Violation` with code ``Z001``.
+
+        Args:
+            file_path:     Absolute path of the file being checked.
+            text:          Raw Markdown source.
+            vsm:           Pre-built VSM (canonical URL → Route).
+            anchors_cache: Not used by this rule (kept for interface
+                           compatibility).
+
+        Returns:
+            List of :class:`Violation` for every link whose target is absent
+            from the VSM or not ``REACHABLE``.
+        """
+        violations: list[Violation] = []
+
+        for url, lineno, raw_line in _extract_inline_links_with_lines(text):
+            # Skip non-navigable schemes and bare fragments
+            if url == "#" or any(url.startswith(s) for s in self._SKIP_SCHEMES):
+                continue
+            if url.startswith("#"):
+                continue  # same-page anchor — handled separately
+
+            # Compute the canonical URL this link would resolve to.
+            # We apply the standard clean-URL transformation:
+            #   guide/index.md  → /guide/
+            #   guide/install.md → /guide/install/
+            # Paths without .md suffix (e.g. "guide/install") are also handled.
+            target_url = self._to_canonical_url(url)
+            if target_url is None:
+                continue
+
+            route = vsm.get(target_url)
+            if route is None:
+                violations.append(
+                    Violation(
+                        file_path=file_path,
+                        line_no=lineno,
+                        code=self.rule_id,
+                        message=(
+                            f"'{url}' resolves to '{target_url}' which is not in the "
+                            "Virtual Site Map — the target file may not exist"
+                        ),
+                        level="error",
+                        context=raw_line,
+                    )
+                )
+            elif route.status not in ("REACHABLE",):
+                violations.append(
+                    Violation(
+                        file_path=file_path,
+                        line_no=lineno,
+                        code=self.rule_id,
+                        message=(
+                            f"'{url}' resolves to '{target_url}' which has VSM status "
+                            f"'{route.status}' — the page exists but is not reachable "
+                            "via site navigation (UNREACHABLE_LINK)"
+                        ),
+                        level="error",
+                        context=raw_line,
+                    )
+                )
+
+        return violations
+
+    @staticmethod
+    def _to_canonical_url(href: str) -> str | None:
+        """Convert a relative Markdown href to a canonical URL string.
+
+        Applies the standard MkDocs / Zensical clean-URL rule:
+        ``page.md`` → ``/page/``, ``dir/index.md`` → ``/dir/``.
+        Returns ``None`` for hrefs that cannot be converted to a meaningful
+        canonical URL (e.g. bare query strings, empty paths).
+
+        Pure: no I/O, no Path.exists().
+
+        Args:
+            href: Raw href extracted from a Markdown link, already stripped of
+                any title portion.
+
+        Returns:
+            Canonical URL string (leading and trailing ``/``), or ``None``.
+        """
+        from urllib.parse import unquote, urlsplit
+
+        parsed = urlsplit(href)
+        path = unquote(parsed.path.replace("\\", "/")).rstrip("/")
+        if not path:
+            return None
+
+        # Strip .md suffix if present
+        if path.endswith(".md"):
+            path = path[:-3]
+
+        # index is the directory itself
+        parts = [p for p in path.split("/") if p]
+        if not parts:
+            return "/"
+        if parts[-1] == "index":
+            parts = parts[:-1]
+        if not parts:
+            return "/"
+
+        return "/" + "/".join(parts) + "/"

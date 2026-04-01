@@ -56,6 +56,74 @@ flowchart LR
 
 ---
 
+## Virtual Site Map (VSM)
+
+The VSM is the most important data structure in Zenzic. It is the single source of truth for routing and the foundation of all link validation.
+
+```mermaid
+flowchart TD
+    classDef io    fill:#0f172a,stroke:#4f46e5,stroke-width:2px,color:#e2e8f0
+    classDef pure  fill:#0f172a,stroke:#10b981,stroke-width:2px,color:#e2e8f0
+    classDef vsm   fill:#0f172a,stroke:#f59e0b,stroke-width:2px,color:#e2e8f0
+    classDef rule  fill:#0f172a,stroke:#38bdf8,stroke-width:2px,color:#e2e8f0
+
+    SRC["📄 Source files\n.md + config"]:::io
+    ADP["🔌 Adapter\nmap_url()\nclassify_route()\nget_nav_paths()"]:::pure
+    VSM["🗺️ Virtual Site Map\nURL → Route\n(status · anchors)"]:::vsm
+    ATC["⚡ Atomic Rules\nCustomRule\nHeadingStructure\nkey: content+config"]:::rule
+    GLB["🌐 Global Rules\nVSMBrokenLinkRule\nkey: content+config+vsm"]:::rule
+    CAC["💾 Cache\nSHA-256 keyed\nper-file findings"]:::pure
+    VIO["🚨 Violations\ncode · level · context\nline + column"]:::io
+
+    SRC -->|"Pass 1: read all .md"| ADP
+    ADP -->|"nav_paths + locale_dirs"| VSM
+    SRC -->|"raw text"| ATC
+    VSM -->|"routing state"| GLB
+    SRC -->|"raw text"| GLB
+    ATC -->|"RuleFinding list"| CAC
+    GLB -->|"Violation list"| CAC
+    CAC --> VIO
+```
+
+### Route status values
+
+| Status | Set by | Meaning |
+| :--- | :--- | :--- |
+| `REACHABLE` | nav listing, locale shadow, Ghost Route | Page will be served and is navigable. |
+| `ORPHAN_BUT_EXISTING` | file on disk, absent from nav | File renders but has no nav entry — invisible to users. |
+| `IGNORED` | README not in nav, `_private/` dirs | Engine will not serve this file. |
+| `CONFLICT` | two files → same URL | Build result undefined; flag as error. |
+
+### Ghost Routes
+
+When `mkdocs.yml` sets `plugins.i18n.reconfigure_material: true`, the Material theme
+generates locale entry points (e.g. `it/index.md` → `/it/`) at build time.
+These pages never appear in `nav:`.  `MkDocsAdapter.classify_route()` recognises this
+flag and marks top-level locale index files `REACHABLE`, preventing false orphan warnings.
+
+Detection is a pure function (`_extract_i18n_reconfigure_material`) — it reads only the
+already-parsed `doc_config` dict and returns a boolean.
+
+### Content-addressable cache
+
+Zenzic avoids re-linting unchanged files using a content-addressable cache keyed on
+SHA-256 digests.  Timestamps are never consulted — the cache is correct in CI environments
+where `git clone` resets `mtime`.
+
+```text
+Atomic rule cache key:  SHA256(content) + SHA256(config)
+Global rule cache key:  SHA256(content) + SHA256(config) + SHA256(vsm_snapshot)
+```
+
+When any file changes, the VSM snapshot changes.  All global-rule cache entries that
+included that snapshot hash are automatically invalidated — without a file-to-file
+dependency graph.  Atomic-rule entries for unchanged files remain valid.
+
+The `CacheManager` is pure in-memory during the run.  `load()` and `save()` are the only
+I/O operations, called at process start and end respectively by the CLI layer.
+
+---
+
 ## Lifecycle overview
 
 ```mermaid

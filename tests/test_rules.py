@@ -4,12 +4,21 @@
 
 from __future__ import annotations
 
+import time
 from pathlib import Path
 
 import pytest
 
-from zenzic.core.rules import BaseRule, CustomRule, RuleEngine, RuleFinding
+from zenzic.core.rules import (
+    BaseRule,
+    CustomRule,
+    RuleEngine,
+    RuleFinding,
+    Violation,
+    VSMBrokenLinkRule,
+)
 from zenzic.models.config import CustomRuleConfig, ZenzicConfig
+from zenzic.models.vsm import Route
 
 
 _FILE = Path("docs/guide.md")
@@ -226,3 +235,226 @@ def test_custom_rules_fire_regardless_of_engine(
     )
     assert rule_findings[0].rule_id == "ZZ-DRAFT"
     assert rule_findings[0].is_error
+
+
+# ─── Violation dataclass ──────────────────────────────────────────────────────
+
+
+class TestViolation:
+    """🎨 Dev 2: verify the Violation contract (code, level, context)."""
+
+    def test_violation_fields(self) -> None:
+        v = Violation(
+            file_path=_FILE,
+            line_no=5,
+            code="Z001",
+            message="Broken link.",
+            level="error",
+            context="[bad link](missing.md)",
+        )
+        assert v.code == "Z001"
+        assert v.level == "error"
+        assert v.context == "[bad link](missing.md)"
+        assert v.is_error
+
+    def test_violation_warning_not_error(self) -> None:
+        v = Violation(file_path=_FILE, line_no=1, code="Z002", message="hint", level="warning")
+        assert not v.is_error
+
+    def test_violation_as_finding_round_trip(self) -> None:
+        v = Violation(
+            file_path=_FILE,
+            line_no=3,
+            code="Z001",
+            message="msg",
+            level="error",
+            context="src",
+        )
+        f = v.as_finding()
+        assert isinstance(f, RuleFinding)
+        assert f.rule_id == "Z001"
+        assert f.line_no == 3
+        assert f.matched_line == "src"
+        assert f.severity == "error"
+
+
+# ─── VSMBrokenLinkRule ────────────────────────────────────────────────────────
+
+
+def _make_vsm(*urls: str, status: str = "REACHABLE") -> dict[str, Route]:
+    """Build a minimal VSM dict with the given URL slugs."""
+    return {
+        url: Route(url=url, source=f"{url.strip('/')}.md", status=status)  # type: ignore[arg-type]
+        for url in urls
+    }
+
+
+class TestVSMBrokenLinkRule:
+    """🔌 Dev 3: VSM-aware link validation."""
+
+    _RULE = VSMBrokenLinkRule()
+    _EMPTY_ANCHORS: dict[Path, set[str]] = {}
+
+    def _run(self, text: str, vsm: dict) -> list[Violation]:
+        return self._RULE.check_vsm(_FILE, text, vsm, self._EMPTY_ANCHORS)
+
+    # ── check() is a no-op ────────────────────────────────────────────────────
+
+    def test_check_returns_empty(self) -> None:
+        assert self._RULE.check(_FILE, "[link](page.md)") == []
+
+    # ── REACHABLE link → no violation ─────────────────────────────────────────
+
+    def test_reachable_link_passes(self) -> None:
+        vsm = _make_vsm("/guide/")
+        violations = self._run("[Guide](guide/index.md)", vsm)
+        assert violations == []
+
+    def test_reachable_page_without_md_suffix(self) -> None:
+        vsm = _make_vsm("/guide/install/")
+        violations = self._run("[Install](guide/install)", vsm)
+        assert violations == []
+
+    # ── Missing from VSM → violation ─────────────────────────────────────────
+
+    def test_missing_url_emits_violation(self) -> None:
+        violations = self._run("[Broken](missing.md)", {})
+        assert len(violations) == 1
+        assert violations[0].code == "Z001"
+        assert "missing" in violations[0].message
+        assert "missing.md" in violations[0].context
+
+    # ── ORPHAN status → violation ─────────────────────────────────────────────
+
+    def test_orphan_link_emits_violation(self) -> None:
+        vsm = _make_vsm("/draft/", status="ORPHAN_BUT_EXISTING")
+        violations = self._run("[Draft](draft.md)", vsm)
+        assert len(violations) == 1
+        assert "UNREACHABLE_LINK" in violations[0].message
+
+    # ── External links are skipped ────────────────────────────────────────────
+
+    def test_external_http_skipped(self) -> None:
+        violations = self._run("[Ext](https://example.com)", {})
+        assert violations == []
+
+    def test_external_mailto_skipped(self) -> None:
+        violations = self._run("[Mail](mailto:user@example.com)", {})
+        assert violations == []
+
+    # ── Bare fragment skipped ─────────────────────────────────────────────────
+
+    def test_bare_fragment_skipped(self) -> None:
+        violations = self._run("[Top](#top)", {})
+        assert violations == []
+
+    # ── Code blocks are skipped ───────────────────────────────────────────────
+
+    def test_link_inside_fenced_block_skipped(self) -> None:
+        text = "```\n[broken](totally-missing.md)\n```"
+        violations = self._run(text, {})
+        assert violations == []
+
+    # ── Violation carries source context ──────────────────────────────────────
+
+    def test_violation_context_is_source_line(self) -> None:
+        violations = self._run("See [this](gone.md) for details.", {})
+        assert len(violations) == 1
+        assert "gone.md" in violations[0].context
+
+    def test_violation_line_number_is_correct(self) -> None:
+        text = "# Heading\n\nSome text.\n\n[Broken](ghost.md)\n"
+        violations = self._run(text, {})
+        assert len(violations) == 1
+        assert violations[0].line_no == 5
+
+    # ── RuleEngine.run_vsm integration ───────────────────────────────────────
+
+    def test_run_vsm_converts_violations_to_findings(self) -> None:
+        engine = RuleEngine([VSMBrokenLinkRule()])
+        vsm = _make_vsm("/ok/")
+        findings = engine.run_vsm(_FILE, "[OK](ok/index.md)\n[Bad](ghost.md)\n", vsm, {})
+        assert len(findings) == 1
+        assert findings[0].rule_id == "Z001"
+        assert isinstance(findings[0], RuleFinding)
+
+
+# ─── Dev 4: O(N) Torture Test — Rule Engine scalability ──────────────────────
+# Invariant: VSMBrokenLinkRule.check_vsm must complete in O(N) time where N
+# is the number of VSM nodes.  The test builds a 10 000-node VSM and a file
+# with 10 000 links and verifies the runtime is < 1 s (far below the O(N²)
+# threshold, which would be ~100× slower on this data size).
+
+
+class TestRuleEngineTortureTest:
+    """🛡️ Dev 4: Performance and scalability invariants for the Rule Engine."""
+
+    _N = 10_000
+
+    def _make_large_vsm(self) -> dict[str, Route]:
+        return {
+            f"/page-{i}/": Route(
+                url=f"/page-{i}/",
+                source=f"page-{i}.md",
+                status="REACHABLE",  # type: ignore[arg-type]
+            )
+            for i in range(self._N)
+        }
+
+    def _make_text_with_links(self, n: int, *, all_valid: bool) -> str:
+        """Generate a Markdown file with *n* inline links.
+
+        When *all_valid* is True, every link points to a known VSM page.
+        When False, all links point to missing pages (worst-case violation path).
+        """
+        lines = []
+        for i in range(n):
+            if all_valid:
+                lines.append(f"[Page {i}](page-{i}.md)")
+            else:
+                lines.append(f"[Page {i}](missing-{i}.md)")
+        return "\n".join(lines)
+
+    def test_check_vsm_scales_linearly_all_valid(self) -> None:
+        """10 000 REACHABLE links must resolve in < 1 s (O(N) dict lookups)."""
+        rule = VSMBrokenLinkRule()
+        vsm = self._make_large_vsm()
+        text = self._make_text_with_links(self._N, all_valid=True)
+
+        start = time.monotonic()
+        violations = rule.check_vsm(_FILE, text, vsm, {})
+        elapsed = time.monotonic() - start
+
+        assert violations == [], f"Expected 0 violations, got {len(violations)}"
+        assert elapsed < 1.0, (
+            f"check_vsm took {elapsed:.3f}s for {self._N} valid links — possible O(N²) regression"
+        )
+
+    def test_check_vsm_scales_linearly_all_missing(self) -> None:
+        """10 000 missing links (worst-case violation path) must complete < 1 s."""
+        rule = VSMBrokenLinkRule()
+        vsm = self._make_large_vsm()
+        text = self._make_text_with_links(self._N, all_valid=False)
+
+        start = time.monotonic()
+        violations = rule.check_vsm(_FILE, text, vsm, {})
+        elapsed = time.monotonic() - start
+
+        assert len(violations) == self._N, f"Expected {self._N} violations, got {len(violations)}"
+        assert elapsed < 1.0, (
+            f"check_vsm took {elapsed:.3f}s for {self._N} missing links — possible O(N²) regression"
+        )
+
+    def test_run_vsm_engine_scales_with_large_vsm(self) -> None:
+        """RuleEngine.run_vsm with 10 000-node VSM must complete < 1 s."""
+        engine = RuleEngine([VSMBrokenLinkRule()])
+        vsm = self._make_large_vsm()
+        # Small file — only the VSM lookup overhead is being measured here
+        text = "\n".join(f"[P](page-{i}.md)" for i in range(100))
+
+        start = time.monotonic()
+        findings = engine.run_vsm(_FILE, text, vsm, {})
+        elapsed = time.monotonic() - start
+
+        assert findings == []
+        assert elapsed < 0.5, f"run_vsm took {elapsed:.3f}s with {self._N}-node VSM — regression"

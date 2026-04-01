@@ -27,6 +27,61 @@ the build binary without touching a single documentation file. From Zenzic's per
 
 ---
 
+## MkDocs Material best practices
+
+### Language switcher optimisation
+
+When using `mkdocs-material` with the `i18n` plugin and multiple locales, the language
+switcher in the site header can be controlled by two different mechanisms.  Mixing them
+causes routing conflicts that Zenzic — a source linter — cannot detect automatically,
+but that silently break the user experience at build time.
+
+**Recommended configuration:**
+
+```yaml
+# mkdocs.yml
+plugins:
+  - i18n:
+      docs_structure: folder
+      fallback_to_default: true
+      reconfigure_material: true   # ← delegate switcher to the i18n plugin
+      reconfigure_search: true
+      languages:
+        - locale: en
+          default: true
+          build: true
+          link: /
+        - locale: it
+          build: true
+          link: /it/
+```
+
+**Do not** add an `extra.alternate` block alongside `reconfigure_material: true`.
+When both are present, the Material theme receives two competing switcher
+definitions; depending on the plugin version the result is either a duplicated
+switcher or no switcher at all:
+
+```yaml
+# ✗ — remove this block when reconfigure_material: true is set
+extra:
+  alternate:
+    - name: English
+      link: /
+      lang: en
+    - name: Italiano
+      link: /it/
+      lang: it
+```
+
+**Why Zenzic handles this correctly:**
+When `reconfigure_material: true` is present in `mkdocs.yml`, Zenzic recognises
+that the Material theme will auto-generate locale entry points (e.g. `/it/`) at
+build time.  These pages are never listed in `nav:` — they are synthetic routes
+produced by the plugin.  Zenzic marks them as **auto-generated REACHABLE** in the
+Virtual Site Map so they are never reported as orphans.
+
+---
+
 ## Phase 1 — Validate before switching
 
 Run the full check suite against your MkDocs project and establish a baseline:

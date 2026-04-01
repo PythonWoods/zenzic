@@ -152,13 +152,6 @@ extra:
     - icon: fontawesome/brands/python
       link: https://pypi.org/project/zenzic/
       name: zenzic on PyPI
-  alternate:
-    - name: English
-      link: /
-      lang: en
-    - name: Italiano
-      link: /it/
-      lang: it
 
 nav:
   - Home: index.md

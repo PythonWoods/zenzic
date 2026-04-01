@@ -188,6 +188,43 @@ Three adapters are available, selected automatically by `get_adapter()`:
 If it is absent, Zenzic raises `ConfigurationError` immediately. There is no fallback to
 `mkdocs.yml` and no silent degradation. Zensical identity must be provable.
 
+### How it works — Virtual Site Map (VSM)
+
+Most documentation linters check whether a linked file exists on disk.
+Zenzic goes further: it builds a **Virtual Site Map** before any rule fires.
+
+```text
+Source files  ──►  Adapter  ──►  VSM  ──►  Rule Engine  ──►  Violations
+  .md + config      (engine-       (URL → status)   (pure functions)
+                    specific
+                    knowledge)
+```
+
+The VSM maps every `.md` source file to the canonical URL the build engine
+will serve — **without running the build**. Each route carries a status:
+
+| Status | Meaning |
+| :--- | :--- |
+| `REACHABLE` | Page is in the nav; users can find it. |
+| `ORPHAN_BUT_EXISTING` | File exists on disk but is absent from `nav:`. Users cannot find it via navigation. |
+| `CONFLICT` | Two files map to the same URL (e.g. `index.md` + `README.md`). Build result is undefined. |
+| `IGNORED` | File will not be served (unlisted `README.md`, Zensical `_private/` dirs). |
+
+This makes Zenzic uniquely precise: a link to an `ORPHAN_BUT_EXISTING` page
+is caught as `UNREACHABLE_LINK` — the file exists, the link resolves, but
+the user will hit a 404 after the build because the page is not navigable.
+
+**Ghost Routes** (`reconfigure_material: true`) — when `mkdocs-material`
+auto-generates locale entry points (e.g. `/it/`) at build time, those pages
+never appear in `nav:`. Zenzic detects this flag and marks them `REACHABLE`
+automatically, so no false orphan warnings are emitted.
+
+**Content-addressable cache** — Zenzic avoids re-linting unchanged files by
+keying results on `SHA256(content) + SHA256(config)`. For VSM-aware rules
+the key also includes `SHA256(vsm_snapshot)`, ensuring invalidation when any
+file's routing state changes. Timestamps are never consulted — the cache is
+correct in CI environments where `git clone` resets `mtime`.
+
 ### MkDocs — i18n fallback
 
 When `mkdocs.yml` declares the i18n plugin with `fallback_to_default: true`, Zenzic mirrors
