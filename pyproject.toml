@@ -7,7 +7,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "zenzic"
-version = "0.4.0rc4"
+version = "0.4.0rc5"
 description = "Engineering-grade, engine-agnostic linter and security shield for Markdown documentation"
 readme = "README.md"
 requires-python = ">=3.11"

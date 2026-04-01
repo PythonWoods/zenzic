@@ -1,0 +1,30 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+
+site_name: !ENV [MKDOCS_SITE_NAME, MkDocs Basic Example]
+site_url: https://example.com/docs/
+
+plugins:
+  search: {}
+  i18n:
+    docs_structure: folder
+    fallback_to_default: true
+    reconfigure_material: true
+    languages:
+      - locale: en
+        default: true
+        name: English
+      - locale: it
+        name: Italiano
+
+markdown_extensions:
+  - pymdownx.snippets:
+      base_path: !relative $config_dir/includes
+
+nav:
+  - Home: index.md
+  - Guide:
+      - guide/index.md
+      - Setup: guide/setup.md
+  - API: api.md
+  - Issue Tracker: https://github.com/PythonWoods/zenzic/issues

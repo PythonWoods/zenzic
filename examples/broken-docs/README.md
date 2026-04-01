@@ -25,7 +25,7 @@ what failures look like and to serve as a regression fixture for the check engin
 
 ## Visual Snippets
 
-Every `check links` finding in Zenzic rc4 includes a **Visual Snippet** — the exact
+Every `check links` finding in Zenzic rc5 includes a **Visual Snippet** — the exact
 source line from your Markdown file, displayed below the error header with a `│` indicator.
 Run the command and watch the terminal:
 
@@ -74,8 +74,9 @@ Expected exit code: **1** (check failures; no Shield events).
 
 Uses `engine = "mkdocs"` (via `[build_context]` in `zenzic.toml`). The `mkdocs.yml`
 intentionally omits `api.md` and `orphan-nav.md` from the nav to trigger the orphan and
-UNREACHABLE_LINK checks. The `zensical.toml` provides an alternative native-engine config
-where `_drafts/` triggers the private-directory UNREACHABLE_LINK rule.
+UNREACHABLE_LINK checks. The `zensical.toml` mirrors the current v0.0.31+ schema and
+provides an alternative native-engine config where `_drafts/` triggers the
+private-directory UNREACHABLE_LINK rule.
 
 ## Ground truth
 

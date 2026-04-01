@@ -3,6 +3,20 @@
 """ZensicalAdapter — native adapter for the Zensical build engine.
 
 Reads ``zensical.toml`` exclusively via Python's ``tomllib``.  Zero YAML.
+
+Zensical v0.0.31+ uses a single ``[project]`` scope for all settings::
+
+    [project]
+    site_name = "My Docs"
+    docs_dir  = "docs"
+    nav = [
+        "index.md",
+        {"Guide" = "guide.md"},
+        {"API" = [
+            "api/index.md",
+            {"Endpoints" = "api/endpoints.md"},
+        ]},
+    ]
 """
 
 from __future__ import annotations
@@ -41,19 +55,54 @@ def _load_zensical_config(repo_root: Path) -> dict[str, Any]:
         return {}
 
 
+# ── Nav helpers ──────────────────────────────────────────────────────────────
+
+
+def _extract_nav_paths(items: list[object]) -> set[str]:
+    """Recursively extract ``.md`` file paths from a Zensical nav list.
+
+    Handles all official nav variants (v0.0.31+):
+
+    * Plain string: ``"page.md"``
+    * Titled page: ``{"Title" = "page.md"}``
+    * Section:      ``{"Section" = ["page.md", …]}``
+    * External URL: ``{"GitHub" = "https://…"}``  — skipped.
+
+    Args:
+        items: List of nav entries from ``[project].nav`` in ``zensical.toml``.
+
+    Returns:
+        Set of ``.md`` paths, relative to ``docs_root``, without leading slash.
+    """
+    paths: set[str] = set()
+    for item in items:
+        if isinstance(item, str):
+            if item.endswith(".md"):
+                paths.add(item.lstrip("/"))
+        elif isinstance(item, dict):
+            for _title, val in item.items():
+                if isinstance(val, str) and val.endswith(".md"):
+                    paths.add(val.lstrip("/"))
+                elif isinstance(val, list):
+                    paths |= _extract_nav_paths(val)
+    return paths
+
+
 # ── Adapter ───────────────────────────────────────────────────────────────────
 
 
 class ZensicalAdapter:
     """Adapter for the Zensical build engine — reads ``zensical.toml`` natively.
 
-    Zero YAML.  All configuration is sourced from ``zensical.toml``, whose
-    ``[nav]`` section provides the declared page list::
+    Zero YAML.  All configuration is sourced from ``zensical.toml``.
+    Navigation is declared under ``[project].nav`` (Zensical v0.0.31+)::
 
-        [nav]
+        [project]
+        site_name = "My Docs"
         nav = [
-            {title = "Home",     file = "index.md"},
-            {title = "Tutorial", file = "tutorial.md"},
+            "index.md",
+            {"Guide" = "guide.md"},
+            {"API" = ["api/index.md", {"Endpoints" = "api/endpoints.md"}]},
         ]
 
     Locale information is sourced from ``[build_context]`` in ``zenzic.toml``
@@ -85,6 +134,15 @@ class ZensicalAdapter:
         # Locale configuration sourced entirely from BuildContext (zenzic.toml).
         self._locale_dirs: frozenset[str] = frozenset(context.locales)
         self._fallback_to_default: bool = context.fallback_to_default
+
+        # Pre-compute nav state from [project].nav in zensical.toml.
+        _project = self._zensical_config.get("project", {})
+        _raw_nav: list[object] = _project.get("nav", [])
+        self._nav_paths: frozenset[str] = frozenset(_extract_nav_paths(_raw_nav))
+        # True only when the user supplied an explicit, non-empty nav list.
+        self._has_explicit_nav: bool = bool(_raw_nav)
+        # Honour use_directory_urls = false (default: true).
+        self._use_directory_urls: bool = bool(_project.get("use_directory_urls", True))
 
     # ── Public contract ────────────────────────────────────────────────────────
 
@@ -153,10 +211,18 @@ class ZensicalAdapter:
         and ``README.md`` collapse to the parent directory URL (Zensical treats
         ``README.md`` as an implicit index).
 
-        * ``page.md``         → ``/page/``
-        * ``dir/index.md``    → ``/dir/``
-        * ``dir/README.md``   → ``/dir/``  (same URL → CONFLICT if both present)
-        * ``index.md``        → ``/``
+        With ``use_directory_urls = true`` (default)::
+
+            page.md        → /page/
+            dir/index.md   → /dir/
+            dir/README.md  → /dir/   (same URL → CONFLICT if both exist)
+            index.md       → /
+
+        With ``use_directory_urls = false``::
+
+            page.md        → /page.html
+            dir/index.md   → /dir/index.html
+            index.md       → /index.html
 
         Files inside ``_private``-prefixed path segments are mapped normally
         here; ``classify_route()`` marks them ``IGNORED``.
@@ -165,8 +231,12 @@ class ZensicalAdapter:
             rel: Path of the source file relative to ``docs_root``.
 
         Returns:
-            Canonical URL string (always starts and ends with ``/``).
+            Canonical URL string with leading slash.
         """
+        if not self._use_directory_urls:
+            # Flat URL mode: preserve suffix, no directory collapsing.
+            return "/" + rel.as_posix()
+
         stem = rel.with_suffix("")
         parts = list(stem.parts)
         if not parts:
@@ -178,47 +248,41 @@ class ZensicalAdapter:
         return "/" + "/".join(parts) + "/"
 
     def classify_route(self, rel: Path, nav_paths: frozenset[str]) -> RouteStatus:
-        """Classify a Zensical route as REACHABLE or IGNORED.
+        """Classify a Zensical route by filesystem and nav rules.
 
-        Zensical derives routing purely from the filesystem: every file is
-        reachable by default.  The only exception is files whose path contains
-        a segment that starts with ``_`` (e.g. ``_private/notes.md``).
+        Priority chain:
 
-        Unlike MkDocs, Zensical has no orphan concept: if a file exists on
-        disk it is served.  ``ORPHAN_BUT_EXISTING`` is never returned.
+        1. ``IGNORED`` — any path segment starts with ``_``.
+        2. ``ORPHAN_BUT_EXISTING`` — an explicit ``[project].nav`` is defined
+           in ``zensical.toml`` and *rel* is not listed in it.  The file is
+           served (Zensical is filesystem-based) but is not sidebar-navigable.
+        3. ``REACHABLE`` — all other files when no explicit nav is declared.
 
         Args:
             rel:       Source path relative to ``docs_root``.
-            nav_paths: Unused for Zensical (filesystem is the source of truth).
+            nav_paths: Frozenset of nav-listed paths from ``get_nav_paths()``.
 
         Returns:
-            ``'IGNORED'`` when any path segment starts with ``_``;
-            ``'REACHABLE'`` otherwise.
+            ``'IGNORED'``, ``'ORPHAN_BUT_EXISTING'``, or ``'REACHABLE'``.
         """
         if any(part.startswith("_") for part in rel.parts):
             return "IGNORED"
+        if self._has_explicit_nav and rel.as_posix() not in nav_paths:
+            return "ORPHAN_BUT_EXISTING"
         return "REACHABLE"
 
     def get_nav_paths(self) -> frozenset[str]:
-        """Return ``.md`` paths from the ``[nav]`` section of ``zensical.toml``.
+        """Return ``.md`` paths from ``[project].nav`` in ``zensical.toml``.
 
-        Expects the canonical Zensical nav format::
-
-            [nav]
-            nav = [{title = "…", file = "page.md"}, …]
+        Supports all Zensical v0.0.31+ nav variants — plain strings, titled
+        pages, nested sections (see :func:`_extract_nav_paths`).
 
         Returns:
-            Frozenset of nav-listed ``.md`` paths, stripped of any leading
-            slash and relative to ``docs_root``.
+            Frozenset of nav-listed ``.md`` paths, relative to ``docs_root``
+            and without leading slash.  Empty frozenset when no explicit
+            ``[project].nav`` is declared.
         """
-        nav_items = self._zensical_config.get("nav", {}).get("nav", [])
-        paths: set[str] = set()
-        for item in nav_items:
-            if isinstance(item, dict):
-                f = item.get("file", "")
-                if isinstance(f, str) and f.endswith(".md"):
-                    paths.add(f.lstrip("/"))
-        return frozenset(paths)
+        return self._nav_paths
 
     @classmethod
     def from_repo(

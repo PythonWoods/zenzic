@@ -11,10 +11,89 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.4.0-rc4] — 2026-04-01 — Ghost Route Support, VSM Rule Engine & Content-Addressable Cache
+
+## [0.4.0-rc5] — 2026-04-01 — The Sync Sprint: Zensical v0.0.31+ & Parallel API
+
+> **Sprint 10.** `ZensicalAdapter` is fully synchronised with Zensical v0.0.31+.
+> The legacy `[site]`/`[nav].nav` schema is replaced by the canonical `[project].nav`
+> format.  Navigation parsing now supports all three entry forms (plain string, titled page,
+> nested section) recursively.  `classify_route()` gains nav-aware orphan detection.
+> `map_url()` honours `use_directory_urls = false`.  The parallel scan API is stabilised
+> and documented with explicit pickling requirements for custom rules.
+> `examples/zensical-basic/` is introduced as the canonical Zensical reference project.
+> All Zensical TOML snippets in `docs/` are updated to the v0.0.31+ schema.
+
+### Added
+
+- **`examples/zensical-basic/`** — new canonical example project for `engine = "zensical"`.
+  Contains a `zensical.toml` using `[project].nav` with all three nav entry forms, a
+  `zenzic.toml` with `engine = "zensical"`, and a complete `docs/` tree with clean
+  relative links.  `zenzic check all` on this example exits 0.
+
+- **`_extract_nav_paths()`** (`zenzic.core.adapters._zensical`) — new pure helper that
+  recursively extracts `.md` file paths from a Zensical nav list.  Handles plain strings
+  (`"page.md"`), titled pages (`{"Title" = "page.md"}`), and nested sections
+  (`{"Section" = [...]}`).  External URLs are silently skipped.
+
+- **Nav-aware `classify_route()`** — when an explicit `[project].nav` is declared in
+  `zensical.toml`, files absent from the nav list are now classified
+  `ORPHAN_BUT_EXISTING` instead of `REACHABLE`.  Zensical serves every file (filesystem
+  routing), but the sidebar is the user-visible navigation: files outside the nav are
+  effectively invisible.
+
+- **`use_directory_urls` support** in `ZensicalAdapter.map_url()` — reads
+  `[project].use_directory_urls` from `zensical.toml`.  When `false`, files are mapped
+  to flat `.html` URLs (`/page.html`) instead of directory URLs (`/page/`).  Default
+  remains `true`, matching Zensical's own default.
+
+- **Parallelism section in `docs/usage/advanced.md`** — documents
+  `scan_docs_references_parallel`, the performance crossover point (~200 files),
+  the absence of a `--parallel` CLI flag in rc5, and the **pickling requirements** for
+  custom `BaseRule` subclasses.
+
+- **Parallelism section in `docs/architecture.md`** — describes the shared-nothing
+  `ProcessPoolExecutor` model, the immutability contract on workers, and the performance
+  threshold with honest numbers.
+
+- **Engine coexistence section in `docs/configuration/adapters-config.md`** (EN + IT) —
+  documents behaviour when both `mkdocs.yml` and `zensical.toml` are present.  Clarifies
+  that `build_context.engine` is always authoritative; no auto-detection occurs.
+
+- **`ZensicalAdapter` nav format reference in `docs/configuration/adapters-config.md`**
+  (EN + IT) — full TOML examples of all three nav entry forms, route classification rules
+  with and without explicit nav, and `use_directory_urls` documentation.
+
+### Changed
+
+- **`ZensicalAdapter.__init__`** — pre-computes `_nav_paths`, `_has_explicit_nav`, and
+  `_use_directory_urls` at construction time from `[project]` in `zensical.toml`.
+  `get_nav_paths()` is now an O(1) attribute read.
+
+- **`ZensicalAdapter` docstring** — updated from legacy `[nav].nav = [{title, file}]`
+  schema to the v0.0.31+ `[project].nav = [...]` format.
+
+- **`tests/sandboxes/zensical/zensical.toml`** — migrated from flat key schema to
+  `[project]` scope.  Added a three-entry `nav` list (`index.md`, `features.md`,
+  `api.md`) to exercise orphan detection in integration tests.
+
+- **`docs/guide/migration.md`** and **`docs/it/guide/migration.md`** — Phase 3 example
+  `zensical.toml` updated from legacy `[site]`/`[nav].nav` to `[project].nav` format.
+
+### Fixed
+
+- **`ZensicalAdapter.get_nav_paths()`** previously read `[nav].nav` using `{title, file}`
+  key format — a schema that was never part of the official Zensical spec.  Fixed to read
+  `[project].nav` using the actual v0.0.31+ format.
+
+- **`ZensicalAdapter.classify_route()`** previously returned `REACHABLE` for all
+  non-private files regardless of nav declaration.  Fixed to return `ORPHAN_BUT_EXISTING`
+  when an explicit nav is declared and the file is absent from it.
+
 ---
 
 ## [0.4.0-rc4] — 2026-04-01 — Ghost Route Support, VSM Rule Engine & Content-Addressable Cache
-
+>
 > **Sprint 9.** The Virtual Site Map (VSM) becomes the single source of truth for the Rule
 > Engine.  MkDocs Material Ghost Routes are resolved without false orphan warnings.
 > The `VSMBrokenLinkRule` validates links against routing state rather than the filesystem.

@@ -204,19 +204,81 @@ for error in link_errors:
 `scan_docs_references_with_links` deduplicates external URLs across the entire docs tree before
 firing HTTP requests — 50 files linking to the same URL result in exactly one HEAD request.
 
-### Parallel scan (large repos)
+### Parallel scan (large repos) — v0.4.0-rc5
 
-For repositories with more than ~200 Markdown files, use `scan_docs_references_parallel`:
+For repositories with more than ~200 Markdown files, use `scan_docs_references_parallel`.
+It distributes each file to an independent worker process via `ProcessPoolExecutor`,
+exploiting the pureness of the per-file scan function (`_scan_single_file`):
 
 ```python
 from pathlib import Path
 from zenzic.core.scanner import scan_docs_references_parallel
 
+# workers=None lets ProcessPoolExecutor choose based on os.cpu_count()
 reports = scan_docs_references_parallel(Path("."), workers=4)
 ```
 
-Parallel mode uses `ProcessPoolExecutor`. External URL validation is not available in parallel
-mode — use `scan_docs_references_with_links` for sequential scan with link validation.
+**Honest performance contract:**
+
+| Repo size | Recommended mode | Reason |
+| :--- | :--- | :--- |
+| < 50 files | `scan_docs_references` (sequential) | Process-spawn overhead (~200 ms) exceeds the parallelism benefit |
+| 50 – 200 files | Sequential or parallel | Benchmark your specific case; gains are marginal |
+| 200+ files | `scan_docs_references_parallel` | Per-file CPU-bound regex work dominates; linear scaling |
+| 5 000+ files | Parallel with `workers=cpu_count` | Proven 3–6× speedup in benchmarks on 8-core CI runners |
+
+!!! note "No `--parallel` flag"
+    The CLI does not expose a `--parallel` flag in rc5.  Parallelism is available exclusively
+    via the Python API.  A `--workers N` CLI flag is planned for v0.4.0 stable.
+
+**What parallelism does NOT affect:**
+
+- External URL validation (`--links`) — not available in parallel mode; use
+  `scan_docs_references_with_links` instead.
+- The Shield — runs per-worker; findings are collected and returned normally.
+- Output order — results are sorted by `file_path` after collection to guarantee deterministic
+  output regardless of worker scheduling.
+
+**Pickling requirements for custom rules (`BaseRule` subclasses):**
+
+`ProcessPoolExecutor` serialises the `RuleEngine` (including all registered rules) using
+Python `pickle` before dispatching it to worker processes.  This imposes one constraint
+on custom rule classes:
+
+- **Rules must be picklable.** A rule defined at module level is always picklable.  A rule
+  defined inside a function, method, or `lambda` is not.
+- **Pre-compiled regex patterns** (`re.compile(...)`) are picklable.  Store compiled patterns
+  as class attributes or `__post_init__` instance attributes — never as `lambda` closures.
+- **No mutable global state.** Workers receive independent copies of the rule engine.  Any
+  state mutation inside a rule (e.g. a counter) is local to that worker process and is
+  discarded on completion.  Rules that need global state must return it as part of their
+  `RuleFinding` output — not by writing to a shared variable.
+
+```python
+# ✓ picklable — defined at module level, uses re.compile
+class NoDraftRule(BaseRule):
+    _pattern = re.compile(r"(?i)\bDRAFT\b")
+
+    @property
+    def rule_id(self) -> str:
+        return "ZZ-NODRAFT"
+
+    def check(self, file_path: Path, text: str) -> list[RuleFinding]:
+        findings = []
+        for lineno, line in enumerate(text.splitlines(), start=1):
+            if self._pattern.search(line):
+                findings.append(RuleFinding(file_path, lineno, self.rule_id, "DRAFT marker found"))
+        return findings
+
+# ✗ not picklable — defined inside a function
+def make_rule():
+    class LocalRule(BaseRule): ...   # pickle cannot serialise this
+    return LocalRule()
+```
+
+`CustomRule` entries declared in `[[custom_rules]]` inside `zenzic.toml` are frozen
+dataclasses with a compiled regex — they are always picklable and work in parallel mode
+out of the box.
 
 ---
 

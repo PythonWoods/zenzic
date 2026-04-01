@@ -19,6 +19,26 @@
   {% set label_docs = "Docs" %}
 {% endif %}
 
+{# Language switcher sources: explicit extra.alternate or i18n plugin languages #}
+{% set alternate = namespace(items=[]) %}
+{% if config.extra.alternate %}
+  {% set alternate.items = config.extra.alternate %}
+{% elif "i18n" in config.plugins %}
+  {% set i18n = config.plugins["i18n"] | attr("config") %}
+  {% if i18n and i18n.languages %}
+    {% for language in i18n.languages %}
+      {% if language.build | d(true) %}
+        {% if language.default | d(false) %}
+          {% set link = language.link | d("/") %}
+        {% else %}
+          {% set link = language.link | d("/" ~ language.locale ~ "/") %}
+        {% endif %}
+        {% set alternate.items = alternate.items + [{"name": language.name | d(language.locale), "link": link, "lang": language.locale}] %}
+      {% endif %}
+    {% endfor %}
+  {% endif %}
+{% endif %}
+
 <header class="md-header md-header--shadow" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="{{ lang.t('header') }}">
 
@@ -78,8 +98,26 @@
     {% endif %}
 
     {# Language switcher #}
-    {% if config.extra.alternate %}
-      {% include "partials/alternate.html" %}
+    {% if alternate.items | length > 1 %}
+      <div class="md-header__option">
+        <div class="md-select">
+          {% set icon = config.theme.icon.alternate or "material/translate" %}
+          <button class="md-header__button md-icon" aria-label="{{ lang.t('select.language') }}">
+            {% include ".icons/" ~ icon ~ ".svg" %}
+          </button>
+          <div class="md-select__inner">
+            <ul class="md-select__list">
+              {% for alt in alternate.items %}
+                <li class="md-select__item">
+                  <a href="{{ alt.link | url }}" hreflang="{{ alt.lang }}" class="md-select__link">
+                    {{ alt.name }}
+                  </a>
+                </li>
+              {% endfor %}
+            </ul>
+          </div>
+        </div>
+      </div>
     {% endif %}
 
     {# Search #}

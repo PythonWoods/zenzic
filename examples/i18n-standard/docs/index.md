@@ -14,7 +14,7 @@ structured bilingual documentation project that scores **100/100** under `zenzic
 | **Zero absolute links** | Every internal link is relative (`../`, `./`) |
 | **Path symmetry** | A link `../assets/brand-kit.zip` resolves identically from `.md` and `.it.md` |
 | **Asset integrity** | All referenced assets exist on disk; no unreferenced files left dangling |
-| **No placeholders** | Every page has real content, no incomplete markers |
+| **No unfinished markers** | Every page has real content and publication-ready text |
 
 ## Explore the structure
 

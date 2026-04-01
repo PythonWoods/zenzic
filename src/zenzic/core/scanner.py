@@ -191,7 +191,7 @@ def calculate_unused_assets(all_assets: set[str], used_assets: set[str]) -> list
 
 
 def find_orphans(repo_root: Path, config: ZenzicConfig | None = None) -> list[Path]:
-    """Return docs/*.md files that are not referenced in the mkdocs.yml nav.
+    """Return docs/*.md files whose adapter status is ORPHAN_BUT_EXISTING.
 
     Args:
         repo_root: Path to the repository root (contains mkdocs.yml).
@@ -218,7 +218,7 @@ def find_orphans(repo_root: Path, config: ZenzicConfig | None = None) -> list[Pa
     nav_paths = adapter.get_nav_paths()
     exclusion_patterns = set(config.excluded_file_patterns) | adapter.get_ignored_patterns()
 
-    all_md: set[str] = set()
+    orphans: list[Path] = []
     for md_file in sorted(docs_root.rglob("*.md")):
         if md_file.is_symlink():
             continue
@@ -230,9 +230,10 @@ def find_orphans(repo_root: Path, config: ZenzicConfig | None = None) -> list[Pa
             continue
         if any(fnmatch.fnmatch(md_file.name, pat) for pat in exclusion_patterns):
             continue
-        all_md.add(rel.as_posix())
+        if adapter.classify_route(rel, nav_paths) == "ORPHAN_BUT_EXISTING":
+            orphans.append(rel)
 
-    return [Path(p) for p in calculate_orphans(all_md, nav_paths)]
+    return orphans
 
 
 def find_placeholders(

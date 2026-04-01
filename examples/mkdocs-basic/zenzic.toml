@@ -1,0 +1,9 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# zenzic.toml — MkDocs 1.x baseline fixture.
+
+docs_dir = "docs"
+fail_under = 90
+
+[build_context]
+engine = "mkdocs"

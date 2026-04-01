@@ -39,9 +39,9 @@ def _mkdocs(repo: Path, nav: list[str] | None = None) -> None:
 
 def _zensical(repo: Path, nav: list[str] | None = None) -> None:
     """Write a minimal zensical.toml into *repo*."""
-    nav_items = "\n".join(f'  {{title = "Page", file = "{p}"}},' for p in (nav or ["index.md"]))
+    nav_items = "\n".join(f'  "{p}",' for p in (nav or ["index.md"]))
     (repo / "zensical.toml").write_text(
-        f'[project]\nsite_name = "Test"\n\n[nav]\nnav = [\n{nav_items}\n]\n'
+        f'[project]\nsite_name = "Test"\ndocs_dir = "docs"\nnav = [\n{nav_items}\n]\n'
     )
 
 
@@ -158,7 +158,7 @@ def test_zensical_engine_with_zensical_toml_does_not_raise(tmp_path: Path) -> No
 
 
 def test_zensical_adapter_nav_paths_from_toml(tmp_path: Path) -> None:
-    """ZensicalAdapter.get_nav_paths reads the [nav] section of zensical.toml."""
+    """ZensicalAdapter.get_nav_paths reads [project].nav from zensical.toml."""
     _zensical(tmp_path, nav=["index.md", "guide/start.md", "about.md"])
     adapter = get_adapter(BuildContext(engine="zensical"), tmp_path / "docs", tmp_path)
     assert isinstance(adapter, ZensicalAdapter)

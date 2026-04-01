@@ -42,6 +42,20 @@ fallback, nessuna supposizione.
 
 ---
 
+## Novita RC5 (v0.4.0-rc5)
+
+- **Sync Zensical v0.0.31+**: `ZensicalAdapter` legge ora la nav da `[project].nav`
+  (schema TOML ufficiale), incluse sezioni annidate.
+- **Routing nav-aware**: con nav esplicita, i file presenti su disco ma assenti dalla nav
+  vengono classificati `ORPHAN_BUT_EXISTING`.
+- **Parita URL**: `map_url()` rispetta `[project].use_directory_urls = false`
+  (`/pagina.html`) oltre al default directory-style (`/pagina/`).
+- **Parallelismo API documentato**: modello shared-nothing con `ProcessPoolExecutor`,
+  note oneste sull'overhead e requisiti di picklability per regole custom.
+- **Nuovo esempio canonico**: `examples/zensical-basic/` allineato agli snippet documentati.
+
+---
+
 ## 📖 Documentazione
 
 - 🚀 **[Guida Utente][docs-it-home]**: Installazione, comandi CLI e tutti i controlli disponibili.
@@ -235,7 +249,7 @@ non segnalare mai i file tradotti come orfani.
 ## Changelog & Note di Rilascio
 
 - 📋 [CHANGELOG.md](CHANGELOG.md) — storico completo delle modifiche (inglese)
-- 📋 [changelog.it.md](changelog.it.md) — storico delle modifiche in italiano
+- 📋 [CHANGELOG.it.md](CHANGELOG.it.md) — storico delle modifiche in italiano
 - 🚀 [RELEASE.md](RELEASE.md) — manifesto di rilascio v0.4.0 (inglese)
 - 🚀 [RELEASE.it.md](RELEASE.it.md) — manifesto di rilascio v0.4.0 (italiano)
 

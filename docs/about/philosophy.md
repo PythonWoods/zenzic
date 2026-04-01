@@ -46,6 +46,17 @@ or any future generator — can run `zenzic check all` continuously against both
 simultaneously. A project that has not yet decided on a build engine can still validate its
 documentation quality today, using Vanilla mode with zero configuration.
 
+As of early 2026, the MkDocs 2.0 direction publicly discussed by ecosystem maintainers includes
+large compatibility breaks (plugin removal, theming model changes, config format shift). Zenzic's
+position is intentionally conservative and user-protective:
+
+- MkDocs 1.x projects remain first-class citizens in Zenzic.
+- Existing `mkdocs.yml` structures are validated as source contracts, not as runtime promises.
+- Unknown or future YAML keys are treated with tolerant parsing, not hard failures.
+
+In practice, this means a team can defer migration decisions without losing quality gates.
+Zenzic keeps the verification layer alive while the ecosystem around it evolves.
+
 ---
 
 ## The frictionless sentinel

@@ -12,6 +12,56 @@ Le versioni seguono il [Versionamento Semantico][semver].
 
 ---
 
+## [0.4.0-rc5] — 2026-04-01 — Sync Sprint: Zensical v0.0.31+ e Parallelismo API
+
+> **Sprint 10.** `ZensicalAdapter` viene sincronizzato con lo schema ufficiale
+> Zensical v0.0.31+ (`[project].nav`). Il parsing nav ora supporta tutte le varianti
+> (stringa, pagina con titolo, sezione annidata). La classificazione route diventa
+> nav-aware (`ORPHAN_BUT_EXISTING` quando una pagina esiste ma non e elencata nella nav
+> esplicita). `map_url()` rispetta `use_directory_urls = false`. La documentazione viene
+> allineata in EN/IT e nasce `examples/zensical-basic/` come riferimento canonico.
+
+### Aggiunto
+
+- **Nuovo esempio `examples/zensical-basic/`** — progetto minimo completo con:
+  `zensical.toml` in formato v0.0.31+ (`[project]`), `zenzic.toml` con
+  `engine = "zensical"`, nav annidata e link relativi puliti.
+
+- **Sezioni documentali sul parallelismo (rc5)** — aggiunte in
+  `docs/architecture.md` e `docs/usage/advanced.md`: modello shared-nothing con
+  `ProcessPoolExecutor`, soglia pratica di convenienza (~200 file), vincoli tecnici
+  sulla picklability delle regole custom.
+
+- **Sezioni di coesistenza adapter (EN/IT)** — aggiornati
+  `docs/configuration/adapters-config.md` e `docs/it/configuration/adapters-config.md`
+  con la logica quando coesistono `mkdocs.yml` e `zensical.toml`: prevale sempre
+  `build_context.engine` (nessun auto-switch silenzioso).
+
+### Modificato
+
+- **`ZensicalAdapter`** — inizializzazione arricchita con stato nav pre-calcolato:
+  `_nav_paths`, `_has_explicit_nav`, `_use_directory_urls`.
+
+- **`get_nav_paths()`** — ora legge correttamente da `[project].nav` e supporta nav
+  ricorsiva (stringhe, dict titolo->pagina, dict titolo->lista annidata).
+
+- **`classify_route()`** — ora restituisce `ORPHAN_BUT_EXISTING` quando e presente
+  una nav esplicita e il file non compare nella nav.
+
+- **`tests/sandboxes/zensical/zensical.toml`** — migrato al formato `[project]`
+  con nav esplicita.
+
+- **Guide migrazione EN/IT** — aggiornati gli snippet `zensical.toml` in
+  `docs/guide/migration.md` e `docs/it/guide/migration.md` al formato v0.0.31+.
+
+### Corretto
+
+- **Compatibilita schema nav Zensical** — rimossa la dipendenza dal formato legacy
+  `[nav].nav` con coppie `{title, file}`; ora aderiamo allo schema ufficiale
+  `[project].nav`.
+
+---
+
 ## [0.4.0-rc4] — 2026-03-31 — Virtual Site Map, UNREACHABLE_LINK e Rilevamento Collisioni di Routing
 
 > **Sprint 8.** Zenzic acquisisce l'emulazione del motore di build: la Virtual Site Map (VSM)
