@@ -11,7 +11,7 @@ SPDX-License-Identifier: Apache-2.0
 </p>
 
 <p align="center">
-  <a href="https://pypi.org/project/zenzic/"><img src="https://img.shields.io/pypi/v/zenzic?color=38bdf8&style=flat-square" alt="PyPI"></a>
+  <a href="https://pypi.org/project/zenzic/"><img src="https://img.shields.io/pypi/v/zenzic?include_prereleases&color=38bdf8&style=flat-square" alt="PyPI"></a>
   <a href="https://pypi.org/project/zenzic/"><img src="https://img.shields.io/pypi/pyversions/zenzic?color=10b981&style=flat-square" alt="Python"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-0d9488?style=flat-square" alt="Licenza"></a>
 </p>
