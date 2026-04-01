@@ -72,6 +72,25 @@ non riconosciuta). Legge `mkdocs.yml` usando un loader YAML permissivo che ignor
 silenziosamente i tag sconosciuti (come l'interpolazione `!ENV` di MkDocs), quindi le
 configurazioni con molte variabili d'ambiente funzionano senza alcuna pre-elaborazione.
 
+### Limiti dell'analisi statica
+
+`MkDocsAdapter` analizza `mkdocs.yml` come **dati statici**. Non esegue la pipeline di
+build di MkDocs. Questo significa:
+
+- **Tag `!ENV`** — trattati silenziosamente come `null`. Se la nav dipende da
+  interpolazione di variabili d'ambiente a runtime, le voci nav che dipendono da quei
+  valori saranno assenti dalla visione di Zenzic.
+- **Nav generata dai plugin** — plugin che mutano la nav a runtime (es.
+  `mkdocs-awesome-pages`, `mkdocs-literate-nav`) producono un albero di navigazione
+  che Zenzic non vede mai. Le pagine incluse solo da questi plugin vengono segnalate
+  come orfane.
+- **Macro** — `mkdocs-macros-plugin` (template Jinja2 in Markdown) non viene
+  valutato. I link all'interno di espressioni macro non vengono validati.
+
+Per progetti che dipendono fortemente dalla generazione dinamica della nav, aggiungi i
+percorsi generati dai plugin a `excluded_dirs` in `zenzic.toml` per sopprimere i falsi
+positivi sugli orfani finché non sarà disponibile un adapter nativo.
+
 ### Configurazione minima
 
 ```toml

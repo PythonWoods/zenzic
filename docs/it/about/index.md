@@ -7,7 +7,7 @@ icon: lucide/info
 
 # Informazioni su Zenzic
 
-Zenzic è un linter di documentazione di livello ingegneristico e un quality gate per progetti MkDocs e Zensical.
+Zenzic è un linter di documentazione di livello ingegneristico e un quality gate per qualsiasi progetto basato su Markdown.
 
 Sviluppato da [PythonWoods](https://github.com/PythonWoods), è progettato per essere eseguito nelle pipeline CI/CD e rilevare i problemi nella documentazione prima che raggiungano gli utenti.
 

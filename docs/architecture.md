@@ -32,16 +32,20 @@ Every Zenzic run follows the same four-stage pipeline, regardless of the documen
 flowchart LR
     classDef source fill:#0f172a,stroke:#38bdf8,stroke-width:2px,color:#e2e8f0
     classDef adapter fill:#0f172a,stroke:#7c3aed,stroke-width:2px,color:#e2e8f0
+    classDef vsm    fill:#0f172a,stroke:#f59e0b,stroke-width:2px,color:#e2e8f0
     classDef engine fill:#0f172a,stroke:#10b981,stroke-width:2px,color:#e2e8f0
-    classDef output fill:#0f172a,stroke:#f59e0b,stroke-width:2px,color:#e2e8f0
+    classDef output fill:#0f172a,stroke:#dc2626,stroke-width:2px,color:#e2e8f0
 
     S["📄 Source\n.md files\nzenzic.toml"]:::source
     A["🔌 Adapter\nMkDocsAdapter\nZensicalAdapter\nVanillaAdapter"]:::adapter
+    V["🗺️ Virtual Site Map\nURL → Route\n(status · anchors)"]:::vsm
     R["⚙️ Rule Engine\nBuilt-in checks\nCustom Rules DSL\nPlugin rules"]:::engine
     F["📋 Findings\nIntegrityReport\nRuleFindings\nExit code"]:::output
 
     S -->|"get_adapter()"| A
-    A -->|"nav_paths\nlocale_dirs\nasset_fallback"| R
+    A -->|"nav_paths\nlocale_dirs\nasset_fallback"| V
+    S -->|"raw Markdown text"| V
+    V -->|"routing state\nGhost Routes\nanchor index"| R
     S -->|"raw Markdown text"| R
     R --> F
 ```
@@ -84,6 +88,17 @@ flowchart TD
     GLB -->|"Violation list"| CAC
     CAC --> VIO
 ```
+
+### Terminology: Route vs Path
+
+**Path** — the filesystem location of a source file, relative to `docs/`
+(e.g. `guide/index.md`).
+
+**Route** — the canonical URL the build engine will serve for that file
+(e.g. `/guide/`). The same source Path can resolve to different Routes under
+different engines. The VSM maps every known Path to exactly one Route and
+assigns it a status. All link validation and orphan detection operate on
+Routes, never on raw Paths — this is what makes Zenzic engine-agnostic.
 
 ### Route status values
 

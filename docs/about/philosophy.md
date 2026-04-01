@@ -41,9 +41,10 @@ The implementation of this commitment is **absolute engine-agnosticism**:
 - Third-party adapters install as Python packages and are discovered at runtime via entry-points.
   Adding support for a new engine (Hugo, Docusaurus, Sphinx) requires no Zenzic release.
 
-The practical consequence: a project migrating from MkDocs to Zensical can run `zenzic check all`
-continuously against both configurations simultaneously. A project that has not yet decided on a
-build engine can still validate its documentation quality today.
+The practical consequence: a project migrating from MkDocs to Zensical — or to Hugo, Docusaurus,
+or any future generator — can run `zenzic check all` continuously against both configurations
+simultaneously. A project that has not yet decided on a build engine can still validate its
+documentation quality today, using Vanilla mode with zero configuration.
 
 ---
 

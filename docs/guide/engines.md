@@ -69,6 +69,24 @@ It reads `mkdocs.yml` using a permissive YAML loader that silently ignores unkno
 (such as MkDocs `!ENV` interpolation), so environment-variable-heavy configs work without
 any preprocessing.
 
+### Static analysis limits
+
+`MkDocsAdapter` parses `mkdocs.yml` as **static data**. It does not execute the MkDocs
+build pipeline. This means:
+
+- **`!ENV` tags** — silently treated as `null`. If your nav relies on environment variable
+  interpolation at build time, the nav entries that depend on those values will be absent
+  from Zenzic's view.
+- **Plugin-generated nav** — plugins that mutate the nav at runtime (e.g. `mkdocs-awesome-pages`,
+  `mkdocs-literate-nav`) produce a navigation tree that Zenzic never sees. Pages included
+  only by these plugins will be reported as orphans.
+- **Macros** — `mkdocs-macros-plugin` (Jinja2 templates in Markdown) is not evaluated.
+  Links inside macro expressions are not validated.
+
+For projects that rely heavily on dynamic nav generation, add the plugin-generated paths to
+`excluded_dirs` in `zenzic.toml` to suppress false orphan reports until a native adapter
+is available.
+
 ### Minimal configuration
 
 ```toml
