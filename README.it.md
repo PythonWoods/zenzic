@@ -275,6 +275,6 @@ Apache-2.0 — vedi [LICENSE](LICENSE).
 [zensical]:           https://zensical.org/
 [docs-it-home]:       https://zenzic.pythonwoods.dev/it/usage/
 [docs-it-config]:     https://zenzic.pythonwoods.dev/it/configuration/
-[docs-it-migration]:  https://zenzic.pythonwoods.dev/it/guides/migration/
+[docs-it-migration]:  https://zenzic.pythonwoods.dev/it/guide/migration/
 [docs-it-arch]:       https://zenzic.pythonwoods.dev/it/architecture/
 [docs-it-adapter]:    https://zenzic.pythonwoods.dev/it/developers/writing-an-adapter/

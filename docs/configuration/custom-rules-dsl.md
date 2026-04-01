@@ -81,7 +81,7 @@ Rules with `severity = "info"` are printed without the `│` snippet.
 the project uses `MkDocsAdapter`, `ZensicalAdapter`, or `VanillaAdapter`. The rule engine
 operates on raw Markdown text; it has no knowledge of the build engine. This means:
 
-- Rules you write for a MkDocs project require no changes after [migrating to Zensical](../guides/migration.md).
+- Rules you write for a MkDocs project require no changes after [migrating to Zensical](../guide/migration.md).
 - Rules are safe to write before deciding which build engine a project will use.
 
 ---

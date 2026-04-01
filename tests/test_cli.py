@@ -12,7 +12,7 @@ import pytest
 from typer.testing import CliRunner
 
 from zenzic.core.scanner import PlaceholderFinding
-from zenzic.core.validator import SnippetError
+from zenzic.core.validator import LinkError, SnippetError
 from zenzic.main import app, cli_main
 from zenzic.models.config import ZenzicConfig
 
@@ -51,24 +51,38 @@ def test_cli_help() -> None:
 
 
 @patch("zenzic.cli.find_repo_root", return_value=_ROOT)
-@patch("zenzic.cli.validate_links", return_value=[])
-def test_check_links_ok(_links, _root) -> None:
+@patch("zenzic.cli.ZenzicConfig.load", return_value=(_CFG, False))
+@patch("zenzic.cli.validate_links_structured", return_value=[])
+def test_check_links_ok(_links, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "links"])
     assert result.exit_code == 0
     assert "OK" in result.stdout
 
 
 @patch("zenzic.cli.find_repo_root", return_value=_ROOT)
-@patch("zenzic.cli.validate_links", return_value=["index.md: broken link 'foo.md' (is not found)"])
-def test_check_links_with_errors(_links, _root) -> None:
+@patch("zenzic.cli.ZenzicConfig.load", return_value=(_CFG, False))
+@patch(
+    "zenzic.cli.validate_links_structured",
+    return_value=[
+        LinkError(
+            file_path=_ROOT / "docs" / "index.md",
+            line_no=1,
+            message="index.md:1: broken link 'foo.md' (is not found)",
+            source_line="[foo](foo.md)",
+            error_type="FILE_NOT_FOUND",
+        )
+    ],
+)
+def test_check_links_with_errors(_links, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "links"])
     assert result.exit_code == 1
     assert "BROKEN LINKS" in result.stdout
 
 
 @patch("zenzic.cli.find_repo_root", return_value=_ROOT)
-@patch("zenzic.cli.validate_links", return_value=[])
-def test_check_links_strict_passes_flag(mock_links, _root) -> None:
+@patch("zenzic.cli.ZenzicConfig.load", return_value=(_CFG, False))
+@patch("zenzic.cli.validate_links_structured", return_value=[])
+def test_check_links_strict_passes_flag(mock_links, _cfg, _root) -> None:
     runner.invoke(app, ["check", "links", "--strict"])
     mock_links.assert_called_once_with(_ROOT, strict=True)
 

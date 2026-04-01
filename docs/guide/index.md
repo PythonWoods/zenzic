@@ -48,7 +48,7 @@ Beyond reporting, Zenzic provides **autofix utilities** (like `zenzic clean asse
   - [Getting Started](../usage/index.md)
   - [Available Checks](../checks.md)
   - [Configuration](../configuration/index.md)
-  - [Engines](../guides/engines.md)
+  - [Engines](engines.md)
   - [CI/CD Integration](../ci-cd.md)
   - [Badges](../usage/badges.md)
   - [FAQs](../community/faqs.md)
@@ -72,6 +72,27 @@ Beyond reporting, Zenzic provides **autofix utilities** (like `zenzic clean asse
   - [How to Contribute](../community/contribute/index.md)
 
 </div>
+
+---
+
+## Private pages (Zensical engine)
+
+Files or directories starting with an underscore (`_`) are treated as **private** by
+Zenzic when using the Zensical engine.  Links to these resources are flagged as
+`UNREACHABLE_LINK` — Zensical never serves `_`-prefixed paths to the public.
+
+```toml
+# zenzic.toml
+[build_context]
+engine = "zensical"
+```
+
+```text
+docs/_private/notes.md  →  IGNORED — any link to this file fires UNREACHABLE_LINK
+```
+
+See [Nav-Aware Linking](../usage/advanced.md#private-pages-zensical) for the full rule
+table and engine comparison.
 
 ---
 

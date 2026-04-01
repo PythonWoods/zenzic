@@ -57,7 +57,7 @@ per personalizzare il comportamento, ad esempio per escludere directory, asset o
 Sì. Zenzic funziona su qualsiasi cartella di file Markdown senza richiedere alcun motore di
 build (modalità Vanilla). Gli adapter nativi per MkDocs e Zensical aggiungono la consapevolezza
 della nav e il supporto i18n. Adapter di terze parti possono estendere questa funzionalità a
-qualsiasi altro motore. Consulta la guida [Motori](../guides/engines.md) per i dettagli.
+qualsiasi altro motore. Consulta la guida [Motori](../guide/engines.md) per i dettagli.
 
 ## Checks e risultati
 

@@ -141,7 +141,7 @@ extra_css:
 extra:
   build_date: !ENV [BUILD_DATE, "dev"]
   generator: false
-  project_version: "0.4.0rc3"
+  project_version: "0.4.0rc4"
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/PythonWoods/zenzic
@@ -152,13 +152,6 @@ extra:
     - icon: fontawesome/brands/python
       link: https://pypi.org/project/zenzic/
       name: zenzic on PyPI
-  alternate:
-    - name: English
-      link: /
-      lang: en
-    - name: Italiano
-      link: /it/
-      lang: it
 
 nav:
   - Home: index.md
@@ -174,8 +167,8 @@ nav:
               - Core Settings: configuration/core-settings.md
               - Adapters & Engine: configuration/adapters-config.md
               - Custom Rules DSL: configuration/custom-rules-dsl.md
-          - Engines: guides/engines.md
-          - Migration Guide: guides/migration.md
+          - Engines: guide/engines.md
+          - Migration Guide: guide/migration.md
           - CI/CD Integration: ci-cd.md
           - Badges: usage/badges.md
           - FAQs: community/faqs.md

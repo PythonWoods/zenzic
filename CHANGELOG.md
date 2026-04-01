@@ -13,6 +13,157 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.4.0-rc4] — 2026-04-01 — Ghost Route Support, VSM Rule Engine & Content-Addressable Cache
+
+> **Sprint 9.** The Virtual Site Map (VSM) becomes the single source of truth for the Rule
+> Engine.  MkDocs Material Ghost Routes are resolved without false orphan warnings.
+> The `VSMBrokenLinkRule` validates links against routing state rather than the filesystem.
+> A content-addressable cache eliminates redundant re-linting of unchanged files.
+> The `Violation` dataclass introduces a structured finding standard with `code`, `level`,
+> and `context` fields.  `RuleFinding` is scheduled for removal before final release.
+
+### Added
+
+- **Ghost Route support** (`MkDocsAdapter`) — when `mkdocs.yml` declares
+  `plugins.i18n.reconfigure_material: true`, the Material theme auto-generates locale
+  entry points (e.g. `it/index.md` → `/it/`) at build time.  These pages are never listed
+  in `nav:` but are live routes.  `classify_route()` now marks top-level locale index files
+  as `REACHABLE` when this flag is set, eliminating false `ORPHAN_BUT_EXISTING` findings.
+  Guarded to `docs_structure: folder` only; suffix mode is unaffected.
+
+- **Redundant config warning** — `MkDocsAdapter.__init__` emits a `logging.WARNING` when
+  both `reconfigure_material: true` and `extra.alternate` are present in `mkdocs.yml`.
+  The combination suppresses the language switcher in some plugin versions.  The warning
+  names the exact key to remove.  Detection via the new pure helper
+  `_detect_redundant_alternate()`.
+
+- **`Violation` dataclass** (`zenzic.core.rules`) — structured finding type for VSM-aware
+  rules.  Fields: `code` (e.g. `Z001`), `level` (`error`/`warning`/`info`), `context`
+  (raw source line).  `as_finding()` converts to `RuleFinding` for backwards compatibility
+  during the transition period.
+
+- **`BaseRule.check_vsm()`** — new optional method on `BaseRule`.  Receives
+  `(file_path, text, vsm, anchors_cache)` — all in-memory, no I/O.  Default no-op
+  preserves full backwards compatibility for existing `check()`-only subclasses.
+
+- **`RuleEngine.run_vsm()`** — companion to `run()`.  Calls `check_vsm` on every rule,
+  converts `Violation` objects to `RuleFinding`, and isolates exceptions identically to
+  `run()`.
+
+- **`VSMBrokenLinkRule`** (code `Z001`) — first VSM-aware built-in rule.  Validates every
+  inline Markdown link against `vsm[url].status`.  A link is valid only when its target
+  URL is `REACHABLE` in the VSM — meaning Ghost Routes, nav-listed pages, and locale
+  shadows all pass cleanly.  Orphan and ignored pages emit `UNREACHABLE_LINK`.  External
+  URLs and bare fragments are skipped.  `check()` is a documented no-op.
+
+- **`CacheManager`** (`zenzic.core.cache`) — content-addressable in-memory cache for rule
+  findings.  Key: `SHA256(content) + SHA256(config) [+ SHA256(vsm_snapshot)]`.
+  - *Atomic rules* (e.g. `CustomRule`): key omits VSM hash; cache survives unrelated file
+    changes.
+  - *Global rules* (e.g. `VSMBrokenLinkRule`): key includes VSM hash; entire routing-state
+    change invalidates entries.
+  - Persistence: `load()` / `save()` are the only I/O operations; `get()` / `put()` are
+    pure in-memory.  Atomic write via temp-file rename prevents corruption.
+  - Degrades silently to cold start on missing or corrupt cache file.
+
+- **`make_vsm_snapshot_hash()`** — pure function that produces a stable SHA-256 digest of
+  VSM routing state (url, source, status, anchors).  Deterministic: routes sorted by URL,
+  anchor sets sorted before serialisation.
+
+- **Rule dependency taxonomy** — documented in `rules.py` module docstring:
+  *Atomic* (single-file, cache key omits VSM), *Global* (VSM-aware, cache key includes VSM
+  snapshot), *Cross-file* (future; not cacheable per-file without a dependency graph).
+
+### Changed
+
+- **`classify_route()` docstring** — enumeration extended to rule 3 (Ghost Route) and rule
+  4 (ORPHAN fallback) with explicit note that rules fire in priority order and an explicit
+  nav entry always wins.
+
+- **README `## First-Class Integrations`** — new "How it works — Virtual Site Map (VSM)"
+  subsection explains the VSM pipeline, Ghost Routes, and content-addressable cache.
+
+### Fixed
+
+- **`extra.alternate` + `reconfigure_material` conflict** (`mkdocs.yml`) — removed the
+  redundant `extra.alternate` block from the project's own `mkdocs.yml`.  This was causing
+  the language switcher to disappear in `mkdocs-material` when `reconfigure_material: true`
+  is active.
+
+### Developer Guide
+
+- **`docs/guide/migration.md`** and **`docs/it/guide/migration.md`** — new
+  "MkDocs Material best practices / Language switcher optimisation" section explains the
+  `reconfigure_material` vs `extra.alternate` conflict and provides the recommended
+  configuration pattern.
+
+### Tests
+
+- `TestGhostRouteReconfigureMaterial` (9 tests) — Ghost Route invariants: positive path
+  (`reconfigure_material: true` → `REACHABLE`), regression path (flag off/absent →
+  `ORPHAN_BUT_EXISTING` for non-shadow pages), boundary (explicit nav entry not overridden,
+  nested locale pages not promoted), end-to-end VSM integration.
+- `TestViolation` — `Violation` contract: fields, `is_error`, `as_finding()` round-trip.
+- `TestVSMBrokenLinkRule` — 11 tests covering REACHABLE pass, missing URL, orphan status,
+  external skip, fragment skip, fenced-block skip, context/line-number correctness,
+  `run_vsm` engine integration.
+- `TestRuleEngineTortureTest` — O(N) scalability: 10 000-node VSM + 10 000 links completes
+  in < 1 s for both all-valid and all-missing cases.
+
+---
+
+## [0.4.0-rc3] — 2026-03-31 — Virtual Site Map, UNREACHABLE_LINK & Routing Collision Detection
+
+> **Sprint 8.** Zenzic gains build-engine emulation: the Virtual Site Map (VSM) projects
+> every source file to its canonical URL before the build runs.  Links to pages that exist
+> on disk but are absent from the nav are now caught as `UNREACHABLE_LINK`.  Routing
+> collisions (e.g. `index.md` + `README.md` coexisting in the same directory) are flagged
+> as `CONFLICT`.  Documentation paths unified under `/guide/`.  Terminology aligned to
+> "compatible successor".
+
+### Added
+
+- **Virtual Site Map (VSM)** — new `zenzic.models.vsm` module introduces the `Route`
+  dataclass (`url`, `source`, `status`, `anchors`, `aliases`) and `build_vsm()`, a
+  zero-I/O function that projects every `.md` source file to its canonical URL and
+  routing status (`REACHABLE`, `ORPHAN_BUT_EXISTING`, `IGNORED`, `CONFLICT`) using
+  the active build-engine adapter.  Zenzic now emulates the site router without running
+  the build.
+
+- **`UNREACHABLE_LINK` detection** — `validate_links_async` now cross-references every
+  successfully resolved internal link against the VSM.  A link to a file that exists on
+  disk but is not listed in the MkDocs `nav:` emits `UNREACHABLE_LINK`, catching the
+  class of 404s that traditional file-existence checks miss entirely.  Disabled
+  automatically for `VanillaAdapter` and `ZensicalAdapter` (filesystem-only routing).
+
+- **Routing collision detection** — `_detect_collisions()` in `vsm.py` marks any two
+  source files that map to the same canonical URL as `CONFLICT`.  The most common case
+  — `index.md` and `README.md` coexisting in the same directory (Double Index) — is
+  handled without special-casing: both produce the same URL and are therefore caught
+  automatically.
+
+- **`map_url()` and `classify_route()` adapter methods** — added to `BaseAdapter`
+  Protocol, `MkDocsAdapter`, `ZensicalAdapter`, and `VanillaAdapter`.  `map_url(rel)`
+  applies engine-specific physical → virtual URL mapping; `classify_route(rel, nav_paths)`
+  returns the routing status for a given source file.
+
+### Changed
+
+- **`MkDocsAdapter.classify_route`** — when no `nav:` section is declared in
+  `mkdocs.yml`, all files are classified as `REACHABLE` (mirrors MkDocs auto-include
+  behaviour).  `README.md` remains `IGNORED` regardless.
+
+- **Documentation paths** — all references to the stale `/guides/` path in `RELEASE.md`,
+  `RELEASE.it.md`, `CHANGELOG.md`, `CHANGELOG.it.md`, and `README.it.md` updated to
+  the canonical `/guide/` root.
+
+### Fixed
+
+- **Terminology** — "Zensical is a superset of MkDocs" replaced with "Zensical is a
+  compatible successor to MkDocs" across all documentation and changelog entries.
+
+---
+
 ## [0.4.0-rc3] — 2026-03-29 — i18n Anchor Fix, Multi-language Snippets & Shield Deep-Scan
 
 > **Sprint 7.** The `AnchorMissing` i18n fallback gap closed. Dead code eliminated. Shared
@@ -188,14 +339,14 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 - **Documentation — Italian parity** — `docs/it/` now mirrors the full English structure:
   `it/configuration/` (4 pages), `it/developers/writing-an-adapter.md`,
-  `it/guides/migration.md`.
+  `it/guide/migration.md`.
 
 - **Documentation — Writing an Adapter guide** (`docs/developers/writing-an-adapter.md`) —
   Full protocol reference: `BaseAdapter` methods, `from_repo` pattern, entry-point
   registration, test utilities (`RepoBuilder`, `assert_no_findings`, protocol compliance
   checker).
 
-- **Documentation — MkDocs → Zensical migration guide** (`docs/guides/migration.md`) —
+- **Documentation — MkDocs → Zensical migration guide** (`docs/guide/migration.md`) —
   Four-phase migration workflow: establish baseline → switch binary → declare identity →
   verify link integrity. Includes `[[custom_rules]]` portability note and quick-reference
   table.
@@ -700,7 +851,7 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
-- `_detect_engine()` — `--engine` override now validates both binary presence on `$PATH` and required config file existence before returning; `--engine zensical` accepts `mkdocs.yml` as a valid config for backwards compatibility (Zensical is a superset of MkDocs); returns `None` when no config file is present, enabling the static-server fallback instead of raising an error.
+- `_detect_engine()` — `--engine` override now validates both binary presence on `$PATH` and required config file existence before returning; `--engine zensical` accepts `mkdocs.yml` as a valid config for backwards compatibility (Zensical is a compatible successor to MkDocs); returns `None` when no config file is present, enabling the static-server fallback instead of raising an error.
 
 ### Removed
 

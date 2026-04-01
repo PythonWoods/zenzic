@@ -3,8 +3,8 @@
 
 # Zenzic v0.4.0: Il Framework Agnostico per l'Integrità della Documentazione
 
-**Data di rilascio:** 2026-03-29
-**Stato:** Release Candidate 3 — pronto per la distribuzione
+**Data di rilascio:** 2026-04-01
+**Stato:** Release Candidate 4 — routing-aware, VSM Rule Engine, freeze pre-release
 
 ---
 
@@ -86,6 +86,52 @@ Il punteggio che ottenete sul laptop dello sviluppatore è il punteggio che otti
 punteggio che ottiene la CI è il punteggio che tracciate nel version control. Il determinismo
 non è una feature; è il fondamento su cui sono costruiti `zenzic diff` e il rilevamento delle
 regressioni.
+
+---
+
+## Novità in rc4
+
+### Ghost Routes — entry point i18n di MkDocs Material
+
+Quando `reconfigure_material: true` è attivo nel plugin i18n, MkDocs Material
+genera automaticamente entry point per le lingue (es. `it/index.md`) che non
+appaiono mai in `nav:`. La VSM ora marca questi come `REACHABLE` Ghost Routes,
+eliminando i falsi positivi di "pagina orfana" sulle root delle lingue. Viene emesso
+un `WARNING` quando `reconfigure_material: true` e `extra.alternate` sono dichiarati
+contemporaneamente (configurazione ridondante).
+
+### VSM Rule Engine — regole lint routing-aware
+
+`BaseRule` acquisisce un'interfaccia opzionale `check_vsm()`. Le regole che la
+sovrascrivono ricevono la VSM pre-costruita e possono validare i link rispetto allo
+stato di routing senza nessun I/O. `RuleEngine.run_vsm()` esegue tutte le regole
+VSM-aware e converte gli oggetti `Violation` nel tipo standard `RuleFinding`.
+
+La prima regola VSM built-in — `VSMBrokenLinkRule` (codice `Z001`) — valida tutti i
+link Markdown inline rispetto alla VSM. Un link è valido solo quando il suo URL di
+destinazione è presente e `REACHABLE`. I casi "non nella VSM" e "UNREACHABLE_LINK"
+producono una `Violation` strutturata con percorso file, numero di riga e riga
+sorgente incriminata come contesto.
+
+### Cache content-addressable (`CacheManager`)
+
+I risultati delle regole sono ora memorizzati in cache con chiave SHA-256:
+
+| Tipo di regola | Chiave cache |
+| :--- | :--- |
+| Atomica (solo contenuto) | `SHA256(contenuto) + SHA256(config)` |
+| Globale (VSM-aware) | `SHA256(contenuto) + SHA256(config) + SHA256(snapshot_vsm)` |
+
+I timestamp non vengono mai consultati — la cache è CI-safe per costruzione. Le
+scritture sono atomiche (rinomina `.tmp`). La cache viene caricata una volta
+all'avvio e salvata una volta alla fine di ogni run; tutte le operazioni in-run
+sono pure in-memory.
+
+### Performance — O(N) torture test (10k nodi)
+
+Il VSM Rule Engine e l'infrastruttura di cache sono validati su larga scala:
+10.000 link tutti validi completano in < 1 s; 10.000 link tutti non validi
+completano in < 1 s; `engine.run_vsm` con una VSM da 10.000 nodi completa in < 0.5 s.
 
 ---
 
@@ -343,7 +389,7 @@ Modifiche strutturali principali:
   [DSL Regole Custom](docs/configuration/custom-rules-dsl.md)
 - **Parità italiana** — `docs/it/` ora rispecchia la struttura inglese completa. La
   documentazione è production-ready per team internazionali.
-- **Guida alla migrazione** — [MkDocs → Zensical](docs/guides/migration.md) workflow in quattro
+- **Guida alla migrazione** — [MkDocs → Zensical](docs/guide/migration.md) workflow in quattro
   fasi con l'approccio baseline/diff/gate come rete di sicurezza della migrazione.
 - **Guida Adapter** — [Scrivere un Adapter](docs/developers/writing-an-adapter.md) riferimento
   completo del protocollo e utility di test.
@@ -390,7 +436,7 @@ Il flag CLI `--format` è invariato. Il parametro interno `format` nelle API Pyt
 
 ```text
 zenzic check all       # self-dogfood: 7/7 OK
-pytest                 # 446 passati, 0 falliti
+pytest                 # 529 passati, 0 falliti
 coverage               # ≥ 80% (gate rigido)
 ruff check .           # 0 violazioni
 mypy src/              # 0 errori

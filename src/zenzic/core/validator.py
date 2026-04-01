@@ -49,6 +49,7 @@ from zenzic.core.resolver import (
 )
 from zenzic.models.config import ZenzicConfig
 from zenzic.models.references import ReferenceMap
+from zenzic.models.vsm import build_vsm
 
 
 # ─── YAML loader (boundary layer — ignores unknown tags like MkDocs !ENV) ────
@@ -99,6 +100,32 @@ class SnippetError:
     file_path: Path
     line_no: int
     message: str
+
+
+@dataclass(slots=True)
+class LinkError:
+    """A single link validation finding with source context for rich rendering.
+
+    Attributes:
+        file_path:   Absolute path of the source file containing the link.
+        line_no:     1-based line number of the offending link.
+        message:     Human-readable error description.
+        source_line: The raw source line from the file (stripped), used by
+                     the CLI to render the Visual Snippet indicator ``│``.
+                     Empty string when the line cannot be retrieved.
+        error_type:  Machine-readable category, e.g. ``'UNREACHABLE_LINK'``,
+                     ``'FILE_NOT_FOUND'``, ``'ANCHOR_MISSING'``, etc.
+    """
+
+    file_path: Path
+    line_no: int
+    message: str
+    source_line: str = ""
+    error_type: str = "LINK_ERROR"
+
+    def __str__(self) -> str:
+        """Flat string form — backwards-compatible with the old list[str] API."""
+        return self.message
 
 
 # ─── Pure / I/O-agnostic functions ────────────────────────────────────────────
@@ -365,7 +392,8 @@ async def validate_links_async(
     repo_root: Path,
     *,
     strict: bool = False,
-) -> list[str]:
+    structured: bool = False,
+) -> list[str] | list[LinkError]:
     """Native link validator — no subprocesses, no MkDocs dependency.
 
     **Internal links** (always checked):
@@ -379,12 +407,17 @@ async def validate_links_async(
         return a successful or access-restricted response.
 
     Args:
-        repo_root: Repository root directory (must contain ``docs/``).
-        strict: When ``True``, also validate external HTTP/HTTPS links via
-            network.  Adds latency; disabled by default for fast CI runs.
+        repo_root:  Repository root directory (must contain ``docs/``).
+        strict:     When ``True``, also validate external HTTP/HTTPS links via
+                    network.  Adds latency; disabled by default for fast CI runs.
+        structured: When ``True``, return ``list[LinkError]`` with per-error
+                    source-line context for rich CLI rendering.  When ``False``
+                    (default), return the legacy ``list[str]`` for backwards
+                    compatibility.
 
     Returns:
-        Sorted list of human-readable error strings; empty when all links pass.
+        ``list[str]`` (``structured=False``) or ``list[LinkError]``
+        (``structured=True``); empty when all links pass.
     """
     config, _ = ZenzicConfig.load(repo_root)
     docs_root = (repo_root / config.docs_dir).resolve()
@@ -433,9 +466,24 @@ async def validate_links_async(
     # cancelling the 14× performance gain from the pre-computed flat dict.
     resolver = InMemoryPathResolver(docs_root, md_contents, anchors_cache)
 
+    # ── Build the Virtual Site Map (VSM) ──────────────────────────────────────
+    # The VSM maps every .md file to its canonical URL and routing status.
+    # It is only meaningful when the adapter has a nav (MkDocs with mkdocs.yml);
+    # for VanillaAdapter / Zensical every file is REACHABLE by definition.
+    vsm = build_vsm(adapter, docs_root, md_contents, anchors_cache=anchors_cache)
+
     # ── Pass 2: extract links (inline + reference-style) and validate ─────────
-    internal_errors: list[str] = []
+    internal_errors: list[LinkError] = []
     external_entries: list[tuple[str, str, int]] = []  # (url, file_label, lineno)
+
+    # Pre-split source lines once per file so the hot path is O(1) per error.
+    source_lines_cache: dict[Path, list[str]] = {p: c.splitlines() for p, c in md_contents.items()}
+
+    def _source_line(md_file: Path, lineno: int) -> str:
+        """Return the raw source line (1-based) from the pre-split cache."""
+        lines = source_lines_cache.get(md_file, [])
+        idx = lineno - 1
+        return lines[idx].strip() if 0 <= idx < len(lines) else ""
 
     for md_file, content in md_contents.items():
         label = str(md_file.relative_to(docs_root))
@@ -464,7 +512,13 @@ async def validate_links_async(
                     anchor = parsed.fragment
                     if anchor not in anchors_cache.get(md_file, set()):
                         internal_errors.append(
-                            f"{label}:{lineno}: anchor '#{anchor}' not found in '{label}'"
+                            LinkError(
+                                file_path=md_file,
+                                line_no=lineno,
+                                message=f"{label}:{lineno}: anchor '#{anchor}' not found in '{label}'",
+                                source_line=_source_line(md_file, lineno),
+                                error_type="ANCHOR_MISSING",
+                            )
                         )
                 continue
 
@@ -476,10 +530,18 @@ async def validate_links_async(
             # are handled above as external links and are not affected.
             if parsed.path.startswith("/"):
                 internal_errors.append(
-                    f"{label}:{lineno}: '{url}' uses an absolute path — "
-                    "use a relative path (e.g. '../' or './') instead; "
-                    "absolute paths break portability when the site is hosted "
-                    "in a subdirectory"
+                    LinkError(
+                        file_path=md_file,
+                        line_no=lineno,
+                        message=(
+                            f"{label}:{lineno}: '{url}' uses an absolute path — "
+                            "use a relative path (e.g. '../' or './') instead; "
+                            "absolute paths break portability when the site is hosted "
+                            "in a subdirectory"
+                        ),
+                        source_line=_source_line(md_file, lineno),
+                        error_type="ABSOLUTE_PATH",
+                    )
                 )
                 continue
 
@@ -492,7 +554,13 @@ async def validate_links_async(
                 case PathTraversal():
                     # Security finding — path escaped the docs root.
                     internal_errors.append(
-                        f"{label}:{lineno}: '{url}' resolves outside the docs directory"
+                        LinkError(
+                            file_path=md_file,
+                            line_no=lineno,
+                            message=f"{label}:{lineno}: '{url}' resolves outside the docs directory",
+                            source_line=_source_line(md_file, lineno),
+                            error_type="PATH_TRAVERSAL",
+                        )
                     )
                 case FileNotFound(path_part=path_part):
                     # Non-Markdown assets are not tracked in md_contents.  Resolve
@@ -519,7 +587,13 @@ async def validate_links_async(
                             for pat in config.excluded_build_artifacts
                         ):
                             internal_errors.append(
-                                f"{label}:{lineno}: '{path_part}' not found in docs"
+                                LinkError(
+                                    file_path=md_file,
+                                    line_no=lineno,
+                                    message=f"{label}:{lineno}: '{path_part}' not found in docs",
+                                    source_line=_source_line(md_file, lineno),
+                                    error_type="FILE_NOT_FOUND",
+                                )
                             )
                 case AnchorMissing(path_part=path_part, anchor=anchor, resolved_file=resolved_file):
                     # Mirror the FileNotFound i18n fallback: when a locale file
@@ -530,15 +604,54 @@ async def validate_links_async(
                     if adapter.resolve_anchor(resolved_file, anchor, anchors_cache, docs_root):
                         continue
                     internal_errors.append(
-                        f"{label}:{lineno}: anchor '#{anchor}' not found in '{path_part}'"
+                        LinkError(
+                            file_path=md_file,
+                            line_no=lineno,
+                            message=f"{label}:{lineno}: anchor '#{anchor}' not found in '{path_part}'",
+                            source_line=_source_line(md_file, lineno),
+                            error_type="ANCHOR_MISSING",
+                        )
                     )
-                case Resolved():
-                    pass
+                case Resolved(target=resolved_target):
+                    # ── UNREACHABLE_LINK: file exists but cannot be reached ───
+                    # Fires when the adapter has a build config and the resolved
+                    # target maps to a route that is either:
+                    #   - ORPHAN_BUT_EXISTING: file exists but not in MkDocs nav
+                    #   - IGNORED: file in a _private/ dir (Zensical) or an
+                    #     unlisted README.md — engine will never serve it
+                    if adapter.has_engine_config():
+                        try:
+                            target_rel = resolved_target.relative_to(docs_root)
+                        except ValueError:
+                            pass  # target outside docs_root — already handled by Shield
+                        else:
+                            target_url = adapter.map_url(target_rel)
+                            route = vsm.get(target_url)
+                            if route is not None and route.status in (
+                                "ORPHAN_BUT_EXISTING",
+                                "IGNORED",
+                            ):
+                                internal_errors.append(
+                                    LinkError(
+                                        file_path=md_file,
+                                        line_no=lineno,
+                                        message=(
+                                            f"{label}:{lineno}: '{target_rel.as_posix()}' resolves "
+                                            f"to '{target_url}' which exists on disk but is not "
+                                            "listed in the site navigation (UNREACHABLE_LINK) — "
+                                            "add it to nav in mkdocs.yml or remove the link"
+                                        ),
+                                        source_line=_source_line(md_file, lineno),
+                                        error_type="UNREACHABLE_LINK",
+                                    )
+                                )
 
-    internal_errors.sort()
+    internal_errors.sort(key=lambda e: e.message)
 
     if not strict:
-        return internal_errors
+        if structured:
+            return internal_errors
+        return [e.message for e in internal_errors]
 
     # ── Pass 3 (strict only): validate external links ─────────────────────────
     excluded = config.excluded_external_urls
@@ -548,8 +661,21 @@ async def validate_links_async(
             for url, label, lineno in external_entries
             if not any(url.startswith(prefix) for prefix in excluded)
         ]
-    ext_errors = await _check_external_links(external_entries)
-    return internal_errors + ext_errors
+    ext_error_strs = await _check_external_links(external_entries)
+    ext_link_errors = [
+        LinkError(
+            file_path=docs_root,  # no single file context for external errors
+            line_no=0,
+            message=msg,
+            source_line="",
+            error_type="EXTERNAL_LINK",
+        )
+        for msg in ext_error_strs
+    ]
+    all_errors: list[LinkError] = internal_errors + ext_link_errors
+    if structured:
+        return all_errors
+    return [e.message for e in all_errors]
 
 
 def generate_virtual_site_map(docs_root: Path, docs_structure: str) -> frozenset[str]:
@@ -688,7 +814,32 @@ def validate_links(repo_root: Path, *, strict: bool = False) -> list[str]:
     Returns:
         Sorted list of human-readable error strings.
     """
-    return asyncio.run(validate_links_async(repo_root, strict=strict))
+    result = asyncio.run(validate_links_async(repo_root, strict=strict, structured=False))
+    assert isinstance(result, list)
+    return result  # type: ignore[return-value]
+
+
+def validate_links_structured(
+    repo_root: Path,
+    *,
+    strict: bool = False,
+) -> list[LinkError]:
+    """Synchronous wrapper that returns rich :class:`LinkError` objects.
+
+    Identical to :func:`validate_links` but returns structured findings with
+    ``source_line`` and ``error_type`` populated, enabling the CLI to render
+    Visual Snippets with the ``│`` indicator.
+
+    Args:
+        repo_root: Repository root directory.
+        strict: Include external HTTP/HTTPS link checks (requires network).
+
+    Returns:
+        Sorted list of :class:`LinkError` objects; empty when all links pass.
+    """
+    result = asyncio.run(validate_links_async(repo_root, strict=strict, structured=True))
+    assert isinstance(result, list)
+    return result  # type: ignore[return-value]
 
 
 # ─── Multi-language snippet validation ────────────────────────────────────────

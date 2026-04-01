@@ -39,10 +39,9 @@ excluded_dirs = ["overrides"]
 excluded_build_artifacts = ["assets/brand-kit.zip", "it/assets/brand-kit.zip"]
 
 # External URLs excluded from the broken-link check.
-# These URLs are correct but the target is not yet publicly reachable at lint time.
+# The GitHub repository URL is excluded because it returns 429 in CI (rate-limited).
 excluded_external_urls = [
     "https://github.com/PythonWoods/zenzic",
-    "https://zenzic.pythonwoods.dev",
 ]
 
 snippet_min_lines = 1

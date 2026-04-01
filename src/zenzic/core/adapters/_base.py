@@ -5,7 +5,11 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
+
+
+if TYPE_CHECKING:
+    from zenzic.models.vsm import RouteStatus
 
 
 @runtime_checkable
@@ -72,5 +76,32 @@ class BaseAdapter(Protocol):
         ``VanillaAdapter`` returns ``False``.  All concrete adapters return
         ``True``.  Callers use this to decide whether a nav-based check
         (e.g. orphan detection) can produce meaningful results.
+        """
+        ...
+
+    def map_url(self, rel: Path) -> str:
+        """Map a physical source file path to its canonical virtual URL.
+
+        Args:
+            rel: Path of the Markdown source file, relative to ``docs_root``.
+
+        Returns:
+            Canonical URL string with leading and trailing slash
+            (e.g. ``'/guide/installation/'``).
+        """
+        ...
+
+    def classify_route(self, rel: Path, nav_paths: frozenset[str]) -> RouteStatus:
+        """Classify a source file's routing status.
+
+        Args:
+            rel:       Path relative to ``docs_root``.
+            nav_paths: Frozenset of nav-listed ``.md`` paths (from
+                       ``get_nav_paths()``).
+
+        Returns:
+            ``RouteStatus`` literal: ``'REACHABLE'``, ``'ORPHAN_BUT_EXISTING'``,
+            or ``'IGNORED'``.  ``'CONFLICT'`` is set later by
+            ``_detect_collisions()`` and must not be returned here.
         """
         ...

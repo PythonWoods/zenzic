@@ -12,6 +12,57 @@ Le versioni seguono il [Versionamento Semantico][semver].
 
 ---
 
+## [0.4.0-rc4] — 2026-03-31 — Virtual Site Map, UNREACHABLE_LINK e Rilevamento Collisioni di Routing
+
+> **Sprint 8.** Zenzic acquisisce l'emulazione del motore di build: la Virtual Site Map (VSM)
+> proietta ogni file sorgente al suo URL canonico prima che la build venga eseguita. I link a
+> pagine che esistono sul disco ma sono assenti dalla nav vengono ora rilevati come
+> `UNREACHABLE_LINK`. Le collisioni di routing (es. `index.md` + `README.md` nella stessa
+> directory) vengono segnalate come `CONFLICT`. I percorsi della documentazione unificati sotto
+> `/guide/`. Terminologia allineata a "successore compatibile".
+
+### Aggiunto
+
+- **Virtual Site Map (VSM)** — nuovo modulo `zenzic.models.vsm` che introduce il dataclass
+  `Route` (`url`, `source`, `status`, `anchors`, `aliases`) e `build_vsm()`, una funzione
+  senza I/O che proietta ogni file sorgente `.md` al suo URL canonico e stato di routing
+  (`REACHABLE`, `ORPHAN_BUT_EXISTING`, `IGNORED`, `CONFLICT`) usando l'adapter del motore
+  di build attivo. Zenzic emula ora il router del sito senza eseguire la build.
+
+- **Rilevamento `UNREACHABLE_LINK`** — `validate_links_async` ora incrocia ogni link
+  interno risolto con successo con la VSM. Un link a un file che esiste sul disco ma non è
+  elencato nella `nav:` di MkDocs emette `UNREACHABLE_LINK`, intercettando la classe di
+  404 che i controlli di esistenza dei file tradizionali non vedono. Disabilitato
+  automaticamente per `VanillaAdapter` e `ZensicalAdapter` (routing solo da filesystem).
+
+- **Rilevamento collisioni di routing** — `_detect_collisions()` in `vsm.py` marca come
+  `CONFLICT` due file sorgente che mappano allo stesso URL canonico. Il caso più comune —
+  `index.md` e `README.md` nella stessa directory (Double Index) — viene gestito senza
+  logica speciale: entrambi producono lo stesso URL e vengono quindi intercettati
+  automaticamente.
+
+- **Metodi adapter `map_url()` e `classify_route()`** — aggiunti al Protocol `BaseAdapter`,
+  `MkDocsAdapter`, `ZensicalAdapter` e `VanillaAdapter`. `map_url(rel)` applica la
+  mappatura URL fisica → virtuale specifica del motore; `classify_route(rel, nav_paths)`
+  restituisce lo stato di routing per un dato file sorgente.
+
+### Modificato
+
+- **`MkDocsAdapter.classify_route`** — quando nessuna sezione `nav:` è dichiarata in
+  `mkdocs.yml`, tutti i file sono classificati come `REACHABLE` (rispecchia il
+  comportamento di auto-inclusione di MkDocs). `README.md` rimane `IGNORED` in ogni caso.
+
+- **Percorsi documentazione** — tutti i riferimenti al percorso obsoleto `/guides/` in
+  `RELEASE.md`, `RELEASE.it.md`, `CHANGELOG.md`, `CHANGELOG.it.md` e `README.it.md`
+  aggiornati alla root canonica `/guide/`.
+
+### Corretto
+
+- **Terminologia** — "Zensical è un superset di MkDocs" sostituito con "Zensical è un
+  successore compatibile di MkDocs" in tutta la documentazione e nelle voci di changelog.
+
+---
+
 ## [0.4.0-rc3] — 2026-03-29 — Fix i18n Ancore, Snippet Multilingua & Shield Deep-Scan
 
 > **Sprint 7.** Il gap di fallback i18n per `AnchorMissing` è chiuso. Codice morto eliminato.
@@ -181,11 +232,11 @@ Le versioni seguono il [Versionamento Semantico][semver].
 
 - **Documentazione — Parità italiana** — `docs/it/` rispecchia la struttura inglese completa:
   `it/configuration/` (4 pagine), `it/developers/writing-an-adapter.md`,
-  `it/guides/migration.md`.
+  `it/guide/migration.md`.
 
 - **Documentazione — Guida scrittura Adapter** (`docs/developers/writing-an-adapter.md`).
 
-- **Documentazione — Guida migrazione MkDocs → Zensical** (`docs/guides/migration.md`) —
+- **Documentazione — Guida migrazione MkDocs → Zensical** (`docs/guide/migration.md`) —
   Workflow in quattro fasi con approccio baseline/diff/gate.
 
 ### Modificato

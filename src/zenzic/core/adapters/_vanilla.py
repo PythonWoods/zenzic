@@ -5,6 +5,11 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+
+if TYPE_CHECKING:
+    from zenzic.models.vsm import RouteStatus
 
 
 class VanillaAdapter:
@@ -51,3 +56,23 @@ class VanillaAdapter:
     def has_engine_config(self) -> bool:
         """``False`` — VanillaAdapter is active only when no engine was detected."""
         return False
+
+    def map_url(self, rel: Path) -> str:  # noqa: ARG002
+        """Fallback URL mapping: same clean-URL rule as Zensical."""
+        stem = rel.with_suffix("")
+        parts = list(stem.parts)
+        if not parts:
+            return "/"
+        if parts[-1] in ("index", "README"):
+            parts = parts[:-1]
+        if not parts:
+            return "/"
+        return "/" + "/".join(parts) + "/"
+
+    def classify_route(  # noqa: ARG002
+        self,
+        rel: Path,
+        nav_paths: frozenset[str],
+    ) -> RouteStatus:
+        """Always ``REACHABLE`` — no nav to compare against."""
+        return "REACHABLE"

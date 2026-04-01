@@ -9,15 +9,23 @@ consumers of the adapter API and never import from this module directly.
 
 from __future__ import annotations
 
+import logging
 import re
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import yaml
 
 from zenzic.core.adapters._utils import remap_to_default_locale
 from zenzic.core.exceptions import ConfigurationError
 from zenzic.models.config import BuildContext
+
+
+_log = logging.getLogger(__name__)
+
+
+if TYPE_CHECKING:
+    from zenzic.models.vsm import RouteStatus
 
 
 # ── YAML loader ───────────────────────────────────────────────────────────────
@@ -126,6 +134,68 @@ def _extract_i18n_locale_dirs(doc_config: dict[str, Any]) -> set[str]:
                     dirs.add(locale)
         break
     return dirs
+
+
+def _extract_i18n_reconfigure_material(doc_config: dict[str, Any]) -> bool:
+    """Return ``True`` when the i18n plugin has ``reconfigure_material: true``.
+
+    When this flag is active, ``mkdocs-material`` auto-generates the language
+    switcher and the alternate-locale entry points (e.g. ``/it/``) at build
+    time.  These routes are **not** listed in ``nav:`` or ``extra.alternate``
+    and must therefore be treated as auto-generated REACHABLE routes in the
+    VSM — otherwise Zenzic would flag the locale index pages as orphans.
+
+    Only meaningful when ``docs_structure: folder`` is active; returns
+    ``False`` for suffix mode and for configs that omit the setting (the
+    plugin default is ``false``).
+
+    Args:
+        doc_config: Parsed documentation generator config (e.g. from mkdocs.yml).
+
+    Returns:
+        ``True`` when ``reconfigure_material: true`` is set on the i18n plugin
+        block with ``docs_structure: folder``; ``False`` otherwise.
+    """
+    plugins = doc_config.get("plugins", [])
+    if not isinstance(plugins, list):
+        return False
+    for plugin in plugins:
+        if not isinstance(plugin, dict):
+            continue
+        i18n_config = plugin.get("i18n")
+        if not isinstance(i18n_config, dict):
+            continue
+        if i18n_config.get("docs_structure") != "folder":
+            return False
+        return bool(i18n_config.get("reconfigure_material", False))
+    return False
+
+
+def _detect_redundant_alternate(doc_config: dict[str, Any]) -> bool:
+    """Return ``True`` when ``reconfigure_material: true`` and ``extra.alternate`` coexist.
+
+    This combination is redundant: ``reconfigure_material`` delegates the
+    language switcher to the i18n plugin, which auto-generates it from the
+    ``languages`` list.  A manual ``extra.alternate`` block then competes with
+    the auto-generated switcher and causes the switcher to disappear in some
+    plugin versions.
+
+    This is a pure diagnostic helper — it reads only the already-parsed config
+    dict and has no side effects.
+
+    Args:
+        doc_config: Parsed documentation generator config (e.g. from mkdocs.yml).
+
+    Returns:
+        ``True`` when both ``reconfigure_material: true`` and ``extra.alternate``
+        are present; ``False`` otherwise.
+    """
+    if not _extract_i18n_reconfigure_material(doc_config):
+        return False
+    alternate = doc_config.get("extra", {})
+    if not isinstance(alternate, dict):
+        return False
+    return bool(alternate.get("alternate"))
 
 
 def _extract_i18n_fallback_to_default(doc_config: dict[str, Any]) -> bool:
@@ -267,6 +337,24 @@ class MkDocsAdapter:
             self._locale_dirs = frozenset(_extract_i18n_locale_dirs(self._doc_config))
             self._fallback_to_default = _extract_i18n_fallback_to_default(self._doc_config)
 
+        # When reconfigure_material: true the Material theme auto-generates
+        # the language switcher and the locale entry points (e.g. /it/) at
+        # build time.  These routes never appear in nav: so classify_route()
+        # must treat locale index pages as REACHABLE without nav evidence.
+        self._reconfigure_material: bool = _extract_i18n_reconfigure_material(self._doc_config)
+
+        # Emit a UX hint when the config is redundant: reconfigure_material
+        # auto-generates the switcher, so extra.alternate is both unnecessary
+        # and harmful (it competes with the plugin and can hide the switcher).
+        if _detect_redundant_alternate(self._doc_config):
+            _log.warning(
+                "mkdocs.yml: 'extra.alternate' is redundant when "
+                "'plugins.i18n.reconfigure_material: true' is set. "
+                "The i18n plugin auto-generates the language switcher from the "
+                "'languages' list — remove 'extra.alternate' to avoid routing "
+                "conflicts that can cause the language switcher to disappear."
+            )
+
     # ── Public contract ────────────────────────────────────────────────────────
 
     def is_locale_dir(self, part: str) -> bool:
@@ -370,6 +458,100 @@ class MkDocsAdapter:
         scenario where the adapter has no nav or i18n information to contribute.
         """
         return self._config_file_found or bool(self._locale_dirs)
+
+    # ── VSM integration ────────────────────────────────────────────────────────
+
+    def map_url(self, rel: Path) -> str:
+        """Map a physical source path to its MkDocs canonical URL.
+
+        Applies the MkDocs ``use_directory_urls`` rule (default ``true``):
+
+        * ``page.md``           → ``/page/``
+        * ``dir/index.md``      → ``/dir/``
+        * ``dir/README.md``     → ``/dir/``       (same URL as index.md → CONFLICT)
+        * ``index.md``          → ``/``           (root)
+        * ``page.md`` (no-dir)  → ``/page.html``
+
+        The Double-Index case (``index.md`` **and** ``README.md`` coexist in
+        the same directory) produces two routes with the identical URL, which
+        ``_detect_collisions()`` will mark as ``CONFLICT``.
+
+        Args:
+            rel: Path of the source file relative to ``docs_root``.
+
+        Returns:
+            Canonical URL string (always starts and ends with ``/``).
+        """
+        use_dir = self._doc_config.get("use_directory_urls", True)
+        stem = rel.with_suffix("")
+        parts = list(stem.parts)
+        if not parts:
+            return "/"
+        # index.md and README.md both collapse to the parent directory URL
+        if parts[-1] in ("index", "README"):
+            parts = parts[:-1]
+        if not parts:
+            return "/"
+        if use_dir:
+            return "/" + "/".join(parts) + "/"
+        return "/" + "/".join(parts) + ".html"
+
+    def classify_route(self, rel: Path, nav_paths: frozenset[str]) -> RouteStatus:
+        """Classify a MkDocs route as REACHABLE, ORPHAN_BUT_EXISTING, or IGNORED.
+
+        Classification rules (in priority order):
+
+        0. No nav declared (``nav_paths`` empty) → all files ``REACHABLE``
+           (MkDocs auto-includes every page when ``nav:`` is absent), except
+           ``README.md`` which is always ``IGNORED``.
+        1. ``README.md`` **not** listed in nav → ``IGNORED``.
+        2. File in nav_paths (or is a locale shadow of a nav page) → ``REACHABLE``.
+        3. ``reconfigure_material: true`` and file is a top-level locale entry
+           point (e.g. ``it/index.md``) → ``REACHABLE`` (auto-generated route).
+           This check fires only when rules 0-2 have not already resolved the
+           status, so an explicit nav entry for ``it/index.md`` is never
+           overridden.
+        4. Otherwise → ``ORPHAN_BUT_EXISTING``.
+
+        Args:
+            rel:       Source path relative to ``docs_root``.
+            nav_paths: Nav-listed ``.md`` paths from ``get_nav_paths()``.
+
+        Returns:
+            ``RouteStatus`` literal (never ``'CONFLICT'``).
+        """
+        rel_posix = rel.as_posix()
+
+        # When no nav is declared in mkdocs.yml, MkDocs auto-includes every
+        # page — equivalent to every file being REACHABLE.  Only README.md
+        # is still excluded (MkDocs never auto-promotes it).
+        if not nav_paths:
+            if rel.name == "README.md":
+                return "IGNORED"
+            return "REACHABLE"
+
+        # README.md not in nav → IGNORED (MkDocs does not auto-promote it)
+        if rel.name == "README.md" and rel_posix not in nav_paths:
+            return "IGNORED"
+
+        if rel_posix in nav_paths:
+            return "REACHABLE"
+
+        # Locale shadows inherit their nav membership from the default locale
+        if self.is_shadow_of_nav_page(rel, nav_paths):
+            return "REACHABLE"
+
+        # When reconfigure_material: true, the Material theme auto-generates
+        # the language switcher and synthetic entry points for every non-default
+        # locale (e.g. docs/it/index.md → /it/).  These pages are never listed
+        # in nav: but they are live routes — mark them REACHABLE so Zenzic does
+        # not report them as orphans.
+        if self._reconfigure_material and rel.name in ("index.md", "README.md"):
+            parts = rel.parts
+            if len(parts) == 2 and parts[0] in self._locale_dirs:  # e.g. it/index.md
+                return "REACHABLE"
+
+        return "ORPHAN_BUT_EXISTING"
 
     @classmethod
     def from_repo(

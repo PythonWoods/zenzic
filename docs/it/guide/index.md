@@ -48,7 +48,7 @@ Oltre alla pura reportistica, Zenzic fornisce **utility di autofix** (come `zenz
   - [Primi Passi](../usage/index.md)
   - [Controlli Disponibili](../checks.md)
   - [Configurazione](../configuration/index.md)
-  - [Motori](../guides/engines.md)
+  - [Motori](engines.md)
   - [Integrazione CI/CD](../ci-cd.md)
   - [Badge](../usage/badges.md)
   - [FAQ](../community/faqs.md)

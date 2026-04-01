@@ -241,6 +241,111 @@ Questa esclusione viene applicata in modo coerente sia nel Pass 1 che nel Pass 2
 
 ---
 
+## Linking Nav-Aware (v0.4.0rc4)
+
+Zenzic non controlla solo se un file linkato esiste sul disco — verifica se quella pagina è
+**raggiungibile** attraverso la navigazione del sito. Questo intercetta un'intera classe di
+difetti di navigazione che i controlli di esistenza dei file tradizionali non vedono.
+
+### Pagine oscure
+
+Una **pagina oscura** (*dark page*) è un file che esiste sul disco ed è fisicamente servito
+dal motore al suo URL — ma è assente dalla navigazione del sito. Il link funziona. La pagina
+si carica. L'utente che lo segue arriva con successo. E poi si perde: nessun breadcrumb,
+nessuna voce di menu, nessun modo per tornare attraverso l'albero di navigazione.
+
+Le pagine oscure sono invisibili agli utenti che navigano il sito. Sono l'equivalente
+documentale di una stanza senza porta — la stanza esiste, ma nessuno può trovarla senza
+sapere già dove si trova.
+
+Zenzic segnala i link verso pagine oscure come `UNREACHABLE_LINK`. Non è un link rotto.
+È un **difetto di navigazione**: il link è sintatticamente corretto, il file si risolve,
+ma la destinazione è irraggiungibile attraverso la navigazione normale.
+
+### Come funziona
+
+Quando è presente una config del motore di build (`mkdocs.yml`), Zenzic costruisce una
+**Virtual Site Map (VSM)** prima di eseguire la validazione dei link. La VSM mappa ogni file
+sorgente `.md` a:
+
+- il suo **URL canonico** (es. `docs/guide/installation.md` → `/guide/installation/`)
+- il suo **stato di routing** — uno tra `REACHABLE`, `ORPHAN_BUT_EXISTING`, `IGNORED` o
+  `CONFLICT`
+
+Un file è `REACHABLE` se appare nella sezione `nav:` di `mkdocs.yml`. Un file è
+`ORPHAN_BUT_EXISTING` se esiste sul disco ma non ha una voce nav — il motore lo copia in
+`site/` e lo serve, ma nessun utente può trovarlo attraverso la navigazione.
+
+### UNREACHABLE_LINK
+
+Quando un link punta a una pagina oscura (`ORPHAN_BUT_EXISTING` o `IGNORED`) nella VSM,
+Zenzic emette:
+
+```text
+  [UNREACHABLE_LINK] index.md:22 — 'guide/secret.md' resolves to '/guide/secret/'
+  which exists on disk but is not listed in the site navigation (UNREACHABLE_LINK)
+  — add it to nav in mkdocs.yml or remove the link
+    │ - [Pagina segreta](guide/secret.md)
+```
+
+Il Visual Snippet (`│`) mostra la riga sorgente esatta in modo da poter localizzare e
+correggere il link senza dover cercare nel file.
+
+### Collisione di routing (CONFLICT)
+
+Due file sorgente che mappano allo stesso URL canonico producono un `CONFLICT` nella VSM.
+Il caso più comune è il **Double Index**: `index.md` e `README.md` che coesistono nella
+stessa directory. Entrambi producono lo stesso URL (`/dir/`) — il comportamento del motore
+di build è indefinito. Zenzic lo rileva prima che la build venga eseguita.
+
+### Comportamento per motore
+
+| Adapter | UNREACHABLE_LINK? | Causa |
+| :--- | :---: | :--- |
+| **MkDocs** (con `mkdocs.yml` + `nav:`) | Sì | File non presente in `nav:` (`ORPHAN_BUT_EXISTING`) |
+| **MkDocs** (nessun `nav:` dichiarato) | No | Tutti i file inclusi automaticamente da MkDocs |
+| **Zensical** | Sì | File o directory che inizia con `_` (`IGNORED`) |
+| **Vanilla** (nessuna config engine) | No | Nessun concetto di routing |
+
+!!! tip "Correggere un UNREACHABLE_LINK"
+    Aggiungi la pagina di destinazione a `nav:` in `mkdocs.yml`, oppure sostituisci il link
+    con uno che punta a una pagina raggiungibile.
+
+### Pagine private (motore Zensical)
+
+I file e le directory il cui nome inizia con un underscore (`_`) sono trattati come **privati**
+da Zenzic quando il motore Zensical è attivo. I link a queste risorse vengono segnalati come
+`UNREACHABLE_LINK` — Zensical non serve mai i percorsi con prefisso `_` al pubblico.
+
+```text
+docs/
+├── index.md
+├── features.md
+└── _private/           ← Zensical ignora questa directory completamente
+    └── notes.md        ← link a questo file → UNREACHABLE_LINK
+```
+
+```text
+[UNREACHABLE_LINK] index.md:8 — '_private/notes.md' risolve in '/_private/notes/'
+che esiste su disco ma non è presente nella navigazione del sito (UNREACHABLE_LINK)
+  │ - [Note Private](_private/notes.md)
+```
+
+Questa regola si applica a qualsiasi segmento di percorso che inizia con `_`:
+
+| Percorso | Stato |
+| :--- | :--- |
+| `_private/notes.md` | `IGNORED` → `UNREACHABLE_LINK` |
+| `_bozze/wip.md` | `IGNORED` → `UNREACHABLE_LINK` |
+| `public/page.md` | `REACHABLE` — servita normalmente |
+
+!!! note "MkDocs non ha questa regola"
+    MkDocs non tratta le directory con prefisso underscore come private. Solo Zensical
+    applica la convenzione del prefisso `_`. Quando si cambia motore, verifica tutte le
+    directory con prefisso `_` nell'albero della documentazione.
+
+---
+
 ## Documentazione multilingue
 
 Quando il tuo progetto usa i18n MkDocs o il sistema di locale di Zensical, Zenzic si adatta
