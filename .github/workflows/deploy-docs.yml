@@ -77,6 +77,15 @@ jobs:
           cd docs/assets/brand
           zip -r ../brand-kit.zip .
 
+      - name: Set docs version for topbar
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            echo "DOCS_VERSION=${GITHUB_REF_NAME}" >> "$GITHUB_ENV"
+          else
+            VERSION=$(python3 -c "import tomllib; print('v' + tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+            echo "DOCS_VERSION=${VERSION}" >> "$GITHUB_ENV"
+          fi
+
       - name: Build Documentation
         run: uv run mkdocs build --strict
 
