@@ -17,7 +17,7 @@ Two kinds of rules coexist in the same engine:
   ``zenzic.rules`` entry-point group.  For complex, multi-line logic that
   a regex cannot express.
 
-Both kinds are applied through the same :class:`RuleEngine.run` interface so
+Both kinds are applied through the same :class:`AdaptiveRuleEngine.run` interface so
 the scanner only sees one surface.
 
 Rule dependency taxonomy (🔌 Dev 3 — relevant for caching)
@@ -56,11 +56,12 @@ Zenzic Way compliance
 * **Lint the Source:** Rules receive raw Markdown text — never HTML.
 * **No Subprocesses:** The rule module does not import or invoke any process.
 * **Pure Functions First:** :meth:`BaseRule.check` must be deterministic and
-  side-effect-free.  :class:`RuleEngine.run` is also pure (list in, list out).
+  side-effect-free.  :class:`AdaptiveRuleEngine.run` is also pure (list in, list out).
 """
 
 from __future__ import annotations
 
+import pickle
 import re
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
@@ -327,26 +328,64 @@ class CustomRule(BaseRule):
         return findings
 
 
-# ─── RuleEngine ───────────────────────────────────────────────────────────────
+# ─── AdaptiveRuleEngine ───────────────────────────────────────────────────────
 
 
-class RuleEngine:
+def _assert_pickleable(rule: BaseRule) -> None:
+    """Raise :class:`PluginContractError` if *rule* cannot be pickled.
+
+    Called at engine construction time (eager validation) so that a
+    non-serialisable rule is rejected before the first file is scanned,
+    not inside a worker process mid-run.
+
+    Args:
+        rule: A :class:`BaseRule` instance to validate.
+
+    Raises:
+        PluginContractError: When ``pickle.dumps(rule)`` raises any error.
+    """
+    from zenzic.core.exceptions import PluginContractError  # deferred: avoid circular import
+
+    try:
+        pickle.dumps(rule)
+    except Exception as exc:  # noqa: BLE001
+        raise PluginContractError(
+            f"Rule '{rule.rule_id}' ({type(rule).__qualname__}) is not serialisable "
+            f"and cannot be used with the AdaptiveRuleEngine.\n"
+            f"  Cause: {type(exc).__name__}: {exc}\n"
+            f"  Fix: ensure the rule class is defined at module level (not inside a "
+            f"function or closure) and that all instance attributes are pickleable.",
+        ) from exc
+
+
+class AdaptiveRuleEngine:
     """Applies a collection of :class:`BaseRule` instances to a Markdown file.
 
     The engine is stateless after construction — :meth:`run` is a pure
     function that maps ``(path, text)`` to a list of findings.
 
+    All registered rules are validated for pickle-serializability at
+    construction time (**eager validation**).  This ensures that any rule
+    incompatible with multiprocessing is rejected immediately — before the
+    first file is scanned — rather than failing silently inside a worker
+    process.
+
     Usage::
 
-        engine = RuleEngine(config.custom_rules)
+        engine = AdaptiveRuleEngine(rules)
         findings = engine.run(Path("docs/guide.md"), text)
 
     Args:
         rules: Iterable of :class:`BaseRule` (or :class:`CustomRule`) instances
             to apply.  Order is preserved in the output.
+
+    Raises:
+        PluginContractError: If any rule fails the eager pickle validation.
     """
 
     def __init__(self, rules: Sequence[BaseRule]) -> None:
+        for rule in rules:
+            _assert_pickleable(rule)
         self._rules = rules
 
     def __bool__(self) -> bool:
@@ -640,3 +679,62 @@ class VSMBrokenLinkRule(BaseRule):
             return "/"
 
         return "/" + "/".join(parts) + "/"
+
+
+# ─── Plugin discovery ─────────────────────────────────────────────────────────
+
+
+from dataclasses import dataclass as _dc  # noqa: E402 — module-level, after all classes
+
+
+@_dc
+class PluginRuleInfo:
+    """Metadata about a discovered plugin rule.
+
+    Attributes:
+        rule_id:    The stable identifier returned by :attr:`BaseRule.rule_id`.
+        class_name: Fully qualified class name (``module.ClassName``).
+        source:     Entry-point name (e.g. ``"broken-links"``).
+        origin:     Distribution name that registered the rule, or
+                    ``"zenzic"`` for core rules.
+    """
+
+    rule_id: str
+    class_name: str
+    source: str
+    origin: str
+
+
+def list_plugin_rules() -> list[PluginRuleInfo]:
+    """Return metadata for every rule registered in the ``zenzic.rules`` group.
+
+    Iterates over all entry points in the ``zenzic.rules``
+    ``importlib.metadata`` group, loads each class, instantiates it (using
+    a no-argument constructor), and captures its :attr:`BaseRule.rule_id`.
+    Entry points that cannot be loaded or instantiated are skipped — discovery
+    is best-effort and must never crash the CLI.
+
+    Returns:
+        Sorted list of :class:`PluginRuleInfo`, ordered by ``source`` name.
+    """
+    from importlib.metadata import entry_points
+
+    results: list[PluginRuleInfo] = []
+    eps = entry_points(group="zenzic.rules")
+    for ep in eps:
+        try:
+            cls = ep.load()
+            instance: BaseRule = cls()
+            rid = instance.rule_id
+        except Exception:  # noqa: BLE001
+            continue
+        dist_name = ep.dist.name if ep.dist is not None else "zenzic"
+        results.append(
+            PluginRuleInfo(
+                rule_id=rid,
+                class_name=f"{cls.__module__}.{cls.__qualname__}",
+                source=ep.name,
+                origin=dist_name,
+            )
+        )
+    return sorted(results, key=lambda r: r.source)

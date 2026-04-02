@@ -24,7 +24,7 @@ from typing import Any
 from urllib.parse import unquote
 
 from zenzic.core.adapter import get_adapter
-from zenzic.core.rules import RuleEngine
+from zenzic.core.rules import AdaptiveRuleEngine
 from zenzic.core.shield import SecurityFinding, scan_line_for_secrets, scan_url_for_secrets
 from zenzic.core.validator import LinkValidator
 from zenzic.models.config import ZenzicConfig
@@ -676,7 +676,7 @@ class ReferenceScanner:
 def _scan_single_file(
     md_file: Path,
     config: ZenzicConfig,
-    rule_engine: RuleEngine | None = None,
+    rule_engine: AdaptiveRuleEngine | None = None,
 ) -> tuple[IntegrityReport, ReferenceScanner | None]:
     """Run the Three-Phase Pipeline on one Markdown file.
 
@@ -687,7 +687,7 @@ def _scan_single_file(
     Args:
         md_file: Absolute path to the Markdown file to process.
         config: Zenzic configuration.
-        rule_engine: Optional :class:`~zenzic.core.rules.RuleEngine` to apply
+        rule_engine: Optional :class:`~zenzic.core.rules.AdaptiveRuleEngine` to apply
             after the reference pipeline.  When provided, the file is read once
             more as a string for the rule pass (rules receive the full text, not
             the line-by-line generator output).  When ``None`` or empty, the
@@ -740,8 +740,8 @@ def _iter_md_files(
         yield md_file
 
 
-def _build_rule_engine(config: ZenzicConfig) -> RuleEngine | None:
-    """Construct a :class:`~zenzic.core.rules.RuleEngine` from the config.
+def _build_rule_engine(config: ZenzicConfig) -> AdaptiveRuleEngine | None:
+    """Construct a :class:`~zenzic.core.rules.AdaptiveRuleEngine` from the config.
 
     Returns ``None`` when no custom rules are configured, avoiding the
     overhead of engine construction on projects that do not use the feature.
@@ -759,79 +759,114 @@ def _build_rule_engine(config: ZenzicConfig) -> RuleEngine | None:
         )
         for cr in config.custom_rules
     ]
-    return RuleEngine(rules)
+    return AdaptiveRuleEngine(rules)
+
+
+def _emit_telemetry(*, mode: str, workers: int, n_files: int, elapsed: float) -> None:
+    """Write a one-line performance summary to stderr.
+
+    Only called when ``verbose=True`` is passed to :func:`scan_docs_references`.
+    Writes to stderr so it never contaminates stdout-captured output.
+
+    The speedup estimate for parallel mode assumes a linear model relative to
+    the sequential baseline: ``speedup ≈ workers × 0.7`` (accounting for
+    overhead and I/O serialisation).  This is a rough heuristic for display
+    purposes only.
+
+    Args:
+        mode:     ``"Sequential"`` or ``"Parallel"``.
+        workers:  Effective worker count used.
+        n_files:  Number of ``.md`` files scanned.
+        elapsed:  Wall-clock seconds from scan start to completion.
+    """
+    import sys
+
+    engine_label = (
+        f"Adaptive (Parallel, {workers} worker{'s' if workers != 1 else ''})"
+        if mode == "Parallel"
+        else "Adaptive (Sequential)"
+    )
+    time_str = f"{elapsed:.2f}s"
+    speedup_str = ""
+    if mode == "Parallel" and workers > 1:
+        estimated = round(min(workers * 0.7, workers - 0.1), 1)
+        speedup_str = f"  Estimated speedup: {estimated}x"
+
+    print(
+        f"[zenzic] Engine: {engine_label}  "
+        f"Files: {n_files}  "
+        f"Execution time: {time_str}"
+        f"{speedup_str}",
+        file=sys.stderr,
+    )
 
 
 def scan_docs_references(
     repo_root: Path,
     config: ZenzicConfig | None = None,
-) -> list[IntegrityReport]:
-    """Run the Three-Phase Pipeline over every .md file in docs/.
-
-    Returns one :class:`IntegrityReport` per file, sorted by file path.
-    Exit Code 2 must be enforced by the CLI layer when any report contains
-    security findings.
-
-    Args:
-        repo_root: Repository root (must contain ``docs/``).
-        config: Optional Zenzic configuration.
-
-    Returns:
-        Sorted list of :class:`IntegrityReport` objects.
-    """
-    if config is None:
-        config, _ = ZenzicConfig.load(repo_root)
-
-    docs_root = repo_root / config.docs_dir
-    if not docs_root.exists() or not docs_root.is_dir():
-        return []
-
-    rule_engine = _build_rule_engine(config)
-    reports: list[IntegrityReport] = []
-    for md_file in _iter_md_files(docs_root, config):
-        report, _scanner = _scan_single_file(md_file, config, rule_engine)
-        reports.append(report)
-
-    return reports
-
-
-def scan_docs_references_with_links(
-    repo_root: Path,
     *,
     validate_links: bool = False,
-    config: ZenzicConfig | None = None,
+    workers: int | None = 1,
+    verbose: bool = False,
 ) -> tuple[list[IntegrityReport], list[str]]:
-    """Run the full Three-Phase Pipeline, optionally validating external URLs.
+    """Run the Three-Phase Pipeline over every .md file in docs/.
 
-    This is the top-level orchestrator for ``zenzic check references --links``.
-    It collects all reports and — when ``validate_links=True`` — fires a single
-    async pass over all unique HTTP/HTTPS URLs found across the entire docs tree.
+    This is the single unified entry point for all scan modes.  The engine
+    selects sequential or parallel execution automatically based on the number
+    of files found (**Hybrid Adaptive Mode**):
 
-    **Deduplication guarantee:** If 50 files all define a reference to
-    ``https://github.com``, the :class:`~zenzic.core.validator.LinkValidator`
-    issues exactly one HEAD request.  This is enforced at registration time, not
-    inside the HTTP layer.
+    * **Sequential** — used when ``workers=1`` (the default) or when the repo
+      has fewer than :data:`ADAPTIVE_PARALLEL_THRESHOLD` files.  Zero
+      process-spawn overhead; supports external URL validation.
+    * **Parallel** — activated when ``workers != 1`` *and* the file count
+      meets or exceeds :data:`ADAPTIVE_PARALLEL_THRESHOLD`.  Distributes each
+      file to an independent worker process via ``ProcessPoolExecutor``.
+      External URL validation is performed in the main process after all
+      workers complete.
 
-    **Shield-as-firewall:** Files with security findings are excluded from link
-    validation.  We do not ping URLs that contain leaked credentials.
+    The threshold default (50 files) is a conservative heuristic: below it,
+    ``ProcessPoolExecutor`` spawn overhead (~200–400 ms on a cold interpreter)
+    exceeds the parallelism benefit.  Override with ``workers=N`` to force a
+    specific pool size regardless of file count.
 
-    **O(N) reads:** Each file is read exactly once regardless of whether link
-    validation is enabled.  The scanner from Pass 1 is retained and its
-    ``ref_map`` is passed directly to the validator — no second harvest.
+    **Determinism guarantee:** results are always sorted by ``file_path``
+    regardless of execution mode.
+
+    **Shield behaviour:** enforced per-worker in parallel mode; per-file in
+    sequential mode.  Files with security findings are excluded from link
+    validation in both modes.
+
+    **O(N) reads:** each file is read exactly once in sequential mode.  In
+    parallel mode external URL registration runs a lightweight sequential pass
+    in the main process after workers complete (workers discard scanners).
 
     Args:
-        repo_root: Repository root (must contain ``docs/``).
+        repo_root:      Repository root (must contain ``docs/``).
+        config:         Optional Zenzic configuration.
         validate_links: When ``True``, perform async HTTP validation of all
-            external reference URLs (equivalent to ``--links`` on the CLI).
-            Disabled by default to preserve the fast-by-default principle.
-        config: Optional Zenzic configuration.
+                        external reference URLs found across the docs tree.
+                        Disabled by default.
+        workers:        Number of worker processes for parallel mode.
+                        ``1`` (default) always uses sequential execution.
+                        ``None`` lets ``ProcessPoolExecutor`` pick based on
+                        ``os.cpu_count()``.  Any value other than ``1``
+                        activates parallel mode when the file count is at or
+                        above :data:`ADAPTIVE_PARALLEL_THRESHOLD`.
+        verbose:        When ``True``, print a single telemetry line to stderr
+                        after the scan completes.  Shows the engine mode, worker
+                        count, elapsed time, and estimated speedup (parallel
+                        mode only).  Defaults to ``False``.
 
     Returns:
         A ``(reports, link_errors)`` tuple where:
-        - ``reports`` is the sorted list of :class:`IntegrityReport` objects.
-        - ``link_errors`` is a sorted list of HTTP error strings (empty when
-          ``validate_links=False`` or all URLs pass).
+
+        - ``reports`` is the sorted list of :class:`IntegrityReport` objects,
+          one per ``.md`` file.
+        - ``link_errors`` is a sorted list of human-readable HTTP error strings
+          (empty when ``validate_links=False`` or all URLs pass).
     """
+    import time
+
     if config is None:
         config, _ = ZenzicConfig.load(repo_root)
 
@@ -840,33 +875,91 @@ def scan_docs_references_with_links(
         return [], []
 
     rule_engine = _build_rule_engine(config)
-    reports: list[IntegrityReport] = []
-    # Retain secure scanners for Phase B URL registration (avoids double-read).
-    secure_scanners: list[ReferenceScanner] = []
+    md_files = list(_iter_md_files(docs_root, config))
 
-    for md_file in _iter_md_files(docs_root, config):
+    if not md_files:
+        return [], []
+
+    use_parallel = workers != 1 and len(md_files) >= ADAPTIVE_PARALLEL_THRESHOLD
+
+    _t0 = time.monotonic()
+
+    if use_parallel:
+        import concurrent.futures
+        import os
+
+        work_items = [(f, config, rule_engine) for f in md_files]
+        actual_workers = workers if workers is not None else os.cpu_count() or 1
+        with concurrent.futures.ProcessPoolExecutor(max_workers=workers) as executor:
+            raw = list(executor.map(_worker, work_items))
+        reports: list[IntegrityReport] = sorted(raw, key=lambda r: r.file_path)
+
+        elapsed = time.monotonic() - _t0
+        if verbose:
+            _emit_telemetry(
+                mode="Parallel",
+                workers=actual_workers,
+                n_files=len(md_files),
+                elapsed=elapsed,
+            )
+
+        if not validate_links:
+            return reports, []
+
+        # Phase B in main process: lightweight sequential pass for URL
+        # registration.  Workers discard scanners; we re-collect ref_maps here
+        # for deduplication.  This is an additional O(N) read but preserves the
+        # Shield-as-firewall guarantee (no URLs from compromised files).
+        secure_scanners_b: list[ReferenceScanner] = []
+        for md_file in md_files:
+            _report_b, secure_scanner_b = _scan_single_file(md_file, config, rule_engine)
+            if secure_scanner_b is not None:
+                secure_scanners_b.append(secure_scanner_b)
+        validator_b = LinkValidator()
+        for scanner in secure_scanners_b:
+            validator_b.register_from_map(scanner.ref_map, scanner.file_path)
+        return reports, validator_b.validate()
+
+    # Sequential path — zero overhead, full O(N) link-validation support.
+    reports_seq: list[IntegrityReport] = []
+    secure_scanners_seq: list[ReferenceScanner] = []
+
+    for md_file in md_files:
         report, secure_scanner = _scan_single_file(md_file, config, rule_engine)
-        reports.append(report)
+        reports_seq.append(report)
         if validate_links and secure_scanner is not None:
-            secure_scanners.append(secure_scanner)
+            secure_scanners_seq.append(secure_scanner)
+
+    elapsed_seq = time.monotonic() - _t0
+    if verbose:
+        _emit_telemetry(
+            mode="Sequential",
+            workers=1,
+            n_files=len(md_files),
+            elapsed=elapsed_seq,
+        )
 
     if not validate_links:
-        return reports, []
+        return reports_seq, []
 
     # Phase B — global URL deduplication and async HTTP validation.
     # Uses the already-populated ref_maps from Phase A — no second file read.
-    validator = LinkValidator()
-    for scanner in secure_scanners:
-        validator.register_from_map(scanner.ref_map, scanner.file_path)
-
-    link_errors = validator.validate()
-    return reports, link_errors
+    validator_seq = LinkValidator()
+    for scanner in secure_scanners_seq:
+        validator_seq.register_from_map(scanner.ref_map, scanner.file_path)
+    return reports_seq, validator_seq.validate()
 
 
-# ─── Parallel scan ────────────────────────────────────────────────────────────
+# ─── Adaptive parallel worker ─────────────────────────────────────────────────
+
+#: Files below this threshold are scanned sequentially (zero process-spawn
+#: overhead).  Above it, the AdaptiveRuleEngine switches to a
+#: ProcessPoolExecutor automatically.  Exposed as a module constant so tests
+#: can override it without patching private internals.
+ADAPTIVE_PARALLEL_THRESHOLD: int = 50
 
 
-def _worker(args: tuple[Path, ZenzicConfig, RuleEngine | None]) -> IntegrityReport:
+def _worker(args: tuple[Path, ZenzicConfig, AdaptiveRuleEngine | None]) -> IntegrityReport:
     """Top-level worker function for ``ProcessPoolExecutor``.
 
     Must be a module-level function (not a lambda or nested function) so that
@@ -888,62 +981,3 @@ def _worker(args: tuple[Path, ZenzicConfig, RuleEngine | None]) -> IntegrityRepo
     md_file, config, rule_engine = args
     report, _scanner = _scan_single_file(md_file, config, rule_engine)
     return report
-
-
-def scan_docs_references_parallel(
-    repo_root: Path,
-    config: ZenzicConfig | None = None,
-    *,
-    workers: int | None = None,
-) -> list[IntegrityReport]:
-    """Run the Three-Phase Pipeline in parallel using multiple CPU cores.
-
-    Each file is processed independently by a worker process, exploiting the
-    pureness of :func:`_scan_single_file`.  Results are sorted by file path
-    after collection to guarantee deterministic output regardless of scheduling
-    order.
-
-    **When to use:** Large repos (> ~200 files) where I/O wait and CPU-bound
-    regex work dominate.  For smaller repos the process-spawn overhead exceeds
-    the parallelism benefit — prefer :func:`scan_docs_references` instead.
-
-    **Shield behaviour:** The Shield is enforced per-worker.  Files with
-    security findings are flagged in their :class:`IntegrityReport` as usual;
-    the caller is responsible for checking ``report.security_findings``.
-
-    **External URL validation** is not supported in parallel mode.  Use
-    :func:`scan_docs_references_with_links` for sequential scan with link
-    validation.
-
-    Args:
-        repo_root: Repository root (must contain ``docs/``).
-        config: Optional Zenzic configuration.
-        workers: Number of worker processes.  Defaults to ``None`` (let
-            :class:`~concurrent.futures.ProcessPoolExecutor` choose based on
-            CPU count).  Pass ``1`` to disable parallelism (useful for testing).
-
-    Returns:
-        Sorted list of :class:`IntegrityReport` objects, one per ``.md`` file.
-    """
-    import concurrent.futures
-
-    if config is None:
-        config, _ = ZenzicConfig.load(repo_root)
-
-    docs_root = repo_root / config.docs_dir
-    if not docs_root.exists() or not docs_root.is_dir():
-        return []
-
-    rule_engine = _build_rule_engine(config)
-    md_files = list(_iter_md_files(docs_root, config))
-
-    if not md_files:
-        return []
-
-    work_items = [(f, config, rule_engine) for f in md_files]
-
-    with concurrent.futures.ProcessPoolExecutor(max_workers=workers) as executor:
-        results = list(executor.map(_worker, work_items))
-
-    # Sort by file path to guarantee deterministic output order.
-    return sorted(results, key=lambda r: r.file_path)

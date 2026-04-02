@@ -139,43 +139,71 @@ I/O operations, called at process start and end respectively by the CLI layer.
 
 ---
 
-## Parallel scan (v0.4.0-rc5)
+## Hybrid Adaptive Engine (v0.5.0a1)
 
-The Three-Phase Pipeline is pure by design: `_scan_single_file` takes a file path and
-returns an `IntegrityReport` with zero shared state.  This makes it trivially
-parallelisable.
+`scan_docs_references` is the single unified entry point for all scan modes.
+There is no longer a separate "parallel" function — the engine **adapts
+automatically** based on repository size.
 
 ```mermaid
-flowchart LR
-    classDef node fill:#0f172a,stroke:#38bdf8,stroke-width:2px,color:#e2e8f0
+flowchart TD
+    classDef node   fill:#0f172a,stroke:#38bdf8,stroke-width:2px,color:#e2e8f0
+    classDef decide fill:#0f172a,stroke:#f59e0b,stroke-width:2px,color:#e2e8f0
     classDef worker fill:#0f172a,stroke:#10b981,stroke-width:2px,color:#e2e8f0
-    classDef io fill:#0f172a,stroke:#4f46e5,stroke-width:2px,color:#e2e8f0
+    classDef seq    fill:#0f172a,stroke:#6366f1,stroke-width:2px,color:#e2e8f0
+    classDef io     fill:#0f172a,stroke:#4f46e5,stroke-width:2px,color:#e2e8f0
 
-    MAIN["Main process\nbuilds RuleEngine\nlists .md files"]:::node
+    ENTRY["scan_docs_references()\nrepo_root, config\nworkers, validate_links"]:::node
+    THRESHOLD{"files ≥ 50\nAND workers ≠ 1?"}:::decide
+
+    SEQ["Sequential path\n_scan_single_file × N\nO(N) reads"]:::seq
+    SORT_SEQ["Sorted list[IntegrityReport]"]:::io
+
+    FAN["Main process\npickle(config, engine)\n→ work_items"]:::node
     W1["Worker 1\n_scan_single_file\n(page_A.md)"]:::worker
     W2["Worker 2\n_scan_single_file\n(page_B.md)"]:::worker
     WN["Worker N\n_scan_single_file\n(page_Z.md)"]:::worker
-    SORT["Sorted merge\nby file_path"]:::node
-    OUT["list[IntegrityReport]"]:::io
+    MERGE["Sorted merge\nby file_path"]:::node
+    SORT_PAR["Sorted list[IntegrityReport]"]:::io
 
-    MAIN -->|"pickle(config, engine)"| W1 & W2 & WN
-    W1 & W2 & WN --> SORT
-    SORT --> OUT
+    ENTRY --> THRESHOLD
+    THRESHOLD -->|"No (< 50 files\nor workers=1)"| SEQ
+    SEQ --> SORT_SEQ
+    THRESHOLD -->|"Yes"| FAN
+    FAN -->|"pickle(config, engine)"| W1 & W2 & WN
+    W1 & W2 & WN --> MERGE
+    MERGE --> SORT_PAR
 ```
 
-**Shared-nothing architecture:**  `config` and `rule_engine` are serialised by `pickle`
-when dispatched to each worker.  Every worker operates on an independent copy — there is
-no shared memory, no lock, no race condition.
+### Sequential path
 
-**Immutability contract:**  workers must not mutate `config`.  All scan functions honour
-this contract.  Rules that write to shared state (e.g. a counter in a class variable)
-violate the Pure Functions Pillar and will produce non-deterministic results in parallel
-mode.
+Used when `workers=1` (the default) or when the repository has fewer than 50
+files.  Zero process-spawn overhead.  Supports external URL validation in a
+single O(N) pass.
 
-**Threshold for parallelism benefit:**  process-spawn overhead is ~200–400 ms on a cold
-Python interpreter.  The crossover point where parallelism beats sequential scanning is
-approximately 200 files on an 8-core machine.  For smaller repos, use
-`scan_docs_references` (sequential).
+### Parallel path
+
+Activated when `workers != 1` and the file count is at or above
+`ADAPTIVE_PARALLEL_THRESHOLD` (50).  Each file is dispatched to an independent
+worker process via `ProcessPoolExecutor`.
+
+**Shared-nothing architecture:** `config` and the `AdaptiveRuleEngine`
+(including all registered rules) are serialised by `pickle` before being sent
+to each worker.  Every worker operates on an independent copy — no shared
+memory, no locks, no race conditions.
+
+**Immutability contract:** workers must not mutate `config`.  Rules that write
+to mutable global state (e.g. a class-level counter) violate the Pure Functions
+Pillar.  In parallel mode, each worker holds an independent copy of that state
+— mutations are local and discarded, producing results that diverge silently
+from sequential mode.
+
+**Eager pickle validation:** `AdaptiveRuleEngine` calls `pickle.dumps()` on
+every rule at construction time.  A non-serialisable rule raises
+`PluginContractError` immediately, before any file is scanned.
+
+**Determinism guarantee:** results are sorted by `file_path` after collection
+regardless of worker scheduling order.
 
 ---
 

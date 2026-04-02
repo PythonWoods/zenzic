@@ -229,7 +229,7 @@ def test_cli_check_all_json_empty(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
 @patch("zenzic.cli.find_placeholders", return_value=[])
 @patch("zenzic.cli.find_unused_assets", return_value=[])
 @patch("zenzic.cli.check_nav_contract", return_value=[])
-@patch("zenzic.cli.scan_docs_references_with_links", return_value=([], []))
+@patch("zenzic.cli.scan_docs_references", return_value=([], []))
 def test_check_all_json_with_errors(
     _refs, _nav, _assets, _ph, _snip, _orphans, _links, _cfg, _root
 ) -> None:
@@ -252,7 +252,7 @@ def test_check_all_json_with_errors(
 @patch("zenzic.cli.find_placeholders", return_value=[])
 @patch("zenzic.cli.find_unused_assets", return_value=[])
 @patch("zenzic.cli.check_nav_contract", return_value=[])
-@patch("zenzic.cli.scan_docs_references_with_links", return_value=([], []))
+@patch("zenzic.cli.scan_docs_references", return_value=([], []))
 def test_check_all_text_ok(_refs, _nav, _assets, _ph, _snip, _orphans, _links, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "all"])
     assert result.exit_code == 0
@@ -275,7 +275,7 @@ def test_check_all_text_ok(_refs, _nav, _assets, _ph, _snip, _orphans, _links, _
 )
 @patch("zenzic.cli.find_unused_assets", return_value=[Path("assets/unused.png")])
 @patch("zenzic.cli.check_nav_contract", return_value=[])
-@patch("zenzic.cli.scan_docs_references_with_links", return_value=([], []))
+@patch("zenzic.cli.scan_docs_references", return_value=([], []))
 def test_check_all_text_with_all_errors(
     _refs, _nav, _assets, _ph, _snip, _orphans, _links, _cfg, _root
 ) -> None:
@@ -297,7 +297,7 @@ def test_check_all_text_with_all_errors(
 @patch("zenzic.cli.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli.ZenzicConfig.load", return_value=(_CFG, True))
 @patch(
-    "zenzic.cli.scan_docs_references_with_links",
+    "zenzic.cli.scan_docs_references",
     return_value=([], []),
 )
 def test_check_references_ok(_scan, _cfg, _root) -> None:
@@ -308,7 +308,7 @@ def test_check_references_ok(_scan, _cfg, _root) -> None:
 
 @patch("zenzic.cli.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli.ZenzicConfig.load", return_value=(_CFG, True))
-@patch("zenzic.cli.scan_docs_references_with_links")
+@patch("zenzic.cli.scan_docs_references")
 def test_check_references_rule_findings_surfaced(mock_scan, _cfg, _root) -> None:
     """rule_findings on IntegrityReport must appear in check references output."""
     from zenzic.core.rules import RuleFinding

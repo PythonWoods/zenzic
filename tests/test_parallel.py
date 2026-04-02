@@ -13,9 +13,21 @@ from pathlib import Path
 
 import pytest
 
-from zenzic.core.scanner import scan_docs_references, scan_docs_references_parallel
+from zenzic.core.rules import AdaptiveRuleEngine, BaseRule, RuleFinding
+from zenzic.core.scanner import scan_docs_references
 from zenzic.models.config import ZenzicConfig
 from zenzic.models.references import IntegrityReport
+
+
+# Module-level BoomRule: pickleable (defined at module level) but raises
+# during check().  Used to test that the engine isolates runtime exceptions.
+class _BoomRule(BaseRule):
+    @property
+    def rule_id(self) -> str:
+        return "BOOM"
+
+    def check(self, file_path: Path, text: str) -> list[RuleFinding]:
+        raise RuntimeError("intentional failure")
 
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -45,32 +57,32 @@ def test_parallel_matches_sequential(tmp_path: Path) -> None:
     repo = _make_docs(tmp_path, n_files=10)
     config = ZenzicConfig()
 
-    sequential = scan_docs_references(repo, config)
-    parallel = scan_docs_references_parallel(repo, config, workers=2)
+    sequential, _ = scan_docs_references(repo, config)
+    parallel, _ = scan_docs_references(repo, config, workers=2)
 
     assert _report_fingerprint(sequential) == _report_fingerprint(parallel)
 
 
 def test_parallel_empty_docs(tmp_path: Path) -> None:
-    """Parallel scan on a repo with no docs returns an empty list."""
+    """Parallel scan on a repo with no docs returns empty results."""
     (tmp_path / "docs").mkdir()
     config = ZenzicConfig()
-    result = scan_docs_references_parallel(tmp_path, config, workers=2)
-    assert result == []
+    reports, _ = scan_docs_references(tmp_path, config, workers=2)
+    assert reports == []
 
 
 def test_parallel_docs_not_exist(tmp_path: Path) -> None:
-    """Parallel scan returns [] when docs_dir does not exist."""
+    """Parallel scan returns empty results when docs_dir does not exist."""
     config = ZenzicConfig()
-    result = scan_docs_references_parallel(tmp_path, config, workers=2)
-    assert result == []
+    reports, _ = scan_docs_references(tmp_path, config, workers=2)
+    assert reports == []
 
 
 def test_parallel_single_worker_is_sequential(tmp_path: Path) -> None:
-    """workers=1 effectively disables parallelism but still returns correct results."""
+    """workers=1 disables parallelism but still returns correct results."""
     repo = _make_docs(tmp_path, n_files=4)
     config = ZenzicConfig()
-    result = scan_docs_references_parallel(repo, config, workers=1)
+    result, _ = scan_docs_references(repo, config, workers=1)
     assert len(result) == 4
     # All refs should resolve (we defined [ref] in every file)
     for report in result:
@@ -81,7 +93,7 @@ def test_parallel_sorted_output(tmp_path: Path) -> None:
     """Output is sorted by file_path regardless of worker scheduling order."""
     repo = _make_docs(tmp_path, n_files=8)
     config = ZenzicConfig()
-    result = scan_docs_references_parallel(repo, config, workers=4)
+    result, _ = scan_docs_references(repo, config, workers=4)
     paths = [r.file_path for r in result]
     assert paths == sorted(paths)
 
@@ -95,9 +107,9 @@ def test_idempotency_sequential_100_runs(tmp_path: Path) -> None:
     repo = _make_docs(tmp_path, n_files=10)
     config = ZenzicConfig()
 
-    baseline = _report_fingerprint(scan_docs_references(repo, config))
+    baseline = _report_fingerprint(scan_docs_references(repo, config)[0])
     for _ in range(99):
-        result = _report_fingerprint(scan_docs_references(repo, config))
+        result = _report_fingerprint(scan_docs_references(repo, config)[0])
         assert result == baseline, "Sequential scan is not deterministic"
 
 
@@ -106,9 +118,9 @@ def test_idempotency_parallel_10_runs(tmp_path: Path) -> None:
     repo = _make_docs(tmp_path, n_files=5)
     config = ZenzicConfig()
 
-    baseline = _report_fingerprint(scan_docs_references_parallel(repo, config, workers=2))
+    baseline = _report_fingerprint(scan_docs_references(repo, config, workers=2)[0])
     for _ in range(9):
-        result = _report_fingerprint(scan_docs_references_parallel(repo, config, workers=2))
+        result = _report_fingerprint(scan_docs_references(repo, config, workers=2)[0])
         assert result == baseline, "Parallel scan is not deterministic"
 
 
@@ -121,10 +133,10 @@ def test_idempotency_concurrent_invocations(tmp_path: Path) -> None:
     repo = _make_docs(tmp_path, n_files=6)
     config = ZenzicConfig()
 
-    baseline = _report_fingerprint(scan_docs_references(repo, config))
+    baseline = _report_fingerprint(scan_docs_references(repo, config)[0])
 
     def run_scan() -> list[tuple[str, float, int]]:
-        return _report_fingerprint(scan_docs_references(repo, config))
+        return _report_fingerprint(scan_docs_references(repo, config)[0])
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
         futures = [executor.submit(run_scan) for _ in range(8)]
@@ -138,17 +150,8 @@ def test_idempotency_concurrent_invocations(tmp_path: Path) -> None:
 
 
 def test_parallel_rule_exception_isolated(tmp_path: Path) -> None:
-    """A rule that raises in a worker does not abort other workers."""
-    from zenzic.core.rules import BaseRule, RuleEngine, RuleFinding
+    """A module-level rule that raises at runtime does not abort other files."""
     from zenzic.core.scanner import _scan_single_file
-
-    class BoomRule(BaseRule):
-        @property
-        def rule_id(self) -> str:
-            return "BOOM"
-
-        def check(self, file_path: Path, text: str) -> list[RuleFinding]:
-            raise RuntimeError("intentional failure")
 
     docs = tmp_path / "docs"
     docs.mkdir()
@@ -157,7 +160,7 @@ def test_parallel_rule_exception_isolated(tmp_path: Path) -> None:
         f.write_text("# page\n")
 
     config = ZenzicConfig()
-    engine = RuleEngine([BoomRule()])
+    engine = AdaptiveRuleEngine([_BoomRule()])
 
     # All files should produce a report with one RULE-ENGINE-ERROR finding
     for f in files:

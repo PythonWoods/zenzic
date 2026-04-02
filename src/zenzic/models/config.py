@@ -222,53 +222,18 @@ class ZenzicConfig(BaseModel):
         ]
 
     @classmethod
-    def load(cls, repo_root: Path) -> tuple[ZenzicConfig, bool]:
-        """Load configuration from zenzic.toml.
+    def _build_from_data(cls, data: dict[str, Any]) -> ZenzicConfig:
+        """Construct a ``ZenzicConfig`` from a raw TOML dict.
 
-        Falls back to defaults when the file does not exist.  Raises
-        :class:`~zenzic.core.exceptions.ConfigurationError` with a Rich-
-        formatted message when the file exists but contains a TOML syntax error
-        — silent fallback would hide user mistakes.
-
-        Args:
-            repo_root: Repository root that may contain ``zenzic.toml``.
-
-        Returns:
-            A ``(config, loaded_from_file)`` tuple.  ``loaded_from_file`` is
-            ``True`` when ``zenzic.toml`` was found and parsed, ``False`` when
-            built-in defaults are in use.
-
-        Raises:
-            :class:`~zenzic.core.exceptions.ConfigurationError`: When
-                ``zenzic.toml`` is present but cannot be parsed.
+        Shared by :meth:`load` (``zenzic.toml``) and the ``pyproject.toml``
+        fallback path.  Strips unknown keys and promotes sub-tables.
         """
-        from zenzic.core.exceptions import ConfigurationError  # deferred to avoid circular import
-
-        config_path = repo_root / "zenzic.toml"
-        if not config_path.is_file():
-            return cls(), False
-
-        try:
-            with config_path.open("rb") as f:
-                data = tomllib.load(f)
-        except tomllib.TOMLDecodeError as exc:
-            raise ConfigurationError(
-                f"[bold red]zenzic.toml[/] contains a syntax error and cannot be loaded.\n"
-                f"  [dim]{config_path}[/]\n\n"
-                f"  [red]{exc}[/]\n\n"
-                "Fix the TOML syntax error and re-run Zenzic.",
-                context={"config_path": str(config_path)},
-            ) from exc
-
-        # Only pass known fields to Pydantic
         known_fields = cls.model_fields.keys()
         filtered_data = {k: v for k, v in data.items() if k in known_fields}
-        # Promote [build_context] sub-table into a BuildContext instance.
         if "build_context" in data and isinstance(data["build_context"], dict):
             filtered_data["build_context"] = BuildContext(
                 **{k: v for k, v in data["build_context"].items() if k in BuildContext.model_fields}
             )
-        # Promote [[custom_rules]] array into CustomRuleConfig instances.
         if "custom_rules" in data and isinstance(data["custom_rules"], list):
             filtered_data["custom_rules"] = [
                 CustomRuleConfig(
@@ -277,4 +242,70 @@ class ZenzicConfig(BaseModel):
                 for r in data["custom_rules"]
                 if isinstance(r, dict)
             ]
-        return cls(**filtered_data), True
+        return cls(**filtered_data)
+
+    @classmethod
+    def load(cls, repo_root: Path) -> tuple[ZenzicConfig, bool]:
+        """Load configuration following the Agnostic Citizen priority chain.
+
+        Priority order (first match wins):
+
+        1. ``zenzic.toml`` at *repo_root* — the authoritative sovereign config.
+        2. ``[tool.zenzic]`` table in ``pyproject.toml`` at *repo_root*.
+        3. Built-in defaults (``loaded_from_file`` returned as ``False``).
+
+        When the winning file exists but cannot be parsed, a
+        :class:`~zenzic.core.exceptions.ConfigurationError` is raised with a
+        Rich-formatted message — silent fallback would hide user mistakes.
+
+        Args:
+            repo_root: Repository root that may contain config files.
+
+        Returns:
+            A ``(config, loaded_from_file)`` tuple.  ``loaded_from_file`` is
+            ``True`` when either ``zenzic.toml`` or ``pyproject.toml`` was
+            found and parsed, ``False`` when built-in defaults are in use.
+
+        Raises:
+            :class:`~zenzic.core.exceptions.ConfigurationError`: When a
+                config file is present but cannot be parsed.
+        """
+        from zenzic.core.exceptions import ConfigurationError  # deferred to avoid circular import
+
+        # ── Priority 1: zenzic.toml ───────────────────────────────────────────
+        zenzic_toml = repo_root / "zenzic.toml"
+        if zenzic_toml.is_file():
+            try:
+                with zenzic_toml.open("rb") as f:
+                    data = tomllib.load(f)
+            except tomllib.TOMLDecodeError as exc:
+                raise ConfigurationError(
+                    f"[bold red]zenzic.toml[/] contains a syntax error and cannot be loaded.\n"
+                    f"  [dim]{zenzic_toml}[/]\n\n"
+                    f"  [red]{exc}[/]\n\n"
+                    "Fix the TOML syntax error and re-run Zenzic.",
+                    context={"config_path": str(zenzic_toml)},
+                ) from exc
+            return cls._build_from_data(data), True
+
+        # ── Priority 2: [tool.zenzic] in pyproject.toml ──────────────────────
+        pyproject_toml = repo_root / "pyproject.toml"
+        if pyproject_toml.is_file():
+            try:
+                with pyproject_toml.open("rb") as f:
+                    pyproject_data = tomllib.load(f)
+            except tomllib.TOMLDecodeError as exc:
+                raise ConfigurationError(
+                    f"[bold red]pyproject.toml[/] contains a syntax error and cannot be loaded.\n"
+                    f"  [dim]{pyproject_toml}[/]\n\n"
+                    f"  [red]{exc}[/]\n\n"
+                    "Fix the TOML syntax error and re-run Zenzic.",
+                    context={"config_path": str(pyproject_toml)},
+                ) from exc
+            tool_section = pyproject_data.get("tool", {})
+            zenzic_section = tool_section.get("zenzic", {})
+            if zenzic_section:
+                return cls._build_from_data(zenzic_section), True
+
+        # ── Priority 3: built-in defaults ─────────────────────────────────────
+        return cls(), False
