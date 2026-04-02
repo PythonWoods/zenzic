@@ -40,6 +40,9 @@ or a bare folder of `.md` files) without installing any build framework. And it 
 absolute links are a hard error, and if you declare `engine = "zensical"` you must have
 `zensical.toml` — no fallback, no guessing.
 
+Project attribution: Zenzic is a PythonWoods project. Zensical, MkDocs, and other
+referenced ecosystem tools are third-party projects.
+
 ---
 
 ## v0.5.0a1 Highlights — The Sentinel

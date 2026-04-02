@@ -11,6 +11,9 @@ Zenzic is an engineering-grade documentation linter and quality gate for any Mar
 
 Built by [PythonWoods](https://github.com/PythonWoods), it is designed to run in CI/CD pipelines and catch documentation issues before they reach users.
 
+Attribution: Zenzic is a PythonWoods project. Zensical, MkDocs, and other
+ecosystem tools referenced in this documentation are third-party projects.
+
 ---
 
 <div class="grid cards" markdown>
