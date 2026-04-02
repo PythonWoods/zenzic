@@ -1,18 +1,20 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
-"""Tests for the Zenzic Rule Engine: BaseRule, CustomRule, RuleEngine."""
+"""Tests for the Zenzic Rule Engine: BaseRule, CustomRule, AdaptiveRuleEngine."""
 
 from __future__ import annotations
 
 import time
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
+from zenzic.core.exceptions import PluginContractError
 from zenzic.core.rules import (
+    AdaptiveRuleEngine,
     BaseRule,
     CustomRule,
-    RuleEngine,
     RuleFinding,
     Violation,
     VSMBrokenLinkRule,
@@ -22,6 +24,39 @@ from zenzic.models.vsm import Route
 
 
 _FILE = Path("docs/guide.md")
+
+
+# Module-level BrokenRule: pickleable (defined at module level) but raises
+# at runtime inside check().  Tests that the engine isolates runtime errors.
+class _BrokenRule(BaseRule):
+    @property
+    def rule_id(self) -> str:
+        return "ZZ-BROKEN"
+
+    def check(self, file_path: Path, text: str) -> list[RuleFinding]:
+        raise RuntimeError("rule internal error")
+
+
+class _PluginTodoRule(BaseRule):
+    @property
+    def rule_id(self) -> str:
+        return "PLUG-TODO"
+
+    def check(self, file_path: Path, text: str) -> list[RuleFinding]:
+        findings: list[RuleFinding] = []
+        for line_no, line in enumerate(text.splitlines(), start=1):
+            if "PLUGIN_TODO" in line:
+                findings.append(
+                    RuleFinding(
+                        file_path=file_path,
+                        line_no=line_no,
+                        rule_id=self.rule_id,
+                        message="Plugin TODO marker found.",
+                        severity="error",
+                        matched_line=line,
+                    )
+                )
+        return findings
 
 
 # ─── CustomRule ───────────────────────────────────────────────────────────────
@@ -68,25 +103,25 @@ def test_custom_rule_info_severity_not_error() -> None:
     assert not findings[0].is_error
 
 
-# ─── RuleEngine ───────────────────────────────────────────────────────────────
+# ─── AdaptiveRuleEngine ───────────────────────────────────────────────────────────────
 
 
 def test_rule_engine_empty_no_findings() -> None:
-    engine = RuleEngine([])
+    engine = AdaptiveRuleEngine([])
     assert not engine
     assert engine.run(_FILE, "any text") == []
 
 
 def test_rule_engine_bool_true_when_rules_present() -> None:
     rule = CustomRule(id="ZZ007", pattern=r"x", message="x", severity="error")
-    engine = RuleEngine([rule])
+    engine = AdaptiveRuleEngine([rule])
     assert engine
 
 
 def test_rule_engine_multiple_rules_combined() -> None:
     r1 = CustomRule(id="ZZ008", pattern=r"TODO", message="todo found", severity="error")
     r2 = CustomRule(id="ZZ009", pattern=r"FIXME", message="fixme found", severity="warning")
-    engine = RuleEngine([r1, r2])
+    engine = AdaptiveRuleEngine([r1, r2])
     text = "Line with TODO here.\nAnother FIXME line.\n"
     findings = engine.run(_FILE, text)
     assert len(findings) == 2
@@ -95,28 +130,38 @@ def test_rule_engine_multiple_rules_combined() -> None:
 
 
 def test_rule_engine_isolates_exception() -> None:
-    """A rule that raises must not abort the entire engine run."""
+    """A module-level rule that raises at runtime must not abort the engine run.
 
-    class BrokenRule(BaseRule):
-        @property
-        def rule_id(self) -> str:
-            return "ZZ-BROKEN"
-
-        def check(self, file_path: Path, text: str) -> list[RuleFinding]:
-            raise RuntimeError("rule internal error")
-
+    _BrokenRule is defined at module level so it passes eager pickle validation.
+    Its check() raises at runtime — the engine must catch it and continue.
+    """
     good_rule = CustomRule(id="ZZ010", pattern=r"x", message="x found", severity="info")
-    engine = RuleEngine([BrokenRule(), good_rule])
+    engine = AdaptiveRuleEngine([_BrokenRule(), good_rule])
     findings = engine.run(_FILE, "x line\n")
 
     # One error from the broken rule, one info from the good rule
     assert len(findings) == 2
     engine_err = next(f for f in findings if f.rule_id == "RULE-ENGINE-ERROR")
-    assert "BrokenRule" in engine_err.message or "rule internal error" in engine_err.message
+    assert "ZZ-BROKEN" in engine_err.message or "rule internal error" in engine_err.message
     assert engine_err.severity == "error"
 
     good_finding = next(f for f in findings if f.rule_id == "ZZ010")
     assert good_finding.severity == "info"
+
+
+def test_rule_engine_rejects_non_pickleable_rule() -> None:
+    """A rule defined inside a function is not pickleable → PluginContractError at construction."""
+
+    class LocalRule(BaseRule):
+        @property
+        def rule_id(self) -> str:
+            return "ZZ-LOCAL"
+
+        def check(self, file_path: Path, text: str) -> list[RuleFinding]:
+            return []
+
+    with pytest.raises(PluginContractError, match="not serialisable"):
+        AdaptiveRuleEngine([LocalRule()])
 
 
 # ─── Integration with scanner ──────────────────────────────────────────────────
@@ -130,7 +175,7 @@ def test_scan_single_file_with_rule_engine(tmp_path: Path) -> None:
     md.write_text("# Guide\n\nThis is TODO content.\n")
     config = ZenzicConfig()
     rule = CustomRule(id="ZZ-TODO", pattern=r"TODO", message="Remove TODO.", severity="warning")
-    engine = RuleEngine([rule])
+    engine = AdaptiveRuleEngine([rule])
 
     report, _ = _scan_single_file(md, config, engine)
     assert len(report.rule_findings) == 1
@@ -168,10 +213,47 @@ def test_scan_docs_with_custom_rules_from_config(tmp_path: Path) -> None:
             )
         ]
     )
-    reports = scan_docs_references(tmp_path, config)
+    reports, _ = scan_docs_references(tmp_path, config)
     assert len(reports) == 1
     assert len(reports[0].rule_findings) == 1
     assert reports[0].rule_findings[0].rule_id == "ZZ-DRAFT"
+
+
+def test_scan_docs_with_enabled_plugins_from_config(tmp_path: Path) -> None:
+    """plugins=[...] activates external plugin rules during scanning."""
+    from zenzic.core.scanner import scan_docs_references
+
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "page.md").write_text("# Page\n\nPLUGIN_TODO marker.\n")
+
+    config = ZenzicConfig(plugins=["acme-todo"])
+
+    with (
+        patch("zenzic.core.rules.PluginRegistry.load_core_rules", return_value=[]),
+        patch(
+            "zenzic.core.rules.PluginRegistry.load_selected_rules",
+            return_value=[_PluginTodoRule()],
+        ),
+    ):
+        reports, _ = scan_docs_references(tmp_path, config)
+
+    assert len(reports) == 1
+    assert len(reports[0].rule_findings) == 1
+    assert reports[0].rule_findings[0].rule_id == "PLUG-TODO"
+
+
+def test_scan_docs_with_unknown_plugin_raises_contract_error(tmp_path: Path) -> None:
+    """Unknown plugin IDs in config.plugins fail fast with a clear error."""
+    from zenzic.core.scanner import scan_docs_references
+
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "page.md").write_text("# Page\n")
+
+    config = ZenzicConfig(plugins=["does-not-exist"])
+    with pytest.raises(PluginContractError, match="Configured plugin rule IDs were not found"):
+        scan_docs_references(tmp_path, config)
 
 
 # ─── Cross-adapter custom rules (Dev 4 mandate) ───────────────────────────────
@@ -227,7 +309,7 @@ def test_custom_rules_fire_regardless_of_engine(
     if engine == "zensical":
         (repo / "zensical.toml").write_text("[site]\nname = 'Test'\n")
 
-    reports = scan_docs_references(repo, config)
+    reports, _ = scan_docs_references(repo, config)
     assert len(reports) == 1, f"Expected 1 report for engine={engine!r}"
     rule_findings = reports[0].rule_findings
     assert len(rule_findings) == 1, (
@@ -368,10 +450,10 @@ class TestVSMBrokenLinkRule:
         assert len(violations) == 1
         assert violations[0].line_no == 5
 
-    # ── RuleEngine.run_vsm integration ───────────────────────────────────────
+    # ── AdaptiveRuleEngine.run_vsm integration ───────────────────────────────────────
 
     def test_run_vsm_converts_violations_to_findings(self) -> None:
-        engine = RuleEngine([VSMBrokenLinkRule()])
+        engine = AdaptiveRuleEngine([VSMBrokenLinkRule()])
         vsm = _make_vsm("/ok/")
         findings = engine.run_vsm(_FILE, "[OK](ok/index.md)\n[Bad](ghost.md)\n", vsm, {})
         assert len(findings) == 1
@@ -386,7 +468,7 @@ class TestVSMBrokenLinkRule:
 # threshold, which would be ~100× slower on this data size).
 
 
-class TestRuleEngineTortureTest:
+class TestAdaptiveRuleEngineTortureTest:
     """🛡️ Dev 4: Performance and scalability invariants for the Rule Engine."""
 
     _N = 10_000
@@ -446,8 +528,8 @@ class TestRuleEngineTortureTest:
         )
 
     def test_run_vsm_engine_scales_with_large_vsm(self) -> None:
-        """RuleEngine.run_vsm with 10 000-node VSM must complete < 1 s."""
-        engine = RuleEngine([VSMBrokenLinkRule()])
+        """AdaptiveRuleEngine.run_vsm with 10 000-node VSM must complete < 1 s."""
+        engine = AdaptiveRuleEngine([VSMBrokenLinkRule()])
         vsm = self._make_large_vsm()
         # Small file — only the VSM lookup overhead is being measured here
         text = "\n".join(f"[P](page-{i}.md)" for i in range(100))

@@ -17,7 +17,7 @@ Two kinds of rules coexist in the same engine:
   ``zenzic.rules`` entry-point group.  For complex, multi-line logic that
   a regex cannot express.
 
-Both kinds are applied through the same :class:`RuleEngine.run` interface so
+Both kinds are applied through the same :class:`AdaptiveRuleEngine.run` interface so
 the scanner only sees one surface.
 
 Rule dependency taxonomy (🔌 Dev 3 — relevant for caching)
@@ -56,11 +56,12 @@ Zenzic Way compliance
 * **Lint the Source:** Rules receive raw Markdown text — never HTML.
 * **No Subprocesses:** The rule module does not import or invoke any process.
 * **Pure Functions First:** :meth:`BaseRule.check` must be deterministic and
-  side-effect-free.  :class:`RuleEngine.run` is also pure (list in, list out).
+  side-effect-free.  :class:`AdaptiveRuleEngine.run` is also pure (list in, list out).
 """
 
 from __future__ import annotations
 
+import pickle
 import re
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
@@ -70,6 +71,8 @@ from typing import TYPE_CHECKING, Literal
 
 
 if TYPE_CHECKING:
+    from importlib.metadata import EntryPoint
+
     from zenzic.models.vsm import VSM, Route
 
 
@@ -327,26 +330,64 @@ class CustomRule(BaseRule):
         return findings
 
 
-# ─── RuleEngine ───────────────────────────────────────────────────────────────
+# ─── AdaptiveRuleEngine ───────────────────────────────────────────────────────
 
 
-class RuleEngine:
+def _assert_pickleable(rule: BaseRule) -> None:
+    """Raise :class:`PluginContractError` if *rule* cannot be pickled.
+
+    Called at engine construction time (eager validation) so that a
+    non-serialisable rule is rejected before the first file is scanned,
+    not inside a worker process mid-run.
+
+    Args:
+        rule: A :class:`BaseRule` instance to validate.
+
+    Raises:
+        PluginContractError: When ``pickle.dumps(rule)`` raises any error.
+    """
+    from zenzic.core.exceptions import PluginContractError  # deferred: avoid circular import
+
+    try:
+        pickle.dumps(rule)
+    except Exception as exc:  # noqa: BLE001
+        raise PluginContractError(
+            f"Rule '{rule.rule_id}' ({type(rule).__qualname__}) is not serialisable "
+            f"and cannot be used with the AdaptiveRuleEngine.\n"
+            f"  Cause: {type(exc).__name__}: {exc}\n"
+            f"  Fix: ensure the rule class is defined at module level (not inside a "
+            f"function or closure) and that all instance attributes are pickleable.",
+        ) from exc
+
+
+class AdaptiveRuleEngine:
     """Applies a collection of :class:`BaseRule` instances to a Markdown file.
 
     The engine is stateless after construction — :meth:`run` is a pure
     function that maps ``(path, text)`` to a list of findings.
 
+    All registered rules are validated for pickle-serializability at
+    construction time (**eager validation**).  This ensures that any rule
+    incompatible with multiprocessing is rejected immediately — before the
+    first file is scanned — rather than failing silently inside a worker
+    process.
+
     Usage::
 
-        engine = RuleEngine(config.custom_rules)
+        engine = AdaptiveRuleEngine(rules)
         findings = engine.run(Path("docs/guide.md"), text)
 
     Args:
         rules: Iterable of :class:`BaseRule` (or :class:`CustomRule`) instances
             to apply.  Order is preserved in the output.
+
+    Raises:
+        PluginContractError: If any rule fails the eager pickle validation.
     """
 
     def __init__(self, rules: Sequence[BaseRule]) -> None:
+        for rule in rules:
+            _assert_pickleable(rule)
         self._rules = rules
 
     def __bool__(self) -> bool:
@@ -640,3 +681,149 @@ class VSMBrokenLinkRule(BaseRule):
             return "/"
 
         return "/" + "/".join(parts) + "/"
+
+
+# ─── Plugin discovery ─────────────────────────────────────────────────────────
+
+
+@dataclass(slots=True)
+class PluginRuleInfo:
+    """Metadata about a discovered plugin rule.
+
+    Attributes:
+        rule_id:    The stable identifier returned by :attr:`BaseRule.rule_id`.
+        class_name: Fully qualified class name (``module.ClassName``).
+        source:     Entry-point name (e.g. ``"broken-links"``).
+        origin:     Distribution name that registered the rule, or
+                    ``"zenzic"`` for core rules.
+    """
+
+    rule_id: str
+    class_name: str
+    source: str
+    origin: str
+
+
+class PluginRegistry:
+    """Registry wrapper around ``importlib.metadata`` entry-points.
+
+    Provides read-only discovery for the CLI and explicit rule loading for the
+    scanner.  Discovery is best-effort; loading configured plugins is strict.
+    """
+
+    def __init__(self, group: str = "zenzic.rules") -> None:
+        self._group = group
+
+    def _entry_points(self) -> list[EntryPoint]:
+        """Return sorted entry-points for the configured group."""
+        from importlib.metadata import entry_points
+
+        return sorted(entry_points(group=self._group), key=lambda ep: ep.name)
+
+    def list_rules(self) -> list[PluginRuleInfo]:
+        """Discover all plugin rules as metadata for CLI inspection."""
+        results: list[PluginRuleInfo] = []
+        for ep in self._entry_points():
+            try:
+                cls = ep.load()
+                instance = cls()
+                if not isinstance(instance, BaseRule):
+                    continue
+            except Exception:  # noqa: BLE001
+                continue
+            dist_name = ep.dist.name if ep.dist is not None else "zenzic"
+            results.append(
+                PluginRuleInfo(
+                    rule_id=instance.rule_id,
+                    class_name=f"{cls.__module__}.{cls.__qualname__}",
+                    source=ep.name,
+                    origin=dist_name,
+                )
+            )
+        if not any(r.source == "broken-links" for r in results):
+            results.append(
+                PluginRuleInfo(
+                    rule_id=VSMBrokenLinkRule().rule_id,
+                    class_name=f"{VSMBrokenLinkRule.__module__}.{VSMBrokenLinkRule.__qualname__}",
+                    source="broken-links",
+                    origin="zenzic",
+                )
+            )
+        return results
+
+    def load_core_rules(self) -> list[BaseRule]:
+        """Load core rules registered by the ``zenzic`` distribution."""
+        core_eps = [
+            ep for ep in self._entry_points() if ep.dist is not None and ep.dist.name == "zenzic"
+        ]
+        loaded = [self._load_entry_point(ep) for ep in core_eps]
+        if not any(rule.rule_id == "Z001" for rule in loaded):
+            loaded.append(VSMBrokenLinkRule())
+        return loaded
+
+    def load_selected_rules(self, plugin_ids: Sequence[str]) -> list[BaseRule]:
+        """Load only the configured plugin IDs from the entry-point group.
+
+        Args:
+            plugin_ids: Entry-point names declared in ``config.plugins``.
+
+        Raises:
+            PluginContractError: If a configured plugin is missing or invalid.
+        """
+        from zenzic.core.exceptions import PluginContractError  # deferred: avoid circular import
+
+        requested = [pid.strip() for pid in plugin_ids if pid.strip()]
+        if not requested:
+            return []
+
+        eps_by_name = {ep.name: ep for ep in self._entry_points()}
+        if "broken-links" in requested and "broken-links" not in eps_by_name:
+            requested = [pid for pid in requested if pid != "broken-links"]
+            return [VSMBrokenLinkRule(), *self.load_selected_rules(requested)]
+
+        missing = sorted(set(requested) - set(eps_by_name))
+        if missing:
+            raise PluginContractError(
+                "Configured plugin rule IDs were not found in the 'zenzic.rules' "
+                f"entry-point group: {', '.join(missing)}"
+            )
+
+        loaded: list[BaseRule] = []
+        for pid in requested:
+            loaded.append(self._load_entry_point(eps_by_name[pid]))
+        return loaded
+
+    @staticmethod
+    def _load_entry_point(ep: EntryPoint) -> BaseRule:
+        """Load and instantiate one entry-point as a :class:`BaseRule`."""
+        from zenzic.core.exceptions import PluginContractError  # deferred: avoid circular import
+
+        try:
+            cls = ep.load()
+            instance = cls()
+        except Exception as exc:  # noqa: BLE001
+            raise PluginContractError(
+                f"Failed to load plugin rule '{ep.name}': {type(exc).__name__}: {exc}"
+            ) from exc
+
+        if not isinstance(instance, BaseRule):
+            raise PluginContractError(
+                f"Plugin rule '{ep.name}' must instantiate a BaseRule, got "
+                f"{type(instance).__qualname__}."
+            )
+        return instance
+
+
+def list_plugin_rules() -> list[PluginRuleInfo]:
+    """Return metadata for every rule registered in the ``zenzic.rules`` group.
+
+    Iterates over all entry points in the ``zenzic.rules``
+    ``importlib.metadata`` group, loads each class, instantiates it (using
+    a no-argument constructor), and captures its :attr:`BaseRule.rule_id`.
+    Entry points that cannot be loaded or instantiated are skipped — discovery
+    is best-effort and must never crash the CLI.
+
+    Returns:
+        Sorted list of :class:`PluginRuleInfo`, ordered by ``source`` name.
+    """
+    return PluginRegistry().list_rules()

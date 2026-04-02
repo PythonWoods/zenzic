@@ -13,7 +13,8 @@ Hierarchy::
     ├── ConfigurationError   — missing / malformed config files
     │   └── EngineError      — engine binary absent or incompatible
     ├── CheckError           — check machinery failure (not a finding)
-    └── NetworkError         — HTTP failure during link validation
+    ├── NetworkError         — HTTP failure during link validation
+    └── PluginContractError  — rule plugin violates the pickle / purity contract
 """
 
 from __future__ import annotations
@@ -120,5 +121,23 @@ class NetworkError(ZenzicError):
         raise NetworkError(
             "Connection timed out",
             context={"url": url, "timeout_s": 10},
+        )
+    """
+
+
+class PluginContractError(ZenzicError):
+    """Raised when a plugin rule violates the serialisability or purity contract.
+
+    The :class:`~zenzic.core.rules.AdaptiveRuleEngine` validates every rule at
+    construction time.  A rule that cannot be pickled (e.g. defined inside a
+    function, or holding a reference to an unpickleable object) is rejected
+    immediately with this error rather than failing inside a worker process.
+
+    Examples::
+
+        raise PluginContractError(
+            "Rule 'MY-001' is not serialisable and cannot be used with the "
+            "AdaptiveRuleEngine.",
+            context={"rule_id": "MY-001", "cause": str(exc)},
         )
     """

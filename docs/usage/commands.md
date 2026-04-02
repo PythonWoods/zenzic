@@ -232,6 +232,29 @@ zenzic score                   # show score for visibility
 
 ---
 
+## Plugin inspection
+
+```bash
+zenzic plugins list   # List all rules registered in the zenzic.rules entry-point group
+```
+
+`zenzic plugins list` shows every lint rule the engine knows about — Core rules bundled with
+Zenzic and any third-party rules installed from external packages:
+
+```text
+Installed plugin rules (1 found)
+
+  broken-links  Z001  (core)  zenzic.core.rules.VSMBrokenLinkRule
+```
+
+Each row shows the entry-point name, the rule's stable `rule_id` (used in findings and
+suppression lists), the origin distribution (`(core)` for built-in rules, or the package
+name for third-party plugins), and the fully qualified Python class name.
+
+Use this command to verify which rules are active after installing a plugin package.
+
+---
+
 ## `uvx` vs `uv run` vs bare `zenzic`
 
 | Invocation | Behaviour | When to use |

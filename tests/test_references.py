@@ -44,7 +44,6 @@ from zenzic.core.scanner import (
     ReferenceScanner,
     check_image_alt_text,
     scan_docs_references,
-    scan_docs_references_with_links,
 )
 from zenzic.core.shield import SecurityFinding, scan_line_for_secrets, scan_url_for_secrets
 from zenzic.core.validator import LinkValidator
@@ -560,12 +559,12 @@ class TestScanDocsReferences:
     def test_empty_docs_returns_empty(self, tmp_path: Path) -> None:
         (tmp_path / "docs").mkdir()
         (tmp_path / "mkdocs.yml").touch()
-        reports = scan_docs_references(tmp_path)
+        reports, _ = scan_docs_references(tmp_path)
         assert reports == []
 
     def test_missing_docs_dir_returns_empty(self, tmp_path: Path) -> None:
         (tmp_path / "mkdocs.yml").touch()
-        reports = scan_docs_references(tmp_path)
+        reports, _ = scan_docs_references(tmp_path)
         assert reports == []
 
     def test_single_clean_file(self, tmp_path: Path) -> None:
@@ -576,7 +575,7 @@ class TestScanDocsReferences:
             "[guide]: https://example.com\n\nSee [guide][guide].\n",
             encoding="utf-8",
         )
-        reports = scan_docs_references(tmp_path)
+        reports, _ = scan_docs_references(tmp_path)
         assert len(reports) == 1
         assert reports[0].score == pytest.approx(100.0)
         assert reports[0].is_secure is True
@@ -590,7 +589,7 @@ class TestScanDocsReferences:
             f"[api]: https://aws.example.com/?key={aws_key}\n",
             encoding="utf-8",
         )
-        reports = scan_docs_references(tmp_path)
+        reports, _ = scan_docs_references(tmp_path)
         assert len(reports) == 1
         assert reports[0].is_secure is False
 
@@ -601,7 +600,7 @@ class TestScanDocsReferences:
         real = tmp_path / "real.md"
         real.write_text("[ref]: https://example.com\n", encoding="utf-8")
         (docs / "linked.md").symlink_to(real)
-        reports = scan_docs_references(tmp_path)
+        reports, _ = scan_docs_references(tmp_path)
         assert reports == []
 
     def test_deduplication_1000_refs_single_used_id(self, tmp_path: Path) -> None:
@@ -613,7 +612,7 @@ class TestScanDocsReferences:
         for i in range(1000):
             lines.append(f"Item {i}: see [here][bigref].\n")
         (docs / "big.md").write_text("".join(lines), encoding="utf-8")
-        reports = scan_docs_references(tmp_path)
+        reports, _ = scan_docs_references(tmp_path)
         assert len(reports) == 1
         report = reports[0]
         assert report.score == pytest.approx(100.0)
@@ -838,7 +837,7 @@ class TestLinkValidator:
             "[ref]: https://example.com\n\nSee [page][ref].\n",
             encoding="utf-8",
         )
-        reports, link_errors = scan_docs_references_with_links(tmp_path, validate_links=False)
+        reports, link_errors = scan_docs_references(tmp_path, validate_links=False)
         assert len(reports) == 1
         assert link_errors == []
 
@@ -853,7 +852,7 @@ class TestLinkValidator:
             encoding="utf-8",
         )
         # validate_links=True but the file has a secret → URLs must be skipped
-        reports, link_errors = scan_docs_references_with_links(tmp_path, validate_links=True)
+        reports, link_errors = scan_docs_references(tmp_path, validate_links=True)
         # Reports still produced (with security finding)
         assert len(reports) == 1
         assert reports[0].is_secure is False

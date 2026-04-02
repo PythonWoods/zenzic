@@ -168,7 +168,7 @@ class IntegrityReport:
         findings: All reference-quality issues (dangling refs, orphan defs,
             duplicate defs, missing alt-text).
         security_findings: Secrets detected by the Shield during Pass 1.
-        rule_findings: Issues raised by the RuleEngine (custom rules and
+        rule_findings: Issues raised by the AdaptiveRuleEngine (custom rules and
             plugin-registered rules).  Empty when no rules are configured.
     """
 

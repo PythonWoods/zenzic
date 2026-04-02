@@ -47,4 +47,13 @@ Sviluppato da [PythonWoods](https://github.com/PythonWoods), è progettato per e
 
     [:lucide-arrow-right: Apri](https://github.com/PythonWoods/zenzic)
 
+- :lucide-history: &nbsp; __Changelog__
+
+    ---
+
+    Storico completo delle release e policy della linea attiva.
+    La linea 0.4.x e stata abbandonata; la stabilizzazione attiva e 0.5.x.
+
+    [:lucide-arrow-right: Leggi](https://github.com/PythonWoods/zenzic/blob/main/CHANGELOG.md)
+
 </div>

@@ -17,6 +17,8 @@ This section covers everything you need to extend, adapt, or contribute to Zenzi
 
 ## In this section
 
+- [Writing Plugin Rules](plugins.md) — implement `BaseRule` subclasses, register
+  them via `entry_points`, and satisfy the pickle / purity contract.
 - [Writing an Adapter](writing-an-adapter.md) — implement the `BaseAdapter` protocol
   to teach Zenzic about a new documentation engine.
 - [Example Projects](examples.md) — four self-contained runnable fixtures that

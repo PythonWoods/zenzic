@@ -42,18 +42,30 @@ absolute links are a hard error, and if you declare `engine = "zensical"` you mu
 
 ---
 
-## RC5 Highlights (v0.4.0-rc5)
+## v0.5.0a1 Highlights — The Sentinel
 
-- **Zensical v0.0.31+ sync**: `ZensicalAdapter` now reads navigation from
-  `[project].nav` (official TOML schema), including nested sections.
-- **Nav-aware routing**: with explicit nav, files present on disk but absent from nav are
-  classified as `ORPHAN_BUT_EXISTING`.
-- **URL mode parity**: `map_url()` now respects `[project].use_directory_urls = false`
-  (`/page.html`) and default directory URLs (`/page/`).
-- **Parallel scan API documented**: shared-nothing `ProcessPoolExecutor` model,
-  honest overhead notes, and picklability requirements for custom rules.
-- **New canonical example**: `examples/zensical-basic/` mirrors the documented TOML
-  schema and migration flow.
+- **Hybrid Adaptive Engine**: `scan_docs_references` is the single unified
+  entry point for all scan modes. The engine selects sequential or parallel
+  execution automatically based on repository size (threshold: 50 files). No
+  flags required — Zenzic is fast by default.
+- **`AdaptiveRuleEngine` with eager pickle validation**: all rules are validated
+  for pickle-serializability at construction time. A non-serialisable rule raises
+  `PluginContractError` immediately — before any file is scanned.
+- **`zenzic.rules` entry-point group**: core rules (`VSMBrokenLinkRule`) are
+  registered as first-class plugins. Third-party packages can extend Zenzic by
+  registering under the same group and enabling their plugin ID in `zenzic.toml`.
+- **`zenzic plugins list`**: new command that displays every rule registered in
+  the `zenzic.rules` entry-point group — Core rules and third-party plugins.
+- **`pyproject.toml` support (ISSUE #5)**: embed Zenzic config in `[tool.zenzic]`
+  when `zenzic.toml` is absent. `zenzic.toml` always wins if both exist.
+- **Performance telemetry**: `scan_docs_references(verbose=True)` prints engine
+  mode, worker count, elapsed time, and estimated speedup to stderr.
+- **`PluginContractError`**: new exception for rule contract violations.
+- **Plugin documentation**: `docs/developers/plugins.md` (EN + IT) — full
+  contract, packaging instructions, and `pyproject.toml` registration examples.
+- **Release-track clarification**: the 0.4.x cycle is considered abandoned
+  (exploratory with repeated breaking changes); 0.5.x is the active
+  stabilization line.
 
 ---
 
@@ -492,11 +504,18 @@ For dynamic badge automation and regression detection, see the [CI/CD Integratio
 
 ---
 
-## Configuration (`zenzic.toml`)
+## Configuration
 
-All fields are optional. Zenzic works with no configuration file.
+All fields are optional. Zenzic works with no configuration file at all.
+
+Zenzic follows a three-level **Agnostic Citizen** priority chain:
+
+1. `zenzic.toml` at the repository root — sovereign; always wins.
+2. `[tool.zenzic]` in `pyproject.toml` — used when `zenzic.toml` is absent.
+3. Built-in defaults.
 
 ```toml
+# zenzic.toml  (or [tool.zenzic] in pyproject.toml)
 docs_dir = "docs"
 excluded_dirs = ["includes", "assets", "stylesheets", "overrides", "hooks"]
 snippet_min_lines = 1

@@ -7,7 +7,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "zenzic"
-version = "0.4.0rc5"
+version = "0.5.0a1"
 description = "Engineering-grade, engine-agnostic linter and security shield for Markdown documentation"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -34,7 +34,7 @@ dependencies = [
     "rich>=13.0.0",
     "pyyaml>=6.0.0",
     "pydantic>=2.0.0",
-    "httpx>=0.27",
+    "httpx>=0.27,<1.0",
 ]
 
 [project.optional-dependencies]
@@ -52,6 +52,9 @@ zenzic = "zenzic.main:cli_main"
 mkdocs   = "zenzic.core.adapters:MkDocsAdapter"
 zensical = "zenzic.core.adapters:ZensicalAdapter"
 vanilla  = "zenzic.core.adapters:VanillaAdapter"
+
+[project.entry-points."zenzic.rules"]
+broken-links = "zenzic.core.rules:VSMBrokenLinkRule"
 
 
 

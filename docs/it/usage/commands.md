@@ -236,6 +236,31 @@ zenzic score                   # mostra il punteggio per visibilità
 
 ---
 
+## Ispezione dei plugin
+
+```bash
+zenzic plugins list   # Elenca tutte le regole registrate nel gruppo zenzic.rules
+```
+
+`zenzic plugins list` mostra ogni regola di linting che il motore conosce — le regole Core
+incluse in Zenzic e qualsiasi regola di terze parti installata da pacchetti esterni:
+
+```text
+Installed plugin rules (1 found)
+
+  broken-links  Z001  (core)  zenzic.core.rules.VSMBrokenLinkRule
+```
+
+Ogni riga mostra il nome dell'entry-point, il `rule_id` stabile della regola (usato nei
+finding e nelle liste di soppressione), la distribuzione di origine (`(core)` per le regole
+built-in, o il nome del pacchetto per i plugin di terze parti), e il nome completo della
+classe Python.
+
+Usa questo comando per verificare quali regole sono attive dopo aver installato un pacchetto
+plugin.
+
+---
+
 ## `uvx` vs `uv run` vs `zenzic` diretto
 
 | Invocazione | Comportamento | Quando usare |

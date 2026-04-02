@@ -11,6 +11,148 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.5.0a1] — 2026-04-02 — The Sentinel: Hybrid Adaptive Engine & Plugin System
+
+> **Sprint 11.** Zenzic enters the v0.5 cycle with a unified execution model and a
+> first-class plugin system.  `scan_docs_references` replaces the two separate serial
+> and parallel functions.  The engine selects sequential or `ProcessPoolExecutor` mode
+> automatically based on repository size (threshold: 50 files).  All rules are validated
+> for pickle-serializability at construction time.  Core rules are now registered as
+> entry-points under `zenzic.rules`, establishing the public plugin contract.
+
+### BREAKING CHANGES
+
+- **`scan_docs_references` signature changed.**  The function now returns
+  `tuple[list[IntegrityReport], list[str]]` instead of `list[IntegrityReport]`.
+  Callers that ignored link errors must unpack the tuple:
+
+  ```python
+  # Before (0.4.x)
+  reports = scan_docs_references(repo_root)
+
+  # After (0.5.x)
+  reports, _ = scan_docs_references(repo_root)
+  ```
+
+- **`scan_docs_references_parallel` and `scan_docs_references_with_links` are
+  removed.**  Use `scan_docs_references(..., workers=N)` and
+  `scan_docs_references(..., validate_links=True)` respectively.
+
+- **`RuleEngine` is removed.**  The class is now `AdaptiveRuleEngine` with no
+  alias.  The constructor runs eager pickle validation on every rule and raises
+  `PluginContractError` if any rule is not serialisable.
+
+### Added
+
+- **`AdaptiveRuleEngine`** (`zenzic.core.rules`) — unified rule engine with
+  Hybrid Adaptive Mode.  Replaces and removes `RuleEngine` (no alias).
+  Validates all rules for pickle-serializability at construction time via
+  `_assert_pickleable()`.
+
+- **`_assert_pickleable(rule)`** (`zenzic.core.rules`) — module-level helper
+  called by `AdaptiveRuleEngine.__init__`.  Raises `PluginContractError` on
+  failure with a diagnostic message including the rule ID, class name, and the
+  pickle error.
+
+- **`ADAPTIVE_PARALLEL_THRESHOLD`** (`zenzic.core.scanner`) — module-level
+  constant (default: `50`).  The file count above which parallel mode activates.
+  Exposed for test overrides without patching private internals.
+
+- **`PluginContractError`** (`zenzic.core.exceptions`) — new exception for rule
+  plugin violations.  Added to the exception hierarchy docstring.
+
+- **`zenzic.rules` entry-point group** (`pyproject.toml`) — core rules
+  registered as first-class plugins:
+
+  ```toml
+  [project.entry-points."zenzic.rules"]
+  broken-links = "zenzic.core.rules:VSMBrokenLinkRule"
+  ```
+
+- **`docs/developers/plugins.md`** (EN + IT) — new page documenting the rule
+  plugin contract: module-level requirement, pickle safety, purity, packaging
+  via `entry_points`, `plugins` key in `zenzic.toml`, error isolation, and a
+  pre-publication checklist.
+
+- **`docs/developers/index.md`** (EN + IT) — added link to `plugins.md`.
+
+- **`zenzic plugins list`** — new CLI sub-command.  Lists every rule registered
+  in the `zenzic.rules` entry-point group with its `rule_id`, origin
+  distribution, and fully-qualified class name.  Core rules are labelled
+  `(core)`; third-party rules show the installing package name.
+
+- **`pyproject.toml` configuration support (ISSUE #5)** — `ZenzicConfig.load()`
+  now follows a three-level Agnostic Citizen priority chain:
+  `zenzic.toml` (Priority 1) → `[tool.zenzic]` in `pyproject.toml`
+  (Priority 2) → built-in defaults (Priority 3).  If both files exist,
+  `zenzic.toml` wins unconditionally.
+
+- **`plugins` config key** (`zenzic.toml` / `[tool.zenzic]`) —
+  `ZenzicConfig.plugins` now exposes an explicit allow-list of external
+  rule plugin entry-point names to activate during scanning.  Core rules
+  remain always enabled.
+
+- **`scan_docs_references` `verbose` flag** — new keyword-only parameter
+  `verbose: bool = False`.  When `True`, prints a one-line performance
+  telemetry summary to stderr after the scan: engine mode (Sequential or
+  Parallel), worker count, file count, elapsed time, and estimated speedup
+  (parallel mode only).
+
+- **`PluginRuleInfo` dataclass** (`zenzic.core.rules`) — lightweight struct
+  returned by the new `list_plugin_rules()` discovery function.  Fields:
+  `rule_id`, `class_name`, `source`, `origin`.
+
+- **`docs/configuration/index.md`** (EN + IT) — "Configuration loading" section
+  expanded with the three-level priority table and a `[tool.zenzic]` example.
+
+### Changed
+
+- **`scan_docs_references`** (`zenzic.core.scanner`) — unified function
+  replacing `scan_docs_references` + `scan_docs_references_parallel`.  New
+  signature:
+
+  ```python
+  scan_docs_references(
+      repo_root, config=None,
+      *, validate_links=False, workers=1
+  ) -> tuple[list[IntegrityReport], list[str]]
+  ```
+
+  Hybrid Adaptive Mode: sequential when `workers=1` or `< 50 files`; parallel
+  (`ProcessPoolExecutor`) otherwise.  Results always sorted by `file_path`.
+
+- **`docs/architecture.md`** and **`docs/it/architecture.md`** — "Parallel scan
+  (v0.4.0-rc5)" section replaced by "Hybrid Adaptive Engine (v0.5.0a1)" with
+  a Fan-out/Fan-in Mermaid diagram showing the threshold decision node.
+  IT section was previously absent; added from scratch.
+
+- **`docs/usage/advanced.md`** and **`docs/it/usage/advanced.md`** — parallel
+  scan section rewritten to document the unified `scan_docs_references` API and
+  the Hybrid Adaptive Engine threshold table.
+
+- **`docs/usage/commands.md`** (EN + IT) — added `zenzic plugins list` command
+  documentation and `--workers` flag reference for the Hybrid Adaptive Engine.
+
+- **`README.md`** — "RC5 Highlights" replaced by "v0.5.0a1 Highlights —
+  The Sentinel".
+
+- **`pyproject.toml`** — version bumped to `0.5.0a1`.
+
+- **`src/zenzic/__init__.py`** — `__version__` bumped to `"0.5.0a1"`.
+
+### Removed
+
+- `scan_docs_references_parallel` — deleted; use `scan_docs_references(..., workers=N)`.
+- `scan_docs_references_with_links` — deleted; use `scan_docs_references(..., validate_links=True)`.
+- `RuleEngine` — deleted; use `AdaptiveRuleEngine` directly.
+
+---
+
+## 0.4.x (abandoned)
+
+This release cycle was exploratory and included multiple breaking changes.
+It has been superseded by the 0.5.x stabilization cycle.
+
 ## [0.4.0-rc4] — 2026-04-01 — Ghost Route Support, VSM Rule Engine & Content-Addressable Cache
 
 ## [0.4.0-rc5] — 2026-04-01 — The Sync Sprint: Zensical v0.0.31+ & Parallel API
