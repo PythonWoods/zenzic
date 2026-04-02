@@ -15,6 +15,7 @@ from zenzic.core.rules import (
     AdaptiveRuleEngine,
     BaseRule,
     CustomRule,
+    PluginRegistry,
     RuleFinding,
     Violation,
     VSMBrokenLinkRule,
@@ -262,6 +263,34 @@ def test_scan_docs_with_unknown_plugin_raises_contract_error(tmp_path: Path) -> 
     config = ZenzicConfig(plugins=["does-not-exist"])
     with pytest.raises(PluginContractError, match="Configured plugin rule IDs were not found"):
         scan_docs_references(tmp_path, config)
+
+
+def test_plugin_registry_deduplicates_requested_plugin_ids(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Duplicate plugin IDs are loaded once while preserving declaration order."""
+
+    class _EP:
+        def __init__(self, name: str) -> None:
+            self.name = name
+
+    registry = PluginRegistry()
+    monkeypatch.setattr(
+        registry,
+        "_entry_points",
+        lambda: [_EP("acme"), _EP("beta")],
+    )
+
+    loaded_names: list[str] = []
+
+    def _fake_load(ep: _EP) -> BaseRule:
+        loaded_names.append(ep.name)
+        return _PluginTodoRule()
+
+    monkeypatch.setattr(registry, "_load_entry_point", _fake_load)
+
+    _rules = registry.load_selected_rules(["acme", "acme", "beta", "acme"])  # noqa: F841
+    assert loaded_names == ["acme", "beta"]
 
 
 # ─── Cross-adapter custom rules (Dev 4 mandate) ───────────────────────────────

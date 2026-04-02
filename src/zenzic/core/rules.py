@@ -774,7 +774,13 @@ class PluginRegistry:
         """
         from zenzic.core.exceptions import PluginContractError  # deferred: avoid circular import
 
-        requested = [pid.strip() for pid in plugin_ids if pid.strip()]
+        requested: list[str] = []
+        seen: set[str] = set()
+        for pid in plugin_ids:
+            cleaned = pid.strip()
+            if cleaned and cleaned not in seen:
+                seen.add(cleaned)
+                requested.append(cleaned)
         if not requested:
             return []
 
