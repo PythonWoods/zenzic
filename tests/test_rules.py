@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import time
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -34,6 +35,28 @@ class _BrokenRule(BaseRule):
 
     def check(self, file_path: Path, text: str) -> list[RuleFinding]:
         raise RuntimeError("rule internal error")
+
+
+class _PluginTodoRule(BaseRule):
+    @property
+    def rule_id(self) -> str:
+        return "PLUG-TODO"
+
+    def check(self, file_path: Path, text: str) -> list[RuleFinding]:
+        findings: list[RuleFinding] = []
+        for line_no, line in enumerate(text.splitlines(), start=1):
+            if "PLUGIN_TODO" in line:
+                findings.append(
+                    RuleFinding(
+                        file_path=file_path,
+                        line_no=line_no,
+                        rule_id=self.rule_id,
+                        message="Plugin TODO marker found.",
+                        severity="error",
+                        matched_line=line,
+                    )
+                )
+        return findings
 
 
 # ─── CustomRule ───────────────────────────────────────────────────────────────
@@ -194,6 +217,43 @@ def test_scan_docs_with_custom_rules_from_config(tmp_path: Path) -> None:
     assert len(reports) == 1
     assert len(reports[0].rule_findings) == 1
     assert reports[0].rule_findings[0].rule_id == "ZZ-DRAFT"
+
+
+def test_scan_docs_with_enabled_plugins_from_config(tmp_path: Path) -> None:
+    """plugins=[...] activates external plugin rules during scanning."""
+    from zenzic.core.scanner import scan_docs_references
+
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "page.md").write_text("# Page\n\nPLUGIN_TODO marker.\n")
+
+    config = ZenzicConfig(plugins=["acme-todo"])
+
+    with (
+        patch("zenzic.core.rules.PluginRegistry.load_core_rules", return_value=[]),
+        patch(
+            "zenzic.core.rules.PluginRegistry.load_selected_rules",
+            return_value=[_PluginTodoRule()],
+        ),
+    ):
+        reports, _ = scan_docs_references(tmp_path, config)
+
+    assert len(reports) == 1
+    assert len(reports[0].rule_findings) == 1
+    assert reports[0].rule_findings[0].rule_id == "PLUG-TODO"
+
+
+def test_scan_docs_with_unknown_plugin_raises_contract_error(tmp_path: Path) -> None:
+    """Unknown plugin IDs in config.plugins fail fast with a clear error."""
+    from zenzic.core.scanner import scan_docs_references
+
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "page.md").write_text("# Page\n")
+
+    config = ZenzicConfig(plugins=["does-not-exist"])
+    with pytest.raises(PluginContractError, match="Configured plugin rule IDs were not found"):
+        scan_docs_references(tmp_path, config)
 
 
 # ─── Cross-adapter custom rules (Dev 4 mandate) ───────────────────────────────

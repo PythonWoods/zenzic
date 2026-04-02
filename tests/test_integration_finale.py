@@ -94,8 +94,9 @@ def test_list_plugin_rules_skips_unloadable_entry_point() -> None:
 
     with patch("importlib.metadata.entry_points", return_value=[bad_ep]):
         result = list_plugin_rules()
-    # Should return empty list without raising
-    assert result == []
+    # Bad plugin is skipped; built-in core fallback is still present.
+    assert all(info.source != "bad" for info in result)
+    assert any(info.source == "broken-links" for info in result)
 
 
 # ─── CLI: zenzic plugins list ────────────────────────────────────────────────

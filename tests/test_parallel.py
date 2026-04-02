@@ -89,6 +89,16 @@ def test_parallel_single_worker_is_sequential(tmp_path: Path) -> None:
         assert report.score == 100.0
 
 
+@pytest.mark.parametrize("workers", [0, -1, -8])
+def test_parallel_invalid_workers_raise_clear_error(tmp_path: Path, workers: int) -> None:
+    """workers must be None or >= 1 to avoid opaque executor errors."""
+    repo = _make_docs(tmp_path, n_files=2)
+    config = ZenzicConfig()
+
+    with pytest.raises(ValueError, match="workers must be None or an integer >= 1"):
+        scan_docs_references(repo, config, workers=workers)
+
+
 def test_parallel_sorted_output(tmp_path: Path) -> None:
     """Output is sorted by file_path regardless of worker scheduling order."""
     repo = _make_docs(tmp_path, n_files=8)

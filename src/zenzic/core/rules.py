@@ -71,6 +71,8 @@ from typing import TYPE_CHECKING, Literal
 
 
 if TYPE_CHECKING:
+    from importlib.metadata import EntryPoint
+
     from zenzic.models.vsm import VSM, Route
 
 
@@ -684,10 +686,7 @@ class VSMBrokenLinkRule(BaseRule):
 # ─── Plugin discovery ─────────────────────────────────────────────────────────
 
 
-from dataclasses import dataclass as _dc  # noqa: E402 — module-level, after all classes
-
-
-@_dc
+@dataclass(slots=True)
 class PluginRuleInfo:
     """Metadata about a discovered plugin rule.
 
@@ -705,6 +704,116 @@ class PluginRuleInfo:
     origin: str
 
 
+class PluginRegistry:
+    """Registry wrapper around ``importlib.metadata`` entry-points.
+
+    Provides read-only discovery for the CLI and explicit rule loading for the
+    scanner.  Discovery is best-effort; loading configured plugins is strict.
+    """
+
+    def __init__(self, group: str = "zenzic.rules") -> None:
+        self._group = group
+
+    def _entry_points(self) -> list[EntryPoint]:
+        """Return sorted entry-points for the configured group."""
+        from importlib.metadata import entry_points
+
+        return sorted(entry_points(group=self._group), key=lambda ep: ep.name)
+
+    def list_rules(self) -> list[PluginRuleInfo]:
+        """Discover all plugin rules as metadata for CLI inspection."""
+        results: list[PluginRuleInfo] = []
+        for ep in self._entry_points():
+            try:
+                cls = ep.load()
+                instance = cls()
+                if not isinstance(instance, BaseRule):
+                    continue
+            except Exception:  # noqa: BLE001
+                continue
+            dist_name = ep.dist.name if ep.dist is not None else "zenzic"
+            results.append(
+                PluginRuleInfo(
+                    rule_id=instance.rule_id,
+                    class_name=f"{cls.__module__}.{cls.__qualname__}",
+                    source=ep.name,
+                    origin=dist_name,
+                )
+            )
+        if not any(r.source == "broken-links" for r in results):
+            results.append(
+                PluginRuleInfo(
+                    rule_id=VSMBrokenLinkRule().rule_id,
+                    class_name=f"{VSMBrokenLinkRule.__module__}.{VSMBrokenLinkRule.__qualname__}",
+                    source="broken-links",
+                    origin="zenzic",
+                )
+            )
+        return results
+
+    def load_core_rules(self) -> list[BaseRule]:
+        """Load core rules registered by the ``zenzic`` distribution."""
+        core_eps = [
+            ep for ep in self._entry_points() if ep.dist is not None and ep.dist.name == "zenzic"
+        ]
+        loaded = [self._load_entry_point(ep) for ep in core_eps]
+        if not any(rule.rule_id == "Z001" for rule in loaded):
+            loaded.append(VSMBrokenLinkRule())
+        return loaded
+
+    def load_selected_rules(self, plugin_ids: Sequence[str]) -> list[BaseRule]:
+        """Load only the configured plugin IDs from the entry-point group.
+
+        Args:
+            plugin_ids: Entry-point names declared in ``config.plugins``.
+
+        Raises:
+            PluginContractError: If a configured plugin is missing or invalid.
+        """
+        from zenzic.core.exceptions import PluginContractError  # deferred: avoid circular import
+
+        requested = [pid.strip() for pid in plugin_ids if pid.strip()]
+        if not requested:
+            return []
+
+        eps_by_name = {ep.name: ep for ep in self._entry_points()}
+        if "broken-links" in requested and "broken-links" not in eps_by_name:
+            requested = [pid for pid in requested if pid != "broken-links"]
+            return [VSMBrokenLinkRule(), *self.load_selected_rules(requested)]
+
+        missing = sorted(set(requested) - set(eps_by_name))
+        if missing:
+            raise PluginContractError(
+                "Configured plugin rule IDs were not found in the 'zenzic.rules' "
+                f"entry-point group: {', '.join(missing)}"
+            )
+
+        loaded: list[BaseRule] = []
+        for pid in requested:
+            loaded.append(self._load_entry_point(eps_by_name[pid]))
+        return loaded
+
+    @staticmethod
+    def _load_entry_point(ep: EntryPoint) -> BaseRule:
+        """Load and instantiate one entry-point as a :class:`BaseRule`."""
+        from zenzic.core.exceptions import PluginContractError  # deferred: avoid circular import
+
+        try:
+            cls = ep.load()
+            instance = cls()
+        except Exception as exc:  # noqa: BLE001
+            raise PluginContractError(
+                f"Failed to load plugin rule '{ep.name}': {type(exc).__name__}: {exc}"
+            ) from exc
+
+        if not isinstance(instance, BaseRule):
+            raise PluginContractError(
+                f"Plugin rule '{ep.name}' must instantiate a BaseRule, got "
+                f"{type(instance).__qualname__}."
+            )
+        return instance
+
+
 def list_plugin_rules() -> list[PluginRuleInfo]:
     """Return metadata for every rule registered in the ``zenzic.rules`` group.
 
@@ -717,24 +826,4 @@ def list_plugin_rules() -> list[PluginRuleInfo]:
     Returns:
         Sorted list of :class:`PluginRuleInfo`, ordered by ``source`` name.
     """
-    from importlib.metadata import entry_points
-
-    results: list[PluginRuleInfo] = []
-    eps = entry_points(group="zenzic.rules")
-    for ep in eps:
-        try:
-            cls = ep.load()
-            instance: BaseRule = cls()
-            rid = instance.rule_id
-        except Exception:  # noqa: BLE001
-            continue
-        dist_name = ep.dist.name if ep.dist is not None else "zenzic"
-        results.append(
-            PluginRuleInfo(
-                rule_id=rid,
-                class_name=f"{cls.__module__}.{cls.__qualname__}",
-                source=ep.name,
-                origin=dist_name,
-            )
-        )
-    return sorted(results, key=lambda r: r.source)
+    return PluginRegistry().list_rules()

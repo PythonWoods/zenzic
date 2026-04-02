@@ -76,6 +76,14 @@ severity = "warning"
     assert loaded is True
 
 
+def test_load_config_plugins_list(tmp_path: Path) -> None:
+    """plugins = [...] is parsed from zenzic.toml."""
+    (tmp_path / "zenzic.toml").write_text("plugins = ['no-internal-hostname', 'acme-style']\n")
+    config, loaded = ZenzicConfig.load(tmp_path)
+    assert config.plugins == ["no-internal-hostname", "acme-style"]
+    assert loaded is True
+
+
 def test_placeholder_patterns_compiled_on_init(tmp_path: Path) -> None:
     """placeholder_patterns_compiled is populated automatically from placeholder_patterns."""
     config = ZenzicConfig(placeholder_patterns=["todo", "wip"])
@@ -127,6 +135,16 @@ def test_load_config_pyproject_custom_rules(tmp_path: Path) -> None:
     assert len(config.custom_rules) == 1
     assert config.custom_rules[0].id == "ZZ-PY"
     assert config.custom_rules[0].severity == "warning"
+    assert loaded is True
+
+
+def test_load_config_pyproject_plugins_list(tmp_path: Path) -> None:
+    """plugins list is parsed from [tool.zenzic] in pyproject.toml."""
+    (tmp_path / "pyproject.toml").write_text(
+        "[tool.zenzic]\nplugins = ['no-internal-hostname', 'acme-style']\n"
+    )
+    config, loaded = ZenzicConfig.load(tmp_path)
+    assert config.plugins == ["no-internal-hostname", "acme-style"]
     assert loaded is True
 
 
