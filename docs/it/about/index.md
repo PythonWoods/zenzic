@@ -11,6 +11,9 @@ Zenzic è un linter di documentazione di livello ingegneristico e un quality gat
 
 Sviluppato da [PythonWoods](https://github.com/PythonWoods), è progettato per essere eseguito nelle pipeline CI/CD e rilevare i problemi nella documentazione prima che raggiungano gli utenti.
 
+Attribuzione: Zenzic è un progetto PythonWoods. Zensical, MkDocs e gli altri
+strumenti dell'ecosistema citati in questa documentazione sono progetti di terze parti.
+
 ---
 
 <div class="grid cards" markdown>

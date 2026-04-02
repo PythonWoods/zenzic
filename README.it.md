@@ -40,6 +40,11 @@ Zenzic è **agnostico** — funziona con qualsiasi sistema di documentazione bas
 sono un errore bloccante, e se dichiari `engine = "zensical"` devi avere `zensical.toml` — nessun
 fallback, nessuna supposizione.
 
+Baseline di compatibilità attuale con Zensical: **v0.0.31+**.
+
+Attribuzione del progetto: Zenzic è un progetto PythonWoods. Zensical, MkDocs e
+gli altri strumenti citati sono progetti di terze parti.
+
 ---
 
 ## v0.5.0a1 — La Sentinella
