@@ -262,6 +262,10 @@ non segnalare mai i file tradotti come orfani.
 > Il changelog è ora mantenuto in un unico file inglese (`CHANGELOG.md`).
 > Questa scelta segue gli standard dell'ecosistema Python open source:
 > la cronologia delle versioni è documentazione tecnica, non interfaccia utente.
+>
+> Nota sul ciclo release: la linea `0.4.x` è stata abbandonata (fase
+> esplorativa con breaking changes multipli); la linea attiva di
+> stabilizzazione è `0.5.x`.
 
 ---
 

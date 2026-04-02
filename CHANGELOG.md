@@ -87,6 +87,11 @@ Versions follow [Semantic Versioning](https://semver.org/).
   (Priority 2) → built-in defaults (Priority 3).  If both files exist,
   `zenzic.toml` wins unconditionally.
 
+- **`plugins` config key** (`zenzic.toml` / `[tool.zenzic]`) —
+  `ZenzicConfig.plugins` now exposes an explicit allow-list of external
+  rule plugin entry-point names to activate during scanning.  Core rules
+  remain always enabled.
+
 - **`scan_docs_references` `verbose` flag** — new keyword-only parameter
   `verbose: bool = False`.  When `True`, prints a one-line performance
   telemetry summary to stderr after the scan: engine mode (Sequential or
@@ -142,6 +147,11 @@ Versions follow [Semantic Versioning](https://semver.org/).
 - `RuleEngine` — deleted; use `AdaptiveRuleEngine` directly.
 
 ---
+
+## 0.4.x (abandoned)
+
+This release cycle was exploratory and included multiple breaking changes.
+It has been superseded by the 0.5.x stabilization cycle.
 
 ## [0.4.0-rc4] — 2026-04-01 — Ghost Route Support, VSM Rule Engine & Content-Addressable Cache
 

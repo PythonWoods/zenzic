@@ -63,6 +63,9 @@ absolute links are a hard error, and if you declare `engine = "zensical"` you mu
 - **`PluginContractError`**: new exception for rule contract violations.
 - **Plugin documentation**: `docs/developers/plugins.md` (EN + IT) — full
   contract, packaging instructions, and `pyproject.toml` registration examples.
+- **Release-track clarification**: the 0.4.x cycle is considered abandoned
+  (exploratory with repeated breaking changes); 0.5.x is the active
+  stabilization line.
 
 ---
 

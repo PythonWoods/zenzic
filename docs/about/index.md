@@ -47,4 +47,13 @@ Built by [PythonWoods](https://github.com/PythonWoods), it is designed to run in
 
     [:lucide-arrow-right: Open](https://github.com/PythonWoods/zenzic)
 
+- :lucide-history: &nbsp; __Changelog__
+
+    ---
+
+    Full release history and current release track policy.
+    The 0.4.x line is abandoned; 0.5.x is the active stabilization cycle.
+
+    [:lucide-arrow-right: Read](https://github.com/PythonWoods/zenzic/blob/main/CHANGELOG.md)
+
 </div>

@@ -24,7 +24,7 @@ from typing import Any
 from urllib.parse import unquote
 
 from zenzic.core.adapter import get_adapter
-from zenzic.core.rules import AdaptiveRuleEngine
+from zenzic.core.rules import AdaptiveRuleEngine, BaseRule
 from zenzic.core.shield import SecurityFinding, scan_line_for_secrets, scan_url_for_secrets
 from zenzic.core.validator import LinkValidator
 from zenzic.models.config import ZenzicConfig
@@ -743,14 +743,24 @@ def _iter_md_files(
 def _build_rule_engine(config: ZenzicConfig) -> AdaptiveRuleEngine | None:
     """Construct a :class:`~zenzic.core.rules.AdaptiveRuleEngine` from the config.
 
-    Returns ``None`` when no custom rules are configured, avoiding the
-    overhead of engine construction on projects that do not use the feature.
-    """
-    from zenzic.core.rules import CustomRule  # deferred to keep import graph clean
+    Load order is deterministic:
 
-    if not config.custom_rules:
+    1. Core rules registered by Zenzic itself (always enabled).
+    2. Regex rules from ``[[custom_rules]]``.
+    3. External plugin rules explicitly listed in ``plugins = [...]``.
+
+    Returns ``None`` when no rules are available.
+    """
+    from zenzic.core.rules import CustomRule, PluginRegistry  # deferred to keep import graph clean
+
+    # In this per-file pipeline, core VSM-only rules are no-op. Avoid building
+    # an engine (and avoid extra read_text calls) when no effective rules exist.
+    if not config.custom_rules and not config.plugins:
         return None
-    rules = [
+
+    registry = PluginRegistry()
+    rules = registry.load_core_rules()
+    rules.extend(
         CustomRule(
             id=cr.id,
             pattern=cr.pattern,
@@ -758,8 +768,22 @@ def _build_rule_engine(config: ZenzicConfig) -> AdaptiveRuleEngine | None:
             severity=cr.severity,
         )
         for cr in config.custom_rules
-    ]
-    return AdaptiveRuleEngine(rules)
+    )
+    rules.extend(registry.load_selected_rules(config.plugins))
+
+    # Deduplicate by rule_id while preserving declaration priority.
+    deduped: list[BaseRule] = []
+    seen: set[str] = set()
+    for rule in rules:
+        rid = rule.rule_id
+        if rid in seen:
+            continue
+        seen.add(rid)
+        deduped.append(rule)
+
+    if not deduped:
+        return None
+    return AdaptiveRuleEngine(deduped)
 
 
 def _emit_telemetry(*, mode: str, workers: int, n_files: int, elapsed: float) -> None:
@@ -826,8 +850,8 @@ def scan_docs_references(
 
     The threshold default (50 files) is a conservative heuristic: below it,
     ``ProcessPoolExecutor`` spawn overhead (~200–400 ms on a cold interpreter)
-    exceeds the parallelism benefit.  Override with ``workers=N`` to force a
-    specific pool size regardless of file count.
+    exceeds the parallelism benefit.  Override with ``workers=N`` to select a
+    specific pool size when parallel mode is active.
 
     **Determinism guarantee:** results are always sorted by ``file_path``
     regardless of execution mode.
@@ -836,9 +860,13 @@ def scan_docs_references(
     sequential mode.  Files with security findings are excluded from link
     validation in both modes.
 
-    **O(N) reads:** each file is read exactly once in sequential mode.  In
-    parallel mode external URL registration runs a lightweight sequential pass
-    in the main process after workers complete (workers discard scanners).
+    **Read behaviour:** total I/O remains :math:`O(N)` in the number of files,
+    but individual files may be read multiple times.  In sequential mode the
+    scanner typically performs separate Shield and content passes, and some
+    rules may trigger an additional ``read_text()`` call.  In parallel mode the
+    same per-worker behaviour applies; when ``validate_links=True`` an extra
+    lightweight sequential pass in the main process registers external URLs
+    after workers complete (workers discard scanners).
 
     Args:
         repo_root:      Repository root (must contain ``docs/``).
@@ -849,9 +877,8 @@ def scan_docs_references(
         workers:        Number of worker processes for parallel mode.
                         ``1`` (default) always uses sequential execution.
                         ``None`` lets ``ProcessPoolExecutor`` pick based on
-                        ``os.cpu_count()``.  Any value other than ``1``
-                        activates parallel mode when the file count is at or
-                        above :data:`ADAPTIVE_PARALLEL_THRESHOLD`.
+                        ``os.cpu_count()``.  Values must be ``None`` or
+                        greater than or equal to ``1``.
         verbose:        When ``True``, print a single telemetry line to stderr
                         after the scan completes.  Shows the engine mode, worker
                         count, elapsed time, and estimated speedup (parallel
@@ -866,6 +893,9 @@ def scan_docs_references(
           (empty when ``validate_links=False`` or all URLs pass).
     """
     import time
+
+    if workers is not None and workers < 1:
+        raise ValueError("workers must be None or an integer >= 1")
 
     if config is None:
         config, _ = ZenzicConfig.load(repo_root)
@@ -912,7 +942,7 @@ def scan_docs_references(
         # Shield-as-firewall guarantee (no URLs from compromised files).
         secure_scanners_b: list[ReferenceScanner] = []
         for md_file in md_files:
-            _report_b, secure_scanner_b = _scan_single_file(md_file, config, rule_engine)
+            _report_b, secure_scanner_b = _scan_single_file(md_file, config, None)
             if secure_scanner_b is not None:
                 secure_scanners_b.append(secure_scanner_b)
         validator_b = LinkValidator()

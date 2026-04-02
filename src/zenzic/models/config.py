@@ -206,6 +206,14 @@ class ZenzicConfig(BaseModel):
             "message='Remove before publish.'  severity='warning'"
         ),
     )
+    plugins: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Explicit allow-list of external rule plugins to activate from the "
+            "'zenzic.rules' entry-point group. Core rules shipped by Zenzic are "
+            "always enabled."
+        ),
+    )
     # Pre-compiled regex patterns for placeholder detection.
     # Populated automatically from placeholder_patterns in model_post_init.
     # Excluded from serialisation — never written to or read from TOML.
