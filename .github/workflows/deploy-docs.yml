@@ -7,7 +7,6 @@ on:
   push:
     branches:
       - main
-      - 'release/**'
     paths:
       - 'docs/**'
       - 'mkdocs.yml'
@@ -16,9 +15,6 @@ on:
       - 'SECURITY.md'
       - 'noxfile.py'
       - '.github/workflows/deploy-docs.yml'
-  # Trigger on tags regardless of paths changed
-    tags:
-      - 'v*'
   pull_request:
     branches:
       - main
@@ -77,17 +73,22 @@ jobs:
           cd docs/assets/brand
           zip -r ../brand-kit.zip .
 
+      - name: Set docs version for topbar
+        run: |
+          VERSION=$(python3 -c "import tomllib; print('v' + tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+          echo "DOCS_VERSION=${VERSION}" >> "$GITHUB_ENV"
+
       - name: Build Documentation
         run: uv run mkdocs build --strict
 
       - name: Deploy to Cloudflare Pages
-        # Allow deploy on push to main, workflow_dispatch, or version tags
+        # Production docs deploy only from main (or manual dispatch on main)
         if: |
           (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
-          (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+          github.ref == 'refs/heads/main'
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          # Use 'main' as the production branch for Cloudflare regardless of tag name
+          # Deploy production docs from the merged main branch only.
           command: pages deploy site --project-name=zenzic --branch=main --commit-dirty=true

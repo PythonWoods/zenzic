@@ -167,7 +167,7 @@ exclude_lines = [
 # ─── Version bumping ───────────────────────────────────────────────────────────
 
 [tool.bumpversion]
-current_version = "0.4.0rc4"
+current_version = "0.5.0a1"
 commit = true
 tag = true
 tag_name = "v{new_version}"
