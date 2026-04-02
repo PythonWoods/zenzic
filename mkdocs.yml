@@ -142,7 +142,7 @@ extra_css:
 extra:
   build_date: !ENV [BUILD_DATE, "dev"]
   generator: false
-  version: "0.4.0rc5"
+  version: "0.5.0a1"
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/PythonWoods/zenzic
