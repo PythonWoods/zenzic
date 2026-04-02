@@ -219,6 +219,14 @@ def test_scan_docs_with_custom_rules_from_config(tmp_path: Path) -> None:
     assert reports[0].rule_findings[0].rule_id == "ZZ-DRAFT"
 
 
+def test_build_rule_engine_none_without_custom_or_plugins() -> None:
+    """Without custom_rules/plugins, scanner avoids building a no-op engine."""
+    from zenzic.core.scanner import _build_rule_engine
+
+    config = ZenzicConfig()
+    assert _build_rule_engine(config) is None
+
+
 def test_scan_docs_with_enabled_plugins_from_config(tmp_path: Path) -> None:
     """plugins=[...] activates external plugin rules during scanning."""
     from zenzic.core.scanner import scan_docs_references

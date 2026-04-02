@@ -753,6 +753,11 @@ def _build_rule_engine(config: ZenzicConfig) -> AdaptiveRuleEngine | None:
     """
     from zenzic.core.rules import CustomRule, PluginRegistry  # deferred to keep import graph clean
 
+    # In this per-file pipeline, core VSM-only rules are no-op. Avoid building
+    # an engine (and avoid extra read_text calls) when no effective rules exist.
+    if not config.custom_rules and not config.plugins:
+        return None
+
     registry = PluginRegistry()
     rules = registry.load_core_rules()
     rules.extend(
@@ -855,9 +860,13 @@ def scan_docs_references(
     sequential mode.  Files with security findings are excluded from link
     validation in both modes.
 
-    **O(N) reads:** each file is read exactly once in sequential mode.  In
-    parallel mode external URL registration runs a lightweight sequential pass
-    in the main process after workers complete (workers discard scanners).
+    **Read behaviour:** total I/O remains :math:`O(N)` in the number of files,
+    but individual files may be read multiple times.  In sequential mode the
+    scanner typically performs separate Shield and content passes, and some
+    rules may trigger an additional ``read_text()`` call.  In parallel mode the
+    same per-worker behaviour applies; when ``validate_links=True`` an extra
+    lightweight sequential pass in the main process registers external URLs
+    after workers complete (workers discard scanners).
 
     Args:
         repo_root:      Repository root (must contain ``docs/``).

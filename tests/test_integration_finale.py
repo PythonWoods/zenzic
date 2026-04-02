@@ -15,7 +15,7 @@ from unittest.mock import patch
 
 import pytest
 
-from zenzic.core.rules import PluginRuleInfo, list_plugin_rules
+from zenzic.core.rules import BaseRule, PluginRuleInfo, RuleFinding, list_plugin_rules
 from zenzic.core.scanner import ADAPTIVE_PARALLEL_THRESHOLD, scan_docs_references
 from zenzic.models.config import ZenzicConfig
 
@@ -29,6 +29,15 @@ def _make_docs(tmp_path: Path, n_files: int = 3) -> Path:
     for i in range(n_files):
         (docs / f"page_{i:03d}.md").write_text(f"# Page {i}\n\nContent {i}.\n")
     return tmp_path
+
+
+class _DummyRule(BaseRule):
+    @property
+    def rule_id(self) -> str:
+        return "DUMMY"
+
+    def check(self, file_path: Path, text: str) -> list[RuleFinding]:
+        return []
 
 
 # ─── list_plugin_rules ────────────────────────────────────────────────────────
@@ -97,6 +106,23 @@ def test_list_plugin_rules_skips_unloadable_entry_point() -> None:
     # Bad plugin is skipped; built-in core fallback is still present.
     assert all(info.source != "bad" for info in result)
     assert any(info.source == "broken-links" for info in result)
+
+
+def test_list_plugin_rules_fallback_keeps_sorted_order() -> None:
+    """Core fallback insertion preserves sorted-by-source ordering."""
+    from importlib.metadata import EntryPoint
+
+    zzz_ep = EntryPoint(
+        name="zzz-rule", value="tests.test_integration_finale:_DummyRule", group="zenzic.rules"
+    )
+
+    with patch("importlib.metadata.entry_points", return_value=[zzz_ep]):
+        result = list_plugin_rules()
+
+    sources = [r.source for r in result]
+    assert "broken-links" in sources
+    assert "zzz-rule" in sources
+    assert sources == sorted(sources)
 
 
 # ─── CLI: zenzic plugins list ────────────────────────────────────────────────

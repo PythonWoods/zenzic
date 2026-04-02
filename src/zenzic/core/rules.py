@@ -749,6 +749,8 @@ class PluginRegistry:
                     origin="zenzic",
                 )
             )
+        # Keep ordering deterministic regardless of fallback insertion order.
+        results.sort(key=lambda r: r.source)
         return results
 
     def load_core_rules(self) -> list[BaseRule]:
