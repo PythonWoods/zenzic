@@ -42,17 +42,24 @@ fallback, nessuna supposizione.
 
 ---
 
-## Novita RC5 (v0.4.0-rc5)
+## v0.5.0a1 — La Sentinella
 
-- **Sync Zensical v0.0.31+**: `ZensicalAdapter` legge ora la nav da `[project].nav`
-  (schema TOML ufficiale), incluse sezioni annidate.
-- **Routing nav-aware**: con nav esplicita, i file presenti su disco ma assenti dalla nav
-  vengono classificati `ORPHAN_BUT_EXISTING`.
-- **Parita URL**: `map_url()` rispetta `[project].use_directory_urls = false`
-  (`/pagina.html`) oltre al default directory-style (`/pagina/`).
-- **Parallelismo API documentato**: modello shared-nothing con `ProcessPoolExecutor`,
-  note oneste sull'overhead e requisiti di picklability per regole custom.
-- **Nuovo esempio canonico**: `examples/zensical-basic/` allineato agli snippet documentati.
+- **Hybrid Adaptive Engine**: `scan_docs_references` è l'unico entry point unificato per
+  tutte le modalità di scansione. Il motore seleziona l'esecuzione sequenziale o parallela
+  automaticamente in base alla dimensione del repository (soglia: 50 file).
+- **`AdaptiveRuleEngine` con validazione pickle anticipata**: tutte le regole vengono
+  validate per la serializzabilità pickle al momento della costruzione. Una regola non
+  serializzabile solleva `PluginContractError` immediatamente.
+- **`zenzic plugins list`**: nuovo comando che mostra ogni regola registrata nel gruppo
+  entry-point `zenzic.rules` — regole Core e plugin di terze parti.
+- **Supporto `pyproject.toml` (ISSUE #5)**: incorpora la configurazione Zenzic in
+  `[tool.zenzic]` quando `zenzic.toml` è assente. `zenzic.toml` vince sempre se entrambi
+  i file esistono.
+- **Telemetria delle prestazioni**: `scan_docs_references(verbose=True)` stampa modalità
+  motore, numero di worker, tempo di esecuzione e speedup stimato su stderr.
+- **`PluginContractError`**: nuova eccezione per le violazioni del contratto delle regole.
+- **Documentazione plugin**: `docs/developers/plugins.md` (EN + IT) — contratto completo,
+  istruzioni di packaging ed esempi di registrazione `pyproject.toml`.
 
 ---
 
@@ -248,10 +255,13 @@ non segnalare mai i file tradotti come orfani.
 
 ## Changelog & Note di Rilascio
 
-- 📋 [CHANGELOG.md](CHANGELOG.md) — storico completo delle modifiche (inglese)
-- 📋 [CHANGELOG.it.md](CHANGELOG.it.md) — storico delle modifiche in italiano
+- 📋 [CHANGELOG.md](CHANGELOG.md) — storico completo delle modifiche (unico, in inglese)
 - 🚀 [RELEASE.md](RELEASE.md) — manifesto di rilascio v0.4.0 (inglese)
 - 🚀 [RELEASE.it.md](RELEASE.it.md) — manifesto di rilascio v0.4.0 (italiano)
+
+> Il changelog è ora mantenuto in un unico file inglese (`CHANGELOG.md`).
+> Questa scelta segue gli standard dell'ecosistema Python open source:
+> la cronologia delle versioni è documentazione tecnica, non interfaccia utente.
 
 ---
 

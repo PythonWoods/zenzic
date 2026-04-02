@@ -19,6 +19,8 @@ Zenzic.
 
 ## In questa sezione
 
+- [Scrivere Regole Plugin](plugins.md) — implementa sottoclassi `BaseRule`,
+  registrale tramite `entry_points` e soddisfa il contratto pickle / purezza.
 - [Scrivere un Adapter](writing-an-adapter.md) — implementa il protocollo
   `BaseAdapter` per insegnare a Zenzic a gestire un nuovo motore di documentazione.
 - [Progetti di Esempio](examples.md) — quattro fixture eseguibili auto-contenuti che

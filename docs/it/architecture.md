@@ -193,6 +193,76 @@ Proprietà chiave:
 
 ---
 
+## Hybrid Adaptive Engine (v0.5.0a1)
+
+`scan_docs_references` è l'unico punto di ingresso unificato per tutte le
+modalità di scansione. Non esiste più una funzione "parallela" separata — il
+motore **si adatta automaticamente** in base alla dimensione del repository.
+
+```mermaid
+flowchart TD
+    classDef node   fill:#0f172a,stroke:#38bdf8,stroke-width:2px,color:#e2e8f0
+    classDef decide fill:#0f172a,stroke:#f59e0b,stroke-width:2px,color:#e2e8f0
+    classDef worker fill:#0f172a,stroke:#10b981,stroke-width:2px,color:#e2e8f0
+    classDef seq    fill:#0f172a,stroke:#6366f1,stroke-width:2px,color:#e2e8f0
+    classDef io     fill:#0f172a,stroke:#4f46e5,stroke-width:2px,color:#e2e8f0
+
+    ENTRY["scan_docs_references()\nrepo_root, config\nworkers, validate_links"]:::node
+    THRESHOLD{"file ≥ 50\nE workers ≠ 1?"}:::decide
+
+    SEQ["Percorso sequenziale\n_scan_single_file × N\nletture O(N)"]:::seq
+    SORT_SEQ["Sorted list[IntegrityReport]"]:::io
+
+    FAN["Processo principale\npickle(config, engine)\n→ work_items"]:::node
+    W1["Worker 1\n_scan_single_file\n(page_A.md)"]:::worker
+    W2["Worker 2\n_scan_single_file\n(page_B.md)"]:::worker
+    WN["Worker N\n_scan_single_file\n(page_Z.md)"]:::worker
+    MERGE["Merge ordinato\nper file_path"]:::node
+    SORT_PAR["Sorted list[IntegrityReport]"]:::io
+
+    ENTRY --> THRESHOLD
+    THRESHOLD -->|"No (< 50 file\no workers=1)"| SEQ
+    SEQ --> SORT_SEQ
+    THRESHOLD -->|"Sì"| FAN
+    FAN -->|"pickle(config, engine)"| W1 & W2 & WN
+    W1 & W2 & WN --> MERGE
+    MERGE --> SORT_PAR
+```
+
+### Percorso sequenziale
+
+Usato quando `workers=1` (default) o quando il repository ha meno di 50 file.
+Zero overhead di avvio del processo. Supporta la validazione degli URL esterni
+in un singolo pass O(N).
+
+### Percorso parallelo
+
+Attivato quando `workers != 1` e il numero di file è pari o superiore a
+`ADAPTIVE_PARALLEL_THRESHOLD` (50). Ogni file viene inviato a un processo
+worker indipendente tramite `ProcessPoolExecutor`.
+
+**Architettura shared-nothing:** `config` e l'`AdaptiveRuleEngine` (incluse
+tutte le regole registrate) vengono serializzati tramite `pickle` prima di
+essere inviati a ciascun worker. Ogni worker opera su una copia indipendente —
+nessuna memoria condivisa, nessun lock, nessuna race condition.
+
+**Contratto di immutabilità:** i worker non devono mutare `config`. Le regole
+che scrivono su stato globale mutabile (es. un contatore a livello di classe)
+violano il Pilastro delle Funzioni Pure. In modalità parallela, ogni worker
+tiene una copia indipendente di quello stato — le mutazioni sono locali e
+vengono scartate, producendo risultati che divergono silenziosamente dalla
+modalità sequenziale.
+
+**Validazione pickle anticipata:** `AdaptiveRuleEngine` chiama `pickle.dumps()`
+su ogni regola al momento della costruzione. Una regola non serializzabile
+solleva `PluginContractError` immediatamente, prima che venga scansionato
+qualsiasi file.
+
+**Garanzia di determinismo:** i risultati vengono ordinati per `file_path`
+dopo la raccolta, indipendentemente dall'ordine di scheduling dei worker.
+
+---
+
 ## Riepilogo del flusso dati
 
 ### CLI

@@ -11,7 +11,7 @@ import typer
 from rich.console import Console
 
 from zenzic import __version__
-from zenzic.cli import check_app, clean_app, diff, init, score, serve
+from zenzic.cli import check_app, clean_app, diff, init, plugins_app, score, serve
 from zenzic.core.exceptions import ConfigurationError
 from zenzic.core.logging import setup_cli_logging
 
@@ -48,6 +48,7 @@ def _main(
 
 app.add_typer(check_app, name="check")
 app.add_typer(clean_app, name="clean")
+app.add_typer(plugins_app, name="plugins")
 app.command(name="score")(score)
 app.command(name="diff")(diff)
 app.command(name="serve")(serve)

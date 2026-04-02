@@ -180,20 +180,20 @@ for f in report.findings:
 
 ### Scansione multi-file
 
-Usa `scan_docs_references_with_links` per scansionare ogni file `.md` in un repository e
+Usa `scan_docs_references` per scansionare ogni file `.md` in un repository e
 facoltativamente validare gli URL esterni:
 
 ```python
 from pathlib import Path
-from zenzic.core.scanner import scan_docs_references_with_links
+from zenzic.core.scanner import scan_docs_references
 from zenzic.models.config import ZenzicConfig
 
 config, _ = ZenzicConfig.load(Path("."))
 
-reports, link_errors = scan_docs_references_with_links(
+reports, link_errors = scan_docs_references(
     Path("."),
+    config,
     validate_links=True,   # imposta False per saltare la validazione HTTP
-    config=config,
 )
 
 for report in reports:
@@ -206,24 +206,55 @@ for error in link_errors:
     print(f"[LINK] {error}")
 ```
 
-`scan_docs_references_with_links` deduplica gli URL esterni sull'intero albero della
+`scan_docs_references` deduplica gli URL esterni sull'intero albero della
 documentazione prima di inviare richieste HTTP — 50 file che linkano allo stesso URL producono
 esattamente una richiesta HEAD.
 
-### Scansione parallela (repository grandi)
+### Hybrid Adaptive Engine — v0.5.0a1
 
-Per repository con più di ~200 file Markdown, usa `scan_docs_references_parallel`:
+`scan_docs_references` è l'unico punto di ingresso unificato per tutte le
+modalità di scansione. Seleziona l'esecuzione sequenziale o parallela
+**automaticamente** in base al numero di file nel repository:
+
+| Dimensione repo | Comportamento del motore | Motivo |
+| :--- | :--- | :--- |
+| < 50 file | Sequenziale (sempre) | L'overhead di avvio del processo (~200–400 ms) supera il beneficio del parallelismo |
+| ≥ 50 file, `workers=1` | Sequenziale | Override seriale esplicito |
+| ≥ 50 file, `workers=None` o `workers=N` | Parallelo (`ProcessPoolExecutor`) | Il lavoro regex CPU-bound domina; scaling lineare |
+| 5 000+ file | Parallelo con `workers=cpu_count` | Speedup 3–6× provato su runner 8-core |
+
+La soglia di 50 file (`ADAPTIVE_PARALLEL_THRESHOLD`) è il punto di pareggio
+conservativo dove il parallelismo ripaga il proprio costo di avvio.
 
 ```python
 from pathlib import Path
-from zenzic.core.scanner import scan_docs_references_parallel
+from zenzic.core.scanner import scan_docs_references
 
-reports = scan_docs_references_parallel(Path("."), workers=4)
+# Default: sequenziale (workers=1, zero overhead)
+reports, _ = scan_docs_references(Path("."))
+
+# Parallelo esplicito: 4 worker, si attiva solo se ≥ 50 file
+reports, _ = scan_docs_references(Path("."), workers=4)
+
+# Completamente automatico: ProcessPoolExecutor sceglie il numero di worker da os.cpu_count()
+reports, _ = scan_docs_references(Path("."), workers=None)
+
+# Con validazione link esterni (funziona in entrambe le modalità)
+reports, link_errors = scan_docs_references(Path("."), validate_links=True, workers=None)
 ```
 
-La modalità parallela usa `ProcessPoolExecutor`. La validazione degli URL esterni non è
-disponibile in modalità parallela — usa `scan_docs_references_with_links` per la scansione
-sequenziale con validazione dei link.
+**Garanzia di determinismo:** i risultati sono sempre ordinati per `file_path`
+indipendentemente dalla modalità di esecuzione.
+
+**Contratto pickle per le regole plugin (`BaseRule` subclasses):**
+
+Le regole vengono validate per la serializzabilità pickle al momento della
+costruzione del motore (**validazione anticipata**). Una regola non
+serializzabile solleva `PluginContractError` immediatamente — prima che venga
+scansionato qualsiasi file.
+
+Vedi [Scrivere Regole Plugin](../../developers/plugins.md) per il contratto
+completo, esempi e istruzioni di pacchettizzazione.
 
 ---
 

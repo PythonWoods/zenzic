@@ -24,7 +24,7 @@ from zenzic.core.scanner import (
     find_placeholders,
     find_repo_root,
     find_unused_assets,
-    scan_docs_references_with_links,
+    scan_docs_references,
 )
 from zenzic.core.scorer import ScoreReport, compute_score, load_snapshot, save_snapshot
 from zenzic.core.validator import (
@@ -48,6 +48,13 @@ check_app = typer.Typer(
 clean_app = typer.Typer(
     name="clean",
     help="Safely remove unused documentation files.",
+    no_args_is_help=True,
+    rich_markup_mode="rich",
+)
+
+plugins_app = typer.Typer(
+    name="plugins",
+    help="Inspect the Zenzic plugin registry.",
     no_args_is_help=True,
     rich_markup_mode="rich",
 )
@@ -205,9 +212,7 @@ def check_references(
     config, loaded_from_file = ZenzicConfig.load(repo_root)
     if not loaded_from_file:
         _print_no_config_hint()
-    reports, link_errors = scan_docs_references_with_links(
-        repo_root, validate_links=links, config=config
-    )
+    reports, link_errors = scan_docs_references(repo_root, config, validate_links=links)
 
     docs_root = repo_root / config.docs_dir
 
@@ -408,7 +413,7 @@ def _collect_all_results(
     strict: bool,
 ) -> _AllCheckResults:
     """Run all seven checks and return results as a typed container."""
-    ref_reports, _ = scan_docs_references_with_links(repo_root, validate_links=False, config=config)
+    ref_reports, _ = scan_docs_references(repo_root, config, validate_links=False)
     docs_root = repo_root / config.docs_dir
     reference_errors: list[str] = []
     security_events = 0
@@ -559,6 +564,42 @@ def check_all(
             raise typer.Exit(1)
     else:
         console.print("\n[green]SUCCESS:[/] All checks passed.")
+
+
+@plugins_app.command(name="list")
+def plugins_list() -> None:
+    """List all rules registered in the ``zenzic.rules`` entry-point group.
+
+    Shows Core rules (bundled with Zenzic) and any third-party plugin rules
+    discovered from installed packages.  Each row includes:
+
+    * **Source** — entry-point name (e.g. ``broken-links``).
+    * **Rule ID** — stable identifier emitted in findings (e.g. ``Z001``).
+    * **Origin** — distribution that registered the rule.
+    * **Class** — fully qualified Python class name.
+    """
+    from zenzic.core.rules import list_plugin_rules
+
+    rules = list_plugin_rules()
+    if not rules:
+        console.print("[yellow]No rules found in the 'zenzic.rules' entry-point group.[/]")
+        console.print(
+            "[dim]Install a plugin package or check that Zenzic is installed correctly.[/]"
+        )
+        return
+
+    console.print(f"\n[bold]Installed plugin rules[/] ({len(rules)} found)\n")
+    for info in rules:
+        origin_badge = (
+            "[dim cyan](core)[/]" if info.origin == "zenzic" else f"[dim green]({info.origin})[/]"
+        )
+        console.print(
+            f"  [bold cyan]{info.source}[/]  "
+            f"[bold]{info.rule_id}[/]  "
+            f"{origin_badge}  "
+            f"[dim]{info.class_name}[/]"
+        )
+    console.print()
 
 
 def _detect_engine(repo_root: Path, override: str | None) -> str | None:
