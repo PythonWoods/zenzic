@@ -85,6 +85,10 @@ _REF_DEF_RE = re.compile(r"^ {0,3}\[([^\]]+)\]:\s+(\S+)")
 # Reference link: [text][id] or [text][] (collapsed reference)
 _REF_LINK_RE = re.compile(r"\[([^\]]*)\]\[([^\]]*)\]")
 
+# Shortcut reference link: [text] NOT followed by [ ( or : (CommonMark §4.7)
+# (?<!\]) prevents matching the second part of [text][id] full/collapsed refs.
+_REF_SHORTCUT_RE = re.compile(r"(?<![!\]])\[([^\]]+)\](?![\[(:])")
+
 # URL schemes that are valid syntax but point to non-HTTP targets we skip.
 _SKIP_SCHEMES = ("mailto:", "data:", "ftp:", "tel:", "javascript:", "irc:", "xmpp:")
 
@@ -334,6 +338,12 @@ def extract_ref_links(text: str, ref_map: dict[str, str]) -> list[tuple[str, int
             ref_id = raw_id.lower().strip()
             if not ref_id:
                 continue
+            url = ref_map.get(ref_id)
+            if url:
+                results.append((url, lineno))
+        # Shortcut reference links: [text] (CommonMark §4.7)
+        for m in _REF_SHORTCUT_RE.finditer(clean):
+            ref_id = m.group(1).lower().strip()
             url = ref_map.get(ref_id)
             if url:
                 results.append((url, lineno))

@@ -1,8 +1,10 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
 from __future__ import annotations
 
 from pathlib import Path
 
-from zenzic.core.rules import BaseRule, RuleFinding
+from zenzic.rules import BaseRule, RuleFinding
 
 
 class PluginScaffoldDemoRule(BaseRule):

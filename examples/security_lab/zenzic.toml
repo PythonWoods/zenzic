@@ -10,5 +10,7 @@
 #   zenzic check references → EXIT 2  (Shield: credentials in attack.md)
 #   zenzic check all     → EXIT 2  (Shield takes priority)
 
-engine   = "mkdocs"
 docs_dir = "docs"
+
+[build_context]
+engine = "mkdocs"
