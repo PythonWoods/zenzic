@@ -42,7 +42,7 @@ def test_cli_main_calls_app() -> None:
 def test_cli_help() -> None:
     result = runner.invoke(app, ["--help"])
     assert result.exit_code == 0
-    assert "Engineering-grade documentation linter" in result.stdout
+    assert "Engine-agnostic linter" in result.stdout
 
 
 # ---------------------------------------------------------------------------
@@ -421,6 +421,73 @@ def test_check_all_no_strict_passes_on_warnings_only(
 
 
 # ---------------------------------------------------------------------------
+# check all — target argument (file and directory mode)
+# ---------------------------------------------------------------------------
+
+
+@patch("zenzic.cli.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli.ZenzicConfig.load", return_value=(_CFG, True))
+def test_check_all_target_not_found(_cfg, _root) -> None:
+    """Non-existent target must exit 1 with an error message."""
+    result = runner.invoke(app, ["check", "all", "nonexistent.md"])
+    assert result.exit_code == 1
+    assert "not found" in result.stdout.lower()
+    assert "nonexistent.md" in result.stdout
+
+
+def test_check_all_target_single_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Single .md file target: findings filtered, banner shows 1 file."""
+    repo = tmp_path / "repo"
+    (repo / "docs").mkdir(parents=True)
+    (repo / "zenzic.toml").touch()
+    _body = "word " * 60
+    (repo / "docs" / "index.md").write_text(f"# Hello\n\n{_body}\n")
+    (repo / "docs" / "other.md").write_text(f"# Other\n\n{_body}\n")
+    monkeypatch.chdir(repo)
+
+    result = runner.invoke(app, ["check", "all", "docs/index.md"])
+    assert result.exit_code == 0
+    assert "1 file" in result.stdout
+    assert "other.md" not in result.stdout
+
+
+def test_check_all_target_file_outside_docs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """File outside docs_dir (e.g. README.md): config patched, exit 0."""
+    repo = tmp_path / "repo"
+    (repo / "docs").mkdir(parents=True)
+    (repo / "zenzic.toml").touch()
+    _body = "word " * 60
+    (repo / "docs" / "index.md").write_text(f"# Hello\n\n{_body}\n")
+    (repo / "README.md").write_text(f"# Project\n\n{_body}\n")
+    monkeypatch.chdir(repo)
+
+    result = runner.invoke(app, ["check", "all", "README.md"])
+    assert result.exit_code == 0
+    assert "1 file" in result.stdout
+    assert "README.md" in result.stdout
+    assert "index.md" not in result.stdout
+
+
+def test_check_all_target_directory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Directory target: config patched to that dir, full scan within it."""
+    repo = tmp_path / "repo"
+    (repo / "content").mkdir(parents=True)
+    (repo / "docs").mkdir()
+    (repo / "zenzic.toml").touch()
+    _body = "word " * 60
+    (repo / "content" / "page.md").write_text(f"# Page\n\n{_body}\n")
+    (repo / "docs" / "other.md").write_text(f"# Other\n\n{_body}\n")
+    monkeypatch.chdir(repo)
+
+    result = runner.invoke(app, ["check", "all", "content"])
+    assert result.exit_code == 0
+    assert "./content/" in result.stdout
+    assert "other.md" not in result.stdout
+
+
+# ---------------------------------------------------------------------------
 # SentinelReporter unit tests
 # ---------------------------------------------------------------------------
 
@@ -438,11 +505,13 @@ class TestSentinelReporter:
         buf = StringIO()
         con = Console(file=buf, highlight=False, no_color=True)
         reporter = SentinelReporter(con, Path("/fake/docs"))
-        errors, warnings = reporter.render([], version="0.5.0a3", elapsed=1.0, file_count=10)
+        errors, warnings = reporter.render(
+            [], version="0.5.0a3", elapsed=1.0, docs_count=6, assets_count=4
+        )
         assert errors == 0
         assert warnings == 0
         output = buf.getvalue()
-        assert "zenzic" in output
+        assert "ZENZIC" in output
         assert "All checks passed" in output
 
     def test_render_grouped_findings(self) -> None:
@@ -460,7 +529,9 @@ class TestSentinelReporter:
         buf = StringIO()
         con = Console(file=buf, highlight=False, no_color=True)
         reporter = SentinelReporter(con, Path("/fake/docs"))
-        errors, warnings = reporter.render(findings, version="0.5.0a3", elapsed=0.5, file_count=5)
+        errors, warnings = reporter.render(
+            findings, version="0.5.0a3", elapsed=0.5, docs_count=5, assets_count=0
+        )
         assert errors == 2
         assert warnings == 1
         output = buf.getvalue()

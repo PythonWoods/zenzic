@@ -1,0 +1,14 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# zenzic.toml — single-file-target example.
+#
+# Standard project with docs/ as the primary documentation directory.
+# This example shows how to scope an audit to a single file — in this case
+# the project README that lives outside docs/.
+#
+# Target: zenzic check all README.md → SUCCESS (1 file audited)
+
+docs_dir = "docs"
+
+[build_context]
+engine = "vanilla"

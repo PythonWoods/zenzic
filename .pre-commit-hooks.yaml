@@ -1,0 +1,48 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+#
+# Pre-commit hooks for Zenzic — engine-agnostic Markdown linter.
+#
+# Usage in your .pre-commit-config.yaml:
+#
+#   repos:
+#     - repo: https://github.com/PythonWoods/zenzic
+#       rev: v0.5.0a3
+#       hooks:
+#         - id: zenzic-check-all
+#
+# See https://zenzic.pythonwoods.dev/ci-cd/ for full integration guide.
+
+- id: zenzic-check-all
+  name: zenzic check all
+  description: Run all Zenzic documentation quality checks (links, orphans, snippets, placeholders, assets, references).
+  entry: zenzic check all --quiet
+  language: python
+  types: [markdown]
+  pass_filenames: false
+  require_serial: true
+
+- id: zenzic-check-links
+  name: zenzic check links
+  description: Check for broken internal links in documentation.
+  entry: zenzic check links
+  language: python
+  types: [markdown]
+  pass_filenames: false
+
+- id: zenzic-check-references
+  name: zenzic check references
+  description: Run the Two-Pass Reference Pipeline and Zenzic Shield (credential detection).
+  entry: zenzic check references
+  language: python
+  types: [markdown]
+  pass_filenames: false
+  require_serial: true
+
+- id: zenzic-score
+  name: zenzic score
+  description: Compute documentation quality score and fail if below threshold.
+  entry: zenzic score --fail-under 80
+  language: python
+  types: [markdown]
+  pass_filenames: false

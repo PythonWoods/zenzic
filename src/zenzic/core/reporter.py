@@ -9,6 +9,11 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from rich.console import Console
+from rich.markup import escape as _esc
+from rich.panel import Panel
+from rich.table import Table
+
+from zenzic.ui import AMBER, INDIGO, ROSE, SLATE, emoji, make_sentinel_header
 
 
 @dataclass(slots=True)
@@ -28,6 +33,15 @@ _SEVERITY_STYLE: dict[str, str] = {
     "warning": "yellow",
     "info": "blue",
 }
+
+
+def _strip_prefix(rel_path: str, line_no: int, message: str) -> str:
+    """Remove the redundant 'relpath:lineno: ' prefix already shown in the file header."""
+    if line_no > 0:
+        prefix = f"{rel_path}:{line_no}: "
+        if message.startswith(prefix):
+            return message[len(prefix) :]
+    return message
 
 
 class SentinelReporter:
@@ -51,9 +65,11 @@ class SentinelReporter:
         *,
         version: str,
         elapsed: float,
-        file_count: int,
+        docs_count: int = 0,
+        assets_count: int = 0,
         engine: str = "auto",
         security_events: int = 0,
+        target: str | None = None,
     ) -> tuple[int, int]:
         """Print the full Sentinel Report.
 
@@ -65,20 +81,34 @@ class SentinelReporter:
         warnings = sum(1 for f in findings if f.severity == "warning")
 
         # ── Banner ────────────────────────────────────────────────────────────
-        self._con.print(f"\n[bold]zenzic[/] {version}")
-        self._con.print(
-            f"[dim]Engine: {engine} · Scanned {file_count} file(s) · {elapsed:.1f}s[/]\n"
+        self._con.print()
+        header = make_sentinel_header(
+            version,
+            engine=engine,
+            docs_count=docs_count,
+            assets_count=assets_count,
+            elapsed=elapsed,
+            target=target,
         )
+        self._con.print(
+            Panel(
+                header,
+                border_style=f"bold {INDIGO}",
+                expand=True,
+                padding=(0, 2),
+            )
+        )
+        self._con.print()
 
         # ── Security ─────────────────────────────────────────────────────────
         if security_events:
             self._con.print(
-                f"[bold red]SECURITY CRITICAL:[/] {security_events} "
+                f"[bold red]{emoji('shield')} SECURITY CRITICAL:[/] {security_events} "
                 f"credential(s) detected — rotate immediately.\n"
             )
 
         if not findings:
-            self._con.print("[green]All checks passed.[/]")
+            self._con.print(f"[green]{emoji('check')} All checks passed.[/]")
             return 0, 0
 
         # ── Grouped findings ─────────────────────────────────────────────────
@@ -90,22 +120,48 @@ class SentinelReporter:
             self._con.print(f"[bold underline]{rel_path}[/]")
             for f in sorted(grouped[rel_path], key=lambda x: (x.line_no, x.code)):
                 style = _SEVERITY_STYLE.get(f.severity, "dim")
-                loc = f"{f.line_no}:" if f.line_no else "  –"
+                sev_icon = (
+                    emoji("cross")
+                    if f.severity == "error"
+                    else emoji("warn")
+                    if f.severity == "warning"
+                    else emoji("info")
+                )
+                loc = f"{f.line_no}:" if f.line_no else "–"
+                msg = _esc(_strip_prefix(f.rel_path, f.line_no, f.message))
                 self._con.print(
-                    f"  [dim]{loc:<6}[/][{style}]{f.severity:<8}[/][bold]{f.code:<12}[/]{f.message}"
+                    f"  [{style}]{sev_icon}[/] [dim]{loc:<6}[/] [{style}]\\[{f.code}][/]  {msg}"
                 )
                 if f.source_line:
-                    self._con.print(f"        [dim]│[/] [italic]{f.source_line}[/]")
+                    # Gutter — rustc/ruff style.
+                    # 4-char prefix keeps │ at the same column on blank+source lines.
+                    self._con.print(f"    [{SLATE}]│[/]")
+                    self._con.print(
+                        f"[{SLATE}]{f.line_no:>3} │[/] [italic]{_esc(f.source_line)}[/]"
+                    )
+                    self._con.print(f"    [{SLATE}]│[/]")
             self._con.print()
 
-        # ── Summary ──────────────────────────────────────────────────────────
-        parts: list[str] = []
+        # ── Summary table ────────────────────────────────────────────────────
+        summary = Table.grid(padding=(0, 1))
+        summary.add_column(style="bold")
+        summary.add_column()
         if errors:
-            parts.append(f"[bold red]{errors} error{'s' if errors != 1 else ''}[/]")
+            summary.add_row(
+                f"[{ROSE}]{emoji('cross')}[/]",
+                f"[{ROSE}]{errors}[/] error{'s' if errors != 1 else ''}",
+            )
         if warnings:
-            parts.append(f"[yellow]{warnings} warning{'s' if warnings != 1 else ''}[/]")
+            summary.add_row(
+                f"[{AMBER}]{emoji('warn')}[/]",
+                f"[{AMBER}]{warnings}[/] warning{'s' if warnings != 1 else ''}",
+            )
         n_files = len(grouped)
-        self._con.print(f"Found {', '.join(parts)} in {n_files} file{'s' if n_files != 1 else ''}.")
+        summary.add_row(
+            f"[{SLATE}]{emoji('dot')}[/]",
+            f"[{INDIGO}]{n_files}[/] [dim]file{'s' if n_files != 1 else ''} with findings[/]",
+        )
+        self._con.print(summary)
         return errors, warnings
 
     # ── Quiet mode (pre-commit) ──────────────────────────────────────────────

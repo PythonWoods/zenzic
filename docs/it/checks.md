@@ -100,14 +100,17 @@ viene segnalato come non valido.
 
 __Perché:__ L'analisi a livello sorgente fornisce output riproducibile indipendente dal motore di build.
 
-__Output di esempio:__
+!!! example "Sentinel Output — link non valido"
 
-```text
-BROKEN LINKS (3):
-  index.md:12: 'setup.md' not found in docs
-  guide.md:47: anchor '#installation' not found in 'setup.md'
-  api.md:88: external link 'https://api.example.com/v2' returned HTTP 404
-```
+    ```text
+    docs/index.md
+      ✘ 12:    [FILE_NOT_FOUND]  'setup.md' not found in docs
+        │
+     12 │ Leggi la [guida di setup](setup.md) prima di continuare.
+        │
+
+      ✘ 1 error    • 1 file with findings
+    ```
 
 ### Codici di violazione
 
@@ -122,13 +125,17 @@ Il controllo link utilizza la Virtual Site Map (VSM) per distinguere due categor
 
 __Perché i link ad orfani contano:__ un link a una pagina orfana _funziona_ a livello di filesystem — il file esiste e il motore di build potrebbe servirlo. Ma la pagina è invisibile nel nav tree, creando un'esperienza utente frammentata. I lettori che seguono il link atterrano su una pagina senza contesto nella sidebar e senza modo di navigare indietro. `Z002` intercetta questo anti-pattern.
 
-__Output di esempio con Z002:__
+!!! example "Sentinel Output — link a orfano"
 
-```text
-WARNINGS (1):
-  [Z002] guide/tips.md:18 — 'drafts/experiment.md' esiste su disco ma non è nella navigazione del sito (ORPHAN_LINK).
-    │ See [experiment](drafts/experiment.md) for details.
-```
+    ```text
+    docs/guide.md
+      ⚠ 18:    [UNREACHABLE_LINK]  'bozze/esperimento.md' non è nella navigazione del sito
+        │
+     18 │ Vedi [l'esperimento](bozze/esperimento.md) per i dettagli.
+        │
+
+      ⚠ 1 warning    • 1 file with findings
+    ```
 
 ---
 
@@ -145,13 +152,17 @@ __Cosa rileva:__
 - Pagine create su disco ma mai aggiunte alla `nav`
 - Pagine la cui voce `nav` è stata rimossa senza eliminare il file
 
-__Output di esempio:__
+!!! example "Sentinel Output"
 
-```text
-ORPHANS (2):
-  api/experimental.md
-  guides/draft-tutorial.md
-```
+    ```text
+    api/experimental.md
+      ⚠ –      [ORPHAN]  Physical file not listed in navigation.
+
+    guide/bozza-tutorial.md
+      ⚠ –      [ORPHAN]  Physical file not listed in navigation.
+
+      ⚠ 2 warnings    • 2 files with findings
+    ```
 
 ---
 
@@ -193,14 +204,17 @@ __Cosa NON rileva:__
 
 __Tuning:__ usa `snippet_min_lines` in `zenzic.toml` per saltare i blocchi brevi. Il default di `1` controlla tutto inclusi i blocchi su una singola riga. Impostalo a `3` o superiore per ignorare stub di import e one-liner che sono probabilmente illustrativi piuttosto che eseguibili.
 
-__Output di esempio:__
+!!! example "Sentinel Output"
 
-```text
-INVALID SNIPPETS (3):
-  tutorial.md:48 - SyntaxError in Python snippet — expected ':'
-  config/reference.md:22 - SyntaxError in YAML snippet — mapping values are not allowed here
-  api/reference.md:112 - SyntaxError in JSON snippet — Expecting property name enclosed in double quotes
-```
+    ```text
+    docs/tutorial.md
+      ✘ 48:    [SNIPPET]  SyntaxError in Python snippet — expected ':'
+        │
+     48 │ def calcola_totale(elementi)
+        │
+
+      ✘ 1 error    • 1 file with findings
+    ```
 
 ---
 
@@ -239,13 +253,24 @@ placeholder_max_words = 0
 placeholder_patterns = []
 ```
 
-__Output di esempio:__
+!!! example "Sentinel Output"
 
-```text
-PLACEHOLDERS/STUBS (3):
-  guides/advanced.md:1 [short-content] - Page has only 12 words (minimum 50).
-  api/webhooks.md:7 [placeholder-text] - Found placeholder text matching pattern: 'coming soon'
-```
+    ```text
+    docs/guide/avanzato.md
+      ⚠ 1:     [short-content]  Page has only 12 words (minimum 50).
+        │
+      1 │ # Guida Avanzata
+        │
+
+    docs/api/webhooks.md
+      ⚠ 7:     [placeholder-text]  Found placeholder text: 'prossimamente'
+        │
+      7 │ Prossimamente – torna a controllare.
+        │
+      ⚠ 1:     [short-content]  Page has only 8 words (minimum 50).
+
+      ⚠ 3 warnings    • 2 files with findings
+    ```
 
 ---
 
@@ -277,11 +302,14 @@ __Cosa rileva:__
 - Immagini rimaste dopo una riorganizzazione o rinomina di una pagina
 - Allegati (PDF, file di dati) che erano linkati da una pagina che non esiste più
 
-__Output di esempio:__
+!!! example "Sentinel Output"
 
-```text
-UNUSED ASSETS (3):
-  assets/old-screenshot.png
-  assets/diagram-v1.svg
-  attachments/deprecated-spec.pdf
-```
+    ```text
+    assets/vecchio-screenshot.png
+      ⚠ –      [ASSET]  File not referenced in any documentation page.
+
+    assets/diagramma-v1.svg
+      ⚠ –      [ASSET]  File not referenced in any documentation page.
+
+      ⚠ 2 warnings    • 2 files with findings
+    ```

@@ -1,0 +1,16 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# zenzic.toml — custom-dir-target example.
+#
+# The project's default docs_dir points to "docs/" as usual, but content
+# lives in "content/" (a Hugo/Docusaurus-style layout).
+#
+# Running `zenzic check all content/` patches docs_dir at runtime and
+# audits the content/ tree without changing this file.
+#
+# Target: zenzic check all content/ → SUCCESS
+
+docs_dir = "docs"
+
+[build_context]
+engine = "vanilla"

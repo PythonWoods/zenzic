@@ -2,7 +2,7 @@
 
 Thank you for your interest in contributing to Zenzic!
 
-Zenzic is a documentation quality tool — a linter and strict build wrapper for MkDocs sites. Contributions that improve detection accuracy, add new check types, or improve CI/CD integration are especially welcome.
+Zenzic is a documentation quality tool — an engine-agnostic linter and security shield for Markdown documentation. Contributions that improve detection accuracy, add new check types, or improve CI/CD integration are especially welcome.
 
 ## Mission
 

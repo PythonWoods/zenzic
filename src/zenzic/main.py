@@ -9,11 +9,13 @@ from typing import Annotated
 
 import typer
 from rich.console import Console
+from rich.panel import Panel
 
 from zenzic import __version__
 from zenzic.cli import check_app, clean_app, diff, init, plugins_app, score, serve
 from zenzic.core.exceptions import ConfigurationError
 from zenzic.core.logging import setup_cli_logging
+from zenzic.ui import INDIGO, make_banner
 
 
 def _version_callback(value: bool) -> None:
@@ -24,9 +26,15 @@ def _version_callback(value: bool) -> None:
 
 app = typer.Typer(
     name="zenzic",
-    help="Engineering-grade documentation linter for MkDocs and Zensical.",
+    help=(
+        "[bold #4f46e5]Zenzic[/] — Engine-agnostic linter and security shield "
+        "for Markdown documentation.\n\n"
+        "Run [bold cyan]zenzic check all[/] for a full audit, or pick individual "
+        "checks below."
+    ),
     rich_markup_mode="rich",
     no_args_is_help=True,
+    rich_help_panel="Core",
 )
 
 
@@ -46,15 +54,35 @@ def _main(
     pass
 
 
-app.add_typer(check_app, name="check")
-app.add_typer(clean_app, name="clean")
-app.add_typer(plugins_app, name="plugins")
-app.command(name="score")(score)
-app.command(name="diff")(diff)
-app.command(name="serve")(serve)
-app.command(name="init")(init)
+app.add_typer(check_app, name="check", rich_help_panel="Core")
+app.add_typer(clean_app, name="clean", rich_help_panel="Core")
+app.add_typer(plugins_app, name="plugins", rich_help_panel="SDK & Plugins")
+app.command(name="score", rich_help_panel="Quality")(score)
+app.command(name="diff", rich_help_panel="Quality")(diff)
+app.command(name="serve", rich_help_panel="Development")(serve)
+app.command(name="init", rich_help_panel="SDK & Plugins")(init)
 
 _err_console = Console(stderr=True, highlight=False)
+
+
+def _print_banner() -> None:
+    """Print the Indigo-branded Zenzic banner to stderr."""
+    from rich import box as rich_box
+
+    _err_console.print(
+        Panel(
+            make_banner(__version__),
+            border_style=f"bold {INDIGO}",
+            box=rich_box.HEAVY,
+            padding=(1, 3),
+            title=f"[{INDIGO}]PythonWoods[/]",
+            title_align="left",
+            subtitle="[dim]Apache-2.0[/]",
+            subtitle_align="right",
+            expand=False,
+        )
+    )
+    _err_console.print()
 
 
 def cli_main() -> None:
@@ -62,20 +90,8 @@ def cli_main() -> None:
     setup_cli_logging()
 
     # Show an elegant banner on zero args or when starting the dev server
-    if len(sys.argv) == 1 or (len(sys.argv) == 2 and sys.argv[1] == "serve"):
-        from rich.panel import Panel
-
-        _err_console.print(
-            Panel.fit(
-                f"[bold cyan]ZENZIC[/] [dim]v{__version__}[/]\n"
-                "[italic]Engineering-grade documentation linter for MkDocs and Zensical.[/]",
-                border_style="cyan",
-                padding=(1, 4),
-                title="PythonWoods",
-                title_align="left",
-            )
-        )
-        _err_console.print()
+    if len(sys.argv) == 1 or (len(sys.argv) >= 2 and sys.argv[1] == "serve"):
+        _print_banner()
 
     try:
         app()

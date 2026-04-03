@@ -99,6 +99,59 @@ Catch broken links, orphan pages, and leaked credentials — before your users d
 
 ---
 
+<div class="zz-sentinel-section" markdown>
+
+## Sentinel in Action
+
+Every finding is pinned to file, line, and source. Structured output for human eyes and machine parsing alike.
+
+<div class="grid cards" markdown>
+
+- :lucide-terminal: &nbsp; __Gutter reporter__
+
+    ---
+
+    Each error shows the exact offending source line with gutter context. No scrolling through logs to find what broke.
+
+    ```text
+    docs/guide.md
+      ✘ 16:    [FILE_NOT_FOUND]  'setup.md' not found in docs
+        │
+     16 │ Read the [setup guide](setup.md) before continuing.
+        │
+    ```
+
+- :lucide-shield: &nbsp; __Zenzic Shield__
+
+    ---
+
+    Scans every line — including fenced `bash` and `yaml` blocks — for leaked credentials. Exit code `2` is reserved exclusively for security events.
+
+    ```text
+    docs/tutorial.md
+      ✘ 42:    [CREDENTIAL_LEAK]  GitHub token detected
+        │
+     42 │ Authorization: Bearer ghp_example123token
+        │
+    ```
+
+- :lucide-chart-bar: &nbsp; __Quality score__
+
+    ---
+
+    `zenzic score` emits a single deterministic __0–100 integer__. Save a baseline and gate pull requests on regression.
+
+    ```bash
+    zenzic score --save          # persist baseline
+    zenzic diff --threshold 5   # exit 1 if score drops > 5
+    ```
+
+</div>
+
+</div>
+
+---
+
 <div class="zz-score-section" markdown>
 
 ## Quality score

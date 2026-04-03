@@ -387,7 +387,7 @@ Zensical's locale system, Zenzic adapts automatically:
 - **Locale directories suppressed from orphan detection** — files under `docs/it/`, `docs/fr/`,
   etc. are not reported as orphans. The adapter detects locale directories from the engine's
   i18n configuration.
-- **Cross-locale link resolution** — the MkDocs and Zensical adapters resolve links that cross
+- **Cross-locale link resolution** — the engine adapters resolve links that cross
   locale boundaries (e.g. a link from `docs/it/page.md` to `docs/en/page.md`) without false
   positives.
 - **Vanilla mode skips orphan check entirely** — when no build-engine config is present, every

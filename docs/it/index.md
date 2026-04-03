@@ -99,6 +99,59 @@ Intercetta link non validi, pagine orfane e credenziali esposte — prima dei tu
 
 ---
 
+<div class="zz-sentinel-section" markdown>
+
+## Sentinel in Azione
+
+Ogni segnalazione è ancorata a file, riga e sorgente. Output strutturato per occhi umani e parsing automatico.
+
+<div class="grid cards" markdown>
+
+- :lucide-terminal: &nbsp; __Reporter con gutter__
+
+    ---
+
+    Ogni errore mostra la riga sorgente esatta con contesto gutter. Nessun log da scorrere per trovare il problema.
+
+    ```text
+    docs/guida.md
+      ✘ 16:    [FILE_NOT_FOUND]  'setup.md' not found in docs
+        │
+     16 │ Leggi la [guida di setup](setup.md) prima di continuare.
+        │
+    ```
+
+- :lucide-shield: &nbsp; __Zenzic Shield__
+
+    ---
+
+    Scansiona ogni riga — compresi i blocchi `bash` e `yaml` — alla ricerca di credenziali esposte. Exit code `2` è riservato esclusivamente agli eventi di sicurezza.
+
+    ```text
+    docs/tutorial.md
+      ✘ 42:    [CREDENTIAL_LEAK]  Token GitHub rilevato
+        │
+     42 │ Authorization: Bearer ghp_example123token
+        │
+    ```
+
+- :lucide-chart-bar: &nbsp; __Punteggio qualità__
+
+    ---
+
+    `zenzic score` emette un singolo __intero deterministico 0–100__. Salva un baseline e blocca le pull request sulle regressioni.
+
+    ```bash
+    zenzic score --save          # salva il baseline
+    zenzic diff --threshold 5   # exit 1 se il punteggio scende > 5
+    ```
+
+</div>
+
+</div>
+
+---
+
 <div class="zz-score-section" markdown>
 
 ## Punteggio qualità

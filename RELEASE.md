@@ -1,43 +1,178 @@
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Zenzic v0.4.0: The Agnostic Framework for Documentation Integrity
+# Zenzic v0.5.0a3: The Sentinel — Aesthetic Identity, Parallel Anchors & Agnostic Target
 
-## v0.5.0a3 — The Performance & DX Sprint
+## v0.5.0a3 — The Sentinel: Aesthetic Sprint + Performance & SDK
 
 **Release date:** 2026-04-03
-**Status:** Alpha 3 — two-phase anchor indexing and plugin SDK scaffolding
+**Status:** Alpha 3 — two-phase anchor indexing, plugin SDK scaffolding, Sentinel Palette,
+agnostic target mode, native Material header
 
 ### Highlights
 
-- **Two-phase link validation for deterministic anchor checks**
-  - Phase 1: parallel worker indexing of anchors and resolved links
-  - Phase 2: global validation against merged indexes in the main process
-  - Result: no order-dependent false positives when validating `file.md#anchor`
+---
 
-- **Plugin SDK scaffolding (`zenzic init --plugin`)**
-  - Generates a Python package skeleton with `zenzic.rules` entry-point wiring
-  - Provides a module-level `BaseRule` template ready for customization
-  - Includes a minimal docs fixture so `zenzic check all` works immediately
+#### 🎨 Sentinel Palette — Color Identity for the Report Engine
 
-- **Living scaffold example**
-  - Added `examples/plugin-scaffold-demo/` as the canonical scaffold output
-  - Serves as an integration fixture for DX and quality-gate verification
+The report engine now speaks a deliberate visual language.  Every number, every gutter
+marker, every severity badge has an assigned color drawn from a named palette:
 
-- **Architecture documentation sync**
-  - Mermaid diagrams now show explicit worker phases:
-    - `Phase 1: Anchor Extraction (Parallel)`
-    - `Phase 2: Rule Execution & Validation (Parallel)`
-  - Applied in both EN and IT architecture docs for parity
+| Role | Color | Example |
+| :--- | :---- | :------ |
+| Numeric values (counts, scores, elapsed) | Indigo | `12 files`, `0.1s` |
+| Gutter (`│` separator, line numbers) | Slate | `3 │ # Heading` |
+| Error icon, label, count | Rose | `✘ 2 errors` |
+| Warning icon, label, count | Amber | `⚠ 5 warnings` |
 
-- **QA hardening**
-  - Added an anchor torture test with 1000 cross-linked files to prove
-    deterministic behaviour under heavy parallel indexing.
+Bold has been removed from all report numbers — color alone carries the weight.  The
+palette is defined in `src/zenzic/ui.py`, a new standalone module consumed by both
+the reporter and the CLI banner.
 
 ---
 
-**Release date:** 2026-04-01
-**Status:** Release Candidate 4 — routing-aware, VSM Rule Engine, pre-release freeze
+#### 📡 Unified Banner Telemetry
+
+The Sentinel banner now emits a single unified counter:
+
+```text
+vanilla • ./README.md • 1 file (1 docs, 0 assets) • 0.0s
+mkdocs  • 104 files (66 docs, 38 assets) • 3.5s
+mkdocs  • ./content/ • 2 files (2 docs, 0 assets) • 0.1s
+```
+
+`docs` = `.md` files + config files (`yml`/`yaml`/`toml`) inside `docs_root`,
+plus engine config files (`mkdocs.yml` etc.) at project root.
+`assets` = everything else non-inert (images, fonts, PDFs…).
+
+---
+
+#### 🎯 Agnostic Target Support — Scope Any Audit
+
+`zenzic check all` now accepts a positional `PATH` argument:
+
+```bash
+# Audit a single file outside your docs tree
+zenzic check all README.md
+
+# Audit an entire custom content directory
+zenzic check all content/
+
+# Audit a single page inside docs
+zenzic check all docs/guide/setup.md
+```
+
+Zenzic auto-selects `VanillaAdapter` for out-of-tree targets.  `docs_dir` is
+patched at runtime — `zenzic.toml` is never rewritten.  The banner shows the
+active target so there is no ambiguity about what was scanned.
+
+Two new example projects ship with this release:
+
+- `examples/single-file-target/` — demonstrates `zenzic check all README.md`
+- `examples/custom-dir-target/` — demonstrates `zenzic check all content/`
+
+---
+
+#### ⚡ Two-Phase Parallel Anchor Indexing
+
+`validate_links_async` now separates concerns into two deterministic phases:
+
+1. **Phase 1 — Parallel index:** each worker extracts per-file anchors and
+   resolves internal links independently.  No shared state; no race conditions.
+
+2. **Phase 2 — Global validation:** the main process merges all anchor indexes
+   and validates every link in a single pass.  Order no longer matters.
+
+The result: no false positive `AnchorMissing` findings under heavy parallelism.
+A 1000-file anchor torture test ships as a regression guard.
+
+---
+
+#### 🔌 Plugin SDK — First-Class Developer Surface
+
+```bash
+zenzic init --plugin my-org-rules
+```
+
+Generates a complete Python package skeleton:
+
+- `pyproject.toml` with `zenzic.rules` entry-point wiring
+- `src/my_org_rules/rules.py` with a `BaseRule` template
+- Minimal docs fixture so `zenzic check all` runs immediately on the scaffold
+
+The `zenzic.rules` public namespace is now stable — `BaseRule`, `RuleFinding`,
+`CustomRule`, `Violation`, `Severity` are importable from a single path that will
+not change between minor versions.
+
+`run_rule()` — a one-call test helper — lets plugin authors verify findings without
+any engine setup.
+
+`examples/plugin-scaffold-demo/` ships as the canonical scaffold output fixture,
+serving as both a DX reference and a quality-gate integration test.
+
+---
+
+#### 🛡️ Z001 / Z002 Split — Errors vs Warnings for Link Issues (closes #6)
+
+`VSMBrokenLinkRule` now distinguishes:
+
+| Code | Meaning | Severity |
+| :--- | :------ | :------- |
+| `Z001` | Link target not found in file system or VSM | **error** |
+| `Z002` | Link target exists but is an orphan page (not in nav) | warning |
+
+Without `--strict`, orphan-link warnings do not block the build.  With `--strict`
+they are promoted to errors.  Both codes appear in the checks reference (EN + IT).
+
+---
+
+#### 🌐 Native Material Header — MutationObserver injection
+
+The `source.html` template override has been deleted.  Version injection now uses a
+`MutationObserver` snippet in `main.html` that writes directly into Material's own
+top bar after the widget renders.
+
+Result: a single, clean header row — 🏷 0.5.0a3 · ☆ stars · ψ forks — with no
+duplicate rendering, no JavaScript collision, and no Material upgrade risk.
+
+---
+
+#### 🔧 Pre-commit Hooks — Ship Ready
+
+`.pre-commit-hooks.yaml` is now included in the repository root.  Teams can pin
+Zenzic as a pre-commit hook directly from GitHub without any intermediate wrapper:
+
+```yaml
+repos:
+  - repo: https://github.com/PythonWoods/zenzic
+    rev: v0.5.0a3
+    hooks:
+      - id: zenzic-check-all
+```
+
+---
+
+### Issue Closures
+
+| Issue | Title | Status |
+| :---- | :---- | :----- |
+| #4 | Custom Rules DSL — Italian documentation | ✅ Closed |
+| #6 | Z001/Z002 split: orphan links should be warnings | ✅ Closed |
+| #13 | `zenzic.rules` stable public namespace for plugins | ✅ Closed |
+
+---
+
+### Quality Gates
+
+```text
+pytest             587 passed, 0 failed
+coverage           81.49% (gate: ≥ 80%)
+ruff check src/    0 violations
+mypy src/          0 errors
+reuse lint         262/262 files compliant
+zenzic check all   SUCCESS (self-dogfood, 104 files)
+mkdocs build       --strict, 0 warnings
+```
 
 ---
 
