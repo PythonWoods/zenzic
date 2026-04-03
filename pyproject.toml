@@ -7,7 +7,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "zenzic"
-version = "0.5.0a1"
+version = "0.5.0a2"
 description = "Engineering-grade, engine-agnostic linter and security shield for Markdown documentation"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -159,7 +159,7 @@ exclude_lines = [
 # ─── Version bumping ───────────────────────────────────────────────────────────
 
 [tool.bumpversion]
-current_version = "0.5.0a1"
+current_version = "0.5.0a2"
 commit = true
 tag = true
 tag_name = "v{new_version}"
@@ -188,49 +188,24 @@ search = '__version__ = "{current_version}"'
 replace = '__version__ = "{new_version}"'
 
 [[tool.bumpversion.files]]
-filename = "mkdocs.yml"
-search = 'version: "{current_version}"'
-replace = 'version: "{new_version}"'
-
-[[tool.bumpversion.files]]
 filename = "CITATION.cff"
 search = "version: {current_version}"
 replace = "version: {new_version}"
 
 [[tool.bumpversion.files]]
-filename = "CITATION.cff"
-search = "date-released: 2026-03-29"
-replace = "date-released: {now:%Y-%m-%d}"
-
-[[tool.bumpversion.files]]
-# CHANGELOG uses PEP 440 normalized form: 0.4.0-rc3 (hyphen before pre-release label).
-# The serialize pattern below produces that form; pyproject uses 0.4.0rc3 (no hyphen).
+# CHANGELOG uses PEP 440 normalized form: 0.5.0-a2 (hyphen before pre-release label).
+# The serialize pattern below produces that form; pyproject uses 0.5.0a2 (no hyphen).
 filename = "CHANGELOG.md"
 search = "[{current_version}]"
 replace = "[{new_version}]"
 serialize = ["{major}.{minor}.{patch}-{pre_l}{pre_n}", "{major}.{minor}.{patch}"]
 
 [[tool.bumpversion.files]]
-filename = "RELEASE.md"
-search = "**Release date:** 2026-03-29"
-replace = "**Release date:** {now:%Y-%m-%d}"
-
-[[tool.bumpversion.files]]
 filename = "docs/community/index.md"
 search = "version = {{{current_version}}},"
 replace = "version = {{{new_version}}},"
 
 [[tool.bumpversion.files]]
-filename = "docs/community/index.md"
-search = "date    = {2026-03-29},"
-replace = "date    = {{now:%Y-%m-%d}},"
-
-[[tool.bumpversion.files]]
 filename = "docs/it/community/index.md"
 search = "version = {{{current_version}}},"
 replace = "version = {{{new_version}}},"
-
-[[tool.bumpversion.files]]
-filename = "docs/it/community/index.md"
-search = "date    = {2026-03-29},"
-replace = "date    = {{now:%Y-%m-%d}},"
