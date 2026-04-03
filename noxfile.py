@@ -182,17 +182,19 @@ def preflight(session: nox.Session) -> None:
         "--cov-report=xml:coverage.xml",
     )
     session.run("reuse", "lint")
+    # Pillar 1: Validate the truth BEFORE rendering it.
+    # Zenzic guards the source; mkdocs build only runs if sources are clean.
+    session.run("zenzic", "check", "all", "--strict")
     _download_lucide_icons()
     _build_brand_kit_zip()
     session.run("mkdocs", "build", "--strict", env={"NO_MKDOCS_2_WARNING": "true"})
-    session.run("zenzic", "check", "all", "--strict")
 
 
 @nox.session(python="3.11")
 def screenshot(session: nox.Session) -> None:
-    """Regenerate docs/assets/screenshot.svg from examples/broken-docs output."""
+    """Regenerate docs/assets/screenshots/*.svg from examples/broken-docs output."""
     session.run(*_SYNC_DEV, external=True)
-    session.run("python", "scripts/generate_screenshot.py")
+    session.run("python", "scripts/generate_docs_assets.py")
 
 
 @nox.session(python=False, venv_backend="none")

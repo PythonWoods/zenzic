@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import difflib
 import errno
 import functools
 import http.server
@@ -16,8 +17,11 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import typer
+from rich import box
 from rich.console import Console
 from rich.panel import Panel
+from rich.table import Table
+from rich.text import Text
 
 from zenzic.core.adapters import list_adapter_engines
 from zenzic.core.reporter import Finding, SentinelReporter
@@ -40,36 +44,40 @@ from zenzic.core.validator import (
 )
 from zenzic.models.config import ZenzicConfig
 from zenzic.models.references import IntegrityReport
+from zenzic.ui import INDIGO, SLATE, emoji
 
 
 check_app = typer.Typer(
     name="check",
-    help="Run documentation quality checks.",
+    help="[bold #4f46e5]Check[/] — Run documentation quality checks.",
     no_args_is_help=True,
     rich_markup_mode="rich",
 )
 
 clean_app = typer.Typer(
     name="clean",
-    help="Safely remove unused documentation files.",
+    help="[bold #4f46e5]Clean[/] — Safely remove unused documentation files.",
     no_args_is_help=True,
     rich_markup_mode="rich",
 )
 
 plugins_app = typer.Typer(
     name="plugins",
-    help="Inspect the Zenzic plugin registry.",
+    help="[bold #4f46e5]Plugins[/] — Inspect the Zenzic plugin registry.",
     no_args_is_help=True,
     rich_markup_mode="rich",
 )
 
 console = Console(highlight=False)
 
+# ── CI-safe emoji degradation (delegated to zenzic.ui) ──────────────────────
+
+
 _NO_CONFIG_HINT = Panel(
     "Using built-in defaults — no [bold]zenzic.toml[/] found.\n"
     "Run [bold cyan]zenzic init[/] to create a project configuration file.\n"
     "Customise docs directory, excluded paths, engine adapter, and lint rules.",
-    title="[bold yellow]💡 Zenzic Tip[/]",
+    title=f"[bold yellow]{emoji('info')} Zenzic Tip[/]",
     border_style="yellow",
     expand=False,
 )
@@ -93,10 +101,13 @@ def _apply_engine_override(config: ZenzicConfig, engine: str | None) -> ZenzicCo
     known = list_adapter_engines()
     if engine not in known:
         engines_fmt = ", ".join(f"[bold]{e}[/]" for e in known) if known else "(none installed)"
+        hint = ""
+        suggestions = difflib.get_close_matches(engine, known, n=1, cutoff=0.5)
+        if suggestions:
+            hint = f"\n\n  Did you mean [bold cyan]{suggestions[0]}[/]?"
         console.print(
             f"[red]ERROR:[/] Unknown engine adapter [bold]{engine!r}[/].\n"
-            f"Installed adapters: {engines_fmt}\n"
-            "Install a third-party adapter or choose from the list above."
+            f"Installed adapters: {engines_fmt}{hint}"
         )
         raise typer.Exit(1)
     new_context = config.build_context.model_copy(update={"engine": engine})
@@ -466,6 +477,14 @@ def _to_findings(results: _AllCheckResults, docs_root: Path) -> list[Finding]:
         )
 
     for s_err in results.snippet_errors:
+        src = ""
+        if s_err.line_no > 0 and s_err.file_path.is_file():
+            try:
+                lines = s_err.file_path.read_text(encoding="utf-8").splitlines()
+                if 0 < s_err.line_no <= len(lines):
+                    src = lines[s_err.line_no - 1].strip()
+            except OSError:
+                pass
         findings.append(
             Finding(
                 rel_path=_rel(s_err.file_path),
@@ -473,10 +492,21 @@ def _to_findings(results: _AllCheckResults, docs_root: Path) -> list[Finding]:
                 code="SNIPPET",
                 severity="error",
                 message=s_err.message,
+                source_line=src,
             )
         )
 
     for pf in results.placeholders:
+        src = ""
+        if pf.line_no > 0:
+            abs_path = docs_root / pf.file_path
+            if abs_path.is_file():
+                try:
+                    lines = abs_path.read_text(encoding="utf-8").splitlines()
+                    if 0 < pf.line_no <= len(lines):
+                        src = lines[pf.line_no - 1].strip()
+                except OSError:
+                    pass
         findings.append(
             Finding(
                 rel_path=str(pf.file_path),
@@ -484,6 +514,7 @@ def _to_findings(results: _AllCheckResults, docs_root: Path) -> list[Finding]:
                 code=pf.issue,
                 severity="warning",
                 message=pf.detail,
+                source_line=src,
             )
         )
 
@@ -547,10 +578,87 @@ def _to_findings(results: _AllCheckResults, docs_root: Path) -> list[Finding]:
     return findings
 
 
+# ── Target helpers (file or directory) ───────────────────────────────────────
+
+
+def _resolve_target(repo_root: Path, config: ZenzicConfig, raw: str) -> Path:
+    """Resolve *raw* to an existing file or directory.
+
+    Search order: absolute as-is → relative to *repo_root* → relative to
+    *repo_root/docs_dir*.  Files must have the ``.md`` extension.
+    Exits with code 1 if nothing is found or the extension is wrong.
+    """
+    p = Path(raw)
+    candidates: list[Path] = (
+        [p] if p.is_absolute() else [repo_root / p, repo_root / config.docs_dir / p]
+    )
+    for candidate in candidates:
+        if candidate.is_dir():
+            return candidate.resolve()
+        if candidate.is_file():
+            if candidate.suffix.lower() != ".md":
+                console.print(
+                    f"[red]ERROR:[/] [bold]{raw}[/] is not a Markdown file "
+                    f"(expected .md, got '{candidate.suffix}')."
+                )
+                raise typer.Exit(1)
+            return candidate.resolve()
+    console.print(
+        f"[red]ERROR:[/] Target not found: [bold]{raw}[/]\n"
+        f"  Tried: {candidates[0]}" + (f", {candidates[1]}" if len(candidates) > 1 else "")
+    )
+    raise typer.Exit(1)
+
+
+def _apply_target(
+    repo_root: Path,
+    config: ZenzicConfig,
+    raw_path: str,
+) -> tuple[ZenzicConfig, Path | None, Path, str]:
+    """Resolve *raw_path* and return ``(patched_config, single_file, docs_root, hint)``.
+
+    *single_file* is ``None`` in directory mode; the absolute ``.md`` path in
+    file mode.  *hint* is a short display string for the Sentinel banner.
+
+    **Directory mode** — ``config.docs_dir`` is patched to *target*; all
+    checks scan that tree.  No post-hoc finding filter is applied.
+
+    **File mode** — ``config.docs_dir`` is patched to *target.parent* when
+    the file lives outside the configured docs dir.  The caller applies a
+    post-hoc filter to the findings list using *single_file*.
+    """
+    target = _resolve_target(repo_root, config, raw_path)
+
+    # ── display hint ─────────────────────────────────────────────────────────
+    try:
+        rel = target.relative_to(repo_root)
+        hint = f"./{rel}" + ("/" if target.is_dir() else "")
+    except ValueError:
+        hint = str(target) + ("/" if target.is_dir() else "")
+
+    # ── directory mode ────────────────────────────────────────────────────────
+    if target.is_dir():
+        try:
+            new_docs_dir = target.relative_to(repo_root)
+        except ValueError:
+            new_docs_dir = target
+        return config.model_copy(update={"docs_dir": new_docs_dir}), None, target, hint
+
+    # ── file mode ─────────────────────────────────────────────────────────────
+    default_docs_root = (repo_root / config.docs_dir).resolve()
+    try:
+        target.relative_to(default_docs_root)
+        return config, target, default_docs_root, hint
+    except ValueError:
+        new_docs_dir = target.parent.relative_to(repo_root)
+        patched = config.model_copy(update={"docs_dir": new_docs_dir})
+        return patched, target, target.parent.resolve(), hint
+
+
 @check_app.command(name="all")
 def check_all(
     strict: bool | None = typer.Option(
-        None, "--strict", "-s", help="Treat warnings as errors and validate external URLs."
+        None, "--strict", "-s", help="Treat warnings as errors (exit non-zero on any warning)."
     ),
     output_format: str = typer.Option("text", "--format", help="Output format: text or json."),
     exit_zero: bool | None = typer.Option(
@@ -566,13 +674,40 @@ def check_all(
         "Auto-detected from zenzic.toml when omitted.",
         metavar="ENGINE",
     ),
+    path: str | None = typer.Argument(
+        None,
+        help=(
+            "Limit audit to a single Markdown file or an entire directory. "
+            "Accepts paths relative to the repo root or to the docs directory. "
+            "File examples: README.md, docs/index.md. "
+            "Directory examples: content/, docs/guide/. "
+            "When a directory is given, docs_dir is patched to that path and all "
+            "Markdown files inside it are audited."
+        ),
+        show_default=False,
+    ),
 ) -> None:
-    """Run all checks: links, orphans, snippets, placeholders, assets, references."""
+    """Run all checks: links, orphans, snippets, placeholders, assets, references.
+
+    Optionally pass PATH to scope the audit to a single Markdown file or a custom
+    directory (e.g. ``README.md``, ``content/``).  Zenzic auto-selects the
+    VanillaAdapter when the target lives outside the configured docs directory.
+    """
     repo_root = find_repo_root()
     config, loaded_from_file = ZenzicConfig.load(repo_root)
     if not loaded_from_file and not quiet:
         _print_no_config_hint()
     config = _apply_engine_override(config, engine)
+
+    # ── Target mode (single file OR custom directory) ──────────────────────────
+    _single_file: Path | None = None
+    _target_hint: str | None = None
+    if path is not None:
+        config, _single_file, _, _target_hint = _apply_target(repo_root, config, path)
+        # config.docs_dir is patched when path was outside the default docs dir.
+        # _collect_all_results and the docs_root assignment below both use config,
+        # so they automatically target the correct directory.
+
     effective_strict = strict if strict is not None else config.strict
     effective_exit_zero = exit_zero if exit_zero is not None else config.exit_zero
 
@@ -625,22 +760,60 @@ def check_all(
 
     docs_root = (repo_root / config.docs_dir).resolve()
     all_findings = _to_findings(results, docs_root)
+
+    # In single-file mode filter findings to the requested file only.
+    if _single_file is not None:
+        _sf_rel = str(_single_file.relative_to(docs_root))
+        all_findings = [f for f in all_findings if f.rel_path == _sf_rel]
+
     reporter = SentinelReporter(console, docs_root)
 
     if quiet:
         errors, warnings = reporter.render_quiet(all_findings)
     else:
-        file_count = sum(1 for _ in docs_root.rglob("*.md")) if docs_root.is_dir() else 0
+        # Split audit scope: docs (md + config) vs assets (images, fonts, …).
+        # _INERT: always-excluded scaffolding; _CONFIG: config formats inside docs/.
+        _INERT = {".css", ".js"}
+        _CONFIG = {".yml", ".yaml", ".toml"}
+        if docs_root.is_dir():
+            docs_count = sum(
+                1
+                for p in docs_root.rglob("*")
+                if p.is_file() and (p.suffix.lower() == ".md" or p.suffix.lower() in _CONFIG)
+            )
+            # Also count engine config files at project root (e.g. mkdocs.yml).
+            docs_count += sum(
+                1
+                for p in repo_root.iterdir()
+                if p.is_file() and p.suffix.lower() in {".yml", ".yaml"}
+            )
+            assets_count = sum(
+                1
+                for p in docs_root.rglob("*")
+                if p.is_file()
+                and p.suffix.lower() not in _INERT
+                and p.suffix.lower() not in _CONFIG
+                and p.suffix.lower() != ".md"
+            )
+        else:
+            docs_count = assets_count = 0
+        # File-target mode: banner shows exactly 1 file.
+        if _single_file is not None:
+            docs_count, assets_count = 1, 0
         errors, warnings = reporter.render(
             all_findings,
             version=__version__,
             elapsed=elapsed,
-            file_count=file_count,
+            docs_count=docs_count,
+            assets_count=assets_count,
             engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
+            target=_target_hint,
         )
 
     # In strict mode, warnings are promoted to failures.
-    has_failures = results.failed or (effective_strict and warnings > 0)
+    # Use reporter-derived counts (from filtered all_findings) so that target-mode
+    # does not fail on findings outside the requested scope.
+    has_failures = (errors > 0) or (effective_strict and warnings > 0)
 
     if has_failures:
         if not quiet:
@@ -778,7 +951,7 @@ def serve(
     engine_override: str | None = typer.Option(
         None,
         "--engine",
-        help="Force a specific engine: 'mkdocs' or 'zensical'. Auto-detected when omitted.",
+        help="Force a specific engine: 'mkdocs', 'zensical', or 'vanilla'. Auto-detected when omitted.",
         metavar="ENGINE",
     ),
     no_preflight: bool = typer.Option(
@@ -815,21 +988,21 @@ def serve(
         issue_count = 0
 
         for orphan in find_orphans(repo_root, config):
-            console.print(f"  [yellow]⚠  [orphan][/] {orphan}")
+            console.print(f"  [yellow]{emoji('warn')}  [orphan][/] {orphan}")
             issue_count += 1
         for err in validate_snippets(repo_root, config):
             console.print(
-                f"  [yellow]⚠  [snippet][/] {err.file_path}:{err.line_no} — {err.message}"
+                f"  [yellow]{emoji('warn')}  [snippet][/] {err.file_path}:{err.line_no} — {err.message}"
             )
             issue_count += 1
         for finding in find_placeholders(repo_root, config):
             console.print(
-                f"  [yellow]⚠  [placeholder][/] {finding.file_path}:{finding.line_no}"
+                f"  [yellow]{emoji('warn')}  [placeholder][/] {finding.file_path}:{finding.line_no}"
                 f" [{finding.issue}]"
             )
             issue_count += 1
         for asset in find_unused_assets(repo_root, config):
-            console.print(f"  [yellow]⚠  [asset][/] {asset}")
+            console.print(f"  [yellow]{emoji('warn')}  [asset][/] {asset}")
             issue_count += 1
 
         if issue_count:
@@ -920,7 +1093,10 @@ def _run_all_checks(
 
 def score(
     strict: bool | None = typer.Option(
-        None, "--strict", "-s", help="Run link check in strict mode."
+        None,
+        "--strict",
+        "-s",
+        help="Also validate external HTTP/HTTPS links (slower; requires network).",
     ),
     output_format: str = typer.Option("text", "--format", help="Output format: text or json."),
     save: bool = typer.Option(False, "--save", help="Save score snapshot to .zenzic-score.json."),
@@ -945,14 +1121,63 @@ def score(
     if output_format == "json":
         print(json.dumps(report.to_dict(), indent=2))
     else:
-        console.print(f"\nSCORE: [bold]{report.score}/100[/]")
-        console.print("")
-        for cat in report.categories:
-            bar = "[green]PASS[/]" if cat.issues == 0 else "[red]FAIL[/]"
-            console.print(
-                f"  {bar}  {cat.name:<14} {cat.issues:>3} issue(s)  "
-                f"[dim]weight {cat.weight:.0%}  contribution {cat.contribution:.2f}[/]"
+        # ── Sentinel Score Display ────────────────────────────────────────
+        if report.score >= 80:
+            score_style, score_icon = f"bold {INDIGO}", emoji("check")
+        elif report.score >= 50:
+            score_style, score_icon = "bold yellow", emoji("warn")
+        else:
+            score_style, score_icon = "bold red", emoji("cross")
+
+        score_text = Text()
+        score_text.append(f" {score_icon} ", style="bold")
+        score_text.append(f" {report.score}", style=score_style)
+        score_text.append("/100 ", style="dim")
+
+        console.print()
+        console.print(
+            Panel(
+                score_text,
+                title="[bold]Zenzic Quality Score[/]",
+                title_align="left",
+                border_style=INDIGO,
+                expand=False,
+                padding=(0, 2),
             )
+        )
+        console.print()
+
+        table = Table(
+            box=box.ROUNDED,
+            title="[bold]Quality Breakdown[/]",
+            title_style=SLATE,
+            border_style=SLATE,
+            show_lines=False,
+            pad_edge=True,
+            padding=(0, 1),
+        )
+        table.add_column(emoji("dot"), justify="center", width=4, no_wrap=True)
+        table.add_column("Category", min_width=14, style="bold")
+        table.add_column("Issues", justify="right")
+        table.add_column("Weight", justify="right", style="dim")
+        table.add_column("Score", justify="right", style="dim")
+
+        for cat in report.categories:
+            if cat.issues == 0:
+                status_icon = f"[green]{emoji('check')}[/]"
+                issue_display = f"[green]{cat.issues}[/]"
+            else:
+                status_icon = f"[red]{emoji('cross')}[/]"
+                issue_display = f"[red]{cat.issues}[/]"
+            table.add_row(
+                status_icon,
+                cat.name,
+                issue_display,
+                f"{cat.weight:.0%}",
+                f"{cat.contribution:.2f}",
+            )
+
+        console.print(table)
 
     if effective_threshold > 0 and report.score < effective_threshold:
         console.print(
@@ -963,7 +1188,10 @@ def score(
 
 def diff(
     strict: bool | None = typer.Option(
-        None, "--strict", "-s", help="Run link check in strict mode."
+        None,
+        "--strict",
+        "-s",
+        help="Also validate external HTTP/HTTPS links (slower; requires network).",
     ),
     output_format: str = typer.Option("text", "--format", help="Output format: text or json."),
     threshold: int = typer.Option(

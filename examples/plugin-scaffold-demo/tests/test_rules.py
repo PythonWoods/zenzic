@@ -9,9 +9,9 @@ Run with::
 
 from __future__ import annotations
 
-from zenzic.rules import run_rule
-
 from plugin_scaffold_demo.rules import PluginScaffoldDemoRule
+
+from zenzic.rules import run_rule
 
 
 def test_todo_detected() -> None:

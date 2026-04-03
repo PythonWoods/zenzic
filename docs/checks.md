@@ -98,14 +98,17 @@ extracted from the source file. A link to a non-existent heading slug is reporte
 
 __Why CLI:__ the native link extractor operates on raw Markdown source files. Source-level analysis gives reproducible output independent of the build driver.
 
-__Example output:__
+!!! example "Sentinel Output — broken link"
 
-```text
-BROKEN LINKS (3):
-  index.md:12: 'setup.md' not found in docs
-  guide.md:47: anchor '#installation' not found in 'setup.md'
-  api.md:88: external link 'https://api.example.com/v2' returned HTTP 404
-```
+    ```text
+    docs/index.md
+      ✘ 12:    [FILE_NOT_FOUND]  'setup.md' not found in docs
+        │
+     12 │ Read the [setup guide](setup.md) for initial configuration.
+        │
+
+      ✘ 1 error    • 1 file with findings
+    ```
 
 ### Violation codes
 
@@ -120,13 +123,17 @@ The link check uses the Virtual Site Map (VSM) to distinguish between two catego
 
 __Why orphan links matter:__ a link to an orphan page _works_ at the filesystem level — the file exists and the build engine may serve it. But the page is invisible in the nav tree, creating a fragmented user experience. Readers who follow the link land on a page with no sidebar context and no way to navigate back. `Z002` catches this anti-pattern.
 
-__Example output with Z002:__
+!!! example "Sentinel Output — orphan link"
 
-```text
-WARNINGS (1):
-  [Z002] guide/tips.md:18 — 'drafts/experiment.md' exists on disk but is not in the site navigation (ORPHAN_LINK).
-    │ See [experiment](drafts/experiment.md) for details.
-```
+    ```text
+    docs/guide.md
+      ⚠ 18:    [UNREACHABLE_LINK]  'drafts/experiment.md' not in site navigation
+        │
+     18 │ See [experiment](drafts/experiment.md) for details.
+        │
+
+      ⚠ 1 warning    • 1 file with findings
+    ```
 
 ---
 
@@ -143,13 +150,17 @@ __What it catches:__
 - Pages created on disk but never added to `nav`
 - Pages whose `nav` entry was removed without deleting the file
 
-__Example output:__
+!!! example "Sentinel Output"
 
-```text
-ORPHANS (2):
-  api/experimental.md
-  guides/draft-tutorial.md
-```
+    ```text
+    api/experimental.md
+      ⚠ –      [ORPHAN]  Physical file not listed in navigation.
+
+    guides/draft-tutorial.md
+      ⚠ –      [ORPHAN]  Physical file not listed in navigation.
+
+      ⚠ 2 warnings    • 2 files with findings
+    ```
 
 ---
 
@@ -172,7 +183,7 @@ __Supported languages:__
 
 Blocks tagged with any other language (`` bash ``, `` javascript ``, `` mermaid ``, etc.) are treated as plain text and are not syntax-checked. However, __every fenced block is still scanned by the Zenzic Shield__ for credential patterns — syntax validation and security scanning are independent.
 
-__CLI behaviour:__ walks `docs_dir`, reads each `.md` file, and calls `check_snippet_content(text, file_path, config)` on the raw content.
+__Why CLI:__ scans `docs_dir`, reads each `.md` file, and calls `check_snippet_content(text, file_path, config)` on the raw content.
 
 __Block extraction:__ Zenzic uses a deterministic line-by-line state machine rather than a regex to extract code blocks. This prevents false positives from inline code spans (e.g., `` ` ```python ` `` in prose text) and is robust against `pymdownx.superfences` documents with interleaved Mermaid or other custom fences. See [Architecture — State-machine parsing](architecture.md#state-machine-parsing-and-superfences-false-positives) for details.
 
@@ -191,14 +202,17 @@ __What it does not catch:__
 
 __Tuning:__ use `snippet_min_lines` in `zenzic.toml` to skip short blocks. The default of `1` checks everything including single-line blocks. Set it to `3` or higher to ignore import stubs and one-liners that are likely illustrative rather than executable.
 
-__Example output:__
+!!! example "Sentinel Output"
 
-```text
-INVALID SNIPPETS (3):
-  tutorial.md:48 - SyntaxError in Python snippet — expected ':'
-  config/reference.md:22 - SyntaxError in YAML snippet — mapping values are not allowed here
-  api/reference.md:112 - SyntaxError in JSON snippet — Expecting property name enclosed in double quotes
-```
+    ```text
+    docs/tutorial.md
+      ✘ 48:    [SNIPPET]  SyntaxError in Python snippet — expected ':'
+        │
+     48 │ def compute_total(items)
+        │
+
+      ✘ 1 error    • 1 file with findings
+    ```
 
 ---
 
@@ -237,14 +251,24 @@ placeholder_max_words = 0
 placeholder_patterns = []
 ```
 
-__Example output:__
+!!! example "Sentinel Output"
 
-```text
-PLACEHOLDERS/STUBS (3):
-  guides/advanced.md:1 [short-content] - Page has only 12 words (minimum 50).
-  api/webhooks.md:7 [placeholder-text] - Found placeholder text matching pattern: 'coming soon'
-  api/webhooks.md:1 [short-content] - Page has only 8 words (minimum 50).
-```
+    ```text
+    docs/guides/advanced.md
+      ⚠ 1:     [short-content]  Page has only 12 words (minimum 50).
+        │
+      1 │ # Advanced Guide
+        │
+
+    docs/api/webhooks.md
+      ⚠ 7:     [placeholder-text]  Found placeholder text: 'coming soon'
+        │
+      7 │ Coming soon – check back later.
+        │
+      ⚠ 1:     [short-content]  Page has only 8 words (minimum 50).
+
+      ⚠ 3 warnings    • 2 files with findings
+    ```
 
 ---
 
@@ -276,11 +300,14 @@ __What it catches:__
 - Images left over after a page reorganisation or rename
 - Attachments (PDFs, data files) that were linked from a page that no longer exists
 
-__Example output:__
+!!! example "Sentinel Output"
 
-```text
-UNUSED ASSETS (3):
-  assets/old-screenshot.png
-  assets/diagram-v1.svg
-  attachments/deprecated-spec.pdf
-```
+    ```text
+    assets/old-screenshot.png
+      ⚠ –      [ASSET]  File not referenced in any documentation page.
+
+    assets/diagram-v1.svg
+      ⚠ –      [ASSET]  File not referenced in any documentation page.
+
+      ⚠ 2 warnings    • 2 files with findings
+    ```

@@ -7,7 +7,7 @@ site_url: https://zenzic.pythonwoods.dev/
 repo_name: PythonWoods/zenzic
 repo_url: https://github.com/PythonWoods/zenzic
 edit_uri: edit/main/docs/
-site_description: High-performance documentation linter for MkDocs, Zensical, and any Markdown project.
+site_description: Engineering-grade, engine-agnostic linter and security shield for Markdown documentation.
 copyright: © 2026 PythonWoods
 
 theme:

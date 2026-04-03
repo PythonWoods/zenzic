@@ -11,48 +11,171 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-## [0.5.0a3] — 2026-04-03 — The Performance & DX Sprint: Parallel Anchors & Plugin SDK
+## [0.5.0a3] — 2026-04-03 — The Sentinel: Aesthetic Sprint, Parallel Anchors & Agnostic Target
 
-> **Sprint 13.** Resolves anchor-indexing bottlenecks with a deterministic
-> two-phase validation pipeline and introduces first-class plugin scaffolding
-> via `zenzic init --plugin <name>`. Documentation and examples are updated in
-> EN/IT parity.
+> **Sprint 13 + 14.** Two major tracks delivered in one tag.
+> Track A — Performance & SDK: deterministic two-phase anchor validation, `zenzic.rules` public
+> namespace, plugin scaffold command, Z001/Z002 split.
+> Track B — Aesthetic & DX: Sentinel Palette with Slate/Indigo/Rose/Amber color identity,
+> unified banner telemetry, agnostic target mode (`zenzic check all README.md` or
+> `zenzic check all content/`), `.pre-commit-hooks.yaml`, native Material header via
+> `MutationObserver`, and two new example projects.
 
 ### Added
 
+- **`src/zenzic/ui.py` — Sentinel Palette** — new module centralising all color and emoji
+  constants for the Sentinel report engine.  Ships 8 named constants (`INDIGO`, `SLATE`,
+  `ROSE`, `AMBER`, `STYLE_BRAND`, `STYLE_DIM`, `STYLE_ERR`, `STYLE_WARN`), the
+  `make_sentinel_header()` banner factory, and the `emoji()` helper with `--no-color` guard.
+
+- **Agnostic Target Support — `PATH` argument on `check all`** — `zenzic check all`
+  accepts an optional positional `PATH` argument scoping the audit to:
+  - **Single file** — `zenzic check all README.md` audits exactly one Markdown file;
+    banner reports `1 file (1 docs, 0 assets)`.
+  - **Custom directory** — `zenzic check all content/` patches `docs_dir` at runtime
+    and audits the entire subdirectory; banner reports `./content/`.
+  - `VanillaAdapter` is selected automatically when the target lies outside the
+    configured `docs_dir` (e.g. a root-level `README.md`).
+  - `_resolve_target()` — resolves absolute/relative paths, checks for `.md` extension
+    on files, exits 1 with a clear error on path-not-found.
+  - `_apply_target()` — returns `(patched_config, single_file_or_None, docs_root, hint)`;
+    patches `config.docs_dir` via `model_copy()` (Pydantic v2, no mutation).
+  - Post-hoc filter: after `_to_findings()`, results are filtered to `rel_path == target`
+    in single-file mode so no off-target findings bleed through.
+
+- **Target hint in banner** — `make_sentinel_header()` accepts `target: str | None`;
+  when set, the hint (e.g. `./README.md`, `./content/`) appears in the meta line
+  between the engine name and the file count.
+
+- **`.pre-commit-hooks.yaml`** — first-class pre-commit hook definitions shipped in the
+  repository root, enabling `repo: https://github.com/PythonWoods/zenzic` in any
+  `.pre-commit-config.yaml`.
+
+- **`examples/single-file-target/`** — new example demonstrating single-file audit
+  (`zenzic check all README.md`); expected exit 0.
+
+- **`examples/custom-dir-target/`** — new example demonstrating directory-target audit
+  (`zenzic check all content/`); expects exit 0 with `./content/ • 2 files`.
+
+- **`run_demo.sh` Act 4 & 5** — Philosophy Tour extended with two new acts validating
+  the single-file and custom-directory target examples automatically.
+
 - **`zenzic.rules` public namespace** — stable import path for plugin authors:
   `BaseRule`, `RuleFinding`, `CustomRule`, `Violation`, `Severity` (#13).
+
 - **`run_rule()` test helper** — single-call rule validation for plugin authors,
   no engine setup required (#13).
+
 - **Z002 orphan-link warning** — `VSMBrokenLinkRule` now distinguishes between
   broken links (Z001 error) and links to orphan pages (Z002 warning) (#6).
-- `zenzic init --plugin <name>` command now scaffolds a plugin package with:
+
+- `zenzic init --plugin <name>` command scaffolds a plugin package with:
   - `pyproject.toml` preconfigured for `zenzic.rules` entry-points
   - `src/<module>/rules.py` module-level `BaseRule` template
   - minimal docs fixture and `zenzic.toml` so `zenzic check all` can run
+
 - `examples/plugin-scaffold-demo/` — living scaffold output fixture for SDK
   integration checks and contributor onboarding.
+
 - Anchor torture regression test with **1000 cross-linked files** to guarantee
   no race-induced false positives in anchor validation.
 
 ### Changed
 
-- `validate_links_async` now uses a two-phase model:
+- **Sentinel Gutter Reporter** (`reporter.py`) — source-line context block uses
+  the Sentinel Palette consistently:
+  - `│` separators and line numbers rendered in `SLATE`
+  - Numeric counts (`N errors`, `N warnings`, `N files`) rendered in `INDIGO`
+  - Error row icon and label rendered in `ROSE`
+  - Warning row icon and label rendered in `AMBER`
+  - All bold removed from report numbers ("evitiamo grassetto" standard).
+
+- **Unified banner counter** — `make_sentinel_header()` emits a single
+  `N files (D docs, A assets)` breakdown replacing the previous separate
+  `N docs • N assets` counters.  `mkdocs.yml` and other engine config files
+  at project root are included in the docs count.  Format:
+  `engine • [target •] N files (D docs, A assets) • T.Ts`.
+
+- **`has_failures` logic** (`check_all`) — changed from `results.failed` (raw
+  pre-filter counts) to `(errors > 0) or (effective_strict and warnings > 0)`,
+  where `errors` and `warnings` are derived from the post-hoc filtered
+  `all_findings` list.  Fixes false exit-1 when a target-mode scan filters
+  findings to zero but the full scan found off-target issues (e.g. `zenzic.toml`
+  listed as unused asset when `docs_dir` is patched to `.`).
+
+- **CLI help strings audited** — five stale or incorrect help strings corrected:
+  - `PATH` argument: now documents both file and directory targets with examples
+  - `check all --strict`: was "validate external URLs" (wrong); now "treat warnings
+    as errors (exit non-zero on any warning)"
+  - `check all`, `score`, `diff` docstrings updated with target mode notes
+  - `score --strict` / `diff --strict`: was vague "Run link check in strict mode";
+    now "Also validate external HTTP/HTTPS links (slower; requires network)"
+  - `serve --engine`: added `vanilla` to the engine list
+
+- **Native Material header** (`docs/overrides/main.html`) — `source.html` partial
+  deleted; version is injected into Material's own source facts `<ul>` via a
+  `MutationObserver` snippet in `main.html` (zero template override, single header
+  row: 🏷 0.5.0a3 ☆ stars ψ forks).
+
+- **Badge rebranding** — `cacheBuster` parameter in status badge URLs updated from
+  `v050` to `sentinel-a3` in `README.md` and `README.it.md`; badges rendered
+  as multi-line `<a>\n  <img>\n</a>` for readability.
+
+- **"Sentinel in Action" section** — three-card visual tour grid added to
+  `docs/index.md` and `docs/it/index.md` illustrating the gutter reporter,
+  Zenzic Shield, and quality score output.
+
+- **Script consolidation** — `scripts/generate_screenshot.py` deleted;
+  its functionality merged into `scripts/generate_docs_assets.py` which handles
+  both `screenshot.svg` and `screenshot-score.svg`; `nox -s screenshot` updated
+  to call the unified script.
+
+- **`validate_links_async`** now uses a two-phase model:
   1. **Phase 1 (parallel index):** workers extract per-file anchors and
      resolved links.
   2. **Phase 2 (global validation):** main process validates links against the
      merged global anchor index.
-- `docs/architecture.md` and `docs/it/architecture.md` Mermaid diagrams now
-  explicitly show worker internals:
+
+- Architecture docs (`docs/architecture.md`, `docs/it/architecture.md`) Mermaid
+  diagrams now explicitly show worker phases:
   - `Phase 1: Anchor Extraction (Parallel)`
   - `Phase 2: Rule Execution & Validation (Parallel)`
-- Plugin SDK docs expanded with a "zero to plugin in 30 seconds" fast-track in
+
+- Plugin SDK docs expanded with "zero to plugin in 30 seconds" fast-track in
   `docs/developers/plugins.md` and `docs/it/developers/plugins.md`.
+
 - Plugin scaffold now imports from `zenzic.rules` (public namespace) instead of
   `zenzic.core.rules` (internal) (#13).
+
 - Checks docs updated with Z001/Z002 violation code table in EN/IT (#6).
-- Custom Rules DSL IT docs completed with Performance and Pattern tips sections (#4).
+
+- Custom Rules DSL IT docs completed with Performance and Pattern tips (#4).
+
 - CLI command references updated in EN/IT with `zenzic init --plugin` usage.
+
+- `docs/usage/advanced.md` — new "Single-file and directory target" section
+  documenting `PATH` argument syntax, adapter auto-selection, and use cases
+  (pre-commit hooks, README review, Hugo `content/` dirs).
+
+### Fixed
+
+- **Exit-code under target mode** — `has_failures` now uses filtered findings
+  (`errors > 0`) rather than `results.failed` (which counted off-target findings
+  such as `zenzic.toml` classified as an unused asset when `docs_dir` was patched
+  to `.`).  `test_check_all_no_strict_passes_on_warnings_only` continues to pass
+  confirming that warning-only results exit 0 in non-strict mode.
+
+- **Unused `# type: ignore[assignment]`** — stale comment at `cli.py:644` removed
+  after mypy no longer required it following the `_apply_target` refactor.
+
+### Tests
+
+- 4 new CLI integration tests for target mode:
+  `test_check_all_target_not_found`, `test_check_all_target_single_file`,
+  `test_check_all_target_file_outside_docs`, `test_check_all_target_directory`.
+- Test fixtures write ≥ 60-word bodies to avoid `short-content` placeholder warnings.
+- **587 tests pass.** `just preflight` — all gates green:
+  ruff ✓ · mypy ✓ · pytest 81.49% coverage ✓ · REUSE ✓ · zenzic self-audit ✓ · mkdocs build --strict ✓.
 
 ## [0.5.0a2] — 2026-04-03 — The Refined Sentinel: Lean Package & Unified Workflow
 
@@ -1187,12 +1310,11 @@ It has been superseded by the 0.5.x stabilization cycle.
 
 <!-- ─── Reference link definitions ──────────────────────────────────────────── -->
 
-[Unreleased]:       https://github.com/PythonWoods/zenzic/compare/v0.5.0a2...HEAD
+[Unreleased]:       https://github.com/PythonWoods/zenzic/compare/v0.5.0a3...HEAD
+[0.5.0a3]:          https://github.com/PythonWoods/zenzic/compare/v0.5.0a2...v0.5.0a3
 [0.5.0a2]:          https://github.com/PythonWoods/zenzic/compare/v0.5.0a1...v0.5.0a2
-[0.5.0a1]:          https://github.com/PythonWoods/zenzic/compare/v0.4.0...v0.5.0a1
-[0.3.0]:            https://github.com/PythonWoods/zenzic/compare/v0.2.1...v0.3.0
-[0.3.0-rc1]:        https://github.com/PythonWoods/zenzic/compare/v0.2.1...v0.3.0-rc1
-[0.2.1]:            https://github.com/PythonWoods/zenzic/compare/v0.2.0-alpha.1...v0.2.1
-[0.2.0-alpha.1]:    https://github.com/PythonWoods/zenzic/compare/v0.1.0-alpha.1...v0.2.0-alpha.1
-[0.1.0-alpha.1]:    https://github.com/PythonWoods/zenzic/compare/v0.1.0...v0.1.0-alpha.1
-[0.1.0]:            https://github.com/PythonWoods/zenzic/releases/tag/v0.1.0
+[0.5.0a1]:          https://github.com/PythonWoods/zenzic/compare/v0.4.0-rc5...v0.5.0a1
+[0.4.0-rc5]:        https://github.com/PythonWoods/zenzic/compare/v0.4.0-rc4...v0.4.0-rc5
+[0.4.0-rc4]:        https://github.com/PythonWoods/zenzic/compare/v0.4.0-rc3...v0.4.0-rc4
+[0.4.0-rc3]:        https://github.com/PythonWoods/zenzic/compare/v0.4.0-rc2...v0.4.0-rc3
+[0.4.0-rc2]:        https://github.com/PythonWoods/zenzic/releases/tag/v0.4.0-rc2

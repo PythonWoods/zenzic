@@ -43,8 +43,8 @@ preflight:
     {{ nox_runner }} preflight
 
 # Full local verification: CI-equivalent gate (single pipeline)
-verify:
-    {{ nox_runner }} preflight
+# Pillar 1: Zenzic guards the source BEFORE the build renders it.
+verify: check preflight build-prod
 
 # ─── Documentation (MkDocs) ───────────────────────────────────────────────────
 

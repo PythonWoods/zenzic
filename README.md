@@ -11,20 +11,36 @@ SPDX-License-Identifier: Apache-2.0
 </p>
 
 <p align="center">
-  <a href="https://pypi.org/project/zenzic/"><img src="https://img.shields.io/pypi/v/zenzic?include_prereleases&label=PyPI&color=38bdf8&style=flat-square&cacheBuster=v050" alt="PyPI Version"></a>
-  <a href="https://pypi.org/project/zenzic/"><img src="https://img.shields.io/pypi/pyversions/zenzic?color=10b981&style=flat-square" alt="Python Versions"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-0d9488?style=flat-square" alt="License"></a>
+  <a href="https://pypi.org/project/zenzic/">
+    <img src="https://img.shields.io/pypi/v/zenzic?include_prereleases&label=PyPI&color=38bdf8&style=flat-square&cacheBuster=sentinel-a3" alt="PyPI Version">
+  </a>
+  <a href="https://pypi.org/project/zenzic/">
+    <img src="https://img.shields.io/pypi/pyversions/zenzic?color=10b981&style=flat-square" alt="Python Versions">
+  </a>
+  <a href="LICENSE">
+    <img src="https://img.shields.io/badge/license-Apache--2.0-0d9488?style=flat-square" alt="License">
+  </a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/PythonWoods/zenzic"><img src="https://img.shields.io/badge/🛡️_zenzic_shield-passing-4f46e5?style=flat-square" alt="Zenzic Shield"></a>
-  <a href="https://github.com/PythonWoods/zenzic"><img src="https://img.shields.io/badge/🛡️_zenzic-100%2F100-4f46e5?style=flat-square" alt="Zenzic Score"></a>
-  <a href="https://zensical.org/"><img src="https://img.shields.io/badge/docs_by-Zensical-4f46e5?style=flat-square" alt="Powered by Zensical"></a>
+  <a href="https://github.com/PythonWoods/zenzic">
+    <img src="https://img.shields.io/badge/🛡️_zenzic_shield-passing-4f46e5?style=flat-square" alt="Zenzic Shield">
+  </a>
+  <a href="https://github.com/PythonWoods/zenzic">
+    <img src="https://img.shields.io/badge/🛡️_zenzic-100%2F100-4f46e5?style=flat-square" alt="Zenzic Score">
+  </a>
+  <a href="https://zensical.org/">
+    <img src="https://img.shields.io/badge/docs_by-Zensical-4f46e5?style=flat-square" alt="Powered by Zensical">
+  </a>
 </p>
 
 <p align="center">
   <strong>"Zenzic is the silent guardian of your documentation. It doesn't just check links; it audits your brand's technical integrity."</strong><br>
   <em>Engineering-grade documentation linter — standalone, engine-agnostic, and security-hardened.</em>
+</p>
+
+<p align="center">
+  <img src="docs/assets/screenshots/screenshot.svg" alt="Zenzic Sentinel — engineering-grade documentation linter" width="700">
 </p>
 
 ---

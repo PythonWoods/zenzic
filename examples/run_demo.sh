@@ -4,12 +4,14 @@
 #
 # run_demo.sh — The Zenzic Philosophy Tour.
 #
-# Three acts that cover the full spectrum of documentation integrity:
+# Five acts that cover the full spectrum of documentation integrity:
 #
 #   Act 0 — MkDocs Baseline    : mkdocs-basic must pass as 1.x reference.
 #   Act 1 — The Gold Standard  : i18n-standard must pass with 100/100.
 #   Act 2 — The Broken Docs    : broken-docs must fail, showing every error class.
 #   Act 3 — The Shield         : security_lab must block traversal and absolute links.
+#   Act 4 — Single-File Target : single-file-target — audit only README.md.
+#   Act 5 — Custom Dir Target  : custom-dir-target — audit content/ instead of docs/.
 #
 # Usage (from repo root):
 #   bash examples/run_demo.sh
@@ -102,6 +104,30 @@ else
     fi
 fi
 
+# ─── Act 4: Single-File Target ────────────────────────────────────────────────
+
+print_header "Act 4 — Single-File Target (single-file-target)"
+echo "  Expected: SUCCESS — banner shows ./README.md • 1 file (1 docs, 0 assets)."
+echo ""
+
+if (cd "$REPO_ROOT/examples/single-file-target" && uv run zenzic check all README.md); then
+    print_result "single-file-target check all README.md" "PASS"
+else
+    print_result "single-file-target check all README.md" "UNEXPECTED FAILURE"
+fi
+
+# ─── Act 5: Custom Dir Target ────────────────────────────────────────────────
+
+print_header "Act 5 — Custom Dir Target (custom-dir-target)"
+echo "  Expected: SUCCESS — banner shows ./content/ with 2 files audited."
+echo ""
+
+if (cd "$REPO_ROOT/examples/custom-dir-target" && uv run zenzic check all content/); then
+    print_result "custom-dir-target check all content/" "PASS"
+else
+    print_result "custom-dir-target check all content/" "UNEXPECTED FAILURE"
+fi
+
 # ─── Self-audit + score snapshot ──────────────────────────────────────────────
 
 print_header "Self-audit + Score Snapshot (main repo)"
@@ -123,7 +149,9 @@ cat .zenzic-score.json
 echo ""
 
 print_header "Demo complete"
-echo "  Act 1 (Gold Standard) : must be green"
-echo "  Act 2 (Broken Docs)   : must be red — errors are the feature"
-echo "  Act 3 (Shield)        : must be red — attacks are blocked"
+echo "  Act 1 (Gold Standard)     : must be green"
+echo "  Act 2 (Broken Docs)       : must be red — errors are the feature"
+echo "  Act 3 (Shield)            : must be red — attacks are blocked"
+echo "  Act 4 (Single-File Target): must be green — 1 file audited"
+echo "  Act 5 (Custom Dir Target) : must be green — content/ audited"
 echo ""
