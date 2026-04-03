@@ -37,14 +37,14 @@ Zenzic uses [`just`](https://github.com/casey/just) as its interactive command r
 | `just check` | **Self-lint — run Zenzic on its own documentation (strict)** |
 | `just test` | Run the test suite (delegates to `nox -s tests`) |
 | `just preflight` | Full CI-equivalent pipeline: lint, typecheck, tests, reuse, security |
-| `just build` | Build the documentation site (`mkdocs build --strict`) |
-| `just serve` | Start the live-reload documentation server |
-| `just deploy` | `preflight` + production build — local release check |
+| `just verify` | **Pre-push gate: `preflight` + `build-prod`** |
+| `just build` | Build the documentation site (fast, no strict enforcement) |
+| `just build-prod` | Build the documentation site (`mkdocs build --strict`, mirrors CI) |
+| `just serve [port]` | Start the live-reload documentation server (default port 8000) |
 | `just clean` | Remove generated artefacts (`site/`, `dist/`, caches, score file) |
 
 The Sentinel's self-linting duty — `just check` — is the first command to run after
-any documentation change. If Zenzic validates external projects, it must first pass
-its own checks.
+any documentation change. Run `just verify` before every push to `main`.
 
 ---
 
