@@ -59,9 +59,16 @@ jobs:
         run: uv sync --group dev
 
       - name: Download Lucide Icons
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set -euo pipefail
           mkdir -p overrides/.icons/lucide
-          ASSET_URL=$(curl -sf https://api.github.com/repos/lucide-icons/lucide/releases/latest \
+          RELEASE_JSON=$(curl -sf \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/lucide-icons/lucide/releases/latest)
+          ASSET_URL=$(echo "$RELEASE_JSON" \
             | python3 -c "import sys,json; r=json.load(sys.stdin); print(next(a['browser_download_url'] for a in r['assets'] if a['name'].startswith('lucide-icons') and a['name'].endswith('.zip')))")
           curl -sL "$ASSET_URL" -o /tmp/lucide.zip
           unzip -q /tmp/lucide.zip "*.svg" -d /tmp/lucide-extracted
