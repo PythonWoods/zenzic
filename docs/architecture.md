@@ -160,9 +160,9 @@ flowchart TD
     SORT_SEQ["Sorted list[IntegrityReport]"]:::io
 
     FAN["Main process\npickle(config, engine)\n→ work_items"]:::node
-    W1["Worker 1\n_scan_single_file\n(page_A.md)"]:::worker
-    W2["Worker 2\n_scan_single_file\n(page_B.md)"]:::worker
-    WN["Worker N\n_scan_single_file\n(page_Z.md)"]:::worker
+    W1["Worker 1\nPhase 1: Anchor Extraction (Parallel)\nPhase 2: Rule Execution & Validation (Parallel)\n(page_A.md)"]:::worker
+    W2["Worker 2\nPhase 1: Anchor Extraction (Parallel)\nPhase 2: Rule Execution & Validation (Parallel)\n(page_B.md)"]:::worker
+    WN["Worker N\nPhase 1: Anchor Extraction (Parallel)\nPhase 2: Rule Execution & Validation (Parallel)\n(page_Z.md)"]:::worker
     MERGE["Sorted merge\nby file_path"]:::node
     SORT_PAR["Sorted list[IntegrityReport]"]:::io
 
@@ -186,6 +186,14 @@ single O(N) pass.
 Activated when `workers != 1` and the file count is at or above
 `ADAPTIVE_PARALLEL_THRESHOLD` (50).  Each file is dispatched to an independent
 worker process via `ProcessPoolExecutor`.
+
+Each worker follows two explicit internal phases:
+
+1. **Phase 1: Anchor Extraction (Parallel)** — build the per-file anchor index.
+2. **Phase 2: Rule Execution & Validation (Parallel)** — run reference checks,
+   Shield, and rule evaluation on the same file-local context.
+
+The main process only performs deterministic merge and final reporting.
 
 **Shared-nothing architecture:** `config` and the `AdaptiveRuleEngine`
 (including all registered rules) are serialised by `pickle` before being sent

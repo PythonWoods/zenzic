@@ -11,6 +11,39 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.5.0a3] — 2026-04-03 — The Performance & DX Sprint: Parallel Anchors & Plugin SDK
+
+> **Sprint 13.** Resolves anchor-indexing bottlenecks with a deterministic
+> two-phase validation pipeline and introduces first-class plugin scaffolding
+> via `zenzic init --plugin <name>`. Documentation and examples are updated in
+> EN/IT parity.
+
+### Added
+
+- `zenzic init --plugin <name>` command now scaffolds a plugin package with:
+  - `pyproject.toml` preconfigured for `zenzic.rules` entry-points
+  - `src/<module>/rules.py` module-level `BaseRule` template
+  - minimal docs fixture and `zenzic.toml` so `zenzic check all` can run
+- `examples/plugin-scaffold-demo/` — living scaffold output fixture for SDK
+  integration checks and contributor onboarding.
+- Anchor torture regression test with **1000 cross-linked files** to guarantee
+  no race-induced false positives in anchor validation.
+
+### Changed
+
+- `validate_links_async` now uses a two-phase model:
+  1. **Phase 1 (parallel index):** workers extract per-file anchors and
+     resolved links.
+  2. **Phase 2 (global validation):** main process validates links against the
+     merged global anchor index.
+- `docs/architecture.md` and `docs/it/architecture.md` Mermaid diagrams now
+  explicitly show worker internals:
+  - `Phase 1: Anchor Extraction (Parallel)`
+  - `Phase 2: Rule Execution & Validation (Parallel)`
+- Plugin SDK docs expanded with a "zero to plugin in 30 seconds" fast-track in
+  `docs/developers/plugins.md` and `docs/it/developers/plugins.md`.
+- CLI command references updated in EN/IT with `zenzic init --plugin` usage.
+
 ## [0.5.0a2] — 2026-04-03 — The Refined Sentinel: Lean Package & Unified Workflow
 
 > **Sprint 12.** Consolidation and DX hardening. Removes the `[docs]` public

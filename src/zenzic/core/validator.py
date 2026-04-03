@@ -26,6 +26,7 @@ No subprocesses are spawned for any language.
 from __future__ import annotations
 
 import asyncio
+import concurrent.futures
 import fnmatch
 import json
 import os
@@ -33,7 +34,7 @@ import re
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 from urllib.parse import urlsplit
 
 import httpx
@@ -91,6 +92,10 @@ _SKIP_SCHEMES = ("mailto:", "data:", "ftp:", "tel:", "javascript:", "irc:", "xmp
 # Prevents exhausting OS file descriptors and avoids triggering rate-limits on target servers.
 _MAX_CONCURRENT_REQUESTS = 20
 
+# Files at or above this threshold use parallel worker indexing for anchors
+# and resolved links before the global validation phase runs.
+VALIDATION_PARALLEL_THRESHOLD = 50
+
 
 # ─── Data classes ─────────────────────────────────────────────────────────────
 
@@ -126,6 +131,38 @@ class LinkError:
     def __str__(self) -> str:
         """Flat string form — backwards-compatible with the old list[str] API."""
         return self.message
+
+
+class _ValidationPayload(NamedTuple):
+    """Worker output for one markdown file in link validation phase 1.
+
+    Attributes:
+        file_path: Absolute markdown file path.
+        anchors: Heading anchor slugs extracted from the file.
+        links: Resolved links from inline and reference-style syntax.
+        source_lines: Source split by lines for O(1) error-context lookup.
+    """
+
+    file_path: Path
+    anchors: set[str]
+    links: list[tuple[str, int]]
+    source_lines: list[str]
+
+
+def _index_file_for_validation(args: tuple[Path, str]) -> _ValidationPayload:
+    """Phase 1 worker: extract anchors and links for one markdown file.
+
+    Runs as a pure function so it can be dispatched safely to a process pool.
+    """
+    md_file, content = args
+    ref_map = _build_ref_map(content)
+    all_links = extract_links(content) + extract_ref_links(content, ref_map)
+    return _ValidationPayload(
+        file_path=md_file,
+        anchors=anchors_in_file(content),
+        links=all_links,
+        source_lines=content.splitlines(),
+    )
 
 
 # ─── Pure / I/O-agnostic functions ────────────────────────────────────────────
@@ -450,16 +487,22 @@ async def validate_links_async(
         if f.is_file() and not f.is_symlink() and f.suffix != ".md"
     )
 
-    # Build reference maps from pre-loaded content (pure, no extra I/O).
-    # Used in Pass 2 to resolve [text][id] reference-style links.
-    ref_maps: dict[Path, dict[str, str]] = {
-        path: _build_ref_map(content) for path, content in md_contents.items()
-    }
+    # ── Phase 1: parallel index (anchors + resolved links) ────────────────
+    # Workers return immutable payloads. The main process only merges maps
+    # and performs global validation (phase 2), avoiding order-dependent
+    # false positives for file.md#anchor links.
+    use_parallel_index = (
+        len(md_contents) >= VALIDATION_PARALLEL_THRESHOLD and (os.cpu_count() or 1) > 1
+    )
+    if use_parallel_index:
+        with concurrent.futures.ProcessPoolExecutor() as executor:
+            payloads = list(executor.map(_index_file_for_validation, md_contents.items()))
+    else:
+        payloads = [_index_file_for_validation(item) for item in md_contents.items()]
 
-    # Pre-compute anchor sets once so target files are never re-parsed.
-    anchors_cache: dict[Path, set[str]] = {
-        path: anchors_in_file(content) for path, content in md_contents.items()
-    }
+    anchors_cache: dict[Path, set[str]] = {p.file_path: p.anchors for p in payloads}
+    links_cache: dict[Path, list[tuple[str, int]]] = {p.file_path: p.links for p in payloads}
+    source_lines_cache: dict[Path, list[str]] = {p.file_path: p.source_lines for p in payloads}
 
     # Instantiate the resolver ONCE — _lookup_map is built here, not per-link.
     # Instantiating inside the file loop would regenerate the map N times,
@@ -472,12 +515,9 @@ async def validate_links_async(
     # for VanillaAdapter / Zensical every file is REACHABLE by definition.
     vsm = build_vsm(adapter, docs_root, md_contents, anchors_cache=anchors_cache)
 
-    # ── Pass 2: extract links (inline + reference-style) and validate ─────────
+    # ── Phase 2: validate against global indexes ────────────────────────────
     internal_errors: list[LinkError] = []
     external_entries: list[tuple[str, str, int]] = []  # (url, file_label, lineno)
-
-    # Pre-split source lines once per file so the hot path is O(1) per error.
-    source_lines_cache: dict[Path, list[str]] = {p: c.splitlines() for p, c in md_contents.items()}
 
     def _source_line(md_file: Path, lineno: int) -> str:
         """Return the raw source line (1-based) from the pre-split cache."""
@@ -485,13 +525,9 @@ async def validate_links_async(
         idx = lineno - 1
         return lines[idx].strip() if 0 <= idx < len(lines) else ""
 
-    for md_file, content in md_contents.items():
+    for md_file in md_contents:
         label = str(md_file.relative_to(docs_root))
-        file_ref_map = ref_maps.get(md_file, {})
-
-        # Combine inline links and resolved reference-style links into one pass.
-        # extract_links handles [text](url); extract_ref_links handles [text][id].
-        all_links = extract_links(content) + extract_ref_links(content, file_ref_map)
+        all_links = links_cache.get(md_file, [])
 
         for url, lineno in all_links:
             # Skip non-navigable schemes and bare fragment-only links

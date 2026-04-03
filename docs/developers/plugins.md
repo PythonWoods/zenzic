@@ -142,6 +142,46 @@ zenzic plugins list
 
 ---
 
+## Fast-Track: from zero to plugin in 30 seconds
+
+Use the scaffold command to generate a ready-to-edit plugin package:
+
+```bash
+zenzic init --plugin plugin-scaffold-demo
+```
+
+Generated structure:
+
+```text
+plugin-scaffold-demo/
+    pyproject.toml
+    README.md
+    zenzic.toml
+    docs/
+        index.md
+    src/
+        plugin_scaffold_demo/
+            __init__.py
+            rules.py
+```
+
+The scaffold includes:
+
+- a pre-configured `zenzic.rules` entry-point in `pyproject.toml`
+- a module-level `BaseRule` class template in `rules.py`
+- a minimal docs fixture so `zenzic check all` passes immediately
+
+Quick verification:
+
+```bash
+cd plugin-scaffold-demo
+uv pip install -e .
+zenzic plugins list
+zenzic check all
+```
+
+---
+
 ## Enabling plugins
 
 Core rules (registered under `zenzic.rules` by Zenzic itself) are always

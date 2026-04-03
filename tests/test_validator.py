@@ -256,6 +256,31 @@ class TestInternalLinks:
         errors = validate_links(tmp_path)
         assert errors == sorted(errors)
 
+    @pytest.mark.slow
+    def test_anchor_torture_parallel_indexing_1000_files(self, tmp_path: Path) -> None:
+        """1000 cross-linked anchors must validate without race-induced false positives."""
+        docs = tmp_path / "docs"
+        docs.mkdir()
+
+        total = 1000
+        for i in range(total):
+            nxt = (i + 1) % total
+            (docs / f"page_{i:04d}.md").write_text(
+                "\n".join(
+                    [
+                        f"# Page {i}",
+                        f"## Section {i}",
+                        "",
+                        f"Forward link: [next](page_{nxt:04d}.md#section-{nxt})",
+                        "",
+                        "This page is part of the anchor torture fixture and remains deterministic.",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+        assert validate_links(tmp_path) == []
+
 
 # ─── Absolute-path prohibition ───────────────────────────────────────────────
 

@@ -148,6 +148,46 @@ zenzic plugins list
 
 ---
 
+## Fast-Track: da zero a plugin in 30 secondi
+
+Usa il comando di scaffolding per generare un pacchetto plugin pronto da modificare:
+
+```bash
+zenzic init --plugin plugin-scaffold-demo
+```
+
+Struttura generata:
+
+```text
+plugin-scaffold-demo/
+    pyproject.toml
+    README.md
+    zenzic.toml
+    docs/
+        index.md
+    src/
+        plugin_scaffold_demo/
+            __init__.py
+            rules.py
+```
+
+Lo scaffold include:
+
+- un entry-point `zenzic.rules` pre-configurato in `pyproject.toml`
+- un template di classe `BaseRule` a livello modulo in `rules.py`
+- una fixture docs minima, cosi `zenzic check all` passa subito
+
+Verifica rapida:
+
+```bash
+cd plugin-scaffold-demo
+uv pip install -e .
+zenzic plugins list
+zenzic check all
+```
+
+---
+
 ## Abilitare i plugin
 
 Le regole core (registrate sotto `zenzic.rules` da Zenzic stesso) sono sempre

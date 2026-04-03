@@ -3,6 +3,39 @@
 
 # Zenzic v0.4.0: The Agnostic Framework for Documentation Integrity
 
+## v0.5.0a3 — The Performance & DX Sprint
+
+**Release date:** 2026-04-03
+**Status:** Alpha 3 — two-phase anchor indexing and plugin SDK scaffolding
+
+### Highlights
+
+- **Two-phase link validation for deterministic anchor checks**
+  - Phase 1: parallel worker indexing of anchors and resolved links
+  - Phase 2: global validation against merged indexes in the main process
+  - Result: no order-dependent false positives when validating `file.md#anchor`
+
+- **Plugin SDK scaffolding (`zenzic init --plugin`)**
+  - Generates a Python package skeleton with `zenzic.rules` entry-point wiring
+  - Provides a module-level `BaseRule` template ready for customization
+  - Includes a minimal docs fixture so `zenzic check all` works immediately
+
+- **Living scaffold example**
+  - Added `examples/plugin-scaffold-demo/` as the canonical scaffold output
+  - Serves as an integration fixture for DX and quality-gate verification
+
+- **Architecture documentation sync**
+  - Mermaid diagrams now show explicit worker phases:
+    - `Phase 1: Anchor Extraction (Parallel)`
+    - `Phase 2: Rule Execution & Validation (Parallel)`
+  - Applied in both EN and IT architecture docs for parity
+
+- **QA hardening**
+  - Added an anchor torture test with 1000 cross-linked files to prove
+    deterministic behaviour under heavy parallel indexing.
+
+---
+
 **Release date:** 2026-04-01
 **Status:** Release Candidate 4 — routing-aware, VSM Rule Engine, pre-release freeze
 

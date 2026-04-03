@@ -329,3 +329,46 @@ def test_check_references_rule_findings_surfaced(mock_scan, _cfg, _root) -> None
     assert result.exit_code == 1
     assert "ZZ-NOCLICKHERE" in result.stdout
     assert "REFERENCE ERRORS" in result.stdout
+
+
+# ---------------------------------------------------------------------------
+# init --plugin
+# ---------------------------------------------------------------------------
+
+
+def test_init_plugin_scaffold_creates_expected_files(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / ".git").mkdir()
+    monkeypatch.chdir(repo)
+
+    result = runner.invoke(app, ["init", "--plugin", "plugin-scaffold-demo"])
+    assert result.exit_code == 0
+
+    root = repo / "plugin-scaffold-demo"
+    assert (root / "pyproject.toml").is_file()
+    assert (root / "src" / "plugin_scaffold_demo" / "rules.py").is_file()
+    assert (root / "docs" / "index.md").is_file()
+
+    pyproject = (root / "pyproject.toml").read_text(encoding="utf-8")
+    assert '[project.entry-points."zenzic.rules"]' in pyproject
+    assert 'plugin-scaffold-demo = "plugin_scaffold_demo.rules:PluginScaffoldDemoRule"' in pyproject
+
+    rules_py = (root / "src" / "plugin_scaffold_demo" / "rules.py").read_text(encoding="utf-8")
+    assert "class PluginScaffoldDemoRule(BaseRule):" in rules_py
+
+
+def test_init_plugin_scaffold_existing_dir_requires_force(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / ".git").mkdir()
+    (repo / "plugin-scaffold-demo").mkdir()
+    monkeypatch.chdir(repo)
+
+    result = runner.invoke(app, ["init", "--plugin", "plugin-scaffold-demo"])
+    assert result.exit_code == 1
+    assert "already exists" in result.stdout

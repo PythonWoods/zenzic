@@ -214,9 +214,9 @@ flowchart TD
     SORT_SEQ["Sorted list[IntegrityReport]"]:::io
 
     FAN["Processo principale\npickle(config, engine)\n→ work_items"]:::node
-    W1["Worker 1\n_scan_single_file\n(page_A.md)"]:::worker
-    W2["Worker 2\n_scan_single_file\n(page_B.md)"]:::worker
-    WN["Worker N\n_scan_single_file\n(page_Z.md)"]:::worker
+    W1["Worker 1\nPhase 1: Anchor Extraction (Parallel)\nPhase 2: Rule Execution & Validation (Parallel)\n(page_A.md)"]:::worker
+    W2["Worker 2\nPhase 1: Anchor Extraction (Parallel)\nPhase 2: Rule Execution & Validation (Parallel)\n(page_B.md)"]:::worker
+    WN["Worker N\nPhase 1: Anchor Extraction (Parallel)\nPhase 2: Rule Execution & Validation (Parallel)\n(page_Z.md)"]:::worker
     MERGE["Merge ordinato\nper file_path"]:::node
     SORT_PAR["Sorted list[IntegrityReport]"]:::io
 
@@ -240,6 +240,14 @@ in un singolo pass O(N).
 Attivato quando `workers != 1` e il numero di file è pari o superiore a
 `ADAPTIVE_PARALLEL_THRESHOLD` (50). Ogni file viene inviato a un processo
 worker indipendente tramite `ProcessPoolExecutor`.
+
+Ogni worker segue due fasi interne esplicite:
+
+1. **Phase 1: Anchor Extraction (Parallel)** — costruzione dell'indice ancore per file.
+2. **Phase 2: Rule Execution & Validation (Parallel)** — esecuzione dei controlli
+    reference, Shield e regole sul contesto locale del file.
+
+Il processo principale esegue solo merge deterministico e reporting finale.
 
 **Architettura shared-nothing:** `config` e l'`AdaptiveRuleEngine` (incluse
 tutte le regole registrate) vengono serializzati tramite `pickle` prima di
