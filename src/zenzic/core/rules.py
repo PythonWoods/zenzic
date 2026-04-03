@@ -624,6 +624,21 @@ class VSMBrokenLinkRule(BaseRule):
                         context=raw_line,
                     )
                 )
+            elif route.status == "ORPHAN_BUT_EXISTING":
+                violations.append(
+                    Violation(
+                        file_path=file_path,
+                        line_no=lineno,
+                        code="Z002",
+                        message=(
+                            f"'{url}' resolves to '{target_url}' which exists on disk "
+                            f"but is not in the site navigation (ORPHAN_LINK). "
+                            "Readers cannot reach this page via the nav tree."
+                        ),
+                        level="warning",
+                        context=raw_line,
+                    )
+                )
             elif route.status not in ("REACHABLE",):
                 violations.append(
                     Violation(

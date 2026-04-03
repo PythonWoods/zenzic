@@ -20,6 +20,12 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **`zenzic.rules` public namespace** — stable import path for plugin authors:
+  `BaseRule`, `RuleFinding`, `CustomRule`, `Violation`, `Severity` (#13).
+- **`run_rule()` test helper** — single-call rule validation for plugin authors,
+  no engine setup required (#13).
+- **Z002 orphan-link warning** — `VSMBrokenLinkRule` now distinguishes between
+  broken links (Z001 error) and links to orphan pages (Z002 warning) (#6).
 - `zenzic init --plugin <name>` command now scaffolds a plugin package with:
   - `pyproject.toml` preconfigured for `zenzic.rules` entry-points
   - `src/<module>/rules.py` module-level `BaseRule` template
@@ -42,6 +48,10 @@ Versions follow [Semantic Versioning](https://semver.org/).
   - `Phase 2: Rule Execution & Validation (Parallel)`
 - Plugin SDK docs expanded with a "zero to plugin in 30 seconds" fast-track in
   `docs/developers/plugins.md` and `docs/it/developers/plugins.md`.
+- Plugin scaffold now imports from `zenzic.rules` (public namespace) instead of
+  `zenzic.core.rules` (internal) (#13).
+- Checks docs updated with Z001/Z002 violation code table in EN/IT (#6).
+- Custom Rules DSL IT docs completed with Performance and Pattern tips sections (#4).
 - CLI command references updated in EN/IT with `zenzic init --plugin` usage.
 
 ## [0.5.0a2] — 2026-04-03 — The Refined Sentinel: Lean Package & Unified Workflow

@@ -443,13 +443,15 @@ class TestVSMBrokenLinkRule:
         assert "missing" in violations[0].message
         assert "missing.md" in violations[0].context
 
-    # ── ORPHAN status → violation ─────────────────────────────────────────────
+    # ── ORPHAN status → Z002 warning ─────────────────────────────────────────
 
-    def test_orphan_link_emits_violation(self) -> None:
+    def test_orphan_link_emits_z002_warning(self) -> None:
         vsm = _make_vsm("/draft/", status="ORPHAN_BUT_EXISTING")
         violations = self._run("[Draft](draft.md)", vsm)
         assert len(violations) == 1
-        assert "UNREACHABLE_LINK" in violations[0].message
+        assert violations[0].code == "Z002"
+        assert violations[0].level == "warning"
+        assert "ORPHAN_LINK" in violations[0].message
 
     # ── External links are skipped ────────────────────────────────────────────
 
@@ -577,3 +579,42 @@ class TestAdaptiveRuleEngineTortureTest:
 
         assert findings == []
         assert elapsed < 0.5, f"run_vsm took {elapsed:.3f}s with {self._N}-node VSM — regression"
+
+
+# ─── Public namespace & run_rule helper ───────────────────────────────────────
+
+
+class TestPublicNamespace:
+    """Issue #13: zenzic.rules must be a stable public import path."""
+
+    def test_import_base_rule(self) -> None:
+        from zenzic.rules import BaseRule as PublicBaseRule
+
+        assert PublicBaseRule is BaseRule
+
+    def test_import_rule_finding(self) -> None:
+        from zenzic.rules import RuleFinding as PublicRuleFinding
+
+        assert PublicRuleFinding is RuleFinding
+
+    def test_import_custom_rule(self) -> None:
+        from zenzic.rules import CustomRule as PublicCustomRule
+
+        assert PublicCustomRule is CustomRule
+
+    def test_run_rule_helper(self) -> None:
+        from zenzic.rules import run_rule
+
+        rule = CustomRule(id="TEST-001", pattern=r"FIXME", message="Fix it.", severity="warning")
+        findings = run_rule(rule, "Line 1\nFIXME here\nLine 3")
+        assert len(findings) == 1
+        assert findings[0].rule_id == "TEST-001"
+        assert findings[0].severity == "warning"
+        assert findings[0].line_no == 2
+
+    def test_run_rule_no_findings(self) -> None:
+        from zenzic.rules import run_rule
+
+        rule = CustomRule(id="TEST-002", pattern=r"BANANA", message="No bananas.")
+        findings = run_rule(rule, "Clean content here.")
+        assert findings == []

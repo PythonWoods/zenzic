@@ -97,3 +97,22 @@ severity = "warning"
 [build_context]          # ← sempre per ultimo
 engine = "mkdocs"
 ```
+
+---
+
+## Performance
+
+**I pattern vengono compilati una volta sola** al caricamento della configurazione, non per ogni file. Non c'è penalità di performance nell'avere molte regole. Pattern regex non validi sollevano un `ConfigurationError` all'avvio con il pattern incriminato e il messaggio di errore della regex.
+
+---
+
+## Suggerimenti per i pattern
+
+| Obiettivo | Pattern |
+| :--- | :--- |
+| Corrispondenza case-insensitive | `(?i)\\bDRAFT\\b` |
+| Punto letterale (hostname) | `internal\\.corp\\.example\\.com` |
+| Corrispondenza ovunque sulla riga | `TODO` (non servono ancore — il matching è per riga) |
+| Escludere falsi positivi | Usa i word boundary `\\b` per evitare di matchare `TODOS` cercando `TODO` |
+
+Tutti i pattern vengono applicati con Python `re.search` — una corrispondenza ovunque sulla riga attiva il finding. Usa `^` e `$` solo quando devi vincolare all'inizio o alla fine della riga.

@@ -85,7 +85,7 @@ class NoDraftRule(BaseRule):
 # my_org_rules/rules.py
 import re
 from pathlib import Path
-from zenzic.core.rules import BaseRule, RuleFinding
+from zenzic.rules import BaseRule, RuleFinding
 
 
 class NoInternalHostnameRule(BaseRule):
@@ -236,6 +236,37 @@ class NoOrphanLinkRule(BaseRule):
 ```
 
 Vedi [`BaseRule`][api-baserule] nella reference API per l'interfaccia completa.
+
+---
+
+## Testare le regole
+
+Usa il test helper `run_rule` per validare una regola con una singola chiamata —
+nessuna configurazione dell'engine richiesta:
+
+```python
+from zenzic.rules import run_rule
+from my_org_rules.rules import NoInternalHostnameRule
+
+
+def test_hostname_interno_rilevato():
+    findings = run_rule(
+        NoInternalHostnameRule(),
+        "Visita internal.corp.example.com per i dettagli.",
+    )
+    assert len(findings) == 1
+    assert findings[0].rule_id == "MYORG-001"
+    assert findings[0].severity == "error"
+
+
+def test_contenuto_pulito_passa():
+    findings = run_rule(NoInternalHostnameRule(), "Tutto contenuto pubblico.")
+    assert findings == []
+```
+
+`run_rule` crea internamente un `AdaptiveRuleEngine`, esegue la regola e
+restituisce la lista dei finding. Accetta un argomento opzionale `file_path`
+per l'etichettatura (default: `test.md`).
 
 ---
 
