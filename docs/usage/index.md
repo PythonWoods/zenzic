@@ -101,27 +101,15 @@ The repository ships maintained fixtures that mirror the documented contracts:
 
     Standard dev-dependency pattern with a project-local virtual environment.
 
-### The `zenzic[docs]` extra — for rendering, not linting
+### Lean & Agnostic by Design
 
-Zenzic reads `mkdocs.yml` as plain YAML using its own `_PermissiveYamlLoader` (a
-`yaml.SafeLoader` subclass that silently ignores engine-specific tags like `!ENV`). It
-**does not import `mkdocs`, `mkdocs-material`, or any plugin package** to parse your
-configuration. PyYAML is a core dependency — no extra required.
+Zenzic performs a **static analysis** of your configuration files (`mkdocs.yml`, `zensical.toml`, `pyproject.toml`). It does **not** execute the build engine or its plugins.
 
-The `[docs]` extra (`mkdocs-material`, `mkdocstrings`, `mkdocs-minify-plugin`,
-`mkdocs-static-i18n`) is the build stack used to **render Zenzic's own documentation
-site**. It is a contributor dependency, not a user dependency:
-
-- **Linting your MkDocs project:** install `zenzic` only.
-- **Building Zenzic's documentation site locally:** install `zenzic[docs]`.
+This means you **do not need to install** MkDocs, Material for MkDocs, or any other build-related plugins in your linting environment. Zenzic remains lightweight and dependency-free, making it ideal for fast, isolated CI/CD pipelines.
 
 ```bash
 # Lint any MkDocs project — no extras needed
 uvx zenzic check all
-
-# Build Zenzic's own docs site (contributor workflow only)
-uv add --dev "zenzic[docs]"
-mkdocs serve
 ```
 
 !!! note "Third-party engine adapters"

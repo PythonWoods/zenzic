@@ -336,26 +336,12 @@ source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install zenzic
 ```
 
-### MkDocs rendering — `zenzic[docs]` extra
+### Lean & Agnostic by Design
 
-Zenzic's core is dependency-free: linting raw Markdown requires nothing beyond `zenzic`.
-The MkDocs stack is only needed to **render** your site, not to validate it.
+Zenzic performs a **static analysis** of your configuration files (`mkdocs.yml`, `zensical.toml`, `pyproject.toml`). It does **not** execute the build engine or its plugins.
 
-If you use MkDocs and also want the full build stack available:
+This means you **do not need to install** MkDocs, Material for MkDocs, or any other build-related plugins in your linting environment. Zenzic remains lightweight and dependency-free, making it ideal for fast, isolated CI/CD pipelines.
 
-```bash
-# uv
-uv add --dev "zenzic[docs]"
-
-# pip
-pip install "zenzic[docs]"
-```
-
-> **Note:**
-> All seven checks — including `check links --strict` and `check references` — work on raw Markdown
-> source files via a native Python parser and `httpx`. **No MkDocs or Zensical installation is required**
-> for `check`, `score`, or `diff`.
->
 > **Build artifacts:** If your documentation links to files generated at build time
 > (PDFs, ZIPs), add their glob patterns to `excluded_build_artifacts` in `zenzic.toml`
 > rather than pre-generating them. See the [First-Class Integrations](#first-class-integrations) section above.

@@ -26,6 +26,28 @@ This section covers everything you need to extend, adapt, or contribute to Zenzi
 
 ---
 
+## Interactive Workflow with Just
+
+Zenzic uses [`just`](https://github.com/casey/just) as its interactive command runner.
+`just` is the fast day-to-day layer; `nox` is the reproducible CI layer underneath.
+
+| Command | Description |
+|:--------|:------------|
+| `just sync` | Install / update all dependency groups (`uv sync --all-groups`) |
+| `just check` | **Self-lint — run Zenzic on its own documentation (strict)** |
+| `just test` | Run the test suite (delegates to `nox -s tests`) |
+| `just preflight` | Full CI-equivalent pipeline: lint, typecheck, tests, reuse, security |
+| `just build` | Build the documentation site (`mkdocs build --strict`) |
+| `just serve` | Start the live-reload documentation server |
+| `just deploy` | `preflight` + production build — local release check |
+| `just clean` | Remove generated artefacts (`site/`, `dist/`, caches, score file) |
+
+The Sentinel's self-linting duty — `just check` — is the first command to run after
+any documentation change. If Zenzic validates external projects, it must first pass
+its own checks.
+
+---
+
 ## Contributing
 
 Full contribution guidelines, code conventions, Core Laws, and the pre-PR checklist

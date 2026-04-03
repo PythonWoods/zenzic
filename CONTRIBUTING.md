@@ -18,10 +18,11 @@ data and quality process regardless of ecosystem churn.
 ```bash
 git clone git@github.com:PythonWoods/zenzic.git
 cd zenzic
-uv sync --group dev
+just sync
 nox -s dev
 ```
 
+`just sync` installs all dependency groups via `uv sync --all-groups`.
 `nox -s dev` installs pre-commit hooks and downloads the Lucide icon set into
 `overrides/.icons/lucide/` (required for `mkdocs serve` and `mkdocs build`).
 This directory is excluded from git — it is a generated build asset.
@@ -30,26 +31,27 @@ This directory is excluded from git — it is a generated build asset.
 
 ## Running tasks
 
-Quality checks and development tasks are driven by **just** (for speed) and **nox** (for formal CI sessions):
+Development tasks use two layers: **just** for interactive speed and **nox** for
+reproducible CI isolation. Use `just` day-to-day; use `nox` directly when you need
+the exact same environment as CI.
 
-| Session | Just Command | Nox Command | Description |
-|---|---|---|---|
-| `dev` | - | `nox -s dev` | install pre-commit hooks + download Lucide icons (run once after clone) |
-| `tests` | - | `nox -s tests` | pytest + branch coverage |
-| `lint` | `just lint` | `nox -s lint` | ruff linting + zenzic self-check |
-| `format` | - | `nox -s format` | ruff formatting |
-| `typecheck` | - | `nox -s typecheck` | mypy strict |
-| `reuse` | - | `nox -s reuse` | REUSE/SPDX compliance |
-| `security` | - | `nox -s security` | pip-audit CVE scan |
-| `docs` | `just dev` | `nox -s docs` | mkdocs build --strict |
-| `preflight` | `just deploy` | `nox -s preflight` | all of the above |
-| `screenshot` | - | `nox -s screenshot` | regenerate `docs/assets/screenshot.svg` |
-| `bump` | - | `nox -s bump -- patch` | bump version + commit + tag |
+| Task | `just` command | `nox` equivalent | Description |
+|:-----|:---------------|:-----------------|:------------|
+| Bootstrap | `just sync` | — | Install / update all dependency groups |
+| **Self-lint** | **`just check`** | — | **Run Zenzic on its own documentation (strict)** |
+| Test suite | `just test` | `nox -s tests` | pytest + branch coverage |
+| Full pipeline | `just preflight` | `nox -s preflight` | lint, typecheck, tests, reuse, security |
+| Docs build | `just build` | `nox -s docs` | mkdocs build --strict |
+| Docs serve | `just serve` | `nox -s docs_serve` | live-reload documentation server |
+| Release check | `just deploy` | — | preflight + production build |
+| Pre-commit setup | — | `nox -s dev` | install hooks + download Lucide icons (once after clone) |
+| Version bump | — | `nox -s bump -- patch` | bump version + commit + tag |
+| Screenshot | — | `nox -s screenshot` | regenerate `docs/assets/screenshot.svg` |
 
 Run the full pre-PR check with:
 
 ```bash
-just deploy
+just preflight
 ```
 
 > **Tip:** Before committing documentation updates, run `uvx zenzic clean assets` (or `uv run zenzic clean assets`) to automatically delete any old screenshots or images you are no longer using. This keeps the repository lean.
@@ -201,13 +203,13 @@ fetch the icons — after that, `mkdocs serve` works without additional steps.
 To preview documentation locally:
 
 ```bash
-mkdocs serve
+just serve
 ```
 
 To verify the production build:
 
 ```bash
-nox -s docs
+just build
 ```
 
 ---

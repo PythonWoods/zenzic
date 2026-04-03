@@ -191,13 +191,10 @@ end users and measurably faster in CI.
 
 ### Lean core install
 
-`pip install zenzic` now installs only the five runtime dependencies (`typer`, `rich`,
-`pyyaml`, `pydantic`, `httpx`). The entire MkDocs stack — previously a transitive side-effect
-of the monolithic dev group — is no longer pulled in unless explicitly requested:
-
-```bash
-pip install "zenzic[docs]"   # MkDocs Material + mkdocstrings + plugins
-```
+`pip install zenzic` installs only the five runtime dependencies (`typer`, `rich`,
+`pyyaml`, `pydantic`, `httpx`). The MkDocs build stack is not a dependency of `zenzic` —
+it is a contributor tool, managed via the `docs` [PEP 735](https://peps.python.org/pep-0735/)
+dependency group (`uv sync --group docs`).
 
 For the vast majority of users (Hugo sites, Zensical projects, plain Markdown wikis, CI
 pipelines) this means a ~60% smaller install and proportionally faster cold-start times on

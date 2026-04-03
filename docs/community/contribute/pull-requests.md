@@ -46,8 +46,8 @@ For a lower-level setup or if you do not have `nox` installed yet, install with 
     cd zenzic
     python -m venv .venv
     source .venv/bin/activate   # Windows: .venv\Scripts\activate
-    pip install -e ".[docs]"
-    pip install pytest pytest-cov ruff mypy pre-commit reuse
+    pip install -e .
+    pip install pytest pytest-cov ruff mypy pre-commit reuse mkdocs-material mkdocstrings[python] mkdocs-minify-plugin mkdocs-static-i18n
     ```
 
 ### Dependency groups
