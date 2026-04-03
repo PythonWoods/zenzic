@@ -109,6 +109,27 @@ BROKEN LINKS (3):
   api.md:88: external link 'https://api.example.com/v2' returned HTTP 404
 ```
 
+### Codici di violazione
+
+Il controllo link utilizza la Virtual Site Map (VSM) per distinguere due categorie di fallimento:
+
+| Codice | Severità | Significato |
+| :--- | :---: | :--- |
+| `Z001` | error | __Link rotto__ — il target non esiste nella VSM. Il file manca o l'URL è errato. |
+| `Z002` | warning | __Link a orfano__ — il target esiste su disco ma non è nella navigazione del sito. I lettori non possono raggiungere la pagina tramite il nav. |
+
+`Z001` blocca sempre la pipeline (exit code 1). `Z002` è un warning — appare nel report ma non fa fallire la CI a meno che non venga passato `--strict`. Questa distinzione permette ai team di intercettare subito le rotture reali, gestendo l'igiene della navigazione come preoccupazione separata.
+
+__Perché i link ad orfani contano:__ un link a una pagina orfana _funziona_ a livello di filesystem — il file esiste e il motore di build potrebbe servirlo. Ma la pagina è invisibile nel nav tree, creando un'esperienza utente frammentata. I lettori che seguono il link atterrano su una pagina senza contesto nella sidebar e senza modo di navigare indietro. `Z002` intercetta questo anti-pattern.
+
+__Output di esempio con Z002:__
+
+```text
+WARNINGS (1):
+  [Z002] guide/tips.md:18 — 'drafts/experiment.md' esiste su disco ma non è nella navigazione del sito (ORPHAN_LINK).
+    │ See [experiment](drafts/experiment.md) for details.
+```
+
 ---
 
 ## Orfani

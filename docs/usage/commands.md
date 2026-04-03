@@ -50,6 +50,21 @@ You can also set `exit_zero = true` in `zenzic.toml` to make it the permanent de
 
 ---
 
+## Initialization
+
+```bash
+zenzic init                               # Scaffold zenzic.toml in the current project
+zenzic init --force                       # Overwrite existing zenzic.toml
+zenzic init --plugin plugin-scaffold-demo # Scaffold a plugin SDK package
+```
+
+`zenzic init --plugin <name>` generates a Python package skeleton with a ready
+`zenzic.rules` entry-point and a `BaseRule` template (`src/<module>/rules.py`).
+It also includes a minimal docs fixture so the generated project can immediately
+run `zenzic check all` as a smoke test.
+
+---
+
 ## Autofix & Cleanup
 
 ```bash

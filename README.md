@@ -11,15 +11,15 @@ SPDX-License-Identifier: Apache-2.0
 </p>
 
 <p align="center">
-  <a href="https://pypi.org/project/zenzic/"><img src="https://img.shields.io/pypi/v/zenzic?include_prereleases&color=38bdf8&style=flat-square" alt="PyPI"></a>
-  <a href="https://pypi.org/project/zenzic/"><img src="https://img.shields.io/pypi/pyversions/zenzic?color=10b981&style=flat-square" alt="Python"></a>
+  <a href="https://pypi.org/project/zenzic/"><img src="https://img.shields.io/pypi/v/zenzic?include_prereleases&label=PyPI&color=38bdf8&style=flat-square&cacheBuster=v050" alt="PyPI Version"></a>
+  <a href="https://pypi.org/project/zenzic/"><img src="https://img.shields.io/pypi/pyversions/zenzic?color=10b981&style=flat-square" alt="Python Versions"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-0d9488?style=flat-square" alt="License"></a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/PythonWoods/zenzic"><img src="https://img.shields.io/badge/🛡️_zenzic_shield-passing-4f46e5?style=flat" alt="Zenzic Shield"></a>
-  <a href="https://github.com/PythonWoods/zenzic"><img src="https://img.shields.io/badge/🛡️_zenzic-100%2F100-4f46e5?style=flat" alt="Zenzic Score"></a>
-  <a href="https://zensical.org/"><img src="https://img.shields.io/badge/docs_by-Zensical-000000?style=flat" alt="Powered by Zensical"></a>
+  <a href="https://github.com/PythonWoods/zenzic"><img src="https://img.shields.io/badge/🛡️_zenzic_shield-passing-4f46e5?style=flat-square" alt="Zenzic Shield"></a>
+  <a href="https://github.com/PythonWoods/zenzic"><img src="https://img.shields.io/badge/🛡️_zenzic-100%2F100-4f46e5?style=flat-square" alt="Zenzic Score"></a>
+  <a href="https://zensical.org/"><img src="https://img.shields.io/badge/docs_by-Zensical-4f46e5?style=flat-square" alt="Powered by Zensical"></a>
 </p>
 
 <p align="center">

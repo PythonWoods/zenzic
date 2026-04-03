@@ -41,6 +41,11 @@ _RE_REF_DEF = re.compile(r"^ {0,3}\[([^\]]+)\]:\s+(\S+)")
 # Negative lookbehind (?<!!) prevents matching image reference links ![alt][id].
 _RE_REF_LINK = re.compile(r"(?<!!)(\[([^\]]*)\]\[([^\]]*)\])")
 
+# Shortcut reference link: [text] NOT followed by [ ( or : (CommonMark §4.7).
+# Negative lookbehinds: (?<!!) avoids image refs; (?<!\]) avoids matching the
+# second bracket pair of full/collapsed refs [text][id].
+_RE_REF_SHORTCUT = re.compile(r"(?<![!\]])\[([^\]]+)\](?![\[(:])")
+
 # Inline image: ![alt](url)
 _RE_IMAGE_INLINE = re.compile(r"!\[([^\]]*)\]\(([^)]+)\)")
 
@@ -609,6 +614,11 @@ class ReferenceScanner:
                             is_warning=False,
                         )
                     )
+
+            # Shortcut reference links: [text] (CommonMark §4.7)
+            for m in _RE_REF_SHORTCUT.finditer(clean):
+                ref_id = m.group(1)
+                self.ref_map.resolve(ref_id)  # mark as used if defined
 
         return findings
 

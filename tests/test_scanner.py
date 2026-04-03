@@ -263,6 +263,46 @@ def test_find_orphans_respects_mkdocs_route_classification(tmp_path: Path) -> No
     assert "guide/orphan.md" in orphan_paths
 
 
+def test_unlisted_file_detection(tmp_path: Path) -> None:
+    """A file on disk but absent from nav must be reported as an orphan.
+
+    Regression guard: mkdocs.yml can include Python-tagged YAML values such as
+    !!python/name in markdown_extensions. These must not cause nav parsing to
+    collapse to an empty dict, otherwise every file is incorrectly marked
+    REACHABLE.
+    """
+    repo = tmp_path / "repo"
+    docs = repo / "docs"
+    docs.mkdir(parents=True)
+
+    (repo / "mkdocs.yml").write_text(
+        "\n".join(
+            [
+                "site_name: Test Docs",
+                "nav:",
+                "  - Home: index.md",
+                "markdown_extensions:",
+                "  - pymdownx.superfences:",
+                "      custom_fences:",
+                "        - name: mermaid",
+                "          class: mermaid",
+                "          format: !!python/name:pymdownx.superfences.fence_code_format",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    (docs / "index.md").write_text("# Home\n", encoding="utf-8")
+    (docs / "spy.md").write_text("# Spy\n", encoding="utf-8")
+
+    orphans = find_orphans(repo)
+    orphan_paths = {p.as_posix() for p in orphans}
+
+    assert "spy.md" in orphan_paths
+    assert "index.md" not in orphan_paths
+
+
 def test_extract_i18n_locale_patterns_suffix_mode() -> None:
     doc_config = {
         "plugins": [

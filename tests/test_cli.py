@@ -223,7 +223,16 @@ def test_cli_check_all_json_empty(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
 
 @patch("zenzic.cli.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli.ZenzicConfig.load", return_value=(_CFG, True))
-@patch("zenzic.cli.validate_links", return_value=["index.md: broken link"])
+@patch(
+    "zenzic.cli.validate_links_structured",
+    return_value=[
+        LinkError(
+            file_path=_ROOT / "docs" / "index.md",
+            line_no=1,
+            message="index.md:1: broken link",
+        )
+    ],
+)
 @patch("zenzic.cli.find_orphans", return_value=[])
 @patch("zenzic.cli.validate_snippets", return_value=[])
 @patch("zenzic.cli.find_placeholders", return_value=[])
@@ -246,7 +255,7 @@ def test_check_all_json_with_errors(
 
 @patch("zenzic.cli.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli.ZenzicConfig.load", return_value=(_CFG, True))
-@patch("zenzic.cli.validate_links", return_value=[])
+@patch("zenzic.cli.validate_links_structured", return_value=[])
 @patch("zenzic.cli.find_orphans", return_value=[])
 @patch("zenzic.cli.validate_snippets", return_value=[])
 @patch("zenzic.cli.find_placeholders", return_value=[])
@@ -256,12 +265,21 @@ def test_check_all_json_with_errors(
 def test_check_all_text_ok(_refs, _nav, _assets, _ph, _snip, _orphans, _links, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "all"])
     assert result.exit_code == 0
-    assert "SUCCESS" in result.stdout
+    assert "All checks passed" in result.stdout or "SUCCESS" in result.stdout
 
 
 @patch("zenzic.cli.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli.ZenzicConfig.load", return_value=(_CFG, True))
-@patch("zenzic.cli.validate_links", return_value=["index.md: broken link"])
+@patch(
+    "zenzic.cli.validate_links_structured",
+    return_value=[
+        LinkError(
+            file_path=_ROOT / "docs" / "index.md",
+            line_no=1,
+            message="index.md:1: broken link",
+        )
+    ],
+)
 @patch("zenzic.cli.find_orphans", return_value=[Path("orphan.md")])
 @patch(
     "zenzic.cli.validate_snippets",
@@ -282,11 +300,209 @@ def test_check_all_text_with_all_errors(
     result = runner.invoke(app, ["check", "all"])
     assert result.exit_code == 1
     assert "FAILED" in result.stdout
-    assert "BROKEN LINKS" in result.stdout
-    assert "ORPHANS" in result.stdout
-    assert "INVALID SNIPPETS" in result.stdout
-    assert "PLACEHOLDERS" in result.stdout
-    assert "UNUSED ASSETS" in result.stdout
+    assert "error" in result.stdout.lower()
+    assert "orphan.md" in result.stdout
+    assert "SyntaxError" in result.stdout
+    assert "unused.png" in result.stdout or "ASSET" in result.stdout
+
+
+# ---------------------------------------------------------------------------
+# check all — quiet mode
+# ---------------------------------------------------------------------------
+
+
+@patch("zenzic.cli.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli.ZenzicConfig.load", return_value=(_CFG, True))
+@patch("zenzic.cli.validate_links_structured", return_value=[])
+@patch("zenzic.cli.find_orphans", return_value=[])
+@patch("zenzic.cli.validate_snippets", return_value=[])
+@patch("zenzic.cli.find_placeholders", return_value=[])
+@patch("zenzic.cli.find_unused_assets", return_value=[])
+@patch("zenzic.cli.check_nav_contract", return_value=[])
+@patch("zenzic.cli.scan_docs_references", return_value=([], []))
+def test_check_all_quiet_ok(
+    _refs, _nav, _assets, _ph, _snip, _orphans, _links, _cfg, _root
+) -> None:
+    result = runner.invoke(app, ["check", "all", "--quiet"])
+    assert result.exit_code == 0
+    # Quiet mode produces no output when clean
+    assert "zenzic" not in result.stdout.lower() or result.stdout.strip() == ""
+
+
+@patch("zenzic.cli.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli.ZenzicConfig.load", return_value=(_CFG, True))
+@patch(
+    "zenzic.cli.validate_links_structured",
+    return_value=[
+        LinkError(
+            file_path=_ROOT / "docs" / "index.md",
+            line_no=1,
+            message="broken link",
+        )
+    ],
+)
+@patch("zenzic.cli.find_orphans", return_value=[])
+@patch("zenzic.cli.validate_snippets", return_value=[])
+@patch("zenzic.cli.find_placeholders", return_value=[])
+@patch("zenzic.cli.find_unused_assets", return_value=[])
+@patch("zenzic.cli.check_nav_contract", return_value=[])
+@patch("zenzic.cli.scan_docs_references", return_value=([], []))
+def test_check_all_quiet_with_errors(
+    _refs, _nav, _assets, _ph, _snip, _orphans, _links, _cfg, _root
+) -> None:
+    result = runner.invoke(app, ["check", "all", "--quiet"])
+    assert result.exit_code == 1
+    assert "error" in result.stdout.lower()
+
+
+# ---------------------------------------------------------------------------
+# check all — strict gate on warnings
+# ---------------------------------------------------------------------------
+
+
+@patch("zenzic.cli.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli.ZenzicConfig.load", return_value=(_CFG, True))
+@patch("zenzic.cli.validate_links_structured", return_value=[])
+@patch("zenzic.cli.find_orphans", return_value=[])
+@patch("zenzic.cli.validate_snippets", return_value=[])
+@patch("zenzic.cli.find_placeholders", return_value=[])
+@patch("zenzic.cli.find_unused_assets", return_value=[])
+@patch("zenzic.cli.check_nav_contract", return_value=[])
+@patch("zenzic.cli.scan_docs_references")
+def test_check_all_strict_fails_on_warnings_only(
+    mock_refs, _nav, _assets, _ph, _snip, _orphans, _links, _cfg, _root
+) -> None:
+    """--strict must exit 1 even when only warnings (no hard errors) exist."""
+    from zenzic.models.references import IntegrityReport, ReferenceFinding
+
+    finding = ReferenceFinding(
+        file_path=Path("docs/guide.md"),
+        line_no=10,
+        issue="DEAD_DEF",
+        detail="[unused]: never referenced",
+        is_warning=True,
+    )
+    report = IntegrityReport(file_path=Path("docs/guide.md"), score=90.0)
+    report.findings = [finding]
+    mock_refs.return_value = ([report], [])
+
+    result = runner.invoke(app, ["check", "all", "--strict"])
+    assert result.exit_code == 1
+
+
+@patch("zenzic.cli.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli.ZenzicConfig.load", return_value=(_CFG, True))
+@patch("zenzic.cli.validate_links_structured", return_value=[])
+@patch("zenzic.cli.find_orphans", return_value=[])
+@patch("zenzic.cli.validate_snippets", return_value=[])
+@patch("zenzic.cli.find_placeholders", return_value=[])
+@patch("zenzic.cli.find_unused_assets", return_value=[])
+@patch("zenzic.cli.check_nav_contract", return_value=[])
+@patch("zenzic.cli.scan_docs_references")
+def test_check_all_no_strict_passes_on_warnings_only(
+    mock_refs, _nav, _assets, _ph, _snip, _orphans, _links, _cfg, _root
+) -> None:
+    """Without --strict, warnings alone must NOT trigger exit 1."""
+    from zenzic.models.references import IntegrityReport, ReferenceFinding
+
+    finding = ReferenceFinding(
+        file_path=Path("docs/guide.md"),
+        line_no=10,
+        issue="DEAD_DEF",
+        detail="[unused]: never referenced",
+        is_warning=True,
+    )
+    report = IntegrityReport(file_path=Path("docs/guide.md"), score=90.0)
+    report.findings = [finding]
+    mock_refs.return_value = ([report], [])
+
+    result = runner.invoke(app, ["check", "all"])
+    assert result.exit_code == 0
+
+
+# ---------------------------------------------------------------------------
+# SentinelReporter unit tests
+# ---------------------------------------------------------------------------
+
+
+class TestSentinelReporter:
+    """Unit tests for the Sentinel Report Engine."""
+
+    def test_render_no_findings(self) -> None:
+        from io import StringIO
+
+        from rich.console import Console
+
+        from zenzic.core.reporter import SentinelReporter
+
+        buf = StringIO()
+        con = Console(file=buf, highlight=False, no_color=True)
+        reporter = SentinelReporter(con, Path("/fake/docs"))
+        errors, warnings = reporter.render([], version="0.5.0a3", elapsed=1.0, file_count=10)
+        assert errors == 0
+        assert warnings == 0
+        output = buf.getvalue()
+        assert "zenzic" in output
+        assert "All checks passed" in output
+
+    def test_render_grouped_findings(self) -> None:
+        from io import StringIO
+
+        from rich.console import Console
+
+        from zenzic.core.reporter import Finding, SentinelReporter
+
+        findings = [
+            Finding("guide/index.md", 10, "LINK_ERROR", "error", "broken link"),
+            Finding("guide/index.md", 20, "SNIPPET", "error", "syntax error"),
+            Finding("about.md", 5, "ORPHAN", "warning", "not in nav"),
+        ]
+        buf = StringIO()
+        con = Console(file=buf, highlight=False, no_color=True)
+        reporter = SentinelReporter(con, Path("/fake/docs"))
+        errors, warnings = reporter.render(findings, version="0.5.0a3", elapsed=0.5, file_count=5)
+        assert errors == 2
+        assert warnings == 1
+        output = buf.getvalue()
+        assert "guide/index.md" in output
+        assert "about.md" in output
+        assert "2 errors" in output
+        assert "1 warning" in output
+
+    def test_render_quiet_no_findings(self) -> None:
+        from io import StringIO
+
+        from rich.console import Console
+
+        from zenzic.core.reporter import SentinelReporter
+
+        buf = StringIO()
+        con = Console(file=buf, highlight=False, no_color=True)
+        reporter = SentinelReporter(con, Path("/fake/docs"))
+        errors, warnings = reporter.render_quiet([])
+        assert errors == 0
+        assert warnings == 0
+        assert buf.getvalue().strip() == ""
+
+    def test_render_quiet_with_findings(self) -> None:
+        from io import StringIO
+
+        from rich.console import Console
+
+        from zenzic.core.reporter import Finding, SentinelReporter
+
+        findings = [
+            Finding("x.md", 1, "E001", "error", "bad"),
+            Finding("y.md", 2, "W001", "warning", "meh"),
+        ]
+        buf = StringIO()
+        con = Console(file=buf, highlight=False, no_color=True)
+        reporter = SentinelReporter(con, Path("/fake/docs"))
+        errors, warnings = reporter.render_quiet(findings)
+        assert errors == 1
+        assert warnings == 1
+        assert "1 error" in buf.getvalue()
+        assert "1 warning" in buf.getvalue()
 
 
 # ---------------------------------------------------------------------------
@@ -329,3 +545,46 @@ def test_check_references_rule_findings_surfaced(mock_scan, _cfg, _root) -> None
     assert result.exit_code == 1
     assert "ZZ-NOCLICKHERE" in result.stdout
     assert "REFERENCE ERRORS" in result.stdout
+
+
+# ---------------------------------------------------------------------------
+# init --plugin
+# ---------------------------------------------------------------------------
+
+
+def test_init_plugin_scaffold_creates_expected_files(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / ".git").mkdir()
+    monkeypatch.chdir(repo)
+
+    result = runner.invoke(app, ["init", "--plugin", "plugin-scaffold-demo"])
+    assert result.exit_code == 0
+
+    root = repo / "plugin-scaffold-demo"
+    assert (root / "pyproject.toml").is_file()
+    assert (root / "src" / "plugin_scaffold_demo" / "rules.py").is_file()
+    assert (root / "docs" / "index.md").is_file()
+
+    pyproject = (root / "pyproject.toml").read_text(encoding="utf-8")
+    assert '[project.entry-points."zenzic.rules"]' in pyproject
+    assert 'plugin-scaffold-demo = "plugin_scaffold_demo.rules:PluginScaffoldDemoRule"' in pyproject
+
+    rules_py = (root / "src" / "plugin_scaffold_demo" / "rules.py").read_text(encoding="utf-8")
+    assert "class PluginScaffoldDemoRule(BaseRule):" in rules_py
+
+
+def test_init_plugin_scaffold_existing_dir_requires_force(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / ".git").mkdir()
+    (repo / "plugin-scaffold-demo").mkdir()
+    monkeypatch.chdir(repo)
+
+    result = runner.invoke(app, ["init", "--plugin", "plugin-scaffold-demo"])
+    assert result.exit_code == 1
+    assert "already exists" in result.stdout

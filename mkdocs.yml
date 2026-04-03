@@ -38,7 +38,6 @@ theme:
     - content.code.copy
     - navigation.tabs
     - navigation.tabs.sticky
-    - navigation.header.version
     - navigation.indexes
     - navigation.path
     - navigation.top
@@ -66,7 +65,7 @@ plugins:
   - i18n:
       docs_structure: folder
       fallback_to_default: true
-      reconfigure_material: true
+      reconfigure_material: false
       reconfigure_search: true
       languages:
         - locale: en
@@ -144,7 +143,7 @@ extra_css:
 extra:
   build_date: !ENV [BUILD_DATE, "dev"]
   generator: false
-  version: "0.5.0a2"
+  version: "0.5.0a3"
   alternate:
     - name: English
       link: /
@@ -187,6 +186,7 @@ nav:
           - Architecture: architecture.md
           - API Reference: reference/api.md
           - Writing an Adapter: developers/writing-an-adapter.md
+          - Writing Plugin Rules: developers/plugins.md
           - Example Projects: developers/examples.md
       - Community:
           - Get Involved: community/index.md

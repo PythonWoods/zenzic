@@ -111,6 +111,10 @@ def get_adapter(
     if adapter_class is None:
         return VanillaAdapter()
 
+    # VanillaAdapter is a no-op stub with no constructor arguments.
+    if adapter_class is VanillaAdapter:
+        return VanillaAdapter()
+
     # Prefer the richer from_repo constructor when available.
     if hasattr(adapter_class, "from_repo"):
         adapter = adapter_class.from_repo(context, docs_root, repo_root)

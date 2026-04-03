@@ -13,3 +13,10 @@
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:image" content="{{ 'assets/social/social-card.png' | url }}">
 {% endblock %}
+
+{%- if config.extra.version %}
+{% block scripts %}
+  {{ super() }}
+  <script>!function(){var v="{{ config.extra.version }}";new MutationObserver(function(m,o){var f=document.querySelector(".md-source__facts");if(f&&!f.querySelector(".md-source__fact--version")){var li=document.createElement("li");li.className="md-source__fact md-source__fact--version";li.textContent=v;f.prepend(li);o.disconnect()}}).observe(document.body,{childList:!0,subtree:!0})}()</script>
+{% endblock %}
+{%- endif %}

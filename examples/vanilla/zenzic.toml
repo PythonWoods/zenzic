@@ -12,11 +12,13 @@
 #
 # Target: zenzic check all → SUCCESS
 
-engine   = "vanilla"
 docs_dir = "docs"
 
 # Enforce a minimum quality floor.
 fail_under = 80
+
+[build_context]
+engine = "vanilla"
 
 # Project-specific lint rule: no inline HTML in docs.
 [[custom_rules]]

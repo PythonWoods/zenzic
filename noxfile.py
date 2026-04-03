@@ -184,7 +184,7 @@ def preflight(session: nox.Session) -> None:
     session.run("reuse", "lint")
     _download_lucide_icons()
     _build_brand_kit_zip()
-    session.run("mkdocs", "build", "--strict")
+    session.run("mkdocs", "build", "--strict", env={"NO_MKDOCS_2_WARNING": "true"})
     session.run("zenzic", "check", "all", "--strict")
 
 

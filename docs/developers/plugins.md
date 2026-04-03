@@ -81,7 +81,7 @@ class NoDraftRule(BaseRule):
 # my_org_rules/rules.py
 import re
 from pathlib import Path
-from zenzic.core.rules import BaseRule, RuleFinding
+from zenzic.rules import BaseRule, RuleFinding
 
 
 class NoInternalHostnameRule(BaseRule):
@@ -142,6 +142,46 @@ zenzic plugins list
 
 ---
 
+## Fast-Track: from zero to plugin in 30 seconds
+
+Use the scaffold command to generate a ready-to-edit plugin package:
+
+```bash
+zenzic init --plugin plugin-scaffold-demo
+```
+
+Generated structure:
+
+```text
+plugin-scaffold-demo/
+    pyproject.toml
+    README.md
+    zenzic.toml
+    docs/
+        index.md
+    src/
+        plugin_scaffold_demo/
+            __init__.py
+            rules.py
+```
+
+The scaffold includes:
+
+- a pre-configured `zenzic.rules` entry-point in `pyproject.toml`
+- a module-level `BaseRule` class template in `rules.py`
+- a minimal docs fixture so `zenzic check all` passes immediately
+
+Quick verification:
+
+```bash
+cd plugin-scaffold-demo
+uv pip install -e .
+zenzic plugins list
+zenzic check all
+```
+
+---
+
 ## Enabling plugins
 
 Core rules (registered under `zenzic.rules` by Zenzic itself) are always
@@ -190,6 +230,37 @@ class NoOrphanLinkRule(BaseRule):
 ```
 
 See [`BaseRule`][api-baserule] in the API reference for the complete interface.
+
+---
+
+## Testing your rules
+
+Use the `run_rule` test helper to validate a rule in a single call — no engine
+setup required:
+
+```python
+from zenzic.rules import run_rule
+from my_org_rules.rules import NoInternalHostnameRule
+
+
+def test_internal_hostname_detected():
+    findings = run_rule(
+        NoInternalHostnameRule(),
+        "Visit internal.corp.example.com for details.",
+    )
+    assert len(findings) == 1
+    assert findings[0].rule_id == "MYORG-001"
+    assert findings[0].severity == "error"
+
+
+def test_clean_content_passes():
+    findings = run_rule(NoInternalHostnameRule(), "All public content here.")
+    assert findings == []
+```
+
+`run_rule` creates an `AdaptiveRuleEngine` internally, runs the rule, and
+returns the findings list.  It accepts an optional `file_path` keyword argument
+for labelling (defaults to `test.md`).
 
 ---
 

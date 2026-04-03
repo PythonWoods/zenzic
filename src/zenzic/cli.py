@@ -8,8 +8,10 @@ import errno
 import functools
 import http.server
 import json
+import re
 import shutil
 import socket
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -18,6 +20,7 @@ from rich.console import Console
 from rich.panel import Panel
 
 from zenzic.core.adapters import list_adapter_engines
+from zenzic.core.reporter import Finding, SentinelReporter
 from zenzic.core.scanner import (
     PlaceholderFinding,
     find_orphans,
@@ -36,6 +39,7 @@ from zenzic.core.validator import (
     validate_snippets,
 )
 from zenzic.models.config import ZenzicConfig
+from zenzic.models.references import IntegrityReport
 
 
 check_app = typer.Typer(
@@ -384,17 +388,18 @@ def check_placeholders() -> None:
 
 @dataclass
 class _AllCheckResults:
-    link_errors: list[str]
+    link_errors: list[LinkError]
     orphans: list[Path]
     snippet_errors: list[SnippetError]
     placeholders: list[PlaceholderFinding]
     unused_assets: list[Path]
     nav_contract_errors: list[str]
-    reference_errors: list[str]
+    reference_reports: list[IntegrityReport]
     security_events: int
 
     @property
     def failed(self) -> bool:
+        ref_errors = any(r.has_errors for r in self.reference_reports)
         return bool(
             self.link_errors
             or self.orphans
@@ -402,7 +407,7 @@ class _AllCheckResults:
             or self.placeholders
             or self.unused_assets
             or self.nav_contract_errors
-            or self.reference_errors
+            or ref_errors
             or self.security_events
         )
 
@@ -414,31 +419,132 @@ def _collect_all_results(
 ) -> _AllCheckResults:
     """Run all seven checks and return results as a typed container."""
     ref_reports, _ = scan_docs_references(repo_root, config, validate_links=False)
-    docs_root = repo_root / config.docs_dir
-    reference_errors: list[str] = []
-    security_events = 0
-    for report in ref_reports:
-        for _sf in report.security_findings:
-            security_events += 1
-        for finding in report.findings:
-            if not finding.is_warning:
-                try:
-                    rel = report.file_path.relative_to(docs_root)
-                except ValueError:
-                    rel = report.file_path
-                reference_errors.append(
-                    f"{rel}:{finding.line_no} [{finding.issue}] — {finding.detail}"
-                )
+    security_events = sum(len(r.security_findings) for r in ref_reports)
     return _AllCheckResults(
-        link_errors=validate_links(repo_root, strict=strict),
+        link_errors=validate_links_structured(repo_root, strict=strict),
         orphans=find_orphans(repo_root, config),
         snippet_errors=validate_snippets(repo_root, config),
         placeholders=find_placeholders(repo_root, config),
         unused_assets=find_unused_assets(repo_root, config),
         nav_contract_errors=check_nav_contract(repo_root),
-        reference_errors=reference_errors,
+        reference_reports=ref_reports,
         security_events=security_events,
     )
+
+
+def _to_findings(results: _AllCheckResults, docs_root: Path) -> list[Finding]:
+    """Convert all result types into a flat list of :class:`Finding`."""
+    findings: list[Finding] = []
+
+    def _rel(path: Path) -> str:
+        try:
+            return str(path.relative_to(docs_root))
+        except ValueError:
+            return str(path)
+
+    for err in results.link_errors:
+        findings.append(
+            Finding(
+                rel_path=_rel(err.file_path),
+                line_no=err.line_no,
+                code=err.error_type,
+                severity="error",
+                message=err.message,
+                source_line=err.source_line,
+            )
+        )
+
+    for path in results.orphans:
+        findings.append(
+            Finding(
+                rel_path=str(path),
+                line_no=0,
+                code="ORPHAN",
+                severity="warning",
+                message="Physical file not listed in navigation.",
+            )
+        )
+
+    for s_err in results.snippet_errors:
+        findings.append(
+            Finding(
+                rel_path=_rel(s_err.file_path),
+                line_no=s_err.line_no,
+                code="SNIPPET",
+                severity="error",
+                message=s_err.message,
+            )
+        )
+
+    for pf in results.placeholders:
+        findings.append(
+            Finding(
+                rel_path=str(pf.file_path),
+                line_no=pf.line_no,
+                code=pf.issue,
+                severity="warning",
+                message=pf.detail,
+            )
+        )
+
+    for path in results.unused_assets:
+        findings.append(
+            Finding(
+                rel_path=str(path),
+                line_no=0,
+                code="ASSET",
+                severity="warning",
+                message="File not referenced in any documentation page.",
+            )
+        )
+
+    for msg in results.nav_contract_errors:
+        findings.append(
+            Finding(
+                rel_path="(nav)",
+                line_no=0,
+                code="NAV",
+                severity="error",
+                message=msg,
+            )
+        )
+
+    for report in results.reference_reports:
+        rel = _rel(report.file_path)
+        # Pre-load source lines for snippet context
+        _lines: list[str] = []
+        if report.file_path.is_file():
+            try:
+                _lines = report.file_path.read_text(encoding="utf-8").splitlines()
+            except OSError:
+                pass
+        for ref_f in report.findings:
+            src = ""
+            if _lines and 0 < ref_f.line_no <= len(_lines):
+                src = _lines[ref_f.line_no - 1].strip()
+            findings.append(
+                Finding(
+                    rel_path=rel,
+                    line_no=ref_f.line_no,
+                    code=ref_f.issue,
+                    severity="warning" if ref_f.is_warning else "error",
+                    message=ref_f.detail,
+                    source_line=src,
+                )
+            )
+        for rule_f in report.rule_findings:
+            findings.append(
+                Finding(
+                    rel_path=rel,
+                    line_no=rule_f.line_no,
+                    code=rule_f.rule_id,
+                    severity=rule_f.severity,
+                    message=rule_f.message,
+                    source_line=rule_f.matched_line,
+                )
+            )
+
+    return findings
 
 
 @check_app.command(name="all")
@@ -449,6 +555,9 @@ def check_all(
     output_format: str = typer.Option("text", "--format", help="Output format: text or json."),
     exit_zero: bool | None = typer.Option(
         None, "--exit-zero", help="Always exit 0; report issues without failing."
+    ),
+    quiet: bool = typer.Option(
+        False, "--quiet", "-q", help="Minimal one-line output for pre-commit hooks."
     ),
     engine: str | None = typer.Option(
         None,
@@ -461,16 +570,38 @@ def check_all(
     """Run all checks: links, orphans, snippets, placeholders, assets, references."""
     repo_root = find_repo_root()
     config, loaded_from_file = ZenzicConfig.load(repo_root)
-    if not loaded_from_file:
+    if not loaded_from_file and not quiet:
         _print_no_config_hint()
     config = _apply_engine_override(config, engine)
     effective_strict = strict if strict is not None else config.strict
     effective_exit_zero = exit_zero if exit_zero is not None else config.exit_zero
-    results = _collect_all_results(repo_root, config, strict=effective_strict)
 
+    t0 = time.monotonic()
+    results = _collect_all_results(repo_root, config, strict=effective_strict)
+    elapsed = time.monotonic() - t0
+
+    # ── Security hard-stop (exit code 2) ──────────────────────────────────────
+    if results.security_events:
+        if not quiet:
+            console.print(
+                f"\n[bold red]SECURITY CRITICAL:[/] {results.security_events} "
+                "credential(s) detected — rotate immediately."
+            )
+        raise typer.Exit(2)
+
+    # ── JSON format ───────────────────────────────────────────────────────────
     if output_format == "json":
+        ref_errors = []
+        for r in results.reference_reports:
+            for f in r.findings:
+                if not f.is_warning:
+                    try:
+                        rel = r.file_path.relative_to(repo_root / config.docs_dir)
+                    except ValueError:
+                        rel = r.file_path
+                    ref_errors.append(f"{rel}:{f.line_no} [{f.issue}] — {f.detail}")
         report = {
-            "links": results.link_errors,
+            "links": [str(e) for e in results.link_errors],
             "orphans": [str(p) for p in results.orphans],
             "snippets": [
                 {"file": str(e.file_path), "line": e.line_no, "message": e.message}
@@ -482,87 +613,41 @@ def check_all(
             ],
             "unused_assets": [str(p) for p in results.unused_assets],
             "nav_contract": results.nav_contract_errors,
-            "references": results.reference_errors,
+            "references": ref_errors,
         }
         print(json.dumps(report, indent=2))
         if results.failed and not effective_exit_zero:
             raise typer.Exit(1)
         return
 
-    # 1. Links
-    console.print("Running link check...")
-    if results.link_errors:
-        console.print(f"[red]BROKEN LINKS ({len(results.link_errors)}):[/]")
-        for err in results.link_errors:
-            console.print(f"  [yellow]{err}[/]")
-    else:
-        console.print("[green]OK:[/] links.")
+    # ── Sentinel Report (text) ────────────────────────────────────────────────
+    from zenzic import __version__
 
-    # 2. Orphans
-    console.print("\nRunning orphan check...")
-    if results.orphans:
-        console.print(f"[red]ORPHANS ({len(results.orphans)}):[/]")
-        for path in results.orphans:
-            console.print(f"  [yellow]{path}[/]")
-    else:
-        console.print("[green]OK:[/] orphans.")
+    docs_root = (repo_root / config.docs_dir).resolve()
+    all_findings = _to_findings(results, docs_root)
+    reporter = SentinelReporter(console, docs_root)
 
-    # 3. Snippets
-    console.print("\nRunning snippet check...")
-    if results.snippet_errors:
-        console.print(f"[red]INVALID SNIPPETS ({len(results.snippet_errors)}):[/]")
-        for s_err in results.snippet_errors:
-            console.print(f"  [yellow]{s_err.file_path}:{s_err.line_no}[/] - {s_err.message}")
+    if quiet:
+        errors, warnings = reporter.render_quiet(all_findings)
     else:
-        console.print("[green]OK:[/] snippets.")
-
-    # 4. Placeholders
-    console.print("\nRunning placeholder check...")
-    if results.placeholders:
-        console.print(f"[red]PLACEHOLDERS/STUBS ({len(results.placeholders)}):[/]")
-        for f in results.placeholders:
-            console.print(f"  [yellow]{f.file_path}:{f.line_no}[/] [{f.issue}] - {f.detail}")
-    else:
-        console.print("[green]OK:[/] placeholders.")
-
-    # 5. Unused Assets
-    console.print("\nRunning unused assets check...")
-    if results.unused_assets:
-        console.print(f"[red]UNUSED ASSETS ({len(results.unused_assets)}):[/]")
-        for path in results.unused_assets:
-            console.print(f"  [yellow]{path}[/]")
-    else:
-        console.print("[green]OK:[/] assets.")
-
-    # 6. Nav-contract
-    console.print("\nRunning nav-contract check...")
-    if results.nav_contract_errors:
-        console.print(f"[red]NAV CONTRACT VIOLATIONS ({len(results.nav_contract_errors)}):[/]")
-        for err in results.nav_contract_errors:
-            console.print(f"  [yellow]{err}[/]")
-    else:
-        console.print("[green]OK:[/] nav contract.")
-
-    # 7. References (dangling links + Shield)
-    console.print("\nRunning reference check...")
-    if results.security_events:
-        console.print(
-            f"[bold red]SECURITY CRITICAL:[/] {results.security_events} credential(s) detected. "
-            "Exit code 2 — rotate immediately."
+        file_count = sum(1 for _ in docs_root.rglob("*.md")) if docs_root.is_dir() else 0
+        errors, warnings = reporter.render(
+            all_findings,
+            version=__version__,
+            elapsed=elapsed,
+            file_count=file_count,
+            engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
         )
-        raise typer.Exit(2)
-    if results.reference_errors:
-        console.print(f"[red]DANGLING REFERENCES ({len(results.reference_errors)}):[/]")
-        for err in results.reference_errors:
-            console.print(f"  [yellow]{err}[/]")
-    else:
-        console.print("[green]OK:[/] references.")
 
-    if results.failed:
-        console.print("\n[red]FAILED:[/] One or more checks failed.")
+    # In strict mode, warnings are promoted to failures.
+    has_failures = results.failed or (effective_strict and warnings > 0)
+
+    if has_failures:
+        if not quiet:
+            console.print("\n[red]FAILED:[/] One or more checks failed.")
         if not effective_exit_zero:
             raise typer.Exit(1)
-    else:
+    elif not quiet:
         console.print("\n[green]SUCCESS:[/] All checks passed.")
 
 
@@ -956,6 +1041,12 @@ def diff(
 
 
 def init(
+    plugin: str | None = typer.Option(
+        None,
+        "--plugin",
+        help="Generate a starter Python package for a Zenzic plugin rule.",
+        metavar="NAME",
+    ),
     force: bool = typer.Option(
         False,
         "--force",
@@ -971,6 +1062,11 @@ def init(
     is omitted and the vanilla (engine-agnostic) defaults apply.
     """
     repo_root = find_repo_root()
+
+    if plugin is not None:
+        _scaffold_plugin(repo_root, plugin, force)
+        return
+
     config_path = repo_root / "zenzic.toml"
 
     if config_path.is_file() and not force:
@@ -1025,4 +1121,142 @@ def init(
         + engine_line
         + "\nEdit the file to enable rules, adjust directories, or set a quality threshold.\n"
         "Run [bold cyan]zenzic check all[/] to validate your documentation."
+    )
+
+
+def _scaffold_plugin(repo_root: Path, plugin_name: str, force: bool) -> None:
+    """Create a ready-to-edit plugin package scaffold.
+
+    Generates a Python package with a `zenzic.rules` entry-point and a
+    module-level `BaseRule` implementation template.
+    """
+    raw = plugin_name.strip()
+    if not raw:
+        console.print("[red]ERROR:[/] --plugin requires a non-empty name.")
+        raise typer.Exit(1)
+
+    project_slug = re.sub(r"[^a-z0-9-]+", "-", raw.lower()).strip("-")
+    project_slug = re.sub(r"-+", "-", project_slug)
+    if not project_slug:
+        console.print(
+            "[red]ERROR:[/] Invalid plugin name. Use letters, numbers, and optional dashes."
+        )
+        raise typer.Exit(1)
+
+    module_name = project_slug.replace("-", "_")
+    class_name = "".join(part.capitalize() for part in project_slug.split("-")) + "Rule"
+    rule_prefix = "".join(ch for ch in project_slug.upper() if ch.isalnum())[:8] or "PLUGIN"
+    rule_id = f"{rule_prefix}-001"
+
+    target = repo_root / project_slug
+    if target.exists() and not force:
+        console.print(
+            f"[yellow]WARNING:[/] [bold]{project_slug}[/] already exists at "
+            f"[dim]{target}[/]\nUse [bold cyan]--force[/] to overwrite scaffold files."
+        )
+        raise typer.Exit(1)
+
+    src_pkg = target / "src" / module_name
+    docs_dir = target / "docs"
+    src_pkg.mkdir(parents=True, exist_ok=True)
+    docs_dir.mkdir(parents=True, exist_ok=True)
+
+    pyproject = f'''[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "{project_slug}"
+version = "0.1.0"
+description = "Custom Zenzic plugin rule package"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = ["zenzic>=0.5.0a3"]
+
+[project.entry-points."zenzic.rules"]
+{project_slug} = "{module_name}.rules:{class_name}"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/{module_name}"]
+'''
+
+    rules_py = f'''from __future__ import annotations
+
+from pathlib import Path
+
+from zenzic.rules import BaseRule, RuleFinding
+
+
+class {class_name}(BaseRule):
+    """Starter plugin rule generated by `zenzic init --plugin`."""
+
+    @property
+    def rule_id(self) -> str:
+        return "{rule_id}"
+
+    def check(self, file_path: Path, text: str) -> list[RuleFinding]:
+        findings: list[RuleFinding] = []
+        for lineno, line in enumerate(text.splitlines(), start=1):
+            if "TODO" in line:
+                findings.append(
+                    RuleFinding(
+                        file_path=file_path,
+                        line_no=lineno,
+                        rule_id=self.rule_id,
+                        message="Remove TODO marker from published documentation.",
+                        severity="warning",
+                        matched_line=line,
+                    )
+                )
+        return findings
+'''
+
+    readme = f'''# {project_slug}
+
+Plugin scaffold generated by `zenzic init --plugin {project_slug}`.
+
+## Quick start
+
+```bash
+uv sync
+uv pip install -e .
+zenzic plugins list
+```
+
+Enable this plugin in a target project's `zenzic.toml`:
+
+```toml
+plugins = ["{project_slug}"]
+```
+'''
+
+    docs_index = (
+        "# Plugin Scaffold Demo\n\n"
+        "This scaffold includes a clean documentation page so `zenzic check all` passes out "
+        "of the box. The content is intentionally longer than fifty words to satisfy the "
+        "placeholder minimum-word rule, while remaining simple enough for quick editing "
+        "during local plugin development and CI verification workflows.\n"
+    )
+
+    (target / "pyproject.toml").write_text(pyproject, encoding="utf-8")
+    (target / "README.md").write_text(readme, encoding="utf-8")
+    (target / "zenzic.toml").write_text(
+        '# zenzic.toml generated by plugin scaffold\n# docs_dir defaults to "docs"\n',
+        encoding="utf-8",
+    )
+    (src_pkg / "__init__.py").write_text(
+        f'"""{project_slug} plugin package."""\n',
+        encoding="utf-8",
+    )
+    (src_pkg / "rules.py").write_text(rules_py, encoding="utf-8")
+    (docs_dir / "index.md").write_text(docs_index, encoding="utf-8")
+
+    console.print(
+        f"\n[green]Created plugin scaffold[/] [bold]{project_slug}[/]\n"
+        f"  Path: [dim]{target.relative_to(repo_root)}[/]\n"
+        f"  Entry-point: [bold]{project_slug}[/] -> [dim]{module_name}.rules:{class_name}[/]\n"
+        "\nNext steps:\n"
+        f"  1. [bold]cd {project_slug}[/]\n"
+        "  2. [bold]uv pip install -e .[/]\n"
+        "  3. [bold]zenzic plugins list[/]"
     )

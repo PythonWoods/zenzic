@@ -101,9 +101,34 @@ def _construct_relative_tag(
     return loader.construct_mapping(node)
 
 
+def _construct_python_tag(
+    loader: _PermissiveYamlLoader,
+    tag_suffix: str,
+    node: ScalarNode | SequenceNode | MappingNode,
+) -> Any:
+    """Best-effort constructor for ``!!python/*`` tags in mkdocs.yml.
+
+    MkDocs configs often include values like
+    ``!!python/name:pymdownx.superfences.fence_code_format``. Zenzic does not
+    execute these callables; it only needs the YAML structure for nav/i18n
+    analysis. We therefore preserve the payload as plain data.
+    """
+    if isinstance(node, ScalarNode):
+        value = loader.construct_scalar(node)
+        return value if value is not None else tag_suffix
+    if isinstance(node, SequenceNode):
+        return loader.construct_sequence(node)
+    return loader.construct_mapping(node)
+
+
 _PermissiveYamlLoader.add_constructor("!ENV", _construct_env_tag)
 _PermissiveYamlLoader.add_constructor("!relative", _construct_relative_tag)
 _PermissiveYamlLoader.add_multi_constructor("!", _construct_unknown_tag)  # type: ignore[no-untyped-call]
+# Support PyYAML global python tags (e.g. !!python/name:...) without executing them.
+_PermissiveYamlLoader.add_multi_constructor(
+    "tag:yaml.org,2002:python/",
+    _construct_python_tag,
+)  # type: ignore[no-untyped-call]
 
 
 def _iter_plugins(doc_config: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:

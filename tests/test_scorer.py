@@ -16,6 +16,7 @@ from zenzic.core.scorer import (
     load_snapshot,
     save_snapshot,
 )
+from zenzic.core.validator import LinkError
 from zenzic.main import app
 from zenzic.models.config import ZenzicConfig
 
@@ -299,12 +300,19 @@ def test_diff_json_output(mock_run, mock_load, mock_root, tmp_path: Path) -> Non
 
 @patch("zenzic.cli.find_repo_root")
 @patch("zenzic.cli.ZenzicConfig.load")
-@patch("zenzic.cli.validate_links", return_value=["broken link"])
+@patch(
+    "zenzic.cli.validate_links_structured",
+    return_value=[LinkError(file_path=Path("docs/x.md"), line_no=1, message="broken link")],
+)
 @patch("zenzic.cli.find_orphans", return_value=[])
 @patch("zenzic.cli.validate_snippets", return_value=[])
 @patch("zenzic.cli.find_placeholders", return_value=[])
 @patch("zenzic.cli.find_unused_assets", return_value=[])
+@patch("zenzic.cli.check_nav_contract", return_value=[])
+@patch("zenzic.cli.scan_docs_references", return_value=([], []))
 def test_check_all_exit_zero_with_failures(
+    _refs,
+    _nav,
     mock_assets,
     mock_placeholders,
     mock_snippets,
@@ -323,12 +331,19 @@ def test_check_all_exit_zero_with_failures(
 
 @patch("zenzic.cli.find_repo_root")
 @patch("zenzic.cli.ZenzicConfig.load")
-@patch("zenzic.cli.validate_links", return_value=["broken link"])
+@patch(
+    "zenzic.cli.validate_links_structured",
+    return_value=[LinkError(file_path=Path("docs/x.md"), line_no=1, message="broken link")],
+)
 @patch("zenzic.cli.find_orphans", return_value=[])
 @patch("zenzic.cli.validate_snippets", return_value=[])
 @patch("zenzic.cli.find_placeholders", return_value=[])
 @patch("zenzic.cli.find_unused_assets", return_value=[])
+@patch("zenzic.cli.check_nav_contract", return_value=[])
+@patch("zenzic.cli.scan_docs_references", return_value=([], []))
 def test_check_all_exit_zero_json(
+    _refs,
+    _nav,
     mock_assets,
     mock_placeholders,
     mock_snippets,

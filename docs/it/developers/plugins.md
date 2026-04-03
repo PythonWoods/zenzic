@@ -85,7 +85,7 @@ class NoDraftRule(BaseRule):
 # my_org_rules/rules.py
 import re
 from pathlib import Path
-from zenzic.core.rules import BaseRule, RuleFinding
+from zenzic.rules import BaseRule, RuleFinding
 
 
 class NoInternalHostnameRule(BaseRule):
@@ -148,6 +148,46 @@ zenzic plugins list
 
 ---
 
+## Fast-Track: da zero a plugin in 30 secondi
+
+Usa il comando di scaffolding per generare un pacchetto plugin pronto da modificare:
+
+```bash
+zenzic init --plugin plugin-scaffold-demo
+```
+
+Struttura generata:
+
+```text
+plugin-scaffold-demo/
+    pyproject.toml
+    README.md
+    zenzic.toml
+    docs/
+        index.md
+    src/
+        plugin_scaffold_demo/
+            __init__.py
+            rules.py
+```
+
+Lo scaffold include:
+
+- un entry-point `zenzic.rules` pre-configurato in `pyproject.toml`
+- un template di classe `BaseRule` a livello modulo in `rules.py`
+- una fixture docs minima, cosi `zenzic check all` passa subito
+
+Verifica rapida:
+
+```bash
+cd plugin-scaffold-demo
+uv pip install -e .
+zenzic plugins list
+zenzic check all
+```
+
+---
+
 ## Abilitare i plugin
 
 Le regole core (registrate sotto `zenzic.rules` da Zenzic stesso) sono sempre
@@ -196,6 +236,37 @@ class NoOrphanLinkRule(BaseRule):
 ```
 
 Vedi [`BaseRule`][api-baserule] nella reference API per l'interfaccia completa.
+
+---
+
+## Testare le regole
+
+Usa il test helper `run_rule` per validare una regola con una singola chiamata —
+nessuna configurazione dell'engine richiesta:
+
+```python
+from zenzic.rules import run_rule
+from my_org_rules.rules import NoInternalHostnameRule
+
+
+def test_hostname_interno_rilevato():
+    findings = run_rule(
+        NoInternalHostnameRule(),
+        "Visita internal.corp.example.com per i dettagli.",
+    )
+    assert len(findings) == 1
+    assert findings[0].rule_id == "MYORG-001"
+    assert findings[0].severity == "error"
+
+
+def test_contenuto_pulito_passa():
+    findings = run_rule(NoInternalHostnameRule(), "Tutto contenuto pubblico.")
+    assert findings == []
+```
+
+`run_rule` crea internamente un `AdaptiveRuleEngine`, esegue la regola e
+restituisce la lista dei finding. Accetta un argomento opzionale `file_path`
+per l'etichettatura (default: `test.md`).
 
 ---
 

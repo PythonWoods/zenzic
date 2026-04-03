@@ -42,22 +42,23 @@ test *args:
 preflight:
     {{ nox_runner }} preflight
 
-# Full local verification: quality pipeline + production build (pre-push gate)
-verify: preflight build-prod
+# Full local verification: CI-equivalent gate (single pipeline)
+verify:
+    {{ nox_runner }} preflight
 
 # ─── Documentation (MkDocs) ───────────────────────────────────────────────────
 
 # Build the documentation (fast — no strict enforcement)
 build:
-    {{ runner }} mkdocs build
+    NO_MKDOCS_2_WARNING=true {{ runner }} mkdocs build
 
 # Build the documentation for production (strict — every warning is an error)
 build-prod:
-    {{ runner }} mkdocs build --strict
+    NO_MKDOCS_2_WARNING=true {{ runner }} mkdocs build --strict
 
 # Start the development server (override port: just serve 8001)
 serve port="8000":
-    {{ runner }} mkdocs serve -a localhost:{{ port }}
+    NO_MKDOCS_2_WARNING=true {{ runner }} mkdocs serve -a localhost:{{ port }}
 
 # Alias: start the development server
 live: serve

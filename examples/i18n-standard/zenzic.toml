@@ -5,10 +5,7 @@
 # This example demonstrates a perfectly clean bilingual project.
 # Target: zenzic check all --strict → SUCCESS, score 100/100.
 
-engine         = "mkdocs"
 docs_dir       = "docs"
-default_locale = "en"
-locales        = ["it"]
 fail_under     = 100
 
 # manual.pdf and brand-kit.zip are referenced in the docs but generated at
@@ -16,3 +13,8 @@ fail_under     = 100
 # the links structurally without requiring the files to be present.
 # Paths are relative to docs_dir.
 excluded_build_artifacts = ["assets/manual.pdf", "assets/brand-kit.zip"]
+
+[build_context]
+engine         = "mkdocs"
+default_locale = "en"
+locales        = ["it"]

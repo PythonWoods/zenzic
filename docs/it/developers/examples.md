@@ -7,7 +7,7 @@ icon: lucide/folder-open
 
 # Progetti di Esempio
 
-La directory `examples/` alla root del repository contiene quattro progetti
+La directory `examples/` alla root del repository contiene cinque progetti
 auto-contenuti. Ognuno è un fixture eseguibile: naviga nella directory e lancia
 `zenzic check all` per vederne l'output.
 
@@ -125,6 +125,23 @@ o qualsiasi progetto che non usa MkDocs o Zensical.
 
 ---
 
+## plugin-scaffold-demo — Living Scaffold dello SDK Plugin
+
+**Scopo:** Fornire l'output esatto generato da
+`zenzic init --plugin plugin-scaffold-demo` come fixture di integrazione versionato.
+
+**Risultato atteso:** `SUCCESS` — lo scaffold generato è lint-clean.
+
+```bash
+cd examples/plugin-scaffold-demo
+zenzic check all   # uscita 0
+```
+
+Usa questo fixture per validare regressioni dello scaffold: se questo esempio
+inizia a fallire, il template SDK è andato in drift.
+
+---
+
 ## Eseguire la suite completa degli esempi
 
 Dalla root del repository, verifica che tutti gli esempi producano i codici di
@@ -140,4 +157,7 @@ uscita attesi:
 
 # Security lab: deve uscire con codice 2 (Shield)
 (cd examples/security_lab   && zenzic check all); [ $? -eq 2 ]
+
+# Plugin scaffold demo: il template generato deve essere pulito
+(cd examples/plugin-scaffold-demo && zenzic check all)
 ```

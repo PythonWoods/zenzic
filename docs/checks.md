@@ -107,6 +107,27 @@ BROKEN LINKS (3):
   api.md:88: external link 'https://api.example.com/v2' returned HTTP 404
 ```
 
+### Violation codes
+
+The link check uses the Virtual Site Map (VSM) to distinguish between two categories of link failure:
+
+| Code | Severity | Meaning |
+| :--- | :---: | :--- |
+| `Z001` | error | __Broken link__ — target does not exist in the VSM. The file is missing or the URL is wrong. |
+| `Z002` | warning | __Orphan link__ — target exists on disk but is not in the site navigation. Readers cannot reach the page via the nav tree. |
+
+`Z001` always blocks the pipeline (exit code 1). `Z002` is a warning — it appears in the report but does not fail CI unless `--strict` is passed. This distinction lets teams catch true breakage immediately while tracking nav hygiene as a separate concern.
+
+__Why orphan links matter:__ a link to an orphan page _works_ at the filesystem level — the file exists and the build engine may serve it. But the page is invisible in the nav tree, creating a fragmented user experience. Readers who follow the link land on a page with no sidebar context and no way to navigate back. `Z002` catches this anti-pattern.
+
+__Example output with Z002:__
+
+```text
+WARNINGS (1):
+  [Z002] guide/tips.md:18 — 'drafts/experiment.md' exists on disk but is not in the site navigation (ORPHAN_LINK).
+    │ See [experiment](drafts/experiment.md) for details.
+```
+
 ---
 
 ## Orphans

@@ -9,6 +9,22 @@ This fixture intentionally models the official MkDocs nav patterns:
 - external nav links
 - configuration tags like !ENV and !relative
 
+## Configuration
+
+This example uses `zenzic.toml`. Zenzic also supports the `[tool.zenzic]`
+table inside `pyproject.toml` (Issue #5) as a fallback when `zenzic.toml` is
+absent:
+
+```toml
+# pyproject.toml — alternative configuration
+[tool.zenzic]
+docs_dir = "docs"
+fail_under = 90
+
+[tool.zenzic.build_context]
+engine = "mkdocs"
+```
+
 ## Run
 
 ```bash

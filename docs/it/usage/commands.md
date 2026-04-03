@@ -51,6 +51,21 @@ Puoi anche impostare `exit_zero = true` in `zenzic.toml` per renderlo il default
 
 ---
 
+## Inizializzazione
+
+```bash
+zenzic init                               # Crea zenzic.toml nel progetto corrente
+zenzic init --force                       # Sovrascrive zenzic.toml esistente
+zenzic init --plugin plugin-scaffold-demo # Crea un pacchetto SDK plugin
+```
+
+`zenzic init --plugin <nome>` genera uno scheletro di pacchetto Python con
+entry-point `zenzic.rules` pronto all'uso e template `BaseRule`
+(`src/<modulo>/rules.py`). Include anche una fixture docs minima, cosi il
+progetto generato puo eseguire subito `zenzic check all` come smoke test.
+
+---
+
 ## Autofix & Cleanup
 
 ```bash
