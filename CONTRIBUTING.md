@@ -41,17 +41,18 @@ the exact same environment as CI.
 | **Self-lint** | **`just check`** | — | **Run Zenzic on its own documentation (strict)** |
 | Test suite | `just test` | `nox -s tests` | pytest + branch coverage |
 | Full pipeline | `just preflight` | `nox -s preflight` | lint, typecheck, tests, reuse, security |
-| Docs build | `just build` | `nox -s docs` | mkdocs build --strict |
-| Docs serve | `just serve` | `nox -s docs_serve` | live-reload documentation server |
-| Release check | `just deploy` | — | preflight + production build |
+| **Pre-push gate** | **`just verify`** | — | **preflight + production build — run before every push** |
+| Docs build (fast) | `just build` | — | mkdocs build, no strict enforcement |
+| Docs build (prod) | `just build-prod` | `nox -s docs` | mkdocs build --strict, mirrors CI |
+| Docs serve | `just serve [port]` | `nox -s docs_serve` | live-reload server (default port 8000) |
 | Pre-commit setup | — | `nox -s dev` | install hooks + download Lucide icons (once after clone) |
 | Version bump | — | `nox -s bump -- patch` | bump version + commit + tag |
 | Screenshot | — | `nox -s screenshot` | regenerate `docs/assets/screenshot.svg` |
 
-Run the full pre-PR check with:
+Run the full pre-push gate with:
 
 ```bash
-just preflight
+just verify
 ```
 
 > **Tip:** Before committing documentation updates, run `uvx zenzic clean assets` (or `uv run zenzic clean assets`) to automatically delete any old screenshots or images you are no longer using. This keeps the repository lean.

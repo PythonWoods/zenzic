@@ -9,20 +9,22 @@
 # to noxfile.py and are invoked here only via `nox -s <session>`.
 #
 # Quick reference:
-#   just sync          — install / update all dependency groups
-#   just check         — self-lint: run Zenzic on its own documentation
-#   just build         — MkDocs documentation build (fast, strict)
-#   just serve         — start MkDocs documentation server (live-reload)
-#   just live          — alias for serve
-#   just test          — run test suite (delegates to nox)
-#   just preflight     — full CI-equivalent pipeline (delegates to nox)
-#   just build-release — production build with BUILD_DATE
-#   just deploy        — preflight + production build (local release check)
-#   just clean         — remove generated artefacts
+#   just sync        — install / update all dependency groups
+#   just check       — self-lint: run Zenzic on its own documentation
+#   just build       — MkDocs documentation build (fast)
+#   just build-prod  — MkDocs documentation build (strict — mirrors CI)
+#   just serve       — start MkDocs documentation server (default: port 8000)
+#   just live        — alias for serve
+#   just test        — run test suite (delegates to nox)
+#   just preflight   — full CI-equivalent pipeline (delegates to nox)
+#   just verify      — preflight + build-prod (pre-push gate)
+#   just clean       — remove generated artefacts
 
-runner := "uv run --active"
+runner     := "uv run --active"
 nox_runner := "uv run nox -s"
 export BUILD_DATE := `date +'%Y/%m/%d'`
+
+# ─── Workflow ─────────────────────────────────────────────────────────────────
 
 # Install or update all dependency groups
 sync:
@@ -32,31 +34,35 @@ sync:
 check:
     {{ runner }} zenzic check all --strict
 
-# Build the documentation via MkDocs (fast — no PDF, no social cards)
-build *args:
-    {{ runner }} mkdocs build --strict {{ args }}
-
-# Serve the documentation using MkDocs (live-reload)
-serve *args:
-    {{ runner }} mkdocs serve {{ args }}
-
-# Alias: start the MkDocs development server with hot-reload
-live: serve
-
 # Run the test suite (delegates to nox for reproducible isolation)
 test *args:
     {{ nox_runner }} tests {{ args }}
 
-# Run the full CI-equivalent pipeline (delegates to nox)
+# Run the full quality pipeline (lint, typecheck, tests, reuse, security)
 preflight:
     {{ nox_runner }} preflight
 
-# Production build: injects the current date
-build-release:
+# Full local verification: quality pipeline + production build (pre-push gate)
+verify: preflight build-prod
+
+# ─── Documentation (MkDocs) ───────────────────────────────────────────────────
+
+# Build the documentation (fast — no strict enforcement)
+build:
+    {{ runner }} mkdocs build
+
+# Build the documentation for production (strict — every warning is an error)
+build-prod:
     {{ runner }} mkdocs build --strict
 
-# Local release check: full preflight followed by the production build
-deploy: preflight build-release
+# Start the development server (override port: just serve 8001)
+serve port="8000":
+    {{ runner }} mkdocs serve -a localhost:{{ port }}
+
+# Alias: start the development server
+live: serve
+
+# ─── Cleanup ──────────────────────────────────────────────────────────────────
 
 # Remove generated artefacts (.nox is kept — reuse avoids reinstalling deps)
 clean:

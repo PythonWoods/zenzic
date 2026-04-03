@@ -36,10 +36,12 @@ theme:
   features:
     - content.tabs.link
     - content.code.copy
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.header.version
     - navigation.indexes
     - navigation.path
     - navigation.top
-    - navigation.header.version
     - navigation.footer
     - search.highlight
     - search.suggest
@@ -142,7 +144,14 @@ extra_css:
 extra:
   build_date: !ENV [BUILD_DATE, "dev"]
   generator: false
-  version: !ENV [DOCS_VERSION, "dev"]
+  version: "0.5.0a2"
+  alternate:
+    - name: English
+      link: /
+      lang: en
+    - name: Italiano
+      link: /it/
+      lang: it
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/PythonWoods/zenzic

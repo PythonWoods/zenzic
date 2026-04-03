@@ -59,68 +59,6 @@
   --zz-transition-fast:   0.15s ease;
 }
 
-/* ── Global header marketing nav (all pages) ─────────────────────────────── */
-
-/* Hidden on narrow screens — the hamburger drawer handles mobile nav */
-@media screen and (max-width: 59.9375em) {
-  .zz-home-nav {
-    display: none;
-  }
-}
-
-/* On medium desktop widths, prioritise native header controls (language, search, source). */
-@media screen and (max-width: 76.234375em) {
-  .zz-home-nav {
-    display: none;
-  }
-}
-
-.zz-home-nav {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  margin-left: 1rem;
-  margin-right: auto;
-  min-width: 0;
-}
-
-.zz-home-nav__link {
-  padding: 0.35rem 0.75rem;
-  border-radius: 0.25rem;
-  font-size: 0.75rem;
-  font-weight: 500;
-  letter-spacing: 0.02em;
-  color: var(--md-primary-bg-color);
-  text-decoration: none;
-  opacity: 0.7;
-  transition: opacity var(--zz-transition-fast), background-color var(--zz-transition-fast);
-}
-
-.zz-home-nav__link:hover {
-  opacity: 1;
-  background-color: rgba(255, 255, 255, 0.08);
-}
-
-.zz-home-nav__link--active {
-  opacity: 1;
-  color: #38bdf8;
-  font-weight: 600;
-}
-
-[data-md-color-scheme="default"] .zz-home-nav__link {
-  color: #0f172a;
-  opacity: 0.65;
-}
-
-[data-md-color-scheme="default"] .zz-home-nav__link:hover {
-  opacity: 1;
-  background-color: rgba(0, 0, 0, 0.05);
-}
-
-[data-md-color-scheme="default"] .zz-home-nav__link--active {
-  opacity: 1;
-  color: #4f46e5;
-}
 
 /* ── Breadcrumb (navigation.path) ────────────────────────────────────────── */
 
@@ -194,22 +132,10 @@
   color: #4f46e5;
 }
 
-/* ── Navigation: marketing nav active link ────────────────────────────────── */
-
-/* Active section link in global header nav */
-.zz-home-nav__link--active {
-  font-weight: 600;
-}
-
-/* ── Navigation: hide site title and Home from sidebar ────────────────────── */
+/* ── Navigation: hide site title from sidebar ─────────────────────────────── */
 
 /* "Zenzic" heading injected by Material at the top of the sidebar drawer */
 .md-nav--primary > .md-nav__title {
-  display: none;
-}
-
-/* "Home" entry — accessible via the header nav, redundant in sidebar */
-.md-nav--primary > .md-nav__list > .md-nav__item:first-child {
   display: none;
 }
 
@@ -647,35 +573,6 @@
   border-bottom-color: var(--zz-muted-color);
 }
 
-/* ── Version fact in header source widget ─────────────────────────────────── */
-
-/* Layout: repo name on row 1, stars+version on row 2 side by side */
-.md-source__repository {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  row-gap: 0;
-}
-
-.zz-repo-name {
-  width: 100%;      /* forces repo name onto its own line */
-  order: 0;
-}
-
-/* JS-injected stars/forks <ul>: row 2, left */
-.md-source__repository > .md-source__facts:not(.zz-version-facts) {
-  order: 1;
-  margin-top: 0.1rem;
-  flex-shrink: 0;
-}
-
-/* Static version <ul>: row 2, right — separator via gap */
-.zz-version-facts {
-  order: 2;
-  margin-top: 0.1rem;
-  margin-left: 0.4rem;
-  flex-shrink: 0;
-}
 
 /* ── Footer copyright ─────────────────────────────────────────────────────── */
 
