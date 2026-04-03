@@ -144,20 +144,11 @@ uv add --dev zenzic
 pip install zenzic
 ```
 
-### Rendering MkDocs — extra `zenzic[docs]`
+### Lean e Agnostico per Design
 
-Il core di Zenzic non ha dipendenze: validare il Markdown grezzo richiede solo `zenzic`.
-Lo stack MkDocs è necessario solo per **renderizzare** il sito, non per validarlo.
+Zenzic esegue un'**analisi statica** dei tuoi file di configurazione (`mkdocs.yml`, `zensical.toml`, `pyproject.toml`). **Non esegue** il motore di build né i suoi plugin.
 
-Per installare anche lo stack completo MkDocs:
-
-```bash
-# uv
-uv add --dev "zenzic[docs]"
-
-# pip
-pip install "zenzic[docs]"
-```
+Questo significa che **non è necessario installare** MkDocs, Material for MkDocs o altri plugin di build nel tuo ambiente di linting. Zenzic rimane leggero e privo di dipendenze, rendendolo ideale per pipeline CI/CD veloci e isolate.
 
 ---
 
@@ -261,8 +252,7 @@ non segnalare mai i file tradotti come orfani.
 ## Changelog & Note di Rilascio
 
 - 📋 [CHANGELOG.md](CHANGELOG.md) — storico completo delle modifiche (unico, in inglese)
-- 🚀 [RELEASE.md](RELEASE.md) — manifesto di rilascio v0.4.0 (inglese)
-- 🚀 [RELEASE.it.md](RELEASE.it.md) — manifesto di rilascio v0.4.0 (italiano)
+- 🚀 [RELEASE.md](RELEASE.md) — manifesto di rilascio (unico, in inglese)
 
 > Il changelog è ora mantenuto in un unico file inglese (`CHANGELOG.md`).
 > Questa scelta segue gli standard dell'ecosistema Python open source:

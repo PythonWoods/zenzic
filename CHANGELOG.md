@@ -11,6 +11,41 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.5.0a2] — 2026-04-03 — The Refined Sentinel: Lean Package & Unified Workflow
+
+> **Sprint 12.** Consolidation and DX hardening. Removes the `[docs]` public
+> extra (engine-agnostic: users install MkDocs independently), eliminates
+> `RELEASE.it.md` in favour of a single English source of truth, and unifies
+> the developer workflow under `just`. `bump-my-version` gains a PEP 440
+> pre-release parser/serializer so `pre_n` bumps work correctly.
+
+### Removed
+
+- `[project.optional-dependencies]` — `zenzic[docs]` extra eliminated; MkDocs
+  is a user-managed dependency, not a package extra
+- `RELEASE.it.md` — release notes consolidated to `RELEASE.md` (English only)
+- Hardcoded-date `bumpversion` patterns for `RELEASE.md`, `CITATION.cff`, and
+  `docs/community/index.md`; dates updated manually at release time
+
+### Changed
+
+- `justfile`: `zensical build/serve` replaced with `mkdocs build --strict` /
+  `mkdocs serve`; added `just check` (self-linting duty); `clean` now removes
+  `dist/` and `.zenzic-score.json`
+- `CONTRIBUTING.md`: Quick Start updated to `just sync`; task table aligned to
+  current `just` commands
+- `docs/developers/index.md`: added *Interactive Workflow with Just* section
+- All `zenzic[docs]` references replaced with *Lean & Agnostic by Design*
+  narrative across `README.md`, `README.it.md`, `docs/usage/index.md`,
+  `docs/it/usage/index.md`, and contributor guides
+- `pyproject.toml` `[tool.bumpversion]`: added `parse`, `serialize`, and
+  `parts.pre_n` for PEP 440 pre-release support; removed `mkdocs.yml` entry
+  (version is injected via `!ENV`, not a literal string)
+- `CITATION.cff`, `docs/community/index.md`, `docs/it/community/index.md`:
+  aligned to `0.5.0a2`
+
+---
+
 ## [0.5.0a1] — 2026-04-02 — The Sentinel: Hybrid Adaptive Engine & Plugin System
 
 > **Sprint 11.** Zenzic enters the v0.5 cycle with a unified execution model and a
@@ -1109,7 +1144,9 @@ It has been superseded by the 0.5.x stabilization cycle.
 
 <!-- ─── Reference link definitions ──────────────────────────────────────────── -->
 
-[Unreleased]:       https://github.com/PythonWoods/zenzic/compare/v0.3.0...HEAD
+[Unreleased]:       https://github.com/PythonWoods/zenzic/compare/v0.5.0a2...HEAD
+[0.5.0a2]:          https://github.com/PythonWoods/zenzic/compare/v0.5.0a1...v0.5.0a2
+[0.5.0a1]:          https://github.com/PythonWoods/zenzic/compare/v0.4.0...v0.5.0a1
 [0.3.0]:            https://github.com/PythonWoods/zenzic/compare/v0.2.1...v0.3.0
 [0.3.0-rc1]:        https://github.com/PythonWoods/zenzic/compare/v0.2.1...v0.3.0-rc1
 [0.2.1]:            https://github.com/PythonWoods/zenzic/compare/v0.2.0-alpha.1...v0.2.1
