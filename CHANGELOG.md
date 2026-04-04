@@ -11,7 +11,7 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-## [0.5.0a2] — 2026-04-03 — The Sentinel: Aesthetic Sprint, Parallel Anchors & Agnostic Target
+## [0.5.0a3] — 2026-04-03 — The Sentinel: Aesthetic Sprint, Parallel Anchors & Agnostic Target
 
 > **Sprint 13 + 14.** Two major tracks delivered in one tag.
 > Track A — Performance & SDK: deterministic two-phase anchor validation, `zenzic.rules` public
@@ -1311,7 +1311,7 @@ It has been superseded by the 0.5.x stabilization cycle.
 <!-- ─── Reference link definitions ──────────────────────────────────────────── -->
 
 [Unreleased]:       https://github.com/PythonWoods/zenzic/compare/v0.5.0a2...HEAD
-[0.5.0a2]:          https://github.com/PythonWoods/zenzic/compare/v0.5.0a1...v0.5.0a2
+[0.5.0a3]:          https://github.com/PythonWoods/zenzic/compare/v0.5.0a1...v0.5.0a2
 [0.5.0a1]:          https://github.com/PythonWoods/zenzic/compare/v0.4.0-rc5...v0.5.0a1
 [0.4.0-rc5]:        https://github.com/PythonWoods/zenzic/compare/v0.4.0-rc4...v0.4.0-rc5
 [0.4.0-rc4]:        https://github.com/PythonWoods/zenzic/compare/v0.4.0-rc3...v0.4.0-rc4
