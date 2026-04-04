@@ -1284,8 +1284,18 @@ def init(
         "-f",
         help="Overwrite an existing zenzic.toml without prompting.",
     ),
+    pyproject: bool = typer.Option(
+        False,
+        "--pyproject",
+        help="Write configuration into pyproject.toml [tool.zenzic] instead of zenzic.toml.",
+    ),
 ) -> None:
-    """Scaffold a zenzic.toml configuration file in the current project.
+    """Scaffold a Zenzic configuration in the current project.
+
+    By default creates ``zenzic.toml``.  If ``pyproject.toml`` exists in the
+    project root Zenzic will ask whether to embed the configuration there
+    as a ``[tool.zenzic]`` table instead.  Use ``--pyproject`` to skip the
+    prompt and write directly into ``pyproject.toml``.
 
     Performs engine auto-detection: if ``mkdocs.yml`` is present the generated
     file pre-sets ``engine = "mkdocs"``; if ``zensical.toml`` is present it
@@ -1298,6 +1308,42 @@ def init(
         _scaffold_plugin(repo_root, plugin, force)
         return
 
+    # ── Decide target: zenzic.toml vs pyproject.toml ──────────────────────
+    use_pyproject = pyproject
+    pyproject_path = repo_root / "pyproject.toml"
+
+    if not use_pyproject and pyproject_path.is_file():
+        # Interactive prompt — ask the user
+        use_pyproject = typer.confirm(
+            "Found pyproject.toml. Embed Zenzic config there as [tool.zenzic]?",
+            default=False,
+        )
+
+    if use_pyproject:
+        _init_pyproject(repo_root, pyproject_path, force)
+    else:
+        _init_standalone(repo_root, force)
+
+
+def _detect_init_engine(repo_root: Path) -> str | None:
+    """Auto-detect the documentation engine from config files at *repo_root*."""
+    if (repo_root / "mkdocs.yml").is_file():
+        return "mkdocs"
+    if (repo_root / "zensical.toml").is_file():
+        return "zensical"
+    return None
+
+
+def _engine_feedback(detected_engine: str | None) -> str:
+    """Return a Rich-formatted engine status line for init output."""
+    if detected_engine:
+        source = "mkdocs.yml" if detected_engine == "mkdocs" else "zensical.toml"
+        return f"  Engine pre-set to [bold cyan]{detected_engine}[/] (detected from {source}).\n"
+    return "  No engine config file found — using vanilla (engine-agnostic) defaults.\n"
+
+
+def _init_standalone(repo_root: Path, force: bool) -> None:
+    """Create a standalone ``zenzic.toml`` configuration file."""
     config_path = repo_root / "zenzic.toml"
 
     if config_path.is_file() and not force:
@@ -1308,12 +1354,7 @@ def init(
         )
         raise typer.Exit(1)
 
-    # Engine auto-detection — mirrors the logic used by _detect_engine() for serve.
-    detected_engine: str | None = None
-    if (repo_root / "mkdocs.yml").is_file():
-        detected_engine = "mkdocs"
-    elif (repo_root / "zensical.toml").is_file():
-        detected_engine = "zensical"
+    detected_engine = _detect_init_engine(repo_root)
 
     build_context_block = ""
     if detected_engine:
@@ -1340,17 +1381,64 @@ def init(
 
     config_path.write_text(toml_content, encoding="utf-8")
 
-    engine_line = (
-        f"  Engine pre-set to [bold cyan]{detected_engine}[/] (detected from "
-        + ("mkdocs.yml" if detected_engine == "mkdocs" else "zensical.toml")
-        + ").\n"
-        if detected_engine
-        else "  No engine config file found — using vanilla (engine-agnostic) defaults.\n"
-    )
     console.print(
         f"\n[green]Created[/] [bold]{config_path.relative_to(repo_root)}[/]\n"
-        + engine_line
+        + _engine_feedback(detected_engine)
         + "\nEdit the file to enable rules, adjust directories, or set a quality threshold.\n"
+        "Run [bold cyan]zenzic check all[/] to validate your documentation."
+    )
+
+
+def _init_pyproject(repo_root: Path, pyproject_path: Path, force: bool) -> None:
+    """Append a ``[tool.zenzic]`` section to an existing ``pyproject.toml``."""
+    if not pyproject_path.is_file():
+        console.print(
+            "[red]ERROR:[/] No [bold]pyproject.toml[/] found at "
+            f"[dim]{pyproject_path}[/]\n"
+            "Use [bold cyan]zenzic init[/] without --pyproject to create a standalone zenzic.toml."
+        )
+        raise typer.Exit(1)
+
+    existing = pyproject_path.read_text(encoding="utf-8")
+
+    if "[tool.zenzic]" in existing and not force:
+        console.print(
+            "[yellow]WARNING:[/] [bold][tool.zenzic][/] already exists in "
+            f"[dim]{pyproject_path}[/]\n"
+            "Use [bold cyan]--force[/] to overwrite the section."
+        )
+        raise typer.Exit(1)
+
+    detected_engine = _detect_init_engine(repo_root)
+
+    engine_line = ""
+    if detected_engine:
+        engine_line = f'engine = "{detected_engine}"\n'
+
+    section = (
+        "\n[tool.zenzic]\n"
+        "# See https://zenzic.pythonwoods.dev/configuration/ for full reference.\n"
+        '# docs_dir = "docs"\n'
+        "# excluded_check_dirs = []\n"
+        "# fail_under = 0\n"
+    )
+    if engine_line:
+        section += f"\n[tool.zenzic.build_context]\n{engine_line}"
+
+    if force and "[tool.zenzic]" in existing:
+        # Remove existing [tool.zenzic] block(s) before re-appending
+        existing = re.sub(
+            r"\n?\[tool\.zenzic[^\]]*\][^\[]*",
+            "",
+            existing,
+        )
+
+    pyproject_path.write_text(existing.rstrip("\n") + "\n" + section, encoding="utf-8")
+
+    console.print(
+        f"\n[green]Added[/] [bold][tool.zenzic][/] to [bold]{pyproject_path.relative_to(repo_root)}[/]\n"
+        + _engine_feedback(detected_engine)
+        + "\nEdit the section to enable rules, adjust directories, or set a quality threshold.\n"
         "Run [bold cyan]zenzic check all[/] to validate your documentation."
     )
 
