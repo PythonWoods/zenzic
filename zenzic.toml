@@ -40,8 +40,10 @@ excluded_build_artifacts = ["assets/brand-kit.zip", "it/assets/brand-kit.zip"]
 
 # External URLs excluded from the broken-link check.
 # The GitHub repository URL is excluded because it returns 429 in CI (rate-limited).
+# The settings/tokens URL is excluded because it requires authentication (403 for bots).
 excluded_external_urls = [
     "https://github.com/PythonWoods/zenzic",
+    "https://github.com/settings/tokens",
 ]
 
 snippet_min_lines = 1
