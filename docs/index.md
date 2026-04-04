@@ -27,7 +27,7 @@ Catch broken links, orphan pages, and leaked credentials — before your users d
 
 <div class="zz-hero__screenshot-wrap" markdown>
 
-![Zenzic terminal output showing six checks passing](assets/screenshots/screenshot.svg){ .zz-hero__screenshot }
+![Zenzic Sentinel — full audit output with quality score](assets/screenshots/screenshot.svg){ .zz-hero__screenshot }
 
 </div>
 

@@ -13,7 +13,7 @@ opzionali — Zenzic funziona senza alcun file di configurazione.
 !!! tip "Configurazione zero"
 
     La maggior parte dei progetti non ha bisogno di alcun `zenzic.toml`. Esegui
-    `uvx zenzic check all` — se passa, hai finito. Aggiungi configurazione solo quando
+    `uvx --pre zenzic check all` — se passa, hai finito. Aggiungi configurazione solo quando
     devi personalizzare un comportamento specifico.
 
 ---

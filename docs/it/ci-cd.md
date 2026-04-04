@@ -82,10 +82,10 @@ L'integrazione più semplice — blocca la build a qualsiasi errore di documenta
           - uses: actions/checkout@v6
 
           - name: Lint documentazione
-            run: uvx zenzic check all --strict
+            run: uvx --pre zenzic check all --strict
 
           - name: Controllo riferimenti e Shield
-            run: uvx zenzic check references
+            run: uvx --pre zenzic check references
     ```
 
 === "astral-sh/setup-uv (versione fissata)"
@@ -115,10 +115,10 @@ L'integrazione più semplice — blocca la build a qualsiasi errore di documenta
               enable-cache: true
 
           - name: Lint documentazione
-            run: uvx zenzic check all --strict
+            run: uvx --pre zenzic check all --strict
 
           - name: Controllo riferimenti e Shield
-            run: uvx zenzic check references
+            run: uvx --pre zenzic check references
     ```
 
     L'opzione `enable-cache: true` mantiene la cache degli strumenti uv tra
@@ -149,7 +149,7 @@ jobs:
       - name: 🛡️ Calcola Zenzic Score
         id: zenzic_step
         run: |
-          uvx zenzic score --save   # soglia letta da fail_under in zenzic.toml
+          uvx --pre zenzic score --save   # soglia letta da fail_under in zenzic.toml
           SCORE=$(jq '.score' .zenzic-score.json)
           echo "SCORE=$SCORE" >> "$GITHUB_OUTPUT"
 
@@ -188,8 +188,8 @@ jobs:
 ```yaml
 - name: Rileva regressione del punteggio
   run: |
-    uvx zenzic score --save         # aggiorna snapshot
-    uvx zenzic diff --threshold 5   # fallisce se il punteggio scende > 5 punti
+    uvx --pre zenzic score --save         # aggiorna snapshot
+    uvx --pre zenzic diff --threshold 5   # fallisce se il punteggio scende > 5 punti
 ```
 
 Combina con le branch protection rules per bloccare i merge che degradano la qualità della documentazione.

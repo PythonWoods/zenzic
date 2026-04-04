@@ -24,7 +24,7 @@ Il repository include fixture mantenuti e allineati ai contratti documentati:
 !!! tip "Vuoi eseguirlo subito?"
 
     ```bash
-    uvx zenzic check all
+    uvx --pre zenzic check all
     ```
 
     Nessuna installazione richiesta. `uvx` scarica ed esegue Zenzic in un ambiente temporaneo.
@@ -38,7 +38,7 @@ Il repository include fixture mantenuti e allineati ai contratti documentati:
 === ":simple-astral: uv"
 
     ```bash
-    uvx zenzic check all
+    uvx --pre zenzic check all
     ```
 
     `uvx` risolve ed esegue Zenzic da PyPI in un ambiente temporaneo. Nulla viene installato sul
@@ -48,7 +48,7 @@ Il repository include fixture mantenuti e allineati ai contratti documentati:
 === ":simple-pypi: pip"
 
     ```bash
-    pip install zenzic
+    pip install --pre zenzic
     zenzic check all
     ```
 
@@ -60,7 +60,7 @@ Il repository include fixture mantenuti e allineati ai contratti documentati:
 === ":simple-astral: uv"
 
     ```bash
-    uv tool install zenzic
+    uv tool install --pre zenzic
     zenzic check all
     ```
 
@@ -72,7 +72,7 @@ Il repository include fixture mantenuti e allineati ai contratti documentati:
     ```bash
     python -m venv ~/.local/zenzic-env
     source ~/.local/zenzic-env/bin/activate   # Windows: .venv\Scripts\activate
-    pip install zenzic
+    pip install --pre zenzic
     ```
 
     Installa in un virtual environment dedicato, poi aggiungi la directory `bin/` al `PATH`.
@@ -82,7 +82,7 @@ Il repository include fixture mantenuti e allineati ai contratti documentati:
 === ":simple-astral: uv"
 
     ```bash
-    uv add --dev zenzic
+    uv add --dev --pre zenzic
     uv run zenzic check all
     ```
 
@@ -95,7 +95,7 @@ Il repository include fixture mantenuti e allineati ai contratti documentati:
     ```bash
     python -m venv .venv
     source .venv/bin/activate   # Windows: .venv\Scripts\activate
-    pip install zenzic
+    pip install --pre zenzic
     zenzic check all
     ```
 
@@ -109,7 +109,7 @@ Questo significa che **non è necessario installare** MkDocs, Material for MkDoc
 
 ```bash
 # Fare il lint di qualsiasi progetto MkDocs — nessun extra necessario
-uvx zenzic check all
+uvx --pre zenzic check all
 ```
 
 !!! note "Adapter di terze parti"

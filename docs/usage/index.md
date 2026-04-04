@@ -24,7 +24,7 @@ The repository ships maintained fixtures that mirror the documented contracts:
 !!! tip "Just want to run it now?"
 
     ```bash
-    uvx zenzic check all
+    uvx --pre zenzic check all
     ```
 
     No installation required. `uvx` downloads and runs Zenzic in a throwaway environment.
@@ -38,7 +38,7 @@ The repository ships maintained fixtures that mirror the documented contracts:
 === ":simple-astral: uv"
 
     ```bash
-    uvx zenzic check all
+    uvx --pre zenzic check all
     ```
 
     `uvx` resolves and runs Zenzic from PyPI in a throwaway environment. Nothing is installed on
@@ -48,7 +48,7 @@ The repository ships maintained fixtures that mirror the documented contracts:
 === ":simple-pypi: pip"
 
     ```bash
-    pip install zenzic
+    pip install --pre zenzic
     zenzic check all
     ```
 
@@ -60,7 +60,7 @@ The repository ships maintained fixtures that mirror the documented contracts:
 === ":simple-astral: uv"
 
     ```bash
-    uv tool install zenzic
+    uv tool install --pre zenzic
     zenzic check all
     ```
 
@@ -72,7 +72,7 @@ The repository ships maintained fixtures that mirror the documented contracts:
     ```bash
     python -m venv ~/.local/zenzic-env
     source ~/.local/zenzic-env/bin/activate   # Windows: .venv\Scripts\activate
-    pip install zenzic
+    pip install --pre zenzic
     ```
 
     Install into a dedicated virtual environment, then add the `bin/` directory to your `PATH`.
@@ -82,7 +82,7 @@ The repository ships maintained fixtures that mirror the documented contracts:
 === ":simple-astral: uv"
 
     ```bash
-    uv add --dev zenzic
+    uv add --dev --pre zenzic
     uv run zenzic check all
     ```
 
@@ -95,7 +95,7 @@ The repository ships maintained fixtures that mirror the documented contracts:
     ```bash
     python -m venv .venv
     source .venv/bin/activate   # Windows: .venv\Scripts\activate
-    pip install zenzic
+    pip install --pre zenzic
     zenzic check all
     ```
 
@@ -109,7 +109,7 @@ This means you **do not need to install** MkDocs, Material for MkDocs, or any ot
 
 ```bash
 # Lint any MkDocs project — no extras needed
-uvx zenzic check all
+uvx --pre zenzic check all
 ```
 
 !!! note "Third-party engine adapters"

@@ -85,10 +85,10 @@ The simplest integration — fails the build on any documentation error.
           - uses: actions/checkout@v6
 
           - name: Lint documentation
-            run: uvx zenzic check all --strict
+            run: uvx --pre zenzic check all --strict
 
           - name: Check references and run Shield
-            run: uvx zenzic check references
+            run: uvx --pre zenzic check references
     ```
 
 === "astral-sh/setup-uv (pinned version)"
@@ -118,10 +118,10 @@ The simplest integration — fails the build on any documentation error.
               enable-cache: true
 
           - name: Lint documentation
-            run: uvx zenzic check all --strict
+            run: uvx --pre zenzic check all --strict
 
           - name: Check references and run Shield
-            run: uvx zenzic check references
+            run: uvx --pre zenzic check references
     ```
 
     The `enable-cache: true` option caches the uv tool cache across runs,
@@ -152,7 +152,7 @@ jobs:
       - name: 🛡️ Run Zenzic Score
         id: zenzic_step
         run: |
-          uvx zenzic score --save   # threshold read from fail_under in zenzic.toml
+          uvx --pre zenzic score --save   # threshold read from fail_under in zenzic.toml
           SCORE=$(jq '.score' .zenzic-score.json)
           echo "SCORE=$SCORE" >> "$GITHUB_OUTPUT"
 
@@ -191,8 +191,8 @@ jobs:
 ```yaml
 - name: Detect score regression
   run: |
-    uvx zenzic score --save      # update snapshot
-    uvx zenzic diff --threshold 5  # fail if score drops > 5 points
+    uvx --pre zenzic score --save      # update snapshot
+    uvx --pre zenzic diff --threshold 5  # fail if score drops > 5 points
 ```
 
 Combine with branch protection rules to block merges that degrade documentation quality.

@@ -14,7 +14,7 @@ Zenzic è un **linter di documentazione CI-first** per qualsiasi progetto basato
 !!! tip "Zero installazione — eseguilo ora"
 
     ```bash
-    uvx zenzic check all
+    uvx --pre zenzic check all
     ```
 
     `uvx` scarica ed esegue Zenzic in un ambiente temporaneo. Nessuna installazione richiesta.
