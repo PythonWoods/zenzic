@@ -16,6 +16,7 @@
 #   just serve       — start MkDocs documentation server (default: port 8000)
 #   just live        — alias for serve
 #   just test        — run test suite (delegates to nox)
+#   just test-full   — run test suite with thorough Hypothesis profile (ci)
 #   just preflight   — full CI-equivalent pipeline (delegates to nox)
 #   just verify      — preflight + build-prod (pre-push gate)
 #   just clean       — remove generated artefacts
@@ -37,6 +38,10 @@ check:
 # Run the test suite (delegates to nox for reproducible isolation)
 test *args:
     {{ nox_runner }} tests {{ args }}
+
+# Run the test suite with the thorough Hypothesis profile (ci — 500 examples)
+test-full *args:
+    HYPOTHESIS_PROFILE=ci {{ nox_runner }} tests {{ args }}
 
 # Run the full quality pipeline (lint, typecheck, tests, reuse, security)
 preflight:
@@ -67,4 +72,4 @@ live: serve
 
 # Remove generated artefacts (.nox is kept — reuse avoids reinstalling deps)
 clean:
-    rm -rf site/ dist/ .pytest_cache/ .zenzic-score.json coverage.xml
+    rm -rf site/ dist/ .pytest_cache/ .hypothesis/ .zenzic-score.json coverage.xml

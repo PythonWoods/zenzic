@@ -36,6 +36,7 @@ def tests(session: nox.Session) -> None:
         "--cov-report=term-missing",
         "--cov-report=xml:coverage.xml",
         *session.posargs,
+        env={"HYPOTHESIS_PROFILE": os.environ.get("HYPOTHESIS_PROFILE", "ci")},
     )
 
 
@@ -166,6 +167,22 @@ def _build_brand_kit_zip() -> None:
         for file in sorted(src.rglob("*")):
             if file.is_file():
                 zf.write(file, file.relative_to(src.parent))
+
+
+@nox.session(python="3.11")
+def mutation(session: nox.Session) -> None:
+    """Run mutation testing with mutmut on the rule engine core.
+
+    Target: src/zenzic/core/rules.py — the heart of the Sentinel's detection logic.
+    A surviving mutant means a test gap.  Goal: mutation score > 90%.
+    """
+    session.run(*_SYNC_TEST, external=True)
+    session.run(
+        "mutmut",
+        "run",
+        *session.posargs,
+    )
+    session.run("mutmut", "results")
 
 
 @nox.session(python="3.11")

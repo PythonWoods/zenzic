@@ -462,6 +462,8 @@ def _to_findings(results: _AllCheckResults, docs_root: Path) -> list[Finding]:
                 severity="error",
                 message=err.message,
                 source_line=err.source_line,
+                col_start=err.col_start,
+                match_text=err.match_text,
             )
         )
 
@@ -515,6 +517,8 @@ def _to_findings(results: _AllCheckResults, docs_root: Path) -> list[Finding]:
                 severity="warning",
                 message=pf.detail,
                 source_line=src,
+                col_start=pf.col_start,
+                match_text=pf.match_text,
             )
         )
 
@@ -572,6 +576,8 @@ def _to_findings(results: _AllCheckResults, docs_root: Path) -> list[Finding]:
                     severity=rule_f.severity,
                     message=rule_f.message,
                     source_line=rule_f.matched_line,
+                    col_start=rule_f.col_start,
+                    match_text=rule_f.match_text,
                 )
             )
 
@@ -766,7 +772,7 @@ def check_all(
         _sf_rel = str(_single_file.relative_to(docs_root))
         all_findings = [f for f in all_findings if f.rel_path == _sf_rel]
 
-    reporter = SentinelReporter(console, docs_root)
+    reporter = SentinelReporter(console, docs_root, docs_dir=str(config.docs_dir))
 
     if quiet:
         errors, warnings = reporter.render_quiet(all_findings)
@@ -808,6 +814,7 @@ def check_all(
             assets_count=assets_count,
             engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
             target=_target_hint,
+            strict=effective_strict,
         )
 
     # In strict mode, warnings are promoted to failures.
@@ -816,12 +823,8 @@ def check_all(
     has_failures = (errors > 0) or (effective_strict and warnings > 0)
 
     if has_failures:
-        if not quiet:
-            console.print("\n[red]FAILED:[/] One or more checks failed.")
         if not effective_exit_zero:
             raise typer.Exit(1)
-    elif not quiet:
-        console.print("\n[green]SUCCESS:[/] All checks passed.")
 
 
 @plugins_app.command(name="list")

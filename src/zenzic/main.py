@@ -8,14 +8,15 @@ import sys
 from typing import Annotated
 
 import typer
+from rich import box as rich_box
 from rich.console import Console
 from rich.panel import Panel
 
 from zenzic import __version__
 from zenzic.cli import check_app, clean_app, diff, init, plugins_app, score, serve
-from zenzic.core.exceptions import ConfigurationError
+from zenzic.core.exceptions import PluginContractError, ZenzicError
 from zenzic.core.logging import setup_cli_logging
-from zenzic.ui import INDIGO, make_banner
+from zenzic.ui import INDIGO, ROSE, make_banner
 
 
 def _version_callback(value: bool) -> None:
@@ -65,10 +66,26 @@ app.command(name="init", rich_help_panel="SDK & Plugins")(init)
 _err_console = Console(stderr=True, highlight=False)
 
 
+def _sentinel_alert(exc: ZenzicError, *, border_style: str, title: str) -> None:
+    """Render a styled Sentinel Alert panel for a ZenzicError."""
+    lines = [str(exc.message)]
+    if exc.context:
+        lines.append("")
+        for k, v in exc.context.items():
+            lines.append(f"  [dim]{k}:[/] {v}")
+    _err_console.print(
+        Panel(
+            "\n".join(lines),
+            title=f"[{border_style}]{title}[/]",
+            border_style=border_style,
+            box=rich_box.ROUNDED,
+            padding=(0, 1),
+        )
+    )
+
+
 def _print_banner() -> None:
     """Print the Indigo-branded Zenzic banner to stderr."""
-    from rich import box as rich_box
-
     _err_console.print(
         Panel(
             make_banner(__version__),
@@ -87,6 +104,9 @@ def _print_banner() -> None:
 
 def cli_main() -> None:
     """Wired as the `zenzic` console_scripts entry point."""
+    from rich.traceback import install as _rich_tb_install
+
+    _rich_tb_install(show_locals=True, suppress=[typer], word_wrap=True)
     setup_cli_logging()
 
     # Show an elegant banner on zero args or when starting the dev server
@@ -95,9 +115,24 @@ def cli_main() -> None:
 
     try:
         app()
-    except ConfigurationError as exc:
-        _err_console.print(f"\n[bold red]Configuration Error[/]\n\n{exc.message}")
+    except (SystemExit, KeyboardInterrupt):
+        raise
+    except PluginContractError as exc:
+        _sentinel_alert(
+            exc,
+            border_style=f"bold {INDIGO}",
+            title="Zenzic Plugin Contract Violation",
+        )
         sys.exit(1)
+    except ZenzicError as exc:
+        _sentinel_alert(
+            exc,
+            border_style=f"bold {ROSE}",
+            title="Zenzic Error",
+        )
+        sys.exit(1)
+    # Unexpected exceptions propagate to the global rich traceback handler
+    # installed above — identical output to bump-my-version.
 
 
 if __name__ == "__main__":  # pragma: no cover

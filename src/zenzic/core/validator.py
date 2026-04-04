@@ -70,6 +70,16 @@ _PermissiveSafeLoader.add_multi_constructor("", lambda loader, tag_suffix, node:
 # Does NOT match reference-style links [text][id] or auto-links <url>.
 _MARKDOWN_LINK_RE = re.compile(r"!?\[[^\[\]]*\]\(([^)]+)\)")
 
+
+class LinkInfo(NamedTuple):
+    """Extracted link with source position for surgical caret rendering."""
+
+    url: str
+    lineno: int
+    col_start: int = 0
+    match_text: str = ""
+
+
 # Matches ATX headings: ``# Heading``, ``## Sub``, etc. (multiline mode).
 _HEADING_RE = re.compile(r"^#{1,6}\s+(.+)", re.MULTILINE)
 
@@ -131,6 +141,8 @@ class LinkError:
     message: str
     source_line: str = ""
     error_type: str = "LINK_ERROR"
+    col_start: int = 0
+    match_text: str = ""
 
     def __str__(self) -> str:
         """Flat string form — backwards-compatible with the old list[str] API."""
@@ -149,7 +161,7 @@ class _ValidationPayload(NamedTuple):
 
     file_path: Path
     anchors: set[str]
-    links: list[tuple[str, int]]
+    links: list[LinkInfo]
     source_lines: list[str]
 
 
@@ -172,8 +184,8 @@ def _index_file_for_validation(args: tuple[Path, str]) -> _ValidationPayload:
 # ─── Pure / I/O-agnostic functions ────────────────────────────────────────────
 
 
-def extract_links(text: str) -> list[tuple[str, int]]:
-    """Extract ``(url, 1-based-line-no)`` pairs from markdown, ignoring code blocks.
+def extract_links(text: str) -> list[LinkInfo]:
+    """Extract ``[text](url)`` and ``![alt](url)`` links from raw Markdown.
 
     Skips content inside fenced code blocks (````` ``` ````` / ``~~~``) and
     inline code spans (`` ` `` ) so that example links in documentation are
@@ -184,9 +196,9 @@ def extract_links(text: str) -> list[tuple[str, int]]:
         text: Raw markdown content.
 
     Returns:
-        List of ``(url, line_number)`` pairs in document order.
+        List of :class:`LinkInfo` with URL, line number, column, and match text.
     """
-    results: list[tuple[str, int]] = []
+    results: list[LinkInfo] = []
     in_block = False
 
     for lineno, line in enumerate(text.splitlines(), start=1):
@@ -212,7 +224,14 @@ def extract_links(text: str) -> list[tuple[str, int]]:
             # Strip optional title portion: url "title" or url 'title'
             url = re.sub(r"""\s+["'].*$""", "", raw).strip()
             if url:
-                results.append((url, lineno))
+                results.append(
+                    LinkInfo(
+                        url=url,
+                        lineno=lineno,
+                        col_start=m.start(),
+                        match_text=m.group(0),
+                    )
+                )
 
     return results
 
@@ -242,11 +261,14 @@ def slug_heading(heading: str) -> str:
     explicit = _EXPLICIT_ANCHOR_RE.search(heading)
     if explicit:
         return explicit.group(1).lower()
-    slug = _HTML_TAG_RE.sub("", heading).lower().strip()
+    slug = _HTML_TAG_RE.sub("", heading).strip()
     # Decompose accented characters and drop combining marks so that e.g.
     # "Integrità" → "integrita" (matching MkDocs toc extension behaviour).
+    # Lowercase AFTER NFKD so that mathematical/styled Unicode codepoints
+    # (e.g. U+1D400 𝐀 → A) are correctly lowered.
     slug = unicodedata.normalize("NFKD", slug)
     slug = "".join(c for c in slug if not unicodedata.combining(c))
+    slug = slug.lower()
     slug = re.sub(r"[^\w\s-]", "", slug)
     slug = re.sub(r"\s+", "-", slug).strip("-")
     return slug
@@ -302,8 +324,8 @@ def _build_ref_map(text: str) -> dict[str, str]:
     return ref_map
 
 
-def extract_ref_links(text: str, ref_map: dict[str, str]) -> list[tuple[str, int]]:
-    """Resolve reference-style links against *ref_map* and return ``(url, lineno)`` pairs.
+def extract_ref_links(text: str, ref_map: dict[str, str]) -> list[LinkInfo]:
+    """Resolve reference-style links against *ref_map* and return :class:`LinkInfo` items.
 
     Handles ``[text][id]`` and collapsed ``[text][]`` syntax.  Skips fenced
     code blocks and inline code spans.  Only links whose normalised ID appears
@@ -317,9 +339,9 @@ def extract_ref_links(text: str, ref_map: dict[str, str]) -> list[tuple[str, int
         ref_map: Mapping returned by :func:`_build_ref_map` (lowercase IDs).
 
     Returns:
-        List of ``(resolved_url, 1-based-line-number)`` pairs in document order.
+        List of :class:`LinkInfo` with resolved URLs and source positions.
     """
-    results: list[tuple[str, int]] = []
+    results: list[LinkInfo] = []
     in_block = False
     for lineno, line in enumerate(text.splitlines(), start=1):
         stripped = line.strip()
@@ -340,13 +362,27 @@ def extract_ref_links(text: str, ref_map: dict[str, str]) -> list[tuple[str, int
                 continue
             url = ref_map.get(ref_id)
             if url:
-                results.append((url, lineno))
+                results.append(
+                    LinkInfo(
+                        url=url,
+                        lineno=lineno,
+                        col_start=m.start(),
+                        match_text=m.group(0),
+                    )
+                )
         # Shortcut reference links: [text] (CommonMark §4.7)
         for m in _REF_SHORTCUT_RE.finditer(clean):
             ref_id = m.group(1).lower().strip()
             url = ref_map.get(ref_id)
             if url:
-                results.append((url, lineno))
+                results.append(
+                    LinkInfo(
+                        url=url,
+                        lineno=lineno,
+                        col_start=m.start(),
+                        match_text=m.group(0),
+                    )
+                )
     return results
 
 
@@ -511,7 +547,7 @@ async def validate_links_async(
         payloads = [_index_file_for_validation(item) for item in md_contents.items()]
 
     anchors_cache: dict[Path, set[str]] = {p.file_path: p.anchors for p in payloads}
-    links_cache: dict[Path, list[tuple[str, int]]] = {p.file_path: p.links for p in payloads}
+    links_cache: dict[Path, list[LinkInfo]] = {p.file_path: p.links for p in payloads}
     source_lines_cache: dict[Path, list[str]] = {p.file_path: p.source_lines for p in payloads}
 
     # Instantiate the resolver ONCE — _lookup_map is built here, not per-link.
@@ -539,7 +575,8 @@ async def validate_links_async(
         label = str(md_file.relative_to(docs_root))
         all_links = links_cache.get(md_file, [])
 
-        for url, lineno in all_links:
+        for link in all_links:
+            url, lineno = link.url, link.lineno
             # Skip non-navigable schemes and bare fragment-only links
             if url.startswith(_SKIP_SCHEMES) or url == "#":
                 continue
@@ -564,6 +601,8 @@ async def validate_links_async(
                                 message=f"{label}:{lineno}: anchor '#{anchor}' not found in '{label}'",
                                 source_line=_source_line(md_file, lineno),
                                 error_type="ANCHOR_MISSING",
+                                col_start=link.col_start,
+                                match_text=link.match_text,
                             )
                         )
                 continue
@@ -587,6 +626,8 @@ async def validate_links_async(
                         ),
                         source_line=_source_line(md_file, lineno),
                         error_type="ABSOLUTE_PATH",
+                        col_start=link.col_start,
+                        match_text=link.match_text,
                     )
                 )
                 continue
@@ -606,6 +647,8 @@ async def validate_links_async(
                             message=f"{label}:{lineno}: '{url}' resolves outside the docs directory",
                             source_line=_source_line(md_file, lineno),
                             error_type="PATH_TRAVERSAL",
+                            col_start=link.col_start,
+                            match_text=link.match_text,
                         )
                     )
                 case FileNotFound(path_part=path_part):
@@ -639,6 +682,8 @@ async def validate_links_async(
                                     message=f"{label}:{lineno}: '{path_part}' not found in docs",
                                     source_line=_source_line(md_file, lineno),
                                     error_type="FILE_NOT_FOUND",
+                                    col_start=link.col_start,
+                                    match_text=link.match_text,
                                 )
                             )
                 case AnchorMissing(path_part=path_part, anchor=anchor, resolved_file=resolved_file):
@@ -656,6 +701,8 @@ async def validate_links_async(
                             message=f"{label}:{lineno}: anchor '#{anchor}' not found in '{path_part}'",
                             source_line=_source_line(md_file, lineno),
                             error_type="ANCHOR_MISSING",
+                            col_start=link.col_start,
+                            match_text=link.match_text,
                         )
                     )
                 case Resolved(target=resolved_target):
@@ -689,6 +736,8 @@ async def validate_links_async(
                                         ),
                                         source_line=_source_line(md_file, lineno),
                                         error_type="UNREACHABLE_LINK",
+                                        col_start=link.col_start,
+                                        match_text=link.match_text,
                                     )
                                 )
 
