@@ -147,6 +147,9 @@ markers = [
 source = ["src"]
 branch = true
 omit = ["tests/*"]
+# relative_files ensures that coverage paths from editable installs match
+# the src/ tree, which is required for mutmut v3's source→test mapping.
+relative_files = true
 
 [tool.coverage.report]
 show_missing = true
@@ -161,11 +164,17 @@ exclude_lines = [
 # ─── Mutation testing (Sentinel Rigor) ────────────────────────────────────────
 
 [tool.mutmut]
-paths_to_mutate = ["src/zenzic/core/rules.py"]
-tests_dir = ["tests/"]
+paths_to_mutate = [
+    "src/zenzic/core/rules.py",
+    "src/zenzic/core/shield.py",
+    "src/zenzic/core/reporter.py",
+]
+# pytest_add_cli_args_test_selection specifies which tests to run (replaces tests_dir).
+pytest_add_cli_args_test_selection = ["tests/"]
 also_copy = ["src/"]
-# Assicura che venga usato pytest con la nostra configurazione
-runner = "python3 -m pytest -x"
+# Override importlib mode: mutmut v3's import-graph analyser requires classic
+# prepend mode to trace source→test links (our addopts sets importlib mode).
+pytest_add_cli_args = ["--import-mode=prepend"]
 
 # ─── Version bumping ───────────────────────────────────────────────────────────
 

@@ -32,14 +32,24 @@ from zenzic.models.vsm import Route
 # Guard the import so that Commit 1 alone remains test-runnable: the two
 # shield-dependent test classes are skipped until Commit 2 is applied.
 try:
-    from zenzic.core.scanner import ReferenceScanner
-    from zenzic.core.shield import _normalize_line_for_shield, scan_line_for_secrets
+    from zenzic.core.reporter import Finding, SentinelReporter, _obfuscate_secret
+    from zenzic.core.scanner import ReferenceScanner, _map_shield_to_finding
+    from zenzic.core.shield import (
+        SecurityFinding,
+        _normalize_line_for_shield,
+        scan_line_for_secrets,
+    )
 
     _SHIELD_AVAILABLE = True
 except ImportError:
     _normalize_line_for_shield = None  # type: ignore[assignment]
     scan_line_for_secrets = None  # type: ignore[assignment]
     ReferenceScanner = None  # type: ignore[assignment]
+    _map_shield_to_finding = None  # type: ignore[assignment]
+    SecurityFinding = None  # type: ignore[assignment]
+    Finding = None  # type: ignore[assignment]
+    SentinelReporter = None  # type: ignore[assignment]
+    _obfuscate_secret = None  # type: ignore[assignment]
     _SHIELD_AVAILABLE = False
 
 _shield_skip = pytest.mark.skipif(
@@ -353,3 +363,168 @@ class TestVSMContextAwareResolution:
             context=ctx,
         )
         assert findings == [], f"Expected no findings with context, got: {findings}"
+
+
+# ─── Mutation Gate: Commit 2 — Shield ↔ Reporter bridge integrity ─────────────
+
+
+@_shield_skip
+class TestShieldReportingIntegrity:
+    """Mutation Gate: these tests target _map_shield_to_finding() and _obfuscate_secret().
+
+    Each test is designed to kill one of the three mandatory mutants defined in
+    the Mutation Gate (CONTRIBUTING.md, Obligation 4).
+
+    - ``test_map_always_emits_security_breach_severity``  → kills **The Invisible**
+    - ``test_obfuscate_never_leaks_raw_secret``           → kills **The Amnesiac**
+    - ``test_pipeline_appends_breach_finding_to_list``    → kills **The Silencer**
+    """
+
+    _DOCS_ROOT = Path("/docs")
+    # Valid Stripe live key: 'sk_live_' (8) + exactly 24 alphanumeric chars.
+    _STRIPE_KEY = "sk_live_1234567890ABCDEFGHIJKLMN"
+    _FILE = Path("/docs/leaky.md")
+
+    def _make_sf(
+        self, secret_type: str = "stripe-live-key", key: str | None = None
+    ) -> SecurityFinding:
+        raw = key or self._STRIPE_KEY
+        return SecurityFinding(
+            file_path=self._FILE,
+            line_no=7,
+            secret_type=secret_type,
+            url=f"stripe_key: {raw}",
+            col_start=12,
+            match_text=raw,
+        )
+
+    def test_map_always_emits_security_breach_severity(self) -> None:
+        """The Invisible: _map_shield_to_finding() must set severity='security_breach'.
+
+        A mutant that changes ``severity='security_breach'`` to ``severity='error'``
+        or ``severity='warning'`` causes the CLI runner to exit 1 instead of 2,
+        silently downgrading a security breach to an ordinary check failure.
+        This test makes that mutant visible.
+        """
+        finding = _map_shield_to_finding(self._make_sf(), self._DOCS_ROOT)
+
+        assert finding.severity == "security_breach", (
+            f"Expected severity='security_breach', got '{finding.severity}'. "
+            "Any other severity value causes Exit 1 instead of Exit 2."
+        )
+        # Explicit negative assertions — each covers one mutation site.
+        assert finding.severity != "error"
+        assert finding.severity != "warning"
+        assert finding.severity != "info"
+
+    def test_obfuscate_never_leaks_raw_secret(self) -> None:
+        """The Amnesiac: _obfuscate_secret() and the reporter pipeline must never expose
+        the raw secret.
+
+        The full Stripe key must not appear in reporter output in any form.
+        A mutant that removes obfuscation (e.g. returns the input unchanged, or
+        uses ``str.upper()`` instead of redaction) is caught because:
+
+        1. The raw key is asserted absent from ``_obfuscate_secret()``'s return value.
+        2. The raw key is asserted absent from the captured full reporter output.
+        3. The obfuscated form is asserted present in the output.
+        4. The correct file:line reference is asserted present in the output.
+        """
+        from io import StringIO
+
+        from rich.console import Console
+
+        raw = self._STRIPE_KEY
+        obfuscated = _obfuscate_secret(raw)
+
+        # ── Unit-level assertions on _obfuscate_secret() ─────────────────────
+        assert raw not in obfuscated, (
+            f"_obfuscate_secret must not return the raw secret. Got: {obfuscated!r}"
+        )
+        assert "*" in obfuscated, "Obfuscated form must replace the body with asterisks."
+        assert obfuscated != "*" * len(raw), (
+            "_obfuscate_secret must preserve prefix and suffix for human verification."
+        )
+        assert obfuscated[:4] == raw[:4], "First 4 chars must be preserved."
+        assert obfuscated[-4:] == raw[-4:], "Last 4 chars must be preserved."
+
+        # ── Integration: raw key must not appear in reporter output ───────────
+        buf = StringIO()
+        con = Console(file=buf, no_color=True, highlight=False, width=120)
+        reporter = SentinelReporter(con, self._DOCS_ROOT)
+
+        breach_finding = Finding(
+            rel_path="leaky.md",
+            line_no=7,
+            code="SHIELD",
+            severity="security_breach",
+            message="Secret detected (stripe-live-key) — rotate immediately.",
+            source_line=f"stripe_key: {raw}",
+            col_start=12,
+            match_text=raw,
+        )
+        reporter.render(
+            [breach_finding],
+            version="test",
+            elapsed=0.1,
+            docs_count=1,
+            assets_count=0,
+            engine="test",
+        )
+        output = buf.getvalue()
+
+        # The raw full secret must NEVER appear in any rendered line.
+        assert raw not in output, (
+            f"Raw secret found in reporter output.\n"
+            f"  Secret: {raw!r}\n"
+            f"  Obfuscated expected: {obfuscated!r}\n"
+            f"  Output excerpt: {output[:300]!r}"
+        )
+        # The obfuscated form must be present so the operator knows what to rotate.
+        assert obfuscated in output, (
+            f"Obfuscated form {obfuscated!r} must appear in reporter output."
+        )
+        # The reporter must identify the correct file and line number.
+        assert "leaky.md:7" in output, "Reporter must display 'file:line' for breach localisation."
+
+    def test_pipeline_appends_breach_finding_to_list(self) -> None:
+        """The Silencer: _map_shield_to_finding() must return a non-None Finding.
+
+        A mutant that replaces the ``return Finding(...)`` with ``return None``,
+        or wraps the caller's ``findings.append(f)`` in a no-op condition,
+        would silently discard all breach findings.
+        This test kills that mutant by asserting count, identity, and field fidelity.
+        """
+        sf = self._make_sf()
+        result = _map_shield_to_finding(sf, self._DOCS_ROOT)
+
+        # Must return a Finding, never None.
+        assert result is not None, "_map_shield_to_finding must never return None."
+        assert isinstance(result, Finding), f"Expected Finding, got {type(result).__name__}."
+
+        # Every Shield field must be forwarded with exact fidelity.
+        assert result.line_no == sf.line_no, "line_no must be forwarded from SecurityFinding."
+        assert result.col_start == sf.col_start, "col_start enables surgical caret rendering."
+        assert result.match_text == sf.match_text, (
+            "match_text must be forwarded so the reporter can obfuscate it."
+        )
+        assert sf.secret_type in result.message, (
+            "secret_type must appear in the Finding message for operator triage."
+        )
+        assert result.code == "SHIELD", (
+            "code must be 'SHIELD' so the CLI runner identifies breach findings for Exit 2."
+        )
+
+        # Pipeline test: N SecurityFindings → exactly N breach Findings.
+        sfs = [
+            self._make_sf("aws-access-key", "AKIA1234567890ABCDEF"),
+            self._make_sf("stripe-live-key"),
+        ]
+        findings_list: list[Finding] = []
+        for each_sf in sfs:
+            findings_list.append(_map_shield_to_finding(each_sf, self._DOCS_ROOT))
+
+        assert len(findings_list) == 2, (
+            f"Expected 2 Finding objects from 2 SecurityFindings, got {len(findings_list)}. "
+            "A Silencer mutant (no-op return / conditional append) would produce 0."
+        )
