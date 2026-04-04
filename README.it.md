@@ -40,7 +40,7 @@ SPDX-License-Identifier: Apache-2.0
 </p>
 
 <p align="center">
-  <img src="docs/assets/screenshots/screenshot.svg" alt="Zenzic Sentinel — linter di documentazione" width="700">
+  <img src="docs/assets/screenshots/screenshot-hero.svg" alt="Zenzic Sentinel — linter di documentazione" width="700">
 </p>
 
 ---
@@ -64,24 +64,31 @@ gli altri strumenti citati sono progetti di terze parti.
 
 ---
 
-## v0.5.0a1 — La Sentinella
+## v0.5.0a3 — La Sentinella
 
-- **Hybrid Adaptive Engine**: `scan_docs_references` è l'unico entry point unificato per
-  tutte le modalità di scansione. Il motore seleziona l'esecuzione sequenziale o parallela
-  automaticamente in base alla dimensione del repository (soglia: 50 file).
-- **`AdaptiveRuleEngine` con validazione pickle anticipata**: tutte le regole vengono
-  validate per la serializzabilità pickle al momento della costruzione. Una regola non
-  serializzabile solleva `PluginContractError` immediatamente.
-- **`zenzic plugins list`**: nuovo comando che mostra ogni regola registrata nel gruppo
-  entry-point `zenzic.rules` — regole Core e plugin di terze parti.
-- **Supporto `pyproject.toml` (ISSUE #5)**: incorpora la configurazione Zenzic in
-  `[tool.zenzic]` quando `zenzic.toml` è assente. `zenzic.toml` vince sempre se entrambi
-  i file esistono.
-- **Telemetria delle prestazioni**: `scan_docs_references(verbose=True)` stampa modalità
-  motore, numero di worker, tempo di esecuzione e speedup stimato su stderr.
-- **`PluginContractError`**: nuova eccezione per le violazioni del contratto delle regole.
-- **Documentazione plugin**: `docs/developers/plugins.md` (EN + IT) — contratto completo,
-  istruzioni di packaging ed esempi di registrazione `pyproject.toml`.
+- **Inizializzazione Intelligente**: `zenzic init` rileva `pyproject.toml` e offre di
+  incorporare la configurazione come `[tool.zenzic]` invece di creare un `zenzic.toml`
+  separato. Usa `--pyproject` per saltare il prompt. Auto-detection dell'engine in
+  entrambe le modalità.
+- **Sentinel UI**: banner Indigo monolitico, gutter traceback con spaziatura a 2 spazi
+  (`│  16  ❱`), sottolineature caret chirurgiche e respiro verticale tra i finding.
+- **Target Agnostico**: `zenzic check all README.md` o `zenzic check all content/`
+  limita l'audit a un singolo file o directory. `VanillaAdapter` selezionato
+  automaticamente per target fuori da docs.
+- **Plugin SDK**: `zenzic init --plugin <nome>` scaffolda un pacchetto regole
+  pronto all'uso. Namespace pubblico `zenzic.rules` stabile — `BaseRule`,
+  `RuleFinding`, `CustomRule`, `Violation`, `Severity`.
+- **Hybrid Adaptive Engine**: `scan_docs_references` seleziona esecuzione sequenziale
+  o parallela automaticamente in base alla dimensione del repository (soglia: 50 file).
+  Validazione ancore deterministica a due fasi elimina falsi positivi da race condition.
+- **Z001/Z002 Split**: link rotti (Z001 errore) vs link a pagine orfane (Z002 warning).
+  Senza `--strict`, i warning orfani non bloccano la build.
+- **Mutation-tested**: 86.7% mutation score (242/279 killed su `rules.py`).
+  706 test, Hypothesis property-based testing con profili tiered.
+- **Config `pyproject.toml`**: incorpora la configurazione Zenzic in `[tool.zenzic]`
+  quando `zenzic.toml` è assente. `zenzic.toml` vince sempre se entrambi esistono.
+- **Zenzic Shield**: rilevamento credenziali (7 famiglie) + protezione path traversal.
+  Codice di uscita 2 riservato per eventi di sicurezza.
 
 ---
 
@@ -146,19 +153,19 @@ zenzic check all --engine hugo
 
 ```bash
 # Esecuzione una-tantum senza installazione
-uvx zenzic check all
+uvx --pre zenzic check all
 
 # Strumento globale disponibile in qualsiasi progetto
-uv tool install zenzic
+uv tool install --pre zenzic
 
 # Dipendenza dev del progetto — versione fissata in uv.lock
-uv add --dev zenzic
+uv add --dev --pre zenzic
 ```
 
 ### Con `pip`
 
 ```bash
-pip install zenzic
+pip install --pre zenzic
 ```
 
 ### Lean e Agnostico per Design
@@ -288,6 +295,16 @@ non segnalare mai i file tradotti come orfani.
 > Nota sul ciclo release: la linea `0.4.x` è stata abbandonata (fase
 > esplorativa con breaking changes multipli); la linea attiva di
 > stabilizzazione è `0.5.x`.
+
+---
+
+## Visual Tour
+
+L'audit completo della Sentinella: banner, contesto gutter, sottolineature caret e punteggio qualità.
+
+<p align="center">
+  <img src="docs/assets/screenshots/screenshot.svg" alt="Zenzic Sentinel — output completo con punteggio qualità" width="700">
+</p>
 
 ---
 

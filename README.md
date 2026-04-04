@@ -40,7 +40,7 @@ SPDX-License-Identifier: Apache-2.0
 </p>
 
 <p align="center">
-  <img src="docs/assets/screenshots/screenshot.svg" alt="Zenzic Sentinel — engineering-grade documentation linter" width="700">
+  <img src="docs/assets/screenshots/screenshot-hero.svg" alt="Zenzic Sentinel — engineering-grade documentation linter" width="700">
 </p>
 
 ---
@@ -63,30 +63,31 @@ referenced ecosystem tools are third-party projects.
 
 ---
 
-## v0.5.0a1 Highlights — The Sentinel
+## v0.5.0a3 Highlights — The Sentinel
 
-- **Hybrid Adaptive Engine**: `scan_docs_references` is the single unified
-  entry point for all scan modes. The engine selects sequential or parallel
-  execution automatically based on repository size (threshold: 50 files). No
-  flags required — Zenzic is fast by default.
-- **`AdaptiveRuleEngine` with eager pickle validation**: all rules are validated
-  for pickle-serializability at construction time. A non-serialisable rule raises
-  `PluginContractError` immediately — before any file is scanned.
-- **`zenzic.rules` entry-point group**: core rules (`VSMBrokenLinkRule`) are
-  registered as first-class plugins. Third-party packages can extend Zenzic by
-  registering under the same group and enabling their plugin ID in `zenzic.toml`.
-- **`zenzic plugins list`**: new command that displays every rule registered in
-  the `zenzic.rules` entry-point group — Core rules and third-party plugins.
-- **`pyproject.toml` support (ISSUE #5)**: embed Zenzic config in `[tool.zenzic]`
-  when `zenzic.toml` is absent. `zenzic.toml` always wins if both exist.
-- **Performance telemetry**: `scan_docs_references(verbose=True)` prints engine
-  mode, worker count, elapsed time, and estimated speedup to stderr.
-- **`PluginContractError`**: new exception for rule contract violations.
-- **Plugin documentation**: `docs/developers/plugins.md` (EN + IT) — full
-  contract, packaging instructions, and `pyproject.toml` registration examples.
-- **Release-track clarification**: the 0.4.x cycle is considered abandoned
-  (exploratory with repeated breaking changes); 0.5.x is the active
-  stabilization line.
+- **Smart Initialization**: `zenzic init` detects `pyproject.toml` and offers to
+  embed config as `[tool.zenzic]` instead of a standalone `zenzic.toml`. Use
+  `--pyproject` to skip the prompt. Engine auto-detection in both modes.
+- **Sentinel UI**: monolithic Indigo banner, traceback gutter with 2-space
+  padding (`│  16  ❱`), surgical caret underlines, and vertical breathing
+  between findings.
+- **Agnostic Target**: `zenzic check all README.md` or `zenzic check all content/`
+  scopes audits to a single file or directory. `VanillaAdapter` auto-selected for
+  out-of-docs targets.
+- **Plugin SDK**: `zenzic init --plugin <name>` scaffolds a ready-to-edit rule
+  package. `zenzic.rules` public namespace is stable — `BaseRule`, `RuleFinding`,
+  `CustomRule`, `Violation`, `Severity`.
+- **Hybrid Adaptive Engine**: `scan_docs_references` selects sequential or parallel
+  execution automatically based on repository size (threshold: 50 files).
+  Deterministic two-phase anchor validation eliminates race-induced false positives.
+- **Z001/Z002 Split**: broken links (Z001 error) vs orphan-page links (Z002 warning).
+  Without `--strict`, orphan warnings don't block the build.
+- **Mutation-tested**: 86.7% mutation score (242/279 killed on `rules.py`).
+  706 tests, Hypothesis property-based testing with tiered profiles.
+- **`pyproject.toml` config**: embed Zenzic config in `[tool.zenzic]` when
+  `zenzic.toml` is absent. `zenzic.toml` always wins if both exist.
+- **Zenzic Shield**: credential detection (7 secret families) + path traversal
+  protection. Exit code 2 reserved for security events.
 
 ---
 
@@ -103,10 +104,6 @@ Zenzic provides an extensive, engineering-grade documentation portal:
 <p align="center">
   <a href="https://zenzic.pythonwoods.dev/"><strong>Explore the full documentation →</strong></a>
 </p>
-
----
-
-![Zenzic CLI Output][screenshot]
 
 ---
 
@@ -331,25 +328,25 @@ fallback — for all documentation systems.
 
 ```bash
 # Zero-install, one-shot audit
-uvx zenzic check all
+uvx --pre zenzic check all
 
 # Global CLI tool — available in any project
-uv tool install zenzic
+uv tool install --pre zenzic
 
 # Project dev dependency — version-pinned in uv.lock
-uv add --dev zenzic
+uv add --dev --pre zenzic
 ```
 
 ### With `pip`
 
 ```bash
 # Global install (consider a virtual environment)
-pip install zenzic
+pip install --pre zenzic
 
 # Inside a virtual environment (recommended)
 python -m venv .venv
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install zenzic
+pip install --pre zenzic
 ```
 
 ### Lean & Agnostic by Design
@@ -509,10 +506,10 @@ silently collapsed into a generic "file not found".
 
 ```yaml
 - name: Lint documentation
-  run: uvx zenzic check all
+  run: uvx --pre zenzic check all
 
 - name: Check references and run Shield
-  run: uvx zenzic check references
+  run: uvx --pre zenzic check references
 ```
 
 Full workflow: [`.github/workflows/zenzic.yml`][ci-workflow]
@@ -569,6 +566,16 @@ nox -s preflight   # zenzic check all (self-check)
 
 ---
 
+## Visual Tour
+
+The full Sentinel audit: banner, gutter context, caret underlines, and quality score breakdown.
+
+<p align="center">
+  <img src="docs/assets/screenshots/screenshot.svg" alt="Zenzic Sentinel — full audit output with quality score" width="700">
+</p>
+
+---
+
 ## Contributing
 
 We welcome bug reports, documentation improvements, and pull requests. Before you start:
@@ -606,7 +613,6 @@ Apache-2.0 — see [LICENSE][license].
 [docs-cicd]:         https://zenzic.pythonwoods.dev/ci-cd/
 [docs-arch]:         https://zenzic.pythonwoods.dev/architecture/
 [docs-contributing]: https://zenzic.pythonwoods.dev/community/contribute/
-[screenshot]:        docs/assets/screenshots/screenshot.svg
 [ci-workflow]:       .github/workflows/zenzic.yml
 [contributing]:      CONTRIBUTING.md
 [license]:           LICENSE

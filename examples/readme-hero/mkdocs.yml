@@ -1,0 +1,9 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# mkdocs.yml — minimal nav listing both pages.
+
+site_name: README Hero Example
+
+nav:
+  - Home: index.md
+  - Setup: setup.md

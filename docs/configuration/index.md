@@ -11,7 +11,7 @@ Zenzic reads a single `zenzic.toml` file at the repository root. All fields are 
 
 !!! tip "Zero configuration"
 
-    Most projects need no `zenzic.toml` at all. Run `uvx zenzic check all` — if it passes,
+    Most projects need no `zenzic.toml` at all. Run `uvx --pre zenzic check all` — if it passes,
     you're done. Only add configuration when you need to customise specific behaviour.
 
 ---

@@ -1,0 +1,11 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# zenzic.toml — minimal example used for the README hero screenshot.
+#
+# Two intentional errors: one broken link and one snippet syntax error.
+# Run `zenzic check all` from this directory to see the compact report.
+
+docs_dir = "docs"
+
+[build_context]
+engine = "mkdocs"

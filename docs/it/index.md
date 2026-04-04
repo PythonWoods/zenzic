@@ -27,7 +27,7 @@ Intercetta link non validi, pagine orfane e credenziali esposte — prima dei tu
 
 <div class="zz-hero__screenshot-wrap" markdown>
 
-![Output terminale Zenzic con sei controlli superati](assets/screenshots/screenshot.svg){ .zz-hero__screenshot }
+![Zenzic Sentinel — output completo con punteggio qualità](assets/screenshots/screenshot.svg){ .zz-hero__screenshot }
 
 </div>
 

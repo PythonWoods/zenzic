@@ -180,6 +180,49 @@ def generate_hero() -> Path:
     return out
 
 
+# ── Asset 1b: Hero (compact, from readme-hero example) ────────────────────────
+
+README_HERO = Path(__file__).parent.parent / "examples" / "readme-hero"
+
+
+def generate_hero_crop() -> Path:
+    """Compact ``zenzic check all`` on readme-hero → screenshot-hero.svg.
+
+    Uses the lightweight *examples/readme-hero* project (1 error + 3 warnings)
+    to produce a naturally compact SVG that fits the README hero area without
+    any viewBox hacking.
+    """
+    out = OUT_DIR / "screenshot-hero.svg"
+
+    console = Console(highlight=False, record=True, width=88)
+
+    config, _ = ZenzicConfig.load(README_HERO)
+    docs_root = (README_HERO / config.docs_dir).resolve()
+
+    console.print(f"[dim]{emoji('arrow')}[/] [bold]zenzic check all[/bold]")
+    console.print()
+
+    t0 = time.monotonic()
+    results = _collect_all_results(README_HERO, config, strict=True)
+    elapsed = time.monotonic() - t0
+
+    all_findings = _to_findings(results, docs_root)
+    reporter = SentinelReporter(console, docs_root)
+    docs_count, assets_count = _docs_assets_count(docs_root, README_HERO)
+    reporter.render(
+        all_findings,
+        version=__version__,
+        elapsed=elapsed,
+        docs_count=docs_count,
+        assets_count=assets_count,
+        engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
+    )
+
+    console.save_svg(str(out), title="zenzic check all")
+    _cleanup_build_artefact(README_HERO)
+    return out
+
+
 # ── Asset 2: Quality score standalone ─────────────────────────────────────────
 
 
@@ -281,6 +324,9 @@ if __name__ == "__main__":
 
     hero = generate_hero()
     print(f"Saved → {hero.relative_to(root)}")
+
+    hero_crop = generate_hero_crop()
+    print(f"Saved → {hero_crop.relative_to(root)}")
 
     score = generate_score()
     print(f"Saved → {score.relative_to(root)}")

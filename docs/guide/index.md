@@ -14,7 +14,7 @@ Zenzic is a **CI-first documentation linter** for any Markdown-based project. It
 !!! tip "Zero install — run it now"
 
     ```bash
-    uvx zenzic check all
+    uvx --pre zenzic check all
     ```
 
     `uvx` downloads and runs Zenzic in a throwaway environment. Nothing is installed on your system.
