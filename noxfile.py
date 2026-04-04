@@ -159,14 +159,16 @@ def docs_serve(session: nox.Session) -> None:
 
 
 def _build_brand_kit_zip() -> None:
-    """Generate docs/assets/brand-kit.zip from docs/assets/brand/ (build artifact)."""
-    src = Path("docs/assets/brand")
-    out = Path("docs/assets/brand-kit.zip")
+    """Generate docs/assets/brand-kit.zip from docs/assets/brand/ + social/."""
+    base = Path("docs/assets")
+    out = base / "brand-kit.zip"
     out.parent.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zf:
-        for file in sorted(src.rglob("*")):
-            if file.is_file():
-                zf.write(file, file.relative_to(src.parent))
+        for src_dir in ("brand", "social"):
+            src = base / src_dir
+            for file in sorted(src.rglob("*")):
+                if file.is_file() and not file.name.endswith(".license"):
+                    zf.write(file, file.relative_to(base))
 
 
 @nox.session(python="3.11")
