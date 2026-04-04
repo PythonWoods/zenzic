@@ -70,7 +70,7 @@ class _BrokenVsmRule(BaseRule):
     def check(self, file_path: Path, text: str) -> list[RuleFinding]:
         return []
 
-    def check_vsm(self, file_path, text, vsm, anchors_cache) -> list[Violation]:
+    def check_vsm(self, file_path, text, vsm, anchors_cache, context=None) -> list[Violation]:
         raise RuntimeError("vsm rule internal error")
 
 

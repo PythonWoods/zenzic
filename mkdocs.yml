@@ -111,6 +111,10 @@ plugins:
             Docs Issue: Problema nei Docs
             Change Request: Richiesta di Modifica
             Pull Requests: Pull Request
+            Internals: Architettura Interna
+            VSM Engine: Motore VSM
+            Security Reports: Rapporti di Sicurezza
+            Security Analysis v0.5.0a3: Analisi di Sicurezza v0.5.0a3
 
 markdown_extensions:
   - admonition
@@ -188,6 +192,10 @@ nav:
           - Writing an Adapter: developers/writing-an-adapter.md
           - Writing Plugin Rules: developers/plugins.md
           - Example Projects: developers/examples.md
+          - Internals:
+              - VSM Engine: arch/vsm_engine.md
+          - Security Reports:
+              - Security Analysis v0.5.0a3: internal/security/shattered_mirror_report.md
       - Community:
           - Get Involved: community/index.md
           - How to Contribute: community/contribute/index.md

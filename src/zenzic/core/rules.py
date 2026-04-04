@@ -76,6 +76,28 @@ if TYPE_CHECKING:
     from zenzic.models.vsm import VSM, Route
 
 
+# ─── ResolutionContext (ZRT-004) ────────────────────────────────────────────────
+
+
+@dataclass(slots=True)
+class ResolutionContext:
+    """Source-file context for VSM-aware rules that resolve relative links.
+
+    Passed as the ``context`` argument to :meth:`BaseRule.check_vsm` and
+    :meth:`AdaptiveRuleEngine.run_vsm`.  Enables rules like
+    :class:`VSMBrokenLinkRule` to resolve ``..``-relative hrefs correctly
+    relative to the *physical* location of the source file in the docs tree,
+    rather than treating every href as if it originated from the docs root.
+
+    Attributes:
+        docs_root: Absolute path to the ``docs/`` directory.
+        source_file: Absolute path of the Markdown file currently being checked.
+    """
+
+    docs_root: Path
+    source_file: Path
+
+
 # ─── Finding ──────────────────────────────────────────────────────────────────
 
 Severity = Literal["error", "warning", "info"]
@@ -237,6 +259,7 @@ class BaseRule(ABC):
         text: str,
         vsm: Mapping[str, Route],
         anchors_cache: dict[Path, set[str]],
+        context: ResolutionContext | None = None,
     ) -> list[Violation]:
         """Analyse a file against the pre-built Virtual Site Map.
 
@@ -262,6 +285,13 @@ class BaseRule(ABC):
             anchors_cache: Pre-computed mapping of absolute ``Path`` → anchor
                            slug set.  Use this for anchor validation instead
                            of re-parsing file content.
+            context:       Optional :class:`ResolutionContext` with the
+                           ``docs_root`` and ``source_file`` paths.  When
+                           present, rules that resolve relative hrefs should
+                           use ``context.source_file.parent`` as the base
+                           directory — not the docs root.  ``None`` for
+                           backwards-compatibility with rules that do not
+                           require source-file context.
 
         Returns:
             A list of :class:`Violation` objects, or an empty list.
@@ -369,6 +399,71 @@ def _assert_pickleable(rule: BaseRule) -> None:
         ) from exc
 
 
+# Canary strings that trigger catastrophic backtracking in ReDoS-vulnerable
+# patterns.  A safe regex at n=30 takes microseconds; a ReDoS pattern at n=30
+# takes seconds or longer.
+_CANARY_STRINGS: tuple[str, ...] = (
+    "a" * 30 + "b",  # classic (a+)+  /  (a*)* style
+    "A" * 25 + "!",  # uppercase variant
+    "1" * 20 + "x",  # numeric variant
+)
+_CANARY_TIMEOUT_S: float = 0.1  # 100 ms
+
+
+def _assert_regex_canary(rule: BaseRule) -> None:
+    """Raise :class:`PluginContractError` if a :class:`CustomRule` pattern hangs.
+
+    ZRT-002 defence: a regex that causes catastrophic backtracking inside a
+    worker process will deadlock the :class:`~concurrent.futures.ProcessPoolExecutor`
+    because the executor has no timeout.  This canary tests each
+    :class:`CustomRule` pattern against stress strings under a ``SIGALRM``
+    watchdog **before** the engine is distributed to worker processes.
+
+    Only :class:`CustomRule` instances are tested (they carry user-supplied
+    regexes).  Python-native :class:`BaseRule` subclasses are trusted to
+    have been written with complexity in mind.
+
+    This function is a no-op on Windows (``signal.SIGALRM`` is unavailable).
+
+    Args:
+        rule: A :class:`BaseRule` instance to validate.
+
+    Raises:
+        PluginContractError: When the pattern takes longer than
+            :data:`_CANARY_TIMEOUT_S` on any canary string.
+    """
+    import platform
+    import signal
+
+    from zenzic.core.exceptions import PluginContractError
+
+    if platform.system() == "Windows" or not isinstance(rule, CustomRule):
+        return
+
+    def _alarm(_signum: int, _frame: object) -> None:
+        raise TimeoutError
+
+    old_handler = signal.signal(signal.SIGALRM, _alarm)
+    try:
+        for canary in _CANARY_STRINGS:
+            signal.setitimer(signal.ITIMER_REAL, _CANARY_TIMEOUT_S)
+            try:
+                rule.check(Path("__canary__.md"), canary)
+            except TimeoutError:
+                raise PluginContractError(
+                    f"Rule '{rule.rule_id}': pattern {rule.pattern!r} may cause "
+                    f"catastrophic backtracking (ReDoS).  The pattern timed out "
+                    f"after {int(_CANARY_TIMEOUT_S * 1000)} ms on the stress string "
+                    f"{canary!r}.\n"
+                    "  Fix: simplify the regex to avoid nested quantifiers "
+                    "such as (a+)+, (a*)*, (a|aa)+, etc."
+                ) from None
+            finally:
+                signal.setitimer(signal.ITIMER_REAL, 0)  # cancel alarm
+    finally:
+        signal.signal(signal.SIGALRM, old_handler)
+
+
 class AdaptiveRuleEngine:
     """Applies a collection of :class:`BaseRule` instances to a Markdown file.
 
@@ -397,6 +492,7 @@ class AdaptiveRuleEngine:
     def __init__(self, rules: Sequence[BaseRule]) -> None:
         for rule in rules:
             _assert_pickleable(rule)
+            _assert_regex_canary(rule)  # ZRT-002: ReDoS pre-flight check
         self._rules = rules
 
     def __bool__(self) -> bool:
@@ -443,6 +539,7 @@ class AdaptiveRuleEngine:
         text: str,
         vsm: VSM,
         anchors_cache: dict[Path, set[str]],
+        context: ResolutionContext | None = None,
     ) -> list[RuleFinding]:
         """Run VSM-aware rules against *text* and the pre-built routing table.
 
@@ -456,6 +553,10 @@ class AdaptiveRuleEngine:
             text:          Raw Markdown content.
             vsm:           Pre-built VSM (canonical URL → Route).
             anchors_cache: Pre-computed anchor slug sets.
+            context:       Optional :class:`ResolutionContext` for source-file-
+                           relative link resolution.  When provided, each rule
+                           that overrides :meth:`BaseRule.check_vsm` will receive
+                           the context to resolve ``..``-relative hrefs correctly.
 
         Returns:
             Flat list of :class:`RuleFinding` from all VSM-aware rules.
@@ -463,7 +564,7 @@ class AdaptiveRuleEngine:
         findings: list[RuleFinding] = []
         for rule in self._rules:
             try:
-                violations = rule.check_vsm(file_path, text, vsm, anchors_cache)
+                violations = rule.check_vsm(file_path, text, vsm, anchors_cache, context)
                 findings.extend(v.as_finding() for v in violations)
             except Exception as exc:  # noqa: BLE001
                 findings.append(
@@ -577,6 +678,7 @@ class VSMBrokenLinkRule(BaseRule):
         text: str,
         vsm: Mapping[str, Route],
         anchors_cache: dict[Path, set[str]],
+        context: ResolutionContext | None = None,
     ) -> list[Violation]:
         """Validate all inline links in *text* against the VSM.
 
@@ -614,7 +716,11 @@ class VSMBrokenLinkRule(BaseRule):
             #   guide/index.md  → /guide/
             #   guide/install.md → /guide/install/
             # Paths without .md suffix (e.g. "guide/install") are also handled.
-            target_url = self._to_canonical_url(url)
+            target_url = self._to_canonical_url(
+                url,
+                source_dir=context.source_file.parent if context else None,
+                docs_root=context.docs_root if context else None,
+            )
             if target_url is None:
                 continue
 
@@ -666,30 +772,63 @@ class VSMBrokenLinkRule(BaseRule):
 
         return violations
 
-    @staticmethod
-    def _to_canonical_url(href: str) -> str | None:
+    def _to_canonical_url(
+        self,
+        href: str,
+        source_dir: Path | None = None,
+        docs_root: Path | None = None,
+    ) -> str | None:
         """Convert a relative Markdown href to a canonical URL string.
+
+        ZRT-004 fix: when ``source_dir`` and ``docs_root`` are provided the
+        href is resolved **relative to the source file's directory** instead of
+        root-relative.  This correctly handles ``..``-prefixed hrefs from files
+        nested in subdirectories.
+
+        Without context (``source_dir=None``), behaves exactly as the original
+        ``@staticmethod`` to preserve full backwards-compatibility with callers
+        that do not supply a :class:`ResolutionContext`.
 
         Applies the standard MkDocs / Zensical clean-URL rule:
         ``page.md`` → ``/page/``, ``dir/index.md`` → ``/dir/``.
-        Returns ``None`` for hrefs that cannot be converted to a meaningful
-        canonical URL (e.g. bare query strings, empty paths).
+        Returns ``None`` for hrefs that cannot be converted (e.g. bare query
+        strings, empty paths, or paths that escape ``docs_root``).
 
-        Pure: no I/O, no Path.exists().
+        Pure: no I/O, no ``Path.exists()``.
 
         Args:
-            href: Raw href extracted from a Markdown link, already stripped of
-                any title portion.
+            href:       Raw href extracted from a Markdown link.
+            source_dir: Absolute directory of the file that contains the link.
+                        Required for correct ``..``-relative resolution.
+            docs_root:  Absolute path to the docs root directory.
+                        Required for context-aware boundary checking.
 
         Returns:
             Canonical URL string (leading and trailing ``/``), or ``None``.
         """
+        import os
         from urllib.parse import unquote, urlsplit
 
         parsed = urlsplit(href)
         path = unquote(parsed.path.replace("\\", "/")).rstrip("/")
         if not path:
             return None
+
+        # ZRT-004: context-aware relative resolution
+        # When source_dir + docs_root are provided and the href has .. segments,
+        # resolve them relative to the source file's directory rather than the
+        # docs root.  Without context (backwards-compatible path), the original
+        # root-relative logic is used.
+        if source_dir is not None and docs_root is not None and ".." in path:
+            raw_target = os.path.normpath(str(source_dir) + os.sep + path.replace("/", os.sep))
+            root_str = str(docs_root)
+            if not (raw_target == root_str or raw_target.startswith(root_str + os.sep)):
+                return None  # path escapes docs_root — Shield territory, skip
+            try:
+                rel = str(Path(raw_target).relative_to(docs_root)).replace(os.sep, "/")
+            except ValueError:
+                return None
+            path = rel if rel != "." else ""
 
         # Strip .md suffix if present
         if path.endswith(".md"):
