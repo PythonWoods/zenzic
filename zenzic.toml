@@ -25,7 +25,12 @@ excluded_assets = [
     "assets/brand/png/zenzic-wordmark.png",
     # social card — SVG source + PNG referenced by main.html (og:image, twitter:image)
     "assets/social/social-card.svg",
+    "assets/social/social-card-light.svg",
     "assets/social/social-card.png",
+    "assets/social/social-card-light.png",
+    # screenshots referenced by README.md (outside docs/) — not by any docs page
+    "assets/screenshots/screenshot-hero.svg",
+    "assets/screenshots/screenshot-score.svg",
     # brand-kit.zip — build artifact linked via plain [text](url) in brand-kit.md;
     # the asset scanner only tracks image references so this would always appear unused.
     "assets/brand-kit.zip",
