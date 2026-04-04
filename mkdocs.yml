@@ -193,6 +193,7 @@ nav:
           - Writing Plugin Rules: developers/plugins.md
           - Example Projects: developers/examples.md
           - Internals:
+              - Arch Gaps & Tech Debt: internal/arch_gaps.md
               - VSM Engine: arch/vsm_engine.md
           - Security Reports:
               - Security Analysis v0.5.0a3: internal/security/shattered_mirror_report.md
