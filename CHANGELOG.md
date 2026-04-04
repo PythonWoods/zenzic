@@ -11,6 +11,156 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.5.0a4] — 2026-04-05 — The Sentinel Hardens: Security Sprint
+
+> **Security Analysis Remediation.** The v0.5.0a3 security review exposed four confirmed
+> vulnerabilities in v0.5.0a3. This release closes all four attack vectors and
+> adds structural defences that outlast any individual exploit. The Sentinel
+> no longer sleeps.
+>
+> Branch: `fix/sentinel-hardening-v0.5.0a4`
+
+### ⚠️ Security
+
+- **[ZRT-001] Shield Blind Spot — YAML Frontmatter Bypass (CRITICAL).**
+  `_skip_frontmatter()` was used as the Shield's line source, silently
+  discarding every line in a file's YAML `---` block before the regex
+  engine ran. Any key-value pair (`aws_key: AKIA…`, `github_token: ghp_…`)
+  was invisible to the Shield and would have exited `zenzic check all` with
+  code `0`.
+  **Fix:** The Shield stream now uses a raw `enumerate(fh, start=1)` —
+  every byte of the file is scanned. The content stream (ref-def harvesting)
+  still uses `_iter_content_lines()` with frontmatter skipping to avoid
+  false-positive link findings from metadata values. This is the
+  **Dual-Stream** architecture described in the remediation directives.
+  *Exploit PoC confirmed via live script: 0 findings before fix, correct
+  detection of AWS / OpenAI / Stripe / GitHub tokens after fix.*
+
+- **[ZRT-002] ReDoS + ProcessPoolExecutor Deadlock (HIGH).**
+  A `[[custom_rules]]` pattern like `^(a+)+$` passed the eager
+  `_assert_pickleable()` check (pickle is blind to regex complexity) and
+  was distributed to worker processes. The `ProcessPoolExecutor` had no
+  timeout: any worker hitting a ReDoS-vulnerable pattern on a long input
+  line hung permanently, blocking the entire CI pipeline.
+  **Two defences added:**
+  — *Canary (prevention):* `_assert_regex_canary()` stress-tests every
+    `CustomRule` pattern against three canary strings (`"a"*30+"b"`, etc.)
+    under a `signal.SIGALRM` watchdog of 100 ms at `AdaptiveRuleEngine`
+    construction time. ReDoS patterns raise `PluginContractError` before the
+    first file is scanned. (Linux/macOS only; silently skipped on Windows.)
+  — *Timeout (containment):* `ProcessPoolExecutor.map()` replaced with
+    `submit()` + `future.result(timeout=30)`. A timed-out worker produces a
+    `Z009: ANALYSIS_TIMEOUT` `RuleFinding` instead of hanging the scan.
+    The new `_make_timeout_report()` and `_make_error_report()` helpers
+    ensure clean error surfacing in the standard findings UI.
+  *Exploit PoC confirmed: `^(a+)+$` on `"a"*30+"b"` timed out in 5 s;
+  both defences independently prevent scan lock-up.*
+
+- **[ZRT-003] Split-Token Shield Bypass — Markdown Table Obfuscation (MEDIUM).**
+  The Shield's `scan_line_for_secrets()` ran each raw line through the
+  regex patterns once. A secret fragmented across backtick spans and a
+  string concatenation operator (`` `AKIA` + `1234567890ABCDEF` ``) inside
+  a Markdown table cell was never reconstructed, so the 20-character
+  contiguous `AKIA[0-9A-Z]{16}` pattern never matched.
+  **Fix:** New `_normalize_line_for_shield()` pre-processor in `shield.py`
+  unwraps backtick spans, removes concatenation operators, and collapses
+  table pipes before scanning. Both the raw line and the normalised form are
+  scanned; a `seen` set prevents duplicate findings when both forms match.
+
+### Changed
+
+- **[ZRT-004] Context-Aware VSM Resolution — `VSMBrokenLinkRule` (MEDIUM).**
+  `_to_canonical_url()` was a `@staticmethod` without access to the source
+  file's directory. Relative hrefs containing `..` segments (e.g.
+  `../../c/target.md` from `docs/a/b/page.md`) were resolved as if they
+  originated from the docs root, producing false negatives: broken relative
+  links in nested files were silently passed.
+  **Fix:** New `ResolutionContext` dataclass (`docs_root: Path`,
+  `source_file: Path`) added to `rules.py`. `BaseRule.check_vsm()` and
+  `AdaptiveRuleEngine.run_vsm()` accept `context: ResolutionContext | None`
+  (default `None` — fully backwards-compatible). `_to_canonical_url()` is
+  now an instance method that resolves `..` segments via `os.path.normpath`
+  relative to `context.source_file.parent` when context is provided, then
+  re-maps to a docs-relative posix path before the clean-URL transformation.
+  Paths that escape `docs_root` return `None` (Shield boundary respected).
+
+- **[GA-1] Telemetry / Executor Worker Count Synchronisation.**
+  `ProcessPoolExecutor(max_workers=workers)` used the raw `workers` sentinel
+  (may be `None`) while the telemetry reported `actual_workers` (always an
+  integer). Both now use `actual_workers`, eliminating the divergence.
+
+- **Stream Multiplexing** (`scanner.py`). `ReferenceScanner.harvest()`
+  now explicitly documents its two-stream design: **Shield stream** (all
+  lines, raw `enumerate`) and **Content stream** (`_iter_content_lines`,
+  frontmatter/fence filtered). Comments updated to make the architectural
+  intent visible to future contributors.
+
+- **[Z-SEC-002] Secure Breach Reporting Pipeline (Commit 2).**
+  Four structural changes harden the path from secret detection to CI output:
+
+  — *Breach Panel (`reporter.py`):* findings with `severity="security_breach"`
+  render as a dedicated high-contrast panel (red on white) positioned before
+  all other findings. Surgical caret underlines (`^^^^`) are positioned using
+  the `col_start` and `match_text` fields added to `SecurityFinding`.
+
+  — *Surgical Secret Masking — `_obfuscate_secret()`:* raw secret material is
+  never passed to Rich or CI log streams. The function partially redacts
+  credentials (first 4 + last 4 chars; full redaction for strings ≤ 8 chars)
+  and is the **sole authorised path** for rendering secret values in output.
+
+  — *Bridge Function — `_map_shield_to_finding()` (`scanner.py`):* a single
+  pure function is the only authorised conversion point between the Shield
+  detection layer and `SentinelReporter`. Extracted as a standalone function
+  so that mutation testing can target it directly and unambiguously.
+
+  — *Post-Render Exit 2 (`cli.py`):* the security hard-stop is now applied
+  **after** `reporter.render()`, guaranteeing the full breach panel is
+  visible in CI logs before the process exits with code 2.
+
+### Testing
+
+- **`tests/test_redteam_remediation.py`** — 25 new tests organised in four
+  classes, one per ZRT finding:
+  - `TestShieldFrontmatterCoverage` (4 tests) — verifies Shield catches
+    AWS, GitHub, and multi-pattern secrets inside YAML frontmatter; confirms
+    correct line-number reporting; guards against false positives on clean
+    metadata.
+  - `TestReDoSCanary` (6 tests) — verifies canary rejects classic `(a+)+`
+    and alternation-based `(a|aa)+` ReDoS patterns at engine construction;
+    confirms safe patterns pass; verifies non-`CustomRule` subclasses are
+    skipped.
+  - `TestShieldNormalizer` (8 tests) — verifies `_normalize_line_for_shield`
+    unwraps backtick spans, removes concat operators, collapses table pipes;
+    verifies `scan_line_for_secrets` catches split-token AWS key; confirms
+    deduplication prevents double-emit when raw and normalised both match.
+  - `TestVSMContextAwareResolution` (7 tests) — verifies multi-level `..`
+    resolution from nested dirs, single `..` from subdirs, absent-from-VSM
+    still emits Z001, path-traversal escape returns no false Z001, backwards
+    compatibility without context, `index.md` directory mapping, and
+    `run_vsm` context forwarding.
+- **`tests/test_rules.py`** — `_BrokenVsmRule.check_vsm()` updated to
+  accept the new `context=None` parameter (API compatibility fix).
+- **731 tests pass.** Zero regressions. `pytest --tb=short` — all green.
+
+- **`TestShieldReportingIntegrity` — Mutation Gate (Commit 3, Z-TEST-003).**
+  Three mandatory tests serving as permanent Mutation Gate guards for the
+  security reporting pipeline:
+  - *The Invisible:* `_map_shield_to_finding()` must always emit
+    `severity="security_breach"` — a downgrade to `"warning"` is caught
+    immediately (`assert 'warning' == 'security_breach'`).
+  - *The Amnesiac:* `_obfuscate_secret()` must never return the raw secret
+    — removing the redaction logic is caught immediately
+    (`assert raw_key not in output`).
+  - *The Silencer:* `_map_shield_to_finding()` must never return `None` —
+    a bridge function that discards findings is caught immediately
+    (`assert result is not None`).
+
+  **Manual verification (The Sentinel's Trial):** all three mutants were
+  applied by hand and confirmed killed. `mutmut` v3 automatic reporting was
+  blocked by an editable-install interaction (see `mutmut_pytest.ini`); manual
+  verification accepted per Architecture Lead authorisation (Z-TEST-003).
+  **28 tests in `test_redteam_remediation.py`, all green.**
+
 ## [0.5.0a3] — 2026-04-03 — The Sentinel: Aesthetic Sprint, Parallel Anchors & Agnostic Target
 
 > **Sprint 13 + 14 + 15.** Three tracks delivered in one tag.
