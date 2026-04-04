@@ -19,6 +19,7 @@ from zenzic.core.rules import (
     RuleFinding,
     Violation,
     VSMBrokenLinkRule,
+    _extract_inline_links_with_lines,
 )
 from zenzic.models.config import CustomRuleConfig, ZenzicConfig
 from zenzic.models.vsm import Route
@@ -58,6 +59,19 @@ class _PluginTodoRule(BaseRule):
                     )
                 )
         return findings
+
+
+# Module-level BrokenVsmRule: pickleable but raises in check_vsm().
+class _BrokenVsmRule(BaseRule):
+    @property
+    def rule_id(self) -> str:
+        return "ZZ-BROKEN-VSM"
+
+    def check(self, file_path: Path, text: str) -> list[RuleFinding]:
+        return []
+
+    def check_vsm(self, file_path, text, vsm, anchors_cache) -> list[Violation]:
+        raise RuntimeError("vsm rule internal error")
 
 
 # ─── CustomRule ───────────────────────────────────────────────────────────────
@@ -618,3 +632,835 @@ class TestPublicNamespace:
         rule = CustomRule(id="TEST-002", pattern=r"BANANA", message="No bananas.")
         findings = run_rule(rule, "Clean content here.")
         assert findings == []
+
+
+# ─── Mutant-Killing Tests: _extract_inline_links_with_lines ──────────────────
+
+
+class TestExtractInlineLinksWithLines:
+    """Kill mutants in the _extract_inline_links_with_lines utility."""
+
+    def test_simple_link_extraction(self) -> None:
+        text = "[Foo](bar.md)"
+        result = _extract_inline_links_with_lines(text)
+        assert len(result) == 1
+        url, lineno, raw = result[0]
+        assert url == "bar.md"
+        assert lineno == 1
+        assert "bar.md" in raw
+
+    def test_multiple_links_all_extracted(self) -> None:
+        """Multiple links on different lines — kills continue→break mutations."""
+        text = "[A](a.md)\n[B](b.md)\n[C](c.md)"
+        result = _extract_inline_links_with_lines(text)
+        assert len(result) == 3
+        urls = [r[0] for r in result]
+        assert urls == ["a.md", "b.md", "c.md"]
+
+    def test_line_numbers_correct_multiline(self) -> None:
+        text = "Preamble.\n\n[Link](page.md)\n\nEnd."
+        result = _extract_inline_links_with_lines(text)
+        assert len(result) == 1
+        assert result[0][1] == 3
+
+    def test_fenced_block_skips_links(self) -> None:
+        text = "```\n[fake](ghost.md)\n```"
+        result = _extract_inline_links_with_lines(text)
+        assert result == []
+
+    def test_tilde_fence_block_skips_links(self) -> None:
+        text = "~~~\n[fake](ghost.md)\n~~~"
+        result = _extract_inline_links_with_lines(text)
+        assert result == []
+
+    def test_link_before_and_after_fence_both_found(self) -> None:
+        """Both links around a fence block are found — kills in_block=None mutation."""
+        text = "[A](a.md)\n```\n[B](b.md)\n```\n[C](c.md)"
+        result = _extract_inline_links_with_lines(text)
+        assert len(result) == 2
+        urls = [r[0] for r in result]
+        assert urls == ["a.md", "c.md"]
+
+    def test_inline_code_link_ignored(self) -> None:
+        text = "See `[link](code.md)` for details."
+        result = _extract_inline_links_with_lines(text)
+        assert result == []
+
+    def test_mixed_inline_code_and_real_link(self) -> None:
+        text = "`[a](a.md)` and [b](b.md)"
+        result = _extract_inline_links_with_lines(text)
+        assert len(result) == 1
+        assert result[0][0] == "b.md"
+
+    def test_link_with_title_stripped(self) -> None:
+        text = '[Link](page.md "Title text")'
+        result = _extract_inline_links_with_lines(text)
+        assert len(result) == 1
+        assert result[0][0] == "page.md"
+
+    def test_empty_url_skipped(self) -> None:
+        text = "[Empty]()"
+        result = _extract_inline_links_with_lines(text)
+        assert result == []
+
+    def test_image_link_extracted(self) -> None:
+        text = "![Alt](image.png)"
+        result = _extract_inline_links_with_lines(text)
+        assert len(result) == 1
+        assert result[0][0] == "image.png"
+
+    def test_multiple_links_after_fence_all_found(self) -> None:
+        """After a fenced block ends, ALL subsequent links must be found (not just first)."""
+        text = "```\ncode\n```\n[A](a.md)\n[B](b.md)\n[C](c.md)"
+        result = _extract_inline_links_with_lines(text)
+        assert len(result) == 3
+
+    def test_empty_input_returns_empty(self) -> None:
+        assert _extract_inline_links_with_lines("") == []
+
+    def test_no_links_returns_empty(self) -> None:
+        assert _extract_inline_links_with_lines("Just plain text.") == []
+
+    def test_whitespace_only_url_skipped(self) -> None:
+        text = "[Space](   )"
+        result = _extract_inline_links_with_lines(text)
+        assert result == []
+
+
+# ─── Mutant-Killing Tests: VSMBrokenLinkRule.check_vsm deep assertions ──────
+
+
+class TestVSMBrokenLinkRuleMutantKill:
+    """Kill mutants in VSMBrokenLinkRule.check_vsm with precise assertions."""
+
+    _RULE = VSMBrokenLinkRule()
+    _EMPTY_ANCHORS: dict[Path, set[str]] = {}
+
+    def _run(self, text: str, vsm: dict, file_path: Path = _FILE) -> list[Violation]:
+        return self._RULE.check_vsm(file_path, text, vsm, self._EMPTY_ANCHORS)
+
+    # ── Exact field assertions on violations (kill string mutations) ──────────
+
+    def test_missing_link_violation_exact_fields(self) -> None:
+        """Assert every field of a Z001 violation — kills all string/field mutations."""
+        violations = self._run("[Bad](ghost.md)", {})
+        assert len(violations) == 1
+        v = violations[0]
+        assert v.file_path == _FILE
+        assert v.line_no == 1
+        assert v.code == "Z001"
+        assert v.level == "error"
+        assert v.is_error
+        assert "ghost.md" in v.message
+        assert "Virtual Site Map" in v.message
+        assert "ghost.md" in v.context
+
+    def test_orphan_violation_exact_fields(self) -> None:
+        """Assert every field of a Z002 violation."""
+        vsm = _make_vsm("/draft/", status="ORPHAN_BUT_EXISTING")
+        violations = self._run("[Draft](draft.md)", vsm)
+        assert len(violations) == 1
+        v = violations[0]
+        assert v.file_path == _FILE
+        assert v.line_no == 1
+        assert v.code == "Z002"
+        assert v.level == "warning"
+        assert not v.is_error
+        assert "ORPHAN_LINK" in v.message
+        assert "not in the site navigation" in v.message
+        assert "Readers cannot reach this page via the nav tree." in v.message
+        assert "draft.md" in v.context
+
+    def test_unreachable_link_violation_exact_fields(self) -> None:
+        """UNREACHABLE status emits error — kills `not in ("REACHABLE",)` mutations."""
+        vsm = {"/page/": Route(url="/page/", source="page.md", status="UNREACHABLE")}
+        violations = self._run("[Page](page.md)", vsm)
+        assert len(violations) == 1
+        v = violations[0]
+        assert v.file_path == _FILE
+        assert v.code == "Z001"
+        assert v.level == "error"
+        assert "UNREACHABLE_LINK" in v.message
+        assert "'UNREACHABLE'" in v.message
+
+    def test_custom_status_not_reachable_emits_error(self) -> None:
+        """Any status other than REACHABLE should trigger an error."""
+        vsm = {"/page/": Route(url="/page/", source="page.md", status="SOME_OTHER_STATUS")}
+        violations = self._run("[Page](page.md)", vsm)
+        assert len(violations) == 1
+        assert violations[0].code == "Z001"
+
+    # ── file_path propagation (kill file_path=None mutations) ────────────────
+
+    def test_violation_carries_correct_file_path(self) -> None:
+        custom_file = Path("docs/custom/page.md")
+        violations = self._run("[Bad](gone.md)", {}, file_path=custom_file)
+        assert len(violations) == 1
+        assert violations[0].file_path == custom_file
+
+    def test_orphan_violation_carries_file_path(self) -> None:
+        custom_file = Path("docs/deep/nested.md")
+        vsm = _make_vsm("/deep/", status="ORPHAN_BUT_EXISTING")
+        violations = self._run("[See](deep/index.md)", vsm, file_path=custom_file)
+        assert len(violations) == 1
+        assert violations[0].file_path == custom_file
+
+    def test_unreachable_violation_carries_file_path(self) -> None:
+        custom_file = Path("docs/other.md")
+        vsm = {"/target/": Route(url="/target/", source="target.md", status="BLOCKED")}
+        violations = self._run("[T](target.md)", vsm, file_path=custom_file)
+        assert len(violations) == 1
+        assert violations[0].file_path == custom_file
+
+    # ── Multiple links: continue vs break (kill continue→break) ──────────────
+
+    def test_multiple_broken_links_all_reported(self) -> None:
+        """All broken links must be reported, not just the first."""
+        text = "[A](a.md)\n[B](b.md)\n[C](c.md)"
+        violations = self._run(text, {})
+        assert len(violations) == 3
+        urls_in_msg = [v.message for v in violations]
+        assert any("a.md" in m for m in urls_in_msg)
+        assert any("b.md" in m for m in urls_in_msg)
+        assert any("c.md" in m for m in urls_in_msg)
+
+    def test_multiple_orphan_links_all_reported(self) -> None:
+        vsm = {
+            "/a/": Route(url="/a/", source="a.md", status="ORPHAN_BUT_EXISTING"),
+            "/b/": Route(url="/b/", source="b.md", status="ORPHAN_BUT_EXISTING"),
+        }
+        violations = self._run("[A](a.md)\n[B](b.md)", vsm)
+        assert len(violations) == 2
+        assert all(v.code == "Z002" for v in violations)
+
+    def test_mixed_valid_and_broken_only_broken_reported(self) -> None:
+        vsm = _make_vsm("/ok/")
+        text = "[OK](ok/index.md)\n[Bad](nope.md)"
+        violations = self._run(text, vsm)
+        assert len(violations) == 1
+        assert "nope.md" in violations[0].message
+
+    # ── Bare fragment "#" vs "#anchor" (kill "#"→"XX#XX" mutations) ──────────
+
+    def test_bare_hash_skipped(self) -> None:
+        """Exactly '#' must be skipped — kills `"#"→"XX#XX"` mutant."""
+        violations = self._run("[Top](#)", {})
+        assert violations == []
+
+    def test_fragment_with_id_skipped(self) -> None:
+        """'#heading' must be skipped — kills `startswith("#")→startswith("XX#XX")`."""
+        violations = self._run("[See](#installation)", {})
+        assert violations == []
+
+    def test_fragment_with_special_chars_skipped(self) -> None:
+        violations = self._run("[H](#heading-with-special-chars)", {})
+        assert violations == []
+
+    # ── External schemes all skipped (kill scheme mutations) ─────────────────
+
+    def test_all_skip_schemes_individually(self) -> None:
+        schemes = [
+            "http://example.com",
+            "https://example.com",
+            "mailto:user@example.com",
+            "data:text/html,",
+            "ftp:something",
+            "tel:+1234567890",
+            "javascript:void(0)",
+            "irc:freenode",
+            "xmpp://jabber.org",
+        ]
+        for scheme_url in schemes:
+            violations = self._run(f"[Link]({scheme_url})", {})
+            assert violations == [], f"Scheme {scheme_url} was not skipped"
+
+    # ── Links survive fence blocks (kill break in fence logic) ───────────────
+
+    def test_multiple_links_after_fence_block(self) -> None:
+        text = "```\n[fake](ghost.md)\n```\n[A](a.md)\n[B](b.md)"
+        violations = self._run(text, {})
+        assert len(violations) == 2
+
+    # ── Line number correctness (kill lineno mutations) ──────────────────────
+
+    def test_violation_line_numbers_multi_link(self) -> None:
+        text = "# Title\n\n[A](a.md)\n\n[B](b.md)\n"
+        violations = self._run(text, {})
+        assert len(violations) == 2
+        assert violations[0].line_no == 3
+        assert violations[1].line_no == 5
+
+    # ── continue→break after skips: links after "#" or schemes still found ──
+
+    def test_broken_link_after_bare_hash(self) -> None:
+        """After [Top](#), subsequent broken links must still be found.
+        Kills continue→break mutant on url=="#" path."""
+        text = "[Top](#)\n[Bad](ghost.md)"
+        violations = self._run(text, {})
+        assert len(violations) == 1
+        assert "ghost.md" in violations[0].message
+
+    def test_broken_link_after_fragment(self) -> None:
+        """After [Foo](#anchor), subsequent broken links must still be found.
+        Kills continue→break on url.startswith('#') path."""
+        text = "[Foo](#anchor)\n[Bad](ghost.md)"
+        violations = self._run(text, {})
+        assert len(violations) == 1
+        assert "ghost.md" in violations[0].message
+
+    def test_broken_link_after_external_scheme(self) -> None:
+        """After [Ext](https://...), subsequent broken links must still be found.
+        Kills continue→break on SKIP_SCHEMES path."""
+        text = "[Ext](https://example.com)\n[Bad](ghost.md)"
+        violations = self._run(text, {})
+        assert len(violations) == 1
+        assert "ghost.md" in violations[0].message
+
+    def test_broken_link_after_null_url(self) -> None:
+        """After a link that _to_canonical_url returns None for, others still processed.
+        Kills continue→break after target_url is None."""
+        # A bare query string like "?foo" won't produce a canonical URL
+        text = "[Q](?query)\n[Bad](ghost.md)"
+        violations = self._run(text, {})
+        assert len(violations) >= 1
+        assert any("ghost.md" in v.message for v in violations)
+
+    # ── UNREACHABLE status deep assertions (kill line_no, context, string) ───
+
+    def test_unreachable_violation_all_fields_precise(self) -> None:
+        """Assert every field of UNREACHABLE violation, including line_no and context."""
+        vsm = {"/page/": Route(url="/page/", source="page.md", status="UNREACHABLE")}
+        text = "Lead text.\n\n[Check](page.md)\n"
+        violations = self._run(text, vsm)
+        assert len(violations) == 1
+        v = violations[0]
+        assert v.file_path == _FILE
+        assert v.line_no == 3
+        assert isinstance(v.line_no, int)
+        assert v.code == "Z001"
+        assert v.level == "error"
+        assert v.context is not None
+        assert isinstance(v.context, str)
+        assert "page.md" in v.context
+        assert "UNREACHABLE_LINK" in v.message
+        # Kill XX-wrapper string mutations
+        assert v.message.endswith("(UNREACHABLE_LINK)")
+        assert "via site navigation" in v.message
+        # Kill case mutation
+        assert "VIA SITE NAVIGATION" not in v.message
+
+    def test_z001_missing_message_no_xx_wrapper(self) -> None:
+        """Kill XX-wrapper mutants on Z001 missing link message."""
+        violations = self._run("[Bad](ghost.md)", {})
+        v = violations[0]
+        assert v.message.endswith("the target file may not exist")
+        assert "XX" not in v.message
+
+    def test_multiple_links_mixed_hashes_and_broken(self) -> None:
+        """Complex scenario: multiple hash links followed by multiple broken links."""
+        text = (
+            "[A](#top)\n[B](#section)\n[C](https://external.com)\n[D](ghost1.md)\n[E](ghost2.md)\n"
+        )
+        violations = self._run(text, {})
+        assert len(violations) == 2
+        messages = " ".join(v.message for v in violations)
+        assert "ghost1.md" in messages
+        assert "ghost2.md" in messages
+
+
+# ─── Mutant-Killing Tests: _extract_inline_links deep (fence/code edge) ──────
+
+
+class TestExtractLinksDeepMutantKill:
+    """Kill remaining mutants in _extract_inline_links_with_lines."""
+
+    def test_links_between_two_fence_blocks(self) -> None:
+        """Kill in_block=False→None mutant when exiting first fence.
+        Link between two fences must be found."""
+        text = "```\ncode1\n```\n[Real](real.md)\n```\ncode2\n```"
+        result = _extract_inline_links_with_lines(text)
+        assert len(result) == 1
+        assert result[0][0] == "real.md"
+
+    def test_links_after_multiple_fence_blocks(self) -> None:
+        """Multiple fence blocks followed by multiple links."""
+        text = "```\na\n```\n```\nb\n```\n[C](c.md)\n[D](d.md)"
+        result = _extract_inline_links_with_lines(text)
+        assert len(result) == 2
+        assert result[0][0] == "c.md"
+        assert result[1][0] == "d.md"
+
+    def test_inline_code_replaced_correctly_preserves_real_link(self) -> None:
+        """Kill lambda→None mutant: inline code must be space-replaced, not None."""
+        text = "Use `code_here` then [Link](real.md) end."
+        result = _extract_inline_links_with_lines(text)
+        assert len(result) == 1
+        assert result[0][0] == "real.md"
+
+    def test_inline_code_hiding_link_preserves_adjacent_link(self) -> None:
+        """Inline code containing a fake link must not break real link extraction."""
+        text = "`[fake](fake.md)` and [real](real.md)"
+        result = _extract_inline_links_with_lines(text)
+        assert len(result) == 1
+        assert result[0][0] == "real.md"
+
+    def test_long_inline_code_does_not_overflow(self) -> None:
+        """Kill XX-multiply mutant: space replacement must match exact length."""
+        long_code = "`" + "x" * 100 + "`"
+        text = f"{long_code} [Link](page.md)"
+        result = _extract_inline_links_with_lines(text)
+        assert len(result) == 1
+        assert result[0][0] == "page.md"
+
+
+# ─── Mutant-Killing Tests: AdaptiveRuleEngine.run ──────────────────────────
+
+
+class TestAdaptiveRuleEngineRunMutantKill:
+    """Kill mutants in AdaptiveRuleEngine.run with exact assertions."""
+
+    def test_run_propagates_file_path_to_findings(self) -> None:
+        """Kills file_path=None mutant in run()."""
+        custom_file = Path("docs/specific.md")
+        rule = CustomRule(id="ZZ-T", pattern=r"X", message="x", severity="error")
+        engine = AdaptiveRuleEngine([rule])
+        findings = engine.run(custom_file, "X here")
+        assert len(findings) == 1
+        assert findings[0].file_path == custom_file
+
+    def test_run_exception_finding_exact_fields(self) -> None:
+        """Assert exact fields of error finding — kills string/field mutations."""
+        engine = AdaptiveRuleEngine([_BrokenRule()])
+        findings = engine.run(_FILE, "text")
+        assert len(findings) == 1
+        f = findings[0]
+        assert f.file_path == _FILE
+        assert f.line_no == 0
+        assert f.rule_id == "RULE-ENGINE-ERROR"
+        assert f.severity == "error"
+        assert "ZZ-BROKEN" in f.message
+        assert "RuntimeError" in f.message
+
+    def test_run_exception_does_not_stop_other_rules(self) -> None:
+        """A broken rule must not prevent subsequent rules from running."""
+        good = CustomRule(id="ZZ-GOOD", pattern=r"a", message="a", severity="info")
+        engine = AdaptiveRuleEngine([_BrokenRule(), good])
+        findings = engine.run(_FILE, "a text\n")
+        rule_ids = [f.rule_id for f in findings]
+        assert "RULE-ENGINE-ERROR" in rule_ids
+        assert "ZZ-GOOD" in rule_ids
+
+    def test_run_multiple_rules_all_produce_findings(self) -> None:
+        """All rules must run — kills continue→break mutations in the loop."""
+        r1 = CustomRule(id="R1", pattern=r"AAA", message="a", severity="error")
+        r2 = CustomRule(id="R2", pattern=r"BBB", message="b", severity="error")
+        r3 = CustomRule(id="R3", pattern=r"CCC", message="c", severity="error")
+        engine = AdaptiveRuleEngine([r1, r2, r3])
+        findings = engine.run(_FILE, "AAA BBB CCC")
+        assert len(findings) == 3
+        assert {f.rule_id for f in findings} == {"R1", "R2", "R3"}
+
+
+# ─── Mutant-Killing Tests: AdaptiveRuleEngine.run_vsm ──────────────────────
+
+
+class TestAdaptiveRuleEngineRunVsmMutantKill:
+    """Kill mutants in AdaptiveRuleEngine.run_vsm with exact assertions."""
+
+    def test_run_vsm_propagates_file_path(self) -> None:
+        """Kills file_path=None mutant in run_vsm()."""
+        custom_file = Path("docs/vsm-test.md")
+        engine = AdaptiveRuleEngine([VSMBrokenLinkRule()])
+        findings = engine.run_vsm(custom_file, "[Bad](ghost.md)", {}, {})
+        assert len(findings) == 1
+        assert findings[0].file_path == custom_file
+
+    def test_run_vsm_converts_violation_fields(self) -> None:
+        """Assert that Violation→RuleFinding conversion preserves all fields."""
+        engine = AdaptiveRuleEngine([VSMBrokenLinkRule()])
+        findings = engine.run_vsm(_FILE, "[Bad](ghost.md)", {}, {})
+        assert len(findings) == 1
+        f = findings[0]
+        assert isinstance(f, RuleFinding)
+        assert f.file_path == _FILE
+        assert f.line_no == 1
+        assert f.rule_id == "Z001"
+        assert f.severity == "error"
+        assert "ghost.md" in f.message
+
+    def test_run_vsm_exception_finding_exact_fields(self) -> None:
+        """Assert exact fields of error finding from check_vsm exception."""
+        engine = AdaptiveRuleEngine([_BrokenVsmRule()])
+        findings = engine.run_vsm(_FILE, "text", {}, {})
+        assert len(findings) == 1
+        f = findings[0]
+        assert f.file_path == _FILE
+        assert f.line_no == 0
+        assert f.rule_id == "RULE-ENGINE-ERROR"
+        assert f.severity == "error"
+        assert "ZZ-BROKEN-VSM" in f.message
+        assert "check_vsm" in f.message
+        assert "RuntimeError" in f.message
+
+    def test_run_vsm_exception_does_not_stop_other_rules(self) -> None:
+        """A broken VSM rule must not prevent subsequent rules from running."""
+        engine = AdaptiveRuleEngine([_BrokenVsmRule(), VSMBrokenLinkRule()])
+        vsm = _make_vsm("/ok/")
+        findings = engine.run_vsm(_FILE, "[OK](ok/index.md)", vsm, {})
+        # Should have the error finding from _BrokenVsmRule, and 0 from valid link
+        error_findings = [f for f in findings if f.rule_id == "RULE-ENGINE-ERROR"]
+        assert len(error_findings) == 1
+
+    def test_run_vsm_multiple_rules_all_produce_findings(self) -> None:
+        """Multiple VSM rules must all run — no early break."""
+        engine = AdaptiveRuleEngine([VSMBrokenLinkRule(), VSMBrokenLinkRule()])
+        findings = engine.run_vsm(_FILE, "[Bad](ghost.md)", {}, {})
+        # Both instances should report the broken link
+        assert len(findings) == 2
+        assert all(f.rule_id == "Z001" for f in findings)
+
+    def test_run_vsm_worker_returns_empty_list(self) -> None:
+        """Rule returning no violations is fine — no crash."""
+        engine = AdaptiveRuleEngine([VSMBrokenLinkRule()])
+        vsm = _make_vsm("/page/")
+        findings = engine.run_vsm(_FILE, "[OK](page.md)", vsm, {})
+        assert findings == []
+
+
+# ─── Mutant-Killing Tests: _assert_pickleable ──────────────────────────────
+
+
+class TestAssertPickleableMutantKill:
+    """Kill string-mutation mutants in _assert_pickleable."""
+
+    def test_error_message_mentions_rule_class(self) -> None:
+        """Kills type(rule)→type(None) mutant in error message."""
+
+        class _LocalBad(BaseRule):
+            @property
+            def rule_id(self) -> str:
+                return "ZZ-PICKLE"
+
+            def check(self, file_path, text):
+                return []
+
+        with pytest.raises(PluginContractError, match="_LocalBad"):
+            AdaptiveRuleEngine([_LocalBad()])
+
+    def test_error_message_mentions_rule_id(self) -> None:
+        """Kills rule.rule_id mutation in error message."""
+
+        class _LocalBad2(BaseRule):
+            @property
+            def rule_id(self) -> str:
+                return "ZZ-UNIQUEID"
+
+            def check(self, file_path, text):
+                return []
+
+        with pytest.raises(PluginContractError, match="ZZ-UNIQUEID"):
+            AdaptiveRuleEngine([_LocalBad2()])
+
+
+# ─── Mutant-Killing Tests: PluginRegistry ──────────────────────────────────
+
+
+class TestPluginRegistryMutantKill:
+    """Kill mutants in PluginRegistry with isolated unit tests."""
+
+    def test_default_group_is_zenzic_rules(self) -> None:
+        """Kills __init__ default mutant 'zenzic.rules' → 'XXzenzic.rulesXX'."""
+        reg = PluginRegistry()
+        assert reg._group == "zenzic.rules"
+
+    def test_custom_group_preserved(self) -> None:
+        reg = PluginRegistry(group="my.custom.group")
+        assert reg._group == "my.custom.group"
+
+    def test_entry_points_returns_sorted_list(self) -> None:
+        """Kills _entry_points key=None mutant (sort by ep.name)."""
+        reg = PluginRegistry()
+        eps = reg._entry_points()
+        names = [ep.name for ep in eps]
+        assert names == sorted(names)
+
+    def test_list_rules_always_includes_broken_links(self) -> None:
+        """Kills 'broken-links'→'XXbroken-linksXX' mutant in list_rules fallback."""
+        reg = PluginRegistry()
+        rules = reg.list_rules()
+        sources = [r.source for r in rules]
+        assert "broken-links" in sources
+
+    def test_list_rules_broken_links_has_z001_id(self) -> None:
+        bl = next(r for r in PluginRegistry().list_rules() if r.source == "broken-links")
+        assert bl.rule_id == "Z001"
+        assert bl.origin == "zenzic"
+
+    def test_list_rules_results_are_sorted_by_source(self) -> None:
+        rules = PluginRegistry().list_rules()
+        sources = [r.source for r in rules]
+        assert sources == sorted(sources)
+
+    def test_list_rules_class_name_is_qualified(self) -> None:
+        """Kills class_name formatting mutants."""
+        rules = PluginRegistry().list_rules()
+        bl = next(r for r in rules if r.source == "broken-links")
+        assert "VSMBrokenLinkRule" in bl.class_name
+        assert "." in bl.class_name
+
+    def test_load_core_rules_includes_z001(self) -> None:
+        """Kills Z001→z001 mutant and not-any→any inversion."""
+        reg = PluginRegistry()
+        rules = reg.load_core_rules()
+        assert any(r.rule_id == "Z001" for r in rules)
+
+    def test_load_core_rules_fallback_is_vsm_broken_link_rule(self) -> None:
+        """When no entry points provide Z001, the fallback must be a real VSMBrokenLinkRule."""
+        reg = PluginRegistry()
+        rules = reg.load_core_rules()
+        vsm_rules = [r for r in rules if isinstance(r, VSMBrokenLinkRule)]
+        assert len(vsm_rules) >= 1
+
+    def test_load_selected_rules_broken_links_fallback(self) -> None:
+        """'broken-links' is loaded even without an entry point."""
+        reg = PluginRegistry()
+        rules = reg.load_selected_rules(["broken-links"])
+        assert len(rules) == 1
+        assert isinstance(rules[0], VSMBrokenLinkRule)
+        assert rules[0].rule_id == "Z001"
+
+    def test_load_selected_rules_empty_input_returns_empty(self) -> None:
+        reg = PluginRegistry()
+        assert reg.load_selected_rules([]) == []
+
+    def test_load_selected_rules_whitespace_stripped(self) -> None:
+        reg = PluginRegistry()
+        rules = reg.load_selected_rules(["  broken-links  "])
+        assert len(rules) == 1
+        assert isinstance(rules[0], VSMBrokenLinkRule)
+
+    def test_load_selected_rules_blank_entries_skipped(self) -> None:
+        reg = PluginRegistry()
+        rules = reg.load_selected_rules(["", "  ", "broken-links"])
+        assert len(rules) == 1
+
+    def test_load_selected_rules_missing_plugin_raises(self) -> None:
+        reg = PluginRegistry()
+        with pytest.raises(PluginContractError, match="not found"):
+            reg.load_selected_rules(["nonexistent-plugin"])
+
+    def test_load_selected_rules_dedup_preserves_order(self) -> None:
+        """Duplicate IDs are loaded once — kills dedup logic mutations."""
+        reg = PluginRegistry()
+        rules = reg.load_selected_rules(["broken-links", "broken-links", "broken-links"])
+        assert len(rules) == 1
+
+    def test_list_rules_skips_non_baserule_entry_point(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Entry point that doesn't produce a BaseRule is skipped."""
+
+        class _FakeEP:
+            name = "fake-rule"
+
+            class dist:
+                name = "zenzic"
+
+            @staticmethod
+            def load():
+                return str  # str() is not a BaseRule
+
+        reg = PluginRegistry()
+        monkeypatch.setattr(reg, "_entry_points", lambda: [_FakeEP()])
+        rules = reg.list_rules()
+        # Should still have broken-links fallback
+        assert any(r.source == "broken-links" for r in rules)
+        # Should NOT have a rule from fake-rule (str is not a BaseRule)
+        assert not any(r.source == "fake-rule" for r in rules)
+
+    def test_list_rules_skips_unloadable_entry_point(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Entry point that raises on load() is skipped gracefully."""
+
+        class _FailEP:
+            name = "fail-rule"
+
+            class dist:
+                name = "zenzic"
+
+            @staticmethod
+            def load():
+                raise ImportError("module not found")
+
+        reg = PluginRegistry()
+        monkeypatch.setattr(reg, "_entry_points", lambda: [_FailEP()])
+        rules = reg.list_rules()
+        assert any(r.source == "broken-links" for r in rules)
+        assert not any(r.source == "fail-rule" for r in rules)
+
+    def test_list_rules_dist_name_fallback_to_zenzic(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """When ep.dist is None, origin defaults to 'zenzic'."""
+
+        class _NullDistEP:
+            name = "null-dist"
+            dist = None
+
+            @staticmethod
+            def load():
+                return VSMBrokenLinkRule
+
+        reg = PluginRegistry()
+        monkeypatch.setattr(reg, "_entry_points", lambda: [_NullDistEP()])
+        rules = reg.list_rules()
+        null_rule = next((r for r in rules if r.source == "null-dist"), None)
+        assert null_rule is not None
+        assert null_rule.origin == "zenzic"
+
+    def test_load_core_rules_filters_by_dist_name(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Only entry points from the 'zenzic' distribution are loaded as core."""
+
+        class _ExternalEP:
+            name = "ext-rule"
+
+            class dist:
+                name = "external-package"
+
+            @staticmethod
+            def load():
+                return _PluginTodoRule
+
+        class _CoreEP:
+            name = "core-rule"
+
+            class dist:
+                name = "zenzic"
+
+            @staticmethod
+            def load():
+                return VSMBrokenLinkRule
+
+        reg = PluginRegistry()
+        monkeypatch.setattr(reg, "_entry_points", lambda: [_CoreEP(), _ExternalEP()])
+        rules = reg.load_core_rules()
+        # core-rule should be loaded, ext-rule should not
+        rule_ids = [r.rule_id for r in rules]
+        assert "Z001" in rule_ids
+        assert "PLUG-TODO" not in rule_ids
+
+    def test_load_core_rules_with_z001_already_loaded(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """When Z001 is already provided by an entry point, no duplicate fallback.
+        Kills not-any→any inversion mutant."""
+
+        class _Z001EP:
+            name = "broken-links"
+
+            class dist:
+                name = "zenzic"
+
+            @staticmethod
+            def load():
+                return VSMBrokenLinkRule
+
+        reg = PluginRegistry()
+        monkeypatch.setattr(reg, "_entry_points", lambda: [_Z001EP()])
+        rules = reg.load_core_rules()
+        z001_count = sum(1 for r in rules if r.rule_id == "Z001")
+        # Exactly 1 — no duplicate from fallback
+        assert z001_count == 1
+
+    def test_load_core_rules_fallback_not_none(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Fallback appends a real VSMBrokenLinkRule, not None.
+        Kills loaded.append(None) mutant."""
+        reg = PluginRegistry()
+        monkeypatch.setattr(reg, "_entry_points", lambda: [])
+        rules = reg.load_core_rules()
+        assert len(rules) == 1
+        assert rules[0] is not None
+        assert isinstance(rules[0], VSMBrokenLinkRule)
+        assert rules[0].rule_id == "Z001"
+
+    def test_load_selected_rules_broken_links_plus_others(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """broken-links fallback + real plugins: both loaded together.
+        Kills requested=None and *self.load_selected_rules(None) mutants."""
+
+        class _EP:
+            name = "custom-rule"
+
+            class dist:
+                name = "zenzic"
+
+            @staticmethod
+            def load():
+                return _PluginTodoRule
+
+        reg = PluginRegistry()
+        monkeypatch.setattr(reg, "_entry_points", lambda: [_EP()])
+        rules = reg.load_selected_rules(["broken-links", "custom-rule"])
+        assert len(rules) == 2
+        assert isinstance(rules[0], VSMBrokenLinkRule)
+        assert isinstance(rules[1], _PluginTodoRule)
+
+    def test_load_selected_rules_broken_links_case_sensitive(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """'broken-links' check must be exact (case-sensitive).
+        Kills 'BROKEN-LINKS' mutant."""
+        reg = PluginRegistry()
+        # No entry points — broken-links uses fallback
+        monkeypatch.setattr(reg, "_entry_points", lambda: [])
+        rules = reg.load_selected_rules(["broken-links"])
+        assert len(rules) == 1
+        assert isinstance(rules[0], VSMBrokenLinkRule)
+
+    def test_list_rules_multiple_plugins_all_found(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """All plugins in entry points are discovered — kills continue→break.
+        Tests that the loop doesn't stop at the first plugin."""
+
+        class _EP1:
+            name = "rule-alpha"
+
+            class dist:
+                name = "zenzic"
+
+            @staticmethod
+            def load():
+                return _PluginTodoRule
+
+        class _EP2:
+            name = "rule-beta"
+
+            class dist:
+                name = "zenzic"
+
+            @staticmethod
+            def load():
+                return VSMBrokenLinkRule
+
+        reg = PluginRegistry()
+        monkeypatch.setattr(reg, "_entry_points", lambda: [_EP1(), _EP2()])
+        rules = reg.list_rules()
+        sources = [r.source for r in rules]
+        assert "rule-alpha" in sources
+        assert "rule-beta" in sources
+
+    def test_list_rules_origin_from_dist_name(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """origin field must come from ep.dist.name — kills string mutations."""
+
+        class _EP:
+            name = "my-rule"
+
+            class dist:
+                name = "my-package"
+
+            @staticmethod
+            def load():
+                return VSMBrokenLinkRule
+
+        reg = PluginRegistry()
+        monkeypatch.setattr(reg, "_entry_points", lambda: [_EP()])
+        rules = reg.list_rules()
+        my_rule = next(r for r in rules if r.source == "my-rule")
+        assert my_rule.origin == "my-package"
