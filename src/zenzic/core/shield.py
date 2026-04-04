@@ -31,6 +31,44 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
+# ─── Pre-scan Normalizer (ZRT-003: split-token bypass defence) ────────────────
+
+# Unwrap inline code spans: `AKIA` → AKIA
+_BACKTICK_INLINE_RE = re.compile(r"`([^`]*)`")
+# Remove concatenation operators that split tokens: `AKIA` + `KEY` → AKIAKEY
+_CONCAT_OP_RE = re.compile(r"[`'\"\s]*\+[`'\"\s]*")
+# Replace table-cell separators with spaces
+_TABLE_PIPE_RE = re.compile(r"\|")
+
+
+def _normalize_line_for_shield(line: str) -> str:
+    """Strip Markdown noise tokens to reconstruct secrets split by obfuscation.
+
+    Applies three transformations in order:
+
+    1. Unwrap backtick code spans — ``AKIA`` → ``AKIA``.
+    2. Remove string-concatenation operators (`` ` `` + `` ` ``) that authors
+       sometimes place between key fragments in documentation tables.
+    3. Replace table-pipe separators with spaces and collapse whitespace.
+
+    This allows the Shield to catch split-token patterns such as::
+
+        | Key ID | `AKIA` + `1234567890ABCDEF` |
+
+    while leaving detection of normal clean lines unaffected.
+
+    Args:
+        line: Raw text line from the Markdown source.
+
+    Returns:
+        Normalised string ready for regex scanning.
+    """
+    normalized = _BACKTICK_INLINE_RE.sub(r"\1", line)  # unwrap `...` spans
+    normalized = _CONCAT_OP_RE.sub("", normalized)  # remove + concat ops
+    normalized = _TABLE_PIPE_RE.sub(" ", normalized)  # collapse table pipes
+    return " ".join(normalized.split())  # collapse whitespace
+
+
 # ─── Pre-compiled secret signatures ───────────────────────────────────────────
 
 _SECRETS: list[tuple[str, re.Pattern[str]]] = [
@@ -57,12 +95,18 @@ class SecurityFinding:
         secret_type: Human-readable label for the secret kind
             (e.g. ``"openai-api-key"``).
         url: The URL or text fragment in which the secret was embedded.
+        col_start: 0-based column index of the match start in the raw line.
+            Used by the reporter for surgical caret rendering.
+        match_text: The matched secret substring (unredacted).
+            The reporter is responsible for obfuscating this before display.
     """
 
     file_path: Path
     line_no: int
     secret_type: str
     url: str
+    col_start: int = 0
+    match_text: str = ""
 
 
 # ─── Pure / I/O-agnostic functions ────────────────────────────────────────────
@@ -89,12 +133,15 @@ def scan_url_for_secrets(
     """
     path = Path(file_path)
     for secret_type, pattern in _SECRETS:
-        if pattern.search(url):
+        m = pattern.search(url)
+        if m:
             yield SecurityFinding(
                 file_path=path,
                 line_no=line_no,
                 secret_type=secret_type,
                 url=url,
+                col_start=m.start(),
+                match_text=m.group(0),
             )
 
 
@@ -108,6 +155,19 @@ def scan_line_for_secrets(
     Used for defence-in-depth: even if a secret appears outside a URL (e.g. in
     link text or plain prose), the Shield will catch it.
 
+    Two forms of the line are scanned:
+
+    * **Raw** — the line exactly as it appears in the source, ensuring that
+      normally-formatted secrets (e.g. in prose or frontmatter values) are
+      always caught.
+    * **Normalised** (ZRT-003 fix) — the line after stripping Markdown noise
+      tokens (backtick spans, table pipes, concatenation operators) so that
+      split-token obfuscation patterns are reconstructed before scanning.
+      See :func:`_normalize_line_for_shield`.
+
+    Duplicate findings (same secret type on the same line whether matched by
+    the raw or normalised form) are suppressed via a ``seen`` set.
+
     Args:
         line: Raw text line from the Markdown source.
         file_path: Path identifier (no disk access).
@@ -117,11 +177,26 @@ def scan_line_for_secrets(
         :class:`SecurityFinding` for each match found.
     """
     path = Path(file_path)
-    for secret_type, pattern in _SECRETS:
-        if pattern.search(line):
-            yield SecurityFinding(
-                file_path=path,
-                line_no=line_no,
-                secret_type=secret_type,
-                url=line.strip(),
-            )
+    normalized = _normalize_line_for_shield(line)
+    seen: set[str] = set()
+
+    for line_form in (line, normalized):
+        for secret_type, pattern in _SECRETS:
+            if secret_type in seen:
+                continue
+            m = pattern.search(line_form)
+            if m:
+                seen.add(secret_type)
+                match_text = m.group(0)
+                # Prefer col_start from the raw line; fall back to 0 when the
+                # secret was only detected in the normalised form (col position
+                # is meaningless after stripping Markdown noise).
+                raw_m = pattern.search(line)
+                yield SecurityFinding(
+                    file_path=path,
+                    line_no=line_no,
+                    secret_type=secret_type,
+                    url=line.strip(),  # always report the raw line for context
+                    col_start=raw_m.start() if raw_m else 0,
+                    match_text=match_text,
+                )

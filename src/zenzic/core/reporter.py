@@ -35,7 +35,29 @@ _SEVERITY_STYLE: dict[str, str] = {
     "error": f"bold {ROSE}",
     "warning": f"bold {AMBER}",
     "info": f"bold {INDIGO}",
+    "security_breach": f"bold white on {ROSE}",
 }
+
+
+def _obfuscate_secret(raw: str) -> str:
+    """Partially redact a secret for safe display in logs and CI output.
+
+    Preserves the first four and last four characters so reviewers can
+    identify the secret type and suffix without exposing the full credential.
+    Strings of length ≤ 8 are fully redacted.
+
+    This function is the only place where raw secret material is allowed
+    to be formatted for human consumption.  It **must never** be bypassed.
+
+    Args:
+        raw: The raw matched secret string from the Shield.
+
+    Returns:
+        A partially-redacted string safe for log output.
+    """
+    if len(raw) <= 8:  # too short to redact partially — hide the whole thing
+        return "*" * len(raw)
+    return raw[:4] + "*" * (len(raw) - 8) + raw[-4:]
 
 
 def _strip_prefix(rel_path: str, line_no: int, message: str) -> str:
@@ -142,18 +164,26 @@ class SentinelReporter:
         docs_count: int = 0,
         assets_count: int = 0,
         engine: str = "auto",
-        security_events: int = 0,
         target: str | None = None,
         strict: bool = False,
     ) -> tuple[int, int]:
         """Print the full Sentinel Report.
 
+        Breach findings (``severity=="security_breach"``) are rendered as
+        dedicated red panels **before** the grouped findings section and are
+        excluded from the grouped view to avoid noise.  All other findings flow
+        through the normal grouped pipeline.
+
         Returns:
-            ``(error_count, warning_count)`` so the caller can decide the
-            exit code.
+            ``(error_count, warning_count)`` — breaches are counted separately
+            by the caller (``cli.py``) and cause Exit 2, not Exit 1.
         """
         errors = sum(1 for f in findings if f.severity == "error")
         warnings = sum(1 for f in findings if f.severity == "warning")
+
+        # ── Split: breach findings get dedicated panels; rest goes to the grouped view
+        breach_findings = [f for f in findings if f.severity == "security_breach"]
+        normal_findings = [f for f in findings if f.severity != "security_breach"]
 
         # ── Telemetry line ────────────────────────────────────────────────────
         dot = emoji("dot")
@@ -168,7 +198,39 @@ class SentinelReporter:
             parts.append(f"[{INDIGO}]{elapsed:.1f}[/]s")
         telemetry = Text.from_markup(f"[{SLATE}]{f' {dot} '.join(parts)}[/]")
 
-        if not findings:
+        # ── Security breach panels (rendered BEFORE main panel) ───────────────
+        if breach_findings:
+            for bf in breach_findings:
+                obfuscated = _obfuscate_secret(bf.match_text) if bf.match_text else "[redacted]"
+                breach_body = Group(
+                    Text.from_markup(f"  {emoji('cross')} [bold]Finding:[/]    {_esc(bf.message)}"),
+                    Text.from_markup(
+                        f"  {emoji('cross')} [bold]Location:[/]   "
+                        f"[bold]{_esc(self._full_rel(bf.rel_path))}[/]:{bf.line_no}"
+                    ),
+                    Text.from_markup(
+                        f"  {emoji('cross')} [bold]Credential:[/] "
+                        f"[bold reverse] {_esc(obfuscated)} [/]"
+                    ),
+                    Text(),
+                    Text.from_markup(
+                        "  [bold]Action:[/] Rotate this credential immediately "
+                        "and purge it from the repository history."
+                    ),
+                )
+                self._con.print()
+                self._con.print(
+                    Panel(
+                        breach_body,
+                        title=f"[bold white on {ROSE}]  SECURITY BREACH DETECTED  ",
+                        title_align="center",
+                        border_style=f"bold {ROSE}",
+                        padding=(1, 2),
+                        expand=True,
+                    )
+                )
+
+        if not normal_findings and not breach_findings:
             # ── All-clear panel ───────────────────────────────────────────────
             self._con.print()
             self._con.print(
@@ -192,20 +254,9 @@ class SentinelReporter:
             )
             return 0, 0
 
-        # ── Security ──────────────────────────────────────────────────────────
-        security_line: list[RenderableType] = []
-        if security_events:
-            security_line = [
-                Text.from_markup(
-                    f"[{ROSE}]{emoji('shield')} SECURITY CRITICAL:[/] {security_events} "
-                    f"credential(s) detected — rotate immediately."
-                ),
-                Text(),
-            ]
-
-        # ── Grouped findings ──────────────────────────────────────────────────
+        # ── Grouped findings (non-breach only) ───────────────────────────────
         grouped: dict[str, list[Finding]] = defaultdict(list)
-        for f in findings:
+        for f in normal_findings:
             grouped[f.rel_path].append(f)
 
         renderables: list[RenderableType] = []
@@ -281,7 +332,7 @@ class SentinelReporter:
         self._con.print()
         self._con.print(
             Panel(
-                Group(telemetry, Text(), *security_line, *renderables),
+                Group(telemetry, Text(), *renderables),
                 title=f"[bold white on {INDIGO}] {emoji('shield')}  ZENZIC SENTINEL  v{version} [/]",
                 title_align="center",
                 border_style=f"bold {INDIGO}",
@@ -296,9 +347,19 @@ class SentinelReporter:
     # ── Quiet mode (pre-commit) ──────────────────────────────────────────────
 
     def render_quiet(self, findings: list[Finding]) -> tuple[int, int]:
-        """Minimal one-line output for pre-commit hooks."""
+        """Minimal output for pre-commit hooks.
+
+        Breach findings always produce a one-liner even in quiet mode — silent
+        failure on a credential leak is more dangerous than noisy CI output.
+        """
+        breaches = [f for f in findings if f.severity == "security_breach"]
         errors = sum(1 for f in findings if f.severity == "error")
         warnings = sum(1 for f in findings if f.severity == "warning")
+        if breaches:
+            self._con.print(
+                f"[bold red]SECURITY CRITICAL:[/] {len(breaches)} secret(s) detected — "
+                f"rotate immediately. Exit 2."
+            )
         if errors or warnings:
             self._con.print(f"zenzic: {errors} error(s), {warnings} warning(s)")
         return errors, warnings

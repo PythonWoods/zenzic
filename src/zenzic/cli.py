@@ -27,6 +27,7 @@ from zenzic.core.adapters import list_adapter_engines
 from zenzic.core.reporter import Finding, SentinelReporter
 from zenzic.core.scanner import (
     PlaceholderFinding,
+    _map_shield_to_finding,
     find_orphans,
     find_placeholders,
     find_repo_root,
@@ -580,6 +581,11 @@ def _to_findings(results: _AllCheckResults, docs_root: Path) -> list[Finding]:
                     match_text=rule_f.match_text,
                 )
             )
+        # Convert Shield security findings into breach-severity Finding objects.
+        # _map_shield_to_finding() is the sole authorised bridge between the Shield
+        # and the reporter (see Obligation 4 / Mutation Gate in CONTRIBUTING.md).
+        for sf in report.security_findings:
+            findings.append(_map_shield_to_finding(sf, docs_root))
 
     return findings
 
@@ -721,15 +727,6 @@ def check_all(
     results = _collect_all_results(repo_root, config, strict=effective_strict)
     elapsed = time.monotonic() - t0
 
-    # ── Security hard-stop (exit code 2) ──────────────────────────────────────
-    if results.security_events:
-        if not quiet:
-            console.print(
-                f"\n[bold red]SECURITY CRITICAL:[/] {results.security_events} "
-                "credential(s) detected — rotate immediately."
-            )
-        raise typer.Exit(2)
-
     # ── JSON format ───────────────────────────────────────────────────────────
     if output_format == "json":
         ref_errors = []
@@ -816,6 +813,12 @@ def check_all(
             target=_target_hint,
             strict=effective_strict,
         )
+
+    # Breach findings cause Exit 2; all other failures cause Exit 1.
+    # This check runs after rendering so the report is always printed first.
+    breaches = sum(1 for f in all_findings if f.severity == "security_breach")
+    if breaches and not effective_exit_zero:
+        raise typer.Exit(2)
 
     # In strict mode, warnings are promoted to failures.
     # Use reporter-derived counts (from filtered all_findings) so that target-mode
