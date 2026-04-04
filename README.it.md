@@ -167,6 +167,16 @@ Zenzic esegue un'**analisi statica** dei tuoi file di configurazione (`mkdocs.ym
 
 Questo significa che **non è necessario installare** MkDocs, Material for MkDocs o altri plugin di build nel tuo ambiente di linting. Zenzic rimane leggero e privo di dipendenze, rendendolo ideale per pipeline CI/CD veloci e isolate.
 
+### Setup progetto
+
+```bash
+zenzic init             # crea zenzic.toml con engine rilevato automaticamente
+zenzic init --pyproject # incorpora [tool.zenzic] in pyproject.toml
+```
+
+Quando `pyproject.toml` esiste, `zenzic init` chiede interattivamente se incorporare
+la configurazione lì. Usa `--pyproject` per saltare il prompt.
+
 ---
 
 ## Utilizzo CLI

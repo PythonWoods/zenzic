@@ -55,9 +55,20 @@ Puoi anche impostare `exit_zero = true` in `zenzic.toml` per renderlo il default
 
 ```bash
 zenzic init                               # Crea zenzic.toml nel progetto corrente
-zenzic init --force                       # Sovrascrive zenzic.toml esistente
+zenzic init --pyproject                   # Scrive la config in pyproject.toml [tool.zenzic]
+zenzic init --force                       # Sovrascrive la config esistente senza prompt
 zenzic init --plugin plugin-scaffold-demo # Crea un pacchetto SDK plugin
 ```
+
+**Rilevamento intelligente** — quando `pyproject.toml` esiste nella root del progetto,
+`zenzic init` chiede se incorporare la configurazione lì come tabella `[tool.zenzic]`
+invece di creare un file `zenzic.toml` separato.  Usa `--pyproject` per saltare il
+prompt e scrivere direttamente in `pyproject.toml`.
+
+Il rilevamento automatico dell'engine è incluso in entrambe le modalità: se `mkdocs.yml`
+o `zensical.toml` è presente, la configurazione generata preimposta il campo `engine`.
+Se non viene trovato alcun file di configurazione engine, si applicano i default
+vanilla (indipendenti dall'engine).
 
 `zenzic init --plugin <nome>` genera uno scheletro di pacchetto Python con
 entry-point `zenzic.rules` pronto all'uso e template `BaseRule`

@@ -112,6 +112,24 @@ serving as both a DX reference and a quality-gate integration test.
 
 ---
 
+#### ⚡ Smart Initialization — `zenzic init --pyproject`
+
+`zenzic init` now detects `pyproject.toml` in the project root and interactively
+asks whether to embed configuration as a `[tool.zenzic]` table instead of creating
+a standalone `zenzic.toml`.
+
+```bash
+zenzic init             # interactive: asks if pyproject.toml exists
+zenzic init --pyproject # skip the prompt, write directly into pyproject.toml
+zenzic init --force     # overwrite existing config (both modes)
+```
+
+Engine auto-detection (`mkdocs.yml` → `engine = "mkdocs"`, `zensical.toml` →
+`engine = "zensical"`) works in both standalone and pyproject modes.  When no
+engine config file is found, vanilla defaults apply.
+
+---
+
 #### 🛡️ Z001 / Z002 Split — Errors vs Warnings for Link Issues (closes #6)
 
 `VSMBrokenLinkRule` now distinguishes:
@@ -165,7 +183,7 @@ repos:
 ### Quality Gates
 
 ```text
-pytest             694 passed, 0 failed
+pytest             706 passed, 0 failed
 coverage           80%+ branch (gate: ≥ 80%)
 mutation score     86.7% (242/279 killed on rules.py — target: 75%)
 ruff check src/    0 violations
@@ -243,7 +261,7 @@ installed for `zenzic check all` to pass.
 
 All validation logic in Zenzic lives in pure functions: no file I/O, no network access, no global
 state, no terminal output. I/O happens only at the edges — CLI wrappers that read files and print
-findings. Pure functions are trivially testable (694 passing tests, ≥ 80% branch-coverage gate), composable
+findings. Pure functions are trivially testable (706 passing tests, ≥ 80% branch-coverage gate), composable
 into higher-order pipelines, and deterministic across environments.
 
 The score you get on a developer laptop is the score CI gets. The score CI gets is the score you
@@ -569,7 +587,7 @@ and `diff` Python APIs has been renamed to `output_format` — update any progra
 
 ```text
 zenzic check all   # self-dogfood: 7/7 OK
-pytest             # 694 passed, 0 failed
+pytest             # 706 passed, 0 failed
 coverage           # ≥ 80% branch (hard gate)
 mutation score     # 86.7% (242/279 killed on rules.py)
 ruff check .       # 0 violations

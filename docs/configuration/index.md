@@ -26,9 +26,13 @@ Use `zenzic init` to scaffold the file automatically. It detects the documentati
 project root (e.g. `mkdocs.yml`) and pre-sets `engine` in `[build_context]`:
 
 ```bash
-zenzic init          # creates zenzic.toml with detected engine
-zenzic init --force  # overwrite an existing file
+zenzic init             # creates zenzic.toml with detected engine
+zenzic init --pyproject # embeds [tool.zenzic] in pyproject.toml instead
+zenzic init --force     # overwrite an existing file
 ```
+
+When `pyproject.toml` exists, `zenzic init` asks whether to embed the configuration there
+as a `[tool.zenzic]` table.  Pass `--pyproject` to skip the interactive prompt.
 
 When you need to customise behaviour — for example, to raise the word-count threshold for concise
 technical reference pages, or to add team-specific placeholder patterns — create or edit

@@ -29,9 +29,13 @@ Usa `zenzic init` per scaffoldare il file automaticamente. Rileva il motore di d
 dalla root del progetto (es. `mkdocs.yml`) e preimposta `engine` in `[build_context]`:
 
 ```bash
-zenzic init          # crea zenzic.toml con engine rilevato
-zenzic init --force  # sovrascrive un file esistente
+zenzic init             # crea zenzic.toml con engine rilevato
+zenzic init --pyproject # incorpora [tool.zenzic] in pyproject.toml
+zenzic init --force     # sovrascrive un file esistente
 ```
+
+Quando `pyproject.toml` esiste, `zenzic init` chiede se incorporare la configurazione lì
+come tabella `[tool.zenzic]`.  Usa `--pyproject` per saltare il prompt interattivo.
 
 Crea o modifica `zenzic.toml` nella root del repository quando hai bisogno di personalizzare il
 comportamento:

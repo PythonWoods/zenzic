@@ -77,6 +77,12 @@ Versions follow [Semantic Versioning](https://semver.org/).
   - `src/<module>/rules.py` module-level `BaseRule` template
   - minimal docs fixture and `zenzic.toml` so `zenzic check all` can run
 
+- **Smart Initialization — `zenzic init --pyproject`** — when `pyproject.toml`
+  exists, `zenzic init` interactively asks whether to embed configuration as a
+  `[tool.zenzic]` table instead of creating a standalone `zenzic.toml`.  Pass
+  `--pyproject` to skip the prompt.  `--force` overwrites an existing
+  `[tool.zenzic]` section.  Engine auto-detection works in both modes.
+
 - `examples/plugin-scaffold-demo/` — living scaffold output fixture for SDK
   integration checks and contributor onboarding.
 
@@ -254,7 +260,7 @@ Versions follow [Semantic Versioning](https://semver.org/).
   runner: `python3 -m pytest -x`, target: `src/zenzic/core/rules.py`.
 - **Performance baseline** relaxed from 150 ms → 200 ms for 5 000 in-memory
   resolutions to accommodate CI/nox environmental variance (resolver is O(1)).
-- **694 tests pass.** `just preflight` — all gates green:
+- **706 tests pass.** `just preflight` — all gates green:
   ruff ✓ · mypy ✓ · pytest 80%+ coverage ✓ · REUSE ✓ · zenzic self-audit ✓ · mkdocs build --strict ✓.
 
 ## [0.5.0a2] — 2026-04-03 — The Refined Sentinel: Lean Package & Unified Workflow

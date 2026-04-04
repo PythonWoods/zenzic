@@ -362,6 +362,16 @@ This means you **do not need to install** MkDocs, Material for MkDocs, or any ot
 > (PDFs, ZIPs), add their glob patterns to `excluded_build_artifacts` in `zenzic.toml`
 > rather than pre-generating them. See the [First-Class Integrations](#first-class-integrations) section above.
 
+### Project setup
+
+```bash
+zenzic init             # creates zenzic.toml with auto-detected engine
+zenzic init --pyproject # embeds [tool.zenzic] in pyproject.toml instead
+```
+
+When `pyproject.toml` exists, `zenzic init` asks interactively whether to embed
+configuration there. Pass `--pyproject` to skip the prompt.
+
 ---
 
 ## CLI usage
