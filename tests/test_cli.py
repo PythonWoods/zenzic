@@ -659,3 +659,212 @@ def test_init_plugin_scaffold_existing_dir_requires_force(
     result = runner.invoke(app, ["init", "--plugin", "plugin-scaffold-demo"])
     assert result.exit_code == 1
     assert "already exists" in result.stdout
+
+
+# ---------------------------------------------------------------------------
+# init — Smart Initialization (standalone vs pyproject.toml)
+# ---------------------------------------------------------------------------
+
+
+def test_init_standalone_creates_zenzic_toml(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Default init (no pyproject.toml present) creates zenzic.toml."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / ".git").mkdir()
+    monkeypatch.chdir(repo)
+
+    result = runner.invoke(app, ["init"])
+    assert result.exit_code == 0
+
+    cfg = repo / "zenzic.toml"
+    assert cfg.is_file()
+    content = cfg.read_text(encoding="utf-8")
+    assert "docs_dir" in content
+    assert "fail_under" in content
+
+
+def test_init_standalone_detects_mkdocs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Engine auto-detection writes [build_context] when mkdocs.yml exists."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / ".git").mkdir()
+    (repo / "mkdocs.yml").write_text("site_name: test\n", encoding="utf-8")
+    monkeypatch.chdir(repo)
+
+    result = runner.invoke(app, ["init"])
+    assert result.exit_code == 0
+
+    content = (repo / "zenzic.toml").read_text(encoding="utf-8")
+    assert 'engine = "mkdocs"' in content
+
+
+def test_init_standalone_warns_if_exists(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Refuse to overwrite existing zenzic.toml without --force."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / ".git").mkdir()
+    (repo / "zenzic.toml").write_text("# existing\n", encoding="utf-8")
+    monkeypatch.chdir(repo)
+
+    result = runner.invoke(app, ["init"])
+    assert result.exit_code == 1
+    assert "already exists" in result.stdout
+
+
+def test_init_standalone_force_overwrites(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """--force overwrites an existing zenzic.toml."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / ".git").mkdir()
+    (repo / "zenzic.toml").write_text("# old\n", encoding="utf-8")
+    monkeypatch.chdir(repo)
+
+    result = runner.invoke(app, ["init", "--force"])
+    assert result.exit_code == 0
+
+    content = (repo / "zenzic.toml").read_text(encoding="utf-8")
+    assert "pythonwoods.dev" in content
+    assert "# old" not in content
+
+
+def test_init_pyproject_flag_appends_tool_section(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """--pyproject appends [tool.zenzic] to an existing pyproject.toml."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / ".git").mkdir()
+    (repo / "pyproject.toml").write_text('[project]\nname = "myapp"\n', encoding="utf-8")
+    monkeypatch.chdir(repo)
+
+    result = runner.invoke(app, ["init", "--pyproject"])
+    assert result.exit_code == 0
+
+    content = (repo / "pyproject.toml").read_text(encoding="utf-8")
+    assert "[tool.zenzic]" in content
+    assert 'name = "myapp"' in content  # original content preserved
+
+
+def test_init_pyproject_with_mkdocs_engine(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """--pyproject detects mkdocs and writes [tool.zenzic.build_context]."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / ".git").mkdir()
+    (repo / "pyproject.toml").write_text('[project]\nname = "x"\n', encoding="utf-8")
+    (repo / "mkdocs.yml").write_text("site_name: x\n", encoding="utf-8")
+    monkeypatch.chdir(repo)
+
+    result = runner.invoke(app, ["init", "--pyproject"])
+    assert result.exit_code == 0
+
+    content = (repo / "pyproject.toml").read_text(encoding="utf-8")
+    assert "[tool.zenzic.build_context]" in content
+    assert 'engine = "mkdocs"' in content
+
+
+def test_init_pyproject_warns_if_section_exists(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Refuse to overwrite existing [tool.zenzic] without --force."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / ".git").mkdir()
+    (repo / "pyproject.toml").write_text(
+        '[project]\nname = "x"\n\n[tool.zenzic]\nfail_under = 80\n',
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(repo)
+
+    result = runner.invoke(app, ["init", "--pyproject"])
+    assert result.exit_code == 1
+    assert "already exists" in result.stdout
+
+
+def test_init_pyproject_force_replaces_section(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """--pyproject --force replaces an existing [tool.zenzic] section."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / ".git").mkdir()
+    (repo / "pyproject.toml").write_text(
+        '[project]\nname = "x"\n\n[tool.zenzic]\nfail_under = 80\n',
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(repo)
+
+    result = runner.invoke(app, ["init", "--pyproject", "--force"])
+    assert result.exit_code == 0
+
+    content = (repo / "pyproject.toml").read_text(encoding="utf-8")
+    assert "[tool.zenzic]" in content
+    assert "fail_under = 80" not in content  # old section removed
+    assert 'name = "x"' in content  # project section preserved
+
+
+def test_init_pyproject_no_file_errors(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """--pyproject without a pyproject.toml file exits with error."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / ".git").mkdir()
+    monkeypatch.chdir(repo)
+
+    result = runner.invoke(app, ["init", "--pyproject"])
+    assert result.exit_code == 1
+    assert "No" in result.stdout and "pyproject.toml" in result.stdout
+
+
+def test_init_interactive_prompt_chooses_pyproject(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """When pyproject.toml exists and user answers 'y', config goes into pyproject."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / ".git").mkdir()
+    (repo / "pyproject.toml").write_text('[project]\nname = "x"\n', encoding="utf-8")
+    monkeypatch.chdir(repo)
+
+    result = runner.invoke(app, ["init"], input="y\n")
+    assert result.exit_code == 0
+
+    content = (repo / "pyproject.toml").read_text(encoding="utf-8")
+    assert "[tool.zenzic]" in content
+    assert not (repo / "zenzic.toml").is_file()
+
+
+def test_init_interactive_prompt_chooses_standalone(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """When pyproject.toml exists and user answers 'n', creates zenzic.toml."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / ".git").mkdir()
+    (repo / "pyproject.toml").write_text('[project]\nname = "x"\n', encoding="utf-8")
+    monkeypatch.chdir(repo)
+
+    result = runner.invoke(app, ["init"], input="n\n")
+    assert result.exit_code == 0
+    assert (repo / "zenzic.toml").is_file()
+
+    # pyproject.toml must NOT have [tool.zenzic]
+    content = (repo / "pyproject.toml").read_text(encoding="utf-8")
+    assert "[tool.zenzic]" not in content
+
+
+def test_init_vanilla_no_engine_no_build_context(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Without mkdocs.yml or zensical.toml, no [build_context] block is written."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / ".git").mkdir()
+    monkeypatch.chdir(repo)
+
+    result = runner.invoke(app, ["init"])
+    assert result.exit_code == 0
+
+    content = (repo / "zenzic.toml").read_text(encoding="utf-8")
+    assert "[build_context]" not in content
+    assert "vanilla" in result.stdout.lower() or "engine-agnostic" in result.stdout.lower()
