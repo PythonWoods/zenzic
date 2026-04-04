@@ -57,7 +57,7 @@ by installing only what each job needs. The groups are:
 
 | Group | Contents | When to use |
 | :---- | :------- | :---------- |
-| `test` | `pytest`, `pytest-cov` | Running the test suite |
+| `test` | `pytest`, `pytest-cov`, `hypothesis`, `mutmut` | Running the test suite |
 | `lint` | `ruff`, `mypy`, `pre-commit`, `reuse` | Linting and type checking |
 | `docs` | MkDocs stack (`mkdocs-material`, etc.) | Building the documentation |
 | `release` | `nox`, `bump-my-version`, `pip-audit` | Releases and audits |
@@ -79,8 +79,19 @@ time:
 ```bash
 zenzic check all            # all seven checks
 zenzic check references     # includes custom [[custom_rules]] evaluation
-pytest                      # full test suite
+pytest                      # full test suite (Hypothesis dev profile — 50 examples)
 ```
+
+!!! tip "Thorough property-based testing"
+
+    To run the test suite with the **ci** Hypothesis profile (500 examples),
+    use `just test-full` or set the environment variable directly:
+
+    ```bash
+    just test-full
+    # or
+    HYPOTHESIS_PROFILE=ci pytest
+    ```
 
 !!! note "End users vs contributors"
 

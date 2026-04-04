@@ -28,7 +28,9 @@ I controlli di qualità e le attività di sviluppo sono guidati da **just** (per
 | Sessione | Comando Just | Comando Nox | Descrizione |
 |---|---|---|---|
 | `dev` | - | `nox -s dev` | installa i pre-commit hook + scarica icone Lucide (da eseguire una volta dopo il clone) |
-| `tests` | - | `nox -s tests` | pytest + branch coverage |
+| `tests` | `just test` | `nox -s tests` | pytest + branch coverage (profilo Hypothesis **dev**) |
+| `tests` (approfondito) | `just test-full` | - | pytest con profilo Hypothesis **ci** (500 esempi) |
+| `mutation` | - | `nox -s mutation` | mutmut su `src/zenzic/core/rules.py` |
 | `lint` | `just lint` | `nox -s lint` | linting ruff + self-check zenzic |
 | `format` | - | `nox -s format` | formattazione ruff |
 | `typecheck` | - | `nox -s typecheck` | mypy strict |
@@ -36,6 +38,7 @@ I controlli di qualità e le attività di sviluppo sono guidati da **just** (per
 | `security` | - | `nox -s security` | scansione vulnerabilità CVE pip-audit |
 | `docs` | `just dev` | `nox -s docs` | mkdocs build --strict |
 | `preflight` | `just deploy` | `nox -s preflight` | tutto quanto sopra |
+| `clean` | `just clean` | - | Rimuove `site/`, `dist/`, `.hypothesis/`, cache |
 | `screenshot` | - | `nox -s screenshot` | rigenera `docs/assets/screenshot.svg` |
 | `bump` | - | `nox -s bump -- patch` | avanza la versione + commit + tag |
 

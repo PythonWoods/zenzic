@@ -39,12 +39,15 @@ the exact same environment as CI.
 |:-----|:---------------|:-----------------|:------------|
 | Bootstrap | `just sync` | — | Install / update all dependency groups |
 | **Self-lint** | **`just check`** | — | **Run Zenzic on its own documentation (strict)** |
-| Test suite | `just test` | `nox -s tests` | pytest + branch coverage |
+| Test suite | `just test` | `nox -s tests` | pytest + branch coverage (Hypothesis **dev** profile) |
+| Test suite (thorough) | `just test-full` | — | pytest with Hypothesis **ci** profile (500 examples) |
+| Mutation testing | — | `nox -s mutation` | mutmut on `src/zenzic/core/rules.py` |
 | Full pipeline | `just preflight` | `nox -s preflight` | lint, typecheck, tests, reuse, security |
 | **Pre-push gate** | **`just verify`** | — | **preflight + production build — run before every push** |
 | Docs build (fast) | `just build` | — | mkdocs build, no strict enforcement |
 | Docs build (prod) | `just build-prod` | `nox -s docs` | mkdocs build --strict, mirrors CI |
 | Docs serve | `just serve [port]` | `nox -s docs_serve` | live-reload server (default port 8000) |
+| Clean | `just clean` | — | Remove `site/`, `dist/`, `.hypothesis/`, caches |
 | Pre-commit setup | — | `nox -s dev` | install hooks + download Lucide icons (once after clone) |
 | Version bump | — | `nox -s bump -- patch` | bump version + commit + tag |
 | Screenshot | — | `nox -s screenshot` | regenerate `docs/assets/screenshot.svg` |
@@ -212,6 +215,44 @@ To verify the production build:
 ```bash
 just build
 ```
+
+---
+
+## Advanced QA: Mutants & Properties
+
+Zenzic uses two advanced testing techniques to ensure the Sentinel's core is battle-hardened.
+
+### Property-Based Testing (Hypothesis)
+
+`tests/test_properties.py` uses [Hypothesis](https://hypothesis.readthedocs.io/) to generate
+thousands of random inputs and verify **invariants** that must hold for any input:
+
+- `extract_links()` never crashes, always returns `LinkInfo`, line numbers stay in range.
+- `slug_heading()` is lowercase, idempotent, and free of leading/trailing hyphens.
+- `CustomRule.check()` returns valid findings with `col_start` in range.
+- `InMemoryPathResolver.resolve()` always returns a valid outcome type and catches path traversal.
+
+Run property tests:
+
+```bash
+uv run pytest tests/test_properties.py -x -q
+```
+
+### Mutation Testing (mutmut)
+
+[mutmut](https://mutmut.readthedocs.io/) modifies your source code (e.g. changes `>` to `>=`)
+and checks whether the test suite catches the mutation. A surviving mutant means a test gap.
+
+Target module: `src/zenzic/core/rules.py` — the heart of the Sentinel's detection logic.
+
+Run mutation testing:
+
+```bash
+nox -s mutation
+```
+
+**Merge requirement:** any new core rule must achieve a **mutation score > 90%**. If `mutmut`
+reports surviving mutants in `rules.py`, add targeted tests before merging.
 
 ---
 

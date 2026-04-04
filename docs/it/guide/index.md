@@ -77,6 +77,6 @@ Oltre alla pura reportistica, Zenzic fornisce **utility di autofix** (come `zenz
 
 ## Costruito con fiducia
 
-Zenzic include **98,4 % di test coverage** misurato da `pytest-cov`. Ogni controllo, ogni caso limite nel parser a macchina a stati e ogni percorso di codice asincrono nel validatore di link ha un test dedicato. `ruff` garantisce la qualità del codice nell'intero codebase.
+Zenzic impone un **gate di branch-coverage ≥ 80 %** tramite `pytest-cov`, affiancato da mutation testing (mutmut) che verifica l'efficacia dei test oltre la semplice copertura di riga. Ogni controllo, ogni caso limite nel parser a macchina a stati e ogni percorso di codice asincrono nel validatore di link ha un test dedicato. `ruff` garantisce la qualità del codice nell'intero codebase.
 
 Un linter che individua i problemi della tua documentazione deve essere esso stesso corretto. Questi numeri non sono una metrica di vanità — sono ciò che ti permette di fidarti dell'output di Zenzic nelle pipeline automatizzate.

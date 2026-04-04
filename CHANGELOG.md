@@ -13,13 +13,16 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [0.5.0a3] — 2026-04-03 — The Sentinel: Aesthetic Sprint, Parallel Anchors & Agnostic Target
 
-> **Sprint 13 + 14.** Two major tracks delivered in one tag.
+> **Sprint 13 + 14 + 15.** Three tracks delivered in one tag.
 > Track A — Performance & SDK: deterministic two-phase anchor validation, `zenzic.rules` public
 > namespace, plugin scaffold command, Z001/Z002 split.
 > Track B — Aesthetic & DX: Sentinel Palette with Slate/Indigo/Rose/Amber color identity,
 > unified banner telemetry, agnostic target mode (`zenzic check all README.md` or
 > `zenzic check all content/`), `.pre-commit-hooks.yaml`, native Material header via
 > `MutationObserver`, and two new example projects.
+> Track C — The Breathing Sentinel: native `col_start`/`match_text` propagation replacing
+> fragile regex workarounds, surgical caret rendering, traceback gutter with 2-space
+> padding, vertical breathing between findings, and a dedicated success-state panel.
 
 ### Added
 
@@ -81,6 +84,43 @@ Versions follow [Semantic Versioning](https://semver.org/).
   no race-induced false positives in anchor validation.
 
 ### Changed
+
+- **Native Data Propagation — "The Breathing Sentinel"** (`reporter.py`,
+  `validator.py`, `scanner.py`, `rules.py`, `cli.py`) — replaced the fragile
+  `_extract_token()` regex workaround with native `col_start`/`match_text`
+  propagation from every checker through the full pipeline to the reporter.
+  Every regex match site now captures `m.start()` and `m.group()` at detection
+  time and stores them in the finding dataclass — no reverse-engineering from
+  error messages.
+
+- **`LinkInfo` NamedTuple** (`validator.py`) — new type
+  `(url, lineno, col_start, match_text)` replacing plain `tuple[str, int]`
+  throughout the validator pipeline.  `extract_links()` and
+  `extract_ref_links()` now return `list[LinkInfo]`.
+
+- **Widened dataclasses** — `LinkError`, `PlaceholderFinding`, `RuleFinding`,
+  `Violation`, and `Finding` all gained `col_start: int = 0` and
+  `match_text: str = ""` fields, propagated end-to-end.
+
+- **Traceback Gutter** (`reporter.py`) — increased gutter padding to 2 spaces
+  around the vertical line: `16  ❱  code` / `16  │  code`.
+
+- **Vertical Breathing** (`reporter.py`) — empty `Text()` lines inserted
+  between different findings in the same file, before/after code snippets,
+  after file-separator rules, and before the verdict line.
+
+- **Success State** (`reporter.py`) — when all checks pass, the panel renders
+  a dedicated all-clear layout: telemetry → rule → elegant
+  `✔ All checks passed. Your documentation is secure.` message.
+
+- **Surgical Caret Rendering** (`reporter.py`) — `_render_snippet()` uses
+  native `col_start`/`match_text` to render precise `^^^^` caret underlines;
+  carets are suppressed when `col_start + len(match_text) > 60` (wrapping
+  guard) or when `match_text` is empty (no position data available).
+
+- **Removed `_extract_token()`** (`reporter.py`) — deleted the `_TOKEN_RE`
+  regex pattern and `_extract_token()` function; removed `import re` from the
+  module.  The reporter no longer guesses token positions from message strings.
 
 - **Sentinel Gutter Reporter** (`reporter.py`) — source-line context block uses
   the Sentinel Palette consistently:
@@ -159,6 +199,12 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **mypy errors** — `list[object]` annotations on `security_line` and
+  `renderables` changed to `list[RenderableType]` (imported from
+  `rich.console`); `config.docs_dir` (type `Path`) wrapped with `str()` when
+  passed to `SentinelReporter(docs_dir=...)` which expects `str`.
+  `mypy src/` — 0 errors in 30 files.
+
 - **Exit-code under target mode** — `has_failures` now uses filtered findings
   (`errors > 0`) rather than `results.failed` (which counted off-target findings
   such as `zenzic.toml` classified as an unused asset when `docs_dir` was patched
@@ -170,14 +216,48 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Tests
 
+- `test_validator.py` updated: added `_ul()` helper to unwrap `LinkInfo` →
+  `(url, lineno)` tuples; 13 assertion patterns updated for `LinkInfo`
+  compatibility; 4 destructuring patterns migrated from `for u, _ in` to
+  `for link in` with `.url` attribute access.
 - 4 new CLI integration tests for target mode:
   `test_check_all_target_not_found`, `test_check_all_target_single_file`,
   `test_check_all_target_file_outside_docs`, `test_check_all_target_directory`.
 - Test fixtures write ≥ 60-word bodies to avoid `short-content` placeholder warnings.
-- **587 tests pass.** `just preflight` — all gates green:
-  ruff ✓ · mypy ✓ · pytest 81.49% coverage ✓ · REUSE ✓ · zenzic self-audit ✓ · mkdocs build --strict ✓.
 
-## [0.5.0a1] — 2026-04-03 — The Refined Sentinel: Lean Package & Unified Workflow
+#### Mutation Testing Campaign — "The Mutant War"
+
+- **Mutation score: 86.7%** (242/279 mutants killed on `rules.py`) — up from
+  58.1% at baseline.  Target was 75%; exceeded by +11.7 pp.
+- **80 new mutant-killing tests** added to `test_rules.py`, organised in
+  dedicated test classes:
+  - `TestExtractInlineLinksWithLines` (14 tests) — edge cases for inline link
+    extraction including empty hrefs, escaped brackets, and multi-link lines.
+  - `TestVSMBrokenLinkRuleMutantKill` (22 tests) — `check_vsm` path/anchor
+    resolution logic, orphan detection, severity mapping, and `continue`/`break`
+    branch coverage.
+  - `TestAdaptiveRuleEngineRunMutantKill` (4 tests) — `AdaptiveRuleEngine.run()`
+    short-circuit and content propagation.
+  - `TestAdaptiveRuleEngineRunVsmMutantKill` (6 tests) — `run_vsm()` VSM-specific
+    finding collection and file iteration.
+  - `TestAssertPickleableMutantKill` (2 tests) — `assert_pickleable()` deep-copy
+    and `UNREACHABLE` assertion guard.
+  - `TestPluginRegistryMutantKill` (27 tests) — `PluginRegistry` discovery,
+    duplicate handling, case-sensitivity, and `validate_rule()` contract.
+  - `TestExtractLinksDeepMutantKill` (5 tests) — fence-block skipping, reference
+    link parsing, and empty-document edge cases.
+- **37 surviving mutants** classified as equivalent (no observable behaviour
+  change) or framework limitations (unreachable defensive assertions).
+- **Hypothesis property-based testing** integrated with three profiles:
+  `dev` (50 examples), `ci` (500), `purity` (1 000).
+- **mutmut 3.5.0** configured under `[tool.mutmut]` in `pyproject.toml`;
+  runner: `python3 -m pytest -x`, target: `src/zenzic/core/rules.py`.
+- **Performance baseline** relaxed from 150 ms → 200 ms for 5 000 in-memory
+  resolutions to accommodate CI/nox environmental variance (resolver is O(1)).
+- **694 tests pass.** `just preflight` — all gates green:
+  ruff ✓ · mypy ✓ · pytest 80%+ coverage ✓ · REUSE ✓ · zenzic self-audit ✓ · mkdocs build --strict ✓.
+
+## [0.5.0a2] — 2026-04-03 — The Refined Sentinel: Lean Package & Unified Workflow
 
 > **Sprint 12.** Consolidation and DX hardening. Removes the `[docs]` public
 > extra (engine-agnostic: users install MkDocs independently), eliminates
@@ -1310,8 +1390,9 @@ It has been superseded by the 0.5.x stabilization cycle.
 
 <!-- ─── Reference link definitions ──────────────────────────────────────────── -->
 
-[Unreleased]:       https://github.com/PythonWoods/zenzic/compare/v0.5.0a2...HEAD
-[0.5.0a3]:          https://github.com/PythonWoods/zenzic/compare/v0.5.0a1...v0.5.0a2
+[Unreleased]:       https://github.com/PythonWoods/zenzic/compare/v0.5.0a3...HEAD
+[0.5.0a3]:          https://github.com/PythonWoods/zenzic/compare/v0.5.0a2...v0.5.0a3
+[0.5.0a2]:          https://github.com/PythonWoods/zenzic/compare/v0.5.0a1...v0.5.0a2
 [0.5.0a1]:          https://github.com/PythonWoods/zenzic/compare/v0.4.0-rc5...v0.5.0a1
 [0.4.0-rc5]:        https://github.com/PythonWoods/zenzic/compare/v0.4.0-rc4...v0.4.0-rc5
 [0.4.0-rc4]:        https://github.com/PythonWoods/zenzic/compare/v0.4.0-rc3...v0.4.0-rc4

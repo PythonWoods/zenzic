@@ -35,16 +35,44 @@ Zenzic uses [`just`](https://github.com/casey/just) as its interactive command r
 |:--------|:------------|
 | `just sync` | Install / update all dependency groups (`uv sync --all-groups`) |
 | `just check` | **Self-lint — run Zenzic on its own documentation (strict)** |
-| `just test` | Run the test suite (delegates to `nox -s tests`) |
+| `just test` | Run the test suite (delegates to `nox -s tests`, Hypothesis **dev** profile) |
+| `just test-full` | Run the test suite with Hypothesis **ci** profile (500 examples) |
 | `just preflight` | Full CI-equivalent pipeline: lint, typecheck, tests, reuse, security |
 | `just verify` | **Pre-push gate: `preflight` + `build-prod`** |
 | `just build` | Build the documentation site (fast, no strict enforcement) |
 | `just build-prod` | Build the documentation site (`mkdocs build --strict`, mirrors CI) |
 | `just serve [port]` | Start the live-reload documentation server (default port 8000) |
-| `just clean` | Remove generated artefacts (`site/`, `dist/`, caches, score file) |
+| `just clean` | Remove generated artefacts (`site/`, `dist/`, `.hypothesis/`, caches, score file) |
 
 The Sentinel's self-linting duty — `just check` — is the first command to run after
 any documentation change. Run `just verify` before every push to `main`.
+
+??? info "Hypothesis profiles"
+
+    Property-based tests use [Hypothesis](https://hypothesis.readthedocs.io/) with
+    three profiles, controlled by the `HYPOTHESIS_PROFILE` environment variable:
+
+    | Profile | Examples per test | When to use |
+    |:--------|------------------:|:------------|
+    | **dev** (default) | 50 | Day-to-day development (`just test`) |
+    | **ci** | 500 | CI pipelines and `just test-full` |
+    | **purity** | 1 000 | Pre-release exhaustive validation |
+
+    ```bash
+    just test                          # dev profile (fast)
+    just test-full                     # ci profile (thorough)
+    HYPOTHESIS_PROFILE=purity just test  # pre-release
+    ```
+
+??? info "Mutation testing"
+
+    Use `nox -s mutation` to run [mutmut](https://mutmut.readthedocs.io/) against
+    `src/zenzic/core/rules.py`. This is deliberately **not** part of `just verify`
+    — run it manually after working on the rule engine:
+
+    ```bash
+    nox -s mutation
+    ```
 
 ---
 
