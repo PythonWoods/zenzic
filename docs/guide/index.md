@@ -98,6 +98,6 @@ table and engine comparison.
 
 ## Built with confidence
 
-Zenzic ships with **98.4 % test coverage** measured by `pytest-cov`. Every check, every edge case in the state-machine parser, and every async code path in the link validator has a dedicated test. `ruff` enforces code quality across the entire codebase.
+Zenzic enforces a **≥ 80 % branch-coverage gate** via `pytest-cov`, backed by mutation testing (mutmut) that verifies test effectiveness beyond line coverage. Every check, every edge case in the state-machine parser, and every async code path in the link validator has a dedicated test. `ruff` enforces code quality across the entire codebase.
 
 A linter that catches your documentation issues must itself be correct. These numbers are not a vanity metric — they are what let you trust Zenzic's output in automated pipelines.

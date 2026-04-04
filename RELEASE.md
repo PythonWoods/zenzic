@@ -112,6 +112,24 @@ serving as both a DX reference and a quality-gate integration test.
 
 ---
 
+#### ⚡ Smart Initialization — `zenzic init --pyproject`
+
+`zenzic init` now detects `pyproject.toml` in the project root and interactively
+asks whether to embed configuration as a `[tool.zenzic]` table instead of creating
+a standalone `zenzic.toml`.
+
+```bash
+zenzic init             # interactive: asks if pyproject.toml exists
+zenzic init --pyproject # skip the prompt, write directly into pyproject.toml
+zenzic init --force     # overwrite existing config (both modes)
+```
+
+Engine auto-detection (`mkdocs.yml` → `engine = "mkdocs"`, `zensical.toml` →
+`engine = "zensical"`) works in both standalone and pyproject modes.  When no
+engine config file is found, vanilla defaults apply.
+
+---
+
 #### 🛡️ Z001 / Z002 Split — Errors vs Warnings for Link Issues (closes #6)
 
 `VSMBrokenLinkRule` now distinguishes:
@@ -165,14 +183,40 @@ repos:
 ### Quality Gates
 
 ```text
-pytest             587 passed, 0 failed
-coverage           81.49% (gate: ≥ 80%)
+pytest             706 passed, 0 failed
+coverage           80%+ branch (gate: ≥ 80%)
+mutation score     86.7% (242/279 killed on rules.py — target: 75%)
 ruff check src/    0 violations
 mypy src/          0 errors
 reuse lint         262/262 files compliant
 zenzic check all   SUCCESS (self-dogfood, 104 files)
 mkdocs build       --strict, 0 warnings
 ```
+
+---
+
+### Mutation Testing Campaign — "The Mutant War"
+
+v0.5.0a3 ships with a full mutation testing campaign against `src/zenzic/core/rules.py`
+using **mutmut 3.5.0**.  The campaign raised the mutation score from 58.1% (baseline)
+to **86.7%** (242/279 killed) — exceeding the 75% target by +11.7 percentage points.
+
+**80 new targeted tests** were added to `test_rules.py`, organised in 7 specialised
+test classes covering:
+
+- **PluginRegistry** (27 tests) — discovery, duplicates, case-sensitivity, `validate_rule()`
+- **VSMBrokenLinkRule** (22 tests) — `check_vsm` path/anchor resolution, orphan detection
+- **Inline link extraction** (14 tests) — escaped brackets, empty hrefs, multi-link lines
+- **AdaptiveRuleEngine** (10 tests) — `run()` and `run_vsm()` short-circuits and propagation
+- **Deep link extraction** (5 tests) — fence-block skipping, reference links, empty documents
+- **Pickleable assertions** (2 tests) — deep-copy guard and `UNREACHABLE` sentinel
+
+The 37 surviving mutants were analysed and classified as equivalent mutations
+(no observable behaviour change) or framework-level limitations (unreachable
+defensive assertions).  **Practical quality saturation** has been reached.
+
+Hypothesis property-based testing is integrated with three severity profiles:
+`dev` (50 examples), `ci` (500), `purity` (1 000).
 
 ---
 
@@ -217,7 +261,7 @@ installed for `zenzic check all` to pass.
 
 All validation logic in Zenzic lives in pure functions: no file I/O, no network access, no global
 state, no terminal output. I/O happens only at the edges — CLI wrappers that read files and print
-findings. Pure functions are trivially testable (433 passing tests at 98.4% coverage), composable
+findings. Pure functions are trivially testable (706 passing tests, ≥ 80% branch-coverage gate), composable
 into higher-order pipelines, and deterministic across environments.
 
 The score you get on a developer laptop is the score CI gets. The score CI gets is the score you
@@ -543,8 +587,9 @@ and `diff` Python APIs has been renamed to `output_format` — update any progra
 
 ```text
 zenzic check all   # self-dogfood: 7/7 OK
-pytest             # 529 passed, 0 failed
-coverage           # ≥ 80% (hard gate)
+pytest             # 706 passed, 0 failed
+coverage           # ≥ 80% branch (hard gate)
+mutation score     # 86.7% (242/279 killed on rules.py)
 ruff check .       # 0 violations
 mypy src/          # 0 errors
 mkdocs build --strict  # 0 warnings

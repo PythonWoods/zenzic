@@ -7,7 +7,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "zenzic"
-version = "0.5.0a2"
+version = "0.5.0a3"
 description = "Engineering-grade, engine-agnostic linter and security shield for Markdown documentation"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -68,6 +68,8 @@ packages = ["src/zenzic"]
 test = [
     "pytest>=8.0.0",
     "pytest-cov>=4.1.0",
+    "hypothesis>=6.100.0",
+    "mutmut>=3.0.0",
 ]
 lint = [
     "ruff>=0.3.0",
@@ -156,10 +158,19 @@ exclude_lines = [
     "\\.\\.\\.",
 ]
 
+# ─── Mutation testing (Sentinel Rigor) ────────────────────────────────────────
+
+[tool.mutmut]
+paths_to_mutate = ["src/zenzic/core/rules.py"]
+tests_dir = ["tests/"]
+also_copy = ["src/"]
+# Assicura che venga usato pytest con la nostra configurazione
+runner = "python3 -m pytest -x"
+
 # ─── Version bumping ───────────────────────────────────────────────────────────
 
 [tool.bumpversion]
-current_version = "0.5.0a2"
+current_version = "0.5.0a3"
 commit = true
 tag = true
 tag_name = "v{new_version}"

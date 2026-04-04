@@ -58,7 +58,7 @@ la CI veloce installando solo ciò di cui ogni job ha bisogno. I gruppi sono:
 
 | Gruppo | Contenuto | Quando usarlo |
 | :----- | :-------- | :------------ |
-| `test` | `pytest`, `pytest-cov` | Esecuzione della suite di test |
+| `test` | `pytest`, `pytest-cov`, `hypothesis`, `mutmut` | Esecuzione della suite di test |
 | `lint` | `ruff`, `mypy`, `pre-commit`, `reuse` | Linting e type checking |
 | `docs` | Stack MkDocs (`mkdocs-material`, ecc.) | Build della documentazione |
 | `release` | `nox`, `bump-my-version`, `pip-audit` | Rilasci e audit |
@@ -80,8 +80,19 @@ repository in qualsiasi momento:
 ```bash
 zenzic check all            # tutti e sette i controlli
 zenzic check references     # include la valutazione delle [[custom_rules]]
-pytest                      # suite di test completa
+pytest                      # suite di test completa (profilo Hypothesis dev — 50 esempi)
 ```
+
+!!! tip "Test property-based approfonditi"
+
+    Per eseguire la suite di test con il profilo Hypothesis **ci** (500 esempi),
+    usa `just test-full` o imposta direttamente la variabile d'ambiente:
+
+    ```bash
+    just test-full
+    # oppure
+    HYPOTHESIS_PROFILE=ci pytest
+    ```
 
 !!! note "Utenti finali vs contributori"
 

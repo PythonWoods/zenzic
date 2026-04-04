@@ -102,6 +102,8 @@ class RuleFinding:
     message: str
     severity: Severity = "error"
     matched_line: str = field(default="")
+    col_start: int = 0
+    match_text: str = ""
 
     @property
     def is_error(self) -> bool:
@@ -150,6 +152,8 @@ class Violation:
     message: str
     level: Severity = "error"
     context: str = field(default="")
+    col_start: int = 0
+    match_text: str = ""
 
     @property
     def is_error(self) -> bool:
@@ -165,6 +169,8 @@ class Violation:
             message=self.message,
             severity=self.level,
             matched_line=self.context,
+            col_start=self.col_start,
+            match_text=self.match_text,
         )
 
 
@@ -316,7 +322,8 @@ class CustomRule(BaseRule):
         """Apply the pattern line-by-line to *text*."""
         findings: list[RuleFinding] = []
         for lineno, line in enumerate(text.splitlines(), start=1):
-            if self._compiled.search(line):
+            m = self._compiled.search(line)
+            if m:
                 findings.append(
                     RuleFinding(
                         file_path=file_path,
@@ -325,6 +332,8 @@ class CustomRule(BaseRule):
                         message=self.message,
                         severity=self.severity,
                         matched_line=line,
+                        col_start=m.start(),
+                        match_text=m.group(),
                     )
                 )
         return findings

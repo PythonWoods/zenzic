@@ -105,6 +105,8 @@ class PlaceholderFinding:
     line_no: int
     issue: str
     detail: str
+    col_start: int = 0
+    match_text: str = ""
 
 
 def check_placeholder_content(
@@ -142,13 +144,16 @@ def check_placeholder_content(
 
     for i, line in enumerate(text.splitlines(), start=1):
         for pattern in patterns:
-            if pattern.search(line):
+            m = pattern.search(line)
+            if m:
                 findings.append(
                     PlaceholderFinding(
                         file_path=path,
                         line_no=i,
                         issue="placeholder-text",
                         detail=f"Found placeholder text matching pattern: '{pattern.pattern}'",
+                        col_start=m.start(),
+                        match_text=m.group(),
                     )
                 )
 

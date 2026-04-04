@@ -70,6 +70,7 @@ ENV/
 # ────────────────────────────────────────────────────────────────────────────
 .pytest_cache/
 .pytest_tmp/
+.hypothesis/
 .coverage
 .coverage.*
 htmlcov/

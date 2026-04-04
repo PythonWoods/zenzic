@@ -22,33 +22,38 @@ from zenzic.core.validator import (
 from zenzic.models.config import ZenzicConfig
 
 
-# ─── extract_links (pure) ─────────────────────────────────────────────────────
+def _ul(links: list) -> list[tuple[str, int]]:
+    """Extract (url, lineno) pairs for easy assertion comparison."""
+    return [(link.url, link.lineno) for link in links]
+
+
+# ── extract_links (pure) ─────────────────────────────────────────────────────
 
 
 class TestExtractLinks:
     """Pure extraction of (url, lineno) pairs from raw markdown text."""
 
     def test_simple_link(self) -> None:
-        assert extract_links("[text](page.md)") == [("page.md", 1)]
+        assert _ul(extract_links("[text](page.md)")) == [("page.md", 1)]
 
     def test_image_link(self) -> None:
-        assert extract_links("![logo](assets/logo.png)") == [("assets/logo.png", 1)]
+        assert _ul(extract_links("![logo](assets/logo.png)")) == [("assets/logo.png", 1)]
 
     def test_link_with_title_stripped(self) -> None:
-        assert extract_links('[click](page.md "My Page")') == [("page.md", 1)]
+        assert _ul(extract_links('[click](page.md "My Page")')) == [("page.md", 1)]
 
     def test_link_with_single_quote_title_stripped(self) -> None:
-        assert extract_links("[click](page.md 'My Page')") == [("page.md", 1)]
+        assert _ul(extract_links("[click](page.md 'My Page')")) == [("page.md", 1)]
 
     def test_empty_url_ignored(self) -> None:
         assert extract_links("[empty]()") == []
 
     def test_multiple_links_same_line(self) -> None:
-        assert extract_links("[a](a.md) and [b](b.md)") == [("a.md", 1), ("b.md", 1)]
+        assert _ul(extract_links("[a](a.md) and [b](b.md)")) == [("a.md", 1), ("b.md", 1)]
 
     def test_correct_line_numbers(self) -> None:
         text = "line one\n[link](target.md)\nline three"
-        assert extract_links(text) == [("target.md", 2)]
+        assert _ul(extract_links(text)) == [("target.md", 2)]
 
     def test_link_inside_fenced_block_ignored(self) -> None:
         text = "```\n[fake](ghost.md)\n```"
@@ -56,7 +61,7 @@ class TestExtractLinks:
 
     def test_link_before_and_after_fenced_block_found(self) -> None:
         text = "[before](before.md)\n```\n[fake](ghost.md)\n```\n[after](after.md)"
-        urls = [u for u, _ in extract_links(text)]
+        urls = [link.url for link in extract_links(text)]
         assert urls == ["before.md", "after.md"]
         assert "ghost.md" not in urls
 
@@ -65,15 +70,15 @@ class TestExtractLinks:
 
     def test_link_mixed_inline_code_and_real(self) -> None:
         text = "Example: `[fake](nope.md)` but [real](page.md)."
-        urls = [u for u, _ in extract_links(text)]
+        urls = [link.url for link in extract_links(text)]
         assert urls == ["page.md"]
         assert "nope.md" not in urls
 
     def test_link_with_fragment(self) -> None:
-        assert extract_links("[sec](page.md#setup)") == [("page.md#setup", 1)]
+        assert _ul(extract_links("[sec](page.md#setup)")) == [("page.md#setup", 1)]
 
     def test_external_https_url(self) -> None:
-        assert extract_links("[docs](https://example.com)") == [("https://example.com", 1)]
+        assert _ul(extract_links("[docs](https://example.com)")) == [("https://example.com", 1)]
 
     def test_reference_style_link_not_extracted(self) -> None:
         # [text][ref] is reference-style; not an inline link — must not be matched.
@@ -648,12 +653,12 @@ class TestExtractRefLinks:
     def test_simple_ref_link(self) -> None:
         text = "[guide][ref]\n[ref]: guide.md\n"
         ref_map = _build_ref_map(text)
-        assert extract_ref_links(text, ref_map) == [("guide.md", 1)]
+        assert _ul(extract_ref_links(text, ref_map)) == [("guide.md", 1)]
 
     def test_collapsed_ref_link(self) -> None:
         text = "[guide][]\n[guide]: guide.md\n"
         ref_map = _build_ref_map(text)
-        links = [url for url, _ in extract_ref_links(text, ref_map)]
+        links = [link.url for link in extract_ref_links(text, ref_map)]
         assert "guide.md" in links
 
     def test_undefined_id_not_returned(self) -> None:
@@ -663,7 +668,7 @@ class TestExtractRefLinks:
     def test_case_insensitive_lookup(self) -> None:
         ref_map = {"guide": "guide.md"}
         text = "[text][GUIDE]\n"
-        links = [url for url, _ in extract_ref_links(text, ref_map)]
+        links = [link.url for link in extract_ref_links(text, ref_map)]
         assert "guide.md" in links
 
     def test_skips_fenced_block(self) -> None:
@@ -671,7 +676,7 @@ class TestExtractRefLinks:
         ref_map = {"ref": "target.md"}
         links = extract_ref_links(text, ref_map)
         assert len(links) == 1
-        assert links[0][1] == 4  # line 4 (outside block)
+        assert links[0].lineno == 4  # line 4 (outside block)
 
     def test_skips_inline_code(self) -> None:
         text = "Use `[fake][ref]` syntax. [real][ref]\n"

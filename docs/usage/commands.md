@@ -54,9 +54,19 @@ You can also set `exit_zero = true` in `zenzic.toml` to make it the permanent de
 
 ```bash
 zenzic init                               # Scaffold zenzic.toml in the current project
-zenzic init --force                       # Overwrite existing zenzic.toml
+zenzic init --pyproject                   # Write config into pyproject.toml [tool.zenzic]
+zenzic init --force                       # Overwrite existing config without prompting
 zenzic init --plugin plugin-scaffold-demo # Scaffold a plugin SDK package
 ```
+
+**Smart detection** — when `pyproject.toml` exists in the project root, `zenzic init`
+asks whether to embed the configuration there as a `[tool.zenzic]` table instead of
+creating a separate `zenzic.toml`.  Pass `--pyproject` to skip the prompt and write
+directly into `pyproject.toml`.
+
+Engine auto-detection is included in both modes: if `mkdocs.yml` or `zensical.toml`
+is present, the generated configuration pre-sets the `engine` field accordingly.
+When no engine config file is found, vanilla (engine-agnostic) defaults apply.
 
 `zenzic init --plugin <name>` generates a Python package skeleton with a ready
 `zenzic.rules` entry-point and a `BaseRule` template (`src/<module>/rules.py`).

@@ -8,12 +8,13 @@ from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 
-from rich.console import Console
+from rich.console import Console, Group, RenderableType
 from rich.markup import escape as _esc
 from rich.panel import Panel
-from rich.table import Table
+from rich.rule import Rule
+from rich.text import Text
 
-from zenzic.ui import AMBER, INDIGO, ROSE, SLATE, emoji, make_sentinel_header
+from zenzic.ui import AMBER, EMERALD, INDIGO, ROSE, SLATE, emoji
 
 
 @dataclass(slots=True)
@@ -26,12 +27,14 @@ class Finding:
     severity: str  # "error", "warning", "info"
     message: str
     source_line: str = ""
+    col_start: int = 0
+    match_text: str = ""
 
 
 _SEVERITY_STYLE: dict[str, str] = {
-    "error": "bold red",
-    "warning": "yellow",
-    "info": "blue",
+    "error": f"bold {ROSE}",
+    "warning": f"bold {AMBER}",
+    "info": f"bold {INDIGO}",
 }
 
 
@@ -44,12 +47,83 @@ def _strip_prefix(rel_path: str, line_no: int, message: str) -> str:
     return message
 
 
+# Context lines to show before/after the error line in snippets.
+_CONTEXT_LINES = 2
+
+
+def _read_snippet(path: Path, line_no: int) -> tuple[list[str], int] | None:
+    """Read a few lines around *line_no* from *path*, or ``None`` on failure."""
+    try:
+        all_lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return None
+    if not all_lines or line_no < 1:
+        return None
+    start = max(0, line_no - 1 - _CONTEXT_LINES)
+    end = min(len(all_lines), line_no + _CONTEXT_LINES)
+    return all_lines[start:end], start + 1
+
+
+def _render_snippet(
+    abs_path: Path, line_no: int, *, col_start: int = 0, match_text: str = ""
+) -> list[Text]:
+    """Render code snippet with custom ``│ ❱`` gutter and targeted ``^^^^`` carets.
+
+    Carets are rendered **only** when the caller provides a non-empty
+    *match_text* with a valid *col_start* — i.e. when the checker natively
+    knows the exact token position.  No guessing, no regex heuristics.
+    """
+    snippet = _read_snippet(abs_path, line_no)
+    if snippet is None:
+        return []
+
+    lines, start_line = snippet
+    end_line_no = start_line + len(lines) - 1
+    gutter_w = len(str(end_line_no))
+    result: list[Text] = []
+
+    for i, src in enumerate(lines):
+        cur = start_line + i
+        is_err = cur == line_no
+        num = str(cur).rjust(gutter_w)
+
+        t = Text()
+        t.append(f"    {num}  ", style=SLATE)
+        if is_err:
+            t.append("❱  ", style=f"bold {ROSE}")
+            t.append(src)
+        else:
+            t.append("│  ", style=SLATE)
+            t.append(src, style="dim")
+        result.append(t)
+
+        # Surgical caret: only when the checker provided native position data
+        # and the caret won't be misaligned by terminal line-wrapping.
+        if is_err and match_text and col_start >= 0:
+            caret_len = len(match_text)
+            if col_start + caret_len <= 60:
+                ct = Text()
+                ct.append(f"    {' ' * gutter_w}  ", style=SLATE)
+                ct.append("│  ", style=SLATE)
+                ct.append(" " * col_start + "^" * caret_len, style=f"bold {ROSE}")
+                result.append(ct)
+
+    return result
+
+    return result
+
+
 class SentinelReporter:
     """Render check results as a Ruff-inspired grouped report."""
 
-    def __init__(self, console: Console, docs_root: Path) -> None:
+    def __init__(self, console: Console, docs_root: Path, *, docs_dir: str = "docs") -> None:
         self._con = console
         self._docs_root = docs_root
+        self._docs_dir = docs_dir
+
+    def _full_rel(self, rel_path: str) -> str:
+        """Return project-relative path including docs_dir prefix."""
+        return f"{self._docs_dir}/{rel_path}"
 
     def _rel(self, path: Path) -> str:
         try:
@@ -70,6 +144,7 @@ class SentinelReporter:
         engine: str = "auto",
         security_events: int = 0,
         target: str | None = None,
+        strict: bool = False,
     ) -> tuple[int, int]:
         """Print the full Sentinel Report.
 
@@ -80,46 +155,70 @@ class SentinelReporter:
         errors = sum(1 for f in findings if f.severity == "error")
         warnings = sum(1 for f in findings if f.severity == "warning")
 
-        # ── Banner ────────────────────────────────────────────────────────────
-        self._con.print()
-        header = make_sentinel_header(
-            version,
-            engine=engine,
-            docs_count=docs_count,
-            assets_count=assets_count,
-            elapsed=elapsed,
-            target=target,
-        )
-        self._con.print(
-            Panel(
-                header,
-                border_style=f"bold {INDIGO}",
-                expand=True,
-                padding=(0, 2),
-            )
-        )
-        self._con.print()
-
-        # ── Security ─────────────────────────────────────────────────────────
-        if security_events:
-            self._con.print(
-                f"[bold red]{emoji('shield')} SECURITY CRITICAL:[/] {security_events} "
-                f"credential(s) detected — rotate immediately.\n"
-            )
+        # ── Telemetry line ────────────────────────────────────────────────────
+        dot = emoji("dot")
+        total = docs_count + assets_count
+        parts = [engine]
+        if target is not None:
+            parts.append(target)
+        if total:
+            breakdown = f"([{INDIGO}]{docs_count}[/] docs, [{INDIGO}]{assets_count}[/] assets)"
+            parts.append(f"[{INDIGO}]{total}[/] file{'s' if total != 1 else ''} {breakdown}")
+        if elapsed:
+            parts.append(f"[{INDIGO}]{elapsed:.1f}[/]s")
+        telemetry = Text.from_markup(f"[{SLATE}]{f' {dot} '.join(parts)}[/]")
 
         if not findings:
-            self._con.print(f"[green]{emoji('check')} All checks passed.[/]")
+            # ── All-clear panel ───────────────────────────────────────────────
+            self._con.print()
+            self._con.print(
+                Panel(
+                    Group(
+                        telemetry,
+                        Text(),
+                        Rule(style=SLATE),
+                        Text(),
+                        Text.from_markup(
+                            f"[{EMERALD}]{emoji('check')} All checks passed. "
+                            f"Your documentation is secure.[/]"
+                        ),
+                    ),
+                    title=f"[bold white on {INDIGO}] {emoji('shield')}  ZENZIC SENTINEL  v{version} [/]",
+                    title_align="center",
+                    border_style=f"bold {INDIGO}",
+                    padding=(1, 2),
+                    expand=True,
+                )
+            )
             return 0, 0
 
-        # ── Grouped findings ─────────────────────────────────────────────────
+        # ── Security ──────────────────────────────────────────────────────────
+        security_line: list[RenderableType] = []
+        if security_events:
+            security_line = [
+                Text.from_markup(
+                    f"[{ROSE}]{emoji('shield')} SECURITY CRITICAL:[/] {security_events} "
+                    f"credential(s) detected — rotate immediately."
+                ),
+                Text(),
+            ]
+
+        # ── Grouped findings ──────────────────────────────────────────────────
         grouped: dict[str, list[Finding]] = defaultdict(list)
         for f in findings:
             grouped[f.rel_path].append(f)
 
+        renderables: list[RenderableType] = []
         for rel_path in sorted(grouped):
-            self._con.print(f"[bold underline]{rel_path}[/]")
-            for f in sorted(grouped[rel_path], key=lambda x: (x.line_no, x.code)):
-                style = _SEVERITY_STYLE.get(f.severity, "dim")
+            abs_path = self._docs_root / rel_path
+            # File separator — Rule with full project-relative path
+            renderables.append(Rule(self._full_rel(rel_path), style=SLATE))
+            renderables.append(Text())  # breathing after Rule
+
+            for idx, f in enumerate(sorted(grouped[rel_path], key=lambda x: (x.line_no, x.code))):
+                if idx > 0:
+                    renderables.append(Text())  # breathing between findings
+
                 sev_icon = (
                     emoji("cross")
                     if f.severity == "error"
@@ -127,41 +226,71 @@ class SentinelReporter:
                     if f.severity == "warning"
                     else emoji("info")
                 )
-                loc = f"{f.line_no}:" if f.line_no else "–"
-                msg = _esc(_strip_prefix(f.rel_path, f.line_no, f.message))
-                self._con.print(
-                    f"  [{style}]{sev_icon}[/] [dim]{loc:<6}[/] [{style}]\\[{f.code}][/]  {msg}"
-                )
-                if f.source_line:
-                    # Gutter — rustc/ruff style.
-                    # 4-char prefix keeps │ at the same column on blank+source lines.
-                    self._con.print(f"    [{SLATE}]│[/]")
-                    self._con.print(
-                        f"[{SLATE}]{f.line_no:>3} │[/] [italic]{_esc(f.source_line)}[/]"
+                style = _SEVERITY_STYLE.get(f.severity, "dim")
+                msg = _strip_prefix(f.rel_path, f.line_no, f.message)
+                # Finding line
+                renderables.append(
+                    Text.from_markup(
+                        f"  [{style}]{sev_icon}[/] [{style}]\\[{f.code}][/]  {_esc(msg)}"
                     )
-                    self._con.print(f"    [{SLATE}]│[/]")
-            self._con.print()
+                )
+                # Snippet with native position data — no guessing
+                if f.line_no and f.source_line:
+                    renderables.append(Text())  # breathing before snippet
+                    snippet_lines = _render_snippet(
+                        abs_path,
+                        f.line_no,
+                        col_start=f.col_start,
+                        match_text=f.match_text,
+                    )
+                    renderables.extend(snippet_lines)
 
-        # ── Summary table ────────────────────────────────────────────────────
-        summary = Table.grid(padding=(0, 1))
-        summary.add_column(style="bold")
-        summary.add_column()
+            renderables.append(Text())  # spacing after file group
+
+        # ── Summary (inside the panel) ────────────────────────────────────────
+        renderables.append(Rule(style=SLATE))
+        renderables.append(Text())  # breathing after Rule
+        summary_parts: list[str] = []
         if errors:
-            summary.add_row(
-                f"[{ROSE}]{emoji('cross')}[/]",
-                f"[{ROSE}]{errors}[/] error{'s' if errors != 1 else ''}",
+            summary_parts.append(
+                f"[{ROSE}]{emoji('cross')} {errors} error{'s' if errors != 1 else ''}[/]"
             )
         if warnings:
-            summary.add_row(
-                f"[{AMBER}]{emoji('warn')}[/]",
-                f"[{AMBER}]{warnings}[/] warning{'s' if warnings != 1 else ''}",
+            summary_parts.append(
+                f"[{AMBER}]{emoji('warn')} {warnings} warning{'s' if warnings != 1 else ''}[/]"
             )
         n_files = len(grouped)
-        summary.add_row(
-            f"[{SLATE}]{emoji('dot')}[/]",
-            f"[{INDIGO}]{n_files}[/] [dim]file{'s' if n_files != 1 else ''} with findings[/]",
+        summary_parts.append(
+            f"[{SLATE}]{emoji('dot')} {n_files} file{'s' if n_files != 1 else ''} with findings[/]"
         )
-        self._con.print(summary)
+        renderables.append(Text.from_markup("  ".join(summary_parts)))
+
+        # ── Status line (verdict) ─────────────────────────────────────────────
+        renderables.append(Text())  # breathing before verdict
+        has_failures = (errors > 0) or (strict and warnings > 0)
+        if has_failures:
+            renderables.append(
+                Text.from_markup(f"[bold {ROSE}]FAILED:[/] One or more checks failed.")
+            )
+        else:
+            renderables.append(
+                Text.from_markup(f"[{EMERALD}]{emoji('check')} All checks passed.[/]")
+            )
+
+        # ── Single unified panel ──────────────────────────────────────────────
+        self._con.print()
+        self._con.print(
+            Panel(
+                Group(telemetry, Text(), *security_line, *renderables),
+                title=f"[bold white on {INDIGO}] {emoji('shield')}  ZENZIC SENTINEL  v{version} [/]",
+                title_align="center",
+                border_style=f"bold {INDIGO}",
+                padding=(1, 2),
+                expand=True,
+            )
+        )
+        # ── Usage hint (outside the audit box) ───────────────────────────────
+        self._con.print(Text.from_markup(f"[{SLATE}]Try 'zenzic check --help' for options.[/]"))
         return errors, warnings
 
     # ── Quiet mode (pre-commit) ──────────────────────────────────────────────
