@@ -73,7 +73,7 @@ def test_visual_snippet_rendered_when_source_line_present() -> None:
 
 
 def test_visual_snippet_absent_when_source_line_empty() -> None:
-    """An empty source_line must NOT produce a │ line."""
+    """An empty source_line must NOT produce a ❱ error indicator."""
     err = LinkError(
         file_path=_DOCS / "index.md",
         line_no=5,
@@ -82,7 +82,7 @@ def test_visual_snippet_absent_when_source_line_empty() -> None:
         error_type="FILE_NOT_FOUND",
     )
     result = _invoke_with_errors([err])
-    assert "│" not in result.stdout
+    assert "❱" not in result.stdout
 
 
 # ---------------------------------------------------------------------------
@@ -114,7 +114,7 @@ def test_error_type_badge_present(error_type: str) -> None:
 
 
 def test_generic_link_error_has_no_badge() -> None:
-    """The default LINK_ERROR type must NOT produce a badge in the header."""
+    """LINK_ERROR code is shown as a standard Sentinel code badge."""
     err = LinkError(
         file_path=_DOCS / "page.md",
         line_no=1,
@@ -123,7 +123,8 @@ def test_generic_link_error_has_no_badge() -> None:
         error_type="LINK_ERROR",
     )
     result = _invoke_with_errors([err])
-    assert "LINK_ERROR" not in result.stdout
+    # Sentinel always shows the code; LINK_ERROR is a valid code badge
+    assert "LINK_ERROR" in result.stdout
 
 
 # ---------------------------------------------------------------------------
@@ -149,7 +150,8 @@ def test_multiple_errors_each_have_snippet() -> None:
         ),
     ]
     result = _invoke_with_errors(errors)
-    assert result.stdout.count("│") == 2
+    # Each error with a source_line emits an ❱ indicator
+    assert result.stdout.count("❱") == 2
     assert "FILE_NOT_FOUND" in result.stdout
     assert "UNREACHABLE_LINK" in result.stdout
 
@@ -247,9 +249,10 @@ def test_sandbox_zensical_valid_links_clean(monkeypatch: pytest.MonkeyPatch) -> 
     """features.md and api.md have only valid links — no errors from those pages."""
     monkeypatch.chdir(_SANDBOX_ZENSICAL)
     result = runner.invoke(app, ["check", "links"])
-    # Only index.md has broken links — neither features.md nor api.md should appear
-    assert "features.md" not in result.stdout
-    assert "api.md" not in result.stdout
+    # Only index.md has broken links — features.md and api.md must not appear as
+    # section headers (full_rel path shown by the Sentinel Rule separator).
+    assert "docs/features.md" not in result.stdout
+    assert "docs/api.md" not in result.stdout
 
 
 # ---------------------------------------------------------------------------
@@ -260,7 +263,7 @@ def test_sandbox_zensical_valid_links_clean(monkeypatch: pytest.MonkeyPatch) -> 
 def test_check_links_exit_code_0_when_no_errors() -> None:
     result = _invoke_with_errors([])
     assert result.exit_code == 0
-    assert "OK" in result.stdout
+    assert "No broken links found." in result.stdout
 
 
 def test_check_links_exit_code_1_when_errors_present() -> None:

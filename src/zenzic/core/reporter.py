@@ -166,6 +166,7 @@ class SentinelReporter:
         engine: str = "auto",
         target: str | None = None,
         strict: bool = False,
+        ok_message: str | None = None,
     ) -> tuple[int, int]:
         """Print the full Sentinel Report.
 
@@ -173,6 +174,13 @@ class SentinelReporter:
         dedicated red panels **before** the grouped findings section and are
         excluded from the grouped view to avoid noise.  All other findings flow
         through the normal grouped pipeline.
+
+        Args:
+            ok_message: Optional success message shown when no hard failures are
+                found.  Defaults to ``"All checks passed. Your documentation is
+                secure."`` (all-clear panel) or ``"All checks passed."`` (with
+                warnings).  Individual commands should pass a specific message
+                such as ``"No broken links found."``.
 
         Returns:
             ``(error_count, warning_count)`` — breaches are counted separately
@@ -232,6 +240,7 @@ class SentinelReporter:
 
         if not normal_findings and not breach_findings:
             # ── All-clear panel ───────────────────────────────────────────────
+            _ok = ok_message or "All checks passed. Your documentation is secure."
             self._con.print()
             self._con.print(
                 Panel(
@@ -240,10 +249,7 @@ class SentinelReporter:
                         Text(),
                         Rule(style=SLATE),
                         Text(),
-                        Text.from_markup(
-                            f"[{EMERALD}]{emoji('check')} All checks passed. "
-                            f"Your documentation is secure.[/]"
-                        ),
+                        Text.from_markup(f"[{EMERALD}]{emoji('check')} {_ok}[/]"),
                     ),
                     title=f"[bold white on {INDIGO}] {emoji('shield')}  ZENZIC SENTINEL  v{version} [/]",
                     title_align="center",
@@ -294,7 +300,16 @@ class SentinelReporter:
                         col_start=f.col_start,
                         match_text=f.match_text,
                     )
-                    renderables.extend(snippet_lines)
+                    if snippet_lines:
+                        renderables.extend(snippet_lines)
+                    else:
+                        # Fallback: file unreadable, use source_line directly
+                        gutter_w = len(str(f.line_no))
+                        t = Text()
+                        t.append(f"    {str(f.line_no).rjust(gutter_w)}  ", style=SLATE)
+                        t.append("❱  ", style=f"bold {ROSE}")
+                        t.append(f.source_line)
+                        renderables.append(t)
 
             renderables.append(Text())  # spacing after file group
 
@@ -324,9 +339,8 @@ class SentinelReporter:
                 Text.from_markup(f"[bold {ROSE}]FAILED:[/] One or more checks failed.")
             )
         else:
-            renderables.append(
-                Text.from_markup(f"[{EMERALD}]{emoji('check')} All checks passed.[/]")
-            )
+            _ok = ok_message or "All checks passed."
+            renderables.append(Text.from_markup(f"[{EMERALD}]{emoji('check')} {_ok}[/]"))
 
         # ── Single unified panel ──────────────────────────────────────────────
         self._con.print()

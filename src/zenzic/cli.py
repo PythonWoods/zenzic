@@ -137,21 +137,79 @@ def _render_link_error(err: LinkError, docs_root: Path) -> None:
         console.print(f"    [dim]│[/] [italic]{err.source_line}[/]")
 
 
+def _count_docs_assets(docs_root: Path, repo_root: Path) -> tuple[int, int]:
+    """Return ``(docs_count, assets_count)`` for the Sentinel telemetry line."""
+    _INERT = {".css", ".js"}
+    _CONFIG = {".yml", ".yaml", ".toml"}
+    if not docs_root.is_dir():
+        return 0, 0
+    docs_count = sum(
+        1
+        for p in docs_root.rglob("*")
+        if p.is_file() and (p.suffix.lower() == ".md" or p.suffix.lower() in _CONFIG)
+    )
+    docs_count += sum(
+        1 for p in repo_root.iterdir() if p.is_file() and p.suffix.lower() in {".yml", ".yaml"}
+    )
+    assets_count = sum(
+        1
+        for p in docs_root.rglob("*")
+        if p.is_file()
+        and p.suffix.lower() not in _INERT
+        and p.suffix.lower() not in _CONFIG
+        and p.suffix.lower() != ".md"
+    )
+    return docs_count, assets_count
+
+
 @check_app.command(name="links")
 def check_links(
     strict: bool = typer.Option(False, "--strict", "-s", help="Exit non-zero on any warning."),
 ) -> None:
     """Check for broken internal links. Pass --strict to also validate external URLs."""
+    from zenzic import __version__
+
     repo_root = find_repo_root()
     config, _ = ZenzicConfig.load(repo_root)
     docs_root = (repo_root / config.docs_dir).resolve()
-    errors = validate_links_structured(repo_root, strict=strict)
+
+    def _rel(path: Path) -> str:
+        try:
+            return str(path.relative_to(docs_root))
+        except ValueError:
+            return str(path)
+
+    t0 = time.monotonic()
+    link_errors = validate_links_structured(repo_root, strict=strict)
+    elapsed = time.monotonic() - t0
+
+    findings = [
+        Finding(
+            rel_path=_rel(err.file_path),
+            line_no=err.line_no,
+            code=err.error_type,
+            severity="error",
+            message=err.message,
+            source_line=err.source_line,
+            col_start=err.col_start,
+            match_text=err.match_text,
+        )
+        for err in link_errors
+    ]
+
+    docs_count, assets_count = _count_docs_assets(docs_root, repo_root)
+    reporter = SentinelReporter(console, docs_root, docs_dir=str(config.docs_dir))
+    errors, warnings = reporter.render(
+        findings,
+        version=__version__,
+        elapsed=elapsed,
+        docs_count=docs_count,
+        assets_count=assets_count,
+        engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
+        ok_message="No broken links found.",
+    )
     if errors:
-        console.print(f"\n[red]BROKEN LINKS ({len(errors)}):[/]")
-        for err in errors:
-            _render_link_error(err, docs_root)
         raise typer.Exit(1)
-    console.print("\n[green]OK:[/] no broken links found.")
 
 
 @check_app.command(name="orphans")
@@ -165,34 +223,101 @@ def check_orphans(
     ),
 ) -> None:
     """Detect .md files not listed in the nav."""
+    from zenzic import __version__
+
     repo_root = find_repo_root()
     config, loaded_from_file = ZenzicConfig.load(repo_root)
     if not loaded_from_file:
         _print_no_config_hint()
     config = _apply_engine_override(config, engine)
+    docs_root = (repo_root / config.docs_dir).resolve()
+
+    t0 = time.monotonic()
     orphans = find_orphans(repo_root, config)
-    if orphans:
-        console.print(f"\n[red]ORPHANS ({len(orphans)}):[/] physical files not in nav:")
-        for path in orphans:
-            console.print(f"  [yellow]{path}[/]")
+    elapsed = time.monotonic() - t0
+
+    findings = [
+        Finding(
+            rel_path=str(path),
+            line_no=0,
+            code="ORPHAN",
+            severity="warning",
+            message="Physical file not listed in navigation.",
+        )
+        for path in orphans
+    ]
+
+    docs_count, assets_count = _count_docs_assets(docs_root, repo_root)
+    reporter = SentinelReporter(console, docs_root, docs_dir=str(config.docs_dir))
+    errors, warnings = reporter.render(
+        findings,
+        version=__version__,
+        elapsed=elapsed,
+        docs_count=docs_count,
+        assets_count=assets_count,
+        engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
+        strict=True,
+        ok_message="No orphan pages found.",
+    )
+    if errors or warnings:
         raise typer.Exit(1)
-    console.print("\n[green]OK:[/] no orphan pages found.")
 
 
 @check_app.command(name="snippets")
 def check_snippets() -> None:
     """Validate Python code blocks in documentation Markdown files."""
+    from zenzic import __version__
+
     repo_root = find_repo_root()
     config, loaded_from_file = ZenzicConfig.load(repo_root)
     if not loaded_from_file:
         _print_no_config_hint()
-    errors = validate_snippets(repo_root, config)
+    docs_root = (repo_root / config.docs_dir).resolve()
+
+    def _rel(path: Path) -> str:
+        try:
+            return str(path.relative_to(docs_root))
+        except ValueError:
+            return str(path)
+
+    t0 = time.monotonic()
+    snippet_errors = validate_snippets(repo_root, config)
+    elapsed = time.monotonic() - t0
+
+    findings: list[Finding] = []
+    for s_err in snippet_errors:
+        src = ""
+        if s_err.line_no > 0 and s_err.file_path.is_file():
+            try:
+                lines = s_err.file_path.read_text(encoding="utf-8").splitlines()
+                if 0 < s_err.line_no <= len(lines):
+                    src = lines[s_err.line_no - 1].strip()
+            except OSError:
+                pass
+        findings.append(
+            Finding(
+                rel_path=_rel(s_err.file_path),
+                line_no=s_err.line_no,
+                code="SNIPPET",
+                severity="error",
+                message=s_err.message,
+                source_line=src,
+            )
+        )
+
+    docs_count, assets_count = _count_docs_assets(docs_root, repo_root)
+    reporter = SentinelReporter(console, docs_root, docs_dir=str(config.docs_dir))
+    errors, warnings = reporter.render(
+        findings,
+        version=__version__,
+        elapsed=elapsed,
+        docs_count=docs_count,
+        assets_count=assets_count,
+        engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
+        ok_message="All code snippets are syntactically valid.",
+    )
     if errors:
-        console.print(f"\n[red]INVALID SNIPPETS ({len(errors)}):[/]")
-        for err in errors:
-            console.print(f"  [yellow]{err.file_path}:{err.line_no}[/] - {err.message}")
         raise typer.Exit(1)
-    console.print("\n[green]OK:[/] all Python snippets are syntactically valid.")
 
 
 @check_app.command(name="references")
@@ -224,118 +349,135 @@ def check_references(
       1 — Dangling References or (with --strict) warnings found.
       2 — SECURITY CRITICAL: a secret was detected in a reference URL.
     """
+    from zenzic import __version__
+
     repo_root = find_repo_root()
     config, loaded_from_file = ZenzicConfig.load(repo_root)
     if not loaded_from_file:
         _print_no_config_hint()
-    reports, link_errors = scan_docs_references(repo_root, config, validate_links=links)
+    docs_root = (repo_root / config.docs_dir).resolve()
 
-    docs_root = repo_root / config.docs_dir
-
-    # ── Check for secrets first (Exit Code 2) ─────────────────────────────────
-    security_hits = [(r.file_path, sf) for r in reports for sf in r.security_findings]
-    if security_hits:
-        console.print("\n[bold red]╔══════════════════════════════════════╗[/]")
-        console.print("[bold red]║        SECURITY CRITICAL             ║[/]")
-        console.print("[bold red]║  Secret(s) detected in documentation ║[/]")
-        console.print("[bold red]╚══════════════════════════════════════╝[/]\n")
-        for _fp, sf in security_hits:
-            try:
-                display_path = sf.file_path.relative_to(docs_root)
-            except ValueError:
-                display_path = sf.file_path
-            console.print(
-                f"  [bold red][SHIELD][/] {display_path}:{sf.line_no} "
-                f"— [red]{sf.secret_type}[/] detected in URL"
-            )
-            console.print(f"    [dim]{sf.url[:80]}[/]")
-        console.print("\n[bold red]Build aborted.[/] Rotate the exposed credential immediately.")
-        raise typer.Exit(2)
-
-    # ── Collect reference findings ─────────────────────────────────────────────
-    all_errors: list[str] = []
-    all_warnings: list[str] = []
-    total_score = 0.0
-    file_count = len(reports)
-
-    for report in reports:
+    def _rel(path: Path) -> str:
         try:
-            rel = report.file_path.relative_to(docs_root)
+            return str(path.relative_to(docs_root))
         except ValueError:
-            rel = report.file_path
-        for finding in report.findings:
-            msg = f"  [yellow]{rel}:{finding.line_no}[/] [{finding.issue}] — {finding.detail}"
-            if finding.is_warning:
-                all_warnings.append(msg)
-            else:
-                all_errors.append(msg)
+            return str(path)
 
-        for rf in report.rule_findings:
-            severity_color = "red" if rf.is_error else "yellow"
-            header = (
-                f"[{severity_color}][{rf.rule_id}][/] [dim]{rel}:{rf.line_no}[/] — {rf.message}"
+    t0 = time.monotonic()
+    reports, ext_link_errors = scan_docs_references(repo_root, config, validate_links=links)
+    elapsed = time.monotonic() - t0
+
+    # ── Build unified findings list ────────────────────────────────────────────
+    findings: list[Finding] = []
+    for report in reports:
+        rel = _rel(report.file_path)
+        _lines: list[str] = []
+        if report.file_path.is_file():
+            try:
+                _lines = report.file_path.read_text(encoding="utf-8").splitlines()
+            except OSError:
+                pass
+        for ref_f in report.findings:
+            src = ""
+            if _lines and 0 < ref_f.line_no <= len(_lines):
+                src = _lines[ref_f.line_no - 1].strip()
+            findings.append(
+                Finding(
+                    rel_path=rel,
+                    line_no=ref_f.line_no,
+                    code=ref_f.issue,
+                    severity="warning" if ref_f.is_warning else "error",
+                    message=ref_f.detail,
+                    source_line=src,
+                )
             )
-            if rf.matched_line:
-                snippet = rf.matched_line.rstrip()
-                msg = f"{header}\n  [dim]│[/] [italic]{snippet}[/]"
-            else:
-                msg = header
-            if rf.is_error:
-                all_errors.append(msg)
-            else:
-                all_warnings.append(msg)
+        for rule_f in report.rule_findings:
+            findings.append(
+                Finding(
+                    rel_path=rel,
+                    line_no=rule_f.line_no,
+                    code=rule_f.rule_id,
+                    severity=rule_f.severity,
+                    message=rule_f.message,
+                    source_line=rule_f.matched_line or "",
+                    col_start=rule_f.col_start,
+                    match_text=rule_f.match_text or "",
+                )
+            )
+        for sf in report.security_findings:
+            findings.append(_map_shield_to_finding(sf, docs_root))
 
-        if file_count:
-            total_score += report.score
+    for err_str in ext_link_errors:
+        findings.append(
+            Finding(
+                rel_path="(external-urls)",
+                line_no=0,
+                code="LINK_URL",
+                severity="error",
+                message=err_str,
+            )
+        )
 
-    avg_score = total_score / file_count if file_count else 100.0
-
-    # ── Output ─────────────────────────────────────────────────────────────────
-    if all_errors:
-        console.print(f"\n[red]REFERENCE ERRORS ({len(all_errors)}):[/]")
-        for msg in all_errors:
-            console.print(msg)
-
-    if all_warnings:
-        label = "[red]REFERENCE WARNINGS[/]" if strict else "[yellow]REFERENCE WARNINGS[/]"
-        console.print(f"\n{label} ({len(all_warnings)}):")
-        for msg in all_warnings:
-            console.print(msg)
-
-    if link_errors:
-        console.print(f"\n[red]BROKEN REFERENCE URLS ({len(link_errors)}):[/]")
-        for err in link_errors:
-            console.print(f"  [yellow]{err}[/]")
-
-    console.print(
-        f"\n[dim]Reference Integrity:[/] [bold]{avg_score:.1f}%[/] across {file_count} file(s)."
+    docs_count, assets_count = _count_docs_assets(docs_root, repo_root)
+    reporter = SentinelReporter(console, docs_root, docs_dir=str(config.docs_dir))
+    errors, warnings = reporter.render(
+        findings,
+        version=__version__,
+        elapsed=elapsed,
+        docs_count=docs_count,
+        assets_count=assets_count,
+        engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
+        strict=strict,
+        ok_message="All references resolved.",
     )
-    if links:
-        console.print("[dim]External URL validation: enabled.[/]")
 
-    failed = bool(all_errors) or bool(link_errors) or (strict and bool(all_warnings))
-    if failed:
+    breaches = sum(1 for f in findings if f.severity == "security_breach")
+    if breaches:
+        raise typer.Exit(2)
+    if errors or (strict and warnings):
         raise typer.Exit(1)
-
-    console.print("\n[green]OK:[/] all references resolved.")
 
 
 @check_app.command(name="assets")
 def check_assets() -> None:
     """Detect unused images and assets in the documentation."""
+    from zenzic import __version__
+
     repo_root = find_repo_root()
     config, loaded_from_file = ZenzicConfig.load(repo_root)
     if not loaded_from_file:
         _print_no_config_hint()
+    docs_root = (repo_root / config.docs_dir).resolve()
+
+    t0 = time.monotonic()
     unused = find_unused_assets(repo_root, config)
-    if unused:
-        console.print(
-            f"\n[red]UNUSED ASSETS ({len(unused)}):[/] physical files not linked anywhere:"
+    elapsed = time.monotonic() - t0
+
+    findings = [
+        Finding(
+            rel_path=str(path),
+            line_no=0,
+            code="ASSET",
+            severity="warning",
+            message="File not referenced in any documentation page.",
         )
-        for path in unused:
-            console.print(f"  [yellow]{path}[/]")
+        for path in unused
+    ]
+
+    docs_count, assets_count = _count_docs_assets(docs_root, repo_root)
+    reporter = SentinelReporter(console, docs_root, docs_dir=str(config.docs_dir))
+    errors, warnings = reporter.render(
+        findings,
+        version=__version__,
+        elapsed=elapsed,
+        docs_count=docs_count,
+        assets_count=assets_count,
+        engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
+        strict=True,
+        ok_message="No unused assets found.",
+    )
+    if errors or warnings:
         raise typer.Exit(1)
-    console.print("\n[green]OK:[/] no unused assets found.")
 
 
 @clean_app.command(name="assets")
@@ -385,17 +527,57 @@ def clean_assets(
 @check_app.command(name="placeholders")
 def check_placeholders() -> None:
     """Detect pages with < 50 words or containing TODOs/stubs."""
+    from zenzic import __version__
+
     repo_root = find_repo_root()
     config, loaded_from_file = ZenzicConfig.load(repo_root)
     if not loaded_from_file:
         _print_no_config_hint()
-    findings = find_placeholders(repo_root, config)
-    if findings:
-        console.print(f"\n[red]PLACEHOLDERS/STUBS ({len(findings)}):[/]")
-        for f in findings:
-            console.print(f"  [yellow]{f.file_path}:{f.line_no}[/] [{f.issue}] - {f.detail}")
+    docs_root = (repo_root / config.docs_dir).resolve()
+
+    t0 = time.monotonic()
+    raw_findings = find_placeholders(repo_root, config)
+    elapsed = time.monotonic() - t0
+
+    findings: list[Finding] = []
+    for pf in raw_findings:
+        src = ""
+        if pf.line_no > 0:
+            abs_path = docs_root / pf.file_path
+            if abs_path.is_file():
+                try:
+                    lines = abs_path.read_text(encoding="utf-8").splitlines()
+                    if 0 < pf.line_no <= len(lines):
+                        src = lines[pf.line_no - 1].strip()
+                except OSError:
+                    pass
+        findings.append(
+            Finding(
+                rel_path=str(pf.file_path),
+                line_no=pf.line_no,
+                code=pf.issue,
+                severity="warning",
+                message=pf.detail,
+                source_line=src,
+                col_start=pf.col_start,
+                match_text=pf.match_text,
+            )
+        )
+
+    docs_count, assets_count = _count_docs_assets(docs_root, repo_root)
+    reporter = SentinelReporter(console, docs_root, docs_dir=str(config.docs_dir))
+    errors, warnings = reporter.render(
+        findings,
+        version=__version__,
+        elapsed=elapsed,
+        docs_count=docs_count,
+        assets_count=assets_count,
+        engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
+        strict=True,
+        ok_message="No placeholder stubs found.",
+    )
+    if errors or warnings:
         raise typer.Exit(1)
-    console.print("\n[green]OK:[/] no placeholder stubs found.")
 
 
 @dataclass
@@ -774,32 +956,7 @@ def check_all(
     if quiet:
         errors, warnings = reporter.render_quiet(all_findings)
     else:
-        # Split audit scope: docs (md + config) vs assets (images, fonts, …).
-        # _INERT: always-excluded scaffolding; _CONFIG: config formats inside docs/.
-        _INERT = {".css", ".js"}
-        _CONFIG = {".yml", ".yaml", ".toml"}
-        if docs_root.is_dir():
-            docs_count = sum(
-                1
-                for p in docs_root.rglob("*")
-                if p.is_file() and (p.suffix.lower() == ".md" or p.suffix.lower() in _CONFIG)
-            )
-            # Also count engine config files at project root (e.g. mkdocs.yml).
-            docs_count += sum(
-                1
-                for p in repo_root.iterdir()
-                if p.is_file() and p.suffix.lower() in {".yml", ".yaml"}
-            )
-            assets_count = sum(
-                1
-                for p in docs_root.rglob("*")
-                if p.is_file()
-                and p.suffix.lower() not in _INERT
-                and p.suffix.lower() not in _CONFIG
-                and p.suffix.lower() != ".md"
-            )
-        else:
-            docs_count = assets_count = 0
+        docs_count, assets_count = _count_docs_assets(docs_root, repo_root)
         # File-target mode: banner shows exactly 1 file.
         if _single_file is not None:
             docs_count, assets_count = 1, 0

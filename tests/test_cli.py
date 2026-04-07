@@ -56,7 +56,8 @@ def test_cli_help() -> None:
 def test_check_links_ok(_links, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "links"])
     assert result.exit_code == 0
-    assert "OK" in result.stdout
+    assert "ZENZIC SENTINEL" in result.stdout
+    assert "No broken links found." in result.stdout
 
 
 @patch("zenzic.cli.find_repo_root", return_value=_ROOT)
@@ -76,7 +77,8 @@ def test_check_links_ok(_links, _cfg, _root) -> None:
 def test_check_links_with_errors(_links, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "links"])
     assert result.exit_code == 1
-    assert "BROKEN LINKS" in result.stdout
+    assert "ZENZIC SENTINEL" in result.stdout
+    assert "FILE_NOT_FOUND" in result.stdout or "error" in result.stdout.lower()
 
 
 @patch("zenzic.cli.find_repo_root", return_value=_ROOT)
@@ -99,7 +101,8 @@ def test_cli_check_orphans_empty(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     monkeypatch.chdir(repo)
     result = runner.invoke(app, ["check", "orphans"])
     assert result.exit_code == 0
-    assert "OK: no orphan pages found." in result.stdout
+    assert "ZENZIC SENTINEL" in result.stdout
+    assert "No orphan pages found." in result.stdout
 
 
 @patch("zenzic.cli.find_repo_root", return_value=_ROOT)
@@ -108,7 +111,8 @@ def test_cli_check_orphans_empty(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 def test_check_orphans_with_orphans(_orphans, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "orphans"])
     assert result.exit_code == 1
-    assert "ORPHANS" in result.stdout
+    assert "ZENZIC SENTINEL" in result.stdout
+    assert "ORPHAN" in result.stdout
 
 
 # ---------------------------------------------------------------------------
@@ -122,7 +126,8 @@ def test_check_orphans_with_orphans(_orphans, _cfg, _root) -> None:
 def test_check_snippets_ok(_snip, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "snippets"])
     assert result.exit_code == 0
-    assert "OK" in result.stdout
+    assert "ZENZIC SENTINEL" in result.stdout
+    assert "All code snippets are syntactically valid." in result.stdout
 
 
 @patch("zenzic.cli.find_repo_root", return_value=_ROOT)
@@ -140,7 +145,8 @@ def test_check_snippets_ok(_snip, _cfg, _root) -> None:
 def test_check_snippets_with_errors(_snip, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "snippets"])
     assert result.exit_code == 1
-    assert "INVALID SNIPPETS" in result.stdout
+    assert "ZENZIC SENTINEL" in result.stdout
+    assert "SNIPPET" in result.stdout
 
 
 # ---------------------------------------------------------------------------
@@ -154,7 +160,8 @@ def test_check_snippets_with_errors(_snip, _cfg, _root) -> None:
 def test_check_assets_ok(_assets, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "assets"])
     assert result.exit_code == 0
-    assert "OK" in result.stdout
+    assert "ZENZIC SENTINEL" in result.stdout
+    assert "No unused assets found." in result.stdout
 
 
 @patch("zenzic.cli.find_repo_root", return_value=_ROOT)
@@ -163,7 +170,8 @@ def test_check_assets_ok(_assets, _cfg, _root) -> None:
 def test_check_assets_with_unused(_assets, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "assets"])
     assert result.exit_code == 1
-    assert "UNUSED ASSETS" in result.stdout
+    assert "ZENZIC SENTINEL" in result.stdout
+    assert "ASSET" in result.stdout
 
 
 # ---------------------------------------------------------------------------
@@ -177,7 +185,8 @@ def test_check_assets_with_unused(_assets, _cfg, _root) -> None:
 def test_check_placeholders_ok(_ph, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "placeholders"])
     assert result.exit_code == 0
-    assert "OK" in result.stdout
+    assert "ZENZIC SENTINEL" in result.stdout
+    assert "No placeholder stubs found." in result.stdout
 
 
 @patch("zenzic.cli.find_repo_root", return_value=_ROOT)
@@ -193,7 +202,8 @@ def test_check_placeholders_ok(_ph, _cfg, _root) -> None:
 def test_check_placeholders_with_findings(_ph, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "placeholders"])
     assert result.exit_code == 1
-    assert "PLACEHOLDERS" in result.stdout
+    assert "ZENZIC SENTINEL" in result.stdout
+    assert "short-content" in result.stdout
 
 
 # ---------------------------------------------------------------------------
@@ -590,7 +600,8 @@ class TestSentinelReporter:
 def test_check_references_ok(_scan, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "references"])
     assert result.exit_code == 0
-    assert "OK" in result.stdout
+    assert "ZENZIC SENTINEL" in result.stdout
+    assert "All references resolved." in result.stdout
 
 
 @patch("zenzic.cli.find_repo_root", return_value=_ROOT)
@@ -615,7 +626,7 @@ def test_check_references_rule_findings_surfaced(mock_scan, _cfg, _root) -> None
     result = runner.invoke(app, ["check", "references"])
     assert result.exit_code == 1
     assert "ZZ-NOCLICKHERE" in result.stdout
-    assert "REFERENCE ERRORS" in result.stdout
+    assert "error" in result.stdout.lower()
 
 
 # ---------------------------------------------------------------------------
