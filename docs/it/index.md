@@ -112,7 +112,7 @@ Intercetta link non validi, pagine orfane e credenziali esposte — prima dei tu
 <div class="zz-sentinel-demo__rule">docs/guida.md</div>
 <div class="zz-sentinel-demo__finding">
 <span class="zz-sentinel-demo__icon zz-sentinel-demo__icon--error">✘</span>
-<span class="zz-sentinel-demo__badge">FILE_NOT_FOUND</span>
+<span class="zz-sentinel-demo__badge">[FILE_NOT_FOUND]</span>
 <span class="zz-sentinel-demo__message">'intro.md' non raggiungibile dalla nav</span>
 </div>
 <div class="zz-sentinel-demo__snippet zz-sentinel-demo__snippet--dim"><span class="zz-sentinel-demo__line-no">15</span><span class="zz-sentinel-demo__gutter">│</span><span>prima di continuare.</span></div>
@@ -124,16 +124,27 @@ Intercetta link non validi, pagine orfane e credenziali esposte — prima dei tu
 <p><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg></span> &nbsp; <strong>Zenzic Shield</strong></p>
 <hr>
 <p>Scansiona ogni riga — compresi i blocchi <code>bash</code> e <code>yaml</code> — alla ricerca di credenziali esposte. Exit code <code>2</code> è riservato esclusivamente agli eventi di sicurezza.</p>
-<div class="zz-sentinel-demo" aria-hidden="true">
-<div class="zz-sentinel-demo__rule">docs/tutorial.md</div>
-<div class="zz-sentinel-demo__finding">
+<div class="zz-sentinel-demo zz-sentinel-demo--breach-panel" aria-hidden="true">
+<div class="zz-sentinel-demo__breach-header">SECURITY BREACH DETECTED</div>
+<div class="zz-sentinel-demo__breach-row">
 <span class="zz-sentinel-demo__icon zz-sentinel-demo__icon--error">✘</span>
-<span class="zz-sentinel-demo__badge zz-sentinel-demo__badge--breach">CREDENTIAL_LEAK</span>
+<span class="zz-sentinel-demo__breach-key">Finding:</span>
 <span class="zz-sentinel-demo__message">Token GitHub rilevato</span>
 </div>
-<div class="zz-sentinel-demo__snippet zz-sentinel-demo__snippet--dim"><span class="zz-sentinel-demo__line-no">41</span><span class="zz-sentinel-demo__gutter">│</span><span>Imposta l'header Authorization:</span></div>
-<div class="zz-sentinel-demo__snippet"><span class="zz-sentinel-demo__line-no">42</span><span class="zz-sentinel-demo__gutter zz-sentinel-demo__gutter--active">❱</span><span>Bearer ghp_example123token</span></div>
-<div class="zz-sentinel-demo__snippet zz-sentinel-demo__snippet--dim"><span class="zz-sentinel-demo__line-no">43</span><span class="zz-sentinel-demo__gutter">│</span><span>in ogni richiesta API.</span></div>
+<div class="zz-sentinel-demo__breach-row">
+<span class="zz-sentinel-demo__icon zz-sentinel-demo__icon--error">✘</span>
+<span class="zz-sentinel-demo__breach-key">Location:</span>
+<span class="zz-sentinel-demo__message">docs/tutorial.md:42</span>
+</div>
+<div class="zz-sentinel-demo__breach-row">
+<span class="zz-sentinel-demo__icon zz-sentinel-demo__icon--error">✘</span>
+<span class="zz-sentinel-demo__breach-key">Credential:</span>
+<span class="zz-sentinel-demo__breach-secret">ghp_************3456</span>
+</div>
+<div class="zz-sentinel-demo__breach-action">
+<span class="zz-sentinel-demo__breach-key">Action:</span>
+<span>Rotate this credential immediately and purge it from the repository history.</span>
+</div>
 </div>
 </li>
 <li>
@@ -144,12 +155,12 @@ Intercetta link non validi, pagine orfane e credenziali esposte — prima dei tu
 <div class="zz-sentinel-demo__rule">docs/guida.md</div>
 <div class="zz-sentinel-demo__finding">
 <span class="zz-sentinel-demo__icon zz-sentinel-demo__icon--error">✘</span>
-<span class="zz-sentinel-demo__badge">FILE_NOT_FOUND</span>
+<span class="zz-sentinel-demo__badge">[FILE_NOT_FOUND]</span>
 <span class="zz-sentinel-demo__message">'intro.md' non raggiungibile dalla nav</span>
 </div>
 <div class="zz-sentinel-demo__finding">
 <span class="zz-sentinel-demo__icon zz-sentinel-demo__icon--warning">⚠</span>
-<span class="zz-sentinel-demo__badge zz-sentinel-demo__badge--warning">ZZ-NODRAFT</span>
+<span class="zz-sentinel-demo__badge">[ZZ-NODRAFT]</span>
 <span class="zz-sentinel-demo__message">Rimuovi i marker DRAFT prima della pubblicazione.</span>
 </div>
 </div>

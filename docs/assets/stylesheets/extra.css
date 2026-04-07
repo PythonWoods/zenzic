@@ -527,25 +527,31 @@
   background: var(--md-code-bg-color);
   border: 1px solid var(--zz-border-subtle) !important;
   border-radius: 0.75rem;
-  padding: 1.25rem;
+  padding: 1rem;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
 }
 
 .zz-sentinel-demo {
   margin-top: 1rem;
-  border: 1px solid rgba(79, 70, 229, 0.28);
-  border-radius: 0.7rem;
+  border: 1px solid #334155;
   background: #0f172a;
-  padding: 0.9rem 1rem;
-  font-family: 'JetBrains Mono', ui-monospace, monospace;
-  font-size: 0.7rem;
-  line-height: 1.6;
+  padding: 0.6ch 0;
+  font-family: 'Fira Code', 'JetBrains Mono', monospace !important;
+  font-size: 0.6rem !important;
+  line-height: 1.05 !important;
+  letter-spacing: -0.03ch;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   overflow-x: auto;
+}
+
+.zz-sentinel-demo * {
+  font-family: inherit !important;
 }
 
 .zz-sentinel-demo__rule {
   color: #94a3b8;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.5rem;
   white-space: nowrap;
 }
 
@@ -573,8 +579,9 @@
 .zz-sentinel-demo__finding {
   display: flex;
   align-items: baseline;
-  gap: 0.45rem;
-  margin: 0.2rem 0;
+  gap: 1ch;
+  margin: 0.15rem 0;
+  padding-left: 5ch !important;
 }
 
 .zz-sentinel-demo__icon {
@@ -590,33 +597,34 @@
 }
 
 .zz-sentinel-demo__badge {
-  color: #e2e8f0;
-  background: rgba(79, 70, 229, 0.28);
-  border: 1px solid rgba(129, 140, 248, 0.35);
-  border-radius: 999px;
-  padding: 0.05rem 0.45rem;
-  font-size: 0.64rem;
+  font-weight: 700;
+  border-radius: 0 !important;
+  padding: 0 0.2ch;
+  background: rgba(244, 63, 94, 0.1);
+  font-size: 0.58rem;
 }
 
-.zz-sentinel-demo__badge--warning {
-  background: rgba(245, 158, 11, 0.18);
-  border-color: rgba(245, 158, 11, 0.32);
+/* Badge inherits severity color from its sibling icon — SVG truth:
+   r8 (#f43f5e bold) for error, r7 (#f59e0b bold) for warning */
+.zz-sentinel-demo__icon--error ~ .zz-sentinel-demo__badge {
+  color: #f43f5e;
 }
 
-.zz-sentinel-demo__badge--breach {
-  background: rgba(244, 63, 94, 0.18);
-  border-color: rgba(244, 63, 94, 0.34);
+.zz-sentinel-demo__icon--warning ~ .zz-sentinel-demo__badge {
+  color: #f59e0b;
 }
 
 .zz-sentinel-demo__message {
-  color: #e6edf3;
+  color: #c5c8c6;
+  font-weight: 400;
 }
 
 .zz-sentinel-demo__snippet {
   display: grid;
-  grid-template-columns: 2rem 1rem minmax(0, 1fr);
-  gap: 0.4rem;
-  color: #e6edf3;
+  grid-template-columns: 7ch 3ch auto;
+  gap: 0;
+  color: #c5c8c6;
+  padding-left: 3ch;
 }
 
 .zz-sentinel-demo__snippet--dim {
@@ -640,8 +648,9 @@
 .zz-sentinel-demo__summary-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.8rem;
+  gap: 1.5ch;
   margin-bottom: 0.5rem;
+  padding-left: 3ch !important;
 }
 
 .zz-sentinel-demo__count--error {
@@ -659,59 +668,60 @@
 .zz-sentinel-demo__verdict {
   color: #f43f5e;
   font-weight: 700;
+  padding-left: 3ch !important;
 }
 
-[data-md-color-scheme="default"] .zz-sentinel-demo {
-  background: #eef2ff;
-  border-color: rgba(79, 70, 229, 0.18);
+/* ── Breach-panel variant (Zenzic Shield demo) ─────────────────────────────── */
+.zz-sentinel-demo--breach-panel {
+  border-color: rgba(244, 63, 94, 0.45);
 }
 
-[data-md-color-scheme="default"] .zz-sentinel-demo__rule,
-[data-md-color-scheme="default"] .zz-sentinel-demo__snippet--dim,
-[data-md-color-scheme="default"] .zz-sentinel-demo__count--muted,
-[data-md-color-scheme="default"] .zz-sentinel-demo__line-no,
-[data-md-color-scheme="default"] .zz-sentinel-demo__gutter {
-  color: #64748b;
+.zz-sentinel-demo__breach-header {
+  text-align: center;
+  color: #f43f5e;
+  font-weight: 700;
+  font-size: 0.55rem;
+  letter-spacing: 0.14em;
+  margin-bottom: 0.3rem;
+  padding-bottom: 0.2rem;
+  border-bottom: 1px solid rgba(244, 63, 94, 0.2);
 }
 
-[data-md-color-scheme="default"] .zz-sentinel-demo__rule::before,
-[data-md-color-scheme="default"] .zz-sentinel-demo__rule::after {
-  color: #cbd5e1;
+.zz-sentinel-demo__breach-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  margin: 0.15rem 0;
+  padding-left: 4ch !important;
 }
 
-[data-md-color-scheme="default"] .zz-sentinel-demo__message,
-[data-md-color-scheme="default"] .zz-sentinel-demo__snippet {
-  color: #0f172a;
+.zz-sentinel-demo__breach-key {
+  display: inline-block;
+  color: #e2e8f0;
+  font-weight: 700;
+  width: 12ch;
 }
 
-[data-md-color-scheme="default"] .zz-sentinel-demo__badge {
-  color: #312e81;
-  background: rgba(79, 70, 229, 0.1);
-  border-color: rgba(79, 70, 229, 0.18);
+.zz-sentinel-demo__breach-secret {
+  color: #fff;
+  background: rgba(244, 63, 94, 0.30);
+  border: none;
+  border-radius: 0;
+  padding: 0.05rem 0.4ch;
+  font-weight: 700;
 }
 
-[data-md-color-scheme="default"] .zz-sentinel-demo__badge--warning {
-  color: #92400e;
-  background: rgba(245, 158, 11, 0.1);
-  border-color: rgba(245, 158, 11, 0.2);
-}
-
-[data-md-color-scheme="default"] .zz-sentinel-demo__badge--breach {
-  color: #9f1239;
-  background: rgba(244, 63, 94, 0.1);
-  border-color: rgba(244, 63, 94, 0.18);
-}
-
-[data-md-color-scheme="default"] .zz-sentinel-demo__gutter--active,
-[data-md-color-scheme="default"] .zz-sentinel-demo__icon--error,
-[data-md-color-scheme="default"] .zz-sentinel-demo__count--error,
-[data-md-color-scheme="default"] .zz-sentinel-demo__verdict {
-  color: #e11d48;
-}
-
-[data-md-color-scheme="default"] .zz-sentinel-demo__icon--warning,
-[data-md-color-scheme="default"] .zz-sentinel-demo__count--warning {
-  color: #d97706;
+.zz-sentinel-demo__breach-action {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  margin-top: 0.35rem;
+  padding-top: 0.3rem;
+  padding-left: 4ch !important;
+  border-top: 1px solid rgba(244, 63, 94, 0.12);
+  color: #94a3b8;
+  font-size: 0.58rem;
 }
 
 .zz-sentinel-section li .highlight,
