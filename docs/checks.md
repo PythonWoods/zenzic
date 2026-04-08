@@ -45,7 +45,7 @@ Zenzic runs six independent checks. Each addresses a distinct category of docume
 
     Dangling reference links, dead definitions, and leaked credentials (exit code 2).
 
-    [`zenzic check references`](usage/advanced.md#reference-integrity-v020)
+    [`zenzic check references`](#references)
 
 </div>
 
@@ -134,6 +134,96 @@ __Why orphan links matter:__ a link to an orphan page _works_ at the filesystem 
 
       ⚠ 1 warning    • 1 file with findings
     ```
+
+### Blood Sentinel — system-path traversal
+
+When a traversal exits the `docs/` boundary __and__ the raw href targets an OS system
+directory (`/etc/`, `/root/`, `/var/`, `/proc/`, `/sys/`, `/usr/`), Zenzic classifies it
+as a __system-path traversal__. This is not a broken link — it is an intentional or
+accidental probe of the host operating system embedded in documentation source.
+
+| Code | Severity | Exit code | Meaning |
+| :--- | :---: | :---: | :--- |
+| `PATH_TRAVERSAL_SUSPICIOUS` | security_incident | __3__ | Href targets an OS system directory. Rotate and audit immediately. |
+| `PATH_TRAVERSAL` | error | 1 | Href escapes `docs/` to a non-system path (e.g. a sibling repository). |
+
+Exit Code 3 takes priority over Exit Code 2 (Shield credential breach). It is never
+suppressed by `--exit-zero`.
+
+!!! danger "Exit Code 3 — Blood Sentinel"
+    A `PATH_TRAVERSAL_SUSPICIOUS` finding means a documentation source file contains a
+    link whose resolved target points to `/etc/passwd`, `/root/`, or another OS system
+    path. This can indicate a template injection, a compromised documentation toolchain,
+    or an author mistake that reveals internal infrastructure details. Treat it as a
+    build-blocking security incident.
+
+!!! example "Sentinel Output — system-path traversal"
+
+    ```text
+    docs/setup.md
+      ✘ 14:    [PATH_TRAVERSAL_SUSPICIOUS]  '../../../../etc/passwd' resolves outside the docs directory
+        │
+     14 │ [config file](../../../../etc/passwd)
+        │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+      ✘ 1 error  • 1 file with findings
+
+    FAILED: One or more checks failed.
+    ```
+    Exit code: **3**
+
+![Zenzic Sentinel — Blood Report: PATH_TRAVERSAL_SUSPICIOUS finding in blood red](assets/screenshots/screenshot-blood.svg)
+
+### Circular links
+
+Zenzic detects link cycles using an iterative depth-first search over the link adjacency
+graph (Phase 1.5, Θ(V+E) — runs once after the in-memory resolver is constructed). Every
+Phase 2 link check against the cycle registry is then O(1).
+
+A "cycle" in a documentation link graph means page A links to page B and page B links
+back to page A (directly or through a longer chain). Mutual navigation links — for example,
+a Home page linking to a Features page and the Features page linking back to Home — are
+common, intentional, and do not cause rendering problems for any static site generator.
+
+For this reason, `CIRCULAR_LINK` is reported at severity `info`. It appears in the Sentinel
+panel and contributes to the "N files with findings" count, but it never affects exit codes
+in normal or `--strict` mode. Teams that want to enforce strict DAG topology can inspect
+the info findings as part of their review process.
+
+| Code | Severity | Exit code | Meaning |
+| :--- | :---: | :---: | :--- |
+| `CIRCULAR_LINK` | info | — | Resolved target is a member of a link cycle. |
+
+!!! example "Sentinel Output — circular link"
+
+    ```text
+    docs/guide.md
+      💡 3:     [CIRCULAR_LINK]  'index.md' is part of a circular link cycle
+
+    docs/index.md
+      💡 8:     [CIRCULAR_LINK]  'guide.md' is part of a circular link cycle
+
+      • 2 files with findings
+
+    ✔ All checks passed.
+    ```
+
+!!! note "Info-level finding — suppressed by default"
+    `CIRCULAR_LINK` findings are reported at severity `info` and are __not shown__
+    in standard output to avoid cluttering routine scans. Mutual navigation links
+    are common and intentional in hypertext documentation structures.
+
+    Use `--show-info` to display them:
+
+    ```bash
+    zenzic check all --show-info
+    ```
+
+    They never block the build or affect exit codes in any mode.
+    For the design decision behind this severity choice, see
+    [ADR 003 — Root Discovery Protocol](adr/003-discovery-logic.md).
+
+![Zenzic Sentinel — Circle Discovery: CIRCULAR_LINK findings displayed with --show-info](assets/screenshots/screenshot-circular.svg)
 
 ---
 
@@ -276,8 +366,8 @@ placeholder_patterns = []
 
 __CLI:__
 
-- `zenzic check assets` — Controlla la presenza di file non utilizzati.
-- `zenzic clean assets` — Rimuove in modo sicuro gli asset non utilizzati.
+- `zenzic check assets` — Check for the presence of unused asset files.
+- `zenzic clean assets` — Safely remove unused assets.
 
 !!! tip "Autofix available"
     Use `zenzic clean assets` to automatically delete any unused assets found by this check. You will be prompted to confirm the deletion (`[y/N]`), or you can pass `-y` to skip the prompt. Use `--dry-run` to preview the files that would be deleted without actually deleting them. Zenzic will never delete files that match your `excluded_assets`, `excluded_dirs`, or `excluded_build_artifacts` patterns.
@@ -311,3 +401,83 @@ __What it catches:__
 
       ⚠ 2 warnings    • 2 files with findings
     ```
+
+---
+
+## References
+
+__CLI:__ `zenzic check references`
+
+`zenzic check references` is the security and link-integrity check for
+[Markdown reference-style links][ref-syntax]. It also acts as the primary surface
+for the __Zenzic Shield__ — the built-in credential scanner that runs on every
+line of every file, regardless of content type.
+
+[ref-syntax]: https://spec.commonmark.org/0.31.2/#link-reference-definitions
+
+### Three-Pass Reference Pipeline
+
+The engine processes each file in three deliberate passes:
+
+| Pass | Name | What happens |
+| :---: | :--- | :--- |
+| 1 | __Harvest__ | Streams every line; records `[id]: url` definitions; runs the Shield on every URL and line |
+| 2 | __Cross-Check__ | Resolves every `[text][id]` usage against the complete `ReferenceMap`; flags unresolvable IDs |
+| 3 | __Integrity Report__ | Computes the per-file integrity score; appends Dead Definition and alt-text warnings |
+
+Pass 2 only begins when Pass 1 completes without Shield findings. A file
+containing a leaked credential is never passed through the link resolver.
+
+### Violation codes
+
+| Code | Severity | Exit code | Meaning |
+| :--- | :---: | :---: | :--- |
+| `DANGLING_REF` | error | 1 | `[text][id]` — `id` has no definition in the file |
+| `DEAD_DEF` | warning | 0 / 1 `--strict` | `[id]: url` defined but never referenced |
+| `DUPLICATE_DEF` | warning | 0 / 1 `--strict` | Same `id` defined twice; first wins |
+| `MISSING_ALT` | warning | 0 / 1 `--strict` | Image with blank or absent alt text |
+| Shield pattern match | security_breach | __2__ | Credential detected in any line or URL |
+
+### Zenzic Shield — credential detection
+
+The Shield scans __every line of every file__ during Pass 1, including lines
+inside fenced code blocks. A credential committed in a `bash` example is still
+a committed credential.
+
+__Detected pattern families:__
+
+| Pattern | What it catches |
+| :--- | :--- |
+| `openai-api-key` | OpenAI API keys (`sk-…`) |
+| `github-token` | GitHub personal / OAuth tokens (`gh[pousr]_…`) |
+| `aws-access-key` | AWS IAM access key IDs (`AKIA…`) |
+| `stripe-live-key` | Stripe live secret keys (`sk_live_…`) |
+| `slack-token` | Slack bot / user / app tokens (`xox[baprs]-…`) |
+| `google-api-key` | Google Cloud / Maps API keys (`AIza…`) |
+| `private-key` | PEM private keys (`-----BEGIN … PRIVATE KEY-----`) |
+| `hex-encoded-payload` | Hex-encoded byte sequences (3+ consecutive `\xNN` escapes) |
+
+__Exit Code 2__ is reserved exclusively for Shield events. It is never
+suppressed by `--exit-zero` or `exit_zero = true` in `zenzic.toml`.
+
+!!! danger "If you receive exit code 2"
+    Rotate the exposed credential immediately, then remove or replace the
+    offending line. Do not commit the secret into repository history. See
+    [Shield behaviour](usage/advanced.md#shield-behaviour) in the Advanced
+    reference for the full containment protocol.
+
+!!! example "Sentinel Output — Shield breach"
+
+    ```text
+    docs/setup.md
+      🔴 [security_breach]  openai-api-key detected
+
+    SECURITY BREACH DETECTED
+    Credential: sk-4xAm****************************7fBz
+    Action: Rotate this credential immediately and purge it from the repository history.
+    ```
+    Exit code: **2**
+
+For the complete reference including the integrity score formula, programmatic
+API, and alt-text checking, see
+[Advanced Features — Reference integrity](usage/advanced.md#reference-integrity-v020).

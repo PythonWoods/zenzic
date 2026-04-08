@@ -24,3 +24,15 @@
 **Component:** `zenzic/cli.py`
 **Description:** The scanner and reporter now have complete mutation tests safeguarding the effectiveness of the Shield (The Sentinel's Trial). However, the silencer mutant (`findings.append(...) -> pass`) within `cli.py` is not covered by the current suite because it bypasses the CLI to interface with the proxy.
 **Required Action:** An end-to-end (e2e) test that triggers the full CLI and verifies the exit with code 2 and the presence of the reporter to ensure the routing is not vulnerable to amnesia (Commit 4b or later).
+
+---
+
+## Resolved
+
+### ZRT-005 — Bootstrap Paradox
+
+**Identified in:** v0.5.0a3
+**Component:** `zenzic/cli.py`, `zenzic/core/scanner.py`
+**Description:** `zenzic init` crashed with a configuration error when invoked in an empty directory (no existing `zenzic.toml`). The bootstrap command incorrectly assumed a valid project context was already present before it could be created.
+**Resolution:** Implemented a two-phase initialization sequence: (1) write `zenzic.toml` via a template isolated from the context resolver, (2) start the validation cycle only if the configuration file already exists. The resolver now tolerates an empty directory and delegates bootstrapping to the `init` command. Verified via Genesis Test: `zenzic init` in a completely empty directory correctly generates `zenzic.toml` with the commented Shield block visible.
+**Closed in:** v0.5.0a4 (`fix/sentinel-hardening`) — commit `38be6f1`

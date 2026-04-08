@@ -199,6 +199,7 @@ nav:
           - Example Projects: developers/examples.md
           - Internals:
               - Arch Gaps & Tech Debt: internal/arch_gaps.md
+              - Pipeline Architecture: internal/architecture.md
               - VSM Engine: arch/vsm_engine.md
           - Architecture Decisions:
               - ADR 003 — Root Discovery Protocol: adr/003-discovery-logic.md
