@@ -12,11 +12,14 @@ import pytest
 from zenzic.core.validator import (
     _MAX_CONCURRENT_REQUESTS,
     _build_ref_map,
+    _classify_traversal_intent,
+    _find_cycles_iterative,
     anchors_in_file,
     extract_links,
     extract_ref_links,
     slug_heading,
     validate_links,
+    validate_links_structured,
     validate_snippets,
 )
 from zenzic.models.config import ZenzicConfig
@@ -269,14 +272,20 @@ class TestInternalLinks:
 
         total = 1000
         for i in range(total):
-            nxt = (i + 1) % total
+            nxt = i + 1
+            # Linear chain: each page links to the next (no ring to avoid CIRCULAR_LINK).
+            # The last page has no forward link — it is the terminal node.
+            if nxt < total:
+                link_line = f"Forward link: [next](page_{nxt:04d}.md#section-{nxt})"
+            else:
+                link_line = "Terminal node — no forward link."
             (docs / f"page_{i:04d}.md").write_text(
                 "\n".join(
                     [
                         f"# Page {i}",
                         f"## Section {i}",
                         "",
-                        f"Forward link: [next](page_{nxt:04d}.md#section-{nxt})",
+                        link_line,
                         "",
                         "This page is part of the anchor torture fixture and remains deterministic.",
                     ]
@@ -285,6 +294,43 @@ class TestInternalLinks:
             )
 
         assert validate_links(tmp_path) == []
+
+
+# ─── Path-traversal intent classification ─────────────────────────────────────
+
+
+class TestTraversalIntent:
+    """_classify_traversal_intent separates boundary from suspicious traversals."""
+
+    def test_system_paths_are_suspicious(self) -> None:
+        assert _classify_traversal_intent("../../../../etc/passwd") == "suspicious"
+        assert _classify_traversal_intent("../../root/.ssh/id_rsa") == "suspicious"
+        assert _classify_traversal_intent("../../../var/log/syslog") == "suspicious"
+        assert _classify_traversal_intent("../../../proc/self/mem") == "suspicious"
+        assert _classify_traversal_intent("../../../../usr/bin/env") == "suspicious"
+
+    def test_boundary_traversal_not_suspicious(self) -> None:
+        assert _classify_traversal_intent("../../outside.md") == "boundary"
+        assert _classify_traversal_intent("../sibling.md") == "boundary"
+        assert _classify_traversal_intent("../../README.md") == "boundary"
+
+    def test_path_traversal_suspicious_error_type(self, tmp_path: Path) -> None:
+        """validate_links_structured emits PATH_TRAVERSAL_SUSPICIOUS for OS system dirs."""
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        (docs / "index.md").write_text("[escape](../../../../etc/passwd)")
+        errors = validate_links_structured(tmp_path)
+        assert len(errors) == 1
+        assert errors[0].error_type == "PATH_TRAVERSAL_SUSPICIOUS"
+
+    def test_path_traversal_boundary_error_type(self, tmp_path: Path) -> None:
+        """validate_links_structured emits PATH_TRAVERSAL for non-system out-of-bounds hrefs."""
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        (docs / "index.md").write_text("[escape](../../outside.md)")
+        errors = validate_links_structured(tmp_path)
+        assert len(errors) == 1
+        assert errors[0].error_type == "PATH_TRAVERSAL"
 
 
 # ─── Absolute-path prohibition ───────────────────────────────────────────────
@@ -954,3 +1000,91 @@ def test_validate_snippets_toml_invalid(tmp_path: Path) -> None:
     errors = validate_snippets(tmp_path, ZenzicConfig(snippet_min_lines=1))
     assert len(errors) == 1
     assert "SyntaxError in TOML snippet" in errors[0].message
+
+
+# ─── Cycle detection ──────────────────────────────────────────────────────────
+
+
+class TestFindCyclesIterative:
+    """Unit tests for _find_cycles_iterative (pure function, no I/O)."""
+
+    def test_simple_cycle_ab(self) -> None:
+        a = Path("/docs/a.md")
+        b = Path("/docs/b.md")
+        adj: dict[Path, set[Path]] = {a: {b}, b: {a}}
+        result = _find_cycles_iterative(adj)
+        assert str(a) in result
+        assert str(b) in result
+
+    def test_linear_chain_no_cycle(self) -> None:
+        a = Path("/docs/a.md")
+        b = Path("/docs/b.md")
+        c = Path("/docs/c.md")
+        adj: dict[Path, set[Path]] = {a: {b}, b: {c}, c: set()}
+        result = _find_cycles_iterative(adj)
+        assert result == frozenset()
+
+    def test_self_loop_cycle(self) -> None:
+        a = Path("/docs/a.md")
+        adj: dict[Path, set[Path]] = {a: {a}}
+        result = _find_cycles_iterative(adj)
+        assert str(a) in result
+
+    def test_three_node_cycle(self) -> None:
+        a = Path("/docs/a.md")
+        b = Path("/docs/b.md")
+        c = Path("/docs/c.md")
+        adj: dict[Path, set[Path]] = {a: {b}, b: {c}, c: {a}}
+        result = _find_cycles_iterative(adj)
+        assert str(a) in result
+        assert str(b) in result
+        assert str(c) in result
+
+    def test_isolated_nodes_no_cycle(self) -> None:
+        a = Path("/docs/a.md")
+        b = Path("/docs/b.md")
+        adj: dict[Path, set[Path]] = {a: set(), b: set()}
+        assert _find_cycles_iterative(adj) == frozenset()
+
+    def test_acyclic_graph_with_shared_target(self) -> None:
+        # A→C and B→C — converging, not a cycle
+        a = Path("/docs/a.md")
+        b = Path("/docs/b.md")
+        c = Path("/docs/c.md")
+        adj: dict[Path, set[Path]] = {a: {c}, b: {c}, c: set()}
+        assert _find_cycles_iterative(adj) == frozenset()
+
+
+class TestCircularLinkIntegration:
+    """End-to-end: validate_links_structured detects and reports CIRCULAR_LINK."""
+
+    def test_two_file_cycle_emits_circular_link(self, tmp_path: Path) -> None:
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        (docs / "a.md").write_text("[go to b](b.md)\n")
+        (docs / "b.md").write_text("[go to a](a.md)\n")
+        errors = validate_links_structured(tmp_path)
+        circular = [e for e in errors if e.error_type == "CIRCULAR_LINK"]
+        assert len(circular) == 2  # one from a.md and one from b.md
+
+    def test_linear_chain_no_circular_link(self, tmp_path: Path) -> None:
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        (docs / "a.md").write_text("[go to b](b.md)\n")
+        (docs / "b.md").write_text("[go to c](c.md)\n")
+        (docs / "c.md").write_text("# Terminus\n")
+        errors = validate_links_structured(tmp_path)
+        circular = [e for e in errors if e.error_type == "CIRCULAR_LINK"]
+        assert circular == []
+
+    def test_i18n_cross_language_cycle_detected(self, tmp_path: Path) -> None:
+        """EN→IT→EN cross-language cycle must be caught."""
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        it_dir = docs / "it"
+        it_dir.mkdir()
+        (docs / "guide.md").write_text("[Italian version](it/guide.md)\n")
+        (it_dir / "guide.md").write_text("[English version](../guide.md)\n")
+        errors = validate_links_structured(tmp_path)
+        circular = [e for e in errors if e.error_type == "CIRCULAR_LINK"]
+        assert len(circular) == 2

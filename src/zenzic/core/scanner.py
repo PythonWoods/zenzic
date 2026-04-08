@@ -24,6 +24,7 @@ from typing import Any
 from urllib.parse import unquote
 
 from zenzic.core.adapter import get_adapter
+from zenzic.core.reporter import Finding
 from zenzic.core.rules import AdaptiveRuleEngine, BaseRule
 from zenzic.core.shield import SecurityFinding, scan_line_for_secrets, scan_url_for_secrets
 from zenzic.core.validator import LinkValidator
@@ -57,7 +58,7 @@ _RE_HTML_ALT = re.compile(r'\balt=["\']([^"\']*)["\']', re.IGNORECASE)
 _MARKDOWN_ASSET_LINK_RE = re.compile(r"!\[.*?\]\((.*?)\)|<img.*?src=[\"'](.*?)[\"'].*?>")
 
 
-def find_repo_root() -> Path:
+def find_repo_root(*, fallback_to_cwd: bool = False) -> Path:
     """Walk upward from CWD until a Zenzic project root marker is found.
 
     Root markers (first match wins, checked in order):
@@ -70,13 +71,24 @@ def find_repo_root() -> Path:
     This is more robust than ``Path(__file__).parents[N]`` because it works
     regardless of where the CLI is invoked from inside the repo.
 
+    Args:
+        fallback_to_cwd: When *True* and no root marker is found, return the
+            current working directory instead of raising.  Use this only for
+            bootstrap commands (``zenzic init``) that are explicitly designed
+            to create a project root from scratch — the "Genesis Fallback".
+
     Raises:
-        RuntimeError: if no root marker is found in any ancestor.
+        RuntimeError: if no root marker is found in any ancestor and
+            ``fallback_to_cwd`` is *False*.
     """
     cwd = Path.cwd().resolve()
     for candidate in [cwd, *cwd.parents]:
         if (candidate / ".git").is_dir() or (candidate / "zenzic.toml").is_file():
             return candidate
+
+    if fallback_to_cwd:
+        return cwd
+
     raise RuntimeError(
         "Could not locate repo root: no .git directory or zenzic.toml found in any "
         f"ancestor of {cwd}. Run Zenzic from inside the repository."
@@ -97,6 +109,42 @@ def calculate_orphans(all_md: set[str], nav_paths: set[str] | frozenset[str]) ->
         Sorted list of orphaned paths.
     """
     return sorted(all_md - nav_paths)
+
+
+def _map_shield_to_finding(sf: SecurityFinding, docs_root: Path) -> Finding:
+    """Convert a :class:`SecurityFinding` into a reporter :class:`Finding`.
+
+    This is the **sole authorised bridge** between the Shield detection layer
+    and the SentinelReporter.  It is extracted as a standalone pure function so
+    that mutation testing can target it directly (see the Mutation Gate in
+    ``CONTRIBUTING.md``, Obligation 4 — "The Invisible", "The Amnesiac", and
+    "The Silencer" mutants must all be killed here).
+
+    Args:
+        sf: A secret detection result from :func:`~zenzic.core.shield.scan_line_for_secrets`
+            or :func:`~zenzic.core.shield.scan_url_for_secrets`.
+        docs_root: Absolute path to the docs root directory used to compute
+            a project-relative display path.
+
+    Returns:
+        A :class:`~zenzic.core.reporter.Finding` with
+        ``severity="security_breach"`` ready for the SentinelReporter pipeline.
+    """
+    try:
+        rel = str(sf.file_path.relative_to(docs_root))
+    except ValueError:
+        rel = str(sf.file_path)
+
+    return Finding(
+        rel_path=rel,
+        line_no=sf.line_no,
+        code="SHIELD",
+        severity="security_breach",
+        message=f"Secret detected ({sf.secret_type}) — rotate immediately.",
+        source_line=sf.url,
+        col_start=sf.col_start,
+        match_text=sf.match_text,
+    )
 
 
 @dataclass(slots=True)
@@ -538,13 +586,16 @@ class ReferenceScanner:
             ``(lineno, event_type, data)`` tuples.  See module-level type alias
             ``HarvestEvent`` for the full list of event types and data shapes.
         """
-        # ── 1.a Shield pass: scan every line (fences are NOT skipped) ────────
-        # Collect SECRET events keyed by line number so duplicate suppression
-        # (a definition URL that also matches scan_line_for_secrets) still works.
+        # ── 1.a Shield pass: scan EVERY line including YAML frontmatter ──────────
+        # ZRT-001 fix: the Shield must have priority over ALL content, including
+        # YAML frontmatter.  Frontmatter values (aws_key, api_token, ...) are
+        # real secrets — we use raw enumerate() so no line is ever skipped.
+        # The Content Stream (1.b below) still uses _iter_content_lines which
+        # skips frontmatter correctly to avoid false-positive ref-def hits.
         secret_line_nos: set[int] = set()
         shield_events: list[HarvestEvent] = []
         with self.file_path.open(encoding="utf-8") as fh:
-            for lineno, line in _skip_frontmatter(fh):
+            for lineno, line in enumerate(fh, start=1):  # ALL lines, no filter
                 for finding in scan_line_for_secrets(line, self.file_path, lineno):
                     shield_events.append((lineno, "SECRET", finding))
                     secret_line_nos.add(lineno)
@@ -933,10 +984,24 @@ def scan_docs_references(
         import concurrent.futures
         import os
 
-        work_items = [(f, config, rule_engine) for f in md_files]
         actual_workers = workers if workers is not None else os.cpu_count() or 1
-        with concurrent.futures.ProcessPoolExecutor(max_workers=workers) as executor:
-            raw = list(executor.map(_worker, work_items))
+        work_items = [(f, config, rule_engine) for f in md_files]
+        # GA-1 fix: use actual_workers for the executor (not the raw `workers`
+        # sentinel) so max_workers always matches what telemetry reports.
+        with concurrent.futures.ProcessPoolExecutor(max_workers=actual_workers) as executor:
+            # ZRT-002 fix: use submit() + future.result(timeout=...) instead of
+            # executor.map().  This prevents a deadlocked worker (e.g. from a
+            # ReDoS pattern in [[custom_rules]]) from blocking the entire scan.
+            futures_map = {executor.submit(_worker, item): item[0] for item in work_items}
+            raw: list[IntegrityReport] = []
+            for fut, md_file in futures_map.items():
+                try:
+                    raw.append(fut.result(timeout=_WORKER_TIMEOUT_S))
+                except concurrent.futures.TimeoutError:
+                    raw.append(_make_timeout_report(md_file))
+                except Exception as exc:  # noqa: BLE001
+                    raw.append(_make_error_report(md_file, exc))
+
         reports: list[IntegrityReport] = sorted(raw, key=lambda r: r.file_path)
 
         elapsed = time.monotonic() - _t0
@@ -1002,6 +1067,82 @@ def scan_docs_references(
 #: ProcessPoolExecutor automatically.  Exposed as a module constant so tests
 #: can override it without patching private internals.
 ADAPTIVE_PARALLEL_THRESHOLD: int = 50
+
+#: Maximum wall-clock seconds a single worker may spend analysing one file.
+#: If a worker exceeds this limit it is abandoned and a Z009 timeout finding
+#: is emitted for the file instead of a normal IntegrityReport.  The purpose
+#: is to prevent ReDoS patterns in [[custom_rules]] from deadlocking the
+#: entire parallel pipeline.  (ZRT-002 fix)
+_WORKER_TIMEOUT_S: int = 30
+
+
+def _make_timeout_report(md_file: Path) -> IntegrityReport:
+    """Produce a minimal :class:`IntegrityReport` for a worker that timed out.
+
+    Called by the parallel coordinator when ``future.result(timeout=...)``
+    raises :class:`concurrent.futures.TimeoutError`.  The returned report
+    carries a single ``Z009`` rule finding so the CLI can surface the
+    timeout in the standard findings UI without crashing the scan.
+
+    Args:
+        md_file: Absolute path of the file whose worker timed out.
+
+    Returns:
+        A :class:`IntegrityReport` with ``score=0`` and one ``Z009`` finding.
+    """
+    from zenzic.core.rules import RuleFinding  # deferred: avoid circular at module level
+    from zenzic.models.references import IntegrityReport
+
+    timeout_finding = RuleFinding(
+        file_path=md_file,
+        line_no=0,
+        rule_id="Z009",
+        message=(
+            f"Analysis of '{md_file.name}' timed out after {_WORKER_TIMEOUT_S}s. "
+            "A custom rule pattern may be causing catastrophic backtracking (ReDoS). "
+            "Check [[custom_rules]] patterns in zenzic.toml."
+        ),
+        severity="error",
+    )
+    return IntegrityReport(
+        file_path=md_file,
+        score=0,
+        findings=[],
+        security_findings=[],
+        rule_findings=[timeout_finding],
+    )
+
+
+def _make_error_report(md_file: Path, exc: BaseException) -> IntegrityReport:
+    """Produce a minimal :class:`IntegrityReport` for a worker that raised.
+
+    Args:
+        md_file: Absolute path of the file whose worker raised an exception.
+        exc: The exception caught from ``future.result()``.
+
+    Returns:
+        A :class:`IntegrityReport` with ``score=0`` and one ``RULE-ENGINE-ERROR`` finding.
+    """
+    from zenzic.core.rules import RuleFinding
+    from zenzic.models.references import IntegrityReport
+
+    error_finding = RuleFinding(
+        file_path=md_file,
+        line_no=0,
+        rule_id="RULE-ENGINE-ERROR",
+        message=(
+            f"Worker for '{md_file.name}' raised an unexpected exception: "
+            f"{type(exc).__name__}: {exc}"
+        ),
+        severity="error",
+    )
+    return IntegrityReport(
+        file_path=md_file,
+        score=0,
+        findings=[],
+        security_findings=[],
+        rule_findings=[error_finding],
+    )
 
 
 def _worker(args: tuple[Path, ZenzicConfig, AdaptiveRuleEngine | None]) -> IntegrityReport:

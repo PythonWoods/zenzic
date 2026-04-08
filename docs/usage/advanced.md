@@ -77,6 +77,7 @@ applies a defence-in-depth pass to non-definition lines to catch secrets in plai
 | `slack-token` | `xox[baprs]-[0-9a-zA-Z]{10,48}` | Slack bot/user/app tokens |
 | `google-api-key` | `AIza[0-9A-Za-z\-_]{35}` | Google Cloud / Maps API keys |
 | `private-key` | `-----BEGIN [A-Z ]+ PRIVATE KEY-----` | PEM private keys (RSA, EC, etc.) |
+| `hex-encoded-payload` | `(?:\\x[0-9a-fA-F]{2}){3,}` | Hex-encoded byte sequences (3+ consecutive `\xNN` escapes) |
 
 ### Shield behaviour
 
@@ -95,6 +96,11 @@ applies a defence-in-depth pass to non-definition lines to catch secrets in plai
 !!! danger "If you receive exit code 2"
     Treat it as a build-blocking security incident. Rotate the exposed credential immediately,
     then remove or replace the offending reference URL. Do not commit the secret into history.
+
+!!! tip "See the Shield in action"
+    The repository ships `examples/safety_demonstration.md` — an intentional test fixture
+    containing a circular link and a hex-encoded payload. Run `zenzic check all` against it
+    to observe a live Shield breach and a `CIRCULAR_LINK` info finding.
 
 ---
 

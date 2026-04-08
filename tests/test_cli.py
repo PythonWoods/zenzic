@@ -56,7 +56,8 @@ def test_cli_help() -> None:
 def test_check_links_ok(_links, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "links"])
     assert result.exit_code == 0
-    assert "OK" in result.stdout
+    assert "ZENZIC SENTINEL" in result.stdout
+    assert "No broken links found." in result.stdout
 
 
 @patch("zenzic.cli.find_repo_root", return_value=_ROOT)
@@ -76,7 +77,8 @@ def test_check_links_ok(_links, _cfg, _root) -> None:
 def test_check_links_with_errors(_links, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "links"])
     assert result.exit_code == 1
-    assert "BROKEN LINKS" in result.stdout
+    assert "ZENZIC SENTINEL" in result.stdout
+    assert "FILE_NOT_FOUND" in result.stdout or "error" in result.stdout.lower()
 
 
 @patch("zenzic.cli.find_repo_root", return_value=_ROOT)
@@ -85,6 +87,46 @@ def test_check_links_with_errors(_links, _cfg, _root) -> None:
 def test_check_links_strict_passes_flag(mock_links, _cfg, _root) -> None:
     runner.invoke(app, ["check", "links", "--strict"])
     mock_links.assert_called_once_with(_ROOT, strict=True)
+
+
+@patch("zenzic.cli.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli.ZenzicConfig.load", return_value=(_CFG, False))
+@patch(
+    "zenzic.cli.validate_links_structured",
+    return_value=[
+        LinkError(
+            file_path=_ROOT / "docs" / "index.md",
+            line_no=2,
+            message="index.md:2: '../../../../etc/passwd' resolves outside the docs directory",
+            source_line="[escape](../../../../etc/passwd)",
+            error_type="PATH_TRAVERSAL_SUSPICIOUS",
+        )
+    ],
+)
+def test_check_links_system_path_traversal_exits_3(_links, _cfg, _root) -> None:
+    """check links exits with code 3 when a system-path traversal is found."""
+    result = runner.invoke(app, ["check", "links"])
+    assert result.exit_code == 3
+
+
+@patch("zenzic.cli.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli.ZenzicConfig.load", return_value=(_CFG, False))
+@patch(
+    "zenzic.cli.validate_links_structured",
+    return_value=[
+        LinkError(
+            file_path=_ROOT / "docs" / "index.md",
+            line_no=2,
+            message="index.md:2: '../../outside.md' resolves outside the docs directory",
+            source_line="[escape](../../outside.md)",
+            error_type="PATH_TRAVERSAL",
+        )
+    ],
+)
+def test_check_links_boundary_traversal_exits_1(_links, _cfg, _root) -> None:
+    """check links exits with code 1 for a non-system path traversal (no regression)."""
+    result = runner.invoke(app, ["check", "links"])
+    assert result.exit_code == 1
 
 
 # ---------------------------------------------------------------------------
@@ -99,7 +141,8 @@ def test_cli_check_orphans_empty(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     monkeypatch.chdir(repo)
     result = runner.invoke(app, ["check", "orphans"])
     assert result.exit_code == 0
-    assert "OK: no orphan pages found." in result.stdout
+    assert "ZENZIC SENTINEL" in result.stdout
+    assert "No orphan pages found." in result.stdout
 
 
 @patch("zenzic.cli.find_repo_root", return_value=_ROOT)
@@ -108,7 +151,8 @@ def test_cli_check_orphans_empty(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 def test_check_orphans_with_orphans(_orphans, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "orphans"])
     assert result.exit_code == 1
-    assert "ORPHANS" in result.stdout
+    assert "ZENZIC SENTINEL" in result.stdout
+    assert "ORPHAN" in result.stdout
 
 
 # ---------------------------------------------------------------------------
@@ -122,7 +166,8 @@ def test_check_orphans_with_orphans(_orphans, _cfg, _root) -> None:
 def test_check_snippets_ok(_snip, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "snippets"])
     assert result.exit_code == 0
-    assert "OK" in result.stdout
+    assert "ZENZIC SENTINEL" in result.stdout
+    assert "All code snippets are syntactically valid." in result.stdout
 
 
 @patch("zenzic.cli.find_repo_root", return_value=_ROOT)
@@ -140,7 +185,8 @@ def test_check_snippets_ok(_snip, _cfg, _root) -> None:
 def test_check_snippets_with_errors(_snip, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "snippets"])
     assert result.exit_code == 1
-    assert "INVALID SNIPPETS" in result.stdout
+    assert "ZENZIC SENTINEL" in result.stdout
+    assert "SNIPPET" in result.stdout
 
 
 # ---------------------------------------------------------------------------
@@ -154,7 +200,8 @@ def test_check_snippets_with_errors(_snip, _cfg, _root) -> None:
 def test_check_assets_ok(_assets, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "assets"])
     assert result.exit_code == 0
-    assert "OK" in result.stdout
+    assert "ZENZIC SENTINEL" in result.stdout
+    assert "No unused assets found." in result.stdout
 
 
 @patch("zenzic.cli.find_repo_root", return_value=_ROOT)
@@ -163,7 +210,8 @@ def test_check_assets_ok(_assets, _cfg, _root) -> None:
 def test_check_assets_with_unused(_assets, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "assets"])
     assert result.exit_code == 1
-    assert "UNUSED ASSETS" in result.stdout
+    assert "ZENZIC SENTINEL" in result.stdout
+    assert "ASSET" in result.stdout
 
 
 # ---------------------------------------------------------------------------
@@ -177,7 +225,8 @@ def test_check_assets_with_unused(_assets, _cfg, _root) -> None:
 def test_check_placeholders_ok(_ph, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "placeholders"])
     assert result.exit_code == 0
-    assert "OK" in result.stdout
+    assert "ZENZIC SENTINEL" in result.stdout
+    assert "No placeholder stubs found." in result.stdout
 
 
 @patch("zenzic.cli.find_repo_root", return_value=_ROOT)
@@ -193,7 +242,8 @@ def test_check_placeholders_ok(_ph, _cfg, _root) -> None:
 def test_check_placeholders_with_findings(_ph, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "placeholders"])
     assert result.exit_code == 1
-    assert "PLACEHOLDERS" in result.stdout
+    assert "ZENZIC SENTINEL" in result.stdout
+    assert "short-content" in result.stdout
 
 
 # ---------------------------------------------------------------------------
@@ -590,7 +640,8 @@ class TestSentinelReporter:
 def test_check_references_ok(_scan, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "references"])
     assert result.exit_code == 0
-    assert "OK" in result.stdout
+    assert "ZENZIC SENTINEL" in result.stdout
+    assert "All references resolved." in result.stdout
 
 
 @patch("zenzic.cli.find_repo_root", return_value=_ROOT)
@@ -615,7 +666,7 @@ def test_check_references_rule_findings_surfaced(mock_scan, _cfg, _root) -> None
     result = runner.invoke(app, ["check", "references"])
     assert result.exit_code == 1
     assert "ZZ-NOCLICKHERE" in result.stdout
-    assert "REFERENCE ERRORS" in result.stdout
+    assert "error" in result.stdout.lower()
 
 
 # ---------------------------------------------------------------------------
@@ -868,3 +919,102 @@ def test_init_vanilla_no_engine_no_build_context(
     content = (repo / "zenzic.toml").read_text(encoding="utf-8")
     assert "[build_context]" not in content
     assert "vanilla" in result.stdout.lower() or "engine-agnostic" in result.stdout.lower()
+
+
+# ---------------------------------------------------------------------------
+# init — ZRT-005 Bootstrap Paradox (Genesis Fallback)
+# ---------------------------------------------------------------------------
+
+
+def test_init_in_fresh_directory_no_git(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """ZRT-005: zenzic init must succeed in a brand-new directory with no .git."""
+    fresh = tmp_path / "brand_new_project"
+    fresh.mkdir()
+    monkeypatch.chdir(fresh)
+
+    result = runner.invoke(app, ["init"])
+    assert result.exit_code == 0, result.stdout
+    assert (fresh / "zenzic.toml").is_file()
+
+
+# ---------------------------------------------------------------------------
+# Signal-to-Noise: --show-info / reporter show_info filter
+# ---------------------------------------------------------------------------
+
+
+class TestShowInfoFilter:
+    """Verify that info-severity findings are suppressed by default and shown with --show-info."""
+
+    @staticmethod
+    def _make_reporter(buf):  # type: ignore[no-untyped-def]
+        from rich.console import Console
+
+        from zenzic.core.reporter import SentinelReporter
+
+        con = Console(file=buf, highlight=False, markup=True)
+        return SentinelReporter(con, Path("/fake/docs"), docs_dir="docs")
+
+    @staticmethod
+    def _info_finding():  # type: ignore[no-untyped-def]
+        from zenzic.core.reporter import Finding
+
+        return Finding(
+            rel_path="guide/nav.md",
+            line_no=5,
+            code="CIRCULAR_LINK",
+            severity="info",
+            message="guide/nav.md:5: 'index.md' is part of a circular link cycle",
+            source_line="[Home](index.md)",
+        )
+
+    def test_info_finding_suppressed_by_default(self) -> None:
+        """With show_info=False (default), info findings must not appear in output."""
+        import io
+
+        buf = io.StringIO()
+        reporter = self._make_reporter(buf)
+        errors, warnings = reporter.render(
+            [self._info_finding()],
+            version="0.5.0a4",
+            elapsed=0.0,
+            show_info=False,
+        )
+        out = buf.getvalue()
+        assert "CIRCULAR_LINK" not in out
+        assert "suppressed" in out
+        assert errors == 0
+        assert warnings == 0
+
+    def test_info_finding_shown_with_show_info_true(self) -> None:
+        """With show_info=True, info findings must appear in output and no suppression note."""
+        import io
+
+        buf = io.StringIO()
+        reporter = self._make_reporter(buf)
+        errors, warnings = reporter.render(
+            [self._info_finding()],
+            version="0.5.0a4",
+            elapsed=0.0,
+            show_info=True,
+        )
+        out = buf.getvalue()
+        assert "CIRCULAR_LINK" in out
+        assert "suppressed" not in out
+        assert errors == 0
+        assert warnings == 0
+
+    @patch("zenzic.cli.find_repo_root", return_value=_ROOT)
+    @patch("zenzic.cli.ZenzicConfig.load", return_value=(_CFG, True))
+    @patch("zenzic.cli.validate_links_structured", return_value=[])
+    @patch("zenzic.cli.find_orphans", return_value=[])
+    @patch("zenzic.cli.validate_snippets", return_value=[])
+    @patch("zenzic.cli.find_placeholders", return_value=[])
+    @patch("zenzic.cli.find_unused_assets", return_value=[])
+    @patch("zenzic.cli.check_nav_contract", return_value=[])
+    @patch("zenzic.cli.scan_docs_references", return_value=([], []))
+    def test_check_all_show_info_flag_accepted(
+        self, _refs, _nav, _assets, _ph, _snip, _orphans, _links, _cfg, _root
+    ) -> None:
+        """--show-info flag must be accepted by check all without crashing."""
+        result = runner.invoke(app, ["check", "all", "--show-info"])
+        assert result.exit_code == 0, result.stdout

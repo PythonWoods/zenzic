@@ -111,6 +111,15 @@ plugins:
             Docs Issue: Problema nei Docs
             Change Request: Richiesta di Modifica
             Pull Requests: Pull Request
+            Internals: Architettura Interna
+            VSM Engine: Motore VSM
+            Architecture Decisions: Decisioni Architetturali
+            ADR 003 — Root Discovery Protocol: ADR 003 — Protocollo di Scoperta della Radice
+            Arch Gaps & Tech Debt: Gap Architetturali e Debito Tecnico
+            Contributor Guide: Guida al Contributo
+            Writing Plugin Rules: Scrivere Regole Plugin
+            Security Reports: Rapporti di Sicurezza
+            Security Analysis v0.5.0a3: Analisi di Sicurezza v0.5.0a3
 
 markdown_extensions:
   - admonition
@@ -143,7 +152,7 @@ extra_css:
 extra:
   build_date: !ENV [BUILD_DATE, "dev"]
   generator: false
-  version: "0.5.0a3"
+  version: "0.5.0a4"
   alternate:
     - name: English
       link: /
@@ -188,6 +197,14 @@ nav:
           - Writing an Adapter: developers/writing-an-adapter.md
           - Writing Plugin Rules: developers/plugins.md
           - Example Projects: developers/examples.md
+          - Internals:
+              - Arch Gaps & Tech Debt: internal/arch_gaps.md
+              - Pipeline Architecture: internal/architecture.md
+              - VSM Engine: arch/vsm_engine.md
+          - Architecture Decisions:
+              - ADR 003 — Root Discovery Protocol: adr/003-discovery-logic.md
+          - Security Reports:
+              - Security Analysis v0.5.0a3: internal/security/shattered_mirror_report.md
       - Community:
           - Get Involved: community/index.md
           - How to Contribute: community/contribute/index.md

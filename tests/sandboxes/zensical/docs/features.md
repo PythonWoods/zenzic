@@ -7,5 +7,4 @@ Zensical sandbox features page.
 
 All links on this page are valid.
 
-- [Home](index.md)
 - [API Reference](api.md)

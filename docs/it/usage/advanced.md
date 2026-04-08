@@ -12,7 +12,7 @@ e utilizzo programmatico da Python.
 
 ---
 
-## Integrità dei riferimenti (v0.2.0)
+## Integrità dei riferimenti (v0.2.0) { #reference-integrity-v020 }
 
 `zenzic check references` esegue la **Three-Pass Reference Pipeline** — il motore alla base di
 ogni controllo di qualità e sicurezza sui riferimenti.
@@ -79,8 +79,9 @@ per intercettare segreti nella prosa normale.
 | `slack-token` | `xox[baprs]-[0-9a-zA-Z]{10,48}` | Token bot/utente/app Slack |
 | `google-api-key` | `AIza[0-9A-Za-z\-_]{35}` | Chiavi API Google Cloud / Maps |
 | `private-key` | `-----BEGIN [A-Z ]+ PRIVATE KEY-----` | Chiavi private PEM (RSA, EC, ecc.) |
+| `hex-encoded-payload` | `(?:\\x[0-9a-fA-F]{2}){3,}` | Sequenze di byte hex-encoded (3+ sequenze `\xNN` consecutive) |
 
-### Comportamento dello Shield
+### Comportamento dello Shield { #shield-behaviour }
 
 - **Ogni riga viene scansionata** — incluse le righe dentro i blocchi di codice delimitati (con o
   senza etichetta). Una credenziale committata in un esempio `bash` è comunque una credenziale
@@ -99,6 +100,11 @@ per intercettare segreti nella prosa normale.
     Trattalo come un incidente di sicurezza bloccante. Ruota immediatamente la credenziale
     esposta, poi rimuovi o sostituisci l'URL di riferimento incriminato. Non committare il
     segreto nella history.
+
+!!! tip "Scopri lo Shield in azione"
+    Il repository include `examples/safety_demonstration.md` — una fixture di test intenzionale
+    contenente un link circolare e un payload hex-encoded. Esegui `zenzic check all` contro di esso
+    per osservare una violazione Shield live e un finding `CIRCULAR_LINK` di tipo info.
 
 ---
 

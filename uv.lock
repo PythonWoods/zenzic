@@ -2286,7 +2286,7 @@ wheels = [
 
 [[package]]
 name = "zenzic"
-version = "0.5.0a3"
+version = "0.5.0a4"
 source = { editable = "." }
 dependencies = [
     { name = "httpx" },

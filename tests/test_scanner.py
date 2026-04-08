@@ -134,6 +134,32 @@ def test_find_repo_root_via_git(tmp_path: Path) -> None:
         os.chdir(original_cwd)
 
 
+def test_find_repo_root_genesis_fallback(tmp_path: Path) -> None:
+    """ZRT-005: fallback_to_cwd=True must return CWD in an empty directory."""
+    empty = tmp_path / "brand_new_project"
+    empty.mkdir()
+    original_cwd = Path.cwd()
+    os.chdir(empty)
+    try:
+        result = find_repo_root(fallback_to_cwd=True)
+        assert result == empty.resolve()
+    finally:
+        os.chdir(original_cwd)
+
+
+def test_find_repo_root_genesis_fallback_still_raises_without_flag(tmp_path: Path) -> None:
+    """ZRT-005: default behaviour (fallback_to_cwd=False) still raises in empty dirs."""
+    empty = tmp_path / "no_root"
+    empty.mkdir()
+    original_cwd = Path.cwd()
+    os.chdir(empty)
+    try:
+        with pytest.raises(RuntimeError, match="Could not locate repo root"):
+            find_repo_root()
+    finally:
+        os.chdir(original_cwd)
+
+
 def test_find_orphans_no_config(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     docs = repo / "docs"

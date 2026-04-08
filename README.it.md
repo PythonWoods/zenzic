@@ -29,8 +29,8 @@ SPDX-License-Identifier: Apache-2.0
   <a href="https://github.com/PythonWoods/zenzic">
     <img src="https://img.shields.io/badge/🛡️_zenzic-100%2F100-4f46e5?style=flat-square" alt="Zenzic Score">
   </a>
-  <a href="https://zensical.org/">
-    <img src="https://img.shields.io/badge/docs_by-Zensical-4f46e5?style=flat-square" alt="Powered by Zensical">
+  <a href="https://www.mkdocs.org/">
+    <img src="https://img.shields.io/badge/docs_by-MkDocs-526CFE?style=flat-square" alt="Built with MkDocs">
   </a>
 </p>
 

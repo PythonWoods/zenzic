@@ -24,6 +24,7 @@
 .claude/
 .agent/
 .deepcode/
+.redteam/
 
 # ────────────────────────────────────────────────────────────────────────────
 # Python
@@ -81,6 +82,8 @@ coverage-*.json
 .tox/
 .nox/
 mutmut*
+!mutmut_pytest.ini
+# ↑ Keep mutmut_pytest.ini tracked: isolated pytest config for the mutation session.
 .mutmut-cache/
 mutants/
 

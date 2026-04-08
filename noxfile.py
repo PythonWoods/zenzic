@@ -173,12 +173,30 @@ def _build_brand_kit_zip() -> None:
 
 @nox.session(python="3.11")
 def mutation(session: nox.Session) -> None:
-    """Run mutation testing with mutmut on the rule engine core.
+    """Run mutation testing with mutmut on the security-critical core modules.
 
-    Target: src/zenzic/core/rules.py — the heart of the Sentinel's detection logic.
-    A surviving mutant means a test gap.  Goal: mutation score > 90%.
+    Targets (configured in ``[tool.mutmut]`` in ``pyproject.toml``):
+    - ``src/zenzic/core/rules.py``    — rule engine and regex canary
+    - ``src/zenzic/core/shield.py``   — secret detection (ZRT-001/ZRT-003)
+    - ``src/zenzic/core/reporter.py`` — _obfuscate_secret() masking function
+
+    A surviving mutant means a test gap.  Goal: mutation score ≥ 90%.
+
+    Implementation note — non-editable install:
+        ``uv sync`` installs zenzic as an editable package whose ``.pth`` file
+        points Python directly to the original ``src/`` tree.  This bypasses
+        mutmut's mutation injection, which modifies a *copy* of the source
+        files inside ``mutants/``.  The ``uv pip install --no-editable`` step
+        below switches to a static install so that the mutations are visible to
+        pytest during each test run.  The sync step is still needed first to
+        resolve and install all transitive test dependencies.
     """
     session.run(*_SYNC_TEST, external=True)
+    # Reinstall as non-editable so that mutmut's source injection is visible
+    # to pytest (editable .pth files would bypass the mutated copy in mutants/).
+    # Note: 'uv pip install .' (without --editable) installs the built wheel,
+    # which is non-editable by default.
+    session.run("uv", "pip", "install", ".", external=True)
     session.run(
         "mutmut",
         "run",
