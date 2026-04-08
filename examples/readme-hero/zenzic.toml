@@ -7,5 +7,11 @@
 
 docs_dir = "docs"
 
+# Zenzic Shield — built-in credential scanner (always active, no config required).
+# Detected pattern families: openai-api-key, github-token, aws-access-key,
+#   stripe-live-key, slack-token, google-api-key, private-key,
+#   hex-encoded-payload (3+ consecutive \xNN sequences).
+# All lines including fenced code blocks are scanned. Exit code 2 on detection.
+
 [build_context]
 engine = "mkdocs"
