@@ -16,47 +16,47 @@
 /* ── Design tokens ────────────────────────────────────────────────────────── */
 
 [data-md-color-scheme="slate"] {
-  --md-primary-fg-color:             #0d1117;
-  --md-primary-fg-color--light:      #161b22;
-  --md-primary-fg-color--dark:       #010409;
-  --md-primary-bg-color:             #e6edf3;
-  --md-default-bg-color:             #0d1117;
-  --md-default-bg-color--light:      #161b22;
-  --md-default-bg-color--lighter:    #1c2128;
-  --md-default-bg-color--lightest:   #21262d;
-  --md-accent-fg-color:              #4f46e5;
+  --md-primary-fg-color: #0d1117;
+  --md-primary-fg-color--light: #161b22;
+  --md-primary-fg-color--dark: #010409;
+  --md-primary-bg-color: #e6edf3;
+  --md-default-bg-color: #0d1117;
+  --md-default-bg-color--light: #161b22;
+  --md-default-bg-color--lighter: #1c2128;
+  --md-default-bg-color--lightest: #21262d;
+  --md-accent-fg-color: #4f46e5;
   --md-accent-fg-color--transparent: #4f46e51a;
-  --md-typeset-a-color:              #38bdf8;
-  --md-code-bg-color:                #161b22;
+  --md-typeset-a-color: #38bdf8;
+  --md-code-bg-color: #161b22;
 
   /* Zenzic custom tokens */
-  --zz-muted-color:       #484f58;
+  --zz-muted-color: #484f58;
   --zz-muted-color-hover: #8b949e;
-  --zz-border-subtle:     #21262d;
-  --zz-transition-fast:   0.15s ease;
+  --zz-border-subtle: #21262d;
+  --zz-transition-fast: 0.15s ease;
 }
 
 /* ── Light mode tokens ────────────────────────────────────────────────────── */
 
 [data-md-color-scheme="default"] {
-  --md-primary-fg-color:             #4f46e5;
-  --md-primary-fg-color--light:      #6366f1;
-  --md-primary-fg-color--dark:       #3730a3;
-  --md-primary-bg-color:             #ffffff;
-  --md-default-bg-color:             #ffffff;
-  --md-default-bg-color--light:      #f8fafc;
-  --md-default-bg-color--lighter:    #f1f5f9;
-  --md-default-bg-color--lightest:   #e2e8f0;
-  --md-accent-fg-color:              #4f46e5;
+  --md-primary-fg-color: #4f46e5;
+  --md-primary-fg-color--light: #6366f1;
+  --md-primary-fg-color--dark: #3730a3;
+  --md-primary-bg-color: #ffffff;
+  --md-default-bg-color: #ffffff;
+  --md-default-bg-color--light: #f8fafc;
+  --md-default-bg-color--lighter: #f1f5f9;
+  --md-default-bg-color--lightest: #e2e8f0;
+  --md-accent-fg-color: #4f46e5;
   --md-accent-fg-color--transparent: #4f46e51a;
-  --md-typeset-a-color:              #4f46e5;
-  --md-code-bg-color:                #f8fafc;
+  --md-typeset-a-color: #4f46e5;
+  --md-code-bg-color: #f8fafc;
 
   /* Zenzic custom tokens */
-  --zz-muted-color:       #94a3b8;
+  --zz-muted-color: #94a3b8;
   --zz-muted-color-hover: #475569;
-  --zz-border-subtle:     #e2e8f0;
-  --zz-transition-fast:   0.15s ease;
+  --zz-border-subtle: #e2e8f0;
+  --zz-transition-fast: 0.15s ease;
 }
 
 
@@ -84,7 +84,7 @@
 }
 
 /* Separator chevrons — keep muted */
-.md-path__item + .md-path__item::before {
+.md-path__item+.md-path__item::before {
   color: var(--zz-muted-color);
   opacity: 0.6;
 }
@@ -137,27 +137,27 @@
 /* ── Navigation: sidebar active state ────────────────────────────────────── */
 
 /* dark: indigo-300 (#a5b4fc) — light enough on dark bg, no sky mismatch */
-.md-nav__item--active > .md-nav__link {
+.md-nav__item--active>.md-nav__link {
   color: #818cf8;
 }
 
-.md-nav--secondary .md-nav__item--active > .md-nav__link {
+.md-nav--secondary .md-nav__item--active>.md-nav__link {
   color: #818cf8;
 }
 
 /* light mode: standard indigo */
-[data-md-color-scheme="default"] .md-nav__item--active > .md-nav__link {
+[data-md-color-scheme="default"] .md-nav__item--active>.md-nav__link {
   color: #4f46e5;
 }
 
-[data-md-color-scheme="default"] .md-nav--secondary .md-nav__item--active > .md-nav__link {
+[data-md-color-scheme="default"] .md-nav--secondary .md-nav__item--active>.md-nav__link {
   color: #4f46e5;
 }
 
 /* ── Navigation: hide site title from sidebar ─────────────────────────────── */
 
 /* "Zenzic" heading injected by Material at the top of the sidebar drawer */
-.md-nav--primary > .md-nav__title {
+.md-nav--primary>.md-nav__title {
   display: none;
 }
 
@@ -186,7 +186,7 @@
 
 /* Suppress the auto-injected <h1> on pages that contain .zz-hero.
  * :has() is supported in all modern browsers (Chrome 105+, Firefox 121+, Safari 15.4+). */
-.md-content__inner:has(.zz-hero) > h1:first-child {
+.md-content__inner:has(.zz-hero)>h1:first-child {
   display: none;
 }
 
@@ -397,7 +397,7 @@
 }
 
 /* Hide the <hr> separators on the home page — spacing handled by sections */
-.md-content__inner:has(.zz-hero) > hr {
+.md-content__inner:has(.zz-hero)>hr {
   border: none;
   border-top: 1px solid var(--zz-border-subtle);
   margin: 0;
@@ -491,6 +491,7 @@
 }
 
 @media screen and (max-width: 76.1875em) {
+
   .zz-features.grid.cards,
   .zz-features .grid.cards {
     grid-template-columns: repeat(2, 1fr) !important;
@@ -498,6 +499,7 @@
 }
 
 @media screen and (max-width: 44.9375em) {
+
   .zz-features.grid.cards,
   .zz-features .grid.cards {
     grid-template-columns: 1fr !important;
@@ -511,8 +513,8 @@
   padding: 0 1.5rem;
 }
 
-.zz-sentinel-section > h2,
-.zz-sentinel-section > p {
+.zz-sentinel-section>h2,
+.zz-sentinel-section>p {
   max-width: 720px;
   margin-left: auto;
   margin-right: auto;
@@ -538,7 +540,6 @@
   padding: 0.6ch 0;
   font-family: 'Fira Code', 'JetBrains Mono', monospace !important;
   font-size: 0.6rem !important;
-  line-height: 1.05 !important;
   letter-spacing: -0.03ch;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -581,7 +582,7 @@
   align-items: baseline;
   gap: 1ch;
   margin: 0.15rem 0;
-  padding-left: 5ch !important;
+  padding-left: 2ch !important;
 }
 
 .zz-sentinel-demo__icon {
@@ -606,11 +607,11 @@
 
 /* Badge inherits severity color from its sibling icon — SVG truth:
    r8 (#f43f5e bold) for error, r7 (#f59e0b bold) for warning */
-.zz-sentinel-demo__icon--error ~ .zz-sentinel-demo__badge {
+.zz-sentinel-demo__icon--error~.zz-sentinel-demo__badge {
   color: #f43f5e;
 }
 
-.zz-sentinel-demo__icon--warning ~ .zz-sentinel-demo__badge {
+.zz-sentinel-demo__icon--warning~.zz-sentinel-demo__badge {
   color: #f59e0b;
 }
 
@@ -633,7 +634,7 @@
 
 .zz-sentinel-demo__line-no {
   color: #64748b;
-  text-align: right;
+  text-align: left;
 }
 
 .zz-sentinel-demo__gutter {
@@ -749,7 +750,7 @@
 
 [data-md-color-scheme="default"] .zz-score-section {
   background: #ffffff;
-  box-shadow: 0 8px 16px rgba(0,0,0,0.06);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.06);
 }
 
 /* Score section text — reduced to match card scale */

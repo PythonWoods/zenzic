@@ -214,6 +214,73 @@ class MyOrphanRule(BaseRule):
                 ...
 ```
 
+### Root Discovery Protocol (RDP)
+
+`find_repo_root()` is the single entry point through which Zenzic establishes
+its **Workspace boundary**. Everything else — VSM construction, link
+resolution, config loading — depends on the path it returns. Treat it as load-
+bearing infrastructure.
+
+#### The Authority of Root
+
+Zenzic does not analyse files in isolation. It analyses a **Workspace**: a
+bounded set of files whose relationships — links, anchors, nav entries, orphan
+status — are only meaningful relative to a shared root. The Root is the
+inviolable outer wall of the VSM. A check that escapes this wall is not a
+Zenzic check; it is a vulnerability.
+
+#### Standard Inheritance — Why `.git`?
+
+`.git` is used as a proxy for the user's declared intent. The presence of a
+`.git` directory means the user has already established a VCS boundary for this
+project. Zenzic inherits that boundary rather than inventing its own. This also
+keeps Zenzic forward-compatible with future `.gitignore`-aware exclusions:
+automate exclusion of `site/`, `dist/`, and other generated artefacts that
+already exist in most `.gitignore` files.
+
+`zenzic.toml` is the fallback marker for environments without VCS (e.g. a
+documentation-only project, a CI container with a shallow checkout). If
+`zenzic.toml` exists, Zenzic uses its directory as the root — no `.git` required.
+
+#### Opt-in Safety — The Default Must Be Safe
+
+The failure-by-default behaviour is intentional. An invocation of
+`zenzic check all` from `/home/user/` with no root marker anywhere in the
+ancestor chain raises `RuntimeError` immediately, before a single file is read.
+This is not a usability defect — it is a **safety guarantee**. The alternative
+(silently defaulting to CWD or the filesystem root) would expose Zenzic to
+accidental Massive Indexing: scanning thousands of unrelated files, producing
+meaningless findings, and potentially leaking information across project
+boundaries in CI environments.
+
+**Mutation of this default requires Architecture Lead approval.** A PR that
+changes `fallback_to_cwd=False` to `True` in any call site other than `init`
+is a Grade-1 safety violation and will be closed without review.
+
+#### The Bootstrap Exception
+
+Only `zenzic init` is exempt from the strict root requirement. Its purpose is
+to *create* the root marker — requiring the marker to pre-exist would be the
+Bootstrap Paradox (ZRT-005). The exemption is encoded as a keyword-only
+parameter so the call site is self-documenting and auditable by inspection:
+
+```python
+# ✅ Only permitted in cli.py::init — creates a new perimeter from scratch
+repo_root = find_repo_root(fallback_to_cwd=True)
+
+# ✅ All other commands — strict perimeter enforcement, raises outside a repo
+repo_root = find_repo_root()
+```
+
+Adding `fallback_to_cwd=True` to any command other than `init` requires a
+recorded Architecture Decision Record explaining why that command needs
+perimeter-free access.
+
+See [ADR 003](docs/adr/003-discovery-logic.md) for the full rationale and
+the ZRT-005 amendment history.
+
+---
+
 ## Security & Compliance
 
 - **Security First:** Any new path resolution MUST be tested against Path Traversal. Use `PathTraversal` logic from `core`.
