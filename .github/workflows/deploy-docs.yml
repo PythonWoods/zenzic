@@ -89,12 +89,23 @@ jobs:
       - name: Build Documentation
         run: uv run mkdocs build --strict
 
+      - name: Pre-install Wrangler
+        # INFRA NOTE: wrangler-action@v3 calls `npx wrangler` without --yes.
+        # npm 10+ on Node.js 24 runners blocks interactive package prompts,
+        # causing the deploy to abort with:
+        #   "npx canceled due to missing packages and no YES option: [wrangler@4.81.0]"
+        # Pre-installing wrangler globally ensures it is already in PATH so
+        # npx resolves it without attempting an interactive download.
+        # Remove this step only after wrangler-action ships a version that passes
+        # --yes to npx natively (track: github.com/cloudflare/wrangler-action).
+        run: npm install -g wrangler@latest
+
       - name: Deploy to Cloudflare Pages
         # Production docs deploy only from main (or manual dispatch on main)
         if: |
           (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
           github.ref == 'refs/heads/main'
-        uses: cloudflare/wrangler-action@v4
+        uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

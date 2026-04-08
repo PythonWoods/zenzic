@@ -200,6 +200,17 @@ Versions follow [Semantic Versioning](https://semver.org/).
   verification accepted per Architecture Lead authorisation (Z-TEST-003).
   **28 tests in `test_redteam_remediation.py`, all green.**
 
+### Internal
+
+- **CI/CD deployment pipeline fixed for Node.js 24.**
+  `cloudflare/wrangler-action@v3` calls `npx wrangler` without `--yes`; npm 10+
+  on Node.js 24 GitHub Actions runners blocks non-interactive prompts, causing the
+  Cloudflare Pages deploy to fail. Fix: pre-install `wrangler@latest` globally
+  before the action runs so npx finds the binary in PATH without downloading.
+  `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true` silences the Node.js 20 deprecation
+  warning ahead of the June 2026 forced migration. Tracked in `arch_gaps.md`.
+  Branch: `fix/v050a4-infra-alignment`.
+
 ## [0.5.0a4] — 2026-04-03 — The Sentinel: Aesthetic Sprint, Parallel Anchors & Agnostic Target
 
 > **Sprint 13 + 14 + 15.** Three tracks delivered in one tag.
