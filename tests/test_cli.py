@@ -879,3 +879,19 @@ def test_init_vanilla_no_engine_no_build_context(
     content = (repo / "zenzic.toml").read_text(encoding="utf-8")
     assert "[build_context]" not in content
     assert "vanilla" in result.stdout.lower() or "engine-agnostic" in result.stdout.lower()
+
+
+# ---------------------------------------------------------------------------
+# init — ZRT-005 Bootstrap Paradox (Genesis Fallback)
+# ---------------------------------------------------------------------------
+
+
+def test_init_in_fresh_directory_no_git(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """ZRT-005: zenzic init must succeed in a brand-new directory with no .git."""
+    fresh = tmp_path / "brand_new_project"
+    fresh.mkdir()
+    monkeypatch.chdir(fresh)
+
+    result = runner.invoke(app, ["init"])
+    assert result.exit_code == 0, result.stdout
+    assert (fresh / "zenzic.toml").is_file()

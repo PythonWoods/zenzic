@@ -58,7 +58,7 @@ _RE_HTML_ALT = re.compile(r'\balt=["\']([^"\']*)["\']', re.IGNORECASE)
 _MARKDOWN_ASSET_LINK_RE = re.compile(r"!\[.*?\]\((.*?)\)|<img.*?src=[\"'](.*?)[\"'].*?>")
 
 
-def find_repo_root() -> Path:
+def find_repo_root(*, fallback_to_cwd: bool = False) -> Path:
     """Walk upward from CWD until a Zenzic project root marker is found.
 
     Root markers (first match wins, checked in order):
@@ -71,13 +71,24 @@ def find_repo_root() -> Path:
     This is more robust than ``Path(__file__).parents[N]`` because it works
     regardless of where the CLI is invoked from inside the repo.
 
+    Args:
+        fallback_to_cwd: When *True* and no root marker is found, return the
+            current working directory instead of raising.  Use this only for
+            bootstrap commands (``zenzic init``) that are explicitly designed
+            to create a project root from scratch — the "Genesis Fallback".
+
     Raises:
-        RuntimeError: if no root marker is found in any ancestor.
+        RuntimeError: if no root marker is found in any ancestor and
+            ``fallback_to_cwd`` is *False*.
     """
     cwd = Path.cwd().resolve()
     for candidate in [cwd, *cwd.parents]:
         if (candidate / ".git").is_dir() or (candidate / "zenzic.toml").is_file():
             return candidate
+
+    if fallback_to_cwd:
+        return cwd
+
     raise RuntimeError(
         "Could not locate repo root: no .git directory or zenzic.toml found in any "
         f"ancestor of {cwd}. Run Zenzic from inside the repository."

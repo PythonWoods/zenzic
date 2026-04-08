@@ -1462,7 +1462,7 @@ def init(
     pre-sets ``engine = "zensical"``.  Otherwise the ``[build_context]`` block
     is omitted and the vanilla (engine-agnostic) defaults apply.
     """
-    repo_root = find_repo_root()
+    repo_root = find_repo_root(fallback_to_cwd=True)
 
     if plugin is not None:
         _scaffold_plugin(repo_root, plugin, force)
