@@ -1,606 +1,212 @@
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Zenzic v0.5.0a3: The Sentinel — Aesthetic Identity, Parallel Anchors & Agnostic Target
+# Zenzic v0.5.0a4 — Pre-Release Audit Package
 
-## v0.5.0a3 — The Sentinel: Aesthetic Sprint + Performance & SDK
+**Prepared by:** S-1 (Auditor) + S-0 (Chronicler)
+**Date:** 2026-04-08
+**Status:** ALPHA — Pending Tech Lead manual verification before rc1 promotion
+**Branch:** `fix/sentinel-hardening-v0.5.0a4`
 
-**Release date:** 2026-04-03
-**Status:** Alpha 3 — two-phase anchor indexing, plugin SDK scaffolding, Sentinel Palette,
-agnostic target mode, native Material header
-
-### Highlights
-
----
-
-#### 🎨 Sentinel Palette — Color Identity for the Report Engine
-
-The report engine now speaks a deliberate visual language.  Every number, every gutter
-marker, every severity badge has an assigned color drawn from a named palette:
-
-| Role | Color | Example |
-| :--- | :---- | :------ |
-| Numeric values (counts, scores, elapsed) | Indigo | `12 files`, `0.1s` |
-| Gutter (`│` separator, line numbers) | Slate | `3 │ # Heading` |
-| Error icon, label, count | Rose | `✘ 2 errors` |
-| Warning icon, label, count | Amber | `⚠ 5 warnings` |
-
-Bold has been removed from all report numbers — color alone carries the weight.  The
-palette is defined in `src/zenzic/ui.py`, a new standalone module consumed by both
-the reporter and the CLI banner.
+> **Tech Lead note:** This document is your single audit surface. Work through each
+> section in order. When every checkbox below is ticked, the project is ready for
+> the `rc1` tag. Until then, the "Alpha" designation stands.
 
 ---
 
-#### 📡 Unified Banner Telemetry
+## 1. Version Anchors
 
-The Sentinel banner now emits a single unified counter:
+| Location | Expected | Actual | Status |
+| :--- | :--- | :--- | :---: |
+| `src/zenzic/__init__.py` | `0.5.0a4` | `0.5.0a4` | ✅ |
+| `CHANGELOG.md` top entry | `[0.5.0a4]` | `[0.5.0a4]` | ✅ |
+| `CHANGELOG.it.md` top entry | `[0.5.0a4]` | `[0.5.0a4]` | ✅ |
+| No `rc1` in top-level version files | — | verified | ✅ |
+
+---
+
+## 2. Quality Gates
 
 ```text
-vanilla • ./README.md • 1 file (1 docs, 0 assets) • 0.0s
-mkdocs  • 104 files (66 docs, 38 assets) • 3.5s
-mkdocs  • ./content/ • 2 files (2 docs, 0 assets) • 0.1s
+pytest             756 passed, 0 failed
+zenzic check all   ✔ All checks passed (18 info-level CIRCULAR_LINK — expected)
+  --strict
 ```
 
-`docs` = `.md` files + config files (`yml`/`yaml`/`toml`) inside `docs_root`,
-plus engine config files (`mkdocs.yml` etc.) at project root.
-`assets` = everything else non-inert (images, fonts, PDFs…).
+Gate targets for rc1 promotion:
+
+- [ ] `pytest` ≥ 756 passed, 0 failed
+- [ ] `zenzic check all --strict` → exit code 0, no errors, no warnings
+- [ ] `ruff check src/` → 0 violations
+- [ ] `mypy src/` → 0 errors
+- [ ] `mkdocs build --strict` → 0 warnings
 
 ---
 
-#### 🎯 Agnostic Target Support — Scope Any Audit
+## 3. New Features in v0.5.0a4 — Review Checklist
 
-`zenzic check all` now accepts a positional `PATH` argument:
+### 3.1 Blood Sentinel (Exit Code 3)
+
+**What it does:** path-traversal hrefs pointing to OS system directories
+(`/etc/`, `/root/`, `/var/`, `/proc/`, `/sys/`, `/usr/`) are classified as
+`PATH_TRAVERSAL_SUSPICIOUS` → severity `security_incident` → **Exit Code 3**.
+Exit 3 takes priority over Exit 2 (credential breach). Never suppressed by
+`--exit-zero`.
+
+**Files changed:**
+
+- `src/zenzic/ui.py` — `BLOOD = "#8b0000"` palette constant
+- `src/zenzic/core/reporter.py` — `security_incident` severity style (blood red)
+- `src/zenzic/core/validator.py` — `_RE_SYSTEM_PATH`, `_classify_traversal_intent()`
+- `src/zenzic/cli.py` — Exit Code 3 check in `check links` and `check all`
+
+**Tests:** `TestTraversalIntent` (4 tests) + 2 exit-code integration tests in `test_cli.py`
+
+**Verification steps for Tech Lead:**
+
+- [ ] Review `_classify_traversal_intent()` in `src/zenzic/core/validator.py`
+- [ ] Verify `PATH_TRAVERSAL_SUSPICIOUS` → `security_incident` mapping in `cli.py`
+- [ ] Verify Exit 3 is checked **before** Exit 2 in `check all` exit logic
+- [ ] Confirm `--exit-zero` does NOT suppress Exit 3
+- [ ] Read `docs/checks.md` § "Blood Sentinel — system-path traversal"
+
+---
+
+### 3.2 Graph Integrity — Circular Link Detection
+
+**What it does:** Phase 1.5 pre-computes a cycle registry via iterative DFS
+(Θ(V+E)). Phase 2 checks each resolved link against the registry in O(1). Links
+in a cycle emit `CIRCULAR_LINK` at severity **`info`** (not error or warning).
+
+**Design decision — why `info`:**
+The project's own documentation has ~34 intentional mutual navigation links
+(Home ↔ Features, CI/CD ↔ Usage, etc.). Making this `warning` or `error` would
+permanently break `--strict` self-check. The `info` level surfaces the topology
+without blocking valid builds.
+
+**Files changed:**
+
+- `src/zenzic/core/validator.py` — `_build_link_graph()`, `_find_cycles_iterative()`, Phase 1.5 block
+
+**Tests:** `TestFindCyclesIterative` (6 unit tests) + `TestCircularLinkIntegration` (3 integration tests)
+
+**Verification steps for Tech Lead:**
+
+- [ ] Review `_find_cycles_iterative()` — WHITE/GREY/BLACK DFS correctness
+- [ ] Confirm `CIRCULAR_LINK` severity = `"info"` in `cli.py` Finding constructor
+- [ ] Confirm CIRCULAR_LINK never triggers Exit 1 or Exit 2
+- [ ] Read `docs/checks.md` § "Circular links"
+- [ ] Run `zenzic check all --strict` and confirm only info findings, exit 0
+
+---
+
+### 3.3 Hex Shield
+
+**What it does:** built-in Shield pattern `hex-encoded-payload` detects
+3+ consecutive `\xNN` hex escape sequences. Threshold prevents FP on
+single-escape regex examples.
+
+**Files changed:**
+
+- `src/zenzic/core/shield.py` — one line appended to `_SECRETS`
+
+**Tests:** 4 tests in `TestShield` in `test_references.py`
+
+**Verification steps for Tech Lead:**
+
+- [ ] Confirm pattern `(?:\\x[0-9a-fA-F]{2}){3,}` in `shield.py`
+- [ ] Confirm single `\xNN` is NOT flagged (threshold = 3)
+- [ ] Read `docs/usage/advanced.md` § "Detected credential patterns" table
+
+---
+
+### 3.4 INTERNAL_GLOSSARY.toml
+
+**What it does:** canonical EN↔IT term registry. 15 entries. `stable = true`
+entries require an ADR before renaming.
+
+**Verification steps for Tech Lead:**
+
+- [ ] Review all 15 terms — correct EN↔IT mapping?
+- [ ] All core concepts covered? (VSM, RDP, Shield, Blood Sentinel, etc.)
+
+---
+
+## 4. Documentation Parity Matrix
+
+| Document | EN | IT | Hex Shield | Blood Sentinel | Circular Links |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| `docs/checks.md` | ✅ | ✅ | — | ✅ | ✅ |
+| `docs/it/checks.md` | — | ✅ | — | ✅ | ✅ |
+| `docs/usage/advanced.md` | ✅ | ✅ | ✅ | — | — |
+| `docs/it/usage/advanced.md` | — | ✅ | ✅ | — | — |
+| `CHANGELOG.md` | ✅ | — | ✅ | ✅ | ✅ |
+| `CHANGELOG.it.md` | — | ✅ | ✅ | ✅ | ✅ |
+
+**Check for Tech Lead:**
+
+- [ ] Read `docs/checks.md` §§ "Blood Sentinel" and "Circular links" — prose correct?
+- [ ] Read `docs/it/checks.md` §§ "Sentinella di Sangue" and "Link circolari" — translation accurate?
+- [ ] Read `docs/usage/advanced.md` Shield table — `hex-encoded-payload` row present and correct?
+- [ ] Read `docs/it/usage/advanced.md` — Italian row accurate?
+
+---
+
+## 5. Exit Code Contract (complete picture)
+
+| Exit Code | Trigger | Suppressible |
+| :---: | :--- | :---: |
+| 0 | All checks passed | — |
+| 1 | One or more errors (broken links, syntax errors, etc.) | Via `--exit-zero` |
+| 2 | Shield credential detection | **Never** |
+| 3 | Blood Sentinel — system-path traversal (`PATH_TRAVERSAL_SUSPICIOUS`) | **Never** |
+
+Priority order in `check all`: Exit 3 → Exit 2 → Exit 1 → Exit 0.
+
+- [ ] Tech Lead: verify this contract matches implementation in `cli.py`
+
+---
+
+## 6. Sandbox Self-Check
+
+Run these commands manually and verify output:
 
 ```bash
-# Audit a single file outside your docs tree
-zenzic check all README.md
+# 1. Full test suite
+uv run pytest --tb=short
 
-# Audit an entire custom content directory
-zenzic check all content/
+# 2. Self-dogfood (strict mode)
+uv run zenzic check all --strict
 
-# Audit a single page inside docs
-zenzic check all docs/guide/setup.md
+# 3. Static analysis
+uv run ruff check src/
+uv run mypy src/ --ignore-missing-imports
 ```
 
-Zenzic auto-selects `VanillaAdapter` for out-of-tree targets.  `docs_dir` is
-patched at runtime — `zenzic.toml` is never rewritten.  The banner shows the
-active target so there is no ambiguity about what was scanned.
+Expected:
 
-Two new example projects ship with this release:
-
-- `examples/single-file-target/` — demonstrates `zenzic check all README.md`
-- `examples/custom-dir-target/` — demonstrates `zenzic check all content/`
+- pytest: 756 passed, 0 failed
+- check all --strict: exit 0, "✔ All checks passed"
+- ruff: 0 violations
+- mypy: 0 errors (or pre-existing stubs only)
 
 ---
 
-#### ⚡ Two-Phase Parallel Anchor Indexing
+## 7. rc1 Gate Decision
 
-`validate_links_async` now separates concerns into two deterministic phases:
+This section is for the Tech Lead's signature.
 
-1. **Phase 1 — Parallel index:** each worker extracts per-file anchors and
-   resolves internal links independently.  No shared state; no race conditions.
+- [ ] All verification steps in §§ 3.1–3.4 completed
+- [ ] Documentation parity matrix §4 confirmed correct
+- [ ] Exit code contract §5 verified in code
+- [ ] Sandbox self-check §6 passed manually
+- [ ] `INTERNAL_GLOSSARY.toml` reviewed and approved
+- [ ] No open blocking issues
 
-2. **Phase 2 — Global validation:** the main process merges all anchor indexes
-   and validates every link in a single pass.  Order no longer matters.
-
-The result: no false positive `AnchorMissing` findings under heavy parallelism.
-A 1000-file anchor torture test ships as a regression guard.
-
----
-
-#### 🔌 Plugin SDK — First-Class Developer Surface
-
-```bash
-zenzic init --plugin my-org-rules
-```
-
-Generates a complete Python package skeleton:
-
-- `pyproject.toml` with `zenzic.rules` entry-point wiring
-- `src/my_org_rules/rules.py` with a `BaseRule` template
-- Minimal docs fixture so `zenzic check all` runs immediately on the scaffold
-
-The `zenzic.rules` public namespace is now stable — `BaseRule`, `RuleFinding`,
-`CustomRule`, `Violation`, `Severity` are importable from a single path that will
-not change between minor versions.
-
-`run_rule()` — a one-call test helper — lets plugin authors verify findings without
-any engine setup.
-
-`examples/plugin-scaffold-demo/` ships as the canonical scaffold output fixture,
-serving as both a DX reference and a quality-gate integration test.
+**Decision:** ☐ Approve rc1 promotion &nbsp;&nbsp; ☐ Defer — open issues remain
 
 ---
 
-#### ⚡ Smart Initialization — `zenzic init --pyproject`
-
-`zenzic init` now detects `pyproject.toml` in the project root and interactively
-asks whether to embed configuration as a `[tool.zenzic]` table instead of creating
-a standalone `zenzic.toml`.
-
-```bash
-zenzic init             # interactive: asks if pyproject.toml exists
-zenzic init --pyproject # skip the prompt, write directly into pyproject.toml
-zenzic init --force     # overwrite existing config (both modes)
-```
-
-Engine auto-detection (`mkdocs.yml` → `engine = "mkdocs"`, `zensical.toml` →
-`engine = "zensical"`) works in both standalone and pyproject modes.  When no
-engine config file is found, vanilla defaults apply.
-
----
-
-#### 🛡️ Z001 / Z002 Split — Errors vs Warnings for Link Issues (closes #6)
-
-`VSMBrokenLinkRule` now distinguishes:
-
-| Code | Meaning | Severity |
-| :--- | :------ | :------- |
-| `Z001` | Link target not found in file system or VSM | **error** |
-| `Z002` | Link target exists but is an orphan page (not in nav) | warning |
-
-Without `--strict`, orphan-link warnings do not block the build.  With `--strict`
-they are promoted to errors.  Both codes appear in the checks reference (EN + IT).
-
----
-
-#### 🌐 Native Material Header — MutationObserver injection
-
-The `source.html` template override has been deleted.  Version injection now uses a
-`MutationObserver` snippet in `main.html` that writes directly into Material's own
-top bar after the widget renders.
-
-Result: a single, clean header row — 🏷 0.5.0a3 · ☆ stars · ψ forks — with no
-duplicate rendering, no JavaScript collision, and no Material upgrade risk.
-
----
-
-#### 🔧 Pre-commit Hooks — Ship Ready
-
-`.pre-commit-hooks.yaml` is now included in the repository root.  Teams can pin
-Zenzic as a pre-commit hook directly from GitHub without any intermediate wrapper:
-
-```yaml
-repos:
-  - repo: https://github.com/PythonWoods/zenzic
-    rev: v0.5.0a3
-    hooks:
-      - id: zenzic-check-all
-```
-
----
-
-### Issue Closures
-
-| Issue | Title | Status |
-| :---- | :---- | :----- |
-| #4 | Custom Rules DSL — Italian documentation | ✅ Closed |
-| #6 | Z001/Z002 split: orphan links should be warnings | ✅ Closed |
-| #13 | `zenzic.rules` stable public namespace for plugins | ✅ Closed |
-
----
-
-### Quality Gates
-
-```text
-pytest             706 passed, 0 failed
-coverage           80%+ branch (gate: ≥ 80%)
-mutation score     86.7% (242/279 killed on rules.py — target: 75%)
-ruff check src/    0 violations
-mypy src/          0 errors
-reuse lint         262/262 files compliant
-zenzic check all   SUCCESS (self-dogfood, 104 files)
-mkdocs build       --strict, 0 warnings
-```
-
----
-
-### Mutation Testing Campaign — "The Mutant War"
-
-v0.5.0a3 ships with a full mutation testing campaign against `src/zenzic/core/rules.py`
-using **mutmut 3.5.0**.  The campaign raised the mutation score from 58.1% (baseline)
-to **86.7%** (242/279 killed) — exceeding the 75% target by +11.7 percentage points.
-
-**80 new targeted tests** were added to `test_rules.py`, organised in 7 specialised
-test classes covering:
-
-- **PluginRegistry** (27 tests) — discovery, duplicates, case-sensitivity, `validate_rule()`
-- **VSMBrokenLinkRule** (22 tests) — `check_vsm` path/anchor resolution, orphan detection
-- **Inline link extraction** (14 tests) — escaped brackets, empty hrefs, multi-link lines
-- **AdaptiveRuleEngine** (10 tests) — `run()` and `run_vsm()` short-circuits and propagation
-- **Deep link extraction** (5 tests) — fence-block skipping, reference links, empty documents
-- **Pickleable assertions** (2 tests) — deep-copy guard and `UNREACHABLE` sentinel
-
-The 37 surviving mutants were analysed and classified as equivalent mutations
-(no observable behaviour change) or framework-level limitations (unreachable
-defensive assertions).  **Practical quality saturation** has been reached.
-
-Hypothesis property-based testing is integrated with three severity profiles:
-`dev` (50 examples), `ci` (500), `purity` (1 000).
-
----
-
-## Why this release matters now
-
-The documentation tooling ecosystem is fractured. MkDocs 2.0 is on the horizon, carrying breaking
-changes to plugin APIs and configuration formats. Zensical is emerging as a production-ready
-alternative. Teams are migrating, experimenting, and hedging. In this environment, any quality
-gate that is tightly coupled to a specific build engine has an expiry date.
-
-v0.4.0 answers that uncertainty with a clear architectural commitment: **Zenzic will never break
-because your documentation engine changed.**
-
-This is not a marketing claim. It is a precise technical guarantee backed by three design pillars
-and two sprints of structural surgery.
-
----
-
-## The Three Pillars
-
-### 1. Source-first — no build required
-
-Zenzic analyses raw Markdown files and configuration as plain data. It never calls `mkdocs build`,
-never imports a documentation framework, never depends on generated HTML. A broken link is caught
-in 11 milliseconds against 5,000 files — before your CI runner has finished checking out the repo.
-
-This makes Zenzic usable as a pre-commit hook, a pre-build gate, a PR check, and a migration
-validator simultaneously. The same tool. The same score. The same findings. Regardless of which
-engine you run.
-
-### 2. No subprocesses in the Core
-
-The reference implementation of "engine-agnostic linting" is to shell out to the engine and parse
-its output. That approach inherits every instability of the engine: version skew, environment
-differences, missing binaries on CI runners.
-
-Zenzic's Core is pure Python. Link validation uses `httpx`. Nav parsing uses `yaml` and `tomllib`.
-There are no `subprocess.run` calls in the linting path. The engine binary does not need to be
-installed for `zenzic check all` to pass.
-
-### 3. Pure functions, pure results
-
-All validation logic in Zenzic lives in pure functions: no file I/O, no network access, no global
-state, no terminal output. I/O happens only at the edges — CLI wrappers that read files and print
-findings. Pure functions are trivially testable (706 passing tests, ≥ 80% branch-coverage gate), composable
-into higher-order pipelines, and deterministic across environments.
-
-The score you get on a developer laptop is the score CI gets. The score CI gets is the score you
-track in version control. Determinism is not a feature; it is the foundation on which `zenzic diff`
-and regression detection are built.
-
----
-
-## What's New in rc4
-
-### Ghost Routes — MkDocs Material i18n entry points
-
-When `reconfigure_material: true` is active in the i18n plugin, MkDocs Material
-auto-generates locale entry points (e.g. `it/index.md`) that never appear in `nav:`.
-The VSM now marks these as `REACHABLE` Ghost Routes, eliminating false orphan warnings
-on locale root pages. A `WARNING` is emitted when both `reconfigure_material: true`
-and `extra.alternate` are declared simultaneously (redundant configuration).
-
-### VSM Rule Engine — routing-aware lint rules
-
-`BaseRule` gains an optional `check_vsm()` interface. Rules that override it receive
-the full pre-built VSM and can validate links against routing state without any I/O.
-`RuleEngine.run_vsm()` dispatches all VSM-aware rules and converts `Violation` objects
-to the standard `RuleFinding` type for uniform output.
-
-The first built-in VSM rule — `VSMBrokenLinkRule` (code `Z001`) — validates all inline
-Markdown links against the VSM. A link is valid only when its target URL is present
-and `REACHABLE`. Both "not in VSM" and "UNREACHABLE_LINK" cases produce a structured
-`Violation` with file path, line number, and the offending source line as context.
-
-### Content-addressable cache (`CacheManager`)
-
-Rule results are now cached with SHA-256 keying:
-
-| Rule type | Cache key |
-| :--- | :--- |
-| Atomic (content only) | `SHA256(content) + SHA256(config)` |
-| Global (VSM-aware) | `SHA256(content) + SHA256(config) + SHA256(vsm_snapshot)` |
-
-Timestamps are never consulted — the cache is CI-safe by construction. Writes are
-atomic (`.tmp` rename). The cache is loaded once at startup and saved once at the end
-of a run; all in-run operations are pure in-memory.
-
-### Performance — O(N) torture tests (10k nodes)
-
-The VSM Rule Engine and cache infrastructure are validated at scale: 10,000 links all
-valid completes in < 1 s; 10,000 links all broken completes in < 1 s;
-`engine.run_vsm` with a 10,000-node VSM completes in < 0.5 s.
-
----
-
-## What Changed in rc3
-
-### i18n Anchor Fix — AnchorMissing now has i18n fallback suppression
-
-`AnchorMissing` now participates in the same i18n fallback logic as `FileNotFound`. Previously,
-a link like `[text](it/page.md#heading)` would fire a false positive when the Italian page existed
-but its heading was translated — because the `AnchorMissing` branch in `validate_links_async` had
-no suppression path. `_should_suppress_via_i18n_fallback()` was defined but never called.
-
-**Fix:** new `resolve_anchor()` method added to `BaseAdapter` protocol and all three adapters
-(`MkDocsAdapter`, `ZensicalAdapter`, `VanillaAdapter`). When an anchor is not found in a locale
-file, `resolve_anchor()` checks whether the anchor exists in the default-locale equivalent via
-the `anchors_cache` already in memory. No additional disk I/O.
-
-### Shared utility — `remap_to_default_locale()`
-
-The locale path-remapping logic that was independently duplicated in `resolve_asset()` and
-`is_shadow_of_nav_page()` is now a single pure function in `src/zenzic/core/adapters/_utils.py`.
-`resolve_asset()`, `resolve_anchor()`, and `is_shadow_of_nav_page()` in both `MkDocsAdapter` and
-`ZensicalAdapter` all delegate to it. `_should_suppress_via_i18n_fallback()`, `I18nFallbackConfig`,
-`_I18N_FALLBACK_DISABLED`, and `_extract_i18n_fallback_config()` — 118 lines of dead code —
-are permanently removed from `validator.py`.
-
-### Visual Snippets for custom rule findings
-
-Custom rule violations (`[[custom_rules]]` from `zenzic.toml`) now display the offending source
-line below the finding header:
-
-```text
-[ZZ-NODRAFT] docs/guide/install.md:14 — Remove DRAFT marker before publishing.
-  │ > DRAFT: section under construction
-```
-
-The `│` indicator is rendered in the finding's severity colour. Standard findings (broken links,
-orphans, etc.) are unaffected.
-
-### JSON schema — 7 keys
-
-`--format json` output now emits a stable 7-key schema:
-`links`, `orphans`, `snippets`, `placeholders`, `unused_assets`, `references`, `nav_contract`.
-
-### `strict` and `exit_zero` as `zenzic.toml` fields
-
-Both flags can now be declared in `zenzic.toml` as project-level defaults:
-
-```toml
-strict    = true   # equivalent to always passing --strict
-exit_zero = false  # exit code 0 even on findings (CI soft-gate)
-```
-
-CLI flags continue to override the TOML values.
-
-### Usage docs split — three focused pages
-
-`docs/usage/index.md` was a monolithic 580-line page covering install, commands, CI/CD, scoring,
-advanced features, and programmatic API. Split into three focused pages:
-
-- `usage/index.md` — Install options, init→config→check workflow, engine modes
-- `usage/commands.md` — CLI commands, flags, exit codes, JSON output, quality score
-- `usage/advanced.md` — Three-pass pipeline, Zenzic Shield, alt-text, programmatic API,
-  multi-language docs
-
-Italian mirrors (`it/usage/`) updated in full parity.
-
-### Multi-language snippet validation
-
-`zenzic check snippets` now validates four languages using pure Python parsers — no subprocesses
-for any language. Python uses `compile()`, YAML uses `yaml.safe_load()`, JSON uses `json.loads()`,
-and TOML uses `tomllib.loads()` (Python 3.11+ stdlib). Blocks with unsupported language tags
-(`bash`, `javascript`, `mermaid`, etc.) are treated as plain text and not syntax-checked.
-
-### Shield deep-scan — no more blind spots
-
-The credential scanner now operates on every line of the source file, including lines inside
-fenced code blocks. A credential committed in a `bash` example is still a committed credential —
-Zenzic will find it. The link and reference validators continue to ignore fenced block content to
-prevent false positives from illustrative example URLs.
-
-The Shield now covers seven credential families: OpenAI API keys, GitHub tokens, AWS access keys,
-Stripe live keys, Slack tokens, Google API keys, and generic PEM private keys.
-
----
-
-## Professional Packaging & PEP 735
-
-v0.4.0-rc3 adopts the latest Python packaging standards end-to-end, making Zenzic lighter for
-end users and measurably faster in CI.
-
-### Lean core install
-
-`pip install zenzic` installs only the five runtime dependencies (`typer`, `rich`,
-`pyyaml`, `pydantic`, `httpx`). The MkDocs build stack is not a dependency of `zenzic` —
-it is a contributor tool, managed via the `docs` [PEP 735](https://peps.python.org/pep-0735/)
-dependency group (`uv sync --group docs`).
-
-For the vast majority of users (Hugo sites, Zensical projects, plain Markdown wikis, CI
-pipelines) this means a ~60% smaller install and proportionally faster cold-start times on
-ephemeral CI runners.
-
-### PEP 735 — atomic dependency groups
-
-Development dependencies are declared as [PEP 735](https://peps.python.org/pep-0735/) groups
-in `pyproject.toml`, managed by `uv`:
-
-| Group | Purpose | CI job |
-| :---- | :------ | :----- |
-| `test` | pytest + coverage | `quality` matrix (3.11 / 3.12 / 3.13) |
-| `lint` | ruff + mypy + pre-commit + reuse | `quality` matrix |
-| `docs` | MkDocs stack | `docs` job |
-| `release` | nox + bump-my-version + pip-audit | `security` job |
-| `dev` | All of the above (local development) | — |
-
-Each CI job syncs only the group it needs. The `quality` job never installs the MkDocs stack.
-The `docs` job never installs pytest. This eliminates install time wasted on unused packages
-and reduces the surface area for dependency conflicts across jobs. Combined with the `uv`
-cache in GitHub Actions, subsequent CI runs restore the full environment in under 3 seconds.
-
-### `CITATION.cff`
-
-A [`CITATION.cff`](CITATION.cff) file (CFF 1.2.0 format) is now present at the repository
-root. GitHub renders it automatically as a "Cite this repository" button. Zenodo, Zotero, and
-other reference managers that support the format can import it directly.
-
----
-
-## The Documentation Firewall
-
-v0.4.0-rc3 completes a strategic shift in what Zenzic is. It began as a link checker. It became
-an engine-agnostic linter. With rc3, it becomes a **Documentation Firewall** — a single gate that
-enforces correctness, completeness, and security simultaneously.
-
-The three dimensions of the firewall:
-
-**1. Correctness** — Zenzic validates the syntax of every structured data block in your docs.
-Your Kubernetes YAML examples, your OpenAPI JSON fragments, your TOML configuration snippets — if
-you ship broken config examples, your users will copy broken config. `check snippets` catches this
-before it reaches production, using the same parsers your users will run.
-
-**2. Completeness** — Orphan detection, placeholder scanning, and the `fail_under` quality gate
-ensure that every page linked in the nav exists, contains real content, and scores above the
-team's agreed threshold. A documentation site is not "done" when all pages exist — it is done
-when all pages are complete.
-
-**3. Security** — The Shield scans every line of every file, including code blocks, for seven
-families of leaked credentials. No fencing, no labels, no annotations can hide a secret from
-Zenzic. The exit code 2 contract is non-negotiable and non-suppressible: a secret in docs is a
-build-blocking incident, not a warning.
-
-This is what "Documentation Firewall" means: not a tool you run once before a release, but a
-gate that runs on every commit, enforces three dimensions of quality simultaneously, and exits
-with a machine-readable code that your CI pipeline can act on without human interpretation.
-
----
-
-## The Great Decoupling (v0.4.0-rc2)
-
-The headline change in this release is the **Dynamic Adapter Discovery** system. In v0.3.x,
-Zenzic owned its adapters — `MkDocsAdapter` and `ZensicalAdapter` were imported directly by the
-factory. Adding support for a new engine required a Zenzic release.
-
-In v0.4.0, Zenzic is a **framework host**. Adapters are Python packages that register themselves
-under the `zenzic.adapters` entry-point group. When installed, they become available immediately:
-
-```bash
-# Example: third-party adapter for a hypothetical Hugo support package
-uv pip install zenzic-hugo-adapter   # or: pip install zenzic-hugo-adapter
-zenzic check all --engine hugo
-```
-
-No Zenzic update. No configuration change. Just install and use.
-
-The built-in adapters (`mkdocs`, `zensical`, `vanilla`) are registered the same way — there is
-no privileged path for first-party adapters. This is not future-proofing; it is a structural
-guarantee that the third-party adapter API is exactly as capable as the first-party one.
-
-The factory itself is now protocol-only. `scanner.py` imports zero concrete adapter classes. The
-`has_engine_config()` protocol method replaced the `isinstance(adapter, VanillaAdapter)` check
-that was the last coupling point. The Core is now genuinely adapter-agnostic.
-
----
-
-## The [[custom_rules]] DSL
-
-v0.4.0 ships the first version of the project-specific lint DSL. Teams can declare regex rules
-in `zenzic.toml` without writing any Python:
-
-```toml
-[[custom_rules]]
-id       = "ZZ-NODRAFT"
-pattern  = "(?i)\\bDRAFT\\b"
-message  = "Remove DRAFT marker before publishing."
-severity = "warning"
-```
-
-Rules are adapter-independent — they fire identically with MkDocs, Zensical, or a plain
-Markdown folder. Patterns are compiled once at config-load time; there is no per-file regex
-compilation overhead regardless of how many rules are declared.
-
-This DSL is the first step toward Zenzic as a complete documentation policy engine, not just a
-structural linter.
-
----
-
-## The Shield (Defence-in-Depth hardening)
-
-The credential scanner (`Shield`) now runs on every non-definition line during Pass 1, not only
-on reference URL values. A developer who pastes an API key into a Markdown paragraph — not a
-reference link — is caught before any URL is pinged, before any HTTP request is issued, before
-any downstream tool sees the credential.
-
-Exit code `2` remains reserved exclusively for Shield events. It cannot be suppressed by
-`--exit-zero`, `--strict`, or any other flag. A Shield detection is a build-blocking security
-incident — unconditionally.
-
----
-
-## Documentation as a first-class citizen
-
-The v0.4.0 documentation was itself validated with `zenzic check all` at every step — the
-canonical dogfood mandate.
-
-Key structural changes:
-
-- **Configuration split** — the single `configuration.md` god-page decomposed into four focused
-  pages: [Overview](docs/configuration/index.md), [Core Settings](docs/configuration/core-settings.md),
-  [Adapters & Engine](docs/configuration/adapters-config.md),
-  [Custom Rules DSL](docs/configuration/custom-rules-dsl.md).
-- **Italian parity** — `docs/it/` now mirrors the full English structure. The documentation
-  is production-ready for international teams.
-- **Migration guide** — [MkDocs → Zensical](docs/guide/migration.md) four-phase workflow with
-  the baseline/diff/gate approach as the migration safety net.
-- **Adapter guide** — [Writing an Adapter](docs/developers/writing-an-adapter.md) full
-  protocol reference, `from_repo` pattern, entry-point registration, and test utilities.
-
-### Frictionless Onboarding
-
-v0.4.0 introduces `zenzic init` — a single command that scaffolds a `zenzic.toml` with smart
-engine discovery. If `mkdocs.yml` is present, the generated file pre-sets `engine = "mkdocs"`.
-If `zensical.toml` is present, it pre-sets `engine = "zensical"`. Otherwise the scaffold is
-engine-agnostic (Vanilla mode).
-
-```bash
-uvx zenzic init        # zero-install bootstrap
-# or: zenzic init      # if already installed globally
-```
-
-For teams running Zenzic for the first time, a Helpful Hint panel appears automatically when no
-`zenzic.toml` is found — pointing directly to `zenzic init`. The hint disappears the moment the
-file is created. Zero friction to get started; zero noise once configured.
-
----
-
-## Upgrade path
-
-### From v0.3.x
-
-No `zenzic.toml` changes are required for MkDocs projects. The adapter discovery is fully
-backwards-compatible: `engine = "mkdocs"` continues to work exactly as before.
-
-**One behavioural change:** an unknown `engine` string now falls back to `VanillaAdapter` (skip
-orphan check) instead of `MkDocsAdapter`. If your `zenzic.toml` specifies a custom engine name
-that mapped to MkDocs behaviour, add the explicit `engine = "mkdocs"` declaration.
-
-### From v0.4.0-alpha.1
-
-The `--format` CLI flag is unchanged. The internal `format` parameter in `check_all`, `score`,
-and `diff` Python APIs has been renamed to `output_format` — update any programmatic callers.
-
----
-
-## Checksums and verification
-
-```text
-zenzic check all   # self-dogfood: 7/7 OK
-pytest             # 706 passed, 0 failed
-coverage           # ≥ 80% branch (hard gate)
-mutation score     # 86.7% (242/279 killed on rules.py)
-ruff check .       # 0 violations
-mypy src/          # 0 errors
-mkdocs build --strict  # 0 warnings
-```
-
----
-
-*Zenzic v0.4.0 is released under the Apache-2.0 license.*
-*Built and maintained by [PythonWoods](https://github.com/PythonWoods).*
-
----
-
-Based in Italy 🇮🇹 | Committed to the craft of Python development.
-Contact: <dev@pythonwoods.dev>
+*"Una Release Candidate non è un premio per aver finito i task, è una promessa di
+stabilità che facciamo all'utente."*
+— Senior Tech Lead

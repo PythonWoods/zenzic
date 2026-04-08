@@ -11,16 +11,55 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-## [0.5.0a4] — 2026-04-05 — The Sentinel Hardens: Security Sprint
+## [0.5.0a4] — 2026-04-08 — The Hardened Sentinel: Security & Integrity
 
-> **Security Analysis Remediation.** The v0.5.0a3 security review exposed four confirmed
-> vulnerabilities in v0.5.0a3. This release closes all four attack vectors and
-> adds structural defences that outlast any individual exploit. The Sentinel
-> no longer sleeps.
+> **Alpha 4 Release.** Four confirmed vulnerabilities closed (ZRT-001–004), three
+> new hardening pillars added (Blood Sentinel, Graph Integrity, Hex Shield), and
+> full bilingual documentation parity achieved. Pending manual review before
+> Release Candidate promotion.
 >
 > Branch: `fix/sentinel-hardening-v0.5.0a4`
 
+### Added
+
+- **Graph Integrity — circular link detection.** Zenzic now pre-computes a cycle
+  registry (Phase 1.5) via iterative depth-first search (Θ(V+E)) over the resolved
+  internal link graph. Any link whose target belongs to a cycle emits a `CIRCULAR_LINK`
+  finding at severity `info`. Mutual navigation links (A ↔ B) are valid documentation
+  structure and are expected; the finding is advisory only — it never affects exit
+  codes in normal or `--strict` mode. O(1) per-query in Phase 2. Ghost Routes
+  (plugin-generated canonical URLs without physical source files) are correctly
+  excluded from the cycle graph and cannot produce false positives.
+
+- **`INTERNAL_GLOSSARY.toml`** — bilingual EN↔IT term registry (15 entries) for
+  consistent technical vocabulary across English and Italian documentation. Covers
+  core concepts: Safe Harbor, Ghost Route, Virtual Site Map, Two-Pass Engine, Shield,
+  Blood Sentinel, and more. Maintained by S-0. All terms marked `stable = true`
+  require an ADR before renaming.
+
+- **Bilingual documentation parity.** `docs/checks.md` and `docs/it/checks.md`
+  updated with Blood Sentinel, Circular Links, and Hex Shield sections.
+  `CHANGELOG.it.md` created. Full English–Italian parity enforced per the
+  Bilingual Parity Protocol.
+
 ### ⚠️ Security
+
+- **Blood Sentinel — system-path traversal classification (Exit Code 3).**
+  `check links` and `check all` now classify path-traversal findings by intent.
+  An href that escapes `docs/` and resolves to an OS system directory (`/etc/`,
+  `/root/`, `/var/`, `/proc/`, `/sys/`, `/usr/`) is classified as
+  `PATH_TRAVERSAL_SUSPICIOUS` with severity `security_incident` and triggers
+  **Exit Code 3** — a new, dedicated exit code reserved for host-system probes.
+  Exit 3 takes priority over Exit 2 (credential breach) and is never suppressed
+  by `--exit-zero`. Plain out-of-bounds traversals (e.g. `../../sibling-repo/`)
+  remain `PATH_TRAVERSAL` at severity `error` (Exit Code 1).
+
+- **Hex Shield — hex-encoded payload detection.**
+  A new built-in Shield pattern `hex-encoded-payload` detects runs of three or
+  more consecutive `\xNN` hex escape sequences (`(?:\\x[0-9a-fA-F]{2}){3,}`).
+  The `{3,}` threshold avoids false positives on single hex escapes common in
+  regex documentation. Findings exit with code 2 (Shield, non-suppressible)
+  and apply to all content streams including fenced code blocks.
 
 - **[ZRT-001] Shield Blind Spot — YAML Frontmatter Bypass (CRITICAL).**
   `_skip_frontmatter()` was used as the Shield's line source, silently
