@@ -90,6 +90,18 @@ Le versioni seguono il [Semantic Versioning](https://semver.org/).
   **Fix:** La validazione PATH_TRAVERSAL applicata ai link reference come ai link
   inline.
 
+### Interno
+
+- **Pipeline CI/CD corretta per Node.js 24.**
+  `cloudflare/wrangler-action@v3` invoca `npx wrangler` senza il flag `--yes`;
+  npm 10+ sui runner GitHub con Node.js 24 blocca i prompt non interattivi,
+  causando il fallimento del deploy su Cloudflare Pages. Fix: pre-installazione
+  globale di `wrangler@latest` prima dell'esecuzione dell'action, così npx trova
+  il binario nel PATH senza scaricarlo. `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true`
+  silenzia il warning di deprecazione di Node.js 20 prima della migrazione forzata
+  di giugno 2026. Tracciato in `arch_gaps.md`.
+  Branch: `fix/v050a4-infra-alignment`.
+
 ## [0.5.0a3] — 2026-03-28 — Il Sentinel: Plugin, Regole Adattive, Hooks Pre-commit
 
 > Branch: `feat/sentinel-v0.5.0a3`

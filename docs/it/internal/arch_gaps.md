@@ -36,3 +36,18 @@
 **Descrizione:** `zenzic init` crashava con un errore di configurazione quando veniva invocato in una directory vuota (senza `zenzic.toml` esistente). Il comando di bootstrap assumeva erroneamente che un contesto di progetto valido fosse già presente prima ancora di crearlo.
 **Risoluzione:** Implementata una sequenza di inizializzazione a due fasi: (1) scrittura del file `zenzic.toml` tramite template isolato dal resolver di contesto, (2) avvio del ciclo di validazione solo se il file di configurazione esiste già. Il resolver ora tollera la directory vuota e delegamente l'amorcage al comando `init`. Verificato con il Genesis Test: `zenzic init` in directory completamente vuota genera correttamente `zenzic.toml` con il blocco Shield commentato.
 **Chiuso in:** v0.5.0a4 (`fix/sentinel-hardening`) — commit `38be6f1`
+
+### CI-001 — Node.js 24 / npx Prompt Non Interattivo (Cloudflare Pages)
+
+**Identificato in:** v0.5.0a4 (`fix/v050a4-infra-alignment`)
+**Componente:** `.github/workflows/deploy-docs.yml`
+**Descrizione:** `cloudflare/wrangler-action@v3` (ultima versione stabile) invoca
+`npx wrangler` senza il flag `--yes`. npm 10+ sui runner GitHub con Node.js 24
+blocca l'installazione non interattiva dei pacchetti, interrompendo il deploy con:
+`"npx canceled due to missing packages and no YES option: [wrangler@4.81.0]"`.
+**Risoluzione:** Pre-installazione globale di `wrangler@latest` tramite `npm install -g`
+prima dello step dell'action. npx trova il binario già nel PATH e salta il download
+interattivo. `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true` aggiunto per sopprimere il
+warning di deprecazione di Node.js 20. Rimuovere lo step di pre-installazione solo
+quando `wrangler-action` rilascia una versione che passa `--yes` a npx nativamente.
+**Chiuso in:** v0.5.0a4 (`fix/v050a4-infra-alignment`)
