@@ -165,6 +165,9 @@ def _count_docs_assets(docs_root: Path, repo_root: Path) -> tuple[int, int]:
 @check_app.command(name="links")
 def check_links(
     strict: bool = typer.Option(False, "--strict", "-s", help="Exit non-zero on any warning."),
+    show_info: bool = typer.Option(
+        False, "--show-info", help="Show info-level findings (e.g. circular links) in the report."
+    ),
 ) -> None:
     """Check for broken internal links. Pass --strict to also validate external URLs."""
     from zenzic import __version__
@@ -188,7 +191,13 @@ def check_links(
             rel_path=_rel(err.file_path),
             line_no=err.line_no,
             code=err.error_type,
-            severity="error",
+            severity=(
+                "security_incident"
+                if err.error_type == "PATH_TRAVERSAL_SUSPICIOUS"
+                else "info"
+                if err.error_type == "CIRCULAR_LINK"
+                else "error"
+            ),
             message=err.message,
             source_line=err.source_line,
             col_start=err.col_start,
@@ -207,7 +216,11 @@ def check_links(
         assets_count=assets_count,
         engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
         ok_message="No broken links found.",
+        show_info=show_info,
     )
+    incidents = sum(1 for f in findings if f.severity == "security_incident")
+    if incidents:
+        raise typer.Exit(3)
     if errors:
         raise typer.Exit(1)
 
@@ -220,6 +233,9 @@ def check_orphans(
         help="Override the build engine adapter (e.g. mkdocs, zensical). "
         "Auto-detected from zenzic.toml when omitted.",
         metavar="ENGINE",
+    ),
+    show_info: bool = typer.Option(
+        False, "--show-info", help="Show info-level findings (e.g. circular links) in the report."
     ),
 ) -> None:
     """Detect .md files not listed in the nav."""
@@ -258,13 +274,18 @@ def check_orphans(
         engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
         strict=True,
         ok_message="No orphan pages found.",
+        show_info=show_info,
     )
     if errors or warnings:
         raise typer.Exit(1)
 
 
 @check_app.command(name="snippets")
-def check_snippets() -> None:
+def check_snippets(
+    show_info: bool = typer.Option(
+        False, "--show-info", help="Show info-level findings (e.g. circular links) in the report."
+    ),
+) -> None:
     """Validate Python code blocks in documentation Markdown files."""
     from zenzic import __version__
 
@@ -315,6 +336,7 @@ def check_snippets() -> None:
         assets_count=assets_count,
         engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
         ok_message="All code snippets are syntactically valid.",
+        show_info=show_info,
     )
     if errors:
         raise typer.Exit(1)
@@ -333,6 +355,9 @@ def check_references(
         "--links",
         "-l",
         help="Also validate external HTTP/HTTPS reference URLs via async HEAD requests.",
+    ),
+    show_info: bool = typer.Option(
+        False, "--show-info", help="Show info-level findings (e.g. circular links) in the report."
     ),
 ) -> None:
     """Run the Two-Pass Reference Pipeline: harvest definitions, check integrity, run Shield.
@@ -429,6 +454,7 @@ def check_references(
         engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
         strict=strict,
         ok_message="All references resolved.",
+        show_info=show_info,
     )
 
     breaches = sum(1 for f in findings if f.severity == "security_breach")
@@ -439,7 +465,11 @@ def check_references(
 
 
 @check_app.command(name="assets")
-def check_assets() -> None:
+def check_assets(
+    show_info: bool = typer.Option(
+        False, "--show-info", help="Show info-level findings (e.g. circular links) in the report."
+    ),
+) -> None:
     """Detect unused images and assets in the documentation."""
     from zenzic import __version__
 
@@ -475,6 +505,7 @@ def check_assets() -> None:
         engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
         strict=True,
         ok_message="No unused assets found.",
+        show_info=show_info,
     )
     if errors or warnings:
         raise typer.Exit(1)
@@ -525,7 +556,11 @@ def clean_assets(
 
 
 @check_app.command(name="placeholders")
-def check_placeholders() -> None:
+def check_placeholders(
+    show_info: bool = typer.Option(
+        False, "--show-info", help="Show info-level findings (e.g. circular links) in the report."
+    ),
+) -> None:
     """Detect pages with < 50 words or containing TODOs/stubs."""
     from zenzic import __version__
 
@@ -575,6 +610,7 @@ def check_placeholders() -> None:
         engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
         strict=True,
         ok_message="No placeholder stubs found.",
+        show_info=show_info,
     )
     if errors or warnings:
         raise typer.Exit(1)
@@ -642,7 +678,13 @@ def _to_findings(results: _AllCheckResults, docs_root: Path) -> list[Finding]:
                 rel_path=_rel(err.file_path),
                 line_no=err.line_no,
                 code=err.error_type,
-                severity="error",
+                severity=(
+                    "security_incident"
+                    if err.error_type == "PATH_TRAVERSAL_SUSPICIOUS"
+                    else "info"
+                    if err.error_type == "CIRCULAR_LINK"
+                    else "error"
+                ),
                 message=err.message,
                 source_line=err.source_line,
                 col_start=err.col_start,
@@ -880,6 +922,9 @@ def check_all(
         ),
         show_default=False,
     ),
+    show_info: bool = typer.Option(
+        False, "--show-info", help="Show info-level findings (e.g. circular links) in the report."
+    ),
 ) -> None:
     """Run all checks: links, orphans, snippets, placeholders, assets, references.
 
@@ -969,8 +1014,13 @@ def check_all(
             engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
             target=_target_hint,
             strict=effective_strict,
+            show_info=show_info,
         )
 
+    # Security incidents (system-path traversal) cause Exit 3 — highest priority.
+    incidents = sum(1 for f in all_findings if f.severity == "security_incident")
+    if incidents and not effective_exit_zero:
+        raise typer.Exit(3)
     # Breach findings cause Exit 2; all other failures cause Exit 1.
     # This check runs after rendering so the report is always printed first.
     breaches = sum(1 for f in all_findings if f.severity == "security_breach")
@@ -1531,6 +1581,12 @@ def _init_standalone(repo_root: Path, force: bool) -> None:
         "\n"
         "# Minimum quality score required to pass (0 = disabled).\n"
         "# fail_under = 0\n" + build_context_block + "\n"
+        "# Zenzic Shield — built-in credential scanner (always active, no config required).\n"
+        "# Detected pattern families: openai-api-key, github-token, aws-access-key,\n"
+        "#   stripe-live-key, slack-token, google-api-key, private-key,\n"
+        "#   hex-encoded-payload (3+ consecutive \\xNN sequences).\n"
+        "# All lines including fenced code blocks are scanned. Exit code 2 on detection.\n"
+        "\n"
         "# Declare project-specific lint rules (no Python required):\n"
         "# [[custom_rules]]\n"
         '# id       = "ZZ-NODRAFT"\n'

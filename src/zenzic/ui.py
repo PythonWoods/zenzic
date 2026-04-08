@@ -21,6 +21,7 @@ SLATE = "#64748b"
 EMERALD = "#10b981"
 AMBER = "#f59e0b"
 ROSE = "#f43f5e"
+BLOOD = "#8b0000"  # blood red — system-path traversal security incident
 
 # Rich style strings
 STYLE_BRAND = f"bold {INDIGO}"

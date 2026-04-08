@@ -14,7 +14,7 @@ from rich.panel import Panel
 from rich.rule import Rule
 from rich.text import Text
 
-from zenzic.ui import AMBER, EMERALD, INDIGO, ROSE, SLATE, emoji
+from zenzic.ui import AMBER, BLOOD, EMERALD, INDIGO, ROSE, SLATE, emoji
 
 
 @dataclass(slots=True)
@@ -36,6 +36,7 @@ _SEVERITY_STYLE: dict[str, str] = {
     "warning": f"bold {AMBER}",
     "info": f"bold {INDIGO}",
     "security_breach": f"bold white on {ROSE}",
+    "security_incident": f"bold white on {BLOOD}",
 }
 
 
@@ -132,8 +133,6 @@ def _render_snippet(
 
     return result
 
-    return result
-
 
 class SentinelReporter:
     """Render check results as a Ruff-inspired grouped report."""
@@ -167,6 +166,7 @@ class SentinelReporter:
         target: str | None = None,
         strict: bool = False,
         ok_message: str | None = None,
+        show_info: bool = False,
     ) -> tuple[int, int]:
         """Print the full Sentinel Report.
 
@@ -192,6 +192,14 @@ class SentinelReporter:
         # ── Split: breach findings get dedicated panels; rest goes to the grouped view
         breach_findings = [f for f in findings if f.severity == "security_breach"]
         normal_findings = [f for f in findings if f.severity != "security_breach"]
+
+        # ── Info filter: suppress advisory findings unless opt-in ─────────────
+        if not show_info:
+            _info = [f for f in normal_findings if f.severity == "info"]
+            normal_findings = [f for f in normal_findings if f.severity != "info"]
+            info_count = len(_info)
+        else:
+            info_count = 0
 
         # ── Telemetry line ────────────────────────────────────────────────────
         dot = emoji("dot")
@@ -241,16 +249,26 @@ class SentinelReporter:
         if not normal_findings and not breach_findings:
             # ── All-clear panel ───────────────────────────────────────────────
             _ok = ok_message or "All checks passed. Your documentation is secure."
+            _ok_items: list[RenderableType] = [
+                telemetry,
+                Text(),
+                Rule(style=SLATE),
+                Text(),
+                Text.from_markup(f"[{EMERALD}]{emoji('check')} {_ok}[/]"),
+            ]
+            if info_count:
+                _ok_items.append(Text())
+                _ok_items.append(
+                    Text.from_markup(
+                        f"  [{SLATE}]{emoji('info')} {info_count} info finding"
+                        f"{'s' if info_count != 1 else ''} suppressed"
+                        f" — use --show-info for details.[/]"
+                    )
+                )
             self._con.print()
             self._con.print(
                 Panel(
-                    Group(
-                        telemetry,
-                        Text(),
-                        Rule(style=SLATE),
-                        Text(),
-                        Text.from_markup(f"[{EMERALD}]{emoji('check')} {_ok}[/]"),
-                    ),
+                    Group(*_ok_items),
                     title=f"[bold white on {INDIGO}] {emoji('shield')}  ZENZIC SENTINEL  v{version} [/]",
                     title_align="center",
                     border_style=f"bold {INDIGO}",
@@ -278,7 +296,7 @@ class SentinelReporter:
 
                 sev_icon = (
                     emoji("cross")
-                    if f.severity == "error"
+                    if f.severity in {"error", "security_incident"}
                     else emoji("warn")
                     if f.severity == "warning"
                     else emoji("info")
@@ -317,6 +335,12 @@ class SentinelReporter:
         renderables.append(Rule(style=SLATE))
         renderables.append(Text())  # breathing after Rule
         summary_parts: list[str] = []
+        incidents_count = sum(1 for f in normal_findings if f.severity == "security_incident")
+        if incidents_count:
+            summary_parts.append(
+                f"[bold white on {BLOOD}]{emoji('cross')} {incidents_count}"
+                f" security incident{'s' if incidents_count != 1 else ''}[/]"
+            )
         if errors:
             summary_parts.append(
                 f"[{ROSE}]{emoji('cross')} {errors} error{'s' if errors != 1 else ''}[/]"
@@ -333,7 +357,7 @@ class SentinelReporter:
 
         # ── Status line (verdict) ─────────────────────────────────────────────
         renderables.append(Text())  # breathing before verdict
-        has_failures = (errors > 0) or (strict and warnings > 0)
+        has_failures = (incidents_count > 0) or (errors > 0) or (strict and warnings > 0)
         if has_failures:
             renderables.append(
                 Text.from_markup(f"[bold {ROSE}]FAILED:[/] One or more checks failed.")
@@ -341,6 +365,16 @@ class SentinelReporter:
         else:
             _ok = ok_message or "All checks passed."
             renderables.append(Text.from_markup(f"[{EMERALD}]{emoji('check')} {_ok}[/]"))
+
+        if info_count:
+            renderables.append(Text())
+            renderables.append(
+                Text.from_markup(
+                    f"  [{SLATE}]{emoji('info')} {info_count} info finding"
+                    f"{'s' if info_count != 1 else ''} suppressed"
+                    f" — use --show-info for details.[/]"
+                )
+            )
 
         # ── Single unified panel ──────────────────────────────────────────────
         self._con.print()

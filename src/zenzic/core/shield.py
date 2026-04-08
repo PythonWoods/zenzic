@@ -79,6 +79,7 @@ _SECRETS: list[tuple[str, re.Pattern[str]]] = [
     ("slack-token", re.compile(r"xox[baprs]-[0-9a-zA-Z]{10,48}")),
     ("google-api-key", re.compile(r"AIza[0-9A-Za-z\-_]{35}")),
     ("private-key", re.compile(r"-----BEGIN [A-Z ]+ PRIVATE KEY-----")),
+    ("hex-encoded-payload", re.compile(r"(?:\\x[0-9a-fA-F]{2}){3,}")),
 ]
 
 

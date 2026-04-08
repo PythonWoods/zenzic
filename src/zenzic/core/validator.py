@@ -32,9 +32,10 @@ import json
 import os
 import re
 import tomllib
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, NamedTuple
+from typing import Any, Literal, NamedTuple
 from urllib.parse import urlsplit
 
 import httpx
@@ -147,6 +148,105 @@ class LinkError:
     def __str__(self) -> str:
         """Flat string form — backwards-compatible with the old list[str] API."""
         return self.message
+
+
+# ─── Path-traversal intent classifier ────────────────────────────────────────
+
+# Detects hrefs that, after traversal, would reach an OS system directory.
+# Triggering this classifier upgrades a PATH_TRAVERSAL error to a
+# PATH_TRAVERSAL_SUSPICIOUS security incident (Exit Code 3).
+_RE_SYSTEM_PATH: re.Pattern[str] = re.compile(r"/(?:etc|root|var|proc|sys|usr)/")
+
+
+def _classify_traversal_intent(href: str) -> Literal["suspicious", "boundary"]:
+    """Return 'suspicious' when *href* appears to target an OS system directory.
+
+    A traversal to ``../../../../etc/passwd`` is a potential attack vector.
+    A traversal to ``../../sibling-repo/README.md`` is a boundary violation
+    but has no OS-exploitation intent.  Only the former warrants Exit Code 3.
+
+    This check intentionally remains a fast regex scan over the raw href
+    string — no filesystem calls, no Path resolution — to stay within the
+    Zero I/O constraint of the validator hot-path.
+    """
+    return "suspicious" if _RE_SYSTEM_PATH.search(href) else "boundary"
+
+
+def _build_link_graph(
+    links_cache: dict[Path, list[LinkInfo]],
+    resolver: InMemoryPathResolver,
+    source_files: frozenset[Path],
+) -> dict[Path, set[Path]]:
+    """Build the adjacency map of internal Markdown→Markdown links.
+
+    Only edges between files present in *source_files* are recorded.
+    External links, fragment-only links, and links to Ghost Routes are
+    excluded — Ghost Routes have no outgoing edges so they cannot be
+    members of a cycle.
+
+    This is called once after the InMemoryPathResolver is constructed
+    (Phase 1.5).  The resolver is already warm; no additional I/O occurs.
+    """
+    adj: dict[Path, set[Path]] = {f: set() for f in source_files}
+    for md_file, links in links_cache.items():
+        for link in links:
+            url = link.url
+            # Skip external URLs, non-navigable schemes, and fragment-only links
+            if (
+                url.startswith(_SKIP_SCHEMES)
+                or url.startswith(("http://", "https://"))
+                or not url
+                or url.startswith("#")
+            ):
+                continue
+            outcome = resolver.resolve(md_file, url)
+            if isinstance(outcome, Resolved) and outcome.target in source_files:
+                adj.setdefault(md_file, set()).add(outcome.target)
+    return adj
+
+
+def _find_cycles_iterative(adj: dict[Path, set[Path]]) -> frozenset[str]:
+    """Return canonical Path strings of all nodes that participate in at least one cycle.
+
+    Iterative DFS with WHITE/GREY/BLACK colouring — avoids RecursionError on
+    large documentation graphs (Pillar 2: Zero Subprocess / total portability).
+    """
+    WHITE, GREY, BLACK = 0, 1, 2
+    color: dict[Path, int] = dict.fromkeys(adj, WHITE)
+    in_cycle: set[str] = set()
+
+    for start in list(adj):
+        if color[start] != WHITE:
+            continue
+        stack: list[tuple[Path, Iterator[Path]]] = [(start, iter(adj[start]))]
+        path: list[Path] = [start]
+        path_set: set[Path] = {start}
+        color[start] = GREY
+
+        while stack:
+            node, nbrs = stack[-1]
+            try:
+                nbr = next(nbrs)
+                if nbr not in color:
+                    color[nbr] = WHITE
+                    adj.setdefault(nbr, set())
+                if color[nbr] == GREY:  # back edge → cycle
+                    idx = path.index(nbr)
+                    in_cycle.update(str(p) for p in path[idx:])
+                    in_cycle.add(str(nbr))
+                elif color[nbr] == WHITE:
+                    color[nbr] = GREY
+                    stack.append((nbr, iter(adj.get(nbr, set()))))
+                    path.append(nbr)
+                    path_set.add(nbr)
+            except StopIteration:
+                done = path[-1]
+                color[done] = BLACK
+                path.pop()
+                path_set.discard(done)
+                stack.pop()
+
+    return frozenset(in_cycle)
 
 
 class _ValidationPayload(NamedTuple):
@@ -561,6 +661,14 @@ async def validate_links_async(
     # for VanillaAdapter / Zensical every file is REACHABLE by definition.
     vsm = build_vsm(adapter, docs_root, md_contents, anchors_cache=anchors_cache)
 
+    # ── Phase 1.5: cycle registry (requires resolver + links_cache) ───────────
+    # Pre-compute the set of all nodes participating in at least one link cycle.
+    # This Θ(V+E) DFS runs once here; Phase 2 checks are O(1) per resolved link.
+    _source_files: frozenset[Path] = frozenset(md_contents)
+    _link_adj = _build_link_graph(links_cache, resolver, _source_files)
+    cycle_registry: frozenset[str] = _find_cycles_iterative(_link_adj)
+    # ─────────────────────────────────────────────────────────────────────────
+
     # ── Phase 2: validate against global indexes ────────────────────────────
     internal_errors: list[LinkError] = []
     external_entries: list[tuple[str, str, int]] = []  # (url, file_label, lineno)
@@ -640,13 +748,20 @@ async def validate_links_async(
             match resolver.resolve(md_file, url):
                 case PathTraversal():
                     # Security finding — path escaped the docs root.
+                    # Classify intent: hrefs targeting OS system directories
+                    # are promoted to PATH_TRAVERSAL_SUSPICIOUS (Exit Code 3).
+                    _intent = _classify_traversal_intent(url)
                     internal_errors.append(
                         LinkError(
                             file_path=md_file,
                             line_no=lineno,
                             message=f"{label}:{lineno}: '{url}' resolves outside the docs directory",
                             source_line=_source_line(md_file, lineno),
-                            error_type="PATH_TRAVERSAL",
+                            error_type=(
+                                "PATH_TRAVERSAL_SUSPICIOUS"
+                                if _intent == "suspicious"
+                                else "PATH_TRAVERSAL"
+                            ),
                             col_start=link.col_start,
                             match_text=link.match_text,
                         )
@@ -706,6 +821,21 @@ async def validate_links_async(
                         )
                     )
                 case Resolved(target=resolved_target):
+                    # ── CIRCULAR_LINK: resolved target is part of a link cycle ─
+                    if str(resolved_target) in cycle_registry:
+                        internal_errors.append(
+                            LinkError(
+                                file_path=md_file,
+                                line_no=lineno,
+                                message=(
+                                    f"{label}:{lineno}: '{url}' is part of a circular link cycle"
+                                ),
+                                source_line=_source_line(md_file, lineno),
+                                error_type="CIRCULAR_LINK",
+                                col_start=link.col_start,
+                                match_text=link.match_text,
+                            )
+                        )
                     # ── UNREACHABLE_LINK: file exists but cannot be reached ───
                     # Fires when the adapter has a build config and the resolved
                     # target maps to a route that is either:
