@@ -12,7 +12,7 @@ SPDX-License-Identifier: Apache-2.0
 
 <p align="center">
   <a href="https://pypi.org/project/zenzic/">
-    <img src="https://img.shields.io/pypi/v/zenzic?include_prereleases&label=PyPI&color=38bdf8&style=flat-square&cacheBuster=sentinel-a3" alt="PyPI Version">
+    <img src="https://img.shields.io/pypi/v/zenzic?include_prereleases&label=PyPI&color=38bdf8&style=flat-square&cacheBuster=sentinel-a4" alt="PyPI Version">
   </a>
   <a href="https://pypi.org/project/zenzic/">
     <img src="https://img.shields.io/pypi/pyversions/zenzic?color=10b981&style=flat-square" alt="Python Versions">
@@ -63,31 +63,28 @@ referenced ecosystem tools are third-party projects.
 
 ---
 
-## v0.5.0a3 Highlights — The Sentinel
+## v0.5.0a4 Highlights — The Hardened Sentinel
 
-- **Smart Initialization**: `zenzic init` detects `pyproject.toml` and offers to
-  embed config as `[tool.zenzic]` instead of a standalone `zenzic.toml`. Use
-  `--pyproject` to skip the prompt. Engine auto-detection in both modes.
-- **Sentinel UI**: monolithic Indigo banner, traceback gutter with 2-space
-  padding (`│  16  ❱`), surgical caret underlines, and vertical breathing
-  between findings.
-- **Agnostic Target**: `zenzic check all README.md` or `zenzic check all content/`
-  scopes audits to a single file or directory. `VanillaAdapter` auto-selected for
-  out-of-docs targets.
-- **Plugin SDK**: `zenzic init --plugin <name>` scaffolds a ready-to-edit rule
-  package. `zenzic.rules` public namespace is stable — `BaseRule`, `RuleFinding`,
-  `CustomRule`, `Violation`, `Severity`.
-- **Hybrid Adaptive Engine**: `scan_docs_references` selects sequential or parallel
-  execution automatically based on repository size (threshold: 50 files).
-  Deterministic two-phase anchor validation eliminates race-induced false positives.
-- **Z001/Z002 Split**: broken links (Z001 error) vs orphan-page links (Z002 warning).
-  Without `--strict`, orphan warnings don't block the build.
-- **Mutation-tested**: 86.7% mutation score (242/279 killed on `rules.py`).
-  706 tests, Hypothesis property-based testing with tiered profiles.
-- **`pyproject.toml` config**: embed Zenzic config in `[tool.zenzic]` when
-  `zenzic.toml` is absent. `zenzic.toml` always wins if both exist.
-- **Zenzic Shield**: credential detection (7 secret families) + path traversal
-  protection. Exit code 2 reserved for security events.
+- **Blood Sentinel (Exit Code 3)**: Path traversal links that escape `docs/` and
+  target OS system directories (`/etc/`, `/root/`, `/var/`, `/proc/`, `/sys/`,
+  `/usr/`) are classified as `security_incident` and exit with code **3**. Priority
+  order: `3 > 2 (Shield) > 1 (errors)`. Never suppressed by `--exit-zero`.
+- **Graph Integrity (Θ(V+E))**: Circular link detection via iterative DFS over the
+  full internal link graph. Built once (Phase 1.5); every Phase 2 per-query lookup
+  is O(1). `CIRCULAR_LINK` is advisory (`info` severity) — mutual navigation links
+  are valid documentation structure and never block CI.
+- **Hex Shield**: The Shield now detects hex-encoded payloads — 3 or more consecutive
+  `\xNN` escape sequences — catching obfuscated credentials inside fenced code blocks.
+- **Signal-to-Noise Control (`--show-info`)**: Advisory findings are suppressed by
+  default. A footer note counts them: *"N info findings suppressed — use --show-info
+  for details."* Available on all 7 check commands.
+- **ZRT-005 Fixed — Bootstrap Paradox**: `zenzic init` now works correctly in a
+  completely empty directory. The generated `zenzic.toml` includes a commented Shield
+  block listing all 8 detected credential pattern families.
+- **Bilingual Rigor**: Full documentation parity achieved across English and Italian.
+  `checks.md`, `arch_gaps.md`, `architecture.md`, and `INTERNAL_GLOSSARY.toml` (15
+  canonical terms) are now available in both languages.
+- **759 tests. Preflight green.**
 
 ---
 
@@ -419,11 +416,12 @@ zenzic serve --no-preflight
 | `0` | All selected checks passed |
 | `1` | One or more checks reported issues |
 | **`2`** | **SECURITY CRITICAL — Zenzic Shield detected a leaked credential** |
+| **`3`** | **SECURITY CRITICAL — Blood Sentinel detected a system-path traversal** |
 
 > **Warning:**
-> **Exit code 2** is reserved exclusively for security events. If `zenzic check references` exits
-> with code 2, a secret (OpenAI API key, GitHub token, or AWS access key) was found embedded in a
-> reference URL inside your documentation. Rotate the credential immediately.
+> **Exit code 2** is reserved for Shield events (leaked credentials). **Exit code 3** is
+> reserved for Blood Sentinel events (path traversal to OS system directories such as
+> `/etc/`, `/root/`). Both are never suppressed by `--exit-zero`. Rotate and audit immediately.
 
 ---
 
@@ -463,7 +461,7 @@ Build aborted. Rotate the exposed credential immediately.
 1. The Shield runs *inside* Pass 1 — before Pass 2 validates links and before any HTTP ping is
    issued. A document containing a leaked credential is never used to make outbound requests.
 2. Patterns use exact-length quantifiers (`{48}`, `{36}`, `{16}`) — no backtracking, O(1) per line.
-3. Seven credential families are covered out of the box:
+3. Eight credential families are covered out of the box:
 
 | Type | Pattern |
 | --- | --- |
@@ -474,6 +472,7 @@ Build aborted. Rotate the exposed credential immediately.
 | Slack token | `xox[baprs]-[0-9a-zA-Z]{10,48}` |
 | Google API key | `AIza[0-9A-Za-z\-_]{35}` |
 | PEM private key | `-----BEGIN [A-Z ]+ PRIVATE KEY-----` |
+| Hex-encoded payload | 3+ consecutive `\xNN` escape sequences |
 
 1. **No blind spots** — the Shield scans every line of the source file, including lines inside
    fenced code blocks (`bash`, `yaml`, unlabelled, etc.). A credential committed inside a code

@@ -12,7 +12,7 @@ SPDX-License-Identifier: Apache-2.0
 
 <p align="center">
   <a href="https://pypi.org/project/zenzic/">
-    <img src="https://img.shields.io/pypi/v/zenzic?include_prereleases&label=PyPI&color=38bdf8&style=flat-square&cacheBuster=sentinel-a3" alt="PyPI Version">
+    <img src="https://img.shields.io/pypi/v/zenzic?include_prereleases&label=PyPI&color=38bdf8&style=flat-square&cacheBuster=sentinel-a4" alt="PyPI Version">
   </a>
   <a href="https://pypi.org/project/zenzic/">
     <img src="https://img.shields.io/pypi/pyversions/zenzic?color=10b981&style=flat-square" alt="Python Versions">
@@ -64,31 +64,28 @@ gli altri strumenti citati sono progetti di terze parti.
 
 ---
 
-## v0.5.0a3 — La Sentinella
+## v0.5.0a4 — La Sentinella Blindata
 
-- **Inizializzazione Intelligente**: `zenzic init` rileva `pyproject.toml` e offre di
-  incorporare la configurazione come `[tool.zenzic]` invece di creare un `zenzic.toml`
-  separato. Usa `--pyproject` per saltare il prompt. Auto-detection dell'engine in
-  entrambe le modalità.
-- **Sentinel UI**: banner Indigo monolitico, gutter traceback con spaziatura a 2 spazi
-  (`│  16  ❱`), sottolineature caret chirurgiche e respiro verticale tra i finding.
-- **Target Agnostico**: `zenzic check all README.md` o `zenzic check all content/`
-  limita l'audit a un singolo file o directory. `VanillaAdapter` selezionato
-  automaticamente per target fuori da docs.
-- **Plugin SDK**: `zenzic init --plugin <nome>` scaffolda un pacchetto regole
-  pronto all'uso. Namespace pubblico `zenzic.rules` stabile — `BaseRule`,
-  `RuleFinding`, `CustomRule`, `Violation`, `Severity`.
-- **Hybrid Adaptive Engine**: `scan_docs_references` seleziona esecuzione sequenziale
-  o parallela automaticamente in base alla dimensione del repository (soglia: 50 file).
-  Validazione ancore deterministica a due fasi elimina falsi positivi da race condition.
-- **Z001/Z002 Split**: link rotti (Z001 errore) vs link a pagine orfane (Z002 warning).
-  Senza `--strict`, i warning orfani non bloccano la build.
-- **Mutation-tested**: 86.7% mutation score (242/279 killed su `rules.py`).
-  706 test, Hypothesis property-based testing con profili tiered.
-- **Config `pyproject.toml`**: incorpora la configurazione Zenzic in `[tool.zenzic]`
-  quando `zenzic.toml` è assente. `zenzic.toml` vince sempre se entrambi esistono.
-- **Zenzic Shield**: rilevamento credenziali (7 famiglie) + protezione path traversal.
-  Codice di uscita 2 riservato per eventi di sicurezza.
+- **Sentinella di Sangue (Exit Code 3)**: I link che escono da `docs/` e puntano a
+  directory di sistema del SO (`/etc/`, `/root/`, `/var/`, `/proc/`, `/sys/`, `/usr/`)
+  vengono classificati come `security_incident` e terminano con codice **3**. Priorità:
+  `3 > 2 (Shield) > 1 (errori)`. Non soppresso da `--exit-zero`.
+- **Graph Integrity (Θ(V+E))**: Rilevamento dei link circolari tramite DFS iterativa
+  sull'intero grafo di link interni. Costruito una sola volta (Fase 1.5); ogni query
+  della Fase 2 è O(1). `CIRCULAR_LINK` è advisory (severità `info`) — i link di
+  navigazione reciproca sono struttura valida e non bloccano mai la CI.
+- **Hex Shield**: Lo Shield ora rileva payload hex-encoded — 3 o più sequenze `\xNN`
+  consecutive — intercettando credenziali offuscate nei blocchi di codice.
+- **Controllo Rumore (`--show-info`)**: I finding informativi sono soppressi per
+  default. Una nota a piè di pagina li conta: *"N info findings suppressed — usa
+  --show-info per i dettagli."* Disponibile su tutti i 7 comandi di check.
+- **ZRT-005 Risolto — Bootstrap Paradox**: `zenzic init` funziona ora correttamente
+  in una directory completamente vuota. Il `zenzic.toml` generato include un blocco
+  Shield commentato con tutte le 8 famiglie di pattern rilevate.
+- **Rigore Bilingue**: Parità di documentazione raggiunta tra Inglese e Italiano.
+  `checks.md`, `arch_gaps.md`, `architecture.md` e `INTERNAL_GLOSSARY.toml` (15
+  termini canonici) ora disponibili in entrambe le lingue.
+- **759 test. Preflight verde.**
 
 ---
 
@@ -227,15 +224,18 @@ zenzic serve --port 9000
 | `0` | Tutti i controlli selezionati sono passati |
 | `1` | Uno o più controlli hanno segnalato problemi |
 | **`2`** | **SECURITY CRITICAL — Zenzic Shield ha rilevato una credenziale esposta** |
+| **`3`** | **SECURITY CRITICAL — Sentinella di Sangue ha rilevato un path traversal di sistema** |
 
 > **Attenzione:**
-> Il **codice di uscita 2** è riservato esclusivamente agli eventi di sicurezza. Se
-> `zenzic check references` esce con codice 2, una credenziale è stata trovata nella
-> documentazione. Ruotare la credenziale immediatamente.
+> Il **codice di uscita 2** è riservato agli eventi Shield (credenziali esposte). Il **codice
+> di uscita 3** è riservato alla Sentinella di Sangue (path traversal verso directory di sistema
+> come `/etc/`, `/root/`). Entrambi non vengono mai soppressi da `--exit-zero`. Ruotare e
+> verificare immediatamente.
 
-Lo **Zenzic Shield** rileva 7 famiglie di credenziali (chiavi OpenAI, token GitHub, access key
-AWS, chiavi live Stripe, token Slack, chiavi API Google e chiavi private PEM) su **ogni riga del
-file sorgente** — incluse le righe dentro i blocchi di codice `bash`, `yaml` e senza etichetta.
+Lo **Zenzic Shield** rileva 8 famiglie di credenziali (chiavi OpenAI, token GitHub, access key
+AWS, chiavi live Stripe, token Slack, chiavi API Google, chiavi private PEM e payload
+hex-encoded) su **ogni riga del file sorgente** — incluse le righe dentro i blocchi di codice
+`bash`, `yaml` e senza etichetta.
 Una credenziale in un esempio di codice è comunque una credenziale esposta.
 
 ---
