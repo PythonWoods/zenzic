@@ -89,6 +89,46 @@ def test_check_links_strict_passes_flag(mock_links, _cfg, _root) -> None:
     mock_links.assert_called_once_with(_ROOT, strict=True)
 
 
+@patch("zenzic.cli.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli.ZenzicConfig.load", return_value=(_CFG, False))
+@patch(
+    "zenzic.cli.validate_links_structured",
+    return_value=[
+        LinkError(
+            file_path=_ROOT / "docs" / "index.md",
+            line_no=2,
+            message="index.md:2: '../../../../etc/passwd' resolves outside the docs directory",
+            source_line="[escape](../../../../etc/passwd)",
+            error_type="PATH_TRAVERSAL_SUSPICIOUS",
+        )
+    ],
+)
+def test_check_links_system_path_traversal_exits_3(_links, _cfg, _root) -> None:
+    """check links exits with code 3 when a system-path traversal is found."""
+    result = runner.invoke(app, ["check", "links"])
+    assert result.exit_code == 3
+
+
+@patch("zenzic.cli.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli.ZenzicConfig.load", return_value=(_CFG, False))
+@patch(
+    "zenzic.cli.validate_links_structured",
+    return_value=[
+        LinkError(
+            file_path=_ROOT / "docs" / "index.md",
+            line_no=2,
+            message="index.md:2: '../../outside.md' resolves outside the docs directory",
+            source_line="[escape](../../outside.md)",
+            error_type="PATH_TRAVERSAL",
+        )
+    ],
+)
+def test_check_links_boundary_traversal_exits_1(_links, _cfg, _root) -> None:
+    """check links exits with code 1 for a non-system path traversal (no regression)."""
+    result = runner.invoke(app, ["check", "links"])
+    assert result.exit_code == 1
+
+
 # ---------------------------------------------------------------------------
 # check orphans
 # ---------------------------------------------------------------------------
@@ -895,3 +935,86 @@ def test_init_in_fresh_directory_no_git(tmp_path: Path, monkeypatch: pytest.Monk
     result = runner.invoke(app, ["init"])
     assert result.exit_code == 0, result.stdout
     assert (fresh / "zenzic.toml").is_file()
+
+
+# ---------------------------------------------------------------------------
+# Signal-to-Noise: --show-info / reporter show_info filter
+# ---------------------------------------------------------------------------
+
+
+class TestShowInfoFilter:
+    """Verify that info-severity findings are suppressed by default and shown with --show-info."""
+
+    @staticmethod
+    def _make_reporter(buf):  # type: ignore[no-untyped-def]
+        from rich.console import Console
+
+        from zenzic.core.reporter import SentinelReporter
+
+        con = Console(file=buf, highlight=False, markup=True)
+        return SentinelReporter(con, Path("/fake/docs"), docs_dir="docs")
+
+    @staticmethod
+    def _info_finding():  # type: ignore[no-untyped-def]
+        from zenzic.core.reporter import Finding
+
+        return Finding(
+            rel_path="guide/nav.md",
+            line_no=5,
+            code="CIRCULAR_LINK",
+            severity="info",
+            message="guide/nav.md:5: 'index.md' is part of a circular link cycle",
+            source_line="[Home](index.md)",
+        )
+
+    def test_info_finding_suppressed_by_default(self) -> None:
+        """With show_info=False (default), info findings must not appear in output."""
+        import io
+
+        buf = io.StringIO()
+        reporter = self._make_reporter(buf)
+        errors, warnings = reporter.render(
+            [self._info_finding()],
+            version="0.5.0a4",
+            elapsed=0.0,
+            show_info=False,
+        )
+        out = buf.getvalue()
+        assert "CIRCULAR_LINK" not in out
+        assert "suppressed" in out
+        assert errors == 0
+        assert warnings == 0
+
+    def test_info_finding_shown_with_show_info_true(self) -> None:
+        """With show_info=True, info findings must appear in output and no suppression note."""
+        import io
+
+        buf = io.StringIO()
+        reporter = self._make_reporter(buf)
+        errors, warnings = reporter.render(
+            [self._info_finding()],
+            version="0.5.0a4",
+            elapsed=0.0,
+            show_info=True,
+        )
+        out = buf.getvalue()
+        assert "CIRCULAR_LINK" in out
+        assert "suppressed" not in out
+        assert errors == 0
+        assert warnings == 0
+
+    @patch("zenzic.cli.find_repo_root", return_value=_ROOT)
+    @patch("zenzic.cli.ZenzicConfig.load", return_value=(_CFG, True))
+    @patch("zenzic.cli.validate_links_structured", return_value=[])
+    @patch("zenzic.cli.find_orphans", return_value=[])
+    @patch("zenzic.cli.validate_snippets", return_value=[])
+    @patch("zenzic.cli.find_placeholders", return_value=[])
+    @patch("zenzic.cli.find_unused_assets", return_value=[])
+    @patch("zenzic.cli.check_nav_contract", return_value=[])
+    @patch("zenzic.cli.scan_docs_references", return_value=([], []))
+    def test_check_all_show_info_flag_accepted(
+        self, _refs, _nav, _assets, _ph, _snip, _orphans, _links, _cfg, _root
+    ) -> None:
+        """--show-info flag must be accepted by check all without crashing."""
+        result = runner.invoke(app, ["check", "all", "--show-info"])
+        assert result.exit_code == 0, result.stdout

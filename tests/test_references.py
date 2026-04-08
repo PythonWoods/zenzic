@@ -236,6 +236,35 @@ class TestShield:
         findings = list(scan_url_for_secrets(short, tmp_path / "doc.md", 1))
         assert findings == []
 
+    # ── hex-encoded-payload ───────────────────────────────────────────────────
+
+    def test_hex_payload_three_bytes_detected(self, tmp_path: Path) -> None:
+        """Three consecutive \\xNN sequences exceeds the threshold — must be flagged."""
+        line = r"exec('\x41\x42\x43')"
+        findings = list(scan_line_for_secrets(line, tmp_path / "doc.md", 1))
+        assert len(findings) == 1
+        assert findings[0].secret_type == "hex-encoded-payload"
+
+    def test_hex_payload_two_bytes_not_flagged(self, tmp_path: Path) -> None:
+        """Only two \\xNN sequences — below threshold, must not be flagged."""
+        line = r"prefix \x41\x42 suffix"
+        findings = list(scan_line_for_secrets(line, tmp_path / "doc.md", 1))
+        assert findings == []
+
+    def test_hex_payload_in_fenced_code_block_detected(self, tmp_path: Path) -> None:
+        """Shield Stream 1 reads all lines raw; hex sequence in a code block must be caught."""
+        from zenzic.core.shield import _SECRETS
+
+        hex_pattern = next(p for name, p in _SECRETS if name == "hex-encoded-payload")
+        payload = r"\x41\x42\x43\x44"
+        assert hex_pattern.search(payload) is not None
+
+    def test_plain_escape_sequences_not_flagged(self, tmp_path: Path) -> None:
+        """Common prose escapes (\\n, \\t) must not match the hex-payload pattern."""
+        line = r"Use \n for newlines and \t for tabs."
+        findings = list(scan_line_for_secrets(line, tmp_path / "doc.md", 1))
+        assert findings == []
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # check_image_alt_text (pure function)
