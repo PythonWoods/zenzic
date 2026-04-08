@@ -132,13 +132,13 @@ Aggiungere validazioni su motore third-party richiede lo sforzo di replicare app
 
 ### Portabilità & Integrità i18n
 
-Zenzic offre standard compatibile e out/box di adozione i18n implementata `mkdocs-static-i18n`:
+Zenzic supporta entrambe le strategie i18n utilizzate da `mkdocs-static-i18n`:
 
-- **Modalità suffisso** (`filename.locale.md`) — La traduzione resta vicina, posizionata all'atto in pari estensione al dominio gốc/sorgente di lavoro con cui simmetricamente convive tramite risoluzioni asset e anchor match-tree paritari. Acquisizione locale prefisso si precompila esulante extra setups.
-- **Modalità cartella** (`docs/it/filename.md`) — Subdirectory appositamente confinate ed isolate per i path non-default. MkDocsAdapter ricompatterà l'albero d'orfanità e asset integrando referenze da `zenzic.toml` via property config in locale fallback configuration property array su `[build_context]` in assenza YAML sorgente main configurato su `mkdocs.yml`.
+- **Modalità suffisso** (`filename.locale.md`) — I file tradotti sono affiancati agli originali alla stessa profondità di directory. I percorsi degli asset relativi sono simmetrici tra le lingue. Zenzic rileva automaticamente i suffissi locale dai nomi dei file, senza alcuna configurazione aggiuntiva.
+- **Modalità cartella** (`docs/it/filename.md`) — I locale non predefiniti risiedono in una directory di primo livello. Il rilevamento degli asset e degli orfani è gestito da `MkDocsAdapter` tramite `[build_context]` in `zenzic.toml`. In assenza di `zenzic.toml`, Zenzic legge la configurazione locale direttamente da `mkdocs.yml`.
 
-**Proibizione Link Assoluti**
-Zenzic scarta rigorosamente le reference con inizializzazione `/` per non vincolarsi perentoriamente al root-doman root. Nel momento di migrazione verso public directory o hosting diramata in namespace specifici origin site (e.g. `/docs`), una reference index base come `[Home](/docs/assets/logo.png)` imploderebbe. Fai valere link interni come percorsi parent path (e.g. `../assets/logo.png`) incrementando portabilità del progetto e documentazione a lungo termine offline/online.
+**Divieto di Link Assoluti**
+Zenzic rifiuta qualsiasi link interno che inizi con `/`. I percorsi assoluti presuppongono che il sito sia ospitato alla radice del dominio: se la documentazione viene servita da una sottodirectory (es. `https://example.com/docs/`), un link come `/assets/logo.png` si risolve in `https://example.com/assets/logo.png` (404), non nell'asset desiderato. Usa percorsi relativi (`../assets/logo.png`) per garantire la portabilità indipendentemente dall'ambiente di hosting.
 
 ### Sovranità della VSM
 
@@ -181,11 +181,49 @@ class MiaRegolaOrfani(BaseRule):
                 ...
 ```
 
+### Protocollo di Scoperta della Radice (PSR)
+
+`find_repo_root()` è il singolo punto di ingresso attraverso cui Zenzic stabilisce il confine del suo **Workspace**. Tutto il resto — costruzione della VSM, risoluzione dei link, caricamento della configurazione — dipende dal percorso che restituisce. Trattalo come infrastruttura portante.
+
+#### L'Autorità della Radice
+
+Zenzic non analizza file in isolamento. Analizza un **Workspace**: un insieme delimitato di file le cui relazioni — link, ancore, voci di nav, stato orfano — sono significative solo relativamente a una radice condivisa. La Radice è la parete esterna invalicabile della VSM. Un controllo che sfugge a questa parete non è un controllo Zenzic; è una vulnerabilità.
+
+#### Ereditarietà dello Standard — Perché `.git`?
+
+`.git` è usato come proxy della volontà dichiarata dall'utente. La presenza di una directory `.git` significa che l'utente ha già stabilito un confine VCS per questo progetto. Zenzic eredita quel confine invece di inventarne uno proprio. Questo mantiene Zenzic forward-compatible con future esclusioni basate su `.gitignore`: automatizza l'esclusione di `site/`, `dist/` e altri artefatti generati già presenti nella maggior parte dei file `.gitignore`.
+
+`zenzic.toml` è il marcatore di fallback per ambienti senza VCS (es. un progetto solo di documentazione, un container CI con checkout superficiale). Se `zenzic.toml` esiste, Zenzic usa la sua directory come radice — senza bisogno di `.git`.
+
+#### Sicurezza per Opt-in — Il Default Deve Essere Sicuro
+
+Il comportamento di fallimento per impostazione predefinita è intenzionale. Un'invocazione di `zenzic check all` da `/home/utente/` senza alcun marcatore di radice in tutta la catena degli antenati solleva `RuntimeError` immediatamente, prima che venga letto un singolo file. Questa non è una mancanza di usabilità — è una **garanzia di sicurezza**. L'alternativa (default silenzioso alla CWD o alla radice del filesystem) esporrebbe Zenzic all'Indicizzazione Massiva Accidentale: scansione di migliaia di file non correlati, produzione di risultati privi di senso e potenziale perdita di informazioni attraverso confini di progetto in ambienti CI.
+
+**La mutazione di questo default richiede approvazione dell'Architecture Lead.** Una PR che cambia `fallback_to_cwd=False` in `True` in qualsiasi call site diverso da `init` è una violazione di sicurezza di Grado-1 e verrà chiusa senza revisione.
+
+#### L'Eccezione di Bootstrap
+
+Solo `zenzic init` è esente dal requisito rigoroso della radice. Il suo scopo è *creare* il marcatore di radice — richiedere che il marcatore pre-esista sarebbe il Paradosso di Bootstrap (ZRT-005). L'esenzione è codificata come parametro keyword-only affinché il call site sia auto-documentante e verificabile per ispezione:
+
+```python
+# ✅ Consentito solo in cli.py::init — crea un nuovo perimetro da zero
+repo_root = find_repo_root(fallback_to_cwd=True)
+
+# ✅ Tutti gli altri comandi — applicazione rigorosa del perimetro, solleva fuori da un repo
+repo_root = find_repo_root()
+```
+
+Aggiungere `fallback_to_cwd=True` a qualsiasi comando diverso da `init` richiede un Architecture Decision Record che spieghi perché quel comando necessita di accesso senza perimetro.
+
+Vedi [ADR 003](docs/adr/003-discovery-logic.md) per la motivazione completa e la storia della modifica ZRT-005.
+
+---
+
 ## Sicurezza & Conformità
 
-- **Sicurezza Piena:** Prevenire manipolazioni estese con `PathTraversal`. Verificare il bypass con Pathing Check su codebase in logica risolvitiva nativa `core`.
-- **Parità Bilingua:** Aggiornamenti standard devono fluire nella traduzione cartelle come logica copy-mirror da `docs/*.md` in cartellatura folder-mode a `docs/it/*.md`.
-- **Integrità Base Asset:** Badges documentate presso file risorsa SVG (e.g. `docs/assets/brand/`) non andranno rimosse asincronizzate ai parametri calcolo punteggi app logic score.
+- **Sicurezza Prima di Tutto:** Qualsiasi nuova risoluzione di percorso DEVE essere testata contro il Path Traversal. Usa la logica `PathTraversal` da `core`.
+- **Parità Bilingue:** Ogni aggiornamento alla documentazione DEVE essere riflesso sia nei file `docs/*.md` che nei corrispondenti `docs/it/*.md` in modalità folder.
+- **Integrità degli Asset:** Assicurati che i badge SVG in `docs/assets/brand/` siano aggiornati se la logica di scoring cambia.
 
 ---
 
