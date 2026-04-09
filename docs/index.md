@@ -37,17 +37,15 @@ Catch broken links, orphan pages, and leaked credentials — before your users d
 
 - :lucide-link-2-off: &nbsp; __Broken links__
 
-    ---
-
     Detects dead internal links, missing anchors, and unreachable external URLs — at source level, before the build runs.
 
     ```bash
     zenzic check links
     ```
 
-- :lucide-file: &nbsp; __Orphan pages__
+    [:octicons-arrow-right-24: Details](checks.md#links)
 
-    ---
+- :lucide-file: &nbsp; __Orphan pages__
 
     Finds `.md` files that exist on disk but are absent from the site navigation. Invisible to readers.
 
@@ -55,9 +53,9 @@ Catch broken links, orphan pages, and leaked credentials — before your users d
     zenzic check orphans
     ```
 
-- :lucide-code: &nbsp; __Invalid snippets__
+    [:octicons-arrow-right-24: Details](checks.md#orphans)
 
-    ---
+- :lucide-code: &nbsp; __Invalid snippets__
 
     Compiles every fenced Python block with `compile()`. Catches syntax errors before readers copy-paste broken code.
 
@@ -65,9 +63,9 @@ Catch broken links, orphan pages, and leaked credentials — before your users d
     zenzic check snippets
     ```
 
-- :lucide-pencil: &nbsp; __Placeholder stubs__
+    [:octicons-arrow-right-24: Details](checks.md#snippets)
 
-    ---
+- :lucide-pencil: &nbsp; __Placeholder stubs__
 
     Flags pages below a word-count threshold or containing patterns like `TODO`, `WIP`, `coming soon`.
 
@@ -75,9 +73,9 @@ Catch broken links, orphan pages, and leaked credentials — before your users d
     zenzic check placeholders
     ```
 
-- :lucide-image: &nbsp; __Unused assets__
+    [:octicons-arrow-right-24: Details](checks.md#placeholders)
 
-    ---
+- :lucide-image: &nbsp; __Unused assets__
 
     Reports images and files that exist in `docs/` but are never referenced by any page.
 
@@ -85,15 +83,17 @@ Catch broken links, orphan pages, and leaked credentials — before your users d
     zenzic check assets
     ```
 
-- :lucide-shield-check: &nbsp; __Zenzic Shield__
+    [:octicons-arrow-right-24: Details](checks.md#assets)
 
-    ---
+- :lucide-shield-check: &nbsp; __Zenzic Shield__
 
     Scans every reference URL for leaked credentials — API keys, tokens, AWS access keys. Exits with code `2` immediately.
 
     ```bash
     zenzic check references
     ```
+
+    [:octicons-arrow-right-24: Details](checks.md#references)
 
 </div>
 

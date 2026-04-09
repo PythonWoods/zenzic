@@ -39,7 +39,7 @@ Zenzic esegue sei controlli indipendenti. Ognuno affronta una categoria distinta
 
     File media presenti su disco ma mai referenziati. __Supporta l'autofix.__
 
-    [`check assets`](#asset) &nbsp;&bull;&nbsp; [`clean assets`](usage/commands.md#autofix-cleanup)
+    [`zenzic check assets`](#asset)
 
 - :lucide-shield-check: &nbsp; __Riferimenti__
 

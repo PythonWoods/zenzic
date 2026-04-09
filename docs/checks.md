@@ -39,7 +39,7 @@ Zenzic runs six independent checks. Each addresses a distinct category of docume
 
     Media files that exist on disk but are never referenced. __Supports autofix.__
 
-    [`check assets`](#assets) &nbsp;&bull;&nbsp; [`clean assets`](usage/commands.md#autofix-cleanup)
+    [`zenzic check assets`](#assets)
 
 - :lucide-shield-check: &nbsp; __References__
 
