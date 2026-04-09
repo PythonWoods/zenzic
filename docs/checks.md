@@ -170,7 +170,6 @@ suppressed by `--exit-zero`.
 
     FAILED: One or more checks failed.
     ```
-    Exit code: **3**
 
 ![Zenzic Sentinel — Blood Report: PATH_TRAVERSAL_SUSPICIOUS finding in blood red](assets/screenshots/screenshot-blood.svg)
 
@@ -191,7 +190,10 @@ common, intentional, and do not cause rendering problems for any static site gen
 For this reason, `CIRCULAR_LINK` is reported at severity `info`. It appears in the Sentinel
 panel and contributes to the "N files with findings" count, but it never affects exit codes
 in normal or `--strict` mode. Teams that want to enforce strict DAG topology can inspect
-the info findings as part of their review process.
+the info findings as part of their review process. Info findings are hidden by default to
+keep routine scans focused on blocking violations; use `--show-info` to display them.
+For the design decision behind this severity choice, see
+[ADR 003 — Root Discovery Protocol](adr/003-discovery-logic.md).
 
 | Code | Severity | Exit code | Meaning |
 | :--- | :---: | :---: | :--- |
@@ -210,21 +212,6 @@ the info findings as part of their review process.
 
     ✔ All checks passed.
     ```
-
-!!! note "Info-level finding — suppressed by default"
-    `CIRCULAR_LINK` findings are reported at severity `info` and are __not shown__
-    in standard output to avoid cluttering routine scans. Mutual navigation links
-    are common and intentional in hypertext documentation structures.
-
-    Use `--show-info` to display them:
-
-    ```bash
-    zenzic check all --show-info
-    ```
-
-    They never block the build or affect exit codes in any mode.
-    For the design decision behind this severity choice, see
-    [ADR 003 — Root Discovery Protocol](adr/003-discovery-logic.md).
 
 ![Zenzic Sentinel — Circle Discovery: CIRCULAR_LINK findings displayed with --show-info](assets/screenshots/screenshot-circular.svg)
 

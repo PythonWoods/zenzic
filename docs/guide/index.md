@@ -41,35 +41,21 @@ Beyond reporting, Zenzic provides **autofix utilities** (like `zenzic clean asse
 
 - :lucide-play: &nbsp; **User Guide**
 
-    ---
-
     Installation, all CLI commands, quality scoring, CI/CD integration, and badges.
 
-  - [Getting Started](../usage/index.md)
-  - [Available Checks](../checks.md)
-  - [Configuration](../configuration/index.md)
-  - [Engines](engines.md)
-  - [CI/CD Integration](../ci-cd.md)
-  - [Badges](../usage/badges.md)
-  - [FAQs](../community/faqs.md)
+    [:octicons-arrow-right-24: Getting Started](../usage/index.md) · [Checks](../checks.md) · [Configuration](../configuration/index.md) · [Engines](engines.md) · [CI/CD](../ci-cd.md) · [Badges](../usage/badges.md) · [FAQs](../community/faqs.md)
 
 - :lucide-book: &nbsp; **Developer Guide**
 
-    ---
-
     Architecture internals and auto-generated API documentation.
 
-  - [Architecture](../architecture.md)
-  - [API Reference](../reference/api.md)
+    [:octicons-arrow-right-24: Architecture](../architecture.md) · [API Reference](../reference/api.md)
 
 - :lucide-users: &nbsp; **Community**
 
-    ---
-
     Report issues, request features, improve the docs, or open a pull request.
 
-  - [Get Involved](../community/index.md)
-  - [How to Contribute](../community/contribute/index.md)
+    [:octicons-arrow-right-24: Get Involved](../community/index.md) · [How to Contribute](../community/contribute/index.md)
 
 </div>
 
