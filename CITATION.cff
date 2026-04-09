@@ -15,8 +15,8 @@ abstract: >
   scanner (the Shield). Built on pure functional principles in Python 3.11+, it operates
   source-first — no build framework required — and integrates with any Markdown-based
   documentation system via a plugin adapter protocol.
-version: 0.5.0a4
-date-released: 2026-04-08
+version: 0.5.0a5
+date-released: 2026-04-09
 url: "https://zenzic.pythonwoods.dev/"
 repository-code: "https://github.com/PythonWoods/zenzic"
 license: Apache-2.0

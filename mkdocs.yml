@@ -153,7 +153,7 @@ extra_css:
 extra:
   build_date: !ENV [BUILD_DATE, "dev"]
   generator: false
-  version: "0.5.0a4"
+  version: "0.5.0a5"
   alternate:
     - name: English
       link: /

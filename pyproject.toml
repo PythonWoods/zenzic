@@ -7,7 +7,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "zenzic"
-version = "0.5.0a4"
+version = "0.5.0a5"
 description = "Engineering-grade, engine-agnostic linter and security shield for Markdown documentation"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -179,7 +179,7 @@ pytest_add_cli_args = ["--import-mode=prepend"]
 # ─── Version bumping ───────────────────────────────────────────────────────────
 
 [tool.bumpversion]
-current_version = "0.5.0a4"
+current_version = "0.5.0a5"
 commit = true
 tag = true
 tag_name = "v{new_version}"
@@ -221,6 +221,12 @@ replace = "version: {new_version}"
 # CHANGELOG uses PEP 440 normalized form: 0.5.0-a2 (hyphen before pre-release label).
 # The serialize pattern below produces that form; pyproject uses 0.5.0a2 (no hyphen).
 filename = "CHANGELOG.md"
+search = "[{current_version}]"
+replace = "[{new_version}]"
+serialize = ["{major}.{minor}.{patch}{pre_l}{pre_n}", "{major}.{minor}.{patch}"]
+
+[[tool.bumpversion.files]]
+filename = "CHANGELOG.it.md"
 search = "[{current_version}]"
 replace = "[{new_version}]"
 serialize = ["{major}.{minor}.{patch}{pre_l}{pre_n}", "{major}.{minor}.{patch}"]

@@ -47,6 +47,9 @@ BROKEN_DOCS = Path(__file__).parent.parent / "examples" / "broken-docs"
 OUT_DIR = Path(__file__).parent.parent / "docs" / "assets" / "screenshots"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
+BLOOD_SANDBOX = Path(__file__).parent.parent / "tests" / "sandboxes" / "screenshot_blood"
+CIRCULAR_SANDBOX = Path(__file__).parent.parent / "tests" / "sandboxes" / "screenshot_circular"
+
 # ── Shared helpers ─────────────────────────────────────────────────────────────
 
 _INERT = {".css", ".js"}
@@ -307,6 +310,79 @@ def generate_score() -> Path:
     return out
 
 
+# ── Asset 3: Blood Sentinel specimen ──────────────────────────────────────────
+
+
+def generate_blood() -> Path:
+    """Blood Sentinel ``PATH_TRAVERSAL_SUSPICIOUS`` → screenshot-blood.svg."""
+    out = OUT_DIR / "screenshot-blood.svg"
+
+    console = Console(highlight=False, record=True, width=88)
+
+    config, _ = ZenzicConfig.load(BLOOD_SANDBOX)
+    docs_root = (BLOOD_SANDBOX / config.docs_dir).resolve()
+
+    console.print(f"[dim]{emoji('arrow')}[/] [bold]zenzic check links --strict[/bold]")
+    console.print()
+
+    t0 = time.monotonic()
+    results = _collect_all_results(BLOOD_SANDBOX, config, strict=True)
+    elapsed = time.monotonic() - t0
+
+    all_findings = _to_findings(results, docs_root)
+    reporter = SentinelReporter(console, docs_root)
+    docs_count, assets_count = _docs_assets_count(docs_root, BLOOD_SANDBOX)
+    reporter.render(
+        all_findings,
+        version=__version__,
+        elapsed=elapsed,
+        docs_count=docs_count,
+        assets_count=assets_count,
+        engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
+    )
+
+    console.save_svg(str(out), title="zenzic check links --strict")
+    _cleanup_build_artefact(BLOOD_SANDBOX)
+    return out
+
+
+# ── Asset 4: Circular link specimen ──────────────────────────────────────────
+
+
+def generate_circular() -> Path:
+    """Circular link detection with ``--show-info`` → screenshot-circular.svg."""
+    out = OUT_DIR / "screenshot-circular.svg"
+
+    console = Console(highlight=False, record=True, width=88)
+
+    config, _ = ZenzicConfig.load(CIRCULAR_SANDBOX)
+    docs_root = (CIRCULAR_SANDBOX / config.docs_dir).resolve()
+
+    console.print(f"[dim]{emoji('arrow')}[/] [bold]zenzic check all --show-info[/bold]")
+    console.print()
+
+    t0 = time.monotonic()
+    results = _collect_all_results(CIRCULAR_SANDBOX, config, strict=True)
+    elapsed = time.monotonic() - t0
+
+    all_findings = _to_findings(results, docs_root)
+    reporter = SentinelReporter(console, docs_root)
+    docs_count, assets_count = _docs_assets_count(docs_root, CIRCULAR_SANDBOX)
+    reporter.render(
+        all_findings,
+        version=__version__,
+        elapsed=elapsed,
+        docs_count=docs_count,
+        assets_count=assets_count,
+        engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
+        show_info=True,
+    )
+
+    console.save_svg(str(out), title="zenzic check all --show-info")
+    _cleanup_build_artefact(CIRCULAR_SANDBOX)
+    return out
+
+
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
 
@@ -330,3 +406,9 @@ if __name__ == "__main__":
 
     score = generate_score()
     print(f"Saved → {score.relative_to(root)}")
+
+    blood = generate_blood()
+    print(f"Saved → {blood.relative_to(root)}")
+
+    circular = generate_circular()
+    print(f"Saved → {circular.relative_to(root)}")

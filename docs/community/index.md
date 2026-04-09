@@ -83,7 +83,7 @@ __Manual BibTeX:__
 @software{zenzic,
   author  = {PythonWoods},
   title   = {{Zenzic: The Agnostic Documentation Integrity Framework}},
-  version = {0.5.0a4},
+  version = {0.5.0a5},
   date    = {2026-04-03},
   url     = {https://zenzic.pythonwoods.dev/},
   license = {Apache-2.0},

@@ -63,6 +63,27 @@ referenced ecosystem tools are third-party projects.
 
 ---
 
+## v0.5.0a5 Highlights — The Sentinel Codex
+
+- **Sentinel Style Guide**: Canonical visual-language reference defining card grids,
+  admonition types, icon vocabulary, and anchor-ID conventions. Enforced across all
+  English and Italian documentation pages.
+- **Automated Screenshot Pipeline**: All 5 documentation SVGs (`screenshot.svg`,
+  `screenshot-hero.svg`, `screenshot-score.svg`, `screenshot-blood.svg`,
+  `screenshot-circular.svg`) are now deterministically generated from live sandbox
+  fixtures — no hand-crafted static assets.
+- **Card Grid Refactoring**: Documentation pages standardised to Material for MkDocs
+  grid syntax with consistent `:material-*:` icons.
+- **102 Strategic Anchor IDs** across 70 documentation files for stable deep-linking.
+- **Admonition & Icon Normalisation**: Ad-hoc callout styles replaced with canonical
+  types; non-Material icons purged.
+- **CSS Card Overrides**: Hover effects and consistent card styling.
+- **CHANGELOG.it.md bumpversion tracking**: Italian changelog now synchronised
+  automatically during version bumps.
+- **Legacy cleanup**: Removed orphan `pdf_cover.html.j2` template.
+
+---
+
 ## v0.5.0a4 Highlights — The Hardened Sentinel
 
 - **Blood Sentinel (Exit Code 3)**: Path traversal links that escape `docs/` and

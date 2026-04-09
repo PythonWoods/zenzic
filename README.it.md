@@ -64,6 +64,25 @@ gli altri strumenti citati sono progetti di terze parti.
 
 ---
 
+## v0.5.0a5 — Il Codex Sentinel
+
+- **Guida di Stile Sentinel**: Riferimento canonico del linguaggio visivo che definisce
+  griglie a schede, tipi di admonition, vocabolario icone e convenzioni anchor-ID.
+  Applicato a tutta la documentazione inglese e italiana.
+- **Pipeline Screenshot Automatizzata**: Tutti i 5 SVG della documentazione ora generati
+  deterministicamente da fixture sandbox — nessun asset statico fatto a mano.
+- **Refactoring Griglie a Schede**: Pagine documentazione standardizzate con sintassi
+  griglia Material for MkDocs e icone `:material-*:` coerenti.
+- **102 Anchor ID Strategici** in 70 file di documentazione per deep-linking stabile.
+- **Normalizzazione Admonition & Icone**: Stili callout ad-hoc sostituiti con tipi
+  canonici; icone non-Material rimosse.
+- **Override CSS Schede**: Effetti hover e stile schede coerente.
+- **Tracking bumpversion CHANGELOG.it.md**: Il changelog italiano ora sincronizzato
+  automaticamente durante i bump di versione.
+- **Pulizia legacy**: Rimosso template orfano `pdf_cover.html.j2`.
+
+---
+
 ## v0.5.0a4 — La Sentinella Blindata
 
 - **Sentinella di Sangue (Exit Code 3)**: I link che escono da `docs/` e puntano a

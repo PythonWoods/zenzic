@@ -1,12 +1,12 @@
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Zenzic v0.5.0a4 — Pre-Release Audit Package
+# Zenzic v0.5.0a5 — Pre-Release Audit Package
 
-**Prepared by:** S-1 (Auditor) + S-0 (Chronicler)
-**Date:** 2026-04-08
+**Prepared by:** S-0 (Chronicler)
+**Date:** 2026-04-09
 **Status:** ALPHA — Pending Tech Lead manual verification before rc1 promotion
-**Branch:** `fix/sentinel-hardening-v0.5.0a4`
+**Branch:** `main` (merged from `refactor/zrt-doc-002-visual-language`)
 
 > **Tech Lead note:** This document is your single audit surface. Work through each
 > section in order. When every checkbox below is ticked, the project is ready for
@@ -18,156 +18,126 @@
 
 | Location | Expected | Actual | Status |
 | :--- | :--- | :--- | :---: |
-| `src/zenzic/__init__.py` | `0.5.0a4` | `0.5.0a4` | ✅ |
-| `CHANGELOG.md` top entry | `[0.5.0a4]` | `[0.5.0a4]` | ✅ |
-| `CHANGELOG.it.md` top entry | `[0.5.0a4]` | `[0.5.0a4]` | ✅ |
-| No `rc1` in top-level version files | — | verified | ✅ |
+| `src/zenzic/__init__.py` | `0.5.0a5` | `0.5.0a5` | ✅ |
+| `pyproject.toml` `[project]` | `0.5.0a5` | `0.5.0a5` | ✅ |
+| `pyproject.toml` `[tool.bumpversion]` | `0.5.0a5` | `0.5.0a5` | ✅ |
+| `mkdocs.yml` | `0.5.0a5` | `0.5.0a5` | ✅ |
+| `CITATION.cff` | `0.5.0a5` | `0.5.0a5` | ✅ |
+| `CHANGELOG.md` top entry | `[0.5.0a5]` | `[0.5.0a5]` | ✅ |
+| `CHANGELOG.it.md` top entry | `[0.5.0a5]` | `[0.5.0a5]` | ✅ |
+| `docs/community/index.md` BibTeX | `0.5.0a5` | `0.5.0a5` | ✅ |
+| `docs/it/community/index.md` BibTeX | `0.5.0a5` | `0.5.0a5` | ✅ |
+| `uv.lock` | `0.5.0a5` | `0.5.0a5` | ✅ |
 
 ---
 
 ## 2. Quality Gates
 
-```text
-pytest             756 passed, 0 failed
-zenzic check all   ✔ All checks passed (18 info-level CIRCULAR_LINK — expected)
-  --strict
-```
-
 Gate targets for rc1 promotion:
 
-- [ ] `pytest` ≥ 756 passed, 0 failed
+- [ ] `pytest` — all passing, 0 failed
 - [ ] `zenzic check all --strict` → exit code 0, no errors, no warnings
 - [ ] `ruff check src/` → 0 violations
 - [ ] `mypy src/` → 0 errors
 - [ ] `mkdocs build --strict` → 0 warnings
+- [ ] Version grep audit — zero non-historical `0.5.0a4` references
 
 ---
 
-## 3. New Features in v0.5.0a4 — Review Checklist
+## 3. Changes in v0.5.0a5 — Review Checklist
 
-### 3.1 Blood Sentinel (Exit Code 3)
+### 3.1 Sentinel Style Guide
 
-**What it does:** path-traversal hrefs pointing to OS system directories
-(`/etc/`, `/root/`, `/var/`, `/proc/`, `/sys/`, `/usr/`) are classified as
-`PATH_TRAVERSAL_SUSPICIOUS` → severity `security_incident` → **Exit Code 3**.
-Exit 3 takes priority over Exit 2 (credential breach). Never suppressed by
-`--exit-zero`.
+**What it is:** Canonical visual-language reference defining card grids,
+admonition types, icon vocabulary, and anchor-ID conventions.
 
-**Files changed:**
+**Files added:**
 
-- `src/zenzic/ui.py` — `BLOOD = "#8b0000"` palette constant
-- `src/zenzic/core/reporter.py` — `security_incident` severity style (blood red)
-- `src/zenzic/core/validator.py` — `_RE_SYSTEM_PATH`, `_classify_traversal_intent()`
-- `src/zenzic/cli.py` — Exit Code 3 check in `check links` and `check all`
-
-**Tests:** `TestTraversalIntent` (4 tests) + 2 exit-code integration tests in `test_cli.py`
+- `docs/internal/style-guide-sentinel.md` (EN)
+- `docs/it/internal/style-guide-sentinel.md` (IT)
 
 **Verification steps for Tech Lead:**
 
-- [ ] Review `_classify_traversal_intent()` in `src/zenzic/core/validator.py`
-- [ ] Verify `PATH_TRAVERSAL_SUSPICIOUS` → `security_incident` mapping in `cli.py`
-- [ ] Verify Exit 3 is checked **before** Exit 2 in `check all` exit logic
-- [ ] Confirm `--exit-zero` does NOT suppress Exit 3
-- [ ] Read `docs/checks.md` § "Blood Sentinel — system-path traversal"
+- [ ] Read both files — conventions clear and consistent?
+- [ ] Verify all documented patterns are actually applied in the codebase
 
 ---
 
-### 3.2 Graph Integrity — Circular Link Detection
+### 3.2 Automated Screenshot Pipeline
 
-**What it does:** Phase 1.5 pre-computes a cycle registry via iterative DFS
-(Θ(V+E)). Phase 2 checks each resolved link against the registry in O(1). Links
-in a cycle emit `CIRCULAR_LINK` at severity **`info`** (not error or warning).
+**What changed:** `scripts/generate_docs_assets.py` now generates all 5
+documentation SVGs (was 3). `screenshot-blood.svg` and
+`screenshot-circular.svg` were previously hand-crafted static assets.
 
-**Design decision — why `info`:**
-The project's own documentation has ~34 intentional mutual navigation links
-(Home ↔ Features, CI/CD ↔ Usage, etc.). Making this `warning` or `error` would
-permanently break `--strict` self-check. The `info` level surfaces the topology
-without blocking valid builds.
+**New sandbox fixtures:**
 
-**Files changed:**
-
-- `src/zenzic/core/validator.py` — `_build_link_graph()`, `_find_cycles_iterative()`, Phase 1.5 block
-
-**Tests:** `TestFindCyclesIterative` (6 unit tests) + `TestCircularLinkIntegration` (3 integration tests)
+- `tests/sandboxes/screenshot_blood/` — triggers `PATH_TRAVERSAL_SUSPICIOUS`
+- `tests/sandboxes/screenshot_circular/` — triggers `CIRCULAR_LINK`
 
 **Verification steps for Tech Lead:**
 
-- [ ] Review `_find_cycles_iterative()` — WHITE/GREY/BLACK DFS correctness
-- [ ] Confirm `CIRCULAR_LINK` severity = `"info"` in `cli.py` Finding constructor
-- [ ] Confirm CIRCULAR_LINK never triggers Exit 1 or Exit 2
-- [ ] Read `docs/checks.md` § "Circular links"
-- [ ] Run `zenzic check all --strict` and confirm only info findings, exit 0
+- [ ] Run `uv run python scripts/generate_docs_assets.py` — all 5 SVGs generated?
+- [ ] Visually inspect `docs/assets/screenshots/screenshot-blood.svg` — Blood Sentinel output correct?
+- [ ] Visually inspect `docs/assets/screenshots/screenshot-circular.svg` — Circular link output correct?
+- [ ] Confirm SVGs contain version `0.5.0a5` in the banner
 
 ---
 
-### 3.3 Hex Shield
+### 3.3 Card Grid & Admonition Normalisation
 
-**What it does:** built-in Shield pattern `hex-encoded-payload` detects
-3+ consecutive `\xNN` hex escape sequences. Threshold prevents FP on
-single-escape regex examples.
-
-**Files changed:**
-
-- `src/zenzic/core/shield.py` — one line appended to `_SECRETS`
-
-**Tests:** 4 tests in `TestShield` in `test_references.py`
+**What changed:** Documentation pages refactored to use Material for MkDocs
+card-grid syntax. Ad-hoc callout styles replaced with canonical admonition
+types (`tip`, `warning`, `info`, `example`).
 
 **Verification steps for Tech Lead:**
 
-- [ ] Confirm pattern `(?:\\x[0-9a-fA-F]{2}){3,}` in `shield.py`
-- [ ] Confirm single `\xNN` is NOT flagged (threshold = 3)
-- [ ] Read `docs/usage/advanced.md` § "Detected credential patterns" table
+- [ ] Spot-check 3–5 documentation pages for consistent card grids
+- [ ] Verify no non-Material icons remain (`:fontawesome-*:` or `:octicons-*:`)
+- [ ] Run `mkdocs build --strict` — no rendering warnings?
 
 ---
 
-### 3.4 INTERNAL_GLOSSARY.toml
+### 3.4 Strategic Anchor IDs
 
-**What it does:** canonical EN↔IT term registry. 15 entries. `stable = true`
-entries require an ADR before renaming.
+**What changed:** 102 explicit `{ #anchor-id }` anchors placed across 70
+documentation files for stable deep-linking.
 
 **Verification steps for Tech Lead:**
 
-- [ ] Review all 15 terms — correct EN↔IT mapping?
-- [ ] All core concepts covered? (VSM, RDP, Shield, Blood Sentinel, etc.)
+- [ ] Verify anchors follow kebab-case convention
+- [ ] Spot-check that cross-document `#anchor` links resolve correctly
+
+---
+
+### 3.5 Infrastructure Fixes
+
+**What changed:**
+
+- `CHANGELOG.it.md` added to `[tool.bumpversion.files]` in `pyproject.toml`
+- `docs/assets/pdf_cover.html.j2` removed (orphan legacy artifact)
+- CSS card hover overrides added to `docs/assets/stylesheets/`
+
+**Verification steps for Tech Lead:**
+
+- [ ] Confirm `pdf_cover.html.j2` no longer exists on disk
+- [ ] Confirm `CHANGELOG.it.md` has bumpversion entry in `pyproject.toml`
+- [ ] Verify CSS hover effects render correctly in local `mkdocs serve`
 
 ---
 
 ## 4. Documentation Parity Matrix
 
-| Document | EN | IT | Hex Shield | Blood Sentinel | Circular Links |
-| :--- | :---: | :---: | :---: | :---: | :---: |
-| `docs/checks.md` | ✅ | ✅ | — | ✅ | ✅ |
-| `docs/it/checks.md` | — | ✅ | — | ✅ | ✅ |
-| `docs/usage/advanced.md` | ✅ | ✅ | ✅ | — | — |
-| `docs/it/usage/advanced.md` | — | ✅ | ✅ | — | — |
-| `CHANGELOG.md` | ✅ | — | ✅ | ✅ | ✅ |
-| `CHANGELOG.it.md` | — | ✅ | ✅ | ✅ | ✅ |
-
-**Check for Tech Lead:**
-
-- [ ] Read `docs/checks.md` §§ "Blood Sentinel" and "Circular links" — prose correct?
-- [ ] Read `docs/it/checks.md` §§ "Sentinella di Sangue" and "Link circolari" — translation accurate?
-- [ ] Read `docs/usage/advanced.md` Shield table — `hex-encoded-payload` row present and correct?
-- [ ] Read `docs/it/usage/advanced.md` — Italian row accurate?
+| Document | EN | IT |
+| :--- | :---: | :---: |
+| Style Guide Sentinel | ✅ | ✅ |
+| `docs/checks.md` | ✅ | ✅ |
+| `docs/usage/advanced.md` | ✅ | ✅ |
+| `CHANGELOG.md` / `CHANGELOG.it.md` | ✅ | ✅ |
+| `README.md` / `README.it.md` | ✅ | ✅ |
 
 ---
 
-## 5. Exit Code Contract (complete picture)
-
-| Exit Code | Trigger | Suppressible |
-| :---: | :--- | :---: |
-| 0 | All checks passed | — |
-| 1 | One or more errors (broken links, syntax errors, etc.) | Via `--exit-zero` |
-| 2 | Shield credential detection | **Never** |
-| 3 | Blood Sentinel — system-path traversal (`PATH_TRAVERSAL_SUSPICIOUS`) | **Never** |
-
-Priority order in `check all`: Exit 3 → Exit 2 → Exit 1 → Exit 0.
-
-- [ ] Tech Lead: verify this contract matches implementation in `cli.py`
-
----
-
-## 6. Sandbox Self-Check
+## 5. Sandbox Self-Check
 
 Run these commands manually and verify output:
 
@@ -181,26 +151,23 @@ uv run zenzic check all --strict
 # 3. Static analysis
 uv run ruff check src/
 uv run mypy src/ --ignore-missing-imports
+
+# 4. Documentation build
+uv run mkdocs build --strict
+
+# 5. Version grep audit (should return only historical references)
+grep -rn "0.5.0a4" --include="*.md" --include="*.py" --include="*.toml" --include="*.yml" --include="*.cff"
 ```
-
-Expected:
-
-- pytest: 756 passed, 0 failed
-- check all --strict: exit 0, "✔ All checks passed"
-- ruff: 0 violations
-- mypy: 0 errors (or pre-existing stubs only)
 
 ---
 
-## 7. rc1 Gate Decision
+## 6. rc1 Gate Decision
 
 This section is for the Tech Lead's signature.
 
-- [ ] All verification steps in §§ 3.1–3.4 completed
+- [ ] All verification steps in §§ 3.1–3.5 completed
 - [ ] Documentation parity matrix §4 confirmed correct
-- [ ] Exit code contract §5 verified in code
-- [ ] Sandbox self-check §6 passed manually
-- [ ] `INTERNAL_GLOSSARY.toml` reviewed and approved
+- [ ] Sandbox self-check §5 passed manually
 - [ ] No open blocking issues
 
 **Decision:** ☐ Approve rc1 promotion &nbsp;&nbsp; ☐ Defer — open issues remain
