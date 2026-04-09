@@ -11,6 +11,74 @@ Le versioni seguono il [Semantic Versioning](https://semver.org/).
 
 ## [Non rilasciato]
 
+## [0.5.0a5] — 2026-04-09 — Il Codex Sentinel
+
+> **Rilascio Alpha 5.** Revisione del linguaggio visivo: Guida di Stile Sentinel,
+> refactoring delle griglie a schede, normalizzazione di admonition e icone,
+> 102 anchor ID strategici, effetti hover CSS per le schede, e pipeline di
+> generazione screenshot completamente automatizzata. Rimosso template PDF legacy.
+> Tracking changelog stabilizzato. Test E2E CLI di sicurezza aggiunti; bug
+> `--exit-zero` corretto (exit 2/3 ora incondizionatamente non sopprimibili,
+> conforme al contratto documentato).
+
+### Aggiunto
+
+- **Guida di Stile Sentinel** — riferimento canonico del linguaggio visivo
+  (`docs/internal/style-guide-sentinel.md` + specchio italiano) che definisce
+  griglie a schede, tipi di admonition, vocabolario icone e convenzioni
+  anchor-ID.
+
+- **Generazione screenshot automatizzata — SVG Blood & Circular.**
+  `scripts/generate_docs_assets.py` ora genera tutti e cinque gli screenshot
+  della documentazione. Gli SVG Blood Sentinel e Circular Link erano asset
+  statici realizzati a mano; ora sono generati deterministicamente da fixture
+  sandbox dedicate.
+
+- **Tracking bumpversion CHANGELOG.it.md.** Il changelog italiano aggiunto a
+  `[tool.bumpversion.files]` in `pyproject.toml`, garantendo la sincronizzazione
+  delle intestazioni di versione durante le esecuzioni di `bump-my-version`.
+
+### Corretto
+
+- **`--exit-zero` non sopprime più gli exit di sicurezza in `check all`.**
+  Gli exit code 2 (Shield breach) e 3 (Blood Sentinel) erano protetti da
+  `not effective_exit_zero` in `check all`, in contraddizione con il contratto
+  documentato. Le guardie sono state rimosse — exit 2 e 3 sono ora
+  incondizionali.
+
+### Test
+
+- **`tests/test_cli_e2e.py` — 8 test E2E CLI di sicurezza.**
+  Test full-pipeline (nessun mock) che verificano il contratto exit-code:
+  Blood Sentinel (Exit 3), Shield Breach (Exit 2), `--exit-zero` non
+  sopprime exit di sicurezza, priorità Exit 3 > Exit 2.
+  Chiude gap: `docs/internal/arch_gaps.md` § "Security Pipeline Coverage".
+
+### Modificato
+
+- **Refactoring Griglie a Schede.** Pagine documentazione standardizzate con
+  sintassi griglia Material for MkDocs.
+
+- **Normalizzazione Admonition.** Stili callout ad-hoc sostituiti con tipi
+  canonici (`tip`, `warning`, `info`, `example`).
+
+- **Normalizzazione Icone.** Icone non-Material rimosse; standardizzate al set
+  `:material-*:`.
+
+- **102 Anchor ID Strategici** posizionati in 70 file di documentazione per
+  deep-linking stabile.
+
+- **Override CSS Schede.** Effetti hover e stile schede coerente via
+  `docs/assets/stylesheets/`.
+
+### Rimosso
+
+- **`docs/assets/pdf_cover.html.j2`** — template Jinja2 copertina PDF legacy.
+  Artefatto orfano senza riferimenti nella pipeline di build; rimosso per ridurre
+  la superficie di manutenzione.
+
+---
+
 ## [0.5.0a4] — 2026-04-08 — Il Sentinel Indurito: Sicurezza & Integrità
 
 > **Rilascio Alpha 4.** Quattro vulnerabilità confermate chiuse (ZRT-001–004), tre

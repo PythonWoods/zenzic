@@ -1018,13 +1018,14 @@ def check_all(
         )
 
     # Security incidents (system-path traversal) cause Exit 3 — highest priority.
+    # Exit 3 is NEVER suppressed by --exit-zero (documented contract).
     incidents = sum(1 for f in all_findings if f.severity == "security_incident")
-    if incidents and not effective_exit_zero:
+    if incidents:
         raise typer.Exit(3)
-    # Breach findings cause Exit 2; all other failures cause Exit 1.
+    # Breach findings cause Exit 2; NEVER suppressed by --exit-zero.
     # This check runs after rendering so the report is always printed first.
     breaches = sum(1 for f in all_findings if f.severity == "security_breach")
-    if breaches and not effective_exit_zero:
+    if breaches:
         raise typer.Exit(2)
 
     # In strict mode, warnings are promoted to failures.
