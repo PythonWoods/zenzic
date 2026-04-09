@@ -60,6 +60,15 @@ If `[build_context]` is absent entirely, Zenzic auto-detects:
 - `mkdocs.yml` present → `MkDocsAdapter`
 - neither config present, no locales declared → `VanillaAdapter` (orphan check disabled)
 
+!!! abstract "CLI bridge — Signal-to-noise controls"
+  Engine selection and Sentinel verbosity are independent concerns. Use
+  [CLI Commands: Global flags](../usage/commands.md#global-flags) to tune policy per run:
+
+  1. `--strict` to elevate warnings and enforce external URL validation.
+  2. `--exit-zero` for non-blocking observation runs.
+  3. `--show-info` to inspect informational topology findings.
+  4. `--quiet` for one-line CI/pre-commit output.
+
 ---
 
 ## MkDocs

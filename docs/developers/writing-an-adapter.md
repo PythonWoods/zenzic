@@ -258,3 +258,15 @@ def test_nav_paths_relative() -> None:
     assert "guide/setup.md" in paths
     assert all(not p.startswith("/") for p in paths)
 ```
+
+!!! abstract "Next Steps"
+    Connect adapter code to deployment truth:
+
+    1. Register engine identity in project configuration via `[build_context] engine`
+       (see [Adapters & Engine Configuration](../configuration/adapters-config.md)).
+    2. Validate adapter behavior under strict Sentinel policy:
+       `zenzic check all --engine myengine --strict`.
+       For run controls, see [CLI Commands: Global flags](../usage/commands.md#global-flags).
+    3. If your engine generates synthetic locale routes, explicitly map Ghost Route
+       expectations against the VSM reference:
+       [VSM Engine — Ghost Route](../arch/vsm_engine.md#example-d-ghost-route-reachable-without-a-file).

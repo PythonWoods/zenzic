@@ -102,6 +102,18 @@ zenzic check all --engine myengine
 Le `[[custom_rules]]` dichiarate in `zenzic.toml` si attivano identicamente con qualsiasi adapter
 — incluso il tuo. Non è richiesta alcuna integrazione speciale.
 
+!!! abstract "Passaggi Successivi"
+     Collega il lavoro sull'adapter alla verità operativa del progetto:
+
+     1. Registra l'identità engine in configurazione tramite `[build_context] engine`
+         (vedi [Adapter e Configurazione del Motore](../configuration/adapters-config.md)).
+     2. Valida il comportamento adapter in policy Sentinel strict:
+         `zenzic check all --engine myengine --strict`.
+         Per i controlli di run, vedi [Comandi CLI: Flag globali](../usage/commands.md#flag-globali).
+     3. Se il tuo engine genera route locali sintetiche, mappa esplicitamente le Ghost Route
+         rispetto alla reference VSM:
+         [VSM Engine — Esempio D: Ghost Route](../arch/vsm_engine.md#esempio-d-ghost-route-raggiungibile-senza-file).
+
 ---
 
 Per la documentazione completa del protocollo, gli esempi di test e la checklist di conformità,

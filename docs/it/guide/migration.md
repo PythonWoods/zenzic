@@ -188,6 +188,15 @@ Map in modo che non vengano mai segnalate come orfane.
 
 ## Piano di migrazione
 
+!!! abstract "Ponte CLI — Flag globali"
+  La migrazione engine cambia gli adapter, non la policy Sentinel. Mantieni il comportamento
+  di esecuzione allineato a [Comandi CLI: Flag globali](../usage/commands.md#flag-globali):
+
+  1. `--strict` per validazione hard-gate durante il cutover.
+  2. `--exit-zero` per finestre di osservazione senza interrompere la pipeline.
+  3. `--show-info` per ispezionare segnali del grafo link (esempio `CIRCULAR_LINK`).
+  4. `--quiet` per Silent Builders negli hook CI.
+
 ### Fase 1 — Stabilisci un baseline
 
 Esegui la suite completa di controlli e registra un baseline (punto di riferimento) di

@@ -186,6 +186,15 @@ reported as orphans.
 
 ## Migration playbook
 
+!!! abstract "CLI bridge — Global flags"
+  Engine migration changes adapters, not Sentinel policy. Keep run behavior aligned with
+  [CLI Commands: Global flags](../usage/commands.md#global-flags):
+
+  1. `--strict` for hard-gate validation during cutover.
+  2. `--exit-zero` for observation windows without breaking the pipeline.
+  3. `--show-info` to inspect link-graph signals (for example `CIRCULAR_LINK`).
+  4. `--quiet` for silent builders in CI hooks.
+
 ### Phase 1 — Establish a baseline
 
 Run the full check suite and lock in a quality baseline before changing anything:
