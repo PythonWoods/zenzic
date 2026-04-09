@@ -286,5 +286,17 @@ refuses to start.  Fix the rule before running Zenzic.
 - [ ] Entry-point registered under `zenzic.rules` in `pyproject.toml`.
 - [ ] Plugin ID listed in the project's `zenzic.toml` under `plugins`.
 
+!!! abstract "Next Steps"
+     Bridge your rule from implementation to production Sentinel flow:
+
+     1. Register and enable the plugin ID in `zenzic.toml` under `plugins`
+         (see [Enabling plugins](#enabling-plugins)).
+     2. Validate the rule under strict pipeline semantics:
+         `zenzic check all --strict`.
+         For run-time policy controls, see
+         [CLI Commands: Global flags](../usage/commands.md#global-flags).
+     3. If your rule is nav-aware, map expected Ghost Route behavior against the VSM model:
+         [VSM Engine — Ghost Route](../arch/vsm_engine.md#example-d-ghost-route-reachable-without-a-file).
+
 [ep]: https://packaging.python.org/en/latest/guides/creating-and-discovering-plugins/#using-package-metadata
 [api-baserule]: ../reference/api.md

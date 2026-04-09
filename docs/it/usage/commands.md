@@ -27,10 +27,17 @@ zenzic check all                    # Esegue tutti i controlli
 zenzic check all --strict           # Valida anche gli URL esterni; tratta i warning come errori
 zenzic check all --format json      # Output machine-readable
 zenzic check all --exit-zero        # Segnala problemi ma esce sempre con codice 0
+zenzic check all --quiet            # Output minimale a riga singola per pre-commit e CI
 zenzic check all --engine mkdocs    # Sovrascrive il motore rilevato
+zenzic check links --show-info      # Mostra finding di livello info (es. link circolari)
 ```
 
-### Flag `--strict`
+## Flag globali
+
+Questi flag controllano il profilo signal-to-noise di Zenzic tra scansioni quotidiane,
+gate CI e risposta agli incidenti.
+
+### `--strict`
 
 | Comando | Effetto |
 | :--- | :--- |
@@ -41,13 +48,43 @@ zenzic check all --engine mkdocs    # Sovrascrive il motore rilevato
 
 Puoi anche impostare `strict = true` in `zenzic.toml` per renderlo il default permanente.
 
-### Flag `--exit-zero`
+### `--exit-zero`
 
 Esce sempre con codice `0` anche quando vengono trovati problemi. Tutti i problemi vengono
 comunque stampati e inclusi nel punteggio — solo il codice di uscita viene soppresso. Utile per
 pipeline di sola osservazione.
 
+Gli eventi di sicurezza non vengono mai declassati da questo flag: Exit 2 (violazione Shield)
+ed Exit 3 (incidente Blood Sentinel su path di sistema) mantengono sempre priorità sui fallimenti ordinari.
+
 Puoi anche impostare `exit_zero = true` in `zenzic.toml` per renderlo il default permanente.
+
+### `--show-info`
+
+Per impostazione predefinita, i finding di livello info sono nascosti per mantenere l'output
+quotidiano concentrato sulle violazioni azionabili. Usa `--show-info` quando vuoi piena visibilità
+Sentinel sui segnali non bloccanti, come la topologia dei cicli link (`CIRCULAR_LINK`).
+
+Disponibile su tutti i comandi `zenzic check`.
+
+```bash
+zenzic check links --show-info
+zenzic check all --show-info
+```
+
+### `--quiet`
+
+`--quiet` è disponibile su `zenzic check all` ed è pensato per i Silent Builders
+(pre-commit e hook CI) che richiedono output minimo.
+
+- Sopprime il pannello Sentinel ricco e il report verboso per file.
+- Stampa una sintesi compatta a riga singola per errori/warning.
+- Stampa una riga di sicurezza esplicita per violazioni Shield (Exit 2).
+- Mantiene comunque l'enforcement degli exit code fatali, inclusa la priorità sicurezza (`3 > 2 > 1`).
+
+```bash
+zenzic check all --quiet
+```
 
 ---
 
@@ -130,12 +167,20 @@ zensical. L'errore `Address already in use` non può mai provenire dall'engine.
 | `0` | Tutti i controlli selezionati sono passati (o `--exit-zero` era impostato) |
 | `1` | Uno o più controlli hanno segnalato problemi |
 | **`2`** | **SECURITY CRITICAL — Zenzic Shield ha rilevato una credenziale esposta** |
+| **`3`** | **INCIDENTE DI SICUREZZA — Blood Sentinel: il link punta a una directory di sistema dell'OS** |
 
 !!! danger "Il codice di uscita 2 è riservato agli eventi di sicurezza"
     Il codice 2 viene emesso esclusivamente da `zenzic check references` quando lo Shield
     rileva un pattern di credenziale noto incorporato in un URL di riferimento. Non viene mai
     usato per i fallimenti ordinari dei controlli. Se ricevi il codice di uscita 2, trattalo
     come un incidente di sicurezza bloccante e **ruota immediatamente la credenziale esposta**.
+
+!!! danger "Codice di uscita 3 — Incidente di Sicurezza Blood Sentinel"
+    Il codice 3 viene emesso quando il Blood Sentinel rileva un link che risolve verso una
+    directory di sistema dell'OS (`/etc/`, `/root/`, `/var/`, `/proc/`, `/sys/`, `/usr/`).
+    A differenza del codice 1, questo è un incidente di sicurezza e ha priorità su tutti gli
+    altri codici di uscita. Non viene mai soppresso da `--exit-zero`. Consultare
+    [Controlli: Blood Sentinel](../checks.md#blood-sentinel-system-path-traversal) per i dettagli.
 
 ---
 

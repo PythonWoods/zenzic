@@ -866,3 +866,21 @@
 .md-footer {
   border-top: 1px solid var(--zz-border-subtle);
 }
+
+/* Documentation cards - structural consistency */
+.md-typeset .grid.cards > ul > li {
+  border: 1px solid var(--md-code-fg-color--transparent);
+  border-radius: 0.2rem;
+  padding: 1.2rem;
+  transition: border-color 0.25s, background-color 0.25s;
+}
+
+.md-typeset .grid.cards > ul > li:hover {
+  border-color: var(--md-accent-fg-color);
+  background-color: var(--md-accent-fg-color--transparent);
+}
+
+/* Remove extra margin from lists inside cards */
+.md-typeset .grid.cards ul {
+  margin-bottom: 0;
+}

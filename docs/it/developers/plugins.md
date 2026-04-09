@@ -293,4 +293,16 @@ Zenzic.
 - [ ] Entry-point registrato sotto `zenzic.rules` nel `pyproject.toml`.
 - [ ] Plugin ID elencato nel `zenzic.toml` del progetto sotto `plugins`.
 
+!!! abstract "Passaggi Successivi"
+     Collega la regola dal codice al flusso Sentinel in produzione:
+
+     1. Registra e abilita il plugin ID nel `zenzic.toml` sotto `plugins`
+         (vedi [Abilitare i plugin](#abilitare-i-plugin)).
+     2. Valida la regola in semantica pipeline strict:
+         `zenzic check all --strict`.
+         Per i controlli di run, vedi [Comandi CLI: Flag globali](../usage/commands.md#flag-globali).
+     3. Se la regola è nav-aware, mappa il comportamento atteso delle Ghost Route rispetto
+         al modello VSM:
+         [VSM Engine — Esempio D: Ghost Route](../arch/vsm_engine.md#esempio-d-ghost-route-raggiungibile-senza-file).
+
 [api-baserule]: ../../reference/api.md

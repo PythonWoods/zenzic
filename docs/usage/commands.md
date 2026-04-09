@@ -27,10 +27,17 @@ zenzic check all                    # Run all checks
 zenzic check all --strict           # Also validate external URLs; treat warnings as errors
 zenzic check all --format json      # Machine-readable output
 zenzic check all --exit-zero        # Report issues but always exit 0
+zenzic check all --quiet            # Minimal one-line output for pre-commit and CI hooks
 zenzic check all --engine mkdocs    # Override detected build engine adapter
+zenzic check links --show-info      # Show info-level findings (e.g. circular links)
 ```
 
-### `--strict` flag
+## Global flags
+
+These flags control Zenzic's signal-to-noise profile across routine scans, CI gates,
+and incident response workflows.
+
+### `--strict`
 
 | Command | Effect |
 | :--- | :--- |
@@ -41,12 +48,42 @@ zenzic check all --engine mkdocs    # Override detected build engine adapter
 
 You can also set `strict = true` in `zenzic.toml` to make it the permanent default.
 
-### `--exit-zero` flag
+### `--exit-zero`
 
 Always exits with code `0` even when issues are found. All findings are still printed and
 scored — only the exit code is suppressed. Useful for observation-only pipelines.
 
+Security events are never downgraded by this flag: Exit 2 (Shield credential breach) and
+Exit 3 (Blood Sentinel system-path incident) always keep priority over ordinary failures.
+
 You can also set `exit_zero = true` in `zenzic.toml` to make it the permanent default.
+
+### `--show-info`
+
+By default, info-level findings are hidden to keep everyday output focused on actionable
+violations. Use `--show-info` when you want full Sentinel visibility into non-blocking
+signals such as link-cycle topology (`CIRCULAR_LINK`).
+
+Available on all `zenzic check` commands.
+
+```bash
+zenzic check links --show-info
+zenzic check all --show-info
+```
+
+### `--quiet`
+
+`--quiet` is available on `zenzic check all` and is designed for silent builders
+(pre-commit and CI hooks) that need minimal output.
+
+- Suppresses the rich Sentinel panel and per-file verbose report.
+- Prints a compact one-line summary for error/warning totals.
+- Prints an explicit security one-liner for Shield breaches (Exit 2).
+- Still enforces fatal exit behavior, including security priority (`3 > 2 > 1`).
+
+```bash
+zenzic check all --quiet
+```
 
 ---
 
@@ -128,12 +165,20 @@ subprocess, then passes `--dev-addr 127.0.0.1:{port}` to mkdocs or zensical. The
 | `0` | All selected checks passed (or `--exit-zero` was set) |
 | `1` | One or more checks reported issues |
 | **`2`** | **SECURITY CRITICAL — Zenzic Shield detected a leaked credential** |
+| **`3`** | **SECURITY INCIDENT — Blood Sentinel: link targets an OS system directory** |
 
 !!! danger "Exit code 2 is reserved for security events"
     Exit code 2 is issued exclusively by `zenzic check references` when the Shield detects a
     known credential pattern embedded in a reference URL. It is never used for ordinary check
     failures. If you receive exit code 2, treat it as a build-blocking security incident and
     **rotate the exposed credential immediately**.
+
+!!! danger "Exit code 3 — Blood Sentinel Incident"
+    Exit code 3 is issued when the Blood Sentinel detects a link that resolves to an OS
+    system directory (`/etc/`, `/root/`, `/var/`, `/proc/`, `/sys/`, `/usr/`). Unlike exit
+    code 1, this is a security incident and takes priority over all other exit codes. It is
+    never suppressed by `--exit-zero`. See
+    [Checks: Blood Sentinel](../checks.md#blood-sentinel-system-path-traversal) for details.
 
 ---
 

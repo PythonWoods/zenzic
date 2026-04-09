@@ -77,7 +77,7 @@ applies a defence-in-depth pass to non-definition lines to catch secrets in plai
 | `slack-token` | `xox[baprs]-[0-9a-zA-Z]{10,48}` | Slack bot/user/app tokens |
 | `google-api-key` | `AIza[0-9A-Za-z\-_]{35}` | Google Cloud / Maps API keys |
 | `private-key` | `-----BEGIN [A-Z ]+ PRIVATE KEY-----` | PEM private keys (RSA, EC, etc.) |
-| `hex-encoded-payload` | `(?:\\x[0-9a-fA-F]{2}){3,}` | Hex-encoded byte sequences (3+ consecutive `\xNN` escapes) |
+| `hex-encoded-payload` | `(?:\\x[0-9a-fA-F]{2}){3,}` | Detects obfuscation attempts that hide payloads or credentials via hex escapes. This technique is commonly used to evade naive string linters and is treated as a critical source-transparency violation. |
 
 ### Shield behaviour
 
