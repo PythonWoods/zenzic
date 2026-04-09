@@ -128,12 +128,20 @@ subprocess, then passes `--dev-addr 127.0.0.1:{port}` to mkdocs or zensical. The
 | `0` | All selected checks passed (or `--exit-zero` was set) |
 | `1` | One or more checks reported issues |
 | **`2`** | **SECURITY CRITICAL — Zenzic Shield detected a leaked credential** |
+| **`3`** | **SECURITY INCIDENT — Blood Sentinel: link targets an OS system directory** |
 
 !!! danger "Exit code 2 is reserved for security events"
     Exit code 2 is issued exclusively by `zenzic check references` when the Shield detects a
     known credential pattern embedded in a reference URL. It is never used for ordinary check
     failures. If you receive exit code 2, treat it as a build-blocking security incident and
     **rotate the exposed credential immediately**.
+
+!!! danger "Exit code 3 — Blood Sentinel Incident"
+    Exit code 3 is issued when the Blood Sentinel detects a link that resolves to an OS
+    system directory (`/etc/`, `/root/`, `/var/`, `/proc/`, `/sys/`, `/usr/`). Unlike exit
+    code 1, this is a security incident and takes priority over all other exit codes. It is
+    never suppressed by `--exit-zero`. See
+    [Checks: Blood Sentinel](../checks.md#blood-sentinel-system-path-traversal) for details.
 
 ---
 

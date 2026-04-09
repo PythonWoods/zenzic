@@ -174,6 +174,9 @@ suppressed by `--exit-zero`.
 
 ![Zenzic Sentinel — Blood Report: PATH_TRAVERSAL_SUSPICIOUS finding in blood red](assets/screenshots/screenshot-blood.svg)
 
+See also: [Exit codes reference](usage/commands.md#exit-codes) for a summary of how exit
+code 3 compares to other Zenzic exit codes.
+
 ### Circular links
 
 Zenzic detects link cycles using an iterative depth-first search over the link adjacency

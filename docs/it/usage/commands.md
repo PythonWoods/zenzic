@@ -130,12 +130,20 @@ zensical. L'errore `Address already in use` non può mai provenire dall'engine.
 | `0` | Tutti i controlli selezionati sono passati (o `--exit-zero` era impostato) |
 | `1` | Uno o più controlli hanno segnalato problemi |
 | **`2`** | **SECURITY CRITICAL — Zenzic Shield ha rilevato una credenziale esposta** |
+| **`3`** | **INCIDENTE DI SICUREZZA — Blood Sentinel: il link punta a una directory di sistema dell'OS** |
 
 !!! danger "Il codice di uscita 2 è riservato agli eventi di sicurezza"
     Il codice 2 viene emesso esclusivamente da `zenzic check references` quando lo Shield
     rileva un pattern di credenziale noto incorporato in un URL di riferimento. Non viene mai
     usato per i fallimenti ordinari dei controlli. Se ricevi il codice di uscita 2, trattalo
     come un incidente di sicurezza bloccante e **ruota immediatamente la credenziale esposta**.
+
+!!! danger "Codice di uscita 3 — Incidente di Sicurezza Blood Sentinel"
+    Il codice 3 viene emesso quando il Blood Sentinel rileva un link che risolve verso una
+    directory di sistema dell'OS (`/etc/`, `/root/`, `/var/`, `/proc/`, `/sys/`, `/usr/`).
+    A differenza del codice 1, questo è un incidente di sicurezza e ha priorità su tutti gli
+    altri codici di uscita. Non viene mai soppresso da `--exit-zero`. Consultare
+    [Controlli: Blood Sentinel](../checks.md#blood-sentinel-system-path-traversal) per i dettagli.
 
 ---
 
