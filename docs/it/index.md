@@ -37,17 +37,15 @@ Intercetta link non validi, pagine orfane e credenziali esposte — prima dei tu
 
 - :lucide-link-2-off: &nbsp; __Link non validi__
 
-    ---
-
     Rileva link interni morti, ancore mancanti e URL esterni irraggiungibili — a livello sorgente, prima della build.
 
     ```bash
     zenzic check links
     ```
 
-- :lucide-file: &nbsp; __Pagine orfane__
+    [:octicons-arrow-right-24: Dettagli](checks.md#links)
 
-    ---
+- :lucide-file: &nbsp; __Pagine orfane__
 
     Trova file `.md` presenti su disco ma assenti dalla navigazione del sito. Invisibili ai lettori.
 
@@ -55,9 +53,9 @@ Intercetta link non validi, pagine orfane e credenziali esposte — prima dei tu
     zenzic check orphans
     ```
 
-- :lucide-code: &nbsp; __Snippet non validi__
+    [:octicons-arrow-right-24: Dettagli](checks.md#orphans)
 
-    ---
+- :lucide-code: &nbsp; __Snippet non validi__
 
     Compila ogni blocco Python con `compile()`. Intercetta gli errori di sintassi prima che i lettori copino codice non funzionante.
 
@@ -65,9 +63,9 @@ Intercetta link non validi, pagine orfane e credenziali esposte — prima dei tu
     zenzic check snippets
     ```
 
-- :lucide-pencil: &nbsp; __Stub placeholder__
+    [:octicons-arrow-right-24: Dettagli](checks.md#snippets)
 
-    ---
+- :lucide-pencil: &nbsp; __Stub placeholder__
 
     Segnala pagine sotto la soglia di parole o con pattern come `TODO`, `WIP`, `coming soon`.
 
@@ -75,9 +73,9 @@ Intercetta link non validi, pagine orfane e credenziali esposte — prima dei tu
     zenzic check placeholders
     ```
 
-- :lucide-image: &nbsp; __Asset non utilizzati__
+    [:octicons-arrow-right-24: Dettagli](checks.md#placeholders)
 
-    ---
+- :lucide-image: &nbsp; __Asset non utilizzati__
 
     Segnala immagini e file presenti in `docs/` ma mai referenziati da nessuna pagina.
 
@@ -85,15 +83,17 @@ Intercetta link non validi, pagine orfane e credenziali esposte — prima dei tu
     zenzic check assets
     ```
 
-- :lucide-shield-check: &nbsp; __Zenzic Shield__
+    [:octicons-arrow-right-24: Dettagli](checks.md#assets)
 
-    ---
+- :lucide-shield-check: &nbsp; __Zenzic Shield__
 
     Scansiona ogni URL di riferimento alla ricerca di credenziali esposte — API key, token, chiavi AWS. Esce con codice `2` immediatamente.
 
     ```bash
     zenzic check references
     ```
+
+    [:octicons-arrow-right-24: Dettagli](checks.md#references)
 
 </div>
 

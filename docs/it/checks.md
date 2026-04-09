@@ -5,7 +5,7 @@ icon: lucide/shield-check
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Riferimento Controlli
+# Riferimento Controlli {#checks-reference}
 
 Zenzic esegue sei controlli indipendenti. Ognuno affronta una categoria distinta di degrado della documentazione — la lenta deteriorazione che avviene quando un progetto cresce e la manutenzione della documentazione rimane indietro rispetto allo sviluppo.
 
@@ -15,43 +15,43 @@ Zenzic esegue sei controlli indipendenti. Ognuno affronta una categoria distinta
 
     Link interni non validi, ancore mancanti e URL esterni irraggiungibili.
 
-    [`zenzic check links`](#link)
+    [`zenzic check links`](#links)
 
 - :lucide-file: &nbsp; __Orfani__
 
     File `.md` presenti su disco ma assenti dalla navigazione del sito.
 
-    [`zenzic check orphans`](#orfani)
+    [`zenzic check orphans`](#orphans)
 
 - :lucide-code: &nbsp; __Snippet__
 
     Blocchi Python che non compilano — intercettati prima che i lettori li copino.
 
-    [`zenzic check snippets`](#snippet)
+    [`zenzic check snippets`](#snippets)
 
 - :lucide-pencil: &nbsp; __Placeholder__
 
     Pagine stub sotto la soglia di parole o con pattern vietati (es. `TODO`, `WIP`).
 
-    [`zenzic check placeholders`](#placeholder)
+    [`zenzic check placeholders`](#placeholders)
 
 - :lucide-image: &nbsp; __Asset__
 
     File media presenti su disco ma mai referenziati. __Supporta l'autofix.__
 
-    [`check assets`](#asset) &nbsp;&bull;&nbsp; [`clean assets`](usage/commands.md#autofix-cleanup)
+    [`zenzic check assets`](#assets)
 
 - :lucide-shield-check: &nbsp; __Riferimenti__
 
     Riferimenti pendenti, definizioni morte e credenziali trapelate (exit code 2).
 
-    [`zenzic check references`](#riferimenti)
+    [`zenzic check references`](#references)
 
 </div>
 
 ---
 
-## Link
+## Link {#links}
 
 __CLI:__ `zenzic check links [--strict]`
 
@@ -137,7 +137,7 @@ __Perché i link ad orfani contano:__ un link a una pagina orfana _funziona_ a l
       ⚠ 1 warning    • 1 file with findings
     ```
 
-### Sentinella di Sangue — attraversamento percorsi di sistema
+### Sentinella di Sangue — attraversamento percorsi di sistema {#blood-sentinel-system-path-traversal}
 
 Quando un attraversamento esce dal confine `docs/` __e__ l'href grezzo punta a una
 directory di sistema del sistema operativo (`/etc/`, `/root/`, `/var/`, `/proc/`,
@@ -235,7 +235,7 @@ loro processo di revisione.
 
 ---
 
-## Orfani
+## Orfani {#orphans}
 
 __CLI:__ `zenzic check orphans`
 
@@ -262,7 +262,7 @@ __Cosa rileva:__
 
 ---
 
-## Snippet
+## Snippet {#snippets}
 
 __CLI:__ `zenzic check snippets`
 
@@ -283,7 +283,7 @@ I blocchi con qualsiasi altro tag (`` bash ``, `` javascript ``, `` mermaid ``, 
 
 __Comportamento CLI:__ percorre `docs_dir`, legge ogni file `.md` e chiama `check_snippet_content(text, file_path, config)` sul contenuto grezzo.
 
-__Estrazione dei blocchi:__ Zenzic usa una macchina a stati deterministica riga per riga invece di una regex per estrarre i blocchi di codice. Questo previene falsi positivi dagli inline code span (es., `` ` ```python ` `` nel testo) ed è robusto rispetto ai documenti `pymdownx.superfences` con fence Mermaid o altri fence personalizzati intercalati. Vedi [Architettura — Parsing a macchina a stati](architecture.md#parsing-a-macchina-a-stati-e-falsi-positivi-da-superfences) per i dettagli.
+__Estrazione dei blocchi:__ Zenzic usa una macchina a stati deterministica riga per riga invece di una regex per estrarre i blocchi di codice. Questo previene falsi positivi dagli inline code span (es., `` ` ```python ` `` nel testo) ed è robusto rispetto ai documenti `pymdownx.superfences` con fence Mermaid o altri fence personalizzati intercalati. Vedi [Architettura — Parsing a macchina a stati](architecture.md#state-machine-parsing-and-superfences-false-positives) per i dettagli.
 
 __Cosa rileva:__
 
@@ -314,7 +314,7 @@ __Tuning:__ usa `snippet_min_lines` in `zenzic.toml` per saltare i blocchi brevi
 
 ---
 
-## Placeholder
+## Placeholder {#placeholders}
 
 __CLI:__ `zenzic check placeholders`
 
@@ -370,14 +370,14 @@ placeholder_patterns = []
 
 ---
 
-## Asset
+## Asset {#assets}
 
 __CLI:__
 
 - `zenzic check assets` — Controlla la presenza di file non utilizzati.
 - `zenzic clean assets` — Rimuove in modo sicuro gli asset non utilizzati.
 
-!!! tip "Autofix disponibile"
+!!! note "Autofix disponibile"
     Usa `zenzic clean assets` per eliminare automaticamente gli asset non utilizzati trovati da questo controllo. Ti verrà chiesto di confermare l'eliminazione (`[y/N]`), oppure puoi passare `-y` per saltare il prompt. Usa `--dry-run` per visualizzare i file che verrebbero eliminati senza cancellarli realmente. Zenzic non eliminerà mai i file che corrispondono ai pattern `excluded_assets`, `excluded_dirs` o `excluded_build_artifacts`.
 
 Gli asset non utilizzati sono file che esistono nella directory sorgente della documentazione ma non sono mai referenziati da nessuna pagina. Tipicamente sono residui dopo che una pagina viene rinominata o un'immagine viene sostituita. Non causano errori visibili, ma si accumulano nel tempo e appesantiscono il sito compilato.
@@ -412,7 +412,7 @@ __Cosa rileva:__
 
 ---
 
-## Riferimenti
+## Riferimenti {#references}
 
 __CLI:__ `zenzic check references`
 

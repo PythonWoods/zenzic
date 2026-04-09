@@ -5,7 +5,7 @@ icon: lucide/shield-check
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Checks Reference
+# Checks Reference {#checks-reference}
 
 Zenzic runs six independent checks. Each addresses a distinct category of documentation rot — the slow degradation that happens when a project grows and documentation maintenance falls behind development.
 
@@ -39,7 +39,7 @@ Zenzic runs six independent checks. Each addresses a distinct category of docume
 
     Media files that exist on disk but are never referenced. __Supports autofix.__
 
-    [`check assets`](#assets) &nbsp;&bull;&nbsp; [`clean assets`](usage/commands.md#autofix-cleanup)
+    [`zenzic check assets`](#assets)
 
 - :lucide-shield-check: &nbsp; __References__
 
@@ -51,7 +51,7 @@ Zenzic runs six independent checks. Each addresses a distinct category of docume
 
 ---
 
-## Links
+## Links {#links}
 
 __CLI:__ `zenzic check links [--strict]`
 
@@ -135,7 +135,7 @@ __Why orphan links matter:__ a link to an orphan page _works_ at the filesystem 
       ⚠ 1 warning    • 1 file with findings
     ```
 
-### Blood Sentinel — system-path traversal
+### Blood Sentinel — system-path traversal {#blood-sentinel-system-path-traversal}
 
 When a traversal exits the `docs/` boundary __and__ the raw href targets an OS system
 directory (`/etc/`, `/root/`, `/var/`, `/proc/`, `/sys/`, `/usr/`), Zenzic classifies it
@@ -217,7 +217,7 @@ For the design decision behind this severity choice, see
 
 ---
 
-## Orphans
+## Orphans {#orphans}
 
 __CLI:__ `zenzic check orphans`
 
@@ -244,7 +244,7 @@ __What it catches:__
 
 ---
 
-## Snippets
+## Snippets {#snippets}
 
 __CLI:__ `zenzic check snippets`
 
@@ -296,7 +296,7 @@ __Tuning:__ use `snippet_min_lines` in `zenzic.toml` to skip short blocks. The d
 
 ---
 
-## Placeholders
+## Placeholders {#placeholders}
 
 __CLI:__ `zenzic check placeholders`
 
@@ -352,14 +352,14 @@ placeholder_patterns = []
 
 ---
 
-## Assets
+## Assets {#assets}
 
 __CLI:__
 
 - `zenzic check assets` — Check for the presence of unused asset files.
 - `zenzic clean assets` — Safely remove unused assets.
 
-!!! tip "Autofix available"
+!!! note "Autofix available"
     Use `zenzic clean assets` to automatically delete any unused assets found by this check. You will be prompted to confirm the deletion (`[y/N]`), or you can pass `-y` to skip the prompt. Use `--dry-run` to preview the files that would be deleted without actually deleting them. Zenzic will never delete files that match your `excluded_assets`, `excluded_dirs`, or `excluded_build_artifacts` patterns.
 
 Unused assets are files that exist in the documentation source directory but are never referenced by any page. They are typically left over after a page is renamed, an image is replaced, or a section is restructured. They do not cause visible errors, but they accumulate over time and bloat the built site.
@@ -394,7 +394,7 @@ __What it catches:__
 
 ---
 
-## References
+## References {#references}
 
 __CLI:__ `zenzic check references`
 

@@ -2,7 +2,7 @@
 icon: lucide/lightbulb
 ---
 
-# Il Manifesto di Zenzic
+# Il Manifesto di Zenzic {#philosophy}
 
 ## La Certezza Matematica della Qualità
 

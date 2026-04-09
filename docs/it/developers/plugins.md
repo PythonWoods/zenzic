@@ -5,7 +5,7 @@ icon: lucide/puzzle
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Scrivere Regole Plugin
+# Scrivere Regole Plugin {#writing-plugin-rules}
 
 Zenzic supporta regole di linting esterne scritte in Python. Una regola plugin è
 una sottoclasse di `BaseRule` distribuita come un normale pacchetto Python e
@@ -69,7 +69,7 @@ class NoDraftRule(BaseRule):
   nessuna dipendenza da stato globale mutabile.
 - **Non** mutare i propri argomenti (`file_path`, `text`, `vsm`, `anchors_cache`).
 
-!!! danger "Lo stato globale mutabile è proibito"
+!!! warning "Evitare lo stato globale mutabile"
     Una regola che scrive su un contatore globale sembrerà funzionare in
     modalità sequenziale, ma produrrà risultati **non deterministici e
     silenziosamente errati** in modalità parallela.  I processi worker
@@ -127,7 +127,7 @@ no-internal-hostname = "my_org_rules.rules:NoInternalHostnameRule"
 ```
 
 Il nome dell'entry-point (`no-internal-hostname`) è il **plugin ID** che gli
-utenti referenziano in `zenzic.toml` (vedi [Abilitare i plugin](#abilitare-i-plugin)
+utenti referenziano in `zenzic.toml` (vedi [Abilitare i plugin](#enabling-plugins)
 qui sotto).
 
 Installa il tuo pacchetto insieme a Zenzic:
@@ -188,7 +188,7 @@ zenzic check all
 
 ---
 
-## Abilitare i plugin
+## Abilitare i plugin {#enabling-plugins}
 
 Le regole core (registrate sotto `zenzic.rules` da Zenzic stesso) sono sempre
 attive. Le regole plugin esterne devono essere esplicitamente abilitate in
@@ -297,12 +297,12 @@ Zenzic.
      Collega la regola dal codice al flusso Sentinel in produzione:
 
      1. Registra e abilita il plugin ID nel `zenzic.toml` sotto `plugins`
-         (vedi [Abilitare i plugin](#abilitare-i-plugin)).
+         (vedi [Abilitare i plugin](#enabling-plugins)).
      2. Valida la regola in semantica pipeline strict:
          `zenzic check all --strict`.
-         Per i controlli di run, vedi [Comandi CLI: Flag globali](../usage/commands.md#flag-globali).
+         Per i controlli di run, vedi [Comandi CLI: Flag globali](../usage/commands.md#global-flags).
      3. Se la regola è nav-aware, mappa il comportamento atteso delle Ghost Route rispetto
          al modello VSM:
-         [VSM Engine — Esempio D: Ghost Route](../arch/vsm_engine.md#esempio-d-ghost-route-raggiungibile-senza-file).
+         [VSM Engine — Esempio D: Ghost Route](../arch/vsm_engine.md#example-d-ghost-route-reachable-without-a-file).
 
 [api-baserule]: ../../reference/api.md

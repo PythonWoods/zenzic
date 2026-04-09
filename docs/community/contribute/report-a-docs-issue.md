@@ -7,7 +7,7 @@ tags:
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Documentation issues
+# Documentation issues {#documentation-issues}
 
 Our documentation includes extensive information on features, configurations,
 and much more. If you have found an inconsistency or see room for improvement,

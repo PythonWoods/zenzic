@@ -5,7 +5,7 @@ icon: lucide/arrow-right-left
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Migrazione a Zensical
+# Migrazione a Zensical {#migrating-to-zensical}
 
 !!! note "Zenzic vs Zensical"
     **Zenzic** è il linter di documentazione descritto in questo sito — lo strumento
@@ -190,7 +190,7 @@ Map in modo che non vengano mai segnalate come orfane.
 
 !!! abstract "Ponte CLI — Flag globali"
   La migrazione engine cambia gli adapter, non la policy Sentinel. Mantieni il comportamento
-  di esecuzione allineato a [Comandi CLI: Flag globali](../usage/commands.md#flag-globali):
+  di esecuzione allineato a [Comandi CLI: Flag globali](../usage/commands.md#global-flags):
 
   1. `--strict` per validazione hard-gate durante il cutover.
   2. `--exit-zero` per finestre di osservazione senza interrompere la pipeline.

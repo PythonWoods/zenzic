@@ -5,7 +5,7 @@ icon: lucide/plug
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Scrivere un Adapter
+# Scrivere un Adapter {#writing-a-zenzic-adapter}
 
 Questa pagina descrive come scrivere un adapter Zenzic per un motore di documentazione di
 terze parti. Per la guida completa in inglese, consulta
@@ -109,10 +109,10 @@ Le `[[custom_rules]]` dichiarate in `zenzic.toml` si attivano identicamente con 
          (vedi [Adapter e Configurazione del Motore](../configuration/adapters-config.md)).
      2. Valida il comportamento adapter in policy Sentinel strict:
          `zenzic check all --engine myengine --strict`.
-         Per i controlli di run, vedi [Comandi CLI: Flag globali](../usage/commands.md#flag-globali).
+         Per i controlli di run, vedi [Comandi CLI: Flag globali](../usage/commands.md#global-flags).
      3. Se il tuo engine genera route locali sintetiche, mappa esplicitamente le Ghost Route
         rispetto al riferimento VSM:
-         [VSM Engine — Esempio D: Ghost Route](../arch/vsm_engine.md#esempio-d-ghost-route-raggiungibile-senza-file).
+         [VSM Engine — Esempio D: Ghost Route](../arch/vsm_engine.md#example-d-ghost-route-reachable-without-a-file).
 
 ---
 

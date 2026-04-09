@@ -115,6 +115,7 @@ plugins:
             VSM Engine: Motore VSM
             Architecture Decisions: Decisioni Architetturali
             ADR 003 — Root Discovery Protocol: ADR 003 — Protocollo di Scoperta della Radice
+            Sentinel Style Guide: Guida di Stile Sentinel
             Arch Gaps & Tech Debt: Gap Architetturali e Debito Tecnico
             Contributor Guide: Guida al Contributo
             Writing Plugin Rules: Scrivere Regole Plugin
@@ -198,6 +199,7 @@ nav:
           - Writing Plugin Rules: developers/plugins.md
           - Example Projects: developers/examples.md
           - Internals:
+              - Sentinel Style Guide: internal/sentinel-style-guide.md
               - Arch Gaps & Tech Debt: internal/arch_gaps.md
               - Pipeline Architecture: internal/architecture.md
               - VSM Engine: arch/vsm_engine.md

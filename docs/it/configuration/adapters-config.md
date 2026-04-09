@@ -5,7 +5,7 @@ icon: lucide/plug
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Adapter e Motore
+# Adapter e Motore {#adapters-engine-configuration}
 
 Zenzic usa un **adapter** per ottenere conoscenza specifica del motore — struttura della nav,
 directory i18n e pattern locale — senza importare o eseguire alcun framework di build. Gli adapter

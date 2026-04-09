@@ -7,7 +7,7 @@ tags:
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Change requests
+# Change requests {#change-requests}
 
 Zenzic is a powerful documentation linting tool. We aim to support a wide range
 of use cases, and change requests are an essential mechanism for ensuring that

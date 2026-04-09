@@ -7,7 +7,7 @@ tags:
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Segnalazioni di Bug
+# Segnalazioni di Bug {#bug-reports}
 
 Zenzic è un progetto attivamente mantenuto che cerchiamo costantemente di migliorare.
 Con un progetto di questa dimensione e complessità, possono verificarsi dei bug. Se pensi
@@ -75,9 +75,9 @@ Un buon titolo è breve e descrittivo — un riassunto esecutivo in una frase de
 
 | <!-- --> | Esempio |
 | -------- | ------- |
-| :material-check:{ style="color: #4DB6AC" } __Chiaro__ | `validate_same_page_anchors` genera falso positivo su heading auto-generati |
-| :material-close:{ style="color: #EF5350" } __Vago__ | La validazione degli anchor non funziona |
-| :material-close:{ style="color: #EF5350" } __Inutile__ | Aiuto |
+| :lucide-check:{ style="color: #4DB6AC" } __Chiaro__ | `validate_same_page_anchors` genera falso positivo su heading auto-generati |
+| :lucide-x:{ style="color: #EF5350" } __Vago__ | La validazione degli anchor non funziona |
+| :lucide-x:{ style="color: #EF5350" } __Inutile__ | Aiuto |
 
 ### Contesto <small>opzionale</small> { #contesto }
 

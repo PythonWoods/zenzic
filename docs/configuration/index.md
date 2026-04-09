@@ -5,7 +5,7 @@ icon: lucide/settings
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Configuration Reference
+# Configuration Reference {#configuration-reference}
 
 Zenzic reads a single `zenzic.toml` file at the repository root. All fields are optional — Zenzic works out of the box with no configuration file at all.
 

@@ -5,7 +5,7 @@ icon: lucide/folder-open
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Progetti di Esempio
+# Progetti di Esempio {#example-projects}
 
 La directory `examples/` alla root del repository contiene cinque progetti
 auto-contenuti. Ognuno è un fixture eseguibile: naviga nella directory e lancia

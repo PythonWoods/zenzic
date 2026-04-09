@@ -5,7 +5,7 @@ icon: lucide/library
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# API Reference
+# API Reference {#api-reference}
 
 Auto-generated reference documentation for all public modules in `zenzic`. This section is English-only, as the source docstrings are written in English.
 

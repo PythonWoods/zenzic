@@ -2,7 +2,7 @@
 icon: lucide/plug
 ---
 
-# Writing a Zenzic Adapter
+# Writing a Zenzic Adapter {#writing-a-zenzic-adapter}
 
 This guide explains how to create a third-party adapter that teaches Zenzic to
 understand your documentation engine's project layout, navigation structure, and

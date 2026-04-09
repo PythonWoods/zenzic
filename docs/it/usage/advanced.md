@@ -5,14 +5,14 @@ icon: lucide/shield-check
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Funzionalità avanzate
+# Funzionalità avanzate {#advanced-features}
 
 Riferimento approfondito sulla Three-Pass Pipeline, Zenzic Shield, controlli di accessibilità
 e utilizzo programmatico da Python.
 
 ---
 
-## Integrità dei riferimenti (v0.2.0) { #reference-integrity-v020 }
+## Integrità dei riferimenti (v0.2.0) {#reference-integrity-v020}
 
 `zenzic check references` esegue la **Three-Pass Reference Pipeline** — il motore alla base di
 ogni controllo di qualità e sicurezza sui riferimenti.
@@ -81,7 +81,7 @@ per intercettare segreti nella prosa normale.
 | `private-key` | `-----BEGIN [A-Z ]+ PRIVATE KEY-----` | Chiavi private PEM (RSA, EC, ecc.) |
 | `hex-encoded-payload` | `(?:\\x[0-9a-fA-F]{2}){3,}` | Rileva tentativi di offuscamento di payload o credenziali tramite escape esadecimali. Questa tecnica è comunemente usata per evadere i linter di stringhe semplici e Zenzic la considera una violazione critica della trasparenza del sorgente. |
 
-### Comportamento dello Shield { #shield-behaviour }
+### Comportamento dello Shield {#shield-behaviour}
 
 - **Ogni riga viene scansionata** — incluse le righe dentro i blocchi di codice delimitati (con o
   senza etichetta). Una credenziale committata in un esempio `bash` è comunque una credenziale
@@ -101,7 +101,7 @@ per intercettare segreti nella prosa normale.
     esposta, poi rimuovi o sostituisci l'URL di riferimento incriminato. Non committare il
     segreto nella history.
 
-!!! tip "Scopri lo Shield in azione"
+!!! note "Scopri lo Shield in azione"
     Il repository include `examples/safety_demonstration.md` — una fixture di test intenzionale
     contenente un link circolare e un payload hex-encoded. Esegui `zenzic check all` contro di esso
     per osservare una violazione Shield live e un finding `CIRCULAR_LINK` di tipo info.
@@ -344,11 +344,11 @@ di build è indefinito. Zenzic lo rileva prima che la build venga eseguita.
 | **Zensical** | Sì | File o directory che inizia con `_` (`IGNORED`) |
 | **Vanilla** (nessuna config engine) | No | Nessun concetto di routing |
 
-!!! tip "Correggere un UNREACHABLE_LINK"
+!!! note "Correggere un UNREACHABLE_LINK"
     Aggiungi la pagina di destinazione a `nav:` in `mkdocs.yml`, oppure sostituisci il link
     con uno che punta a una pagina raggiungibile.
 
-### Pagine private (motore Zensical)
+### Pagine private (motore Zensical) {#private-pages-zensical}
 
 I file e le directory il cui nome inizia con un underscore (`_`) sono trattati come **privati**
 da Zenzic quando il motore Zensical è attivo. I link a queste risorse vengono segnalati come

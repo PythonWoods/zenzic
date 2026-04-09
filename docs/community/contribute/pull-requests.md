@@ -5,7 +5,7 @@ icon: lucide/git-pull-request-create
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Pull requests
+# Pull requests {#pull-requests}
 
 The process and requirements we describe below serve as important guardrails
 that are essential to running an Open Source project and help us prevent wasted
@@ -82,7 +82,7 @@ zenzic check references     # includes custom [[custom_rules]] evaluation
 pytest                      # full test suite (Hypothesis dev profile — 50 examples)
 ```
 
-!!! tip "Thorough property-based testing"
+!!! note "Thorough property-based testing"
 
     To run the test suite with the **ci** Hypothesis profile (500 examples),
     use `just test-full` or set the environment variable directly:

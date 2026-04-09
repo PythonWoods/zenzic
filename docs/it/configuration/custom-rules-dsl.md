@@ -5,7 +5,7 @@ icon: lucide/regex
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# DSL Regole Custom
+# DSL Regole Custom {#custom-rules-dsl}
 
 `[[custom_rules]]` permette di dichiarare regole lint specifiche del progetto direttamente in
 `zenzic.toml`. Ogni regola applica un'espressione regolare riga per riga a ogni file `.md`. Nessun

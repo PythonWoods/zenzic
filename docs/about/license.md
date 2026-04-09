@@ -2,7 +2,7 @@
 icon: lucide/scale
 ---
 
-# License
+# License {#license}
 
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->

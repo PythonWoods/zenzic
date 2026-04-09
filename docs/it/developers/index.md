@@ -5,7 +5,7 @@ icon: lucide/code
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Guida per Sviluppatori
+# Guida per Sviluppatori {#developer-guide}
 
 Benvenuti nella comunità tecnica di Zenzic. Costruiamo strumenti che colmano il
 divario tra la documentazione umana e la verità eseguibile. Il nostro codice segue

@@ -7,7 +7,7 @@ hide:
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Documentation
+# Documentation {#documentation}
 
 Zenzic is a **CI-first documentation linter** for any Markdown-based project. It analyses raw source files — never the generated HTML — and catches documentation rot before it reaches your users.
 
@@ -41,21 +41,21 @@ Beyond reporting, Zenzic provides **autofix utilities** (like `zenzic clean asse
 
 - :lucide-play: &nbsp; **User Guide**
 
-    Installation, all CLI commands, quality scoring, CI/CD integration, and badges.
+    Everything you need to install, configure, and integrate Zenzic into your CI/CD workflow.
 
-    [:octicons-arrow-right-24: Getting Started](../usage/index.md) · [Checks](../checks.md) · [Configuration](../configuration/index.md) · [Engines](engines.md) · [CI/CD](../ci-cd.md) · [Badges](../usage/badges.md) · [FAQs](../community/faqs.md)
+    [:octicons-arrow-right-24: Explore the Guide](../usage/index.md)
 
 - :lucide-book: &nbsp; **Developer Guide**
 
-    Architecture internals and auto-generated API documentation.
+    Architecture internals, pipeline design, and auto-generated API documentation.
 
-    [:octicons-arrow-right-24: Architecture](../architecture.md) · [API Reference](../reference/api.md)
+    [:octicons-arrow-right-24: Architecture & API](../architecture.md)
 
 - :lucide-users: &nbsp; **Community**
 
     Report issues, request features, improve the docs, or open a pull request.
 
-    [:octicons-arrow-right-24: Get Involved](../community/index.md) · [How to Contribute](../community/contribute/index.md)
+    [:octicons-arrow-right-24: Get Involved](../community/index.md)
 
 </div>
 

@@ -5,7 +5,7 @@ icon: lucide/sliders-horizontal
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Impostazioni di Base
+# Impostazioni di Base {#core-settings}
 
 Tutti i campi di primo livello in `zenzic.toml` che controllano percorsi, soglie e punteggio.
 

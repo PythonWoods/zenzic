@@ -5,7 +5,7 @@ icon: lucide/sliders-horizontal
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Core Settings
+# Core Settings {#core-settings}
 
 All top-level fields in `zenzic.toml` that control paths, thresholds, and scoring.
 

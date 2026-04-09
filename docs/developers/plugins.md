@@ -5,7 +5,7 @@ icon: lucide/puzzle
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Writing Plugin Rules
+# Writing Plugin Rules {#writing-plugin-rules}
 
 Zenzic supports external lint rules written in Python.  A plugin rule is a
 subclass of `BaseRule` distributed as a normal Python package and discovered at
@@ -66,7 +66,7 @@ class NoDraftRule(BaseRule):
   dependency on mutable global state.
 - **Not** mutate their arguments (`file_path`, `text`, `vsm`, `anchors_cache`).
 
-!!! danger "Global mutable state is prohibited"
+!!! warning "Avoid global mutable state"
     A rule that writes to a global counter will appear to work in sequential
     mode but will produce **non-deterministic, silently wrong** results in
     parallel mode.  Worker processes each receive an independent pickle copy
@@ -182,7 +182,7 @@ zenzic check all
 
 ---
 
-## Enabling plugins
+## Enabling plugins {#enabling-plugins}
 
 Core rules (registered under `zenzic.rules` by Zenzic itself) are always
 active.  External plugin rules must be explicitly enabled in `zenzic.toml`

@@ -5,7 +5,7 @@ icon: lucide/play
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Per iniziare
+# Per iniziare {#getting-started}
 
 Zenzic legge direttamente dal filesystem e funziona con qualsiasi progetto basato su Markdown.
 Usalo in locale, come hook di pre-commit, nelle pipeline CI o per audit una-tantum.

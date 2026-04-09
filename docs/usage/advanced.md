@@ -5,14 +5,14 @@ icon: lucide/shield-check
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Advanced Features
+# Advanced Features {#advanced-features}
 
 Deep reference for the Three-Pass Pipeline, Zenzic Shield, accessibility checks, and
 programmatic usage from Python.
 
 ---
 
-## Reference integrity (v0.2.0)
+## Reference integrity (v0.2.0) {#reference-integrity-v020}
 
 `zenzic check references` runs the **Three-Pass Reference Pipeline** — the core engine behind
 every reference-quality and security check Zenzic performs.
@@ -79,7 +79,7 @@ applies a defence-in-depth pass to non-definition lines to catch secrets in plai
 | `private-key` | `-----BEGIN [A-Z ]+ PRIVATE KEY-----` | PEM private keys (RSA, EC, etc.) |
 | `hex-encoded-payload` | `(?:\\x[0-9a-fA-F]{2}){3,}` | Detects obfuscation attempts that hide payloads or credentials via hex escapes. This technique is commonly used to evade naive string linters and is treated as a critical source-transparency violation. |
 
-### Shield behaviour
+### Shield behaviour {#shield-behaviour}
 
 - **Every line is scanned** — including lines inside fenced code blocks (labelled or unlabelled).
   A credential committed in a `bash` example is still a committed credential.
@@ -97,7 +97,7 @@ applies a defence-in-depth pass to non-definition lines to catch secrets in plai
     Treat it as a build-blocking security incident. Rotate the exposed credential immediately,
     then remove or replace the offending reference URL. Do not commit the secret into history.
 
-!!! tip "See the Shield in action"
+!!! note "See the Shield in action"
     The repository ships `examples/safety_demonstration.md` — an intentional test fixture
     containing a circular link and a hex-encoded payload. Run `zenzic check all` against it
     to observe a live Shield breach and a `CIRCULAR_LINK` info finding.
@@ -345,11 +345,11 @@ is undefined.  Zenzic detects this before the build runs.
 | **Zensical** | Yes | File or directory starting with `_` (`IGNORED`) |
 | **Vanilla** (no engine config) | No | No routing concept |
 
-!!! tip "Fix an UNREACHABLE_LINK"
+!!! note "Fix an UNREACHABLE_LINK"
     Either add the target page to `nav:` in `mkdocs.yml`, or replace the link with one
     pointing to a reachable page.
 
-### Private pages (Zensical)
+### Private pages (Zensical) {#private-pages-zensical}
 
 Files and directories whose name starts with an underscore (`_`) are treated as **private**
 by Zenzic when the Zensical engine is active.  Links to these resources are flagged as

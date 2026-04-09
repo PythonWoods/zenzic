@@ -5,7 +5,7 @@ icon: lucide/heart-handshake
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Contributing
+# Contributing {#contributing}
 
 To efficiently address our users' needs, we carefully designed our contributing
 guidelines and optimized our issue templates to ensure a great overall experience
@@ -33,7 +33,7 @@ In this section, we guide you through our processes.
 
     :lucide-arrow-right: [Report a bug][report a bug]
 
-- :material-file-edit-outline: &nbsp;
+- :lucide-file-pen-line: &nbsp;
     __Missing information in our docs?__
 
     ---
@@ -45,7 +45,7 @@ In this section, we guide you through our processes.
 
     :lucide-arrow-right: [Report a docs issue][report a docs issue]
 
-- :material-lightbulb-on-outline: &nbsp;
+- :lucide-sparkles: &nbsp;
     __Want to submit an idea?__
 
     ---
