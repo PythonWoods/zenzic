@@ -18,7 +18,7 @@ ecosystem tools referenced in this documentation are third-party projects.
 
 <div class="grid cards" markdown>
 
-- :material-lightbulb-outline: &nbsp; __Philosophy__
+- :lucide-lightbulb: &nbsp; __Philosophy__
 
     ---
 
@@ -34,7 +34,7 @@ ecosystem tools referenced in this documentation are third-party projects.
 
     [:lucide-arrow-right: Read](license.md)
 
-- :material-palette-outline: &nbsp; __Brand Kit__
+- :lucide-palette: &nbsp; __Brand Kit__
 
     ---
 
@@ -42,7 +42,7 @@ ecosystem tools referenced in this documentation are third-party projects.
 
     [:lucide-arrow-right: Read](brand-kit.md)
 
-- :simple-github: &nbsp; __Repository__
+- :octicons-mark-github-24: &nbsp; __Repository__
 
     ---
 

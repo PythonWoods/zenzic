@@ -35,7 +35,7 @@ from the community of its users. Our open approach allows you to:
 
     [:lucide-arrow-right: Report a bug](contribute/report-a-bug.md)
 
-- :material-file-edit-outline: &nbsp; __Improve the docs__
+- :lucide-file-pen-line: &nbsp; __Improve the docs__
 
     ---
 
@@ -44,7 +44,7 @@ from the community of its users. Our open approach allows you to:
 
     [:lucide-arrow-right: Report a docs issue](contribute/report-a-docs-issue.md)
 
-- :material-lightbulb-on-outline: &nbsp; __Request changes__
+- :lucide-sparkles: &nbsp; __Request changes__
 
     ---
 

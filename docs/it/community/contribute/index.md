@@ -32,7 +32,7 @@ In questa sezione ti guidiamo attraverso i nostri processi.
 
     :lucide-arrow-right: [Segnala un bug][segnala un bug]
 
-- :material-file-edit-outline: &nbsp;
+- :lucide-file-pen-line: &nbsp;
     __Informazioni mancanti nei docs?__
 
     ---
@@ -43,7 +43,7 @@ In questa sezione ti guidiamo attraverso i nostri processi.
 
     :lucide-arrow-right: [Segnala un problema nei docs][problema nei docs]
 
-- :material-lightbulb-on-outline: &nbsp;
+- :lucide-sparkles: &nbsp;
     __Vuoi proporre un'idea?__
 
     ---

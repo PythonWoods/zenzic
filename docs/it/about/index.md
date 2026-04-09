@@ -18,7 +18,7 @@ strumenti dell'ecosistema citati in questa documentazione sono progetti di terze
 
 <div class="grid cards" markdown>
 
-- :material-lightbulb-outline: &nbsp; __Manifesto__
+- :lucide-lightbulb: &nbsp; __Manifesto__
 
     ---
 
@@ -34,7 +34,7 @@ strumenti dell'ecosistema citati in questa documentazione sono progetti di terze
 
     [:lucide-arrow-right: Leggi](license.md)
 
-- :material-palette-outline: &nbsp; __Brand Kit__
+- :lucide-palette: &nbsp; __Brand Kit__
 
     ---
 
@@ -42,7 +42,7 @@ strumenti dell'ecosistema citati in questa documentazione sono progetti di terze
 
     [:lucide-arrow-right: Leggi](brand-kit.md)
 
-- :simple-github: &nbsp; __Repository__
+- :octicons-mark-github-24: &nbsp; __Repository__
 
     ---
 

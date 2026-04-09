@@ -75,9 +75,9 @@ Un buon titolo è breve e descrittivo — un riassunto esecutivo in una frase de
 
 | <!-- --> | Esempio |
 | -------- | ------- |
-| :material-check:{ style="color: #4DB6AC" } __Chiaro__ | `validate_same_page_anchors` genera falso positivo su heading auto-generati |
-| :material-close:{ style="color: #EF5350" } __Vago__ | La validazione degli anchor non funziona |
-| :material-close:{ style="color: #EF5350" } __Inutile__ | Aiuto |
+| :lucide-check:{ style="color: #4DB6AC" } __Chiaro__ | `validate_same_page_anchors` genera falso positivo su heading auto-generati |
+| :lucide-x:{ style="color: #EF5350" } __Vago__ | La validazione degli anchor non funziona |
+| :lucide-x:{ style="color: #EF5350" } __Inutile__ | Aiuto |
 
 ### Contesto <small>opzionale</small> { #contesto }
 

@@ -27,7 +27,7 @@ In quanto software Open Source, Zenzic beneficia di diversi tipi di contributi d
 
     [:lucide-arrow-right: Segnala un bug](contribute/report-a-bug.md)
 
-- :material-file-edit-outline: &nbsp; __Migliorare la documentazione__
+- :lucide-file-pen-line: &nbsp; __Migliorare la documentazione__
 
     ---
 
@@ -35,7 +35,7 @@ In quanto software Open Source, Zenzic beneficia di diversi tipi di contributi d
 
     [:lucide-arrow-right: Segnala un problema nei docs](contribute/report-a-docs-issue.md)
 
-- :material-lightbulb-on-outline: &nbsp; __Richiedere funzionalità__
+- :lucide-sparkles: &nbsp; __Richiedere funzionalità__
 
     ---
 

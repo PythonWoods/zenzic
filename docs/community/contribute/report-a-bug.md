@@ -77,9 +77,9 @@ the issue.
 
 | <!-- --> | Example |
 | -------- | ------- |
-| :material-check:{ style="color: #4DB6AC" } __Clear__ | `validate_same_page_anchors` raises false positive on auto-generated headings |
-| :material-close:{ style="color: #EF5350" } __Unclear__ | Anchor validation doesn't work |
-| :material-close:{ style="color: #EF5350" } __Useless__ | Help |
+| :lucide-check:{ style="color: #4DB6AC" } __Clear__ | `validate_same_page_anchors` raises false positive on auto-generated headings |
+| :lucide-x:{ style="color: #EF5350" } __Unclear__ | Anchor validation doesn't work |
+| :lucide-x:{ style="color: #EF5350" } __Useless__ | Help |
 
 ### Context <small>optional</small> { #context }
 
