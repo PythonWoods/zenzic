@@ -111,7 +111,7 @@ Le `[[custom_rules]]` dichiarate in `zenzic.toml` si attivano identicamente con 
          `zenzic check all --engine myengine --strict`.
          Per i controlli di run, vedi [Comandi CLI: Flag globali](../usage/commands.md#flag-globali).
      3. Se il tuo engine genera route locali sintetiche, mappa esplicitamente le Ghost Route
-         rispetto alla reference VSM:
+        rispetto al riferimento VSM:
          [VSM Engine — Esempio D: Ghost Route](../arch/vsm_engine.md#esempio-d-ghost-route-raggiungibile-senza-file).
 
 ---

@@ -64,7 +64,7 @@ Se `[build_context]` è assente, Zenzic rileva automaticamente:
 - nessuna configurazione presente, nessun locale dichiarato → `VanillaAdapter` (controllo orphan disabilitato)
 
 !!! abstract "Ponte CLI — Controlli signal-to-noise"
-  Selezione engine e verbosità Sentinel sono concern separati. Usa
+  Selezione engine e verbosità Sentinel sono aspetti separati. Usa
   [Comandi CLI: Flag globali](../usage/commands.md#flag-globali) per calibrare la policy per run:
 
   1. `--strict` per elevare warning e imporre validazione URL esterni.

@@ -62,7 +62,7 @@ Puoi anche impostare `exit_zero = true` in `zenzic.toml` per renderlo il default
 ### `--show-info`
 
 Per impostazione predefinita, i finding di livello info sono nascosti per mantenere l'output
-quotidiano concentrato sulle violation azionabili. Usa `--show-info` quando vuoi piena visibilità
+quotidiano concentrato sulle violazioni azionabili. Usa `--show-info` quando vuoi piena visibilità
 Sentinel sui segnali non bloccanti, come la topologia dei cicli link (`CIRCULAR_LINK`).
 
 Disponibile su tutti i comandi `zenzic check`.
