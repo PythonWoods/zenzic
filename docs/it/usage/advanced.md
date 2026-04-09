@@ -79,7 +79,7 @@ per intercettare segreti nella prosa normale.
 | `slack-token` | `xox[baprs]-[0-9a-zA-Z]{10,48}` | Token bot/utente/app Slack |
 | `google-api-key` | `AIza[0-9A-Za-z\-_]{35}` | Chiavi API Google Cloud / Maps |
 | `private-key` | `-----BEGIN [A-Z ]+ PRIVATE KEY-----` | Chiavi private PEM (RSA, EC, ecc.) |
-| `hex-encoded-payload` | `(?:\\x[0-9a-fA-F]{2}){3,}` | Sequenze di byte hex-encoded (3+ sequenze `\xNN` consecutive) |
+| `hex-encoded-payload` | `(?:\\x[0-9a-fA-F]{2}){3,}` | Rileva tentativi di offuscamento di payload o credenziali tramite escape esadecimali. Questa tecnica è comunemente usata per evadere i linter di stringhe semplici e Zenzic la considera una violazione critica della trasparenza del sorgente. |
 
 ### Comportamento dello Shield { #shield-behaviour }
 
