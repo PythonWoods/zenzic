@@ -15,7 +15,7 @@ Zenzic esegue sei controlli indipendenti. Ognuno affronta una categoria distinta
 
     Link interni non validi, ancore mancanti e URL esterni irraggiungibili.
 
-    [`zenzic check links`](#link)
+    [`zenzic check links`](#links)
 
 - :lucide-file: &nbsp; __Orfani__
 
