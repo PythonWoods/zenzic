@@ -98,18 +98,6 @@ extracted from the source file. A link to a non-existent heading slug is reporte
 
 __Why CLI:__ the native link extractor operates on raw Markdown source files. Source-level analysis gives reproducible output independent of the build driver.
 
-!!! example "Sentinel Output — broken link"
-
-    ```text
-    docs/index.md
-      ✘ 12:    [FILE_NOT_FOUND]  'setup.md' not found in docs
-        │
-     12 │ Read the [setup guide](setup.md) for initial configuration.
-        │
-
-      ✘ 1 error    • 1 file with findings
-    ```
-
 ### Violation codes
 
 The link check uses the Virtual Site Map (VSM) to distinguish between two categories of link failure:
@@ -123,32 +111,23 @@ The link check uses the Virtual Site Map (VSM) to distinguish between two catego
 
 __Why orphan links matter:__ a link to an orphan page _works_ at the filesystem level — the file exists and the build engine may serve it. But the page is invisible in the nav tree, creating a fragmented user experience. Readers who follow the link land on a page with no sidebar context and no way to navigate back. `Z002` catches this anti-pattern.
 
-!!! example "Sentinel Output — orphan link"
-
-    ```text
-    docs/guide.md
-      ⚠ 18:    [UNREACHABLE_LINK]  'drafts/experiment.md' not in site navigation
-        │
-     18 │ See [experiment](drafts/experiment.md) for details.
-        │
-
-      ⚠ 1 warning    • 1 file with findings
-    ```
+![Zenzic Sentinel — Links check: FILE_NOT_FOUND and UNREACHABLE_LINK findings with gutter context](assets/screenshots/screenshot-links.svg)
 
 ### Blood Sentinel — system-path traversal {#blood-sentinel-system-path-traversal}
 
-When a traversal exits the `docs/` boundary __and__ the raw href targets an OS system
-directory (`/etc/`, `/root/`, `/var/`, `/proc/`, `/sys/`, `/usr/`), Zenzic classifies it
-as a __system-path traversal__. This is not a broken link — it is an intentional or
-accidental probe of the host operating system embedded in documentation source.
+Blood Sentinel treats host-path traversal as a security event, not routine link hygiene.
+If a link escapes `docs/` and resolves to OS system paths (`/etc/`, `/root/`, `/var/`,
+`/proc/`, `/sys/`, `/usr/`), Zenzic emits `PATH_TRAVERSAL_SUSPICIOUS` and exits with
+code __3__.
 
 | Code | Severity | Exit code | Meaning |
 | :--- | :---: | :---: | :--- |
 | `PATH_TRAVERSAL_SUSPICIOUS` | security_incident | __3__ | Href targets an OS system directory. Rotate and audit immediately. |
 | `PATH_TRAVERSAL` | error | 1 | Href escapes `docs/` to a non-system path (e.g. a sibling repository). |
 
-Exit Code 3 takes priority over Exit Code 2 (Shield credential breach). It is never
-suppressed by `--exit-zero`.
+`PATH_TRAVERSAL` remains exit code 1 for non-system escapes (for example, sibling
+repositories). `PATH_TRAVERSAL_SUSPICIOUS` always takes precedence over Shield
+credential incidents (exit code 2) and is never suppressed by `--exit-zero`.
 
 !!! danger "Exit Code 3 — Blood Sentinel"
     A `PATH_TRAVERSAL_SUSPICIOUS` finding means a documentation source file contains a
@@ -157,63 +136,41 @@ suppressed by `--exit-zero`.
     or an author mistake that reveals internal infrastructure details. Treat it as a
     build-blocking security incident.
 
-!!! example "Sentinel Output — system-path traversal"
-
-    ```text
-    docs/setup.md
-      ✘ 14:    [PATH_TRAVERSAL_SUSPICIOUS]  '../../../../etc/passwd' resolves outside the docs directory
-        │
-     14 │ [config file](../../../../etc/passwd)
-        │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-      ✘ 1 error  • 1 file with findings
-
-    FAILED: One or more checks failed.
-    ```
-
 ![Zenzic Sentinel — Blood Report: PATH_TRAVERSAL_SUSPICIOUS finding in blood red](assets/screenshots/screenshot-blood.svg)
 
-See also: [Exit codes reference](usage/commands.md#exit-codes) for a summary of how exit
-code 3 compares to other Zenzic exit codes.
+!!! abstract "Next step"
+  Compare all gate behaviours in [Exit codes reference](usage/commands.md#exit-codes)
+  before enforcing CI policy.
 
 ### Circular links
 
-Zenzic detects link cycles using an iterative depth-first search over the link adjacency
-graph (Phase 1.5, Θ(V+E) — runs once after the in-memory resolver is constructed). Every
-Phase 2 link check against the cycle registry is then O(1).
+Cycle detection is computed once with iterative DFS during resolver construction
+(Phase 1.5, Θ(V+E)). Every Phase 2 membership lookup against the cycle registry is O(1).
 
-A "cycle" in a documentation link graph means page A links to page B and page B links
-back to page A (directly or through a longer chain). Mutual navigation links — for example,
-a Home page linking to a Features page and the Features page linking back to Home — are
-common, intentional, and do not cause rendering problems for any static site generator.
-
-For this reason, `CIRCULAR_LINK` is reported at severity `info`. It appears in the Sentinel
-panel and contributes to the "N files with findings" count, but it never affects exit codes
-in normal or `--strict` mode. Teams that want to enforce strict DAG topology can inspect
-the info findings as part of their review process. Info findings are hidden by default to
-keep routine scans focused on blocking violations; use `--show-info` to display them.
-For the design decision behind this severity choice, see
-[ADR 003 — Root Discovery Protocol](adr/003-discovery-logic.md).
+`CIRCULAR_LINK` intentionally remains `info`: reciprocal navigation loops are normal in
+documentation graphs and do not break static-site rendering. Info findings are hidden by
+default to keep blocking findings prominent; use `--show-info` when auditing topology.
+For the design rationale, see [ADR 003 — Root Discovery Protocol](adr/003-discovery-logic.md).
 
 | Code | Severity | Exit code | Meaning |
 | :--- | :---: | :---: | :--- |
 | `CIRCULAR_LINK` | info | — | Resolved target is a member of a link cycle. |
 
-!!! example "Sentinel Output — circular link"
+!!! note "Info-level finding — suppressed by default"
+    `CIRCULAR_LINK` findings are reported at severity `info` and are hidden from
+    standard output to keep routine scans focused on blockers.
 
-    ```text
-    docs/guide.md
-      💡 3:     [CIRCULAR_LINK]  'index.md' is part of a circular link cycle
+    Use `--show-info` to display them:
 
-    docs/index.md
-      💡 8:     [CIRCULAR_LINK]  'guide.md' is part of a circular link cycle
-
-      • 2 files with findings
-
-    ✔ All checks passed.
+    ```bash
+    zenzic check all --show-info
     ```
 
+    They never affect exit codes in either normal or `--strict` mode.
+
 ![Zenzic Sentinel — Circle Discovery: CIRCULAR_LINK findings displayed with --show-info](assets/screenshots/screenshot-circular.svg)
+
+---
 
 ---
 
@@ -230,17 +187,7 @@ __What it catches:__
 - Pages created on disk but never added to `nav`
 - Pages whose `nav` entry was removed without deleting the file
 
-!!! example "Sentinel Output"
-
-    ```text
-    api/experimental.md
-      ⚠ –      [ORPHAN]  Physical file not listed in navigation.
-
-    guides/draft-tutorial.md
-      ⚠ –      [ORPHAN]  Physical file not listed in navigation.
-
-      ⚠ 2 warnings    • 2 files with findings
-    ```
+![Zenzic Sentinel — Orphans check: physical files absent from site navigation](assets/screenshots/screenshot-orphans.svg)
 
 ---
 
@@ -282,17 +229,7 @@ __What it does not catch:__
 
 __Tuning:__ use `snippet_min_lines` in `zenzic.toml` to skip short blocks. The default of `1` checks everything including single-line blocks. Set it to `3` or higher to ignore import stubs and one-liners that are likely illustrative rather than executable.
 
-!!! example "Sentinel Output"
-
-    ```text
-    docs/tutorial.md
-      ✘ 48:    [SNIPPET]  SyntaxError in Python snippet — expected ':'
-        │
-     48 │ def compute_total(items)
-        │
-
-      ✘ 1 error    • 1 file with findings
-    ```
+![Zenzic Sentinel — Snippets check: SyntaxError in Python fenced block](assets/screenshots/screenshot-snippets.svg)
 
 ---
 
@@ -314,7 +251,7 @@ __CLI behaviour:__ reads each `.md` file and calls `check_placeholder_content(te
 
 __Tuning:__
 
-```text
+```toml
 # zenzic.toml
 
 # Raise the threshold for projects with dense, concise pages
@@ -323,32 +260,11 @@ placeholder_max_words = 100
 # Customise patterns for your team's conventions
 placeholder_patterns = ["coming soon", "wip", "fixme", "tbd", "draft"]
 
-# Disable word-count check entirely (pattern check still runs)
-placeholder_max_words = 0
-
-# Disable both checks
-placeholder_max_words = 0
-placeholder_patterns = []
+# OR: Disable word-count check entirely (set to 0)
+# placeholder_max_words = 0
 ```
 
-!!! example "Sentinel Output"
-
-    ```text
-    docs/guides/advanced.md
-      ⚠ 1:     [short-content]  Page has only 12 words (minimum 50).
-        │
-      1 │ # Advanced Guide
-        │
-
-    docs/api/webhooks.md
-      ⚠ 7:     [placeholder-text]  Found placeholder text: 'coming soon'
-        │
-      7 │ Coming soon – check back later.
-        │
-      ⚠ 1:     [short-content]  Page has only 8 words (minimum 50).
-
-      ⚠ 3 warnings    • 2 files with findings
-    ```
+![Zenzic Sentinel — Placeholders check: short-content and placeholder-text warnings](assets/screenshots/screenshot-placeholders.svg)
 
 ---
 
@@ -380,17 +296,7 @@ __What it catches:__
 - Images left over after a page reorganisation or rename
 - Attachments (PDFs, data files) that were linked from a page that no longer exists
 
-!!! example "Sentinel Output"
-
-    ```text
-    assets/old-screenshot.png
-      ⚠ –      [ASSET]  File not referenced in any documentation page.
-
-    assets/diagram-v1.svg
-      ⚠ –      [ASSET]  File not referenced in any documentation page.
-
-      ⚠ 2 warnings    • 2 files with findings
-    ```
+![Zenzic Sentinel — Assets check: unused files flagged with ASSET warning](assets/screenshots/screenshot-assets.svg)
 
 ---
 
@@ -466,7 +372,6 @@ suppressed by `--exit-zero` or `exit_zero = true` in `zenzic.toml`.
     Credential: sk-4xAm****************************7fBz
     Action: Rotate this credential immediately and purge it from the repository history.
     ```
-    Exit code: **2**
 
 For the complete reference including the integrity score formula, programmatic
 API, and alt-text checking, see

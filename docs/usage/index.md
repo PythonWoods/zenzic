@@ -29,6 +29,8 @@ The repository ships maintained fixtures that mirror the documented contracts:
 
     No installation required. `uvx` downloads and runs Zenzic in a throwaway environment.
 
+![Zenzic Sentinel — full audit output with quality score](../assets/screenshots/screenshot.svg){ width="700" }
+
 ---
 
 ## Install

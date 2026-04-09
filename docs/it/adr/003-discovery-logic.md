@@ -1,3 +1,6 @@
+<!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 # ADR 003: Protocollo di Scoperta della Radice (PSR) {#adr-003-root-discovery-protocol}
 
 **Stato:** Attivo (modificato da ZRT-005, 2026-04-08)

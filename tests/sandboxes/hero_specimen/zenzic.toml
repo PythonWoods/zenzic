@@ -1,0 +1,15 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# zenzic.toml — Hero Specimen sandbox for landing page screenshot.
+#
+# Three intentional violations (the "Power Triad"):
+#   1. Z001 — broken internal link (FILE_NOT_FOUND)
+#   2. PATH_TRAVERSAL_SUSPICIOUS — Blood Sentinel
+#   3. security_breach — Shield detects an AWS access key
+#
+# Run `zenzic check all --strict` from this directory.
+
+docs_dir = "docs"
+
+[build_context]
+engine = "mkdocs"
