@@ -679,7 +679,7 @@ space in the directory name:
 The Shield blocks directory traversal attacks before any lookup, without
 interrogating the filesystem. It operates at **stage ②**.
 
-!!! danger "Attack vs Defence"
+!!! example "Attack vs Defence"
     **Attack:** `[Secret](../../../../etc/passwd)`
 
     A naive resolver would follow the `..` chain and reach `/etc/passwd`.

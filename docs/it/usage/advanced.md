@@ -101,7 +101,7 @@ per intercettare segreti nella prosa normale.
     esposta, poi rimuovi o sostituisci l'URL di riferimento incriminato. Non committare il
     segreto nella history.
 
-!!! tip "Scopri lo Shield in azione"
+!!! note "Scopri lo Shield in azione"
     Il repository include `examples/safety_demonstration.md` — una fixture di test intenzionale
     contenente un link circolare e un payload hex-encoded. Esegui `zenzic check all` contro di esso
     per osservare una violazione Shield live e un finding `CIRCULAR_LINK` di tipo info.
@@ -344,7 +344,7 @@ di build è indefinito. Zenzic lo rileva prima che la build venga eseguita.
 | **Zensical** | Sì | File o directory che inizia con `_` (`IGNORED`) |
 | **Vanilla** (nessuna config engine) | No | Nessun concetto di routing |
 
-!!! tip "Correggere un UNREACHABLE_LINK"
+!!! note "Correggere un UNREACHABLE_LINK"
     Aggiungi la pagina di destinazione a `nav:` in `mkdocs.yml`, oppure sostituisci il link
     con uno che punta a una pagina raggiungibile.
 

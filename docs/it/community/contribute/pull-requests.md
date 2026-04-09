@@ -83,7 +83,7 @@ zenzic check references     # include la valutazione delle [[custom_rules]]
 pytest                      # suite di test completa (profilo Hypothesis dev — 50 esempi)
 ```
 
-!!! tip "Test property-based approfonditi"
+!!! note "Test property-based approfonditi"
 
     Per eseguire la suite di test con il profilo Hypothesis **ci** (500 esempi),
     usa `just test-full` o imposta direttamente la variabile d'ambiente:

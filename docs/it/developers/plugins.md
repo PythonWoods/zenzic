@@ -69,7 +69,7 @@ class NoDraftRule(BaseRule):
   nessuna dipendenza da stato globale mutabile.
 - **Non** mutare i propri argomenti (`file_path`, `text`, `vsm`, `anchors_cache`).
 
-!!! danger "Lo stato globale mutabile è proibito"
+!!! warning "Evitare lo stato globale mutabile"
     Una regola che scrive su un contatore globale sembrerà funzionare in
     modalità sequenziale, ma produrrà risultati **non deterministici e
     silenziosamente errati** in modalità parallela.  I processi worker

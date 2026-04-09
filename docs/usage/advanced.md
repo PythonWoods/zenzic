@@ -97,7 +97,7 @@ applies a defence-in-depth pass to non-definition lines to catch secrets in plai
     Treat it as a build-blocking security incident. Rotate the exposed credential immediately,
     then remove or replace the offending reference URL. Do not commit the secret into history.
 
-!!! tip "See the Shield in action"
+!!! note "See the Shield in action"
     The repository ships `examples/safety_demonstration.md` — an intentional test fixture
     containing a circular link and a hex-encoded payload. Run `zenzic check all` against it
     to observe a live Shield breach and a `CIRCULAR_LINK` info finding.
@@ -345,7 +345,7 @@ is undefined.  Zenzic detects this before the build runs.
 | **Zensical** | Yes | File or directory starting with `_` (`IGNORED`) |
 | **Vanilla** (no engine config) | No | No routing concept |
 
-!!! tip "Fix an UNREACHABLE_LINK"
+!!! note "Fix an UNREACHABLE_LINK"
     Either add the target page to `nav:` in `mkdocs.yml`, or replace the link with one
     pointing to a reachable page.
 

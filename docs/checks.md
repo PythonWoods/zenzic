@@ -359,7 +359,7 @@ __CLI:__
 - `zenzic check assets` — Check for the presence of unused asset files.
 - `zenzic clean assets` — Safely remove unused assets.
 
-!!! tip "Autofix available"
+!!! note "Autofix available"
     Use `zenzic clean assets` to automatically delete any unused assets found by this check. You will be prompted to confirm the deletion (`[y/N]`), or you can pass `-y` to skip the prompt. Use `--dry-run` to preview the files that would be deleted without actually deleting them. Zenzic will never delete files that match your `excluded_assets`, `excluded_dirs`, or `excluded_build_artifacts` patterns.
 
 Unused assets are files that exist in the documentation source directory but are never referenced by any page. They are typically left over after a page is renamed, an image is replaced, or a section is restructured. They do not cause visible errors, but they accumulate over time and bloat the built site.

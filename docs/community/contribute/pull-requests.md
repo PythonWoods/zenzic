@@ -82,7 +82,7 @@ zenzic check references     # includes custom [[custom_rules]] evaluation
 pytest                      # full test suite (Hypothesis dev profile — 50 examples)
 ```
 
-!!! tip "Thorough property-based testing"
+!!! note "Thorough property-based testing"
 
     To run the test suite with the **ci** Hypothesis profile (500 examples),
     use `just test-full` or set the environment variable directly:

@@ -66,7 +66,7 @@ class NoDraftRule(BaseRule):
   dependency on mutable global state.
 - **Not** mutate their arguments (`file_path`, `text`, `vsm`, `anchors_cache`).
 
-!!! danger "Global mutable state is prohibited"
+!!! warning "Avoid global mutable state"
     A rule that writes to a global counter will appear to work in sequential
     mode but will produce **non-deterministic, silently wrong** results in
     parallel mode.  Worker processes each receive an independent pickle copy
