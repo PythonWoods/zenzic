@@ -11,6 +11,82 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.5.0a5] — 2026-04-09 — The Sentinel Codex
+
+> **Alpha 5 Release.** Visual-language overhaul: Sentinel Style Guide,
+> card-grid refactoring, admonition/icon normalisation, 102 strategic anchor IDs,
+> CSS card hover effects, and fully automated screenshot generation pipeline.
+> Legacy PDF template removed. Changelog tracking stabilised. E2E CLI security
+> tests added; `--exit-zero` bug fixed (exits 2/3 are now unconditionally
+> non-suppressible, matching the documented contract).
+
+### Added
+
+- **Sentinel Style Guide** — canonical visual-language reference
+  (`docs/internal/style-guide-sentinel.md` + Italian mirror) defining card grids,
+  admonition types, icon vocabulary, and anchor-ID conventions.
+
+- **Automated screenshot generation — Blood & Circular SVGs.**
+  `scripts/generate_docs_assets.py` now generates all five documentation
+  screenshots: `screenshot.svg`, `screenshot-hero.svg`, `screenshot-score.svg`,
+  `screenshot-blood.svg`, and `screenshot-circular.svg`. The Blood Sentinel and
+  Circular Link SVGs were previously hand-crafted static assets; they are now
+  deterministically generated from dedicated sandbox fixtures
+  (`tests/sandboxes/screenshot_blood/`, `tests/sandboxes/screenshot_circular/`).
+
+- **CHANGELOG.it.md bumpversion tracking.** Italian changelog added to
+  `[tool.bumpversion.files]` in `pyproject.toml`, ensuring version headings
+  stay synchronised across both changelogs during `bump-my-version` runs.
+
+### Fixed
+
+- **`--exit-zero` no longer suppresses security exits in `check all`.**
+  Exit codes 2 (Shield breach) and 3 (Blood Sentinel) were guarded by
+  `not effective_exit_zero` in `check all`, contradicting the documented
+  contract ("never suppressed by `--exit-zero`"). The guards have been
+  removed — exits 2 and 3 are now unconditional, matching `check links`
+  and `check references`.
+
+### Testing
+
+- **`tests/test_cli_e2e.py` — 8 end-to-end CLI security tests.**
+  Full-pipeline tests (no mocks) exercising the exit-code contract:
+  - `TestBloodSentinelE2E` (2 tests) — Blood sandbox triggers Exit 3;
+    `--exit-zero` does NOT suppress it.
+  - `TestShieldBreachE2E` (2 tests) — fake AWS key triggers Exit 2;
+    `--exit-zero` does NOT suppress it.
+  - `TestExitZeroContractE2E` (3 tests) — broken link exits 1;
+    `--exit-zero` suppresses to 0; clean sandbox exits 0.
+  - `TestExitCodePriorityE2E` (1 test) — when both security_incident
+    and security_breach coexist, Exit 3 wins.
+  Closes gap: `docs/internal/arch_gaps.md` § "Security Pipeline Coverage".
+
+### Changed
+
+- **Card Grid Refactoring.** Documentation pages standardised to Material for
+  MkDocs grid syntax (`:material-*:` icons, consistent column layouts).
+
+- **Admonition Normalisation.** Ad-hoc callout styles replaced with canonical
+  admonition types (`tip`, `warning`, `info`, `example`) per the Sentinel
+  Style Guide.
+
+- **Icon Normalisation.** Non-Material icons purged; all icons standardised to
+  the `:material-*:` icon set.
+
+- **102 Strategic Anchor IDs** placed across 70 documentation files for
+  stable deep-linking.
+
+- **CSS Card Overrides.** Hover effects and consistent card styling added via
+  `docs/assets/stylesheets/`.
+
+### Removed
+
+- **`docs/assets/pdf_cover.html.j2`** — legacy Jinja2 PDF cover template.
+  Orphan artifact with no build-pipeline reference; removed to reduce
+  maintenance surface.
+
+---
+
 ## [0.5.0a4] — 2026-04-08 — The Hardened Sentinel: Security & Integrity
 
 > **Alpha 4 Release.** Four confirmed vulnerabilities closed (ZRT-001–004), three
