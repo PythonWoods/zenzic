@@ -2,7 +2,7 @@
 icon: lucide/workflow
 ---
 
-# Integrazione CI/CD
+# Integrazione CI/CD {#ci-cd-integration}
 
 Zenzic è pronto all'automazione. Il flag `--format json` e l'opzione `--save` espongono output machine-readable che qualsiasi sistema CI/CD può consumare per pilotare badge dinamici, quality gate e rilevamento delle regressioni.
 

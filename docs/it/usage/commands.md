@@ -5,7 +5,7 @@ icon: lucide/terminal
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Comandi CLI
+# Comandi CLI {#cli-commands}
 
 Riferimento completo per ogni comando, flag e codice di uscita Zenzic.
 
@@ -32,7 +32,7 @@ zenzic check all --engine mkdocs    # Sovrascrive il motore rilevato
 zenzic check links --show-info      # Mostra finding di livello info (es. link circolari)
 ```
 
-## Flag globali
+## Flag globali {#global-flags}
 
 Questi flag controllano il profilo signal-to-noise di Zenzic tra scansioni quotidiane,
 gate CI e risposta agli incidenti.
@@ -160,7 +160,7 @@ zensical. L'errore `Address already in use` non può mai provenire dall'engine.
 
 ---
 
-## Codici di uscita
+## Codici di uscita {#exit-codes}
 
 | Codice | Significato |
 | :---: | :--- |

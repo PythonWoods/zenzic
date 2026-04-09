@@ -7,7 +7,7 @@ hide:
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Documentazione
+# Documentazione {#documentation}
 
 Zenzic è un **linter di documentazione CI-first** per qualsiasi progetto basato su Markdown. Analizza i file sorgente grezzi — mai l'HTML generato — e intercetta il degrado della documentazione prima che raggiunga i tuoi utenti.
 

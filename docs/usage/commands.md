@@ -5,7 +5,7 @@ icon: lucide/terminal
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# CLI Commands
+# CLI Commands {#cli-commands}
 
 Complete reference for every Zenzic command, flag, and exit code.
 
@@ -32,7 +32,7 @@ zenzic check all --engine mkdocs    # Override detected build engine adapter
 zenzic check links --show-info      # Show info-level findings (e.g. circular links)
 ```
 
-## Global flags
+## Global flags {#global-flags}
 
 These flags control Zenzic's signal-to-noise profile across routine scans, CI gates,
 and incident response workflows.
@@ -158,7 +158,7 @@ subprocess, then passes `--dev-addr 127.0.0.1:{port}` to mkdocs or zensical. The
 
 ---
 
-## Exit codes
+## Exit codes {#exit-codes}
 
 | Code | Meaning |
 | :---: | :--- |

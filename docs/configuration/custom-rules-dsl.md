@@ -5,7 +5,7 @@ icon: lucide/regex
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Custom Rules DSL
+# Custom Rules DSL {#custom-rules-dsl}
 
 `[[custom_rules]]` lets you declare project-specific lint rules directly in `zenzic.toml`. Each
 rule applies a regular expression line-by-line to every `.md` file and produces a finding when

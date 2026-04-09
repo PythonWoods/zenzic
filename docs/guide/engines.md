@@ -5,7 +5,7 @@ icon: lucide/blocks
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Engine Configuration Guide
+# Engine Configuration Guide {#engine-configuration-guide}
 
 Zenzic is **agnostic** — it works with MkDocs, Zensical, or a bare folder of Markdown files
 without requiring any build framework to be installed. It is also **opinionated**: when you

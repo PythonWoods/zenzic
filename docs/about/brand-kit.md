@@ -2,7 +2,7 @@
 icon: lucide/palette
 ---
 
-# Brand Ecosystem
+# Brand Ecosystem {#brand-ecosystem}
 
 Welcome to the Zenzic Brand Ecosystem. This is not just a style guide; it is the constitution of how Zenzic is presented across open-source communities, CI/CD integrations, and enterprise deployment landscapes.
 

@@ -1,7 +1,7 @@
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Zenzic - Architectural Gaps & Technical Debt
+# Zenzic - Architectural Gaps & Technical Debt {#architectural-gaps}
 
 > *"Ciò che non è documentato, non esiste; ciò che è documentato male, è un'imboscata."*
 >

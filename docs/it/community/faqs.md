@@ -5,7 +5,7 @@ icon: lucide/circle-question-mark
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Domande Frequenti
+# Domande Frequenti {#frequently-asked-questions}
 
 Questa pagina raccoglie le risposte alle domande più frequenti degli utenti di Zenzic. Sfoglia le sezioni
 qui sotto o usa la barra di ricerca per trovare ciò di cui hai bisogno.

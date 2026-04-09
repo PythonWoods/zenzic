@@ -5,7 +5,7 @@ icon: lucide/network
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Architecture
+# Architecture {#architecture}
 
 Zenzic is built around an I/O-agnostic core that runs in CLI mode. This page describes the internal data flow, the three-layer design, the state-machine used for Python block extraction, and the link extraction and validation pipeline.
 
@@ -60,7 +60,7 @@ flowchart LR
 
 ---
 
-## Virtual Site Map (VSM)
+## Virtual Site Map (VSM) {#virtual-site-map-vsm}
 
 The VSM is the most important data structure in Zenzic. It is the single source of truth for routing and the foundation of all link validation.
 
@@ -326,7 +326,7 @@ def validate_snippets(repo_root: Path, config: ZenzicConfig | None = None) -> li
 
 The public API of these wrappers is unchanged — existing integrations that call `find_orphans()` or `validate_snippets()` directly continue to work.
 
-## State-machine parsing and superfences false positives
+## State-machine parsing and superfences false positives {#state-machine-parsing-and-superfences-false-positives}
 
 Regex-based fenced code block extraction is fragile. The naive pattern
 `` ```(?:python|py).*?\n(.*?)``` `` with `re.DOTALL` cannot distinguish between
@@ -758,7 +758,7 @@ When `--strict` is requested, `_check_external_links()` validates all collected 
 
 ---
 
-## Build-Aware Intelligence
+## Build-Aware Intelligence {#build-aware-intelligence}
 
 Zenzic extends the link validation pipeline with two capabilities:
 zero-I/O asset validation and i18n-aware fallback resolution. Both are implemented

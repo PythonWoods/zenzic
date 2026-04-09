@@ -1,4 +1,4 @@
-# ADR 003: Root Discovery Protocol (RDP)
+# ADR 003: Root Discovery Protocol (RDP) {#adr-003-root-discovery-protocol}
 
 **Status:** Active (amended by ZRT-005, 2026-04-08)
 **Deciders:** Architecture Lead

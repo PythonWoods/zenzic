@@ -5,7 +5,7 @@ icon: lucide/network
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Architettura
+# Architettura {#architecture}
 
 Zenzic è costruito attorno a un core I/O-agnostico che funziona in modalità CLI. Questa pagina descrive il flusso dati interno, il design a tre livelli, la state-machine usata per l'estrazione dei blocchi Python e la pipeline di estrazione e validazione dei link.
 
@@ -161,7 +161,7 @@ def check_asset_references(text: str, page_dir: str = "") -> set[str]:
 
 ---
 
-## Parsing a macchina a stati e falsi positivi da superfences
+## Parsing a macchina a stati e falsi positivi da superfences {#state-machine-parsing-and-superfences-false-positives}
 
 L'estrazione di blocchi di codice con regex è fragile. Zenzic evita questo con una **macchina a stati deterministica riga per riga** in `_extract_python_blocks`:
 
@@ -563,7 +563,7 @@ Quando `--strict` è richiesto, `_check_external_links()` valida tutti gli URL e
 
 ---
 
-## Build-Aware Intelligence
+## Build-Aware Intelligence {#build-aware-intelligence}
 
 Zenzic estende la pipeline di validazione dei link con due capacità: validazione degli asset senza I/O e risoluzione con fallback i18n. Entrambe sono implementate come **livelli puri sopra il `InMemoryPathResolver` esistente** — il resolver non cambia, e le capacità si compongono senza accoppiamento.
 

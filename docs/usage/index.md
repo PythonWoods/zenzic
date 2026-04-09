@@ -5,7 +5,7 @@ icon: lucide/play
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Getting Started
+# Getting Started {#getting-started}
 
 Zenzic reads directly from the filesystem and works with any Markdown-based project. Use it
 in local development, as a pre-commit hook, in CI pipelines, or for one-off audits.

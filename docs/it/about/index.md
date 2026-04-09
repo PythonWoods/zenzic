@@ -5,7 +5,7 @@ icon: lucide/info
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Informazioni su Zenzic
+# Informazioni su Zenzic {#about-zenzic}
 
 Zenzic è un linter di documentazione di livello ingegneristico e un quality gate per qualsiasi progetto basato su Markdown.
 

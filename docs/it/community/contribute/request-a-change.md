@@ -7,7 +7,7 @@ tags:
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Richieste di Modifica
+# Richieste di Modifica {#change-requests}
 
 Zenzic è uno strumento potente per il linting della documentazione. Miriamo a supportare
 un'ampia gamma di casi d'uso e le richieste di modifica sono un meccanismo essenziale per

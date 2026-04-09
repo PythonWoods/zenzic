@@ -1,7 +1,7 @@
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Zenzic — Architettura della Pipeline e Complessità Algoritmica
+# Zenzic — Architettura della Pipeline e Complessità Algoritmica {#pipeline-architecture}
 
 > *"Misura due volte, taglia una volta. Conosci la complessità prima di scalare."*
 >

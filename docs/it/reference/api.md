@@ -5,7 +5,7 @@ icon: lucide/library
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# API Reference
+# API Reference {#api-reference}
 
 La documentazione dell'API è disponibile **solo in inglese**, poiché è generata automaticamente dai commenti e docstring del codice sorgente, scritti in inglese.
 

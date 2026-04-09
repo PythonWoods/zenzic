@@ -5,7 +5,7 @@ icon: lucide/arrow-right-left
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Migrating to Zensical
+# Migrating to Zensical {#migrating-to-zensical}
 
 !!! note "Zenzic vs Zensical"
     **Zenzic** is the documentation linter described in this documentation site — the tool

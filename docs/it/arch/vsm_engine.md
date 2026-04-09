@@ -5,7 +5,7 @@ icon: lucide/map
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Motore VSM — Architettura e Protocollo di Risoluzione
+# Motore VSM — Architettura e Protocollo di Risoluzione {#vsm-engine}
 
 > *"La VSM non sa dove si trova un file. Sa dove un file andrà."*
 
@@ -329,7 +329,7 @@ Il chiamante riceve `None` → `continue` → zero finding emessi ← corretto
 
 ---
 
-### Esempio D: Ghost Route (raggiungibile senza file)
+### Esempio D: Ghost Route (raggiungibile senza file) {#example-d-ghost-route-reachable-without-a-file}
 
 ```text
 href:      /it/

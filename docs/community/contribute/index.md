@@ -5,7 +5,7 @@ icon: lucide/heart-handshake
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Contributing
+# Contributing {#contributing}
 
 To efficiently address our users' needs, we carefully designed our contributing
 guidelines and optimized our issue templates to ensure a great overall experience

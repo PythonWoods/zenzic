@@ -5,7 +5,7 @@ icon: lucide/blocks
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Guida alla Configurazione dei Motori
+# Guida alla Configurazione dei Motori {#engine-configuration-guide}
 
 Zenzic è **agnostico** — funziona con MkDocs, Zensical o una semplice cartella di file
 Markdown senza richiedere l'installazione di alcun framework di build. È anche **opinato**:
@@ -65,7 +65,7 @@ Se `[build_context]` è assente, Zenzic rileva automaticamente:
 
 !!! abstract "Ponte CLI — Controlli signal-to-noise"
   Selezione engine e verbosità Sentinel sono aspetti separati. Usa
-  [Comandi CLI: Flag globali](../usage/commands.md#flag-globali) per calibrare la policy per run:
+  [Comandi CLI: Flag globali](../usage/commands.md#global-flags) per calibrare la policy per run:
 
   1. `--strict` per elevare warning e imporre validazione URL esterni.
   2. `--exit-zero` per run osservativi non bloccanti.

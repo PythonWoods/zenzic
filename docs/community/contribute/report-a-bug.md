@@ -7,7 +7,7 @@ tags:
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Bug reports
+# Bug reports {#bug-reports}
 
 Zenzic is an actively maintained project that we constantly strive to improve.
 With a project of this size and complexity, bugs may occur. If you think you

@@ -2,7 +2,7 @@
 icon: lucide/award
 ---
 
-# Official Badges & CI/CD Integration
+# Official Badges & CI/CD Integration {#official-badges}
 
 Zenzic provides two official badge types. Add them to your project's `README.md` to signal documentation integrity to contributors and users.
 

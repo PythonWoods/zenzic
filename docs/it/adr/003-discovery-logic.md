@@ -1,4 +1,4 @@
-# ADR 003: Protocollo di Scoperta della Radice (PSR)
+# ADR 003: Protocollo di Scoperta della Radice (PSR) {#adr-003-root-discovery-protocol}
 
 **Stato:** Attivo (modificato da ZRT-005, 2026-04-08)
 **Decisori:** Architecture Lead

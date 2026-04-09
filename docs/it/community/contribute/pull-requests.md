@@ -5,7 +5,7 @@ icon: lucide/git-pull-request-create
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Pull Request
+# Pull Request {#pull-requests}
 
 Il processo e i requisiti che descriviamo di seguito fungono da importanti linee guida
 essenziali per la gestione di un progetto Open Source e ci aiutano a prevenire sprechi

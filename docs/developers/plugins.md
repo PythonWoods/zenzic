@@ -5,7 +5,7 @@ icon: lucide/puzzle
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Writing Plugin Rules
+# Writing Plugin Rules {#writing-plugin-rules}
 
 Zenzic supports external lint rules written in Python.  A plugin rule is a
 subclass of `BaseRule` distributed as a normal Python package and discovered at
@@ -182,7 +182,7 @@ zenzic check all
 
 ---
 
-## Enabling plugins
+## Enabling plugins {#enabling-plugins}
 
 Core rules (registered under `zenzic.rules` by Zenzic itself) are always
 active.  External plugin rules must be explicitly enabled in `zenzic.toml`
