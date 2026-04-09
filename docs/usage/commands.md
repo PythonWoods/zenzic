@@ -27,10 +27,17 @@ zenzic check all                    # Run all checks
 zenzic check all --strict           # Also validate external URLs; treat warnings as errors
 zenzic check all --format json      # Machine-readable output
 zenzic check all --exit-zero        # Report issues but always exit 0
+zenzic check all --quiet            # Minimal one-line output for pre-commit and CI hooks
 zenzic check all --engine mkdocs    # Override detected build engine adapter
+zenzic check links --show-info      # Show info-level findings (e.g. circular links)
 ```
 
-### `--strict` flag
+## Global flags
+
+These flags control Zenzic's signal-to-noise profile across routine scans, CI gates,
+and incident response workflows.
+
+### `--strict`
 
 | Command | Effect |
 | :--- | :--- |
@@ -41,12 +48,42 @@ zenzic check all --engine mkdocs    # Override detected build engine adapter
 
 You can also set `strict = true` in `zenzic.toml` to make it the permanent default.
 
-### `--exit-zero` flag
+### `--exit-zero`
 
 Always exits with code `0` even when issues are found. All findings are still printed and
 scored — only the exit code is suppressed. Useful for observation-only pipelines.
 
+Security events are never downgraded by this flag: Exit 2 (Shield credential breach) and
+Exit 3 (Blood Sentinel system-path incident) always keep priority over ordinary failures.
+
 You can also set `exit_zero = true` in `zenzic.toml` to make it the permanent default.
+
+### `--show-info`
+
+By default, info-level findings are hidden to keep everyday output focused on actionable
+violations. Use `--show-info` when you want full Sentinel visibility into non-blocking
+signals such as link-cycle topology (`CIRCULAR_LINK`).
+
+Available on all `zenzic check` commands.
+
+```bash
+zenzic check links --show-info
+zenzic check all --show-info
+```
+
+### `--quiet`
+
+`--quiet` is available on `zenzic check all` and is designed for silent builders
+(pre-commit and CI hooks) that need minimal output.
+
+- Suppresses the rich Sentinel panel and per-file verbose report.
+- Prints a compact one-line summary for error/warning totals.
+- Prints an explicit security one-liner for Shield breaches (Exit 2).
+- Still enforces fatal exit behavior, including security priority (`3 > 2 > 1`).
+
+```bash
+zenzic check all --quiet
+```
 
 ---
 
