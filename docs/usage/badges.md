@@ -2,6 +2,9 @@
 icon: lucide/award
 ---
 
+<!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 # Official Badges & CI/CD Integration {#official-badges}
 
 Zenzic provides two official badge types. Add them to your project's `README.md` to signal documentation integrity to contributors and users.

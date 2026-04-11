@@ -100,18 +100,6 @@ viene segnalato come non valido.
 
 __Perché:__ L'analisi a livello sorgente fornisce output riproducibile indipendente dal motore di build.
 
-!!! example "Sentinel Output — link non valido"
-
-    ```text
-    docs/index.md
-      ✘ 12:    [FILE_NOT_FOUND]  'setup.md' not found in docs
-        │
-     12 │ Leggi la [guida di setup](setup.md) prima di continuare.
-        │
-
-      ✘ 1 error    • 1 file with findings
-    ```
-
 ### Codici di violazione
 
 Il controllo link utilizza la Virtual Site Map (VSM) per distinguere due categorie di fallimento:
@@ -125,33 +113,23 @@ Il controllo link utilizza la Virtual Site Map (VSM) per distinguere due categor
 
 __Perché i link ad orfani contano:__ un link a una pagina orfana _funziona_ a livello di filesystem — il file esiste e il motore di build potrebbe servirlo. Ma la pagina è invisibile nel nav tree, creando un'esperienza utente frammentata. I lettori che seguono il link atterrano su una pagina senza contesto nella sidebar e senza modo di navigare indietro. `Z002` intercetta questo anti-pattern.
 
-!!! example "Sentinel Output — link a orfano"
-
-    ```text
-    docs/guide.md
-      ⚠ 18:    [UNREACHABLE_LINK]  'bozze/esperimento.md' non è nella navigazione del sito
-        │
-     18 │ Vedi [l'esperimento](bozze/esperimento.md) per i dettagli.
-        │
-
-      ⚠ 1 warning    • 1 file with findings
-    ```
+![Zenzic Sentinel — Controllo Link: finding FILE_NOT_FOUND e UNREACHABLE_LINK con contesto gutter](../assets/screenshots/screenshot-links.svg)
 
 ### Sentinella di Sangue — attraversamento percorsi di sistema {#blood-sentinel-system-path-traversal}
 
-Quando un attraversamento esce dal confine `docs/` __e__ l'href grezzo punta a una
-directory di sistema del sistema operativo (`/etc/`, `/root/`, `/var/`, `/proc/`,
-`/sys/`, `/usr/`), Zenzic lo classifica come un __attraversamento di percorso di
-sistema__. Non è un link non valido — è una sonda intenzionale o accidentale del
-sistema operativo host incorporata nel sorgente della documentazione.
+La Sentinella di Sangue tratta il path traversal host come evento di sicurezza,
+non come semplice igiene dei link. Se un link esce da `docs/` e risolve verso
+percorsi di sistema (`/etc/`, `/root/`, `/var/`, `/proc/`, `/sys/`, `/usr/`),
+Zenzic emette `PATH_TRAVERSAL_SUSPICIOUS` ed esce con codice __3__.
 
 | Codice | Severità | Exit code | Significato |
 | :--- | :---: | :---: | :--- |
 | `PATH_TRAVERSAL_SUSPICIOUS` | security_incident | __3__ | L'href punta a una directory di sistema del SO. Eseguire rotazione e audit immediatamente. |
 | `PATH_TRAVERSAL` | error | 1 | L'href esce da `docs/` verso un percorso non di sistema (es. un repository adiacente). |
 
-L'Exit Code 3 ha priorità sull'Exit Code 2 (violazione credenziali Shield). Non viene
-mai soppresso da `--exit-zero`.
+`PATH_TRAVERSAL` resta un errore standard con exit code 1 per uscite non di sistema
+(ad esempio repository adiacenti). `PATH_TRAVERSAL_SUSPICIOUS` ha sempre priorità
+sugli incidenti Shield (exit code 2) e non viene mai soppresso da `--exit-zero`.
 
 !!! danger "Exit Code 3 — Sentinella di Sangue"
     Un finding `PATH_TRAVERSAL_SUSPICIOUS` significa che un file sorgente della
@@ -161,65 +139,32 @@ mai soppresso da `--exit-zero`.
     dell'autore che rivela dettagli dell'infrastruttura interna. Va trattato come un
     incidente di sicurezza che blocca la build.
 
-!!! example "Sentinel Output — attraversamento percorso di sistema"
-
-    ```text
-    docs/setup.md
-      ✘ 14:    [PATH_TRAVERSAL_SUSPICIOUS]  '../../../../etc/passwd' resolves outside the docs directory
-        │
-     14 │ [file di configurazione](../../../../etc/passwd)
-        │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-      ✘ 1 error  • 1 file with findings
-
-    FAILED: One or more checks failed.
-    ```
-    Exit code: **3**
-
 ![Zenzic Sentinel — Blood Report: finding PATH_TRAVERSAL_SUSPICIOUS in rosso sangue](../assets/screenshots/screenshot-blood.svg)
+
+!!! abstract "Prossimo passo"
+    Confronta tutti i gate nel [Riferimento exit code](usage/commands.md#exit-codes)
+    prima di applicare policy CI bloccanti.
 
 ### Link circolari
 
-Zenzic rileva i cicli di link tramite una ricerca depth-first iterativa sul grafo di
-adiacenza dei link (Fase 1.5, Θ(V+E) — eseguita una sola volta dopo la costruzione
-del resolver in memoria). Ogni verifica di Phase 2 sul registro dei cicli è poi O(1).
+Il rilevamento dei cicli viene calcolato una sola volta con DFS iterativa durante la
+costruzione del resolver (Fase 1.5, Θ(V+E)). Ogni lookup di appartenenza al registro
+dei cicli in Phase 2 è O(1).
 
-Un "ciclo" in un grafo di link della documentazione significa che la pagina A linka
-alla pagina B e la pagina B linka di ritorno alla pagina A (direttamente o attraverso
-una catena più lunga). I link di navigazione reciproca — ad esempio, una pagina Home
-che linka a una pagina Funzionalità e la pagina Funzionalità che linka di ritorno a
-Home — sono comuni, intenzionali, e non causano problemi di rendering per nessun
-generatore di siti statici.
-
-Per questo motivo, `CIRCULAR_LINK` viene segnalato con severità `info`. Appare nel
-pannello Sentinel e contribuisce al conteggio "N file con findings", ma non influisce
-mai sugli exit code in modalità normale o `--strict`. I team che vogliono applicare
-una topologia DAG rigorosa possono esaminare i finding di tipo info come parte del
-loro processo di revisione.
+`CIRCULAR_LINK` resta intenzionalmente `info`: i loop di navigazione reciproca sono
+normali nei grafi documentali e non rompono il rendering dei siti statici. I finding
+info sono nascosti di default per mantenere in primo piano i blocker; usa `--show-info`
+quando vuoi auditare la topologia. Per la motivazione di design, vedi
+[ADR 003 — Root Discovery Protocol](adr/003-discovery-logic.md).
 
 | Codice | Severità | Exit code | Significato |
 | :--- | :---: | :---: | :--- |
 | `CIRCULAR_LINK` | info | — | Il target risolto è membro di un ciclo di link. |
 
-!!! example "Sentinel Output — link circolare"
-
-    ```text
-    docs/guide.md
-      💡 3:     [CIRCULAR_LINK]  'index.md' is part of a circular link cycle
-
-    docs/index.md
-      💡 8:     [CIRCULAR_LINK]  'guide.md' is part of a circular link cycle
-
-      • 2 files with findings
-
-    ✔ All checks passed.
-    ```
-
 !!! note "Finding di livello info — soppresso per default"
     I finding `CIRCULAR_LINK` sono segnalati con severità `info` e __non vengono
-    mostrati__ nell'output standard per evitare di intasare le scansioni di
-    routine. I link di navigazione reciproca sono comuni e intenzionali nelle
-    strutture di documentazione ipertestuale.
+    mostrati__ nell'output standard per mantenere le scansioni di routine focalizzate
+    sui blocker.
 
     Usa `--show-info` per visualizzarli:
 
@@ -227,11 +172,12 @@ loro processo di revisione.
     zenzic check all --show-info
     ```
 
-    Non bloccano mai la build né influiscono sui codici di uscita in nessuna modalità.
-    Per la motivazione alla base di questa scelta di severità, consulta
-    [ADR 003 — Root Discovery Protocol](adr/003-discovery-logic.md).
+    Non bloccano mai la build né influiscono sui codici di uscita in modalità normale
+    o `--strict`.
 
 ![Zenzic Sentinel — Circle Discovery: finding CIRCULAR_LINK visualizzati con --show-info](../assets/screenshots/screenshot-circular.svg)
+
+---
 
 ---
 
@@ -248,17 +194,7 @@ __Cosa rileva:__
 - Pagine create su disco ma mai aggiunte alla `nav`
 - Pagine la cui voce `nav` è stata rimossa senza eliminare il file
 
-!!! example "Sentinel Output"
-
-    ```text
-    api/experimental.md
-      ⚠ –      [ORPHAN]  Physical file not listed in navigation.
-
-    guide/bozza-tutorial.md
-      ⚠ –      [ORPHAN]  Physical file not listed in navigation.
-
-      ⚠ 2 warnings    • 2 files with findings
-    ```
+![Zenzic Sentinel — Controllo Orfani: file fisici assenti dalla navigazione del sito](../assets/screenshots/screenshot-orphans.svg)
 
 ---
 
@@ -300,17 +236,7 @@ __Cosa NON rileva:__
 
 __Tuning:__ usa `snippet_min_lines` in `zenzic.toml` per saltare i blocchi brevi. Il default di `1` controlla tutto inclusi i blocchi su una singola riga. Impostalo a `3` o superiore per ignorare stub di import e one-liner che sono probabilmente illustrativi piuttosto che eseguibili.
 
-!!! example "Sentinel Output"
-
-    ```text
-    docs/tutorial.md
-      ✘ 48:    [SNIPPET]  SyntaxError in Python snippet — expected ':'
-        │
-     48 │ def calcola_totale(elementi)
-        │
-
-      ✘ 1 error    • 1 file with findings
-    ```
+![Zenzic Sentinel — Controllo Snippet: SyntaxError in blocco Python delimitato](../assets/screenshots/screenshot-snippets.svg)
 
 ---
 
@@ -332,7 +258,7 @@ __Comportamento CLI:__ legge ogni file `.md` e chiama `check_placeholder_content
 
 __Tuning:__
 
-```text
+```toml
 # zenzic.toml
 
 # Alza la soglia per progetti con pagine dense e concise
@@ -341,32 +267,11 @@ placeholder_max_words = 100
 # Personalizza i pattern per le convenzioni del tuo team
 placeholder_patterns = ["coming soon", "wip", "fixme", "tbd", "draft"]
 
-# Disabilita il controllo del conteggio parole (il controllo pattern continua)
-placeholder_max_words = 0
-
-# Disabilita entrambi i controlli
-placeholder_max_words = 0
-placeholder_patterns = []
+# OPPURE: Disabilita il controllo del conteggio parole (imposta a 0)
+# placeholder_max_words = 0
 ```
 
-!!! example "Sentinel Output"
-
-    ```text
-    docs/guide/avanzato.md
-      ⚠ 1:     [short-content]  Page has only 12 words (minimum 50).
-        │
-      1 │ # Guida Avanzata
-        │
-
-    docs/api/webhooks.md
-      ⚠ 7:     [placeholder-text]  Found placeholder text: 'prossimamente'
-        │
-      7 │ Prossimamente – torna a controllare.
-        │
-      ⚠ 1:     [short-content]  Page has only 8 words (minimum 50).
-
-      ⚠ 3 warnings    • 2 files with findings
-    ```
+![Zenzic Sentinel — Controllo Placeholder: avvisi short-content e placeholder-text](../assets/screenshots/screenshot-placeholders.svg)
 
 ---
 
@@ -398,17 +303,7 @@ __Cosa rileva:__
 - Immagini rimaste dopo una riorganizzazione o rinomina di una pagina
 - Allegati (PDF, file di dati) che erano linkati da una pagina che non esiste più
 
-!!! example "Sentinel Output"
-
-    ```text
-    assets/vecchio-screenshot.png
-      ⚠ –      [ASSET]  File not referenced in any documentation page.
-
-    assets/diagramma-v1.svg
-      ⚠ –      [ASSET]  File not referenced in any documentation page.
-
-      ⚠ 2 warnings    • 2 files with findings
-    ```
+![Zenzic Sentinel — Controllo Asset: file non utilizzati segnalati con avviso ASSET](../assets/screenshots/screenshot-assets.svg)
 
 ---
 
@@ -484,7 +379,6 @@ soppresso da `--exit-zero` o da `exit_zero = true` in `zenzic.toml`.
     Credential: sk-4xAm****************************7fBz
     Action: Rotate this credential immediately and purge it from the repository history.
     ```
-    Exit code: **2**
 
 Per il riferimento completo che include la formula del punteggio di integrità, l'API
 programmatica e i controlli alt-text, consulta

@@ -1,7 +1,7 @@
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Sentinel Style Guide
+# Sentinel Style Guide {#sentinel-style-guide}
 
 > *"The Sentinel's rigour in code must extend to every pixel the user sees."*
 

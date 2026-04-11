@@ -1,0 +1,10 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# mkdocs.yml — minimal nav for the hero specimen.
+
+site_name: Hero Specimen
+
+nav:
+  - Home: index.md
+  - Deploy: deploy.md
+  - Secrets: secrets.md

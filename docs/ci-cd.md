@@ -2,6 +2,9 @@
 icon: lucide/workflow
 ---
 
+<!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 # CI/CD Integration {#ci-cd-integration}
 
 Zenzic is automation-ready out of the box. The `--format json` flag and `--save` option expose machine-readable output that any CI/CD system can consume to drive dynamic badges, quality gates, and regression detection.

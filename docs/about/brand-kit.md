@@ -2,6 +2,9 @@
 icon: lucide/palette
 ---
 
+<!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 # Brand Ecosystem {#brand-ecosystem}
 
 Welcome to the Zenzic Brand Ecosystem. This is not just a style guide; it is the constitution of how Zenzic is presented across open-source communities, CI/CD integrations, and enterprise deployment landscapes.

@@ -2,6 +2,9 @@
 icon: lucide/plug
 ---
 
+<!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 # Writing a Zenzic Adapter {#writing-a-zenzic-adapter}
 
 This guide explains how to create a third-party adapter that teaches Zenzic to

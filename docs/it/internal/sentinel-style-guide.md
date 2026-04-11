@@ -1,7 +1,7 @@
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Guida di Stile Sentinel
+# Guida di Stile Sentinel {#sentinel-style-guide}
 
 > *"Il rigore della Sentinella nel codice deve estendersi a ogni pixel che l'utente vede."*
 

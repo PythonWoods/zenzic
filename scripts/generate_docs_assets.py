@@ -35,8 +35,10 @@ from rich.text import Text
 
 from zenzic import __version__
 from zenzic.cli import _collect_all_results, _to_findings
-from zenzic.core.reporter import SentinelReporter
+from zenzic.core.reporter import Finding, SentinelReporter
+from zenzic.core.scanner import find_orphans, find_placeholders, find_unused_assets
 from zenzic.core.scorer import compute_score
+from zenzic.core.validator import validate_links_structured, validate_snippets
 from zenzic.models.config import ZenzicConfig
 from zenzic.ui import INDIGO, SLATE, emoji
 
@@ -383,6 +385,291 @@ def generate_circular() -> Path:
     return out
 
 
+# ── Asset 5: Links specimen ────────────────────────────────────────────────────
+
+
+def generate_links() -> Path:
+    """``zenzic check links`` on readme-hero → screenshot-links.svg."""
+    out = OUT_DIR / "screenshot-links.svg"
+
+    console = Console(highlight=False, record=True, width=88)
+
+    config, _ = ZenzicConfig.load(README_HERO)
+    docs_root = (README_HERO / config.docs_dir).resolve()
+
+    console.print(f"[dim]{emoji('arrow')}[/] [bold]zenzic check links[/bold]")
+    console.print()
+
+    t0 = time.monotonic()
+    link_errors = validate_links_structured(README_HERO, strict=False)
+    elapsed = time.monotonic() - t0
+
+    def _rel(path):
+        try:
+            return str(path.relative_to(docs_root))
+        except ValueError:
+            return str(path)
+
+    findings = [
+        Finding(
+            rel_path=_rel(err.file_path),
+            line_no=err.line_no,
+            code=err.error_type,
+            severity=(
+                "security_incident"
+                if err.error_type == "PATH_TRAVERSAL_SUSPICIOUS"
+                else "info"
+                if err.error_type == "CIRCULAR_LINK"
+                else "warning"
+                if err.error_type in {"UNREACHABLE_LINK", "Z002"}
+                else "error"
+            ),
+            message=err.message,
+            source_line=err.source_line,
+            col_start=err.col_start,
+            match_text=err.match_text,
+        )
+        for err in link_errors
+    ]
+
+    docs_count, assets_count = _docs_assets_count(docs_root, README_HERO)
+    reporter = SentinelReporter(console, docs_root)
+    reporter.render(
+        findings,
+        version=__version__,
+        elapsed=elapsed,
+        docs_count=docs_count,
+        assets_count=assets_count,
+        engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
+        ok_message="No broken links found.",
+    )
+
+    console.save_svg(str(out), title="zenzic check links")
+    _cleanup_build_artefact(README_HERO)
+    return out
+
+
+# ── Asset 6: Orphans specimen ──────────────────────────────────────────────────
+
+
+def generate_orphans() -> Path:
+    """``zenzic check orphans`` on broken-docs → screenshot-orphans.svg."""
+    out = OUT_DIR / "screenshot-orphans.svg"
+
+    console = Console(highlight=False, record=True, width=88)
+
+    config, _ = ZenzicConfig.load(BROKEN_DOCS)
+    docs_root = (BROKEN_DOCS / config.docs_dir).resolve()
+
+    console.print(f"[dim]{emoji('arrow')}[/] [bold]zenzic check orphans[/bold]")
+    console.print()
+
+    t0 = time.monotonic()
+    orphans = find_orphans(BROKEN_DOCS, config)
+    elapsed = time.monotonic() - t0
+
+    findings = [
+        Finding(
+            rel_path=str(path),
+            line_no=0,
+            code="ORPHAN",
+            severity="warning",
+            message="Physical file not listed in navigation.",
+        )
+        for path in orphans
+    ]
+
+    docs_count, assets_count = _docs_assets_count(docs_root, BROKEN_DOCS)
+    reporter = SentinelReporter(console, docs_root)
+    reporter.render(
+        findings,
+        version=__version__,
+        elapsed=elapsed,
+        docs_count=docs_count,
+        assets_count=assets_count,
+        engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
+        strict=True,
+        ok_message="No orphan pages found.",
+    )
+
+    console.save_svg(str(out), title="zenzic check orphans")
+    _cleanup_build_artefact(BROKEN_DOCS)
+    return out
+
+
+# ── Asset 7: Snippets specimen ─────────────────────────────────────────────────
+
+
+def generate_snippets() -> Path:
+    """``zenzic check snippets`` on broken-docs → screenshot-snippets.svg."""
+    out = OUT_DIR / "screenshot-snippets.svg"
+
+    console = Console(highlight=False, record=True, width=88)
+
+    config, _ = ZenzicConfig.load(BROKEN_DOCS)
+    docs_root = (BROKEN_DOCS / config.docs_dir).resolve()
+
+    console.print(f"[dim]{emoji('arrow')}[/] [bold]zenzic check snippets[/bold]")
+    console.print()
+
+    t0 = time.monotonic()
+    snippet_errors = validate_snippets(BROKEN_DOCS, config)
+    elapsed = time.monotonic() - t0
+
+    def _rel(path):
+        try:
+            return str(path.relative_to(docs_root))
+        except ValueError:
+            return str(path)
+
+    findings = []
+    for s_err in snippet_errors:
+        src = ""
+        if s_err.line_no > 0 and s_err.file_path.is_file():
+            try:
+                lines = s_err.file_path.read_text(encoding="utf-8").splitlines()
+                if 0 < s_err.line_no <= len(lines):
+                    src = lines[s_err.line_no - 1].strip()
+            except OSError:
+                pass
+        findings.append(
+            Finding(
+                rel_path=_rel(s_err.file_path),
+                line_no=s_err.line_no,
+                code="SNIPPET",
+                severity="error",
+                message=s_err.message,
+                source_line=src,
+            )
+        )
+
+    docs_count, assets_count = _docs_assets_count(docs_root, BROKEN_DOCS)
+    reporter = SentinelReporter(console, docs_root)
+    reporter.render(
+        findings,
+        version=__version__,
+        elapsed=elapsed,
+        docs_count=docs_count,
+        assets_count=assets_count,
+        engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
+        ok_message="All code snippets are syntactically valid.",
+    )
+
+    console.save_svg(str(out), title="zenzic check snippets")
+    _cleanup_build_artefact(BROKEN_DOCS)
+    return out
+
+
+# ── Asset 8: Placeholders specimen ────────────────────────────────────────────
+
+
+def generate_placeholders() -> Path:
+    """``zenzic check placeholders`` on broken-docs → screenshot-placeholders.svg."""
+    out = OUT_DIR / "screenshot-placeholders.svg"
+
+    console = Console(highlight=False, record=True, width=88)
+
+    config, _ = ZenzicConfig.load(BROKEN_DOCS)
+    docs_root = (BROKEN_DOCS / config.docs_dir).resolve()
+
+    console.print(f"[dim]{emoji('arrow')}[/] [bold]zenzic check placeholders[/bold]")
+    console.print()
+
+    t0 = time.monotonic()
+    raw_findings = find_placeholders(BROKEN_DOCS, config)
+    elapsed = time.monotonic() - t0
+
+    findings = []
+    for pf in raw_findings:
+        src = ""
+        if pf.line_no > 0:
+            abs_path = docs_root / pf.file_path
+            if abs_path.is_file():
+                try:
+                    lines = abs_path.read_text(encoding="utf-8").splitlines()
+                    if 0 < pf.line_no <= len(lines):
+                        src = lines[pf.line_no - 1].strip()
+                except OSError:
+                    pass
+        findings.append(
+            Finding(
+                rel_path=str(pf.file_path),
+                line_no=pf.line_no,
+                code=pf.issue,
+                severity="warning",
+                message=pf.detail,
+                source_line=src,
+                col_start=pf.col_start,
+                match_text=pf.match_text,
+            )
+        )
+
+    docs_count, assets_count = _docs_assets_count(docs_root, BROKEN_DOCS)
+    reporter = SentinelReporter(console, docs_root)
+    reporter.render(
+        findings,
+        version=__version__,
+        elapsed=elapsed,
+        docs_count=docs_count,
+        assets_count=assets_count,
+        engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
+        strict=True,
+        ok_message="No placeholder stubs found.",
+    )
+
+    console.save_svg(str(out), title="zenzic check placeholders")
+    _cleanup_build_artefact(BROKEN_DOCS)
+    return out
+
+
+# ── Asset 9: Assets specimen ───────────────────────────────────────────────────
+
+
+def generate_assets() -> Path:
+    """``zenzic check assets`` on broken-docs → screenshot-assets.svg."""
+    out = OUT_DIR / "screenshot-assets.svg"
+
+    console = Console(highlight=False, record=True, width=88)
+
+    config, _ = ZenzicConfig.load(BROKEN_DOCS)
+    docs_root = (BROKEN_DOCS / config.docs_dir).resolve()
+
+    console.print(f"[dim]{emoji('arrow')}[/] [bold]zenzic check assets[/bold]")
+    console.print()
+
+    t0 = time.monotonic()
+    unused = find_unused_assets(BROKEN_DOCS, config)
+    elapsed = time.monotonic() - t0
+
+    findings = [
+        Finding(
+            rel_path=str(path),
+            line_no=0,
+            code="ASSET",
+            severity="warning",
+            message="File not referenced in any documentation page.",
+        )
+        for path in unused
+    ]
+
+    docs_count, assets_count = _docs_assets_count(docs_root, BROKEN_DOCS)
+    reporter = SentinelReporter(console, docs_root)
+    reporter.render(
+        findings,
+        version=__version__,
+        elapsed=elapsed,
+        docs_count=docs_count,
+        assets_count=assets_count,
+        engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
+        strict=True,
+        ok_message="No unused assets found.",
+    )
+
+    console.save_svg(str(out), title="zenzic check assets")
+    _cleanup_build_artefact(BROKEN_DOCS)
+    return out
+
+
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
 
@@ -412,3 +699,18 @@ if __name__ == "__main__":
 
     circular = generate_circular()
     print(f"Saved → {circular.relative_to(root)}")
+
+    links = generate_links()
+    print(f"Saved → {links.relative_to(root)}")
+
+    orphans = generate_orphans()
+    print(f"Saved → {orphans.relative_to(root)}")
+
+    snippets = generate_snippets()
+    print(f"Saved → {snippets.relative_to(root)}")
+
+    placeholders = generate_placeholders()
+    print(f"Saved → {placeholders.relative_to(root)}")
+
+    assets = generate_assets()
+    print(f"Saved → {assets.relative_to(root)}")

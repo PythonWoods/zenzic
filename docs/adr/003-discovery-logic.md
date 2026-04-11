@@ -1,3 +1,6 @@
+<!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 # ADR 003: Root Discovery Protocol (RDP) {#adr-003-root-discovery-protocol}
 
 **Status:** Active (amended by ZRT-005, 2026-04-08)
