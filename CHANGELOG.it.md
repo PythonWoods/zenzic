@@ -11,6 +11,29 @@ Le versioni seguono il [Semantic Versioning](https://semver.org/).
 
 ## [Non rilasciato]
 
+## [0.6.0a1] — 2026-04-12 — Obsidian Glass
+
+> **Alpha 1 della serie v0.6.** Zenzic evolve da un linter MkDocs-aware a un
+> **Analizzatore di Piattaforme Documentali**. Questo rilascio introduce
+> l'adapter per il motore Docusaurus v3 — il primo adapter non-MkDocs/Zensical —
+> e segna l'inizio della strategia di migrazione Obsidian Bridge.
+
+### Aggiunto
+
+- **Adapter Docusaurus v3** (`DocusaurusAdapter`): Supporto iniziale per il motore
+  Docusaurus v3 — adapter puro Python conforme al protocollo `BaseAdapter`. Gestisce
+  file sorgente `.md` e `.mdx`, modalità sidebar auto-generata (tutti i file
+  `REACHABLE`), geografia i18n Docusaurus
+  (`i18n/{locale}/docusaurus-plugin-content-docs/current/`), rilevamento Ghost Route
+  per le pagine indice delle locale, ed esclusione di file/directory con prefisso `_`
+  (`IGNORED`). Registrato come adapter built-in con entry-point
+  `docusaurus = "zenzic.core.adapters:DocusaurusAdapter"`.
+- **Estrazione `baseUrl`**: Estrazione chirurgica via regex di `baseUrl` da
+  `docusaurus.config.ts` / `.js` — nessun sottoprocesso Node.js (conformità
+  Pilastro 2).
+- **Hook factory `from_repo()`** per `DocusaurusAdapter`: Scopre automaticamente
+  `docusaurus.config.ts` o `.js` e costruisce l'adapter con il `baseUrl` corretto.
+
 ## [0.5.0a5] — 2026-04-09 — Il Codex Sentinel
 
 > **Rilascio Alpha 5.** Revisione del linguaggio visivo: Guida di Stile Sentinel,

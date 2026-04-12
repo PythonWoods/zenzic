@@ -54,6 +54,10 @@ from zenzic.models.references import ReferenceMap
 from zenzic.models.vsm import build_vsm
 
 
+# Extensions recognised as documentation source files (not assets).
+_DOC_SUFFIXES: frozenset[str] = frozenset({".md", ".mdx"})
+
+
 # ─── YAML loader (boundary layer — ignores unknown tags like MkDocs !ENV) ────
 
 
@@ -611,9 +615,9 @@ async def validate_links_async(
     # ── Instantiate the build-engine adapter (locale-aware path resolution) ──
     adapter = get_adapter(config.build_context, docs_root, repo_root)
 
-    # ── Pass 1: read all .md files + map all non-.md assets into memory ──────
+    # ── Pass 1: read all .md/.mdx files + map all non-doc assets into memory ──
     md_contents: dict[Path, str] = {}
-    for md_file in sorted(docs_root.rglob("*.md")):
+    for md_file in sorted(f for f in docs_root.rglob("*") if f.suffix in _DOC_SUFFIXES):
         if md_file.is_symlink():
             continue
         rel = md_file.relative_to(docs_root)
@@ -630,7 +634,7 @@ async def validate_links_async(
     known_assets: frozenset[str] = frozenset(
         str(f.resolve())
         for f in docs_root.rglob("*")
-        if f.is_file() and not f.is_symlink() and f.suffix != ".md"
+        if f.is_file() and not f.is_symlink() and f.suffix not in _DOC_SUFFIXES
     )
 
     # ── Phase 1: parallel index (anchors + resolved links) ────────────────
@@ -937,7 +941,9 @@ def generate_virtual_site_map(docs_root: Path, docs_structure: str) -> frozenset
     urls: set[str] = set()
     if not docs_root.is_dir():
         return frozenset()
-    for md_file in docs_root.rglob("*.md"):
+    for md_file in docs_root.rglob("*"):
+        if md_file.suffix not in _DOC_SUFFIXES:
+            continue
         rel = md_file.relative_to(docs_root)
         # Strip .md suffix → path stem
         stem = rel.with_suffix("")
@@ -1326,7 +1332,7 @@ def validate_snippets(repo_root: Path, config: ZenzicConfig | None = None) -> li
     if not docs_root.exists() or not docs_root.is_dir():
         return errors
 
-    for md_file in sorted(docs_root.rglob("*.md")):
+    for md_file in sorted(f for f in docs_root.rglob("*") if f.suffix in _DOC_SUFFIXES):
         if md_file.is_symlink():
             continue
 

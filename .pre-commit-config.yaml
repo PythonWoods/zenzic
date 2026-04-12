@@ -71,7 +71,7 @@ repos:
 
       - id: zenzic
         name: Zenzic self-check
-        entry: bash -c "mkdir -p docs/assets && zip -qr docs/assets/brand-kit.zip docs/assets/brand/ && uv run zenzic check all --strict"
+        entry: uv run zenzic check all --strict
         language: system
         types_or: [python, markdown, yaml]
         pass_filenames: false

@@ -11,6 +11,7 @@ Usage::
     python scripts/benchmark.py                  # default: 200 files, 4 workers
     python scripts/benchmark.py --files 1000 --workers 8
     python scripts/benchmark.py --files 5000 --no-parallel
+    python scripts/benchmark.py --repo examples/docusaurus-v3  # real adapter test
 
 Output is a Rich-formatted table with ms/file figures for each strategy.
 """
@@ -85,15 +86,32 @@ def main() -> None:
     parser.add_argument("--workers", type=int, default=4, help="Worker processes for parallel scan")
     parser.add_argument("--runs", type=int, default=3, help="Benchmark repetitions (best of N)")
     parser.add_argument("--no-parallel", action="store_true", help="Skip parallel benchmark")
+    parser.add_argument(
+        "--repo",
+        type=str,
+        default=None,
+        help="Path to a real project to benchmark (e.g. examples/docusaurus-v3)",
+    )
     args = parser.parse_args()
 
-    console.print(
-        f"\n[bold cyan]Zenzic Benchmark[/] — {args.files} synthetic files, "
-        f"{args.runs} run(s) each\n"
-    )
+    use_real_repo = args.repo is not None
 
-    console.print("[dim]Generating synthetic repo…[/]")
-    repo = _create_synthetic_repo(args.files)
+    if use_real_repo:
+        repo = Path(args.repo).resolve()
+        if not repo.exists():
+            console.print(f"[red]Error:[/] repo path does not exist: {repo}")
+            raise SystemExit(1)
+        console.print(
+            f"\n[bold cyan]Zenzic Benchmark[/] — real project [bold]{repo.name}[/], "
+            f"{args.runs} run(s) each\n"
+        )
+    else:
+        console.print(
+            f"\n[bold cyan]Zenzic Benchmark[/] — {args.files} synthetic files, "
+            f"{args.runs} run(s) each\n"
+        )
+        console.print("[dim]Generating synthetic repo…[/]")
+        repo = _create_synthetic_repo(args.files)
     config = ZenzicConfig()
 
     results: list[dict] = []
@@ -146,10 +164,11 @@ def main() -> None:
             f"({args.workers} workers, {args.files} files)\n"
         )
 
-    # Cleanup
+    # Cleanup (only remove synthetic repos, never real ones)
     import shutil
 
-    shutil.rmtree(repo, ignore_errors=True)
+    if not use_real_repo:
+        shutil.rmtree(repo, ignore_errors=True)
 
 
 if __name__ == "__main__":

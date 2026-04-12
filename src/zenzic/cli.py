@@ -141,12 +141,13 @@ def _count_docs_assets(docs_root: Path, repo_root: Path) -> tuple[int, int]:
     """Return ``(docs_count, assets_count)`` for the Sentinel telemetry line."""
     _INERT = {".css", ".js"}
     _CONFIG = {".yml", ".yaml", ".toml"}
+    _DOC_EXT = {".md", ".mdx"}
     if not docs_root.is_dir():
         return 0, 0
     docs_count = sum(
         1
         for p in docs_root.rglob("*")
-        if p.is_file() and (p.suffix.lower() == ".md" or p.suffix.lower() in _CONFIG)
+        if p.is_file() and (p.suffix.lower() in _DOC_EXT or p.suffix.lower() in _CONFIG)
     )
     docs_count += sum(
         1 for p in repo_root.iterdir() if p.is_file() and p.suffix.lower() in {".yml", ".yaml"}
@@ -157,7 +158,7 @@ def _count_docs_assets(docs_root: Path, repo_root: Path) -> tuple[int, int]:
         if p.is_file()
         and p.suffix.lower() not in _INERT
         and p.suffix.lower() not in _CONFIG
-        and p.suffix.lower() != ".md"
+        and p.suffix.lower() not in _DOC_EXT
     )
     return docs_count, assets_count
 

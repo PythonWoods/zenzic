@@ -29,6 +29,7 @@ Zensical utilities:
 from __future__ import annotations
 
 from ._base import BaseAdapter
+from ._docusaurus import DocusaurusAdapter, find_docusaurus_config
 from ._factory import get_adapter, list_adapter_engines
 from ._mkdocs import (
     MkDocsAdapter,
@@ -49,6 +50,7 @@ __all__ = [
     # Protocol
     "BaseAdapter",
     # Adapters
+    "DocusaurusAdapter",
     "MkDocsAdapter",
     "ZensicalAdapter",
     "VanillaAdapter",
@@ -67,4 +69,6 @@ __all__ = [
     # Zensical utilities
     "find_zensical_config",
     "_load_zensical_config",
+    # Docusaurus utilities
+    "find_docusaurus_config",
 ]

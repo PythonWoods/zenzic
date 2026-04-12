@@ -38,6 +38,7 @@ from typing import Any
 
 from zenzic.models.config import BuildContext
 
+from ._docusaurus import DocusaurusAdapter
 from ._mkdocs import MkDocsAdapter
 from ._vanilla import VanillaAdapter
 from ._zensical import ZensicalAdapter
@@ -47,6 +48,7 @@ from ._zensical import ZensicalAdapter
 # override these, but they are always available even when the package is
 # installed in a venv that pre-dates the ``zenzic.adapters`` entry-point group.
 _BUILTIN_ADAPTERS: dict[str, type[Any]] = {
+    "docusaurus": DocusaurusAdapter,
     "mkdocs": MkDocsAdapter,
     "zensical": ZensicalAdapter,
     "vanilla": VanillaAdapter,

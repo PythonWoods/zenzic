@@ -1,0 +1,31 @@
+---
+title: Introduction
+---
+
+# Welcome to the Docusaurus Example
+
+This is the entry point of a minimal **Docusaurus v3** project used as a
+reference fixture for [Zenzic](https://github.com/PythonWoods/zenzic).
+
+Zenzic analyses this project **without running Node.js**. It reads the
+`docusaurus.config.ts` as plain text to extract `baseUrl`, then maps every
+`.mdx` file to its canonical URL using pure Python.
+
+## What this example shows
+
+- Clean relative links between `.mdx` pages.
+- MDX component syntax that Zenzic tolerates without crashing.
+- i18n structure with Italian translations under `i18n/it/`.
+
+## Quick links
+
+- [Installation Guide](guide/install.mdx) — how to set up the project.
+
+## MDX Component Demo
+
+The following JSX component is valid Docusaurus MDX. Zenzic ignores it
+gracefully — no parse errors, no false positives:
+
+<Icon name="shield" />
+
+export const Icon = ({name}) => <span>{name}</span>;

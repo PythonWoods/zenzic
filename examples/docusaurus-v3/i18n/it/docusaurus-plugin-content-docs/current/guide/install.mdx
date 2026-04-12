@@ -1,0 +1,33 @@
+---
+title: Guida all'Installazione
+---
+
+# Guida all'Installazione
+
+Installa Zenzic con un singolo comando:
+
+```bash
+uvx --pre zenzic check all --engine docusaurus
+```
+
+## Prerequisiti
+
+- Python 3.11 o successivo
+- Un progetto Docusaurus v3 con `docusaurus.config.ts`
+
+## Configurazione
+
+Crea un `zenzic.toml` nella root del progetto:
+
+```toml
+docs_dir = "docs"
+
+[build_context]
+engine = "docusaurus"
+```
+
+Tutto qui. Zenzic rileverà automaticamente `baseUrl` dalla configurazione Docusaurus.
+
+## Prossimi passi
+
+Torna all'[Introduzione](../intro.mdx) per una panoramica.
