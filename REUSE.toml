@@ -55,37 +55,11 @@ path = "docs/**/*.j2"
 SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
 SPDX-License-Identifier = "Apache-2.0"
 
-# docs/assets: SVG/PNG carry .license sidecars; .j2 carry inline headers.
-# Structure: brand/{svg,png}/ favicon/ screenshots/ social/ stylesheets/
+# assets/: README brand assets (rescued from docs/ in v0.6.0a1).
 
 [[annotations]]
-path = "docs/assets/brand/**"
+path = "assets/brand/**"
 precedence = "aggregate"
-SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
-SPDX-License-Identifier = "Apache-2.0"
-
-[[annotations]]
-path = "docs/assets/brand-kit.zip"
-SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
-SPDX-License-Identifier = "Apache-2.0"
-
-[[annotations]]
-path = "docs/assets/favicon/**"
-SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
-SPDX-License-Identifier = "Apache-2.0"
-
-[[annotations]]
-path = "docs/assets/screenshots/**"
-SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
-SPDX-License-Identifier = "Apache-2.0"
-
-[[annotations]]
-path = "docs/assets/social/**"
-SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
-SPDX-License-Identifier = "Apache-2.0"
-
-[[annotations]]
-path = "docs/assets/stylesheets/**"
 SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
 SPDX-License-Identifier = "Apache-2.0"
 

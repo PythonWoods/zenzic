@@ -2,14 +2,31 @@
 
 Thank you for your interest in contributing to Zenzic!
 
-Zenzic is a documentation quality tool — an engine-agnostic linter and security shield for Markdown documentation. Contributions that improve detection accuracy, add new check types, or improve CI/CD integration are especially welcome.
+Zenzic is a documentation quality tool — an engine-agnostic linter and security shield
+for Markdown and MDX documentation. Contributions that improve detection accuracy, add
+new check types, or improve CI/CD integration are especially welcome.
+
+## Two Repositories, Two Doors
+
+Zenzic is split into two independent repositories:
+
+| Repository | Purpose | Stack |
+|:-----------|:--------|:------|
+| **[zenzic](https://github.com/PythonWoods/zenzic)** (this repo) | Core analysis engine — the Python library and CLI | Python 3.11+, `uv`, `pytest`, `mypy` |
+| **[zenzic-doc](https://github.com/PythonWoods/zenzic-doc)** | User-facing documentation site | React, Docusaurus v3, MDX |
+
+**If you want to contribute to the analysis engine** (new checks, adapters, bug fixes,
+performance improvements) — you are in the right place.
+
+**If you want to contribute to the documentation** (guides, tutorials, translations) —
+head to [zenzic-doc](https://github.com/PythonWoods/zenzic-doc).
 
 ## Mission
 
 Zenzic is not just a linter. It is a long-term safety layer for documentation teams that
 depend on open, auditable source files. We preserve validation continuity across engine
-changes (MkDocs 1.x, Zensical, and future adapters) so projects keep control over their
-data and quality process regardless of ecosystem churn.
+changes (MkDocs, Docusaurus, Zensical, and future adapters) so projects keep control over
+their data and quality process regardless of ecosystem churn.
 
 ---
 
@@ -19,13 +36,9 @@ data and quality process regardless of ecosystem churn.
 git clone git@github.com:PythonWoods/zenzic.git
 cd zenzic
 just sync
-nox -s dev
 ```
 
 `just sync` installs all dependency groups via `uv sync --all-groups`.
-`nox -s dev` installs pre-commit hooks and downloads the Lucide icon set into
-`overrides/.icons/lucide/` (required for `mkdocs serve` and `mkdocs build`).
-This directory is excluded from git — it is a generated build asset.
 
 ---
 
@@ -38,27 +51,20 @@ the exact same environment as CI.
 | Task | `just` command | `nox` equivalent | Description |
 |:-----|:---------------|:-----------------|:------------|
 | Bootstrap | `just sync` | — | Install / update all dependency groups |
-| **Self-lint** | **`just check`** | — | **Run Zenzic on its own documentation (strict)** |
+| **Self-lint** | **`just check`** | — | **Run Zenzic on its own examples (strict)** |
 | Test suite | `just test` | `nox -s tests` | pytest + branch coverage (Hypothesis **dev** profile) |
 | Test suite (thorough) | `just test-full` | — | pytest with Hypothesis **ci** profile (500 examples) |
 | Mutation testing | — | `nox -s mutation` | mutmut on `rules.py`, `shield.py`, `reporter.py` |
 | Full pipeline | `just preflight` | `nox -s preflight` | lint, typecheck, tests, reuse, security |
-| **Pre-push gate** | **`just verify`** | — | **preflight + production build — run before every push** |
-| Docs build (fast) | `just build` | — | mkdocs build, no strict enforcement |
-| Docs build (prod) | `just build-prod` | `nox -s docs` | mkdocs build --strict, mirrors CI |
-| Docs serve | `just serve [port]` | `nox -s docs_serve` | live-reload server (default port 8000) |
-| Clean | `just clean` | — | Remove `site/`, `dist/`, `.hypothesis/`, caches |
-| Pre-commit setup | — | `nox -s dev` | install hooks + download Lucide icons (once after clone) |
+| **Pre-push gate** | **`just verify`** | — | **preflight + self-lint — run before every push** |
+| Clean | `just clean` | — | Remove `dist/`, `.hypothesis/`, caches |
 | Version bump | — | `nox -s bump -- patch` | bump version + commit + tag |
-| Screenshot | — | `nox -s screenshot` | regenerate `docs/assets/screenshot.svg` |
 
 Run the full pre-push gate with:
 
 ```bash
 just verify
 ```
-
-> **Tip:** Before committing documentation updates, run `uvx zenzic clean assets` (or `uv run zenzic clean assets`) to automatically delete any old screenshots or images you are no longer using. This keeps the repository lean.
 
 ---
 
@@ -284,8 +290,7 @@ the ZRT-005 amendment history.
 ## Security & Compliance
 
 - **Security First:** Any new path resolution MUST be tested against Path Traversal. Use `PathTraversal` logic from `core`.
-- **Bilingual Parity:** Every documentation update MUST be reflected in both `docs/*.md` and the corresponding `docs/it/*.md` folder-mode files.
-- **Asset Integrity:** Ensure SVG badges in `docs/assets/brand/` are updated if the scoring logic changes.
+- **Bilingual Parity:** Documentation lives in [zenzic-doc](https://github.com/PythonWoods/zenzic-doc). Refer documentation contributors there.
 
 ---
 
@@ -571,7 +576,8 @@ When adding a new check:
 4. Add a corresponding command (or sub-command) in `cli.py`.
 5. Write tests in `tests/` covering both passing and failing cases, including a performance
    baseline (5 000 links resolved in < 100 ms against a mock in-memory corpus).
-6. Update `docs/` — Zenzic validates its own docs on every commit.
+6. Update the examples in `examples/` to exercise the new check — Zenzic validates its own
+   examples on every commit.
 
 > **Performance contract:** the `zenzic.core` hot path must remain allocation-free. No `Path`
 > object construction, no syscalls, and no `relative_to()` calls inside the resolution loop.
@@ -581,25 +587,16 @@ When adding a new check:
 
 ## Documentation
 
-Zenzic uses **MkDocs Material** for its own documentation (`docs/`). Any behaviour change or
-new feature must be documented. `zenzic check all --strict` runs against this repo in CI —
-a failing check blocks the PR.
+Zenzic's user-facing documentation lives in a separate repository:
+**[zenzic-doc](https://github.com/PythonWoods/zenzic-doc)** (Docusaurus v3, React, MDX).
 
-The documentation uses the **Lucide** icon set, downloaded at build time into
-`overrides/.icons/lucide/` (excluded from git). Run `nox -s dev` once after cloning to
-fetch the icons — after that, `mkdocs serve` works without additional steps.
+This core repository contains only:
 
-To preview documentation locally:
+- `README.md` / `README.it.md` — project overview and quick start.
+- `CONTRIBUTING.md` / `CONTRIBUTING.it.md` — developer guide (this file).
+- `examples/` — maintained fixtures that Zenzic self-validates.
 
-```bash
-just serve
-```
-
-To verify the production build:
-
-```bash
-just build
-```
+To contribute documentation improvements, open a PR in the `zenzic-doc` repository.
 
 ---
 

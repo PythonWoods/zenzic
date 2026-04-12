@@ -6,8 +6,8 @@ SPDX-License-Identifier: Apache-2.0
 # 🛡️ Zenzic
 
 <p align="center">
-  <img src="docs/assets/brand/svg/zenzic-wordmark.svg#gh-light-mode-only" alt="Zenzic" width="360">
-  <img src="docs/assets/brand/svg/zenzic-wordmark-dark.svg#gh-dark-mode-only" alt="Zenzic" width="360">
+  <img src="assets/brand/svg/zenzic-wordmark.svg#gh-light-mode-only" alt="Zenzic" width="360">
+  <img src="assets/brand/svg/zenzic-wordmark-dark.svg#gh-dark-mode-only" alt="Zenzic" width="360">
 </p>
 
 <p align="center">
@@ -29,8 +29,8 @@ SPDX-License-Identifier: Apache-2.0
   <a href="https://github.com/PythonWoods/zenzic">
     <img src="https://img.shields.io/badge/🛡️_zenzic-100%2F100-4f46e5?style=flat-square" alt="Zenzic Score">
   </a>
-  <a href="https://www.mkdocs.org/">
-    <img src="https://img.shields.io/badge/docs_by-MkDocs-526CFE?style=flat-square" alt="Built with MkDocs">
+  <a href="https://docusaurus.io/">
+    <img src="https://img.shields.io/badge/docs_by-Docusaurus-3ECC5F?style=flat-square" alt="Built with Docusaurus">
   </a>
 </p>
 
@@ -39,9 +39,17 @@ SPDX-License-Identifier: Apache-2.0
   <em>Engineering-grade documentation linter — standalone, engine-agnostic, and security-hardened.</em>
 </p>
 
-<p align="center">
-  <img src="docs/assets/screenshots/screenshot-hero.svg" alt="Zenzic Sentinel — engineering-grade documentation linter" width="700">
-</p>
+```text
+╭───────────────────────  🛡  ZENZIC SENTINEL  v0.6.0a1  ───────────────────────╮
+│                                                                              │
+│  docusaurus • 2 files (2 docs, 0 assets) • 0.0s                              │
+│                                                                              │
+│  ──────────────────────────────────────────────────────────────────────────  │
+│                                                                              │
+│  ✔ All checks passed. Your documentation is secure.                          │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+```
 
 ---
 
@@ -63,49 +71,14 @@ referenced ecosystem tools are third-party projects.
 
 ---
 
-## v0.5.0a5 Highlights — The Sentinel Codex
+## Core Capabilities
 
-- **Sentinel Style Guide**: Canonical visual-language reference defining card grids,
-  admonition types, icon vocabulary, and anchor-ID conventions. Enforced across all
-  English and Italian documentation pages.
-- **Automated Screenshot Pipeline**: All 5 documentation SVGs (`screenshot.svg`,
-  `screenshot-hero.svg`, `screenshot-score.svg`, `screenshot-blood.svg`,
-  `screenshot-circular.svg`) are now deterministically generated from live sandbox
-  fixtures — no hand-crafted static assets.
-- **Card Grid Refactoring**: Documentation pages standardised to Material for MkDocs
-  grid syntax with consistent `:material-*:` icons.
-- **102 Strategic Anchor IDs** across 70 documentation files for stable deep-linking.
-- **Admonition & Icon Normalisation**: Ad-hoc callout styles replaced with canonical
-  types; non-Material icons purged.
-- **CSS Card Overrides**: Hover effects and consistent card styling.
-- **CHANGELOG.it.md bumpversion tracking**: Italian changelog now synchronised
-  automatically during version bumps.
-- **Legacy cleanup**: Removed orphan `pdf_cover.html.j2` template.
+- **Security** — Shield (8 credential families, Exit 2) & Blood Sentinel (host-path traversal, Exit 3). Neither is suppressed by `--exit-zero`.
+- **Integrity** — O(V+E) circular link detection, Virtual Site Map with content-addressable cache, deterministic 0–100 quality score.
+- **Intelligence** — Multi-engine: MkDocs, Docusaurus, Zensical, and Vanilla. Third-party adapters install as Python packages via entry points.
 
----
-
-## v0.5.0a4 Highlights — The Hardened Sentinel
-
-- **Blood Sentinel (Exit Code 3)**: Path traversal links that escape `docs/` and
-  target OS system directories (`/etc/`, `/root/`, `/var/`, `/proc/`, `/sys/`,
-  `/usr/`) are classified as `security_incident` and exit with code **3**. Priority
-  order: `3 > 2 (Shield) > 1 (errors)`. Never suppressed by `--exit-zero`.
-- **Graph Integrity (Θ(V+E))**: Circular link detection via iterative DFS over the
-  full internal link graph. Built once (Phase 1.5); every Phase 2 per-query lookup
-  is O(1). `CIRCULAR_LINK` is advisory (`info` severity) — mutual navigation links
-  are valid documentation structure and never block CI.
-- **Hex Shield**: The Shield now detects hex-encoded payloads — 3 or more consecutive
-  `\xNN` escape sequences — catching obfuscated credentials inside fenced code blocks.
-- **Signal-to-Noise Control (`--show-info`)**: Advisory findings are suppressed by
-  default. A footer note counts them: *"N info findings suppressed — use --show-info
-  for details."* Available on all 7 check commands.
-- **ZRT-005 Fixed — Bootstrap Paradox**: `zenzic init` now works correctly in a
-  completely empty directory. The generated `zenzic.toml` includes a commented Shield
-  block listing all 8 detected credential pattern families.
-- **Bilingual Rigor**: Full documentation parity achieved across English and Italian.
-  `checks.md`, `arch_gaps.md`, `architecture.md`, and `INTERNAL_GLOSSARY.toml` (15
-  canonical terms) are now available in both languages.
-- **759 tests. Preflight green.**
+> 🚀 **Latest Release: v0.6.0a1 "Obsidian Glass"** — native Docusaurus v3 adapter, core-only architecture.
+> See [CHANGELOG.md](CHANGELOG.md) for the full release history.
 
 ---
 
@@ -580,19 +553,35 @@ nox -s tests       # pytest + coverage
 nox -s lint        # ruff check
 nox -s format      # ruff format
 nox -s typecheck   # mypy --strict
-nox -s docs        # mkdocs build --strict
-nox -s preflight   # zenzic check all (self-check)
+nox -s preflight   # full CI pipeline (lint + test + self-check)
 ```
 
 ---
 
 ## Visual Tour
 
-The full Sentinel audit: banner, gutter context, caret underlines, and quality score breakdown.
+The full Sentinel audit — banner, engine detection, and pass/fail verdict:
 
-<p align="center">
-  <img src="docs/assets/screenshots/screenshot.svg" alt="Zenzic Sentinel — full audit output with quality score" width="700">
-</p>
+```text
+╭───────────────────────  🛡  ZENZIC SENTINEL  v0.6.0a1  ───────────────────────╮
+│                                                                              │
+│  mkdocs • 12 files (10 docs, 2 assets) • 0.1s                                │
+│                                                                              │
+│  ───────────────────────────── docs/guide.md ──────────────────────────────  │
+│                                                                              │
+│    ✗ [LINK]  Broken link → ../missing-page.md (file not found)               │
+│                                                                              │
+│  ──────────────────────────────────────────────────────────────────────────  │
+│                                                                              │
+│  ✗ 1 error  • 1 file with findings                                           │
+│                                                                              │
+│  FAILED: One or more checks failed.                                          │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+```
+
+For interactive screenshots and rich visual examples, visit the
+[documentation portal](https://zenzic.pythonwoods.dev/).
 
 ---
 
@@ -633,7 +622,7 @@ Apache-2.0 — see [LICENSE][license].
 [docs-cicd]:         https://zenzic.pythonwoods.dev/ci-cd/
 [docs-arch]:         https://zenzic.pythonwoods.dev/architecture/
 [docs-contributing]: https://zenzic.pythonwoods.dev/community/contribute/
-[ci-workflow]:       .github/workflows/zenzic.yml
+[ci-workflow]:       .github/workflows/ci.yml
 [contributing]:      CONTRIBUTING.md
 [license]:           LICENSE
 [citation-cff]:      CITATION.cff

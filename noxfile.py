@@ -2,8 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
-import zipfile
-from pathlib import Path
 
 import nox
 
@@ -21,7 +19,6 @@ PYTHONS = ["3.11", "3.12", "3.13"]
 # Per-group sync tuples — each session installs only what it needs.
 _SYNC_TEST = ("uv", "sync", "--active", "--group", "test")
 _SYNC_LINT = ("uv", "sync", "--active", "--group", "lint")
-_SYNC_DOCS = ("uv", "sync", "--active", "--group", "docs")
 _SYNC_RELEASE = ("uv", "sync", "--active", "--group", "release")
 _SYNC_DEV = ("uv", "sync", "--active", "--group", "dev")
 
@@ -108,69 +105,6 @@ def security(session: nox.Session) -> None:
     )
 
 
-def _download_lucide_icons() -> None:
-    """Download Lucide icon set into overrides/.icons/lucide/ for MkDocs Material.
-
-    Resolves the actual release asset URL via the GitHub API to avoid depending
-    on a versioned filename (e.g. lucide-icons-1.7.0.zip).
-    """
-    import io
-    import json
-    import urllib.request
-
-    dest = Path("overrides/.icons/lucide")
-    if dest.exists():
-        return
-    dest.mkdir(parents=True, exist_ok=True)
-    api_url = "https://api.github.com/repos/lucide-icons/lucide/releases/latest"
-    with urllib.request.urlopen(api_url) as response:  # noqa: S310
-        release = json.loads(response.read())
-    asset_url = next(
-        a["browser_download_url"]
-        for a in release["assets"]
-        if a["name"].startswith("lucide-icons") and a["name"].endswith(".zip")
-    )
-    with urllib.request.urlopen(asset_url) as response:  # noqa: S310
-        with zipfile.ZipFile(io.BytesIO(response.read())) as zf:
-            for name in zf.namelist():
-                if name.endswith(".svg"):
-                    svg_name = Path(name).name
-                    (dest / svg_name).write_bytes(zf.read(name))
-
-
-@nox.session(python="3.11")
-def docs(session: nox.Session) -> None:
-    """Build documentation with mkdocs in strict mode."""
-    session.run(*_SYNC_DOCS, external=True)
-    _download_lucide_icons()
-    _build_brand_kit_zip()
-    session.run("mkdocs", "build", "--strict")
-
-
-@nox.session(python="3.11")
-def docs_serve(session: nox.Session) -> None:
-    """Serve documentation with live reload via mkdocs.
-
-    Pass a custom bind address via posargs: nox -s docs_serve -- -a 127.0.0.1:8001
-    """
-    session.run(*_SYNC_DOCS, external=True)
-    _download_lucide_icons()
-    session.run("mkdocs", "serve", *session.posargs)
-
-
-def _build_brand_kit_zip() -> None:
-    """Generate docs/assets/brand-kit.zip from docs/assets/brand/ + social/."""
-    base = Path("docs/assets")
-    out = base / "brand-kit.zip"
-    out.parent.mkdir(parents=True, exist_ok=True)
-    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zf:
-        for src_dir in ("brand", "social"):
-            src = base / src_dir
-            for file in sorted(src.rglob("*")):
-                if file.is_file() and not file.name.endswith(".license"):
-                    zf.write(file, file.relative_to(base))
-
-
 @nox.session(python="3.11")
 def mutation(session: nox.Session) -> None:
     """Run mutation testing with mutmut on the security-critical core modules.
@@ -219,140 +153,19 @@ def preflight(session: nox.Session) -> None:
         "--cov-report=xml:coverage.xml",
     )
     session.run("reuse", "lint")
-    # Pillar 1: Validate the truth BEFORE rendering it.
-    # Zenzic guards the source; mkdocs build only runs if sources are clean.
+    # Pillar 1: Self-check — Zenzic validates its own integrity.
     session.run("zenzic", "check", "all", "--strict")
-    _download_lucide_icons()
-    _build_brand_kit_zip()
-    session.run("mkdocs", "build", "--strict", env={"NO_MKDOCS_2_WARNING": "true"})
-
-
-@nox.session(python="3.11")
-def screenshot(session: nox.Session) -> None:
-    """Regenerate docs/assets/screenshots/*.svg from examples/broken-docs output."""
-    session.run(*_SYNC_DEV, external=True)
-    session.run("python", "scripts/generate_docs_assets.py")
 
 
 @nox.session(python=False, venv_backend="none")
 def dev(session: nox.Session) -> None:
-    """One-time developer setup: install pre-commit hooks and download build assets.
+    """One-time developer setup: install pre-commit hooks.
 
     Run once after cloning:
         nox -s dev
     """
     session.run("uv", "sync", "--group", "dev", external=True)
     session.run("uv", "run", "pre-commit", "install", external=True)
-    _download_lucide_icons()
-
-
-@nox.session(python="3.11")
-def audit_sandboxes(session: nox.Session) -> None:
-    """Ground-truth build audit: build the MkDocs sandbox and verify dark-page semantics.
-
-    This session is the "proof of fire" for rc4.  It proves that every file Zenzic
-    flags as UNREACHABLE_LINK is a genuine **dark page**: physically served by MkDocs
-    at its URL, but absent from the generated navigation HTML.
-
-    A dark page is not a broken link.  It is a navigation defect — the file exists,
-    the link resolves, but the page is invisible to users browsing through the site.
-
-    Steps:
-      1. Install mkdocs-material into the session virtualenv.
-      2. Build the MkDocs sandbox into sandbox/site/.
-      3. Assert each UNREACHABLE_LINK file IS present in site/ (MkDocs copies all .md).
-      4. Assert each UNREACHABLE_LINK URL is NOT linked in the nav HTML of index.html.
-      5. Assert each REACHABLE file IS present in site/.
-    """
-    session.run(*_SYNC_DOCS, external=True)
-    from pathlib import Path
-
-    sandbox = Path("tests/sandboxes/mkdocs").resolve()
-    site_dir = sandbox / "site"
-
-    # Build the MkDocs sandbox into sandbox/site/
-    session.log("Building MkDocs sandbox...")
-    session.run(
-        "mkdocs",
-        "build",
-        "--config-file",
-        str(sandbox / "mkdocs.yml"),
-        "--site-dir",
-        str(site_dir),
-        "--quiet",
-    )
-    session.log(f"Build complete → {site_dir}")
-
-    # ── Ground-truth semantics for UNREACHABLE_LINK ──────────────────────────
-    # MkDocs copies ALL .md files to site/ regardless of whether they appear
-    # in nav:.  An UNREACHABLE_LINK page is physically served at its URL —
-    # but it has NO navigation entry.  A user who follows a link to such a
-    # page will land there successfully, but can never find it through the
-    # site navigation.  Zenzic rc4 calls this "dark page reachability":
-    # the link works, but from the user's perspective the page is invisible.
-    #
-    # The ground-truth verification therefore checks two things:
-    #   A) UNREACHABLE_LINK files ARE present in site/ (MkDocs copied them)
-    #      but are NOT referenced in any nav <a> in the generated HTML.
-    #   B) REACHABLE files ARE present in site/ AND appear in the nav HTML.
-    #
-    # We approximate the nav check by searching for the URL in the nav HTML
-    # of the home page (index.html), which contains the full navigation tree.
-
-    # Pages Zenzic flags as UNREACHABLE_LINK (not in nav, but on disk)
-    unreachable_in_site = [
-        (site_dir / "secret" / "hidden" / "index.html", "/secret/hidden/"),
-        (site_dir / "it" / "guide" / "index.html", "/it/guide/"),
-    ]
-
-    # Pages that ARE in the nav → must be present and linked in site/
-    reachable_in_site = [
-        (site_dir / "index.html", "/"),
-        (site_dir / "guide" / "get-started" / "index.html", "/guide/get-started/"),
-        (site_dir / "guide" / "installation" / "index.html", "/guide/installation/"),
-        (site_dir / "about" / "index.html", "/about/"),
-    ]
-
-    failures: list[str] = []
-    index_html = (site_dir / "index.html").read_text(encoding="utf-8")
-
-    session.log("Verifying UNREACHABLE_LINK ground truth...")
-    for path, url in unreachable_in_site:
-        if not path.exists():
-            failures.append(f"UNEXPECTED — MkDocs did not copy: {path.relative_to(site_dir)}")
-            session.log(f"  UNEXPECTED — absent from site/: {path.relative_to(site_dir)}")
-        else:
-            session.log(f"  OK — physically served at {url} (MkDocs copies all .md files)")
-
-        # The page must NOT appear as a nav link in index.html
-        # (look for href="...url..." in the navigation HTML)
-        nav_linked = url in index_html and f'href="{url}"' in index_html
-        if nav_linked:
-            failures.append(
-                f"FAIL — {url} appears as a nav link in index.html "
-                "(Zenzic UNREACHABLE_LINK prediction is wrong)"
-            )
-            session.log(f"  MISMATCH — {url} is in nav HTML (should be absent)")
-        else:
-            session.log(f"  OK — {url} is NOT in nav HTML (dark page confirmed)")
-
-    session.log("Verifying REACHABLE page ground truth...")
-    for path, _url in reachable_in_site:
-        if path.exists():
-            session.log(f"  OK — present in site/: {path.relative_to(site_dir)}")
-        else:
-            failures.append(f"FAIL — absent from site/: {path.relative_to(site_dir)}")
-            session.log(f"  MISMATCH — absent from site/: {path.relative_to(site_dir)}")
-
-    if failures:
-        session.error("Ground-truth audit FAILED:\n" + "\n".join(f"  - {f}" for f in failures))
-    else:
-        session.log(
-            "\n✓ Ground-truth audit PASSED.\n"
-            "  MkDocs copies UNREACHABLE_LINK files to site/ but does NOT link them in nav.\n"
-            "  Zenzic rc4 correctly identifies navigation-invisible pages.\n"
-            "  'The file exists. The link works. The user can never find it.' — Confirmed."
-        )
 
 
 @nox.session(python="3.11", venv_backend="none")

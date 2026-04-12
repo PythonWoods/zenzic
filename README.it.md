@@ -6,8 +6,8 @@ SPDX-License-Identifier: Apache-2.0
 # 🛡️ Zenzic
 
 <p align="center">
-  <img src="docs/assets/brand/svg/zenzic-wordmark.svg#gh-light-mode-only" alt="Zenzic" width="360">
-  <img src="docs/assets/brand/svg/zenzic-wordmark-dark.svg#gh-dark-mode-only" alt="Zenzic" width="360">
+  <img src="assets/brand/svg/zenzic-wordmark.svg#gh-light-mode-only" alt="Zenzic" width="360">
+  <img src="assets/brand/svg/zenzic-wordmark-dark.svg#gh-dark-mode-only" alt="Zenzic" width="360">
 </p>
 
 <p align="center">
@@ -29,8 +29,8 @@ SPDX-License-Identifier: Apache-2.0
   <a href="https://github.com/PythonWoods/zenzic">
     <img src="https://img.shields.io/badge/🛡️_zenzic-100%2F100-4f46e5?style=flat-square" alt="Zenzic Score">
   </a>
-  <a href="https://www.mkdocs.org/">
-    <img src="https://img.shields.io/badge/docs_by-MkDocs-526CFE?style=flat-square" alt="Built with MkDocs">
+  <a href="https://docusaurus.io/">
+    <img src="https://img.shields.io/badge/docs_by-Docusaurus-3ECC5F?style=flat-square" alt="Built with Docusaurus">
   </a>
 </p>
 
@@ -39,9 +39,17 @@ SPDX-License-Identifier: Apache-2.0
   <em>Linter di documentazione ad alte prestazioni — autonomo, agnostico rispetto all'engine, e a prova di sicurezza.</em>
 </p>
 
-<p align="center">
-  <img src="docs/assets/screenshots/screenshot-hero.svg" alt="Zenzic Sentinel — linter di documentazione" width="700">
-</p>
+```text
+╭───────────────────────  🛡  ZENZIC SENTINEL  v0.6.0a1  ───────────────────────╮
+│                                                                              │
+│  docusaurus • 2 files (2 docs, 0 assets) • 0.0s                              │
+│                                                                              │
+│  ──────────────────────────────────────────────────────────────────────────  │
+│                                                                              │
+│  ✔ All checks passed. Your documentation is secure.                          │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+```
 
 ---
 
@@ -64,47 +72,14 @@ gli altri strumenti citati sono progetti di terze parti.
 
 ---
 
-## v0.5.0a5 — Il Codex Sentinel
+## Capacità Principali
 
-- **Guida di Stile Sentinel**: Riferimento canonico del linguaggio visivo che definisce
-  griglie a schede, tipi di admonition, vocabolario icone e convenzioni anchor-ID.
-  Applicato a tutta la documentazione inglese e italiana.
-- **Pipeline Screenshot Automatizzata**: Tutti i 5 SVG della documentazione ora generati
-  deterministicamente da fixture sandbox — nessun asset statico fatto a mano.
-- **Refactoring Griglie a Schede**: Pagine documentazione standardizzate con sintassi
-  griglia Material for MkDocs e icone `:material-*:` coerenti.
-- **102 Anchor ID Strategici** in 70 file di documentazione per deep-linking stabile.
-- **Normalizzazione Admonition & Icone**: Stili callout ad-hoc sostituiti con tipi
-  canonici; icone non-Material rimosse.
-- **Override CSS Schede**: Effetti hover e stile schede coerente.
-- **Tracking bumpversion CHANGELOG.it.md**: Il changelog italiano ora sincronizzato
-  automaticamente durante i bump di versione.
-- **Pulizia legacy**: Rimosso template orfano `pdf_cover.html.j2`.
+- **Sicurezza** — Shield (8 famiglie di credenziali, Exit 2) & Sentinella di Sangue (path traversal verso directory di sistema, Exit 3). Nessuno dei due è sopprimibile con `--exit-zero`.
+- **Integrità** — Rilevamento link circolari O(V+E), Virtual Site Map con cache content-addressable, punteggio qualità deterministico 0–100.
+- **Intelligenza** — Multi-engine: MkDocs, Docusaurus, Zensical e Vanilla. Gli adapter di terze parti si installano come pacchetti Python tramite entry point.
 
----
-
-## v0.5.0a4 — La Sentinella Blindata
-
-- **Sentinella di Sangue (Exit Code 3)**: I link che escono da `docs/` e puntano a
-  directory di sistema del SO (`/etc/`, `/root/`, `/var/`, `/proc/`, `/sys/`, `/usr/`)
-  vengono classificati come `security_incident` e terminano con codice **3**. Priorità:
-  `3 > 2 (Shield) > 1 (errori)`. Non soppresso da `--exit-zero`.
-- **Graph Integrity (Θ(V+E))**: Rilevamento dei link circolari tramite DFS iterativa
-  sull'intero grafo di link interni. Costruito una sola volta (Fase 1.5); ogni query
-  della Fase 2 è O(1). `CIRCULAR_LINK` è advisory (severità `info`) — i link di
-  navigazione reciproca sono struttura valida e non bloccano mai la CI.
-- **Hex Shield**: Lo Shield ora rileva payload hex-encoded — 3 o più sequenze `\xNN`
-  consecutive — intercettando credenziali offuscate nei blocchi di codice.
-- **Controllo Rumore (`--show-info`)**: I finding informativi sono soppressi per
-  default. Una nota a piè di pagina li conta: *"N info findings suppressed — usa
-  --show-info per i dettagli."* Disponibile su tutti i 7 comandi di check.
-- **ZRT-005 Risolto — Bootstrap Paradox**: `zenzic init` funziona ora correttamente
-  in una directory completamente vuota. Il `zenzic.toml` generato include un blocco
-  Shield commentato con tutte le 8 famiglie di pattern rilevate.
-- **Rigore Bilingue**: Parità di documentazione raggiunta tra Inglese e Italiano.
-  `checks.md`, `arch_gaps.md`, `architecture.md` e `INTERNAL_GLOSSARY.toml` (15
-  termini canonici) ora disponibili in entrambe le lingue.
-- **759 test. Preflight verde.**
+> 🚀 **Ultima Release: v0.6.0a1 "Obsidian Glass"** — adapter nativo Docusaurus v3, architettura core-only.
+> Vedi [CHANGELOG.md](CHANGELOG.md) per lo storico completo delle release.
 
 ---
 
@@ -319,11 +294,28 @@ non segnalare mai i file tradotti come orfani.
 
 ## Visual Tour
 
-L'audit completo della Sentinella: banner, contesto gutter, sottolineature caret e punteggio qualità.
+L'audit completo della Sentinella — banner, rilevamento engine e verdetto:
 
-<p align="center">
-  <img src="docs/assets/screenshots/screenshot.svg" alt="Zenzic Sentinel — output completo con punteggio qualità" width="700">
-</p>
+```text
+╭───────────────────────  🛡  ZENZIC SENTINEL  v0.6.0a1  ───────────────────────╮
+│                                                                              │
+│  mkdocs • 12 files (10 docs, 2 assets) • 0.1s                                │
+│                                                                              │
+│  ───────────────────────────── docs/guide.md ──────────────────────────────  │
+│                                                                              │
+│    ✗ [LINK]  Link non raggiungibile → ../missing-page.md (file non trovato)  │
+│                                                                              │
+│  ──────────────────────────────────────────────────────────────────────────  │
+│                                                                              │
+│  ✗ 1 errore  • 1 file con problemi                                           │
+│                                                                              │
+│  FAILED: One or more checks failed.                                          │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+```
+
+Per screenshot interattivi ed esempi visivi completi, visita il
+[portale documentazione](https://zenzic.pythonwoods.dev/).
 
 ---
 

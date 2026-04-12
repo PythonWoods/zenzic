@@ -1,143 +1,125 @@
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Zenzic v0.5.0a5 — Pre-Release Audit Package
+# Zenzic v0.6.0a1 — Obsidian Glass Audit Protocol
 
-**Prepared by:** S-0 (Chronicler)
-**Date:** 2026-04-09
+**Prepared by:** S-1 (Auditor)
+**Date:** 2026-04-12
 **Status:** ALPHA — Pending Tech Lead manual verification before rc1 promotion
-**Branch:** `main` (merged from `refactor/zrt-doc-002-visual-language`)
+**Branch:** `feat/docusaurus-adapter-v0.6.0a1`
+**Codename:** Obsidian Glass — The Platform-Agnostic Leap
 
-> **Tech Lead note:** This document is your single audit surface. Work through each
-> section in order. When every checkbox below is ticked, the project is ready for
-> the `rc1` tag. Until then, the "Alpha" designation stands.
+> **Tech Lead note:** This release marks the evolution from MkDocs-specific linter to
+> **Documentation Platform Analyser**. The Core repository now contains zero documentation
+> build infrastructure — all docs live in `zenzic-doc`. Work through each gate below.
+> When every checkbox is ticked, the project is ready for `rc1`.
 
 ---
 
 ## 1. Version Anchors
 
-| Location | Expected | Actual | Status |
-| :--- | :--- | :--- | :---: |
-| `src/zenzic/__init__.py` | `0.5.0a5` | `0.5.0a5` | ✅ |
-| `pyproject.toml` `[project]` | `0.5.0a5` | `0.5.0a5` | ✅ |
-| `pyproject.toml` `[tool.bumpversion]` | `0.5.0a5` | `0.5.0a5` | ✅ |
-| `mkdocs.yml` | `0.5.0a5` | `0.5.0a5` | ✅ |
-| `CITATION.cff` | `0.5.0a5` | `0.5.0a5` | ✅ |
-| `CHANGELOG.md` top entry | `[0.5.0a5]` | `[0.5.0a5]` | ✅ |
-| `CHANGELOG.it.md` top entry | `[0.5.0a5]` | `[0.5.0a5]` | ✅ |
-| `docs/community/index.md` BibTeX | `0.5.0a5` | `0.5.0a5` | ✅ |
-| `docs/it/community/index.md` BibTeX | `0.5.0a5` | `0.5.0a5` | ✅ |
-| `uv.lock` | `0.5.0a5` | `0.5.0a5` | ✅ |
+| Location | Expected | Status |
+| :--- | :--- | :---: |
+| `src/zenzic/__init__.py` | `0.6.0a1` | ☐ |
+| `pyproject.toml` `[project]` | `0.6.0a1` | ☐ |
+| `pyproject.toml` `[tool.bumpversion]` | `0.6.0a1` | ☐ |
+| `CITATION.cff` | `0.6.0a1` | ☐ |
+| `CHANGELOG.md` top entry | `[0.6.0a1]` | ☐ |
+| `CHANGELOG.it.md` top entry | `[0.6.0a1]` | ☐ |
+
+**Removed from tracking** (Clean Harbor):
+
+- `mkdocs.yml` — deleted (docs migrated to `zenzic-doc`)
+- `docs/community/index.md` BibTeX — deleted (docs migrated)
+- `docs/it/community/index.md` BibTeX — deleted (docs migrated)
+- `uv.lock` — not tracked by bumpversion (updated by `uv lock`)
 
 ---
 
-## 2. Quality Gates
+## 2. The Adapter Gate (Core Logic)
+
+- [ ] `DocusaurusAdapter` satisfies the `@runtime_checkable` `BaseAdapter` protocol (9 methods)
+- [ ] `baseUrl` extraction via regex confirmed (zero Node.js dependency — Pillar 2)
+- [ ] Ghost Route mapping for `/it/` and `/` (locale entry points) verified
+- [ ] `from_repo()` auto-discovers `docusaurus.config.ts` / `.js`
+- [ ] `classify_route()` marks `_`-prefixed files as `IGNORED`
+- [ ] Adapter registered in `_factory.py`, `__init__.py`, and `pyproject.toml` entry-point
+- [ ] VSM cross-validation: 34 routes, 34 REACHABLE, 0 CONFLICT, 0 IGNORED
+
+---
+
+## 3. The Clean Harbor Gate (Repo Hygiene)
+
+- [ ] `mkdocs.yml` — physically deleted
+- [ ] `overrides/` — physically deleted
+- [ ] `scripts/generate_docs_assets.py` — physically deleted
+- [ ] `scripts/generate_hero_specimen.py` — physically deleted
+- [ ] `scripts/generate_social.py` — physically deleted
+- [ ] `.github/workflows/deploy-docs.yml` — physically deleted
+- [ ] `.github/workflows/zenzic.yml` — physically deleted
+- [ ] `.github/ISSUE_TEMPLATE/docs_issue.yml` — physically deleted
+- [ ] `docs/` → `.temp/docs/` (staging, gitignored)
+- [ ] `.temp/` in `.gitignore` — single entry, no duplicates
+- [ ] `noxfile.py` — `docs`, `docs_serve`, `screenshot`, `audit_sandboxes` sessions removed
+- [ ] `noxfile.py` — `_download_lucide_icons()`, `_build_brand_kit_zip()`, `_SYNC_DOCS` removed
+- [ ] `noxfile.py` — `preflight` no longer runs `mkdocs build`
+- [ ] `pyproject.toml` — `docs` dependency group removed
+- [ ] `pyproject.toml` — `dev` group no longer includes `docs`
+- [ ] `pyproject.toml` — bumpversion entries for `mkdocs.yml`, `docs/community/*.md` removed
+- [ ] `ci.yml` — `docs:` job removed, `docs/**` path trigger removed
+- [ ] `justfile` — `build`, `build-prod`, `serve`, `live` targets removed
+
+---
+
+## 4. The README Sovereignty Gate
+
+- [ ] `README.md` and `README.it.md` images point to `assets/` (root), not `docs/assets/`
+- [ ] `assets/brand/svg/` contains wordmark SVGs with `.license` sidecars
+- [ ] `assets/screenshots/` contains hero + full audit SVGs with `.license` sidecars
+- [ ] No remaining `docs/assets` references in any README (excluding inline prose examples)
+- [ ] `ci-workflow` reference link updated from `zenzic.yml` to `ci.yml`
+- [ ] MkDocs badge replaced with Docusaurus badge
+- [ ] v0.6.0a1 Highlights section added (EN + IT)
+- [ ] `REUSE.toml` updated with `assets/**` annotation
+
+---
+
+## 5. Quality Gates
 
 Gate targets for rc1 promotion:
 
 - [ ] `pytest` — all passing, 0 failed
-- [ ] `zenzic check all --strict` → exit code 0, no errors, no warnings
 - [ ] `ruff check src/` → 0 violations
 - [ ] `mypy src/` → 0 errors
-- [ ] `mkdocs build --strict` → 0 warnings
-- [ ] Version grep audit — zero non-historical `0.5.0a4` references
+- [ ] `reuse lint` → compliant
+- [ ] `pip install -e .` → `zenzic --help` outputs usage (uvx-ready)
+- [ ] `uv run zenzic --version` → `Zenzic v0.6.0a1`
+- [ ] Version grep audit — zero non-historical `0.5.0a5` references
 
 ---
 
-## 3. Changes in v0.5.0a5 — Review Checklist
+## 6. Docusaurus Validation (zenzic-doc)
 
-### 3.1 Sentinel Style Guide
+Run against the live `zenzic-doc` repository:
 
-**What it is:** Canonical visual-language reference defining card grids,
-admonition types, icon vocabulary, and anchor-ID conventions.
+```bash
+cd /path/to/zenzic
+uv run zenzic check all --engine docusaurus /path/to/zenzic-doc/docs
+```
 
-**Files added:**
+Expected result:
 
-- `docs/internal/style-guide-sentinel.md` (EN)
-- `docs/it/internal/style-guide-sentinel.md` (IT)
+```text
+VSM: 34 routes | 34 REACHABLE | 0 CONFLICT | 0 IGNORED
+```
 
-**Verification steps for Tech Lead:**
-
-- [ ] Read both files — conventions clear and consistent?
-- [ ] Verify all documented patterns are actually applied in the codebase
-
----
-
-### 3.2 Automated Screenshot Pipeline
-
-**What changed:** `scripts/generate_docs_assets.py` now generates all 5
-documentation SVGs (was 3). `screenshot-blood.svg` and
-`screenshot-circular.svg` were previously hand-crafted static assets.
-
-**New sandbox fixtures:**
-
-- `tests/sandboxes/screenshot_blood/` — triggers `PATH_TRAVERSAL_SUSPICIOUS`
-- `tests/sandboxes/screenshot_circular/` — triggers `CIRCULAR_LINK`
-
-**Verification steps for Tech Lead:**
-
-- [ ] Run `uv run python scripts/generate_docs_assets.py` — all 5 SVGs generated?
-- [ ] Visually inspect `docs/assets/screenshots/screenshot-blood.svg` — Blood Sentinel output correct?
-- [ ] Visually inspect `docs/assets/screenshots/screenshot-circular.svg` — Circular link output correct?
-- [ ] Confirm SVGs contain version `0.5.0a5` in the banner
+- [ ] `zenzic check all --engine docusaurus` → exit code 0
+- [ ] Zero CONFLICT routes
+- [ ] `zenzic-doc` has `release-docs.yml` workflow for Docusaurus deploy
 
 ---
 
-### 3.3 Card Grid & Admonition Normalisation
-
-**What changed:** Documentation pages refactored to use Material for MkDocs
-card-grid syntax. Ad-hoc callout styles replaced with canonical admonition
-types (`tip`, `warning`, `info`, `example`).
-
-**Verification steps for Tech Lead:**
-
-- [ ] Spot-check 3–5 documentation pages for consistent card grids
-- [ ] Verify no non-Material icons remain (`:fontawesome-*:` or `:octicons-*:`)
-- [ ] Run `mkdocs build --strict` — no rendering warnings?
-
----
-
-### 3.4 Strategic Anchor IDs
-
-**What changed:** 102 explicit `{ #anchor-id }` anchors placed across 70
-documentation files for stable deep-linking.
-
-**Verification steps for Tech Lead:**
-
-- [ ] Verify anchors follow kebab-case convention
-- [ ] Spot-check that cross-document `#anchor` links resolve correctly
-
----
-
-### 3.5 Infrastructure Fixes
-
-**What changed:**
-
-- `CHANGELOG.it.md` added to `[tool.bumpversion.files]` in `pyproject.toml`
-- `docs/assets/pdf_cover.html.j2` removed (orphan legacy artifact)
-- CSS card hover overrides added to `docs/assets/stylesheets/`
-
-**Verification steps for Tech Lead:**
-
-- [ ] Confirm `pdf_cover.html.j2` no longer exists on disk
-- [ ] Confirm `CHANGELOG.it.md` has bumpversion entry in `pyproject.toml`
-- [ ] Verify CSS hover effects render correctly in local `mkdocs serve`
-
----
-
-## 4. Documentation Parity Matrix
-
-| Document | EN | IT |
-| :--- | :---: | :---: |
-| Style Guide Sentinel | ✅ | ✅ |
-| `docs/checks.md` | ✅ | ✅ |
-| `docs/usage/advanced.md` | ✅ | ✅ |
-| `CHANGELOG.md` / `CHANGELOG.it.md` | ✅ | ✅ |
-| `README.md` / `README.it.md` | ✅ | ✅ |
-
----
-
-## 5. Sandbox Self-Check
+## 7. Sandbox Self-Check
 
 Run these commands manually and verify output:
 
@@ -145,35 +127,33 @@ Run these commands manually and verify output:
 # 1. Full test suite
 uv run pytest --tb=short
 
-# 2. Self-dogfood (strict mode)
+# 2. Self-dogfood
 uv run zenzic check all --strict
 
 # 3. Static analysis
 uv run ruff check src/
 uv run mypy src/ --ignore-missing-imports
 
-# 4. Documentation build
-uv run mkdocs build --strict
+# 4. Entry-point verification
+pip install -e . && zenzic --version
 
-# 5. Version grep audit (should return only historical references)
-grep -rn "0.5.0a4" --include="*.md" --include="*.py" --include="*.toml" --include="*.yml" --include="*.cff"
+# 5. Version grep audit (should return only historical/changelog references)
+grep -rn "0.5.0a5" --include="*.py" --include="*.toml" --include="*.cff"
 ```
 
 ---
 
-## 6. rc1 Gate Decision
+## 8. rc1 Gate Decision
 
 This section is for the Tech Lead's signature.
 
-- [ ] All verification steps in §§ 3.1–3.5 completed
-- [ ] Documentation parity matrix §4 confirmed correct
-- [ ] Sandbox self-check §5 passed manually
+- [ ] All gates (§§ 2–6) verified
+- [ ] Sandbox self-check § 7 passed manually
 - [ ] No open blocking issues
 
 **Decision:** ☐ Approve rc1 promotion &nbsp;&nbsp; ☐ Defer — open issues remain
 
 ---
 
-*"Una Release Candidate non è un premio per aver finito i task, è una promessa di
-stabilità che facciamo all'utente."*
+*"La Sentinella non rilascia sulla fiducia, rilascia sull'evidenza."*
 — Senior Tech Lead

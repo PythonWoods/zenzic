@@ -11,14 +11,10 @@
 # Quick reference:
 #   just sync        — install / update all dependency groups
 #   just check       — self-lint: run Zenzic on its own documentation
-#   just build       — MkDocs documentation build (fast)
-#   just build-prod  — MkDocs documentation build (strict — mirrors CI)
-#   just serve       — start MkDocs documentation server (default: port 8000)
-#   just live        — alias for serve
 #   just test        — run test suite (delegates to nox)
 #   just test-full   — run test suite with thorough Hypothesis profile (ci)
 #   just preflight   — full CI-equivalent pipeline (delegates to nox)
-#   just verify      — preflight + build-prod (pre-push gate)
+#   just verify      — preflight + check (pre-push gate)
 #   just clean       — remove generated artefacts
 
 runner     := "uv run --active"
@@ -49,27 +45,10 @@ preflight:
 
 # Full local verification: CI-equivalent gate (single pipeline)
 # Pillar 1: Zenzic guards the source BEFORE the build renders it.
-verify: check preflight build-prod
+verify: check preflight
 
-# ─── Documentation (MkDocs) ───────────────────────────────────────────────────
-
-# Build the documentation (fast — no strict enforcement)
-build:
-    NO_MKDOCS_2_WARNING=true {{ runner }} mkdocs build
-
-# Build the documentation for production (strict — every warning is an error)
-build-prod:
-    NO_MKDOCS_2_WARNING=true {{ runner }} mkdocs build --strict
-
-# Start the development server (override port: just serve 8001)
-serve port="8000":
-    NO_MKDOCS_2_WARNING=true {{ runner }} mkdocs serve -a localhost:{{ port }}
-
-# Alias: start the development server
-live: serve
-
-# ─── Cleanup ──────────────────────────────────────────────────────────────────
+# ─── Cleanup ──────────────────────────────────────────────────────────────
 
 # Remove generated artefacts (.nox is kept — reuse avoids reinstalling deps)
 clean:
-    rm -rf site/ dist/ .pytest_cache/ .hypothesis/ .zenzic-score.json coverage.xml
+    rm -rf dist/ .pytest_cache/ .hypothesis/ .zenzic-score.json coverage.xml

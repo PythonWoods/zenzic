@@ -55,8 +55,9 @@ other build tool during `check`, `score`, or `diff`. The attack surface is limit
 
 | Version | Support status |
 | :------ | :------------- |
-| `0.4.x` (current) | ✅ All security fixes |
-| `< 0.4` | ❌ Not publicly released — no support |
+| `0.6.x` (current) | ✅ All security fixes |
+| `0.5.x` | ⚠️ Critical security fixes only |
+| `< 0.5` | ❌ End of life — no support |
 
 ## Disclosure policy
 

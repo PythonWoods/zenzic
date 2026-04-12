@@ -32,6 +32,10 @@ from zenzic.models.config import ZenzicConfig
 from zenzic.models.references import IntegrityReport, ReferenceFinding, ReferenceMap
 
 
+# Extensions recognised as documentation source files (not assets).
+_DOC_SUFFIXES: frozenset[str] = frozenset({".md", ".mdx"})
+
+
 # ─── Reference pipeline regexes ───────────────────────────────────────────────
 
 # Reference definition: [id]: url  (up to 3 leading spaces per CommonMark §4.7)
@@ -277,7 +281,7 @@ def find_orphans(repo_root: Path, config: ZenzicConfig | None = None) -> list[Pa
     exclusion_patterns = set(config.excluded_file_patterns) | adapter.get_ignored_patterns()
 
     orphans: list[Path] = []
-    for md_file in sorted(docs_root.rglob("*.md")):
+    for md_file in sorted(f for f in docs_root.rglob("*") if f.suffix in _DOC_SUFFIXES):
         if md_file.is_symlink():
             continue
         rel = md_file.relative_to(docs_root)
@@ -315,7 +319,7 @@ def find_placeholders(
     if not docs_root.exists() or not docs_root.is_dir():
         return findings
 
-    for md_file in sorted(docs_root.rglob("*.md")):
+    for md_file in sorted(f for f in docs_root.rglob("*") if f.suffix in _DOC_SUFFIXES):
         if md_file.is_symlink():
             continue
         rel_path = md_file.relative_to(docs_root)
@@ -347,7 +351,7 @@ def find_unused_assets(repo_root: Path, config: ZenzicConfig | None = None) -> l
 
     all_assets: set[str] = set()
     for file_path in sorted(docs_root.rglob("*")):
-        if file_path.is_dir() or file_path.is_symlink() or file_path.suffix == ".md":
+        if file_path.is_dir() or file_path.is_symlink() or file_path.suffix in _DOC_SUFFIXES:
             continue
         rel_path = file_path.relative_to(docs_root)
         if rel_path.suffix in {".css", ".js", ".yml", ".license", ".j2"}:
@@ -371,7 +375,7 @@ def find_unused_assets(repo_root: Path, config: ZenzicConfig | None = None) -> l
         return []
 
     used_assets: set[str] = set()
-    for md_file in sorted(docs_root.rglob("*.md")):
+    for md_file in sorted(f for f in docs_root.rglob("*") if f.suffix in _DOC_SUFFIXES):
         if md_file.is_symlink():
             continue
         content = md_file.read_text(encoding="utf-8")
@@ -796,8 +800,8 @@ def _iter_md_files(
     docs_root: Path,
     config: ZenzicConfig,
 ) -> Generator[Path, None, None]:
-    """Yield absolute paths to .md files under docs_root, honouring exclusions."""
-    for md_file in sorted(docs_root.rglob("*.md")):
+    """Yield absolute paths to .md/.mdx files under docs_root, honouring exclusions."""
+    for md_file in sorted(f for f in docs_root.rglob("*") if f.suffix in _DOC_SUFFIXES):
         if md_file.is_symlink():
             continue
         rel = md_file.relative_to(docs_root)

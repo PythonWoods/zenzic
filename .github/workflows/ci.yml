@@ -11,7 +11,6 @@ on:
     paths:
       - 'src/**'
       - 'tests/**'
-      - 'docs/**'
       - 'pyproject.toml'
       - 'uv.lock'
       - 'noxfile.py'
@@ -23,7 +22,6 @@ on:
     paths:
       - 'src/**'
       - 'tests/**'
-      - 'docs/**'
       - 'pyproject.toml'
       - 'uv.lock'
       - 'noxfile.py'
@@ -82,23 +80,6 @@ jobs:
 
       - name: Run pip-audit
         run: uvx nox -s security
-
-  docs:
-    name: Documentation
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v7
-        with:
-          enable-cache: true
-
-      - name: Generate build artifacts
-        run: zip -qr docs/assets/brand-kit.zip docs/assets/brand/
-
-      - name: Build docs (strict) + Zenzic self-check
-        run: uvx nox -s docs preflight
 
   reuse:
     name: REUSE Compliance
