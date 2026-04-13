@@ -11,6 +11,55 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.6.0a2] — 2026-04-13 — Obsidian Glass
+
+### Added
+
+- **Glob Pattern Support for `excluded_assets`** — `excluded_assets` entries
+  are now matched via `fnmatch` (glob syntax: `*`, `?`, `[]`, `**`).  Literal
+  paths continue to work as before.  This brings `excluded_assets` in line
+  with `excluded_build_artifacts` and `excluded_file_patterns`, giving the
+  entire exclusion API a single, consistent language.
+- **`base_url` in `[build_context]`** — New optional field that lets users
+  declare the site’s base URL explicitly.  When set, the Docusaurus adapter
+  skips static extraction from `docusaurus.config.ts`, eliminating the
+  “dynamic patterns” fallback warning for configs that use `async`,
+  `import()`, or `require()`.
+- **Metadata-Driven Routing** — New `RouteMetadata` dataclass and
+  `get_route_info()` method on the `BaseAdapter` protocol. All four adapters
+  (Vanilla, MkDocs, Docusaurus, Zensical) implement the new API. `build_vsm()`
+  prefers the metadata-driven path when available, falling back to the legacy
+  `map_url()` + `classify_route()` pair for third-party adapters.
+- **Centralized Frontmatter Extraction** — Engine-agnostic utilities in
+  `_utils.py`: `extract_frontmatter_slug()`, `extract_frontmatter_draft()`,
+  `extract_frontmatter_unlisted()`, `extract_frontmatter_tags()`, and
+  `build_metadata_cache()` for single-pass eager harvesting of YAML
+  frontmatter across all Markdown files.
+- **`FileMetadata` dataclass** — Structured representation of per-file
+  frontmatter: `slug`, `draft`, `unlisted`, `tags`.
+- **Shield IO Middleware** — `safe_read_line()` scans every frontmatter line
+  through the Shield before any parser sees it. `ShieldViolation` exception
+  provides structured error with `SecurityFinding` payload.
+- **Protocol Compliance Tests** — 43 new tests in `test_protocol_evolution.py`:
+  `runtime_checkable` protocol validation, `RouteMetadata` invariants,
+  `get_route_info()` contract tests for all adapters, Hypothesis stress tests
+  with extreme paths, pickle safety, frontmatter extraction, Shield middleware,
+  and VanillaAdapter warning-free operation.
+
+### Changed
+
+- **BREAKING: `excluded_assets` uses fnmatch** — All entries are now
+  interpreted as glob patterns.  Plain literal paths still match (they are
+  valid patterns), but patterns like `**/_category_.json` or `assets/brand/*`
+  are now supported natively.  The previous set-subtraction implementation
+  has been removed.
+
+### Fixed
+
+- **Docusaurus “dynamic patterns” warning emitted twice** — When
+  `base_url` is declared in `zenzic.toml`, the adapter no longer calls
+  `_extract_base_url()`, suppressing the duplicate warning entirely.
+
 ## [0.6.0a1] — 2026-04-12 — Obsidian Glass
 
 > **Alpha 1 of the v0.6 series.** Zenzic evolves from a MkDocs-aware linter into
@@ -20,18 +69,40 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- **Docusaurus v3 adapter** (`DocusaurusAdapter`): Initial support for Docusaurus v3
-  engine — pure Python adapter satisfying the `BaseAdapter` protocol. Handles `.md`
-  and `.mdx` source files, auto-generated sidebar mode (all files `REACHABLE`),
-  Docusaurus i18n geography (`i18n/{locale}/docusaurus-plugin-content-docs/current/`),
-  Ghost Route detection for locale index pages, and `_`-prefixed file/directory
-  exclusion (`IGNORED`). Registered as built-in adapter with entry-point
-  `docusaurus = "zenzic.core.adapters:DocusaurusAdapter"`.
-- **`baseUrl` extraction**: Surgical regex extraction of `baseUrl` from
-  `docusaurus.config.ts` / `.js` — no Node.js subprocess (Pillar 2 compliance).
+- **Docusaurus v3 Adapter (Full Spec)**: New engine-agnostic adapter with
+  static-AST-like parsing for `docusaurus.config.ts/js`. Satisfies the
+  `BaseAdapter` protocol. Handles `.md` and `.mdx` source files,
+  auto-generated sidebar mode (all files `REACHABLE`), Docusaurus i18n
+  geography (`i18n/{locale}/docusaurus-plugin-content-docs/current/`),
+  Ghost Route detection for locale index pages, and `_`-prefixed
+  file/directory exclusion (`IGNORED`). Registered as built-in adapter with
+  entry-point `docusaurus = "zenzic.core.adapters:DocusaurusAdapter"`.
+  - **`baseUrl` extraction**: Multi-pattern static parser supporting
+    `export default`, `module.exports`, and `const`/`let` assignment patterns.
+    JS/TS comments are stripped before extraction. No Node.js subprocess
+    (Pillar 2 compliance).
+  - **`routeBasePath` extraction**: Automatic detection of `routeBasePath`
+    from Docusaurus presets and plugin blocks (e.g.
+    `@docusaurus/preset-classic`). Supports empty string (docs at site root).
+  - **Slug Support**: Markdown frontmatter `slug:` overrides are now correctly
+    mapped into the VSM. Absolute slugs (`/custom-path`) replace the full URL;
+    relative slugs replace the last path segment.
+  - **Dynamic Config Detection**: Intelligent detection of async config
+    creators, `import()`/`require()` calls, and function-based exports. Falls
+    back to `baseUrl='/'` with a user warning — never crashes, never guesses.
 - **`from_repo()` factory hook** for `DocusaurusAdapter`: Auto-discovers
   `docusaurus.config.ts` or `.js` and constructs the adapter with the correct
-  `baseUrl`.
+  `baseUrl` and `routeBasePath`.
+- **Improved i18n Topology**: Native mapping for Docusaurus `i18n/` directory
+  structure and locale-specific route resolution.
+
+### Testing
+
+- **`tests/test_docusaurus_adapter.py` — 65 tests across 12 test classes.**
+  Full coverage of the Docusaurus adapter refactor: config parsing (CFG-01..07),
+  `routeBasePath` extraction (RBP-01), frontmatter slug support (SLUG-01),
+  dynamic config detection, comment stripping, `from_repo()` integration,
+  URL mapping regression, and route classification regression.
 
 ## [0.5.0a5] — 2026-04-09 — The Sentinel Codex
 
@@ -1694,7 +1765,9 @@ It has been superseded by the 0.5.x stabilization cycle.
 
 <!-- ─── Reference link definitions ──────────────────────────────────────────── -->
 
-[Unreleased]:       https://github.com/PythonWoods/zenzic/compare/v0.5.0a3...HEAD
+[Unreleased]:       https://github.com/PythonWoods/zenzic/compare/v0.6.0a2...HEAD
+[0.6.0a2]:          https://github.com/PythonWoods/zenzic/compare/v0.6.0a1...v0.6.0a2
+[0.6.0a1]:          https://github.com/PythonWoods/zenzic/compare/v0.5.0a3...v0.6.0a1
 [0.5.0a5]:          https://github.com/PythonWoods/zenzic/compare/v0.5.0a2...v0.5.0a3
 [0.5.0a2]:          https://github.com/PythonWoods/zenzic/compare/v0.5.0a1...v0.5.0a2
 [0.5.0a1]:          https://github.com/PythonWoods/zenzic/compare/v0.4.0-rc5...v0.5.0a1

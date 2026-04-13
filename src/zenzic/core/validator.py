@@ -42,6 +42,7 @@ import httpx
 import yaml
 
 from zenzic.core.adapter import get_adapter
+from zenzic.core.discovery import DOC_SUFFIXES, iter_markdown_sources, walk_files
 from zenzic.core.resolver import (
     AnchorMissing,
     FileNotFound,
@@ -52,10 +53,6 @@ from zenzic.core.resolver import (
 from zenzic.models.config import ZenzicConfig
 from zenzic.models.references import ReferenceMap
 from zenzic.models.vsm import build_vsm
-
-
-# Extensions recognised as documentation source files (not assets).
-_DOC_SUFFIXES: frozenset[str] = frozenset({".md", ".mdx"})
 
 
 # ─── YAML loader (boundary layer — ignores unknown tags like MkDocs !ENV) ────
@@ -617,12 +614,7 @@ async def validate_links_async(
 
     # ── Pass 1: read all .md/.mdx files + map all non-doc assets into memory ──
     md_contents: dict[Path, str] = {}
-    for md_file in sorted(f for f in docs_root.rglob("*") if f.suffix in _DOC_SUFFIXES):
-        if md_file.is_symlink():
-            continue
-        rel = md_file.relative_to(docs_root)
-        if any(part in config.excluded_dirs for part in rel.parts):
-            continue
+    for md_file in sorted(iter_markdown_sources(docs_root, config)):
         try:
             md_contents[md_file.resolve()] = md_file.read_text(encoding="utf-8")
         except OSError:
@@ -633,8 +625,8 @@ async def validate_links_async(
     # frozenset membership test (O(1), zero allocations per link).
     known_assets: frozenset[str] = frozenset(
         str(f.resolve())
-        for f in docs_root.rglob("*")
-        if f.is_file() and not f.is_symlink() and f.suffix not in _DOC_SUFFIXES
+        for f in walk_files(docs_root, set(config.excluded_dirs))
+        if f.is_file() and not f.is_symlink() and f.suffix not in DOC_SUFFIXES
     )
 
     # ── Phase 1: parallel index (anchors + resolved links) ────────────────
@@ -942,7 +934,7 @@ def generate_virtual_site_map(docs_root: Path, docs_structure: str) -> frozenset
     if not docs_root.is_dir():
         return frozenset()
     for md_file in docs_root.rglob("*"):
-        if md_file.suffix not in _DOC_SUFFIXES:
+        if md_file.suffix not in DOC_SUFFIXES:
             continue
         rel = md_file.relative_to(docs_root)
         # Strip .md suffix → path stem
@@ -1332,15 +1324,8 @@ def validate_snippets(repo_root: Path, config: ZenzicConfig | None = None) -> li
     if not docs_root.exists() or not docs_root.is_dir():
         return errors
 
-    for md_file in sorted(f for f in docs_root.rglob("*") if f.suffix in _DOC_SUFFIXES):
-        if md_file.is_symlink():
-            continue
-
+    for md_file in sorted(iter_markdown_sources(docs_root, config)):
         rel_path = md_file.relative_to(docs_root)
-
-        if any(part in config.excluded_dirs for part in rel_path.parts):
-            continue
-
         content = md_file.read_text(encoding="utf-8")
         errors.extend(check_snippet_content(content, rel_path, config))
 

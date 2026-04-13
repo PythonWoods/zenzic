@@ -11,6 +11,58 @@ Le versioni seguono il [Semantic Versioning](https://semver.org/).
 
 ## [Non rilasciato]
 
+## [0.6.0a2] — 2026-04-13 — Obsidian Glass
+
+### Aggiunto
+
+- **Supporto Glob Pattern per `excluded_assets`** — Le voci di `excluded_assets`
+  sono ora interpretate tramite `fnmatch` (sintassi glob: `*`, `?`, `[]`, `**`).
+  I percorsi letterali continuano a funzionare come prima.  Questo allinea
+  `excluded_assets` con `excluded_build_artifacts` e `excluded_file_patterns`,
+  dando all'intera API di esclusione un linguaggio unico e coerente.
+- **`base_url` in `[build_context]`** — Nuovo campo opzionale che permette di
+  dichiarare esplicitamente la base URL del sito.  Quando impostato, l'adapter
+  Docusaurus salta l'estrazione statica da `docusaurus.config.ts`, eliminando
+  il warning di fallback "dynamic patterns" per le configurazioni che usano
+  `async`, `import()` o `require()`.
+- **Routing Guidato dai Metadati** — Nuovo dataclass `RouteMetadata` e metodo
+  `get_route_info()` nel protocollo `BaseAdapter`. Tutti e quattro gli adapter
+  (Vanilla, MkDocs, Docusaurus, Zensical) implementano la nuova API.
+  `build_vsm()` preferisce il percorso metadata-driven quando disponibile,
+  con fallback alla coppia legacy `map_url()` + `classify_route()` per gli
+  adapter di terze parti.
+- **Estrazione Centralizzata del Frontmatter** — Utility engine-agnostiche in
+  `_utils.py`: `extract_frontmatter_slug()`, `extract_frontmatter_draft()`,
+  `extract_frontmatter_unlisted()`, `extract_frontmatter_tags()`, e
+  `build_metadata_cache()` per il harvesting eager single-pass del frontmatter
+  YAML su tutti i file Markdown.
+- **Dataclass `FileMetadata`** — Rappresentazione strutturata del frontmatter
+  per file: `slug`, `draft`, `unlisted`, `tags`.
+- **Shield IO Middleware** — `safe_read_line()` scansiona ogni riga del
+  frontmatter attraverso lo Shield prima che qualsiasi parser la veda.
+  L'eccezione `ShieldViolation` fornisce un errore strutturato con payload
+  `SecurityFinding`.
+- **Test di Conformità del Protocollo** — 43 nuovi test in
+  `test_protocol_evolution.py`: validazione `runtime_checkable` del protocollo,
+  invarianti `RouteMetadata`, test di contratto `get_route_info()` per tutti
+  gli adapter, stress test Hypothesis con percorsi estremi, sicurezza pickle,
+  estrazione frontmatter, middleware Shield, e operazione senza warning di
+  VanillaAdapter.
+
+### Modificato
+
+- **BREAKING: `excluded_assets` usa fnmatch** — Tutte le voci sono ora
+  interpretate come pattern glob.  I percorsi letterali continuano a
+  funzionare (sono pattern validi), ma pattern come `**/_category_.json` o
+  `assets/brand/*` sono ora supportati nativamente.  L'implementazione
+  precedente basata sulla sottrazione di insiemi è stata rimossa.
+
+### Corretto
+
+- **Warning "dynamic patterns" di Docusaurus emesso due volte** — Quando
+  `base_url` è dichiarato in `zenzic.toml`, l'adapter non chiama più
+  `_extract_base_url()`, sopprimendo completamente il warning duplicato.
+
 ## [0.6.0a1] — 2026-04-12 — Obsidian Glass
 
 > **Alpha 1 della serie v0.6.** Zenzic evolve da un linter MkDocs-aware a un
@@ -20,19 +72,44 @@ Le versioni seguono il [Semantic Versioning](https://semver.org/).
 
 ### Aggiunto
 
-- **Adapter Docusaurus v3** (`DocusaurusAdapter`): Supporto iniziale per il motore
-  Docusaurus v3 — adapter puro Python conforme al protocollo `BaseAdapter`. Gestisce
-  file sorgente `.md` e `.mdx`, modalità sidebar auto-generata (tutti i file
-  `REACHABLE`), geografia i18n Docusaurus
-  (`i18n/{locale}/docusaurus-plugin-content-docs/current/`), rilevamento Ghost Route
-  per le pagine indice delle locale, ed esclusione di file/directory con prefisso `_`
-  (`IGNORED`). Registrato come adapter built-in con entry-point
-  `docusaurus = "zenzic.core.adapters:DocusaurusAdapter"`.
-- **Estrazione `baseUrl`**: Estrazione chirurgica via regex di `baseUrl` da
-  `docusaurus.config.ts` / `.js` — nessun sottoprocesso Node.js (conformità
-  Pilastro 2).
+- **Adapter Docusaurus v3 (Full Spec)**: Nuovo adapter engine-agnostico con
+  parsing statico AST-like per `docusaurus.config.ts/js`. Adapter puro Python
+  conforme al protocollo `BaseAdapter`. Gestisce file sorgente `.md` e `.mdx`,
+  modalità sidebar auto-generata (tutti i file `REACHABLE`), geografia i18n
+  Docusaurus (`i18n/{locale}/docusaurus-plugin-content-docs/current/`),
+  rilevamento Ghost Route per le pagine indice delle locale, ed esclusione di
+  file/directory con prefisso `_` (`IGNORED`). Registrato come adapter built-in
+  con entry-point `docusaurus = "zenzic.core.adapters:DocusaurusAdapter"`.
+  - **Estrazione `baseUrl`**: Parser statico multi-pattern che supporta
+    `export default`, `module.exports` e pattern di assegnazione `const`/`let`.
+    I commenti JS/TS vengono rimossi prima dell'estrazione. Nessun
+    sottoprocesso Node.js (conformità Pilastro 2).
+  - **Estrazione `routeBasePath`**: Rilevamento automatico di `routeBasePath`
+    dai preset e blocchi plugin Docusaurus (es.
+    `@docusaurus/preset-classic`). Supporta stringa vuota (docs alla radice
+    del sito).
+  - **Supporto Slug**: Gli override `slug:` nel frontmatter Markdown sono ora
+    correttamente mappati nella VSM. Gli slug assoluti (`/custom-path`)
+    sostituiscono l'URL completo; gli slug relativi sostituiscono l'ultimo
+    segmento del percorso.
+  - **Rilevamento Config Dinamica**: Rilevamento intelligente di config
+    creator asincroni, chiamate `import()`/`require()` e export basati su
+    funzione. Fallback a `baseUrl='/'` con warning utente — mai crash, mai
+    assunzioni.
 - **Hook factory `from_repo()`** per `DocusaurusAdapter`: Scopre automaticamente
-  `docusaurus.config.ts` o `.js` e costruisce l'adapter con il `baseUrl` corretto.
+  `docusaurus.config.ts` o `.js` e costruisce l'adapter con il `baseUrl` e
+  `routeBasePath` corretti.
+- **Topologia i18n Migliorata**: Mappatura nativa per la struttura delle
+  directory `i18n/` di Docusaurus e risoluzione delle rotte specifiche per
+  locale.
+
+### Test
+
+- **`tests/test_docusaurus_adapter.py` — 65 test in 12 classi di test.**
+  Copertura completa del refactor dell'adapter Docusaurus: parsing config
+  (CFG-01..07), estrazione `routeBasePath` (RBP-01), supporto slug
+  frontmatter (SLUG-01), rilevamento config dinamica, rimozione commenti,
+  integrazione `from_repo()`, regressione URL mapping e classificazione rotte.
 
 ## [0.5.0a5] — 2026-04-09 — Il Codex Sentinel
 

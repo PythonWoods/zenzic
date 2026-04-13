@@ -201,3 +201,59 @@ def scan_line_for_secrets(
                     col_start=raw_m.start() if raw_m else 0,
                     match_text=match_text,
                 )
+
+
+# ─── Shield as IO Middleware ──────────────────────────────────────────────────
+
+
+class ShieldViolation(Exception):
+    """Raised by ``safe_read_line()`` when a secret is detected during IO.
+
+    This exception is **intentionally fatal** — it prevents the VSM from
+    being constructed when a secret is found in the content that feeds the
+    metadata extraction pipeline (e.g. frontmatter slug parsing).
+
+    The caller (CLI layer) must catch this and exit with **code 2**.
+
+    Attributes:
+        finding: The :class:`SecurityFinding` that triggered the violation.
+    """
+
+    def __init__(self, finding: SecurityFinding) -> None:
+        self.finding = finding
+        super().__init__(
+            f"SHIELD VIOLATION: {finding.secret_type} detected in "
+            f"{finding.file_path}:{finding.line_no}"
+        )
+
+
+def safe_read_line(
+    line: str,
+    file_path: Path | str,
+    line_no: int,
+) -> str:
+    """Shield-guarded line reader — scans before returning.
+
+    Invokes :func:`scan_line_for_secrets` on *line*.  If a secret is found,
+    raises :class:`ShieldViolation` immediately — the line is never returned
+    to the caller, preventing the secret from entering any parser (YAML,
+    Markdown, Regex).
+
+    This function is the **IO Middleware** mandated by the Tech Lead directive:
+    every line read during metadata extraction (frontmatter for slug, tags,
+    draft status) must pass through the Shield before any parser sees it.
+
+    Args:
+        line: Raw text line from the source file.
+        file_path: Path identifier (for error reporting — no disk access).
+        line_no: 1-based line number.
+
+    Returns:
+        The original *line* unchanged, if no secret is detected.
+
+    Raises:
+        :class:`ShieldViolation`: When any secret pattern matches.
+    """
+    for finding in scan_line_for_secrets(line, file_path, line_no):
+        raise ShieldViolation(finding)
+    return line

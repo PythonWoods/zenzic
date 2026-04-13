@@ -55,6 +55,15 @@ class BuildContext(BaseModel):
         default=[],
         description="Non-default locale directory names (e.g. ['it', 'fr']).",
     )
+    base_url: str = Field(
+        default="",
+        description=(
+            "Site base URL (e.g. '/' or '/docs/'). When set, the adapter uses "
+            "this value instead of attempting static extraction from the build "
+            "tool's config file.  Recommended when the config file uses dynamic "
+            "patterns (async, import(), require()) that cannot be parsed statically."
+        ),
+    )
     fallback_to_default: bool = Field(
         default=True,
         description=(
@@ -65,15 +74,51 @@ class BuildContext(BaseModel):
     )
 
 
+# ── System Guardrails ────────────────────────────────────────────────────────
+# Directories that Zenzic ALWAYS ignores.  These are merged into
+# ``excluded_dirs`` unconditionally in ``model_post_init``.  User entries
+# in ``zenzic.toml`` are additive — they cannot remove these guardrails.
+SYSTEM_EXCLUDED_DIRS: frozenset[str] = frozenset(
+    {
+        # VCS and CI/CD
+        ".git",
+        ".github",
+        # Virtual environments and package managers
+        ".venv",
+        "node_modules",
+        # Build and cache directories
+        ".nox",
+        ".tox",
+        ".pytest_cache",
+        ".mypy_cache",
+        ".ruff_cache",
+        "__pycache__",
+        ".docusaurus",
+        ".cache",
+        ".hypothesis",
+        ".temp",
+    }
+)
+
+
 class ZenzicConfig(BaseModel):
-    """Configuration model for Zenzic, typically loaded from zenzic.toml."""
+    """Configuration model for Zenzic, typically loaded from zenzic.toml.
+
+    **Hard Exclusion Policy:** The directories listed in
+    :data:`SYSTEM_EXCLUDED_DIRS` are *always* excluded, regardless of what
+    the user writes in ``excluded_dirs``.  User entries are additive.
+    """
 
     docs_dir: Path = Field(
         default=Path("docs"), description="Path to docs directory relative to repo root."
     )
     excluded_dirs: list[str] = Field(
-        default=["includes", "assets", "stylesheets", "overrides", "hooks"],
-        description="Directories inside docs/ to exclude from orphan and snippet checks.",
+        default=["includes", "stylesheets", "overrides", "hooks"],
+        description=(
+            "Directories inside docs/ to exclude from orphan and snippet checks. "
+            "User-provided entries are merged with the system guardrails "
+            "(SYSTEM_EXCLUDED_DIRS) — they can never be removed."
+        ),
     )
     snippet_min_lines: int = Field(
         default=1,
@@ -116,8 +161,10 @@ class ZenzicConfig(BaseModel):
         default=[],
         description=(
             "Asset paths (relative to docs_dir) excluded from the unused-assets check. "
-            "Use this for files that are referenced by mkdocs.yml or theme templates "
-            "rather than by Markdown pages — e.g. favicons, logos, social preview images."
+            "Entries may be literal paths or glob patterns (fnmatch syntax: *, ?, []). "
+            "Use this for files that are referenced by the build tool or theme templates "
+            "rather than by Markdown pages — e.g. favicons, logos, social preview images, "
+            "or Docusaurus _category_.json sidebar metadata."
         ),
     )
     excluded_asset_dirs: list[str] = Field(
@@ -131,10 +178,12 @@ class ZenzicConfig(BaseModel):
     excluded_file_patterns: list[str] = Field(
         default=[],
         description=(
-            "Filename glob patterns excluded from the orphan check. "
-            "Use this for locale-suffixed files produced by i18n plugins "
-            "(e.g. '*.it.md', '*.fr.md') that are managed by the plugin and "
-            "therefore intentionally absent from nav."
+            "Filename glob patterns excluded from all checks (orphan detection, "
+            "placeholder scanning, reference pipeline, and Shield). "
+            "Use this for locale-suffixed files managed by i18n plugins "
+            "(e.g. '*.it.md', '*.fr.md') or historical prose that contains "
+            "intentional examples of secrets or deprecated syntax "
+            "(e.g. 'CHANGELOG*.md')."
         ),
     )
     excluded_build_artifacts: list[str] = Field(
@@ -224,10 +273,13 @@ class ZenzicConfig(BaseModel):
     )
 
     def model_post_init(self, __context: Any) -> None:
-        """Pre-compile placeholder patterns once after construction."""
+        """Post-init: compile placeholders and enforce system exclusions."""
         self.placeholder_patterns_compiled = [
             re.compile(re.escape(p), re.IGNORECASE) for p in self.placeholder_patterns
         ]
+        # Hard Exclusion Policy: system guardrails are always present.
+        merged = list(dict.fromkeys([*self.excluded_dirs, *SYSTEM_EXCLUDED_DIRS]))
+        self.excluded_dirs = merged
 
     @classmethod
     def _build_from_data(cls, data: dict[str, Any]) -> ZenzicConfig:

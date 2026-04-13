@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 
 
 if TYPE_CHECKING:
+    from zenzic.core.adapters._base import RouteMetadata
     from zenzic.models.vsm import RouteStatus
 
 
@@ -76,3 +77,16 @@ class VanillaAdapter:
     ) -> RouteStatus:
         """Always ``REACHABLE`` — no nav to compare against."""
         return "REACHABLE"
+
+    def get_route_info(self, rel: Path) -> RouteMetadata:
+        """Return route metadata derived purely from the filesystem.
+
+        VanillaAdapter has no engine config, no nav, no slug support.
+        Every file is ``REACHABLE`` with a filesystem-derived URL.
+        """
+        from zenzic.core.adapters._base import RouteMetadata
+
+        return RouteMetadata(
+            canonical_url=self.map_url(rel),
+            status="REACHABLE",
+        )

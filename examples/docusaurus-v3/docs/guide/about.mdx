@@ -1,0 +1,22 @@
+---
+title: About This Project
+slug: /about
+---
+
+# About This Project
+
+This page uses a **frontmatter slug** to override the default URL path.
+
+Without `slug: /about`, Docusaurus would serve this file at `/docs/guide/about/`.
+With the slug declaration, the canonical URL becomes `/about/`.
+
+Zenzic's `DocusaurusAdapter` detects this override via `_extract_frontmatter_slug()`
+and maps the URL correctly — no Node.js execution required.
+
+## Why frontmatter slugs matter for linting
+
+When a documentation linter assumes that all URLs are derived from the filesystem,
+slug overrides break link validation. Zenzic handles this correctly by:
+
+1. Pre-computing a slug map from all loaded files (`set_slug_map()`).
+2. Checking slug overrides **before** filesystem derivation in `map_url()`.

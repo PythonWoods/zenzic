@@ -7,7 +7,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "zenzic"
-version = "0.6.0a1"
+version = "0.6.0a2"
 description = "Engineering-grade, engine-agnostic linter and security shield for Markdown documentation"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -173,7 +173,7 @@ pytest_add_cli_args = ["--import-mode=prepend"]
 # ─── Version bumping ───────────────────────────────────────────────────────────
 
 [tool.bumpversion]
-current_version = "0.6.0a1"
+current_version = "0.6.0a2"
 commit = true
 tag = true
 tag_name = "v{new_version}"
