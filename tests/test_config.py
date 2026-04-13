@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from zenzic.core.exceptions import ConfigurationError
-from zenzic.models.config import ZenzicConfig
+from zenzic.models.config import SYSTEM_EXCLUDED_DIRS, ZenzicConfig
 
 
 def test_load_config_default(tmp_path: Path) -> None:
@@ -33,8 +33,28 @@ def test_load_config_custom(tmp_path: Path) -> None:
     assert config.snippet_min_lines == 5
     assert config.placeholder_max_words == 100
     assert config.placeholder_patterns == ["tbd", "wip"]
-    assert config.excluded_dirs == ["includes", "assets", "stylesheets", "overrides", "hooks"]
+    # excluded_dirs not set in TOML → inherits system defaults
+    assert "includes" in config.excluded_dirs
+    assert ".git" in config.excluded_dirs
+    assert ".venv" in config.excluded_dirs
+    assert "node_modules" in config.excluded_dirs
     assert loaded is True
+
+
+def test_excluded_dirs_always_contains_system_guardrails(tmp_path: Path) -> None:
+    """User-defined excluded_dirs must never remove system guardrails (.git, .venv, etc.)."""
+    toml_content = """\
+    docs_dir = "docs"
+    excluded_dirs = ["custom_stuff"]
+    """
+    (tmp_path / "zenzic.toml").write_text(toml_content)
+
+    config, _ = ZenzicConfig.load(tmp_path)
+    # User entry is preserved
+    assert "custom_stuff" in config.excluded_dirs
+    # System guardrails are always present
+    for guardrail in SYSTEM_EXCLUDED_DIRS:
+        assert guardrail in config.excluded_dirs, f"System guardrail {guardrail!r} missing"
 
 
 def test_load_config_invalid_toml_raises(tmp_path: Path) -> None:

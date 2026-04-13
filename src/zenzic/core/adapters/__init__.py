@@ -28,8 +28,16 @@ Zensical utilities:
 
 from __future__ import annotations
 
-from ._base import BaseAdapter
-from ._docusaurus import DocusaurusAdapter, find_docusaurus_config
+from ._base import BaseAdapter, RouteMetadata
+from ._docusaurus import (
+    DocusaurusAdapter,
+    _extract_base_url,
+    _extract_frontmatter_slug,
+    _extract_route_base_path,
+    _is_dynamic_config,
+    _strip_js_comments,
+    find_docusaurus_config,
+)
 from ._factory import get_adapter, list_adapter_engines
 from ._mkdocs import (
     MkDocsAdapter,
@@ -47,8 +55,9 @@ from ._zensical import ZensicalAdapter, _load_zensical_config, find_zensical_con
 
 
 __all__ = [
-    # Protocol
+    # Protocol & Metadata
     "BaseAdapter",
+    "RouteMetadata",
     # Adapters
     "DocusaurusAdapter",
     "MkDocsAdapter",
@@ -71,4 +80,9 @@ __all__ = [
     "_load_zensical_config",
     # Docusaurus utilities
     "find_docusaurus_config",
+    "_extract_base_url",
+    "_extract_route_base_path",
+    "_extract_frontmatter_slug",
+    "_is_dynamic_config",
+    "_strip_js_comments",
 ]

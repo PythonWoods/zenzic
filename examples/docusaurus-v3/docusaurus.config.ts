@@ -9,6 +9,18 @@ const config = {
   url: "https://example.com",
   baseUrl: "/",
 
+  presets: [
+    [
+      "@docusaurus/preset-classic",
+      {
+        docs: {
+          routeBasePath: "docs",
+          sidebarPath: "./sidebars.ts",
+        },
+      },
+    ],
+  ],
+
   i18n: {
     defaultLocale: "en",
     locales: ["en", "it"],

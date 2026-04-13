@@ -128,25 +128,28 @@ def build_vsm(
     ``md_contents`` by the caller (``validate_links_async``).  No disk reads
     occur here.
 
-    The adapter supplies two pieces of information:
+    Routing resolution strategy (v0.6.0a1+):
 
-    1. ``map_url(rel_path)`` — physical → virtual URL mapping (MkDocs vs.
-       Zensical rules).
-    2. ``get_nav_paths()`` — frozenset of nav-listed ``.md`` paths, used to
-       classify routes as ``REACHABLE`` vs. ``ORPHAN_BUT_EXISTING``.
+    1. **Metadata-Driven** — when the adapter implements ``get_route_info()``,
+       the builder calls it once per file to obtain :class:`RouteMetadata`
+       containing canonical URL, status, slug, and proxy flag in a single
+       dispatch — eliminating the double-call overhead.
+    2. **Legacy File-to-URL** — when ``get_route_info()`` is not available,
+       the builder falls back to calling ``map_url()`` + ``classify_route()``
+       separately (backward-compatible with third-party adapters).
 
     Workflow:
 
     1. Iterate over every ``.md`` file in ``md_contents``.
-    2. Compute the canonical URL via ``adapter.map_url()``.
-    3. Classify status via ``adapter.classify_route()``.
-    4. Run ``_detect_collisions()`` across all routes.
-    5. Build and return the ``VSM`` dict (IGNORED routes excluded).
+    2. Compute routing metadata via the preferred API.
+    3. Run ``_detect_collisions()`` across all routes.
+    4. Build and return the ``VSM`` dict.
 
     Args:
-        adapter:       Build-engine adapter.  Must implement ``map_url(rel)``,
-                       ``classify_route(rel, nav_paths)`` and
-                       ``get_nav_paths()``.
+        adapter:       Build-engine adapter.  Must implement either
+                       ``get_route_info(rel)`` or the legacy
+                       ``map_url(rel)`` + ``classify_route(rel, nav_paths)``
+                       + ``get_nav_paths()``.
         docs_root:     Resolved absolute path to the ``docs/`` directory.
         md_contents:   Pre-loaded mapping of absolute ``Path`` → raw Markdown.
         anchors_cache: Pre-computed ``Path`` → anchor slug set.  When
@@ -155,16 +158,30 @@ def build_vsm(
     Returns:
         ``VSM`` mapping canonical URL → ``Route`` (IGNORED entries omitted).
     """
-    nav_paths = adapter.get_nav_paths()  # type: ignore[attr-defined]
     ac = anchors_cache or {}
+
+    # Detect which routing API the adapter supports.
+    use_metadata_api = hasattr(adapter, "get_route_info") and callable(
+        getattr(adapter, "get_route_info", None)
+    )
+
+    # Legacy path needs nav_paths pre-computed once.
+    nav_paths: frozenset[str] = frozenset()
+    if not use_metadata_api:
+        nav_paths = adapter.get_nav_paths()  # type: ignore[attr-defined]
 
     routes: list[Route] = []
     for abs_path, _content in md_contents.items():
         rel = abs_path.relative_to(docs_root)
         rel_posix = rel.as_posix()
 
-        url = adapter.map_url(rel)  # type: ignore[attr-defined]
-        status: RouteStatus = adapter.classify_route(rel, nav_paths)  # type: ignore[attr-defined]
+        if use_metadata_api:
+            meta = adapter.get_route_info(rel)  # type: ignore[attr-defined]
+            url = meta.canonical_url
+            status: RouteStatus = meta.status
+        else:
+            url = adapter.map_url(rel)  # type: ignore[attr-defined]
+            status = adapter.classify_route(rel, nav_paths)  # type: ignore[attr-defined]
 
         route = Route(
             url=url,

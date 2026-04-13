@@ -7,9 +7,11 @@ A minimal Docusaurus v3 project used as the reference fixture for Zenzic's
 | :--- | :--- |
 | `engine = "docusaurus"` in `zenzic.toml` | `zenzic.toml` |
 | `baseUrl` extraction from config | `docusaurus.config.ts` |
+| `routeBasePath` extraction from preset | `docusaurus.config.ts` — `presets` block |
 | `.mdx` extension support | `docs/intro.mdx` |
 | MDX component tolerance | `docs/intro.mdx` — `<Icon />` JSX |
 | Cross-page relative links | `docs/intro.mdx` → `docs/guide/install.mdx` |
+| Frontmatter `slug:` override | `docs/guide/about.mdx` — `slug: /about` |
 | i18n Ghost Route injection | `i18n/it/.../intro.mdx` |
 | Mirror Law validation | IT translation mirrors EN structure |
 

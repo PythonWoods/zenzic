@@ -2,4 +2,4 @@
 # SPDX-License-Identifier: Apache-2.0
 """Zenzic — engine-agnostic linter and security shield for Markdown documentation."""
 
-__version__ = "0.6.0a1"
+__version__ = "0.6.0a2"

@@ -31,6 +31,7 @@ from zenzic.models.config import BuildContext
 
 
 if TYPE_CHECKING:
+    from zenzic.core.adapters._base import RouteMetadata
     from zenzic.models.vsm import RouteStatus
 
 
@@ -283,6 +284,20 @@ class ZensicalAdapter:
             ``[project].nav`` is declared.
         """
         return self._nav_paths
+
+    def get_route_info(self, rel: Path) -> RouteMetadata:
+        """Return unified routing metadata for a Zensical source file.
+
+        Zensical does not support frontmatter ``slug:`` — the slug field is
+        always ``None``.  Files under ``_private/`` directories are ``IGNORED``.
+        """
+        from zenzic.core.adapters._base import RouteMetadata
+
+        nav_paths = self.get_nav_paths()
+        return RouteMetadata(
+            canonical_url=self.map_url(rel),
+            status=self.classify_route(rel, nav_paths),
+        )
 
     @classmethod
     def from_repo(

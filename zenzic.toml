@@ -1,84 +1,90 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
-# zenzic.toml — Zenzic configuration for this repository.
+# zenzic.toml — Vanilla Guard configuration for the Zenzic Core repository.
+#
+# This is a "Prose-only Maintenance" config: it scans root-level Markdown
+# files (README, CONTRIBUTING, CHANGELOG, SECURITY, etc.) without any
+# nav-awareness.  The full documentation site lives in the separate
+# zenzic-doc repository, which uses engine = "docusaurus".
 
-docs_dir = "docs"
+docs_dir = "."
 
-# Assets referenced by mkdocs.yml or theme templates rather than by Markdown pages.
-# These are excluded to prevent false positives in the unused-assets check.
-excluded_assets = [
-    # favicon — referenced by mkdocs.yml (theme.favicon) and main.html (extrahead)
-    "assets/favicon/zenzic-icon.svg",
-    "assets/favicon/png/zenzic-icon-32.png",
-    "assets/favicon/png/zenzic-icon-64.png",
-    "assets/favicon/png/zenzic-icon-180.png",
-    "assets/favicon/png/zenzic-icon-512.png",
-    # brand — referenced by mkdocs.yml (theme.logo) or distributed as brand assets
-    "assets/brand/svg/zenzic-icon.svg",
-    "assets/brand/svg/zenzic-nav-dark.svg",
-    "assets/brand/svg/zenzic-nav-light.svg",
-    "assets/brand/svg/zenzic-wordmark.svg",
-    "assets/brand/svg/zenzic-wordmark-dark.svg",
-    "assets/brand/png/zenzic-icon-512.png",
-    "assets/brand/png/zenzic-nav-dark.png",
-    "assets/brand/png/zenzic-nav-light.png",
-    "assets/brand/png/zenzic-wordmark.png",
-    # social card — SVG source + PNG referenced by main.html (og:image, twitter:image)
-    "assets/social/social-card.svg",
-    "assets/social/social-card-light.svg",
-    "assets/social/social-card.png",
-    "assets/social/social-card-light.png",
-    # screenshots referenced by README.md (outside docs/) — not by any docs page
-    "assets/screenshots/screenshot-hero.svg",
-    "assets/screenshots/screenshot-score.svg",
-    # brand-kit.zip — build artifact linked via plain [text](url) in brand-kit.md;
-    # the asset scanner only tracks image references so this would always appear unused.
-    "assets/brand-kit.zip",
+# Exclude code, tests, examples, and build artefacts — only prose matters here.
+# Directories like .venv, .git, .nox, __pycache__, etc. are already excluded
+# by Zenzic's system defaults.  The entries below cover project-specific dirs.
+excluded_dirs = [
+    "src",
+    "tests",
+    "examples",
+    "mutants",
+    "scripts",
+    "assets",
+    "LICENSES",
+    ".redteam",
+    "arch",
+    "configuration",
+    "usage",
+    "dist",
+    "build",
 ]
 
-# Directories to be ignored by the scanner.
-excluded_dirs = ["overrides"]
+# Root-level project files that are not documentation assets.
+# With docs_dir = ".", every non-Markdown file would be flagged as an
+# unreferenced asset.  These globs suppress that noise.
+excluded_assets = [
+    "*.toml",
+    "*.lock",
+    "*.yml",
+    "*.yaml",
+    "*.json",
+    "*.xml",
+    "*.ini",
+    "*.cfg",
+    "*.cff",
+    "*.txt",
+    "justfile",
+    "noxfile.py",
+    "LICENSE",
+    "NOTICE",
+    ".gitignore",
+    ".coverage",
+]
 
-# Glob patterns for assets generated at build time (e.g. to-pdf, CI artifact steps).
-# Links to these paths are not flagged as broken even when the file does not exist at lint time.
-excluded_build_artifacts = ["assets/brand-kit.zip", "it/assets/brand-kit.zip"]
+# Historical changelogs contain example secrets and deprecated syntax
+# snippets that would trigger Shield and Snippet false positives.
+excluded_file_patterns = ["CHANGELOG*.md"]
+
+# Cross-repo documentation links and files excluded from scanning that are
+# still referenced as link targets.  Suppress FILE_NOT_FOUND for them.
+excluded_build_artifacts = [
+    "docs/configuration/*.md",
+    "docs/adr/*.md",
+    "CHANGELOG*.md",
+    ".github/workflows/*.yml",
+]
 
 # External URLs excluded from the broken-link check.
-# The GitHub repository URL is excluded because it returns 429 in CI (rate-limited).
-# The settings/tokens URL is excluded because it requires authentication (403 for bots).
+# The GitHub repository URL returns 429 in CI (rate-limited).
+# The settings/tokens URL requires authentication (403 for bots).
+# The zenzic.dev ADR link is valid but may time out in CI before the site is deployed.
 excluded_external_urls = [
     "https://github.com/PythonWoods/zenzic",
     "https://github.com/settings/tokens",
+    "https://zenzic.dev/docs/internals/adr/003-discovery-logic",
 ]
+
+# Pattern matching disabled: the README and CHANGELOG describe placeholder
+# patterns as examples, which would cause false positives.
+placeholder_patterns = []
 
 snippet_min_lines = 1
 placeholder_max_words = 50
 
-# Minimum quality threshold for CI. zenzic score exits with code 1 if below this value.
-# The --fail-under CLI flag overrides this when explicitly provided.
-fail_under = 80
-
-# Pattern matching disabled for this repo: the documentation itself describes
-# placeholder patterns as examples, which would cause false positives.
-placeholder_patterns = []
-
 [build_context]
-engine = "mkdocs"
-default_locale = "en"
-locales = ["it"]
+engine = "vanilla"
 
 # ── Internal dogfood rules ────────────────────────────────────────────────────
-# These rules enforce the writing standards Zenzic recommends to its users.
-# They demonstrate the [[custom_rules]] DSL on a real project.
-#
-# Note: ZZ-NODRAFT is intentionally omitted here. The Zenzic documentation
-# explains the DRAFT pattern as an example in multiple pages (custom-rules-dsl.md,
-# checks.md, migration.md), which would produce false positives — the same
-# reason placeholder_patterns is set to [] above.
-#
-# ZZ-BRAND-CAPS is intentionally omitted: the line-level scanner cannot
-# distinguish prose from code blocks, and "zenzic" appears legitimately in
-# shell commands, JSON output, and package names on almost every page.
+# Minimal rule set for root-level prose files.
 
 [[custom_rules]]
 id       = "ZZ-NOCLICKHERE"

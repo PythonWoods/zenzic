@@ -39,8 +39,8 @@ SPDX-License-Identifier: Apache-2.0
   <em>Linter di documentazione ad alte prestazioni — autonomo, agnostico rispetto all'engine, e a prova di sicurezza.</em>
 </p>
 
-```text
-╭───────────────────────  🛡  ZENZIC SENTINEL  v0.6.0a1  ───────────────────────╮
+```bash
+╭───────────────────────  🛡  ZENZIC SENTINEL  v0.6.0a2  ───────────────────────╮
 │                                                                              │
 │  docusaurus • 2 files (2 docs, 0 assets) • 0.0s                              │
 │                                                                              │
@@ -57,11 +57,11 @@ SPDX-License-Identifier: Apache-2.0
 
 Link non raggiungibili, pagine orfane, snippet di codice non validi, contenuto placeholder mai
 completato e chiavi API esposte si accumulano nel tempo — finché gli utenti non li incontrano in
-produzione. Zenzic rileva tutto questo nei progetti [MkDocs][mkdocs] e [Zensical][zensical] come
+produzione. Zenzic rileva tutto questo nei progetti [MkDocs][mkdocs], Docusaurus e [Zensical][zensical] come
 **CLI autonoma**, senza richiedere l'installazione di alcun framework di build.
 
 Zenzic è **agnostico** — funziona con qualsiasi sistema di documentazione basato su Markdown
-(MkDocs, Zensical, o una semplice cartella di file `.md`). Ed è **opinionated**: i link assoluti
+(MkDocs, Docusaurus, Zensical, o una semplice cartella di file `.md`). Ed è **opinionated**: i link assoluti
 sono un errore bloccante, e se dichiari `engine = "zensical"` devi avere `zensical.toml` — nessun
 fallback, nessuna supposizione.
 
@@ -78,7 +78,7 @@ gli altri strumenti citati sono progetti di terze parti.
 - **Integrità** — Rilevamento link circolari O(V+E), Virtual Site Map con cache content-addressable, punteggio qualità deterministico 0–100.
 - **Intelligenza** — Multi-engine: MkDocs, Docusaurus, Zensical e Vanilla. Gli adapter di terze parti si installano come pacchetti Python tramite entry point.
 
-> 🚀 **Ultima Release: v0.6.0a1 "Obsidian Glass"** — adapter nativo Docusaurus v3, architettura core-only.
+> 🚀 **Ultima Release: v0.6.0a2 "Obsidian Glass"** — adapter nativo Docusaurus v3, architettura core-only.
 > Vedi [CHANGELOG.md](CHANGELOG.md) per lo storico completo delle release.
 
 ---
@@ -120,20 +120,199 @@ delle regressioni su ogni pull request.
 
 ---
 
-## Il Porto Sicuro
+## Standard di Portabilità
 
-Zenzic è progettato per essere il punto fisso stabile mentre l'ecosistema degli strumenti di
-documentazione cambia attorno a voi. MkDocs 2.0, Zensical, o il prossimo motore — Zenzic
-non si rompe perché avete cambiato engine.
+Zenzic applica due regole che rendono la documentazione portabile su qualsiasi ambiente di hosting
+e indipendente da qualsiasi motore di build specifico.
 
-Il **Sistema di Scoperta Dinamica degli Adapter** (v0.4.0) è la realizzazione tecnica di questa
-promessa: gli adapter di terze parti si installano come pacchetti Python e diventano
-immediatamente disponibili senza alcun aggiornamento di Zenzic:
+### Applicazione dei Percorsi Relativi
 
-```bash
-# Esempio: adapter di terze parti per un ipotetico supporto Hugo
-uv pip install zenzic-hugo-adapter   # oppure: pip install zenzic-hugo-adapter
-zenzic check all --engine hugo
+Zenzic **rifiuta i link interni che iniziano con `/`**. I percorsi assoluti dipendono dall'ambiente:
+un link a `/assets/logo.png` funziona quando il sito è alla radice del dominio, ma restituisce 404
+quando è ospitato in una sottodirectory (es. `https://example.com/docs/assets/logo.png` ≠
+`https://example.com/assets/logo.png`).
+
+```markdown
+<!-- Rifiutato da Zenzic -->
+[Scarica](/assets/guide.pdf)
+
+<!-- Corretto — funziona con qualsiasi hosting path -->
+[Scarica](../assets/guide.pdf)
+```
+
+Il messaggio di errore include un suggerimento di correzione esplicito. Gli URL esterni (`https://...`) non
+sono interessati.
+
+### Supporto i18n: Suffix Mode e Folder Mode
+
+Zenzic supporta nativamente entrambe le strategie i18n usate da `mkdocs-static-i18n`:
+
+**Suffix Mode** (`pagina.locale.md`) — i file tradotti sono affiancati agli originali:
+
+```text
+docs/
+  guide.md        ← locale di default (EN)
+  guide.it.md     ← traduzione italiana (stessa profondità, simmetria di percorso)
+  assets/
+    logo.png      ← asset condiviso, stesso percorso relativo da entrambi i file
+```
+
+**Folder Mode** (`docs/it/pagina.md`) — le locale non default risiedono in una directory top-level:
+
+```text
+docs/
+  guide.md
+  assets/
+    logo.png
+  it/
+    guide.md      ← traduzione italiana
+```
+
+In Folder Mode, Zenzic usa la sezione `[build_context]` in `zenzic.toml` per sapere quali
+directory top-level sono alberi di locale. I link ad asset da `docs/it/guide.md` che risolvono a
+`docs/it/assets/logo.png` vengono automaticamente ri-verificati contro `docs/assets/logo.png` —
+rispecchiando il comportamento di fallback del motore. I file di locale non vengono mai segnalati come orfani.
+
+```toml
+# zenzic.toml
+[build_context]
+engine         = "mkdocs"      # "mkdocs", "docusaurus", o "zensical"
+default_locale = "en"
+locales        = ["it", "fr"]  # nomi delle directory locale non default
+```
+
+Quando `zenzic.toml` è assente, Zenzic legge la configurazione locale direttamente da `mkdocs.yml`
+(rispettando `docs_structure`, `fallback_to_default` e `languages`). Non è richiesta alcuna
+configurazione per i progetti che non usano i18n.
+
+## Integrazioni di Prima Classe
+
+Zenzic è **agnostico rispetto al motore di build**. Funziona con qualsiasi sistema di documentazione
+basato su Markdown — MkDocs, Docusaurus, Zensical, o una semplice cartella di file `.md`. Non è necessario
+installare alcun framework di build; Zenzic legge solo i file sorgente grezzi.
+
+Dove un ecosistema di documentazione definisce convenzioni consolidate per la struttura multi-locale
+o la generazione di artefatti a build-time, Zenzic fornisce supporto avanzato, opt-in, leggendo il file
+di configurazione del progetto (YAML, TOML, o testo piano JS/TS) — senza mai importare o eseguire il
+framework stesso.
+
+### Adapter Engine
+
+Zenzic traduce la conoscenza engine-specifica in risposte engine-agnostiche attraverso un sottile
+**adapter layer**:
+
+```text
+zenzic.toml  →  get_adapter()  →  Adapter  →  Core (Scanner + Validator)
+```
+
+L'adapter risponde alle domande che il Core necessita senza conoscere nulla degli interni di MkDocs o
+Zensical:
+
+| Metodo | Domanda |
+| :--- | :--- |
+| `is_locale_dir(part)` | Questa componente del percorso è una directory locale non default? |
+| `resolve_asset(path)` | Esiste un fallback nella locale di default per questo asset mancante? |
+| `is_shadow_of_nav_page(rel, nav)` | Questo file di locale è un mirror di una pagina nella nav? |
+| `get_nav_paths()` | Quali percorsi `.md` sono dichiarati nella nav? |
+| `get_ignored_patterns()` | Quali pattern di filename sono file locale non default (suffix mode)? |
+| `get_route_info(rel)` | Metadati di routing completi: URL canonico, stato, slug, route base path? |
+
+Quattro adapter sono disponibili, selezionati automaticamente da `get_adapter()`:
+
+| Adapter | Quando selezionato | Sorgente config |
+| :--- | :--- | :--- |
+| `MkDocsAdapter` | `engine = "mkdocs"` o engine sconosciuto | `mkdocs.yml` (YAML) |
+| `DocusaurusAdapter` | `engine = "docusaurus"` | `docusaurus.config.ts` / `.js` (testo piano) |
+| `ZensicalAdapter` | `engine = "zensical"` | `zensical.toml` (TOML, zero YAML) |
+| `VanillaAdapter` | Nessun file config, nessuna locale dichiarata | — (tutti no-op) |
+
+**Applicazione Nativa** — `engine = "zensical"` richiede che `zensical.toml` sia presente.
+Se è assente, Zenzic lancia `ConfigurationError` immediatamente. Non c'è nessun fallback a
+`mkdocs.yml` e nessuna degradazione silenziosa. L'identità Zensical deve essere dimostrabile.
+
+### Come funziona — Virtual Site Map (VSM)
+
+La maggior parte dei linter di documentazione controlla se un file collegato esiste su disco.
+Zenzic va oltre: costruisce un **Virtual Site Map** prima che qualsiasi regola venga eseguita.
+
+```text
+File sorgente  ──►  Adapter  ──►  VSM  ──►  Rule Engine  ──►  Violazioni
+  .md + config      (conoscenza     (URL → stato)   (funzioni pure)
+                    engine-
+                    specifica)
+```
+
+Il VSM mappa ogni file sorgente `.md` all'URL canonico che il motore di build servirà —
+**senza eseguire il build**. Ogni route porta uno stato:
+
+| Stato | Significato |
+| :--- | :--- |
+| `REACHABLE` | La pagina è nella nav; gli utenti possono trovarla. |
+| `ORPHAN_BUT_EXISTING` | Il file esiste su disco ma è assente dalla `nav:`. Gli utenti non possono trovarlo tramite navigazione. |
+| `CONFLICT` | Due file mappano allo stesso URL (es. `index.md` + `README.md`). Il risultato del build è indefinito. |
+| `IGNORED` | Il file non verrà servito (`README.md` non elencato, directory `_private/` di Zensical). |
+
+Questo rende Zenzic unicamente preciso: un link a una pagina `ORPHAN_BUT_EXISTING`
+viene intercettato come `UNREACHABLE_LINK` — il file esiste, il link risolve, ma
+l'utente otterrà un 404 dopo il build perché la pagina non è navigabile.
+
+**Ghost Routes** (`reconfigure_material: true`) — quando `mkdocs-material`
+auto-genera entry point di locale (es. `/it/`) a build-time, queste pagine
+non appaiono mai nella `nav:`. Zenzic rileva questo flag e le marca `REACHABLE`
+automaticamente, evitando falsi warning di orfani.
+
+**Cache content-addressable** — Zenzic evita di ri-lintare file invariati usando
+come chiave `SHA256(content) + SHA256(config)`. Per le regole VSM-aware
+la chiave include anche `SHA256(vsm_snapshot)`, garantendo l'invalidazione quando
+lo stato di routing di qualsiasi file cambia. I timestamp non vengono mai consultati —
+la cache è corretta in ambienti CI dove `git clone` resetta `mtime`.
+
+### MkDocs — fallback i18n
+
+Quando `mkdocs.yml` dichiara il plugin i18n con `fallback_to_default: true`, Zenzic rispecchia
+la logica di risoluzione del plugin: un link da una pagina tradotta a una pagina non tradotta **non**
+viene segnalato come rotto, perché il build servirà la versione nella locale di default. Supportato sia per
+`docs_structure: suffix` che per `docs_structure: folder`.
+
+```yaml
+# mkdocs.yml
+plugins:
+  - i18n:
+      docs_structure: folder
+      fallback_to_default: true
+      languages:
+        - locale: en
+          default: true
+          build: true
+        - locale: it
+          build: true
+```
+
+Se `mkdocs.yml` è assente (o il plugin i18n non è configurato), Zenzic torna alla validazione
+a locale singola — nessun errore, nessun warning, nessun framework richiesto.
+
+### Artefatti di build (`excluded_build_artifacts`)
+
+Si applica a qualsiasi sistema di documentazione. Se i link puntano a file generati a build-time
+(PDF, ZIP), dichiara i loro pattern glob in `zenzic.toml`:
+
+```toml
+# zenzic.toml
+excluded_build_artifacts = ["pdf/*.pdf", "dist/*.zip"]
+```
+
+Zenzic sopprime gli errori per i percorsi corrispondenti al momento del lint. Il build resta
+responsabile della generazione degli artefatti; Zenzic si fida del link senza richiedere il file su disco.
+
+### Link in stile referenza
+
+I link `[testo][id]` sono risolti attraverso la stessa pipeline dei link inline — incluso il
+fallback i18n — per tutti i sistemi di documentazione.
+
+```markdown
+[Riferimento API][api-ref]
+
+[api-ref]: api.md
 ```
 
 ---
@@ -141,6 +320,8 @@ zenzic check all --engine hugo
 ## Installazione
 
 ### Con `uv` (consigliato)
+
+[`uv`][uv] è il modo più veloce per installare e eseguire Zenzic:
 
 ```bash
 # Esecuzione una-tantum senza installazione
@@ -156,14 +337,24 @@ uv add --dev --pre zenzic
 ### Con `pip`
 
 ```bash
+# Installazione globale (considera un ambiente virtuale)
+pip install --pre zenzic
+
+# Dentro un ambiente virtuale (consigliato)
+python -m venv .venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install --pre zenzic
 ```
 
 ### Lean e Agnostico per Design
 
-Zenzic esegue un'**analisi statica** dei tuoi file di configurazione (`mkdocs.yml`, `zensical.toml`, `pyproject.toml`). **Non esegue** il motore di build né i suoi plugin.
+Zenzic esegue un'**analisi statica** dei tuoi file di configurazione (`mkdocs.yml`, `docusaurus.config.ts`, `zensical.toml`, `pyproject.toml`). **Non esegue** il motore di build né i suoi plugin.
 
 Questo significa che **non è necessario installare** MkDocs, Material for MkDocs o altri plugin di build nel tuo ambiente di linting. Zenzic rimane leggero e privo di dipendenze, rendendolo ideale per pipeline CI/CD veloci e isolate.
+
+> **Artefatti di build:** Se la documentazione punta a file generati a build-time
+> (PDF, ZIP), aggiungi i loro pattern glob a `excluded_build_artifacts` in `zenzic.toml`
+> anziché pre-generarli. Vedi la sezione [Integrazioni di Prima Classe](#integrazioni-di-prima-classe).
 
 ### Setup progetto
 
@@ -186,29 +377,40 @@ zenzic check orphans
 zenzic check snippets
 zenzic check placeholders
 zenzic check assets
-zenzic check references
 
 # Autofix & Cleanup
 zenzic clean assets                # Elimina interattivamente gli asset non utilizzati
 zenzic clean assets -y             # Elimina gli asset non utilizzati immediatamente
 zenzic clean assets --dry-run      # Mostra cosa verrebbe eliminato senza farlo
 
+# Pipeline dei riferimenti
+zenzic check references           # Harvest → Cross-Check → Shield → Punteggio integrità
+zenzic check references --strict  # Tratta le Dead Definitions come errori
+zenzic check references --links   # Valida anche gli URL dei riferimenti via HTTP asincrono
+
 # Tutti i controlli in un comando
 zenzic check all --strict
 zenzic check all --exit-zero       # report senza bloccare la pipeline
 zenzic check all --format json     # output machine-readable
 
-# Override dell'adapter engine (nuovo in v0.4.0)
+# Override dell'adapter engine
 zenzic check all --engine zensical
 zenzic check orphans --engine vanilla
 
 # Punteggio qualità (0–100)
+zenzic score
 zenzic score --save                # persiste il baseline
-zenzic diff --threshold 5          # exit 1 se il calo è > 5 punti
+zenzic score --fail-under 80       # exit 1 se sotto la soglia
 
-# Server di sviluppo
+# Rilevamento regressioni contro snapshot salvato
+zenzic diff                        # exit 1 su qualsiasi calo
+zenzic diff --threshold 5          # exit 1 solo se il calo è > 5 punti
+
+# Server di sviluppo (engine-agnostico)
 zenzic serve                       # rileva automaticamente mkdocs o zensical
+zenzic serve --engine mkdocs
 zenzic serve --port 9000
+zenzic serve --no-preflight
 ```
 
 ### Codici di uscita
@@ -226,11 +428,128 @@ zenzic serve --port 9000
 > come `/etc/`, `/root/`). Entrambi non vengono mai soppressi da `--exit-zero`. Ruotare e
 > verificare immediatamente.
 
-Lo **Zenzic Shield** rileva 8 famiglie di credenziali (chiavi OpenAI, token GitHub, access key
-AWS, chiavi live Stripe, token Slack, chiavi API Google, chiavi private PEM e payload
-hex-encoded) su **ogni riga del file sorgente** — incluse le righe dentro i blocchi di codice
-`bash`, `yaml` e senza etichetta.
-Una credenziale in un esempio di codice è comunque una credenziale esposta.
+---
+
+## 🛡️ Zenzic Shield
+
+Lo **Zenzic Shield** è un sistema di sicurezza a due livelli integrato nel core engine:
+
+| Livello | Protegge contro |
+| --- | --- |
+| **Rilevamento credenziali** | Chiavi API / token esposti incorporati nelle URL dei riferimenti |
+| **Path traversal** | Escape da `docs/` in stile `../../../../etc/passwd` |
+
+### Rilevamento credenziali
+
+Il livello credenziali viene eseguito durante il **Pass 1** (Harvesting) della pipeline dei riferimenti
+e scansiona ogni URL di riferimento per pattern di credenziali noti prima che qualsiasi richiesta HTTP
+venga emessa.
+
+```markdown
+<!-- Questa definizione innescherebbe un Exit 2 immediato -->
+[api-docs]: https://api.example.com/?key=sk-xxxx-xxxx-xxxx-xxxx-xxxx-xxxx
+```
+
+```bash
+╔══════════════════════════════════════╗
+║        SECURITY CRITICAL             ║
+║  Secret(s) detected in documentation ║
+╚══════════════════════════════════════╝
+
+  [SHIELD] docs/api.md:12 — openai-api-key detected in URL
+    https://api.example.com/?key=sk-xxxx-xxxx-x...
+
+Build aborted. Rotate the exposed credential immediately.
+```
+
+**Come funziona:**
+
+1. Lo Shield viene eseguito *dentro* il Pass 1 — prima che il Pass 2 validi i link e prima che qualsiasi
+   ping HTTP venga emesso. Un documento contenente una credenziale esposta non viene mai usato per effettuare
+   richieste in uscita.
+2. I pattern usano quantificatori a lunghezza esatta (`{48}`, `{36}`, `{16}`) — nessun backtracking, O(1) per riga.
+3. Otto famiglie di credenziali sono coperte out of the box:
+
+| Tipo | Pattern |
+| --- | --- |
+| Chiave API OpenAI | `sk-[a-zA-Z0-9]{48}` |
+| Token GitHub | `gh[pousr]_[a-zA-Z0-9]{36}` |
+| Access key AWS | `AKIA[0-9A-Z]{16}` |
+| Chiave live Stripe | `sk_live_[0-9a-zA-Z]{24}` |
+| Token Slack | `xox[baprs]-[0-9a-zA-Z]{10,48}` |
+| Chiave API Google | `AIza[0-9A-Za-z\-_]{35}` |
+| Chiave privata PEM | `-----BEGIN [A-Z ]+ PRIVATE KEY-----` |
+| Payload hex-encoded | 3+ sequenze consecutive `\xNN` |
+
+1. **Nessun punto cieco** — lo Shield scansiona ogni riga del file sorgente, incluse le righe dentro
+   blocchi di codice fenced (`bash`, `yaml`, senza etichetta, ecc.). Una credenziale inserita in un esempio
+   di codice è comunque una credenziale esposta.
+
+> **Suggerimento:**
+> Aggiungi `zenzic check references` ai tuoi hook pre-commit per intercettare credenziali esposte prima che
+> vengano mai committate nel version control.
+
+### Path traversal
+
+Il livello di path traversal viene eseguito dentro `InMemoryPathResolver` durante `check links`. Normalizza
+ogni href risolto con `os.path.normpath` (puro C, zero system call) e verifica che il risultato
+sia contenuto dentro `docs/` usando un singolo confronto di prefisso stringa — $O(1)$, zero allocazioni.
+
+```bash
+Attack href:   ../../../../etc/passwd
+After resolve: /etc/passwd
+Shield check:  /etc/passwd does not start with /docs/ → PathTraversal returned, link rejected
+```
+
+Qualsiasi href che esce dalla root docs viene evidenziato come un errore `PathTraversal` distinto — mai
+collassato silenziosamente in un generico "file non trovato".
+
+---
+
+## Integrazione CI/CD
+
+### GitHub Actions
+
+```yaml
+- name: Lint documentazione
+  run: uvx --pre zenzic check all
+
+- name: Controlla riferimenti ed esegui Shield
+  run: uvx --pre zenzic check references
+```
+
+Workflow completo: [`.github/workflows/zenzic.yml`][ci-workflow]
+
+Per l'automazione dinamica dei badge e il rilevamento delle regressioni, consulta la [guida all'integrazione CI/CD][docs-it-cicd].
+
+---
+
+## Configurazione
+
+Tutti i campi sono opzionali. Zenzic funziona senza alcun file di configurazione.
+
+Zenzic segue una catena di priorità a tre livelli **Agnostic Citizen**:
+
+1. `zenzic.toml` alla root del repository — sovrano; ha sempre la precedenza.
+2. `[tool.zenzic]` in `pyproject.toml` — usato quando `zenzic.toml` è assente.
+3. Default built-in.
+
+```toml
+# zenzic.toml  (oppure [tool.zenzic] in pyproject.toml)
+docs_dir = "docs"
+excluded_dirs = ["includes", "assets", "stylesheets", "overrides", "hooks"]
+snippet_min_lines = 1
+placeholder_max_words = 50
+placeholder_patterns = ["coming soon", "todo", "stub"]
+fail_under = 80   # exit 1 se il punteggio scende sotto questa soglia; 0 = modalità osservativa
+
+# Contesto engine e i18n — richiesto solo per progetti multi-locale in folder mode.
+# Quando assente, Zenzic legge la configurazione locale direttamente da mkdocs.yml.
+[build_context]
+engine         = "mkdocs"   # "mkdocs" o "zensical"
+default_locale = "en"
+locales        = ["it"]     # nomi delle directory locale non default
+```
 
 ---
 
@@ -252,43 +571,26 @@ message  = "L'hostname interno non deve apparire nella documentazione pubblica."
 severity = "error"
 ```
 
-Le regole si attivano identicamente con tutti gli adapter (MkDocs, Zensical, Vanilla). Nessuna
+Le regole si attivano identicamente con tutti gli adapter (MkDocs, Docusaurus, Zensical, Vanilla). Nessuna
 modifica richiesta dopo la migrazione da un engine all'altro.
 
 ---
 
-## Supporto i18n
+## Sviluppo
 
-Zenzic supporta nativamente entrambe le strategie i18n usate da `mkdocs-static-i18n`:
+Per un workflow di sviluppo più veloce e interattivo usando **just**, o per istruzioni dettagliate su
+come aggiungere nuovi controlli, consulta la [Guida ai Contributi][contributing].
 
-**Suffix Mode** (`pagina.locale.md`) e **Folder Mode** (`docs/it/pagina.md`).
+```bash
+uv sync --group dev
+nox -s dev         # Installa gli hook pre-commit (una volta)
 
-In Folder Mode, dichiara la configurazione locale in `zenzic.toml`:
-
-```toml
-[build_context]
-engine         = "mkdocs"
-default_locale = "en"
-locales        = ["it", "fr"]
+nox -s tests       # pytest + coverage
+nox -s lint        # ruff check
+nox -s format      # ruff format
+nox -s typecheck   # mypy --strict
+nox -s preflight   # pipeline CI completa (lint + test + self-check)
 ```
-
-Zenzic usa questa lista per risolvere correttamente i link degli asset tra locale e per
-non segnalare mai i file tradotti come orfani.
-
----
-
-## Changelog & Note di Rilascio
-
-- 📋 [CHANGELOG.md](CHANGELOG.md) — storico completo delle modifiche (unico, in inglese)
-- 🚀 [RELEASE.md](RELEASE.md) — manifesto di rilascio (unico, in inglese)
-
-> Il changelog è ora mantenuto in un unico file inglese (`CHANGELOG.md`).
-> Questa scelta segue gli standard dell'ecosistema Python open source:
-> la cronologia delle versioni è documentazione tecnica, non interfaccia utente.
->
-> Nota sul ciclo release: la linea `0.4.x` è stata abbandonata (fase
-> esplorativa con breaking changes multipli); la linea attiva di
-> stabilizzazione è `0.5.x`.
 
 ---
 
@@ -296,8 +598,8 @@ non segnalare mai i file tradotti come orfani.
 
 L'audit completo della Sentinella — banner, rilevamento engine e verdetto:
 
-```text
-╭───────────────────────  🛡  ZENZIC SENTINEL  v0.6.0a1  ───────────────────────╮
+```bash
+╭───────────────────────  🛡  ZENZIC SENTINEL  v0.6.0a2  ───────────────────────╮
 │                                                                              │
 │  mkdocs • 12 files (10 docs, 2 assets) • 0.1s                                │
 │                                                                              │
@@ -314,8 +616,14 @@ L'audit completo della Sentinella — banner, rilevamento engine e verdetto:
 ╰──────────────────────────────────────────────────────────────────────────────╯
 ```
 
+Lo **Shield** intercetta credenziali esposte prima che qualsiasi richiesta HTTP venga emessa.
+La **Sentinella di Sangue** blocca tentativi di path traversal che escono dalla root `docs/`.
+Entrambi attivano codici di uscita non sopprimibili (2 e 3). Il **VSM** (Virtual Site Map)
+assicura che la validazione dei link operi su URL canonici — non su percorsi filesystem —
+così che pagine orfane e slug override vengano rilevati accuratamente su tutti gli engine.
+
 Per screenshot interattivi ed esempi visivi completi, visita il
-[portale documentazione](https://zenzic.pythonwoods.dev/).
+[portale documentazione](https://zenzic.pythonwoods.dev/it/).
 
 ---
 
@@ -323,21 +631,21 @@ Per screenshot interattivi ed esempi visivi completi, visita il
 
 Bug report, miglioramenti alla documentazione e pull request sono benvenuti. Prima di iniziare:
 
-1. Apri un'issue per discutere la modifica — usa il [template appropriato](https://github.com/PythonWoods/zenzic/issues).
-2. Leggi la [Guida ai Contributi](CONTRIBUTING.md) — in particolare il setup locale e la checklist **Zenzic Way**.
-3. Ogni PR deve superare `nox -s preflight` e includere le intestazioni REUSE/SPDX sui nuovi file.
+1. Apri un'issue per discutere la modifica — usa il [template appropriato][issues].
+2. Leggi la [Guida ai Contributi][contributing] — in particolare il setup locale e la checklist **Zenzic Way** (funzioni pure, nessun sottoprocesso, source-first).
+3. Ogni PR deve superare `nox -s preflight` (test + lint + typecheck + self-dogfood) e includere le intestazioni REUSE/SPDX sui nuovi file.
 
-Consulta anche il [Codice di Condotta](CODE_OF_CONDUCT.md) e la [Policy di Sicurezza](SECURITY.md).
+Consulta anche il [Codice di Condotta][coc] e la [Policy di Sicurezza][security].
 
 ## Citare Zenzic
 
-Il file [`CITATION.cff`](CITATION.cff) è presente nella root del repository. GitHub lo
+Il file [`CITATION.cff`][citation-cff] è presente nella root del repository. GitHub lo
 visualizza automaticamente — clicca **"Cite this repository"** sulla pagina del repo per
 ottenere il riferimento in formato APA o BibTeX.
 
 ## Licenza
 
-Apache-2.0 — vedi [LICENSE](LICENSE).
+Apache-2.0 — vedi [LICENSE][license].
 
 ---
 
@@ -351,8 +659,17 @@ Apache-2.0 — vedi [LICENSE](LICENSE).
 
 [mkdocs]:             https://www.mkdocs.org/
 [zensical]:           https://zensical.org/
+[uv]:                 https://docs.astral.sh/uv/
 [docs-it-home]:       https://zenzic.pythonwoods.dev/it/usage/
 [docs-it-config]:     https://zenzic.pythonwoods.dev/it/configuration/
 [docs-it-migration]:  https://zenzic.pythonwoods.dev/it/guide/migration/
 [docs-it-arch]:       https://zenzic.pythonwoods.dev/it/architecture/
 [docs-it-adapter]:    https://zenzic.pythonwoods.dev/it/developers/writing-an-adapter/
+[docs-it-cicd]:       https://zenzic.pythonwoods.dev/it/ci-cd/
+[ci-workflow]:        .github/workflows/ci.yml
+[contributing]:       CONTRIBUTING.md
+[license]:            LICENSE
+[citation-cff]:       CITATION.cff
+[coc]:                CODE_OF_CONDUCT.md
+[security]:           SECURITY.md
+[issues]:             https://github.com/PythonWoods/zenzic/issues

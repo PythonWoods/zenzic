@@ -24,16 +24,13 @@ from typing import Any
 from urllib.parse import unquote
 
 from zenzic.core.adapter import get_adapter
+from zenzic.core.discovery import DOC_SUFFIXES, iter_markdown_sources, walk_files
 from zenzic.core.reporter import Finding
 from zenzic.core.rules import AdaptiveRuleEngine, BaseRule
 from zenzic.core.shield import SecurityFinding, scan_line_for_secrets, scan_url_for_secrets
 from zenzic.core.validator import LinkValidator
 from zenzic.models.config import ZenzicConfig
 from zenzic.models.references import IntegrityReport, ReferenceFinding, ReferenceMap
-
-
-# Extensions recognised as documentation source files (not assets).
-_DOC_SUFFIXES: frozenset[str] = frozenset({".md", ".mdx"})
 
 
 # ─── Reference pipeline regexes ───────────────────────────────────────────────
@@ -278,19 +275,16 @@ def find_orphans(repo_root: Path, config: ZenzicConfig | None = None) -> list[Pa
         return []
 
     nav_paths = adapter.get_nav_paths()
-    exclusion_patterns = set(config.excluded_file_patterns) | adapter.get_ignored_patterns()
+    adapter_ignored = adapter.get_ignored_patterns()
 
     orphans: list[Path] = []
-    for md_file in sorted(f for f in docs_root.rglob("*") if f.suffix in _DOC_SUFFIXES):
-        if md_file.is_symlink():
-            continue
+    for md_file in iter_markdown_sources(docs_root, config):
         rel = md_file.relative_to(docs_root)
-        if any(part in config.excluded_dirs for part in rel.parts):
-            continue
         # Skip all files inside a locale directory — managed by the i18n plugin.
         if rel.parts and adapter.is_locale_dir(rel.parts[0]):
             continue
-        if any(fnmatch.fnmatch(md_file.name, pat) for pat in exclusion_patterns):
+        # Adapter-specific patterns (e.g. i18n plugin suffixes).
+        if any(fnmatch.fnmatch(md_file.name, pat) for pat in adapter_ignored):
             continue
         if adapter.classify_route(rel, nav_paths) == "ORPHAN_BUT_EXISTING":
             orphans.append(rel)
@@ -319,12 +313,8 @@ def find_placeholders(
     if not docs_root.exists() or not docs_root.is_dir():
         return findings
 
-    for md_file in sorted(f for f in docs_root.rglob("*") if f.suffix in _DOC_SUFFIXES):
-        if md_file.is_symlink():
-            continue
+    for md_file in iter_markdown_sources(docs_root, config):
         rel_path = md_file.relative_to(docs_root)
-        if any(part in config.excluded_dirs for part in rel_path.parts):
-            continue
         content = md_file.read_text(encoding="utf-8")
         findings.extend(check_placeholder_content(content, rel_path, config))
 
@@ -350,8 +340,12 @@ def find_unused_assets(repo_root: Path, config: ZenzicConfig | None = None) -> l
         return []
 
     all_assets: set[str] = set()
-    for file_path in sorted(docs_root.rglob("*")):
-        if file_path.is_dir() or file_path.is_symlink() or file_path.suffix in _DOC_SUFFIXES:
+    # Prune excluded_dirs (user + system guardrails) AND excluded_asset_dirs.
+    # This prevents traversal of code directories (src/, tests/) and theme
+    # override directories (overrides/) during asset discovery.
+    asset_prune = set(config.excluded_dirs) | set(config.excluded_asset_dirs)
+    for file_path in walk_files(docs_root, asset_prune):
+        if file_path.is_dir() or file_path.is_symlink() or file_path.suffix in DOC_SUFFIXES:
             continue
         rel_path = file_path.relative_to(docs_root)
         if rel_path.suffix in {".css", ".js", ".yml", ".license", ".j2"}:
@@ -366,18 +360,21 @@ def find_unused_assets(repo_root: Path, config: ZenzicConfig | None = None) -> l
     if not all_assets:
         return []
 
-    # Remove explicitly excluded assets before comparison.
-    # excluded_assets paths are relative to docs_dir, matching the format of all_assets.
-    excluded = {e.lstrip("/") for e in config.excluded_assets}
-    all_assets -= excluded
+    # Remove explicitly excluded assets.
+    # Every entry in excluded_assets is treated as an fnmatch pattern
+    # (relative to docs_dir).  Literal paths work as-is because fnmatch
+    # treats a string without metacharacters as a literal match.
+    excluded_patterns = [e.lstrip("/") for e in config.excluded_assets]
+    if excluded_patterns:
+        all_assets = {
+            a for a in all_assets if not any(fnmatch.fnmatch(a, pat) for pat in excluded_patterns)
+        }
 
     if not all_assets:
         return []
 
     used_assets: set[str] = set()
-    for md_file in sorted(f for f in docs_root.rglob("*") if f.suffix in _DOC_SUFFIXES):
-        if md_file.is_symlink():
-            continue
+    for md_file in iter_markdown_sources(docs_root, config):
         content = md_file.read_text(encoding="utf-8")
         rel_md = md_file.relative_to(docs_root)
         page_dir = rel_md.parent.as_posix()
@@ -796,18 +793,9 @@ def _scan_single_file(
     return report, secure_scanner
 
 
-def _iter_md_files(
-    docs_root: Path,
-    config: ZenzicConfig,
-) -> Generator[Path, None, None]:
-    """Yield absolute paths to .md/.mdx files under docs_root, honouring exclusions."""
-    for md_file in sorted(f for f in docs_root.rglob("*") if f.suffix in _DOC_SUFFIXES):
-        if md_file.is_symlink():
-            continue
-        rel = md_file.relative_to(docs_root)
-        if any(part in config.excluded_dirs for part in rel.parts):
-            continue
-        yield md_file
+# _iter_md_files is now a thin alias for the centralised discovery function.
+# Kept as a private name so no external callers need updating.
+_iter_md_files = iter_markdown_sources
 
 
 def _build_rule_engine(config: ZenzicConfig) -> AdaptiveRuleEngine | None:

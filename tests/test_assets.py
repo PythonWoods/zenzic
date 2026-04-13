@@ -109,3 +109,45 @@ def test_excluded_assets_leading_slash_stripped(tmp_path: Path) -> None:
     unused = find_unused_assets(repo, config)
 
     assert not any(p.name == "favicon.svg" for p in unused)
+
+
+def test_excluded_assets_glob_pattern(tmp_path: Path) -> None:
+    """Glob patterns (fnmatch) in excluded_assets suppress matching files."""
+    repo = tmp_path / "my_repo"
+    docs = repo / "docs"
+    (docs / "community").mkdir(parents=True)
+    (docs / "guides").mkdir(parents=True)
+
+    (docs / "community" / "_category_.json").touch()
+    (docs / "guides" / "_category_.json").touch()
+    (docs / "guides" / "orphan.png").touch()
+
+    (docs / "index.md").write_text("No images here.")
+
+    config = ZenzicConfig(excluded_assets=["**/_category_.json"])
+    unused = find_unused_assets(repo, config)
+
+    names = [p.name for p in unused]
+    assert "_category_.json" not in names
+    assert "orphan.png" in names
+
+
+def test_excluded_assets_wildcard_pattern(tmp_path: Path) -> None:
+    """Wildcard patterns exclude all matching assets in a directory."""
+    repo = tmp_path / "my_repo"
+    docs = repo / "docs"
+    brand = docs / "assets" / "brand"
+    brand.mkdir(parents=True)
+
+    (brand / "logo.svg").touch()
+    (brand / "icon.svg").touch()
+    (docs / "assets" / "screenshot.png").touch()
+    (docs / "index.md").write_text("No images here.")
+
+    config = ZenzicConfig(excluded_assets=["assets/brand/*"])
+    unused = find_unused_assets(repo, config)
+
+    names = [p.name for p in unused]
+    assert "logo.svg" not in names
+    assert "icon.svg" not in names
+    assert "screenshot.png" in names
