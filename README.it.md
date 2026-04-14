@@ -40,7 +40,7 @@ SPDX-License-Identifier: Apache-2.0
 </p>
 
 ```bash
-╭───────────────────────  🛡  ZENZIC SENTINEL  v0.6.0a2  ───────────────────────╮
+╭───────────────────────  🛡  ZENZIC SENTINEL  v0.6.1a1  ───────────────────────╮
 │                                                                              │
 │  docusaurus • 2 files (2 docs, 0 assets) • 0.0s                              │
 │                                                                              │
@@ -78,7 +78,7 @@ gli altri strumenti citati sono progetti di terze parti.
 - **Integrità** — Rilevamento link circolari O(V+E), Virtual Site Map con cache content-addressable, punteggio qualità deterministico 0–100.
 - **Intelligenza** — Multi-engine: MkDocs, Docusaurus, Zensical e Vanilla. Gli adapter di terze parti si installano come pacchetti Python tramite entry point.
 
-> 🚀 **Ultima Release: v0.6.0a2 "Obsidian Glass"** — adapter nativo Docusaurus v3, architettura core-only.
+> 🚀 **Ultima Release: v0.6.1a1 "Obsidian Bastion"** — adapter nativo Docusaurus v3, architettura core-only.
 > Vedi [CHANGELOG.md](CHANGELOG.md) per lo storico completo delle release.
 
 ---
@@ -96,7 +96,7 @@ gli altri strumenti citati sono progetti di terze parti.
   di documentazione.
 
 <p align="center">
-  <a href="https://zenzic.pythonwoods.dev/it/"><strong>Esplora la documentazione completa →</strong></a>
+  <a href="https://zenzic.dev/docs/it/"><strong>Esplora la documentazione completa →</strong></a>
 </p>
 
 ---
@@ -405,13 +405,11 @@ zenzic score --fail-under 80       # exit 1 se sotto la soglia
 # Rilevamento regressioni contro snapshot salvato
 zenzic diff                        # exit 1 su qualsiasi calo
 zenzic diff --threshold 5          # exit 1 solo se il calo è > 5 punti
-
-# Server di sviluppo (engine-agnostico)
-zenzic serve                       # rileva automaticamente mkdocs o zensical
-zenzic serve --engine mkdocs
-zenzic serve --port 9000
-zenzic serve --no-preflight
 ```
+
+> **Nota (v0.6.1+):** `zenzic serve` è stato rimosso. A partire dalla v0.6.1, Zenzic si
+> focalizza esclusivamente sull'analisi. Per visualizzare i documenti, usa il comando nativo
+> del tuo engine: `mkdocs serve`, `docusaurus start`, o `zensical serve`.
 
 ### Codici di uscita
 
@@ -599,7 +597,7 @@ nox -s preflight   # pipeline CI completa (lint + test + self-check)
 L'audit completo della Sentinella — banner, rilevamento engine e verdetto:
 
 ```bash
-╭───────────────────────  🛡  ZENZIC SENTINEL  v0.6.0a2  ───────────────────────╮
+╭───────────────────────  🛡  ZENZIC SENTINEL  v0.6.1a1  ───────────────────────╮
 │                                                                              │
 │  mkdocs • 12 files (10 docs, 2 assets) • 0.1s                                │
 │                                                                              │
@@ -623,7 +621,7 @@ assicura che la validazione dei link operi su URL canonici — non su percorsi f
 così che pagine orfane e slug override vengano rilevati accuratamente su tutti gli engine.
 
 Per screenshot interattivi ed esempi visivi completi, visita il
-[portale documentazione](https://zenzic.pythonwoods.dev/it/).
+[portale documentazione](https://zenzic.dev/docs/it/).
 
 ---
 
@@ -660,12 +658,12 @@ Apache-2.0 — vedi [LICENSE][license].
 [mkdocs]:             https://www.mkdocs.org/
 [zensical]:           https://zensical.org/
 [uv]:                 https://docs.astral.sh/uv/
-[docs-it-home]:       https://zenzic.pythonwoods.dev/it/usage/
-[docs-it-config]:     https://zenzic.pythonwoods.dev/it/configuration/
-[docs-it-migration]:  https://zenzic.pythonwoods.dev/it/guide/migration/
-[docs-it-arch]:       https://zenzic.pythonwoods.dev/it/architecture/
-[docs-it-adapter]:    https://zenzic.pythonwoods.dev/it/developers/writing-an-adapter/
-[docs-it-cicd]:       https://zenzic.pythonwoods.dev/it/ci-cd/
+[docs-it-home]:       https://zenzic.dev/docs/it/usage/
+[docs-it-config]:     https://zenzic.dev/docs/it/configuration/
+[docs-it-migration]:  https://zenzic.dev/docs/it/guide/migration/
+[docs-it-arch]:       https://zenzic.dev/docs/it/architecture/
+[docs-it-adapter]:    https://zenzic.dev/docs/it/developers/writing-an-adapter/
+[docs-it-cicd]:       https://zenzic.dev/docs/it/ci-cd/
 [ci-workflow]:        .github/workflows/ci.yml
 [contributing]:       CONTRIBUTING.md
 [license]:            LICENSE
