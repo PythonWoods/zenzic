@@ -1,0 +1,10 @@
+# Build output
+site/
+build/
+dist/
+
+# Generated API docs (will be force-included by zenzic.toml)
+generated-api/
+
+# Temporary files
+*.draft.md

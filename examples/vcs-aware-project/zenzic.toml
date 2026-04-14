@@ -1,0 +1,20 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+
+# VCS-Aware Project — demonstrates respect_vcs_ignore and forced inclusions.
+# This example shows how Zenzic's 4-level Layered Exclusion model works
+# with .gitignore patterns and explicit inclusion overrides.
+
+docs_dir = "docs"
+
+# L2-VCS: honour .gitignore patterns (opt-in, default is false)
+respect_vcs_ignore = true
+
+# L2-Forced: re-include generated-api/ even though .gitignore excludes it
+included_dirs = ["generated-api"]
+
+# L3-Config: additional directory exclusions beyond .gitignore
+excluded_dirs = ["drafts"]
+
+# L3-Config: skip changelog fragments
+excluded_file_patterns = ["CHANGELOG*.md"]
