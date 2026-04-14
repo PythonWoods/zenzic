@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
-"""Shared pytest configuration and Hypothesis profiles.
+"""Shared pytest configuration, Hypothesis profiles, and test helpers.
 
 Hypothesis profiles
 ───────────────────
