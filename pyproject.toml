@@ -83,7 +83,7 @@ lint = [
 release = [
     "nox>=2024.4.15",
     "bump-my-version>=1.2.6",
-    "pip-audit>=2.7.0",
+    "pip-audit>=2.10.0",
 ]
 dev = [
     {include-group = "test"},
