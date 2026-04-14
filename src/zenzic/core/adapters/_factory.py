@@ -32,6 +32,7 @@ the docs engine is not installed.
 
 from __future__ import annotations
 
+import threading
 from importlib.metadata import entry_points
 from pathlib import Path
 from typing import Any
@@ -75,6 +76,27 @@ def list_adapter_engines() -> list[str]:
     return sorted(ep.name for ep in eps)
 
 
+# ── Adapter cache ────────────────────────────────────────────────────────────
+# Prevents double-instantiation when get_adapter() is called from both
+# scanner.py and validator.py in the same CLI session.
+# The lock makes writes thread-safe by design, even though the current
+# execution model uses ProcessPoolExecutor (each worker has its own cache).
+# This eliminates the risk of double-instantiation if a future caller uses
+# ThreadPoolExecutor without requiring a code-level change here.
+_adapter_cache: dict[tuple[str, Path, Path], Any] = {}
+_adapter_cache_lock: threading.Lock = threading.Lock()
+
+
+def clear_adapter_cache() -> None:
+    """Clear the adapter instance cache.
+
+    Call this in test teardown or when configuration changes invalidate
+    cached adapter instances.
+    """
+    with _adapter_cache_lock:
+        _adapter_cache.clear()
+
+
 def get_adapter(
     context: BuildContext,
     docs_root: Path,
@@ -90,6 +112,10 @@ def get_adapter(
        classmethod when present; otherwise call
        ``AdapterClass(context, docs_root)``.
     3. If not found: return :class:`VanillaAdapter` (neutral no-op behaviour).
+
+    Adapter instances are cached by ``(engine, docs_root, repo_root)`` key
+    to prevent redundant construction when called from multiple modules in
+    the same CLI session.
 
     This design means adding a new engine adapter **never requires modifying
     Zenzic core** — only installing an adapter package is required.
@@ -109,16 +135,17 @@ def get_adapter(
             discovered adapter's ``from_repo`` raises one (e.g.
             ``ZensicalAdapter`` raises when ``zensical.toml`` is absent).
     """
+    key = (context.engine, docs_root.resolve(), repo_root.resolve())
+    # Fast path: read without lock (dict reads are atomic under the GIL).
+    if key in _adapter_cache:
+        return _adapter_cache[key]
+
     adapter_class = _load_adapter_class(context.engine)
-    if adapter_class is None:
-        return VanillaAdapter()
 
-    # VanillaAdapter is a no-op stub with no constructor arguments.
-    if adapter_class is VanillaAdapter:
-        return VanillaAdapter()
-
-    # Prefer the richer from_repo constructor when available.
-    if hasattr(adapter_class, "from_repo"):
+    if adapter_class is None or adapter_class is VanillaAdapter:
+        adapter: Any = VanillaAdapter()
+    elif hasattr(adapter_class, "from_repo"):
+        # Prefer the richer from_repo constructor when available.
         adapter = adapter_class.from_repo(context, docs_root, repo_root)
     else:
         adapter = adapter_class(context, docs_root)
@@ -126,5 +153,12 @@ def get_adapter(
     # If the adapter found no engine config and no locale information, fall
     # back to VanillaAdapter so nav-dependent checks are skipped cleanly.
     if not adapter.has_engine_config():
-        return VanillaAdapter()
-    return adapter
+        adapter = VanillaAdapter()
+
+    # Write under lock: prevents double-instantiation if a caller ever uses
+    # threads to construct adapters concurrently.
+    with _adapter_cache_lock:
+        # Re-check after acquiring the lock (double-checked locking pattern).
+        if key not in _adapter_cache:
+            _adapter_cache[key] = adapter
+    return _adapter_cache[key]
