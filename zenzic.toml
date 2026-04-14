@@ -26,6 +26,7 @@ excluded_dirs = [
     "usage",
     "dist",
     "build",
+    "temp",
 ]
 
 # Root-level project files that are not documentation assets.
