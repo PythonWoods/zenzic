@@ -561,3 +561,29 @@ class DocusaurusAdapter:
 
         route_base_path = _extract_route_base_path(config_path) if config_path else None
         return cls(context, docs_root, base_url, route_base_path)
+
+    def get_locale_source_roots(self, repo_root: Path) -> list[tuple[Path, str]]:
+        """Return (locale_root, locale_name) pairs for all configured locales.
+
+        Docusaurus i18n geography::
+
+            i18n/{locale}/docusaurus-plugin-content-docs/current/
+
+        Only returns entries where the directory exists on disk.
+
+        Args:
+            repo_root: Absolute repository root (parent of the ``i18n/``
+                directory in a standard Docusaurus project).
+
+        Returns:
+            List of ``(absolute_locale_root, locale_name)`` tuples, one per
+            locale declared in ``[build_context] locales`` that has a matching
+            directory on disk.  Empty list when no locales are configured or
+            none of their directories exist.
+        """
+        result: list[tuple[Path, str]] = []
+        for locale in sorted(self._locale_dirs):
+            root = (repo_root / self._i18n_prefix / locale / self._plugin_docs_segment).resolve()
+            if root.is_dir():
+                result.append((root, locale))
+        return result

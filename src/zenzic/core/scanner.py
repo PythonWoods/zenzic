@@ -24,7 +24,12 @@ from typing import TYPE_CHECKING, Any
 from urllib.parse import unquote
 
 from zenzic.core.adapter import get_adapter
-from zenzic.core.discovery import DOC_SUFFIXES, iter_markdown_sources, walk_files
+from zenzic.core.discovery import (
+    DOC_SUFFIXES,
+    iter_locale_markdown_sources,
+    iter_markdown_sources,
+    walk_files,
+)
 from zenzic.core.reporter import Finding
 from zenzic.core.rules import AdaptiveRuleEngine, BaseRule
 from zenzic.core.shield import SecurityFinding, scan_line_for_secrets, scan_url_for_secrets
@@ -300,6 +305,7 @@ def find_placeholders(
     exclusion_manager: LayeredExclusionManager,
     *,
     config: ZenzicConfig,
+    repo_root: Path | None = None,
 ) -> list[PlaceholderFinding]:
     """Scan docs for placeholder/stub patterns and short word counts.
 
@@ -307,6 +313,9 @@ def find_placeholders(
         docs_root: Resolved path to the documentation root.
         exclusion_manager: Layered exclusion manager (mandatory).
         config: Zenzic configuration model.
+        repo_root: Optional repository root.  When provided and the adapter
+            exposes ``get_locale_source_roots()``, locale translation trees
+            are also scanned (Docusaurus i18n support).
 
     Returns:
         List of PlaceholderFinding instances detailing the issues found.
@@ -321,6 +330,16 @@ def find_placeholders(
         content = md_file.read_text(encoding="utf-8")
         findings.extend(check_placeholder_content(content, rel_path, config))
 
+    if repo_root is not None:
+        adapter = get_adapter(config.build_context, docs_root, repo_root)
+        if hasattr(adapter, "get_locale_source_roots"):
+            for locale_root, locale_name in adapter.get_locale_source_roots(repo_root):
+                for md_file, logical_rel in iter_locale_markdown_sources(
+                    locale_root, locale_name, config, exclusion_manager
+                ):
+                    content = md_file.read_text(encoding="utf-8")
+                    findings.extend(check_placeholder_content(content, logical_rel, config))
+
     return findings
 
 
@@ -329,6 +348,7 @@ def find_unused_assets(
     exclusion_manager: LayeredExclusionManager,
     *,
     config: ZenzicConfig,
+    repo_root: Path | None = None,
 ) -> list[Path]:
     """Return asset files in docs/ that are not referenced by any markdown file.
 
@@ -336,6 +356,10 @@ def find_unused_assets(
         docs_root: Resolved path to the documentation root.
         exclusion_manager: Layered exclusion manager (mandatory).
         config: Zenzic configuration model.
+        repo_root: Optional repository root.  When provided and the adapter
+            exposes ``get_locale_source_roots()``, locale translation trees
+            are also scanned when collecting asset reference sets
+            (Docusaurus i18n support).
 
     Returns:
         List of Path objects relative to docs_root that are unused.
@@ -384,6 +408,20 @@ def find_unused_assets(
         if page_dir == ".":
             page_dir = ""
         used_assets |= check_asset_references(content, page_dir)
+
+    # Also collect asset references cited from locale translation trees.
+    if repo_root is not None:
+        adapter = get_adapter(config.build_context, docs_root, repo_root)
+        if hasattr(adapter, "get_locale_source_roots"):
+            for locale_root, locale_name in adapter.get_locale_source_roots(repo_root):
+                for md_file, logical_rel in iter_locale_markdown_sources(
+                    locale_root, locale_name, config, exclusion_manager
+                ):
+                    content = md_file.read_text(encoding="utf-8")
+                    page_dir = logical_rel.parent.as_posix()
+                    if page_dir == ".":
+                        page_dir = ""
+                    used_assets |= check_asset_references(content, page_dir)
 
     return [Path(p) for p in calculate_unused_assets(all_assets, used_assets)]
 
@@ -889,6 +927,7 @@ def scan_docs_references(
     validate_links: bool = False,
     workers: int | None = 1,
     verbose: bool = False,
+    locale_roots: list[tuple[Path, str]] | None = None,
 ) -> tuple[list[IntegrityReport], list[str]]:
     """Run the Three-Phase Pipeline over every .md file in docs/.
 
@@ -960,6 +999,19 @@ def scan_docs_references(
     rule_engine = _build_rule_engine(config)
     md_files = list(iter_markdown_sources(docs_root, config, exclusion_manager))
 
+    # Build locale path remap: actual_abs_path → virtual_path_under_docs_root.
+    # virtual_path = docs_root / locale_name / rel_within_locale
+    # This maps locale files to logical paths so the reporter displays
+    # "it/architecture.mdx" rather than the full i18n/ absolute path.
+    _locale_path_remap: dict[Path, Path] = {}
+    if locale_roots:
+        for locale_root, locale_name in locale_roots:
+            for abs_path, logical_rel in iter_locale_markdown_sources(
+                locale_root, locale_name, config, exclusion_manager
+            ):
+                _locale_path_remap[abs_path] = docs_root / logical_rel
+                md_files.append(abs_path)
+
     if not md_files:
         return [], []
 
@@ -990,6 +1042,12 @@ def scan_docs_references(
                     raw.append(_make_error_report(md_file, exc))
 
         reports: list[IntegrityReport] = sorted(raw, key=lambda r: r.file_path)
+
+        # Remap locale file paths to their logical display paths.
+        if _locale_path_remap:
+            for _r in reports:
+                if _r.file_path in _locale_path_remap:
+                    _r.file_path = _locale_path_remap[_r.file_path]
 
         elapsed = time.monotonic() - _t0
         if verbose:
@@ -1037,6 +1095,11 @@ def scan_docs_references(
         )
 
     if not validate_links:
+        # Remap locale file paths to their logical display paths.
+        if _locale_path_remap:
+            for _r in reports_seq:
+                if _r.file_path in _locale_path_remap:
+                    _r.file_path = _locale_path_remap[_r.file_path]
         return reports_seq, []
 
     # Phase B — global URL deduplication and async HTTP validation.
@@ -1044,6 +1107,11 @@ def scan_docs_references(
     validator_seq = LinkValidator()
     for scanner in secure_scanners_seq:
         validator_seq.register_from_map(scanner.ref_map, scanner.file_path)
+    # Remap locale file paths to their logical display paths.
+    if _locale_path_remap:
+        for _r in reports_seq:
+            if _r.file_path in _locale_path_remap:
+                _r.file_path = _locale_path_remap[_r.file_path]
     return reports_seq, validator_seq.validate()
 
 

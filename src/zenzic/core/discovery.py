@@ -59,6 +59,49 @@ def walk_files(
             yield Path(dirpath) / fname
 
 
+def iter_locale_markdown_sources(
+    locale_root: Path,
+    locale_name: str,
+    config: ZenzicConfig,
+    exclusion_manager: LayeredExclusionManager,
+) -> Generator[tuple[Path, Path], None, None]:
+    """Yield ``(abs_path, logical_rel)`` for source files in a Docusaurus locale tree.
+
+    ``logical_rel`` is the path that the core should use as the file's identity
+    within the broader documentation namespace — it starts with the locale
+    prefix so that the adapter can route it correctly::
+
+        i18n/it/.../current/architecture.mdx  →  (abs_path, Path("it/architecture.mdx"))
+
+    The locale prefix makes ``map_url(logical_rel)`` produce the correct
+    locale-prefixed URL (e.g. ``/it/architecture/``) without any special-casing
+    in the adapter.
+
+    Args:
+        locale_root: Absolute path to the locale docs root
+            (e.g. ``i18n/it/docusaurus-plugin-content-docs/current/``).
+        locale_name: ISO locale code used as the path prefix (e.g. ``'it'``).
+        config: Loaded Zenzic configuration.
+        exclusion_manager: Layered exclusion manager.
+
+    Yields:
+        ``(abs_path, logical_rel)`` tuples where
+        ``logical_rel = Path(locale_name) / path.relative_to(locale_root)``.
+    """
+    if not locale_root.is_dir():
+        return
+    excluded_dirs = set(config.excluded_dirs)
+    for md_file in walk_files(locale_root, excluded_dirs, exclusion_manager):
+        if md_file.suffix not in DOC_SUFFIXES:
+            continue
+        if md_file.is_symlink():
+            continue
+        if exclusion_manager.should_exclude_file(md_file, locale_root):
+            continue
+        logical_rel = Path(locale_name) / md_file.relative_to(locale_root)
+        yield md_file, logical_rel
+
+
 def iter_markdown_sources(
     docs_root: Path,
     config: ZenzicConfig,

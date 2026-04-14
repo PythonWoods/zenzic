@@ -183,8 +183,14 @@ def _count_docs_assets(
     docs_root: Path,
     repo_root: Path,
     exclusion_mgr: LayeredExclusionManager,
+    config: ZenzicConfig | None = None,
 ) -> tuple[int, int]:
-    """Return ``(docs_count, assets_count)`` for the Sentinel telemetry line."""
+    """Return ``(docs_count, assets_count)`` for the Sentinel telemetry line.
+
+    When *config* is provided and the adapter exposes ``get_locale_source_roots()``,
+    locale translation trees (e.g. Docusaurus ``i18n/``) are counted in
+    ``docs_count`` as well.
+    """
     from zenzic.core.discovery import walk_files
     from zenzic.models.config import SYSTEM_EXCLUDED_DIRS
 
@@ -208,6 +214,18 @@ def _count_docs_assets(
         and p.suffix.lower() not in _CONFIG
         and p.suffix.lower() not in _DOC_EXT
     )
+    # Count locale source files (Docusaurus i18n only when config is available).
+    if config is not None:
+        from zenzic.core.adapters import get_adapter
+
+        adapter = get_adapter(config.build_context, docs_root, repo_root)
+        if hasattr(adapter, "get_locale_source_roots"):
+            for locale_root, _ in adapter.get_locale_source_roots(repo_root):
+                docs_count += sum(
+                    1
+                    for p in walk_files(locale_root, SYSTEM_EXCLUDED_DIRS, exclusion_mgr)
+                    if p.suffix.lower() in _DOC_EXT
+                )
     return docs_count, assets_count
 
 
@@ -717,11 +735,21 @@ def _collect_all_results(
     strict: bool,
 ) -> _AllCheckResults:
     """Run all seven checks and return results as a typed container."""
+    from zenzic.core.adapters import get_adapter
+
+    # Resolve locale source roots from the adapter (Docusaurus i18n support).
+    adapter = get_adapter(config.build_context, docs_root, repo_root)
+    locale_roots: list[tuple[Path, str]] | None = None
+    if hasattr(adapter, "get_locale_source_roots"):
+        _roots = adapter.get_locale_source_roots(repo_root)
+        locale_roots = _roots if _roots else None
+
     ref_reports, _ = scan_docs_references(
         docs_root,
         exclusion_mgr,
         config=config,
         validate_links=False,
+        locale_roots=locale_roots,
     )
     security_events = sum(len(r.security_findings) for r in ref_reports)
     return _AllCheckResults(
@@ -734,8 +762,12 @@ def _collect_all_results(
         ),
         orphans=find_orphans(docs_root, exclusion_mgr, repo_root=repo_root, config=config),
         snippet_errors=validate_snippets(docs_root, exclusion_mgr, config=config),
-        placeholders=find_placeholders(docs_root, exclusion_mgr, config=config),
-        unused_assets=find_unused_assets(docs_root, exclusion_mgr, config=config),
+        placeholders=find_placeholders(
+            docs_root, exclusion_mgr, config=config, repo_root=repo_root
+        ),
+        unused_assets=find_unused_assets(
+            docs_root, exclusion_mgr, config=config, repo_root=repo_root
+        ),
         nav_contract_errors=check_nav_contract(repo_root, exclusion_mgr),
         reference_reports=ref_reports,
         security_events=security_events,
@@ -1105,7 +1137,7 @@ def check_all(
     if quiet:
         errors, warnings = reporter.render_quiet(all_findings)
     else:
-        docs_count, assets_count = _count_docs_assets(docs_root, repo_root, exclusion_mgr)
+        docs_count, assets_count = _count_docs_assets(docs_root, repo_root, exclusion_mgr, config)
         # File-target mode: banner shows exactly 1 file.
         if _single_file is not None:
             docs_count, assets_count = 1, 0

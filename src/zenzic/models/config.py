@@ -315,7 +315,30 @@ class ZenzicConfig(BaseModel):
         Shared by :meth:`load` (``zenzic.toml``) and the ``pyproject.toml``
         fallback path.  Strips unknown keys and promotes sub-tables.
         """
+        import logging as _logging
+
+        _cfg_log = _logging.getLogger("zenzic")
         known_fields = cls.model_fields.keys()
+        # ── Warn on unrecognised TOML keys so users catch silent-discard bugs ──
+        # The most common pitfall: writing root-level settings AFTER a [section]
+        # header (e.g. `[project]`) causes TOML to nest them under that table,
+        # which is then silently dropped because `project` is not a known field.
+        _HANDLED_SECTIONS = frozenset({"build_context", "custom_rules"})
+        for key in data:
+            if key not in known_fields and key not in _HANDLED_SECTIONS:
+                if isinstance(data[key], dict):
+                    _cfg_log.warning(
+                        "zenzic.toml: unknown section [%s] will be ignored — "
+                        "all keys nested inside it are silently discarded. "
+                        "Root-level settings (e.g. placeholder_patterns, docs_dir) "
+                        "must appear BEFORE any [section] header.",
+                        key,
+                    )
+                else:
+                    _cfg_log.warning(
+                        "zenzic.toml: unknown key '%s' will be ignored.",
+                        key,
+                    )
         filtered_data = {k: v for k, v in data.items() if k in known_fields}
         if "build_context" in data and isinstance(data["build_context"], dict):
             filtered_data["build_context"] = BuildContext(
