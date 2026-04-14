@@ -196,6 +196,33 @@ class ZenzicConfig(BaseModel):
             'Example: ["pdf/*.pdf", "assets/bundle.zip"]'
         ),
     )
+    respect_vcs_ignore: bool = Field(
+        default=False,
+        description=(
+            "When True, Zenzic reads .gitignore files from the repository root "
+            "and docs directory and excludes matching files from all checks. "
+            "Disabled by default to preserve Zero-Config surprise principle. "
+            "Forced inclusions (included_dirs, included_file_patterns) override "
+            "VCS exclusions, but System Guardrails are always enforced."
+        ),
+    )
+    included_dirs: list[str] = Field(
+        default=[],
+        description=(
+            "Directory names inside docs/ that are forcefully included even when "
+            "excluded by VCS ignore patterns or excluded_dirs. "
+            "Forced inclusions cannot override System Guardrails (.git, .venv, etc.)."
+        ),
+    )
+    included_file_patterns: list[str] = Field(
+        default=[],
+        description=(
+            "Filename glob patterns (fnmatch syntax) forcefully included even when "
+            "excluded by VCS ignore patterns or excluded_file_patterns. "
+            "Use for build-generated documentation that should be linted despite "
+            "being in .gitignore — e.g. 'api.generated.md'."
+        ),
+    )
     validate_same_page_anchors: bool = Field(
         default=False,
         description=(
