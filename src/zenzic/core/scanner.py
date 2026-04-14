@@ -20,7 +20,7 @@ import re
 from collections.abc import Generator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import unquote
 
 from zenzic.core.adapter import get_adapter
@@ -31,6 +31,10 @@ from zenzic.core.shield import SecurityFinding, scan_line_for_secrets, scan_url_
 from zenzic.core.validator import LinkValidator
 from zenzic.models.config import ZenzicConfig
 from zenzic.models.references import IntegrityReport, ReferenceFinding, ReferenceMap
+
+
+if TYPE_CHECKING:
+    from zenzic.core.exclusion import LayeredExclusionManager
 
 
 # ─── Reference pipeline regexes ───────────────────────────────────────────────
@@ -249,28 +253,29 @@ def calculate_unused_assets(all_assets: set[str], used_assets: set[str]) -> list
 # ─── CLI / I/O wrappers ───────────────────────────────────────────────────────
 
 
-def find_orphans(repo_root: Path, config: ZenzicConfig | None = None) -> list[Path]:
+def find_orphans(
+    docs_root: Path,
+    exclusion_manager: LayeredExclusionManager,
+    *,
+    repo_root: Path,
+    config: ZenzicConfig,
+) -> list[Path]:
     """Return docs/*.md files whose adapter status is ORPHAN_BUT_EXISTING.
 
     Args:
-        repo_root: Path to the repository root (contains mkdocs.yml).
-        config: Optional configuration model.
+        docs_root: Resolved path to the documentation root.
+        exclusion_manager: Layered exclusion manager (mandatory).
+        repo_root: Path to the repository root (for adapter creation).
+        config: Zenzic configuration model.
 
     Returns:
         List of Path objects relative to docs_root that are not in the nav.
     """
-    if config is None:
-        config = ZenzicConfig()
-
-    docs_root = repo_root / config.docs_dir
     if not docs_root.exists() or not docs_root.is_dir():
         return []
 
-    # The adapter factory owns all engine-specific knowledge: config loading,
-    # nav extraction, locale detection, and Zensical enforcement.
     adapter = get_adapter(config.build_context, docs_root, repo_root)
 
-    # No engine config means no nav to compare against — skip orphan detection.
     if not adapter.has_engine_config():
         return []
 
@@ -278,12 +283,10 @@ def find_orphans(repo_root: Path, config: ZenzicConfig | None = None) -> list[Pa
     adapter_ignored = adapter.get_ignored_patterns()
 
     orphans: list[Path] = []
-    for md_file in iter_markdown_sources(docs_root, config):
+    for md_file in iter_markdown_sources(docs_root, config, exclusion_manager):
         rel = md_file.relative_to(docs_root)
-        # Skip all files inside a locale directory — managed by the i18n plugin.
         if rel.parts and adapter.is_locale_dir(rel.parts[0]):
             continue
-        # Adapter-specific patterns (e.g. i18n plugin suffixes).
         if any(fnmatch.fnmatch(md_file.name, pat) for pat in adapter_ignored):
             continue
         if adapter.classify_route(rel, nav_paths) == "ORPHAN_BUT_EXISTING":
@@ -293,27 +296,27 @@ def find_orphans(repo_root: Path, config: ZenzicConfig | None = None) -> list[Pa
 
 
 def find_placeholders(
-    repo_root: Path, config: ZenzicConfig | None = None
+    docs_root: Path,
+    exclusion_manager: LayeredExclusionManager,
+    *,
+    config: ZenzicConfig,
 ) -> list[PlaceholderFinding]:
     """Scan docs for placeholder/stub patterns and short word counts.
 
     Args:
-        repo_root: Path to the repository root.
-        config: Optional configuration model.
+        docs_root: Resolved path to the documentation root.
+        exclusion_manager: Layered exclusion manager (mandatory).
+        config: Zenzic configuration model.
 
     Returns:
         List of PlaceholderFinding instances detailing the issues found.
     """
-    if config is None:
-        config = ZenzicConfig()
-
-    docs_root = repo_root / config.docs_dir
     findings: list[PlaceholderFinding] = []
 
     if not docs_root.exists() or not docs_root.is_dir():
         return findings
 
-    for md_file in iter_markdown_sources(docs_root, config):
+    for md_file in iter_markdown_sources(docs_root, config, exclusion_manager):
         rel_path = md_file.relative_to(docs_root)
         content = md_file.read_text(encoding="utf-8")
         findings.extend(check_placeholder_content(content, rel_path, config))
@@ -321,30 +324,30 @@ def find_placeholders(
     return findings
 
 
-def find_unused_assets(repo_root: Path, config: ZenzicConfig | None = None) -> list[Path]:
+def find_unused_assets(
+    docs_root: Path,
+    exclusion_manager: LayeredExclusionManager,
+    *,
+    config: ZenzicConfig,
+) -> list[Path]:
     """Return asset files in docs/ that are not referenced by any markdown file.
 
     Args:
-        repo_root: Path to the repository root.
-        config: Optional configuration model.
+        docs_root: Resolved path to the documentation root.
+        exclusion_manager: Layered exclusion manager (mandatory).
+        config: Zenzic configuration model.
 
     Returns:
         List of Path objects relative to docs_root that are unused.
     """
-    if config is None:
-        config = ZenzicConfig()
-
-    docs_root = repo_root / config.docs_dir
-
     if not docs_root.exists() or not docs_root.is_dir():
         return []
 
     all_assets: set[str] = set()
-    # Prune excluded_dirs (user + system guardrails) AND excluded_asset_dirs.
-    # This prevents traversal of code directories (src/, tests/) and theme
-    # override directories (overrides/) during asset discovery.
-    asset_prune = set(config.excluded_dirs) | set(config.excluded_asset_dirs)
-    for file_path in walk_files(docs_root, asset_prune):
+    # Asset-specific prune set: excluded_asset_dirs are layered on top of
+    # the exclusion_manager's directory decisions.
+    asset_extra_prune = set(config.excluded_asset_dirs)
+    for file_path in walk_files(docs_root, asset_extra_prune, exclusion_manager):
         if file_path.is_dir() or file_path.is_symlink() or file_path.suffix in DOC_SUFFIXES:
             continue
         rel_path = file_path.relative_to(docs_root)
@@ -374,7 +377,7 @@ def find_unused_assets(repo_root: Path, config: ZenzicConfig | None = None) -> l
         return []
 
     used_assets: set[str] = set()
-    for md_file in iter_markdown_sources(docs_root, config):
+    for md_file in iter_markdown_sources(docs_root, config, exclusion_manager):
         content = md_file.read_text(encoding="utf-8")
         rel_md = md_file.relative_to(docs_root)
         page_dir = rel_md.parent.as_posix()
@@ -793,11 +796,6 @@ def _scan_single_file(
     return report, secure_scanner
 
 
-# _iter_md_files is now a thin alias for the centralised discovery function.
-# Kept as a private name so no external callers need updating.
-_iter_md_files = iter_markdown_sources
-
-
 def _build_rule_engine(config: ZenzicConfig) -> AdaptiveRuleEngine | None:
     """Construct a :class:`~zenzic.core.rules.AdaptiveRuleEngine` from the config.
 
@@ -884,9 +882,10 @@ def _emit_telemetry(*, mode: str, workers: int, n_files: int, elapsed: float) ->
 
 
 def scan_docs_references(
-    repo_root: Path,
-    config: ZenzicConfig | None = None,
+    docs_root: Path,
+    exclusion_manager: LayeredExclusionManager,
     *,
+    config: ZenzicConfig,
     validate_links: bool = False,
     workers: int | None = 1,
     verbose: bool = False,
@@ -955,15 +954,11 @@ def scan_docs_references(
     if workers is not None and workers < 1:
         raise ValueError("workers must be None or an integer >= 1")
 
-    if config is None:
-        config, _ = ZenzicConfig.load(repo_root)
-
-    docs_root = repo_root / config.docs_dir
     if not docs_root.exists() or not docs_root.is_dir():
         return [], []
 
     rule_engine = _build_rule_engine(config)
-    md_files = list(_iter_md_files(docs_root, config))
+    md_files = list(iter_markdown_sources(docs_root, config, exclusion_manager))
 
     if not md_files:
         return [], []

@@ -38,7 +38,7 @@ from ._docusaurus import (
     _strip_js_comments,
     find_docusaurus_config,
 )
-from ._factory import get_adapter, list_adapter_engines
+from ._factory import clear_adapter_cache, get_adapter, list_adapter_engines
 from ._mkdocs import (
     MkDocsAdapter,
     _collect_nav_paths,
@@ -65,6 +65,7 @@ __all__ = [
     "VanillaAdapter",
     # Factory
     "get_adapter",
+    "clear_adapter_cache",
     "list_adapter_engines",
     # MkDocs utilities
     "find_config_file",
