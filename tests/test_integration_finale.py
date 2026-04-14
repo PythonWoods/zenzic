@@ -14,6 +14,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+from _helpers import make_mgr
 
 from zenzic.core.rules import BaseRule, PluginRuleInfo, RuleFinding, list_plugin_rules
 from zenzic.core.scanner import ADAPTIVE_PARALLEL_THRESHOLD, scan_docs_references
@@ -175,7 +176,9 @@ def test_telemetry_sequential_writes_to_stderr(tmp_path: Path) -> None:
 
     captured = StringIO()
     with patch("sys.stderr", captured):
-        scan_docs_references(repo, config, verbose=True)
+        docs_root = repo / config.docs_dir
+        mgr = make_mgr(config, repo_root=repo)
+        scan_docs_references(docs_root, mgr, config=config, verbose=True)
 
     output = captured.getvalue()
     assert "[zenzic]" in output
@@ -191,7 +194,9 @@ def test_telemetry_disabled_by_default(tmp_path: Path) -> None:
 
     captured = StringIO()
     with patch("sys.stderr", captured):
-        scan_docs_references(repo, config)
+        docs_root = repo / config.docs_dir
+        mgr = make_mgr(config, repo_root=repo)
+        scan_docs_references(docs_root, mgr, config=config)
 
     assert "[zenzic]" not in captured.getvalue()
 
@@ -204,7 +209,9 @@ def test_telemetry_parallel_shows_workers(tmp_path: Path) -> None:
 
     captured = StringIO()
     with patch("sys.stderr", captured):
-        scan_docs_references(repo, config, workers=2, verbose=True)
+        docs_root = repo / config.docs_dir
+        mgr = make_mgr(config, repo_root=repo)
+        scan_docs_references(docs_root, mgr, config=config, workers=2, verbose=True)
 
     output = captured.getvalue()
     assert "[zenzic]" in output
@@ -220,6 +227,8 @@ def test_telemetry_sequential_no_speedup_line(tmp_path: Path) -> None:
 
     captured = StringIO()
     with patch("sys.stderr", captured):
-        scan_docs_references(repo, config, verbose=True)
+        docs_root = repo / config.docs_dir
+        mgr = make_mgr(config, repo_root=repo)
+        scan_docs_references(docs_root, mgr, config=config, verbose=True)
 
     assert "speedup" not in captured.getvalue().lower()

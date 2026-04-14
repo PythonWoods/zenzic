@@ -6,6 +6,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from _helpers import make_mgr
+
 from zenzic.core.scanner import find_unused_assets
 from zenzic.models.config import ZenzicConfig
 
@@ -39,7 +41,8 @@ def test_find_unused_assets(tmp_path: Path) -> None:
     md3.write_text("External: ![Alt](https://example.com/image.png)")
 
     config = ZenzicConfig()
-    unused = find_unused_assets(repo, config)
+    mgr = make_mgr(config, repo_root=repo)
+    unused = find_unused_assets(docs, mgr, config=config)
 
     assert len(unused) == 1
     assert unused[0].name == "unused.png"
@@ -57,7 +60,8 @@ def test_excluded_assets_not_reported(tmp_path: Path) -> None:
     (docs / "index.md").write_text("![img](assets/used.png)")
 
     config = ZenzicConfig(excluded_assets=["assets/favicon.svg", "assets/logo.png"])
-    unused = find_unused_assets(repo, config)
+    mgr = make_mgr(config, repo_root=repo)
+    unused = find_unused_assets(docs, mgr, config=config)
 
     names = [p.name for p in unused]
     assert "favicon.svg" not in names
@@ -76,7 +80,8 @@ def test_excluded_assets_non_excluded_still_reported(tmp_path: Path) -> None:
     (docs / "index.md").write_text("No images here.")
 
     config = ZenzicConfig(excluded_assets=["assets/favicon.svg"])
-    unused = find_unused_assets(repo, config)
+    mgr = make_mgr(config, repo_root=repo)
+    unused = find_unused_assets(docs, mgr, config=config)
 
     names = [p.name for p in unused]
     assert "favicon.svg" not in names
@@ -92,7 +97,8 @@ def test_excluded_assets_empty_list_behavior(tmp_path: Path) -> None:
     (docs / "index.md").write_text("No images here.")
 
     config = ZenzicConfig(excluded_assets=[])
-    unused = find_unused_assets(repo, config)
+    mgr = make_mgr(config, repo_root=repo)
+    unused = find_unused_assets(docs, mgr, config=config)
 
     assert any(p.name == "logo.png" for p in unused)
 
@@ -106,7 +112,8 @@ def test_excluded_assets_leading_slash_stripped(tmp_path: Path) -> None:
     (docs / "index.md").write_text("No images here.")
 
     config = ZenzicConfig(excluded_assets=["/assets/favicon.svg"])
-    unused = find_unused_assets(repo, config)
+    mgr = make_mgr(config, repo_root=repo)
+    unused = find_unused_assets(docs, mgr, config=config)
 
     assert not any(p.name == "favicon.svg" for p in unused)
 
@@ -125,7 +132,8 @@ def test_excluded_assets_glob_pattern(tmp_path: Path) -> None:
     (docs / "index.md").write_text("No images here.")
 
     config = ZenzicConfig(excluded_assets=["**/_category_.json"])
-    unused = find_unused_assets(repo, config)
+    mgr = make_mgr(config, repo_root=repo)
+    unused = find_unused_assets(docs, mgr, config=config)
 
     names = [p.name for p in unused]
     assert "_category_.json" not in names
@@ -145,7 +153,8 @@ def test_excluded_assets_wildcard_pattern(tmp_path: Path) -> None:
     (docs / "index.md").write_text("No images here.")
 
     config = ZenzicConfig(excluded_assets=["assets/brand/*"])
-    unused = find_unused_assets(repo, config)
+    mgr = make_mgr(config, repo_root=repo)
+    unused = find_unused_assets(docs, mgr, config=config)
 
     names = [p.name for p in unused]
     assert "logo.svg" not in names

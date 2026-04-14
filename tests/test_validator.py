@@ -8,6 +8,7 @@ from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from _helpers import make_mgr
 
 from zenzic.core.validator import (
     _MAX_CONCURRENT_REQUESTS,
@@ -154,13 +155,19 @@ class TestInternalLinks:
         docs.mkdir()
         (docs / "index.md").write_text("[setup](setup.md)")
         (docs / "setup.md").write_text("# Setup\n")
-        assert validate_links(tmp_path) == []
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        assert validate_links(docs_root, mgr, repo_root=tmp_path, config=config) == []
 
     def test_missing_target_file(self, tmp_path: Path) -> None:
         docs = tmp_path / "docs"
         docs.mkdir()
         (docs / "index.md").write_text("[ghost](ghost.md)")
-        errors = validate_links(tmp_path)
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        errors = validate_links(docs_root, mgr, repo_root=tmp_path, config=config)
         assert len(errors) == 1
         assert "ghost.md" in errors[0]
 
@@ -169,14 +176,20 @@ class TestInternalLinks:
         docs.mkdir()
         (docs / "index.md").write_text("[section](guide.md#installation)")
         (docs / "guide.md").write_text("# Guide\n\n## Installation\n")
-        assert validate_links(tmp_path) == []
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        assert validate_links(docs_root, mgr, repo_root=tmp_path, config=config) == []
 
     def test_invalid_anchor(self, tmp_path: Path) -> None:
         docs = tmp_path / "docs"
         docs.mkdir()
         (docs / "index.md").write_text("[broken](guide.md#nonexistent)")
         (docs / "guide.md").write_text("# Guide\n")
-        errors = validate_links(tmp_path)
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        errors = validate_links(docs_root, mgr, repo_root=tmp_path, config=config)
         assert len(errors) == 1
         assert "nonexistent" in errors[0]
 
@@ -184,13 +197,19 @@ class TestInternalLinks:
         docs = tmp_path / "docs"
         docs.mkdir()
         (docs / "index.md").write_text("```\n[fake](ghost.md)\n```\n")
-        assert validate_links(tmp_path) == []
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        assert validate_links(docs_root, mgr, repo_root=tmp_path, config=config) == []
 
     def test_path_traversal_rejected(self, tmp_path: Path) -> None:
         docs = tmp_path / "docs"
         docs.mkdir()
         (docs / "index.md").write_text("[escape](../../etc/passwd)")
-        errors = validate_links(tmp_path)
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        errors = validate_links(docs_root, mgr, repo_root=tmp_path, config=config)
         assert len(errors) == 1
         assert "outside" in errors[0]
 
@@ -200,7 +219,10 @@ class TestInternalLinks:
         docs.mkdir()
         (docs / "index.md").write_text("[setup](setup)")
         (docs / "setup.md").write_text("# Setup\n")
-        assert validate_links(tmp_path) == []
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        assert validate_links(docs_root, mgr, repo_root=tmp_path, config=config) == []
 
     def test_directory_index_link_resolves(self, tmp_path: Path) -> None:
         """[section](section/) should resolve to section/index.md."""
@@ -210,13 +232,19 @@ class TestInternalLinks:
         section.mkdir()
         (section / "index.md").write_text("# Section\n")
         (docs / "index.md").write_text("[section](section/)")
-        assert validate_links(tmp_path) == []
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        assert validate_links(docs_root, mgr, repo_root=tmp_path, config=config) == []
 
     def test_non_markdown_asset_missing_reported(self, tmp_path: Path) -> None:
         docs = tmp_path / "docs"
         docs.mkdir()
         (docs / "index.md").write_text("[dl](files/report.pdf)")
-        errors = validate_links(tmp_path)
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        errors = validate_links(docs_root, mgr, repo_root=tmp_path, config=config)
         assert len(errors) == 1
         assert "report.pdf" in errors[0]
 
@@ -226,7 +254,10 @@ class TestInternalLinks:
         (docs / "files").mkdir()
         (docs / "files" / "report.pdf").write_bytes(b"%PDF")
         (docs / "index.md").write_text("[dl](files/report.pdf)")
-        assert validate_links(tmp_path) == []
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        assert validate_links(docs_root, mgr, repo_root=tmp_path, config=config) == []
 
     def test_skip_schemes_ignored(self, tmp_path: Path) -> None:
         docs = tmp_path / "docs"
@@ -234,10 +265,16 @@ class TestInternalLinks:
         (docs / "index.md").write_text(
             "[mail](mailto:dev@example.com)\n[data](data:text/plain,hello)\n"
         )
-        assert validate_links(tmp_path) == []
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        assert validate_links(docs_root, mgr, repo_root=tmp_path, config=config) == []
 
     def test_docs_dir_missing_returns_empty(self, tmp_path: Path) -> None:
-        assert validate_links(tmp_path) == []
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        assert validate_links(docs_root, mgr, repo_root=tmp_path, config=config) == []
 
     def test_symlinks_skipped(self, tmp_path: Path) -> None:
         docs = tmp_path / "docs"
@@ -245,7 +282,10 @@ class TestInternalLinks:
         real = tmp_path / "real.md"
         real.write_text("[broken](ghost.md)")
         (docs / "linked.md").symlink_to(real)
-        assert validate_links(tmp_path) == []
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        assert validate_links(docs_root, mgr, repo_root=tmp_path, config=config) == []
 
     def test_excluded_dir_not_scanned(self, tmp_path: Path) -> None:
         docs = tmp_path / "docs"
@@ -254,14 +294,20 @@ class TestInternalLinks:
         overrides.mkdir()
         (overrides / "page.md").write_text("[broken](ghost.md)")
         (tmp_path / "zenzic.toml").write_text('excluded_dirs = ["overrides"]\n')
-        assert validate_links(tmp_path) == []
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        assert validate_links(docs_root, mgr, repo_root=tmp_path, config=config) == []
 
     def test_errors_are_sorted(self, tmp_path: Path) -> None:
         docs = tmp_path / "docs"
         docs.mkdir()
         (docs / "a.md").write_text("[z](zzz.md)")
         (docs / "b.md").write_text("[a](aaa.md)")
-        errors = validate_links(tmp_path)
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        errors = validate_links(docs_root, mgr, repo_root=tmp_path, config=config)
         assert errors == sorted(errors)
 
     @pytest.mark.slow
@@ -293,7 +339,10 @@ class TestInternalLinks:
                 encoding="utf-8",
             )
 
-        assert validate_links(tmp_path) == []
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        assert validate_links(docs_root, mgr, repo_root=tmp_path, config=config) == []
 
 
 # ─── Path-traversal intent classification ─────────────────────────────────────
@@ -319,7 +368,10 @@ class TestTraversalIntent:
         docs = tmp_path / "docs"
         docs.mkdir()
         (docs / "index.md").write_text("[escape](../../../../etc/passwd)")
-        errors = validate_links_structured(tmp_path)
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        errors = validate_links_structured(docs_root, mgr, repo_root=tmp_path, config=config)
         assert len(errors) == 1
         assert errors[0].error_type == "PATH_TRAVERSAL_SUSPICIOUS"
 
@@ -328,7 +380,10 @@ class TestTraversalIntent:
         docs = tmp_path / "docs"
         docs.mkdir()
         (docs / "index.md").write_text("[escape](../../outside.md)")
-        errors = validate_links_structured(tmp_path)
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        errors = validate_links_structured(docs_root, mgr, repo_root=tmp_path, config=config)
         assert len(errors) == 1
         assert errors[0].error_type == "PATH_TRAVERSAL"
 
@@ -345,7 +400,10 @@ class TestAbsolutePathProhibition:
         (docs / "index.md").write_text("[logo](/assets/logo.png)\n")
         (docs / "assets").mkdir()
         (docs / "assets" / "logo.png").write_bytes(b"")
-        errors = validate_links(tmp_path)
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        errors = validate_links(docs_root, mgr, repo_root=tmp_path, config=config)
         assert len(errors) == 1
         assert "/assets/logo.png" in errors[0]
         assert "absolute path" in errors[0]
@@ -355,7 +413,10 @@ class TestAbsolutePathProhibition:
         docs.mkdir()
         (docs / "index.md").write_text("[guide](/guide.md)\n")
         (docs / "guide.md").write_text("# Guide\n")
-        errors = validate_links(tmp_path)
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        errors = validate_links(docs_root, mgr, repo_root=tmp_path, config=config)
         assert len(errors) == 1
         assert "absolute path" in errors[0]
 
@@ -364,20 +425,29 @@ class TestAbsolutePathProhibition:
         docs.mkdir()
         (docs / "index.md").write_text("[guide](guide.md)\n")
         (docs / "guide.md").write_text("# Guide\n")
-        assert validate_links(tmp_path) == []
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        assert validate_links(docs_root, mgr, repo_root=tmp_path, config=config) == []
 
     def test_external_https_not_affected(self, tmp_path: Path) -> None:
         docs = tmp_path / "docs"
         docs.mkdir()
         (docs / "index.md").write_text("[ext](https://example.com)\n")
-        assert validate_links(tmp_path) == []
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        assert validate_links(docs_root, mgr, repo_root=tmp_path, config=config) == []
 
     def test_absolute_path_with_anchor_is_error(self, tmp_path: Path) -> None:
         docs = tmp_path / "docs"
         docs.mkdir()
         (docs / "index.md").write_text("[section](/guide.md#intro)\n")
         (docs / "guide.md").write_text("# Intro\n")
-        errors = validate_links(tmp_path)
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        errors = validate_links(docs_root, mgr, repo_root=tmp_path, config=config)
         assert len(errors) == 1
         assert "absolute path" in errors[0]
 
@@ -398,14 +468,20 @@ class TestAssetPreMap:
         (docs / "assets").mkdir(parents=True)
         (docs / "assets" / "logo.png").write_bytes(b"\x89PNG")
         (docs / "index.md").write_text("![logo](assets/logo.png)")
-        assert validate_links(tmp_path) == []
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        assert validate_links(docs_root, mgr, repo_root=tmp_path, config=config) == []
 
     def test_missing_asset_link_is_reported(self, tmp_path: Path) -> None:
         """A link to a non-.md file that does NOT exist in docs/ is an error."""
         docs = tmp_path / "docs"
         docs.mkdir()
         (docs / "index.md").write_text("[dl](files/report.pdf)")
-        errors = validate_links(tmp_path)
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        errors = validate_links(docs_root, mgr, repo_root=tmp_path, config=config)
         assert len(errors) == 1
         assert "report.pdf" in errors[0]
 
@@ -416,7 +492,10 @@ class TestAssetPreMap:
         # pdf/document.pdf does NOT exist — generated by to-pdf at build time
         (docs / "index.md").write_text("[PDF](pdf/document.pdf)")
         (tmp_path / "zenzic.toml").write_text('excluded_build_artifacts = ["pdf/*.pdf"]\n')
-        assert validate_links(tmp_path) == []
+        config, _ = ZenzicConfig.load(tmp_path)
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        assert validate_links(docs_root, mgr, repo_root=tmp_path, config=config) == []
 
     def test_excluded_build_artifact_does_not_suppress_other_missing(self, tmp_path: Path) -> None:
         """excluded_build_artifacts patterns are scoped — non-matching missing assets still error."""
@@ -424,7 +503,10 @@ class TestAssetPreMap:
         docs.mkdir()
         (docs / "index.md").write_text("[PDF](pdf/document.pdf)\n[broken](other/file.zip)")
         (tmp_path / "zenzic.toml").write_text('excluded_build_artifacts = ["pdf/*.pdf"]\n')
-        errors = validate_links(tmp_path)
+        config, _ = ZenzicConfig.load(tmp_path)
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        errors = validate_links(docs_root, mgr, repo_root=tmp_path, config=config)
         assert len(errors) == 1
         assert "file.zip" in errors[0]
 
@@ -439,7 +521,10 @@ class TestAssetPreMap:
         (docs / "assets").mkdir(parents=True)
         (docs / "assets" / "logo.png").write_bytes(b"\x89PNG")
         (docs / "index.md").write_text("![logo](/assets/logo.png)")
-        errors = validate_links(tmp_path)
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        errors = validate_links(docs_root, mgr, repo_root=tmp_path, config=config)
         assert len(errors) == 1
         assert "absolute path" in errors[0]
 
@@ -460,7 +545,10 @@ class TestAssetPreMap:
         # Only the lowercase file exists on disk
         (docs / "assets" / "documento.pdf").write_bytes(b"%PDF")
         (docs / "index.md").write_text("[PDF](assets/Documento.pdf)")  # wrong case
-        errors = validate_links(tmp_path)
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        errors = validate_links(docs_root, mgr, repo_root=tmp_path, config=config)
         # On Linux (case-sensitive FS) the wrong-case link must be reported.
         # This test is authoritative on Linux CI; on macOS it may pass silently
         # due to HFS+ case-folding — that is a known platform divergence.
@@ -485,8 +573,11 @@ class TestAssetPreMap:
             call_log.append(str(self))
             return original_exists(self)
 
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
         with patch.object(Path, "exists", spy_exists):
-            errors = validate_links(tmp_path)
+            errors = validate_links(docs_root, mgr, repo_root=tmp_path, config=config)
 
         assert errors == []
         # Pass 1 I/O is permitted (docs_root.is_dir(), rglob traversal calls exist internally).
@@ -541,14 +632,20 @@ class TestI18nFallbackIntegration:
         # Default-locale file exists; translated equivalent is absent.
         (docs / "api.md").write_text("# API\n")
         (docs_it / "guide.md").write_text("[api](api.md)\n")
-        assert validate_links(repo) == []
+        config = ZenzicConfig()
+        docs_root = repo / config.docs_dir
+        mgr = make_mgr(config, repo_root=repo)
+        assert validate_links(docs_root, mgr, repo_root=repo, config=config) == []
 
     def test_no_fallback_reports_untranslated_md_link(self, tmp_path: Path) -> None:
         """Same intra-locale link is reported when fallback_to_default is false."""
         repo, docs, docs_it = self._setup(tmp_path, fallback=False)
         (docs / "api.md").write_text("# API\n")
         (docs_it / "guide.md").write_text("[api](api.md)\n")
-        errors = validate_links(repo)
+        config = ZenzicConfig()
+        docs_root = repo / config.docs_dir
+        mgr = make_mgr(config, repo_root=repo)
+        errors = validate_links(docs_root, mgr, repo_root=repo, config=config)
         assert len(errors) == 1
         assert "api.md" in errors[0]
 
@@ -557,7 +654,10 @@ class TestI18nFallbackIntegration:
         repo, docs, docs_it = self._setup(tmp_path)
         # ghost.md absent from both docs/ and docs/it/ — fallback cannot rescue it.
         (docs_it / "guide.md").write_text("[ghost](ghost.md)\n")
-        errors = validate_links(repo)
+        config = ZenzicConfig()
+        docs_root = repo / config.docs_dir
+        mgr = make_mgr(config, repo_root=repo)
+        errors = validate_links(docs_root, mgr, repo_root=repo, config=config)
         assert any("ghost" in e for e in errors)
 
     def test_fallback_suppresses_asset_missing_in_locale(self, tmp_path: Path) -> None:
@@ -568,7 +668,10 @@ class TestI18nFallbackIntegration:
         # docs/it/assets/logo.png absent — intra-locale relative link triggers FileNotFound.
         # Fallback maps docs/it/assets/logo.png → docs/assets/logo.png (in known_assets).
         (docs_it / "guide.md").write_text("![logo](assets/logo.png)\n")
-        assert validate_links(repo) == []
+        config = ZenzicConfig()
+        docs_root = repo / config.docs_dir
+        mgr = make_mgr(config, repo_root=repo)
+        assert validate_links(docs_root, mgr, repo_root=repo, config=config) == []
 
     def test_direct_cross_locale_link_resolves_without_warning(self, tmp_path: Path) -> None:
         """A link from it/ that navigates directly to an EN file is Resolved (not FileNotFound).
@@ -579,7 +682,10 @@ class TestI18nFallbackIntegration:
         repo, docs, docs_it = self._setup(tmp_path)
         (docs / "guide.md").write_text("# EN Guide\n")
         (docs_it / "index.md").write_text("[EN guide](../guide.md)\n")
-        assert validate_links(repo) == []
+        config = ZenzicConfig()
+        docs_root = repo / config.docs_dir
+        mgr = make_mgr(config, repo_root=repo)
+        assert validate_links(docs_root, mgr, repo_root=repo, config=config) == []
 
     def test_config_error_no_default_locale(self, tmp_path: Path) -> None:
         """ConfigurationError when fallback=true but no default locale is declared."""
@@ -594,8 +700,11 @@ class TestI18nFallbackIntegration:
         )
         (tmp_path / "mkdocs.yml").write_text(bad_config)
         (docs / "index.md").touch()
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
         with pytest.raises(ConfigurationError):
-            validate_links(tmp_path)
+            validate_links(docs_root, mgr, repo_root=tmp_path, config=config)
 
     # ── Anchor i18n fallback tests ─────────────────────────────────────────────
 
@@ -613,7 +722,10 @@ class TestI18nFallbackIntegration:
         (docs / "architecture.md").write_text("# Architecture\n\n## Quick Start\n")
         (docs_it / "architecture.md").write_text("# Architettura\n\n## Avvio Rapido\n")
         (docs_it / "guide.md").write_text("[qs](architecture.md#quick-start)\n")
-        assert validate_links(repo) == []
+        config = ZenzicConfig()
+        docs_root = repo / config.docs_dir
+        mgr = make_mgr(config, repo_root=repo)
+        assert validate_links(docs_root, mgr, repo_root=repo, config=config) == []
 
     def test_anchor_fallback_reports_when_anchor_missing_in_both_locales(
         self, tmp_path: Path
@@ -628,7 +740,10 @@ class TestI18nFallbackIntegration:
         (docs_it / "architecture.md").write_text("# Architettura\n\n## Panoramica\n")
         # "ghost-anchor" exists in neither EN nor IT file.
         (docs_it / "guide.md").write_text("[x](architecture.md#ghost-anchor)\n")
-        errors = validate_links(repo)
+        config = ZenzicConfig()
+        docs_root = repo / config.docs_dir
+        mgr = make_mgr(config, repo_root=repo)
+        errors = validate_links(docs_root, mgr, repo_root=repo, config=config)
         assert any("ghost-anchor" in e for e in errors)
 
     def test_anchor_fallback_disabled_reports_translated_heading_miss(self, tmp_path: Path) -> None:
@@ -637,7 +752,10 @@ class TestI18nFallbackIntegration:
         (docs / "architecture.md").write_text("# Architecture\n\n## Quick Start\n")
         (docs_it / "architecture.md").write_text("# Architettura\n\n## Avvio Rapido\n")
         (docs_it / "guide.md").write_text("[qs](architecture.md#quick-start)\n")
-        errors = validate_links(repo)
+        config = ZenzicConfig()
+        docs_root = repo / config.docs_dir
+        mgr = make_mgr(config, repo_root=repo)
+        errors = validate_links(docs_root, mgr, repo_root=repo, config=config)
         assert any("quick-start" in e for e in errors)
 
     def test_anchor_fallback_not_triggered_for_en_file_anchor_miss(self, tmp_path: Path) -> None:
@@ -650,7 +768,10 @@ class TestI18nFallbackIntegration:
         repo, docs, docs_it = self._setup(tmp_path)
         (docs / "page.md").write_text("# Page\n\n## Real Heading\n")
         (docs / "guide.md").write_text("[x](page.md#ghost-anchor)\n")
-        errors = validate_links(repo)
+        config = ZenzicConfig()
+        docs_root = repo / config.docs_dir
+        mgr = make_mgr(config, repo_root=repo)
+        errors = validate_links(docs_root, mgr, repo_root=repo, config=config)
         assert any("ghost-anchor" in e for e in errors)
 
     def test_anchor_in_it_file_resolves_directly_without_fallback(self, tmp_path: Path) -> None:
@@ -658,7 +779,10 @@ class TestI18nFallbackIntegration:
         repo, docs, docs_it = self._setup(tmp_path)
         (docs_it / "architecture.md").write_text("# Architettura\n\n## Avvio Rapido\n")
         (docs_it / "guide.md").write_text("[ar](architecture.md#avvio-rapido)\n")
-        assert validate_links(repo) == []
+        config = ZenzicConfig()
+        docs_root = repo / config.docs_dir
+        mgr = make_mgr(config, repo_root=repo)
+        assert validate_links(docs_root, mgr, repo_root=repo, config=config) == []
 
 
 # ─── S4-4: Reference-style link resolution ───────────────────────────────────
@@ -739,21 +863,30 @@ class TestRefLinkValidation:
         docs.mkdir()
         (docs / "index.md").write_text("[guide][ref]\n\n[ref]: guide.md\n")
         (docs / "guide.md").write_text("# Guide\n")
-        assert validate_links(tmp_path) == []
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        assert validate_links(docs_root, mgr, repo_root=tmp_path, config=config) == []
 
     def test_ref_link_to_missing_md_reported(self, tmp_path: Path) -> None:
         docs = tmp_path / "docs"
         docs.mkdir()
         (docs / "index.md").write_text("[ghost][ref]\n\n[ref]: ghost.md\n")
-        errors = validate_links(tmp_path)
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        errors = validate_links(docs_root, mgr, repo_root=tmp_path, config=config)
         assert any("ghost.md" in e for e in errors)
 
     def test_ref_link_external_url_checked_in_strict(self, tmp_path: Path) -> None:
         docs = tmp_path / "docs"
         docs.mkdir()
         (docs / "index.md").write_text("[ext][ref]\n\n[ref]: https://example.com\n")
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
         with patch("zenzic.core.validator._ping_url", new=AsyncMock(return_value=None)):
-            errors = validate_links(tmp_path, strict=True)
+            errors = validate_links(docs_root, mgr, repo_root=tmp_path, config=config, strict=True)
         assert errors == []
 
     def test_ref_link_case_insensitive_id(self, tmp_path: Path) -> None:
@@ -762,14 +895,20 @@ class TestRefLinkValidation:
         docs.mkdir()
         (docs / "index.md").write_text("[guide][GUIDE]\n\n[guide]: guide.md\n")
         (docs / "guide.md").write_text("# Guide\n")
-        assert validate_links(tmp_path) == []
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        assert validate_links(docs_root, mgr, repo_root=tmp_path, config=config) == []
 
     def test_ref_link_with_anchor(self, tmp_path: Path) -> None:
         docs = tmp_path / "docs"
         docs.mkdir()
         (docs / "index.md").write_text("[sec][ref]\n\n[ref]: guide.md#installation\n")
         (docs / "guide.md").write_text("# Guide\n## Installation\n")
-        assert validate_links(tmp_path) == []
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        assert validate_links(docs_root, mgr, repo_root=tmp_path, config=config) == []
 
 
 # ─── External link validation (httpx mocked via _ping_url) ───────────────────
@@ -791,39 +930,54 @@ class TestExternalLinks:
         """With strict=False, _ping_url must never be invoked."""
         self._setup_docs(tmp_path, "[link](https://example.com/404)")
         mock_ping = AsyncMock(return_value=None)
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
         with patch("zenzic.core.validator._ping_url", new=mock_ping):
-            errors = validate_links(tmp_path, strict=False)
+            errors = validate_links(docs_root, mgr, repo_root=tmp_path, config=config, strict=False)
         mock_ping.assert_not_called()
         assert errors == []
 
     def test_http_200_no_error(self, tmp_path: Path) -> None:
         self._setup_docs(tmp_path, "[link](https://example.com)")
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
         with patch("zenzic.core.validator._ping_url", new=AsyncMock(return_value=None)):
-            errors = validate_links(tmp_path, strict=True)
+            errors = validate_links(docs_root, mgr, repo_root=tmp_path, config=config, strict=True)
         assert errors == []
 
     def test_http_404_reported(self, tmp_path: Path) -> None:
         url = "https://example.com/missing"
         self._setup_docs(tmp_path, f"[broken]({url})")
         err_msg = f"external link '{url}' returned HTTP 404"
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
         with patch("zenzic.core.validator._ping_url", new=AsyncMock(return_value=err_msg)):
-            errors = validate_links(tmp_path, strict=True)
+            errors = validate_links(docs_root, mgr, repo_root=tmp_path, config=config, strict=True)
         assert len(errors) == 1
         assert "404" in errors[0]
 
     def test_http_403_treated_as_alive(self, tmp_path: Path) -> None:
         """403 is returned by _ping_url as None (no error) — servers restricting bots."""
         self._setup_docs(tmp_path, "[link](https://github.com)")
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
         with patch("zenzic.core.validator._ping_url", new=AsyncMock(return_value=None)):
-            errors = validate_links(tmp_path, strict=True)
+            errors = validate_links(docs_root, mgr, repo_root=tmp_path, config=config, strict=True)
         assert errors == []
 
     def test_timeout_reported(self, tmp_path: Path) -> None:
         url = "https://slow.example.com"
         self._setup_docs(tmp_path, f"[slow]({url})")
         err_msg = f"external link '{url}' timed out (>10 s)"
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
         with patch("zenzic.core.validator._ping_url", new=AsyncMock(return_value=err_msg)):
-            errors = validate_links(tmp_path, strict=True)
+            errors = validate_links(docs_root, mgr, repo_root=tmp_path, config=config, strict=True)
         assert len(errors) == 1
         assert "timed out" in errors[0]
 
@@ -831,8 +985,11 @@ class TestExternalLinks:
         url = "https://unreachable.invalid"
         self._setup_docs(tmp_path, f"[dead]({url})")
         err_msg = f"external link '{url}' — connection error: [Errno -2] Name or service not known"
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
         with patch("zenzic.core.validator._ping_url", new=AsyncMock(return_value=err_msg)):
-            errors = validate_links(tmp_path, strict=True)
+            errors = validate_links(docs_root, mgr, repo_root=tmp_path, config=config, strict=True)
         assert len(errors) == 1
         assert "connection error" in errors[0]
 
@@ -844,8 +1001,11 @@ class TestExternalLinks:
         (docs / "a.md").write_text(f"[link]({url})")
         (docs / "b.md").write_text(f"[link]({url})")
         mock_ping = AsyncMock(return_value=None)
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
         with patch("zenzic.core.validator._ping_url", new=mock_ping):
-            validate_links(tmp_path, strict=True)
+            validate_links(docs_root, mgr, repo_root=tmp_path, config=config, strict=True)
         assert mock_ping.call_count == 1
 
     def test_mixed_internal_and_external_errors(self, tmp_path: Path) -> None:
@@ -855,8 +1015,11 @@ class TestExternalLinks:
         url = "https://dead.example.com"
         (docs / "index.md").write_text(f"[broken-internal](ghost.md)\n[broken-external]({url})\n")
         err_msg = f"external link '{url}' returned HTTP 404"
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
         with patch("zenzic.core.validator._ping_url", new=AsyncMock(return_value=err_msg)):
-            errors = validate_links(tmp_path, strict=True)
+            errors = validate_links(docs_root, mgr, repo_root=tmp_path, config=config, strict=True)
         assert len(errors) == 2
         assert any("ghost.md" in e for e in errors)
         assert any("404" in e for e in errors)
@@ -888,7 +1051,9 @@ def test_validate_snippets_valid_and_invalid(tmp_path: Path) -> None:
     (includes / "inc.md").write_text("# Inc\n```python\ninvalid syntax here\n```\n")
 
     config = ZenzicConfig(snippet_min_lines=2, excluded_dirs=["includes"])
-    errors = validate_snippets(repo, config)
+    mgr = make_mgr(config, repo_root=repo)
+    docs_root = repo / config.docs_dir
+    errors = validate_snippets(docs_root, mgr, config=config)
 
     assert len(errors) == 1
     assert errors[0].file_path.name == "invalid.md"
@@ -899,11 +1064,17 @@ def test_validate_snippets_no_code_blocks(tmp_path: Path) -> None:
     docs = tmp_path / "docs"
     docs.mkdir()
     (docs / "page.md").write_text("No code blocks here.")
-    assert validate_snippets(tmp_path) == []
+    config = ZenzicConfig()
+    docs_root = tmp_path / config.docs_dir
+    mgr = make_mgr(config, repo_root=tmp_path)
+    assert validate_snippets(docs_root, mgr, config=config) == []
 
 
 def test_validate_snippets_docs_not_exist(tmp_path: Path) -> None:
-    assert validate_snippets(tmp_path) == []
+    config = ZenzicConfig()
+    docs_root = tmp_path / config.docs_dir
+    mgr = make_mgr(config, repo_root=tmp_path)
+    assert validate_snippets(docs_root, mgr, config=config) == []
 
 
 def test_validate_snippets_symlink_skipped(tmp_path: Path) -> None:
@@ -912,15 +1083,21 @@ def test_validate_snippets_symlink_skipped(tmp_path: Path) -> None:
     real_file = tmp_path / "real.md"
     real_file.write_text("```python\ndef broken(\n```")
     (docs / "linked.md").symlink_to(real_file)
-    assert validate_snippets(tmp_path) == []
+    config = ZenzicConfig()
+    docs_root = tmp_path / config.docs_dir
+    mgr = make_mgr(config, repo_root=tmp_path)
+    assert validate_snippets(docs_root, mgr, config=config) == []
 
 
 def test_validate_snippets_generic_exception_reported(tmp_path: Path) -> None:
     docs = tmp_path / "docs"
     docs.mkdir()
     (docs / "page.md").write_text("```python\nx = 1\n```")
+    config = ZenzicConfig(snippet_min_lines=1)
+    docs_root = tmp_path / config.docs_dir
+    mgr = make_mgr(config, repo_root=tmp_path)
     with patch("zenzic.core.validator.compile", side_effect=MemoryError("oom")):
-        errors = validate_snippets(tmp_path, ZenzicConfig(snippet_min_lines=1))
+        errors = validate_snippets(docs_root, mgr, config=config)
     assert len(errors) == 1
     assert "ParserError" in errors[0].message
 
@@ -932,14 +1109,20 @@ def test_validate_snippets_yaml_valid(tmp_path: Path) -> None:
     docs = tmp_path / "docs"
     docs.mkdir()
     (docs / "page.md").write_text("```yaml\nkey: value\nlist:\n  - a\n  - b\n```\n")
-    assert validate_snippets(tmp_path, ZenzicConfig(snippet_min_lines=1)) == []
+    config = ZenzicConfig(snippet_min_lines=1)
+    docs_root = tmp_path / config.docs_dir
+    mgr = make_mgr(config, repo_root=tmp_path)
+    assert validate_snippets(docs_root, mgr, config=config) == []
 
 
 def test_validate_snippets_yaml_invalid(tmp_path: Path) -> None:
     docs = tmp_path / "docs"
     docs.mkdir()
     (docs / "page.md").write_text("```yaml\nkey: [\nunclosed bracket\n```\n")
-    errors = validate_snippets(tmp_path, ZenzicConfig(snippet_min_lines=1))
+    config = ZenzicConfig(snippet_min_lines=1)
+    docs_root = tmp_path / config.docs_dir
+    mgr = make_mgr(config, repo_root=tmp_path)
+    errors = validate_snippets(docs_root, mgr, config=config)
     assert len(errors) == 1
     assert "SyntaxError in YAML snippet" in errors[0].message
 
@@ -948,7 +1131,10 @@ def test_validate_snippets_yml_alias_invalid(tmp_path: Path) -> None:
     docs = tmp_path / "docs"
     docs.mkdir()
     (docs / "page.md").write_text("```yml\n: bad mapping\n```\n")
-    errors = validate_snippets(tmp_path, ZenzicConfig(snippet_min_lines=1))
+    config = ZenzicConfig(snippet_min_lines=1)
+    docs_root = tmp_path / config.docs_dir
+    mgr = make_mgr(config, repo_root=tmp_path)
+    errors = validate_snippets(docs_root, mgr, config=config)
     assert len(errors) == 1
     assert "SyntaxError in YAML snippet" in errors[0].message
 
@@ -960,14 +1146,20 @@ def test_validate_snippets_json_valid(tmp_path: Path) -> None:
     docs = tmp_path / "docs"
     docs.mkdir()
     (docs / "page.md").write_text('```json\n{"key": "value", "num": 42}\n```\n')
-    assert validate_snippets(tmp_path, ZenzicConfig(snippet_min_lines=1)) == []
+    config = ZenzicConfig(snippet_min_lines=1)
+    docs_root = tmp_path / config.docs_dir
+    mgr = make_mgr(config, repo_root=tmp_path)
+    assert validate_snippets(docs_root, mgr, config=config) == []
 
 
 def test_validate_snippets_json_invalid(tmp_path: Path) -> None:
     docs = tmp_path / "docs"
     docs.mkdir()
     (docs / "page.md").write_text('```json\n{"key": "value",}\n```\n')
-    errors = validate_snippets(tmp_path, ZenzicConfig(snippet_min_lines=1))
+    config = ZenzicConfig(snippet_min_lines=1)
+    docs_root = tmp_path / config.docs_dir
+    mgr = make_mgr(config, repo_root=tmp_path)
+    errors = validate_snippets(docs_root, mgr, config=config)
     assert len(errors) == 1
     assert "SyntaxError in JSON snippet" in errors[0].message
 
@@ -977,7 +1169,10 @@ def test_validate_snippets_json_line_number(tmp_path: Path) -> None:
     docs.mkdir()
     # fence opens at line 3 (two preceding lines), error is on line 2 of snippet
     (docs / "page.md").write_text("# Page\n\n```json\n{\n  bad\n}\n```\n")
-    errors = validate_snippets(tmp_path, ZenzicConfig(snippet_min_lines=1))
+    config = ZenzicConfig(snippet_min_lines=1)
+    docs_root = tmp_path / config.docs_dir
+    mgr = make_mgr(config, repo_root=tmp_path)
+    errors = validate_snippets(docs_root, mgr, config=config)
     assert len(errors) == 1
     # fence_line=3, json error lineno=2 → reported line 5
     assert errors[0].line_no == 5
@@ -990,14 +1185,20 @@ def test_validate_snippets_toml_valid(tmp_path: Path) -> None:
     docs = tmp_path / "docs"
     docs.mkdir()
     (docs / "page.md").write_text('```toml\ntitle = "Zenzic"\nversion = "0.4.0"\n```\n')
-    assert validate_snippets(tmp_path, ZenzicConfig(snippet_min_lines=1)) == []
+    config = ZenzicConfig(snippet_min_lines=1)
+    docs_root = tmp_path / config.docs_dir
+    mgr = make_mgr(config, repo_root=tmp_path)
+    assert validate_snippets(docs_root, mgr, config=config) == []
 
 
 def test_validate_snippets_toml_invalid(tmp_path: Path) -> None:
     docs = tmp_path / "docs"
     docs.mkdir()
     (docs / "page.md").write_text("```toml\ntitle = Zenzic  # missing quotes\n```\n")
-    errors = validate_snippets(tmp_path, ZenzicConfig(snippet_min_lines=1))
+    config = ZenzicConfig(snippet_min_lines=1)
+    docs_root = tmp_path / config.docs_dir
+    mgr = make_mgr(config, repo_root=tmp_path)
+    errors = validate_snippets(docs_root, mgr, config=config)
     assert len(errors) == 1
     assert "SyntaxError in TOML snippet" in errors[0].message
 
@@ -1063,7 +1264,10 @@ class TestCircularLinkIntegration:
         docs.mkdir()
         (docs / "a.md").write_text("[go to b](b.md)\n")
         (docs / "b.md").write_text("[go to a](a.md)\n")
-        errors = validate_links_structured(tmp_path)
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        errors = validate_links_structured(docs_root, mgr, repo_root=tmp_path, config=config)
         circular = [e for e in errors if e.error_type == "CIRCULAR_LINK"]
         assert len(circular) == 2  # one from a.md and one from b.md
 
@@ -1073,7 +1277,10 @@ class TestCircularLinkIntegration:
         (docs / "a.md").write_text("[go to b](b.md)\n")
         (docs / "b.md").write_text("[go to c](c.md)\n")
         (docs / "c.md").write_text("# Terminus\n")
-        errors = validate_links_structured(tmp_path)
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        errors = validate_links_structured(docs_root, mgr, repo_root=tmp_path, config=config)
         circular = [e for e in errors if e.error_type == "CIRCULAR_LINK"]
         assert circular == []
 
@@ -1085,6 +1292,9 @@ class TestCircularLinkIntegration:
         it_dir.mkdir()
         (docs / "guide.md").write_text("[Italian version](it/guide.md)\n")
         (it_dir / "guide.md").write_text("[English version](../guide.md)\n")
-        errors = validate_links_structured(tmp_path)
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        errors = validate_links_structured(docs_root, mgr, repo_root=tmp_path, config=config)
         circular = [e for e in errors if e.error_type == "CIRCULAR_LINK"]
         assert len(circular) == 2

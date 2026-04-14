@@ -12,6 +12,7 @@ import concurrent.futures
 from pathlib import Path
 
 import pytest
+from _helpers import make_mgr
 
 from zenzic.core.rules import AdaptiveRuleEngine, BaseRule, RuleFinding
 from zenzic.core.scanner import scan_docs_references
@@ -56,9 +57,11 @@ def test_parallel_matches_sequential(tmp_path: Path) -> None:
     """Parallel scan produces the same reports as the sequential scan."""
     repo = _make_docs(tmp_path, n_files=10)
     config = ZenzicConfig()
+    docs_root = repo / config.docs_dir
+    mgr = make_mgr(config, repo_root=repo)
 
-    sequential, _ = scan_docs_references(repo, config)
-    parallel, _ = scan_docs_references(repo, config, workers=2)
+    sequential, _ = scan_docs_references(docs_root, mgr, config=config)
+    parallel, _ = scan_docs_references(docs_root, mgr, config=config, workers=2)
 
     assert _report_fingerprint(sequential) == _report_fingerprint(parallel)
 
@@ -67,14 +70,18 @@ def test_parallel_empty_docs(tmp_path: Path) -> None:
     """Parallel scan on a repo with no docs returns empty results."""
     (tmp_path / "docs").mkdir()
     config = ZenzicConfig()
-    reports, _ = scan_docs_references(tmp_path, config, workers=2)
+    docs_root = tmp_path / config.docs_dir
+    mgr = make_mgr(config, repo_root=tmp_path)
+    reports, _ = scan_docs_references(docs_root, mgr, config=config, workers=2)
     assert reports == []
 
 
 def test_parallel_docs_not_exist(tmp_path: Path) -> None:
     """Parallel scan returns empty results when docs_dir does not exist."""
     config = ZenzicConfig()
-    reports, _ = scan_docs_references(tmp_path, config, workers=2)
+    docs_root = tmp_path / config.docs_dir
+    mgr = make_mgr(config, repo_root=tmp_path)
+    reports, _ = scan_docs_references(docs_root, mgr, config=config, workers=2)
     assert reports == []
 
 
@@ -82,7 +89,9 @@ def test_parallel_single_worker_is_sequential(tmp_path: Path) -> None:
     """workers=1 disables parallelism but still returns correct results."""
     repo = _make_docs(tmp_path, n_files=4)
     config = ZenzicConfig()
-    result, _ = scan_docs_references(repo, config, workers=1)
+    docs_root = repo / config.docs_dir
+    mgr = make_mgr(config, repo_root=repo)
+    result, _ = scan_docs_references(docs_root, mgr, config=config, workers=1)
     assert len(result) == 4
     # All refs should resolve (we defined [ref] in every file)
     for report in result:
@@ -94,16 +103,20 @@ def test_parallel_invalid_workers_raise_clear_error(tmp_path: Path, workers: int
     """workers must be None or >= 1 to avoid opaque executor errors."""
     repo = _make_docs(tmp_path, n_files=2)
     config = ZenzicConfig()
+    docs_root = repo / config.docs_dir
+    mgr = make_mgr(config, repo_root=repo)
 
     with pytest.raises(ValueError, match="workers must be None or an integer >= 1"):
-        scan_docs_references(repo, config, workers=workers)
+        scan_docs_references(docs_root, mgr, config=config, workers=workers)
 
 
 def test_parallel_sorted_output(tmp_path: Path) -> None:
     """Output is sorted by file_path regardless of worker scheduling order."""
     repo = _make_docs(tmp_path, n_files=8)
     config = ZenzicConfig()
-    result, _ = scan_docs_references(repo, config, workers=4)
+    docs_root = repo / config.docs_dir
+    mgr = make_mgr(config, repo_root=repo)
+    result, _ = scan_docs_references(docs_root, mgr, config=config, workers=4)
     paths = [r.file_path for r in result]
     assert paths == sorted(paths)
 
@@ -116,10 +129,12 @@ def test_idempotency_sequential_100_runs(tmp_path: Path) -> None:
     """Sequential scan: 100 identical runs produce bit-identical fingerprints."""
     repo = _make_docs(tmp_path, n_files=10)
     config = ZenzicConfig()
+    docs_root = repo / config.docs_dir
+    mgr = make_mgr(config, repo_root=repo)
 
-    baseline = _report_fingerprint(scan_docs_references(repo, config)[0])
+    baseline = _report_fingerprint(scan_docs_references(docs_root, mgr, config=config)[0])
     for _ in range(99):
-        result = _report_fingerprint(scan_docs_references(repo, config)[0])
+        result = _report_fingerprint(scan_docs_references(docs_root, mgr, config=config)[0])
         assert result == baseline, "Sequential scan is not deterministic"
 
 
@@ -127,10 +142,16 @@ def test_idempotency_parallel_10_runs(tmp_path: Path) -> None:
     """Parallel scan: 10 runs produce identical fingerprints (fast, not marked slow)."""
     repo = _make_docs(tmp_path, n_files=5)
     config = ZenzicConfig()
+    docs_root = repo / config.docs_dir
+    mgr = make_mgr(config, repo_root=repo)
 
-    baseline = _report_fingerprint(scan_docs_references(repo, config, workers=2)[0])
+    baseline = _report_fingerprint(
+        scan_docs_references(docs_root, mgr, config=config, workers=2)[0]
+    )
     for _ in range(9):
-        result = _report_fingerprint(scan_docs_references(repo, config, workers=2)[0])
+        result = _report_fingerprint(
+            scan_docs_references(docs_root, mgr, config=config, workers=2)[0]
+        )
         assert result == baseline, "Parallel scan is not deterministic"
 
 
@@ -142,11 +163,13 @@ def test_idempotency_concurrent_invocations(tmp_path: Path) -> None:
     """
     repo = _make_docs(tmp_path, n_files=6)
     config = ZenzicConfig()
+    docs_root = repo / config.docs_dir
+    mgr = make_mgr(config, repo_root=repo)
 
-    baseline = _report_fingerprint(scan_docs_references(repo, config)[0])
+    baseline = _report_fingerprint(scan_docs_references(docs_root, mgr, config=config)[0])
 
     def run_scan() -> list[tuple[str, float, int]]:
-        return _report_fingerprint(scan_docs_references(repo, config)[0])
+        return _report_fingerprint(scan_docs_references(docs_root, mgr, config=config)[0])
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
         futures = [executor.submit(run_scan) for _ in range(8)]

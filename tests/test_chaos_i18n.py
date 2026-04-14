@@ -13,9 +13,11 @@ from __future__ import annotations
 from pathlib import Path
 
 import yaml
+from _helpers import make_mgr
 
 from zenzic.core.adapter import _extract_i18n_locale_patterns
 from zenzic.core.scanner import find_orphans
+from zenzic.models.config import ZenzicConfig
 
 
 # ─── ISO 639-1 guard in _extract_i18n_locale_patterns ────────────────────────
@@ -130,31 +132,46 @@ class TestOrphanCheckPathological:
     def test_version_file_v1_2_is_orphan(self, tmp_path: Path) -> None:
         """v1.2.md has no suffix that matches *.it.md — it is an orphan, not a translation."""
         repo = _make_repo(tmp_path, ["v1.2.md"])
-        orphans = find_orphans(repo)
+        config = ZenzicConfig()
+        mgr = make_mgr(config, repo_root=repo)
+        docs_root = repo / config.docs_dir
+        orphans = find_orphans(docs_root, mgr, repo_root=repo, config=config)
         assert Path("v1.2.md") in orphans
 
     def test_api_v2_is_orphan(self, tmp_path: Path) -> None:
         repo = _make_repo(tmp_path, ["api.v2.md"])
-        orphans = find_orphans(repo)
+        config = ZenzicConfig()
+        mgr = make_mgr(config, repo_root=repo)
+        docs_root = repo / config.docs_dir
+        orphans = find_orphans(docs_root, mgr, repo_root=repo, config=config)
         assert Path("api.v2.md") in orphans
 
     def test_changelog_beta_is_orphan(self, tmp_path: Path) -> None:
         repo = _make_repo(tmp_path, ["changelog.beta.md"])
-        orphans = find_orphans(repo)
+        config = ZenzicConfig()
+        mgr = make_mgr(config, repo_root=repo)
+        docs_root = repo / config.docs_dir
+        orphans = find_orphans(docs_root, mgr, repo_root=repo, config=config)
         assert Path("changelog.beta.md") in orphans
 
     def test_valid_translation_not_orphan(self, tmp_path: Path) -> None:
         """Sanity: a real *.it.md file must NOT be flagged as orphan."""
         repo = _make_repo(tmp_path, ["guide.md", "guide.it.md"])
         # guide.md is an orphan (not in nav), guide.it.md is a translation (excluded)
-        orphans = find_orphans(repo)
+        config = ZenzicConfig()
+        mgr = make_mgr(config, repo_root=repo)
+        docs_root = repo / config.docs_dir
+        orphans = find_orphans(docs_root, mgr, repo_root=repo, config=config)
         orphan_names = [o.name for o in orphans]
         assert "guide.it.md" not in orphan_names
 
     def test_double_suffix_page_it_it_is_orphan(self, tmp_path: Path) -> None:
         """page.it.it.md: redundant double suffix — not a valid translation pattern."""
         repo = _make_repo(tmp_path, ["page.it.it.md"])
-        orphans = find_orphans(repo)
+        config = ZenzicConfig()
+        mgr = make_mgr(config, repo_root=repo)
+        docs_root = repo / config.docs_dir
+        orphans = find_orphans(docs_root, mgr, repo_root=repo, config=config)
         # *.it.md matches 'page.it.it.md' via fnmatch — this is acceptable:
         # the file IS excluded from orphan check as a locale variant.
         # This test documents the current behavior so any change is intentional.
@@ -165,24 +182,36 @@ class TestOrphanCheckPathological:
     def test_numeric_dotted_filename_is_orphan(self, tmp_path: Path) -> None:
         """release.1.0.md — numeric suffix, must be treated as a plain file."""
         repo = _make_repo(tmp_path, ["release.1.0.md"])
-        orphans = find_orphans(repo)
+        config = ZenzicConfig()
+        mgr = make_mgr(config, repo_root=repo)
+        docs_root = repo / config.docs_dir
+        orphans = find_orphans(docs_root, mgr, repo_root=repo, config=config)
         assert Path("release.1.0.md") in orphans
 
     def test_directory_named_like_locale_file(self, tmp_path: Path) -> None:
         """A directory called 'page.it' with index.md inside — must be treated normally."""
         repo = _make_repo(tmp_path, ["page.it/index.md"])
-        orphans = find_orphans(repo)
+        config = ZenzicConfig()
+        mgr = make_mgr(config, repo_root=repo)
+        docs_root = repo / config.docs_dir
+        orphans = find_orphans(docs_root, mgr, repo_root=repo, config=config)
         assert Path("page.it/index.md") in orphans
 
     def test_orphan_translation_without_source(self, tmp_path: Path) -> None:
         """guide.it.md present but guide.md absent — translation is excluded, not flagged."""
         repo = _make_repo(tmp_path, ["guide.it.md"])
-        orphans = find_orphans(repo)
+        config = ZenzicConfig()
+        mgr = make_mgr(config, repo_root=repo)
+        docs_root = repo / config.docs_dir
+        orphans = find_orphans(docs_root, mgr, repo_root=repo, config=config)
         orphan_names = [o.name for o in orphans]
         assert "guide.it.md" not in orphan_names
 
     def test_nested_version_file_is_orphan(self, tmp_path: Path) -> None:
         """api/v1.2.md in a subdirectory — must be flagged as orphan."""
         repo = _make_repo(tmp_path, ["api/v1.2.md"])
-        orphans = find_orphans(repo)
+        config = ZenzicConfig()
+        mgr = make_mgr(config, repo_root=repo)
+        docs_root = repo / config.docs_dir
+        orphans = find_orphans(docs_root, mgr, repo_root=repo, config=config)
         assert Path("api/v1.2.md") in orphans

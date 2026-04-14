@@ -13,8 +13,10 @@ from __future__ import annotations
 from pathlib import Path
 
 import yaml
+from _helpers import make_mgr
 
 from zenzic.core.validator import check_nav_contract, generate_virtual_site_map
+from zenzic.models.config import ZenzicConfig
 
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -41,36 +43,50 @@ def _make_docs(repo: Path, files: list[str]) -> None:
 class TestGenerateVirtualSiteMap:
     def test_index_md_maps_to_root(self, tmp_path: Path) -> None:
         _make_docs(tmp_path, ["index.md"])
-        vsm = generate_virtual_site_map(tmp_path / "docs", "suffix")
+        config = ZenzicConfig()
+        mgr = make_mgr(config, repo_root=tmp_path)
+        vsm = generate_virtual_site_map(tmp_path / "docs", "suffix", mgr)
         assert "/" in vsm
 
     def test_page_md_maps_to_slash_page_slash(self, tmp_path: Path) -> None:
         _make_docs(tmp_path, ["checks.md"])
-        vsm = generate_virtual_site_map(tmp_path / "docs", "suffix")
+        config = ZenzicConfig()
+        mgr = make_mgr(config, repo_root=tmp_path)
+        vsm = generate_virtual_site_map(tmp_path / "docs", "suffix", mgr)
         assert "/checks/" in vsm
 
     def test_locale_suffix_file_maps_correctly(self, tmp_path: Path) -> None:
         _make_docs(tmp_path, ["checks.it.md"])
-        vsm = generate_virtual_site_map(tmp_path / "docs", "suffix")
+        config = ZenzicConfig()
+        mgr = make_mgr(config, repo_root=tmp_path)
+        vsm = generate_virtual_site_map(tmp_path / "docs", "suffix", mgr)
         assert "/checks.it/" in vsm
 
     def test_nested_index_maps_to_dir(self, tmp_path: Path) -> None:
         _make_docs(tmp_path, ["about/index.md"])
-        vsm = generate_virtual_site_map(tmp_path / "docs", "suffix")
+        config = ZenzicConfig()
+        mgr = make_mgr(config, repo_root=tmp_path)
+        vsm = generate_virtual_site_map(tmp_path / "docs", "suffix", mgr)
         assert "/about/" in vsm
 
     def test_nested_page_maps_correctly(self, tmp_path: Path) -> None:
         _make_docs(tmp_path, ["about/license.md"])
-        vsm = generate_virtual_site_map(tmp_path / "docs", "suffix")
+        config = ZenzicConfig()
+        mgr = make_mgr(config, repo_root=tmp_path)
+        vsm = generate_virtual_site_map(tmp_path / "docs", "suffix", mgr)
         assert "/about/license/" in vsm
 
     def test_empty_docs_returns_empty(self, tmp_path: Path) -> None:
         (tmp_path / "docs").mkdir()
-        vsm = generate_virtual_site_map(tmp_path / "docs", "suffix")
+        config = ZenzicConfig()
+        mgr = make_mgr(config, repo_root=tmp_path)
+        vsm = generate_virtual_site_map(tmp_path / "docs", "suffix", mgr)
         assert vsm == frozenset()
 
     def test_nonexistent_docs_returns_empty(self, tmp_path: Path) -> None:
-        vsm = generate_virtual_site_map(tmp_path / "docs", "suffix")
+        config = ZenzicConfig()
+        mgr = make_mgr(config, repo_root=tmp_path)
+        vsm = generate_virtual_site_map(tmp_path / "docs", "suffix", mgr)
         assert vsm == frozenset()
 
 
@@ -104,7 +120,9 @@ class TestNavContract:
                 },
             },
         )
-        errors = check_nav_contract(tmp_path)
+        config = ZenzicConfig()
+        mgr = make_mgr(config, repo_root=tmp_path)
+        errors = check_nav_contract(tmp_path, mgr)
         assert len(errors) == 1
         assert "extra.alternate[it]" in errors[0]
         assert "/it/" in errors[0]
@@ -135,7 +153,9 @@ class TestNavContract:
                 },
             },
         )
-        errors = check_nav_contract(tmp_path)
+        config = ZenzicConfig()
+        mgr = make_mgr(config, repo_root=tmp_path)
+        errors = check_nav_contract(tmp_path, mgr)
         assert errors == []
 
     def test_suffix_mode_no_alternate_is_ok(self, tmp_path: Path) -> None:
@@ -158,7 +178,9 @@ class TestNavContract:
                 ],
             },
         )
-        errors = check_nav_contract(tmp_path)
+        config = ZenzicConfig()
+        mgr = make_mgr(config, repo_root=tmp_path)
+        errors = check_nav_contract(tmp_path, mgr)
         assert errors == []
 
     def test_folder_mode_with_folder_alternate_is_ok(self, tmp_path: Path) -> None:
@@ -188,12 +210,16 @@ class TestNavContract:
                 },
             },
         )
-        errors = check_nav_contract(tmp_path)
+        config = ZenzicConfig()
+        mgr = make_mgr(config, repo_root=tmp_path)
+        errors = check_nav_contract(tmp_path, mgr)
         assert errors == []
 
     def test_no_mkdocs_yml_is_ok(self, tmp_path: Path) -> None:
         """No mkdocs.yml → graceful no-op → OK."""
-        errors = check_nav_contract(tmp_path)
+        config = ZenzicConfig()
+        mgr = make_mgr(config, repo_root=tmp_path)
+        errors = check_nav_contract(tmp_path, mgr)
         assert errors == []
 
     def test_multiple_locales_reports_each_invalid(self, tmp_path: Path) -> None:
@@ -224,7 +250,9 @@ class TestNavContract:
                 },
             },
         )
-        errors = check_nav_contract(tmp_path)
+        config = ZenzicConfig()
+        mgr = make_mgr(config, repo_root=tmp_path)
+        errors = check_nav_contract(tmp_path, mgr)
         assert len(errors) == 2
         assert any("it" in e for e in errors)
         assert any("fr" in e for e in errors)
@@ -257,6 +285,8 @@ class TestNavContract:
                 },
             },
         )
-        errors = check_nav_contract(tmp_path)
+        config = ZenzicConfig()
+        mgr = make_mgr(config, repo_root=tmp_path)
+        errors = check_nav_contract(tmp_path, mgr)
         assert len(errors) == 1
         assert "/it/" in errors[0]
