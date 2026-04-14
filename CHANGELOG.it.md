@@ -21,6 +21,10 @@ Le versioni seguono il [Semantic Versioning](https://semver.org/).
   `docusaurus start`, o `zensical serve`. Questa rimozione elimina l'unica eccezione
   al Pillar 2 (Nessun Sottoprocesso) e completa la purezza architetturale del
   framework.
+- **Plugin MkDocs spostato in `zenzic.integrations.mkdocs`** — In precedenza in
+  `zenzic.plugin`. Aggiornare `mkdocs.yml` e reinstallare il pacchetto;
+  il plugin viene ora auto-scoperto tramite l'entry point `mkdocs.plugins`.
+  Richiede `pip install "zenzic[mkdocs]"`.
 
 ### Aggiunto
 
@@ -42,6 +46,10 @@ Le versioni seguono il [Semantic Versioning](https://semver.org/).
   Exit 3).
 - **F2-1 Hardening Shield** — Le righe che superano 1 MiB vengono troncate
   silenziosamente prima del matching regex per prevenire ReDoS.
+- **Namespace `zenzic.integrations`** — Plugin MkDocs spostato da `zenzic.plugin`
+  a `zenzic.integrations.mkdocs`. Registrato come entry point ufficiale
+  `mkdocs.plugins`. Il core è ora privo di import specifici per engine.
+  Installa l'extra: `pip install "zenzic[mkdocs]"`.
 
 ### Modificato
 

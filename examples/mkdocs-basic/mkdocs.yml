@@ -6,6 +6,10 @@ site_url: https://example.com/docs/
 
 plugins:
   search: {}
+  # zenzic.integrations.mkdocs — quality gate during mkdocs build.
+  # Requires: pip install "zenzic[mkdocs]"
+  # Auto-discovered via the mkdocs.plugins entry point; no extra config needed.
+  zenzic: {}
   i18n:
     docs_structure: folder
     fallback_to_default: true

@@ -18,6 +18,7 @@ Covers:
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 import pytest
@@ -234,13 +235,13 @@ module.exports = function() {
         p = _write_config(tmp_path, cfg, name="docusaurus.config.js")
         assert _extract_base_url(p) == "/"
 
-    def test_warning_emitted(self, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    def test_warning_emitted(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
         cfg = "export default async function() { return { baseUrl: '/' }; }"
         p = _write_config(tmp_path, cfg)
-        result = _extract_base_url(p)
+        with caplog.at_level(logging.WARNING):
+            result = _extract_base_url(p)
         assert result == "/"
-        captured = capsys.readouterr()
-        assert "dynamic patterns" in captured.out or "dynamic patterns" in captured.err
+        assert "dynamic patterns" in caplog.text
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -579,19 +580,17 @@ export default {
         assert adapter._base_url == ""
         assert adapter._route_base_path is None
 
-    def test_dynamic_config_warning(
-        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
-    ) -> None:
+    def test_dynamic_config_warning(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
         cfg = "export default async function() { return { baseUrl: '/x/' }; }"
         (tmp_path / "docusaurus.config.ts").write_text(cfg)
         docs = tmp_path / "docs"
         docs.mkdir()
         ctx = BuildContext(engine="docusaurus")
 
-        adapter = DocusaurusAdapter.from_repo(ctx, docs, tmp_path)
+        with caplog.at_level(logging.WARNING):
+            adapter = DocusaurusAdapter.from_repo(ctx, docs, tmp_path)
         assert adapter._base_url == ""
-        captured = capsys.readouterr()
-        assert "dynamic patterns" in captured.out or "dynamic patterns" in captured.err
+        assert "dynamic patterns" in caplog.text
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

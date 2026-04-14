@@ -18,9 +18,9 @@ from zenzic.core.scanner import (
     check_placeholder_content,
 )
 from zenzic.core.validator import check_snippet_content
+from zenzic.integrations.mkdocs import ZenzicPlugin
 from zenzic.main import app
 from zenzic.models.config import ZenzicConfig
-from zenzic.plugin import ZenzicPlugin
 
 
 runner = CliRunner()
@@ -49,7 +49,7 @@ def _make_plugin(config_dict: dict | None = None) -> ZenzicPlugin:
 
 def _init_plugin(plugin: ZenzicPlugin, mkdocs_config: MagicMock | None = None) -> None:
     """Call on_config to initialise per-build state."""
-    with patch("zenzic.plugin.ZenzicConfig.load", return_value=(ZenzicConfig(), True)):
+    with patch("zenzic.integrations.mkdocs.ZenzicConfig.load", return_value=(ZenzicConfig(), True)):
         plugin.on_config(config=mkdocs_config or _make_mkdocs_config())
 
 
@@ -186,7 +186,9 @@ def test_plugin_on_config_initialises_state() -> None:
 
 def test_plugin_on_config_uses_source_override() -> None:
     plugin = _make_plugin({"source": "custom/"})
-    with patch("zenzic.plugin.ZenzicConfig.load", return_value=(ZenzicConfig(), True)) as mock_load:
+    with patch(
+        "zenzic.integrations.mkdocs.ZenzicConfig.load", return_value=(ZenzicConfig(), True)
+    ) as mock_load:
         plugin.on_config(config=_make_mkdocs_config())
     mock_load.assert_called_once()
     assert plugin._zenzic_config.docs_dir == Path("/fake/custom")
@@ -366,7 +368,7 @@ def test_cli_check_subcommands_listed() -> None:
 def test_plugin_and_cli_share_core_functions() -> None:
     """Both CLI and plugin must import the same objects from zenzic.core."""
     import zenzic.cli as cli_mod
-    import zenzic.plugin as plugin_mod
+    import zenzic.integrations.mkdocs as plugin_mod
 
     assert cli_mod.find_orphans is plugin_mod.calculate_orphans.__module__ or True
     assert cli_mod.validate_snippets.__module__ == "zenzic.cli" or True

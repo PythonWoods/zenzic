@@ -20,6 +20,10 @@ Versions follow [Semantic Versioning](https://semver.org/).
   use your engine's native command: `mkdocs serve`, `docusaurus start`, or
   `zensical serve`. This removal eliminates the sole exception to Pillar 2
   (No Subprocess) and completes the architectural purity of the framework.
+- **MkDocs plugin moved to `zenzic.integrations.mkdocs`** — Previously at
+  `zenzic.plugin`. Update your MkDocs `mkdocs.yml` to reinstall the package;
+  the plugin is now auto-discovered via the `mkdocs.plugins` entry point.
+  Requires `pip install "zenzic[mkdocs]"`.
 
 ### Added
 
@@ -39,6 +43,10 @@ Versions follow [Semantic Versioning](https://semver.org/).
   paths that escape the repository root (Blood Sentinel Exit 3).
 - **F2-1 Shield Hardening** — Lines exceeding 1 MiB are silently truncated
   before regex matching to prevent ReDoS.
+- **`zenzic.integrations` namespace** — MkDocs plugin relocated from
+  `zenzic.plugin` to `zenzic.integrations.mkdocs`. Registered as an official
+  `mkdocs.plugins` entry point. Core is now free of any engine-specific
+  imports. Install the extra: `pip install "zenzic[mkdocs]"`.
 
 ### Changed
 

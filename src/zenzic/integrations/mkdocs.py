@@ -1,6 +1,20 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
-"""Native MkDocs plugin for Zenzic documentation quality checks."""
+"""Native MkDocs plugin for Zenzic documentation quality checks.
+
+Registered as an MkDocs plugin via the ``mkdocs.plugins`` entry point::
+
+    # mkdocs.yml
+    plugins:
+      - zenzic:
+          strict: false
+          fail_on_error: true
+          checks: [orphans, snippets, placeholders, assets]
+
+Install the optional extra to use this integration::
+
+    pip install "zenzic[mkdocs]"
+"""
 
 from __future__ import annotations
 
@@ -26,7 +40,7 @@ from zenzic.core.validator import check_snippet_content
 from zenzic.models.config import ZenzicConfig
 
 
-log = logging.getLogger("mkdocs.plugins.zenzic")
+log = logging.getLogger("zenzic.integrations.mkdocs")
 
 
 class ZenzicPluginConfig(base.Config):

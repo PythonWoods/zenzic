@@ -314,6 +314,47 @@ fallback — for all documentation systems.
 
 ---
 
+## Adapters vs. Integrations: The Zenzic Ecosystem
+
+Zenzic separates **understanding** from **acting** through two distinct extension points:
+
+| | Adapter | Integration (Plugin) |
+| :--- | :--- | :--- |
+| **Purpose** | Let Zenzic *understand* your site. | Let Zenzic *guard* your build. |
+| **Direction** | Engine → Zenzic | Zenzic → Engine |
+| **Dependency** | None — pure text analysis. | Required (`mkdocs` lib for the MkDocs plugin). |
+| **Trigger** | Automatic on every `zenzic check`. | Opt-in via engine config (e.g. `mkdocs.yml`). |
+| **Goal** | Zero-config discovery & routing. | Build-blocking quality control. |
+| **Location** | `zenzic.core.adapters.*` | `zenzic.integrations.*` |
+
+**In practice:** the Adapter is the *mind* — it reads `mkdocs.yml` as plain text and builds
+the VSM. The Integration (plugin) is the *arm* — it hooks into `mkdocs build` events and
+raises a `PluginError` if quality checks fail.
+
+Most users only need adapters (automatic). Install an integration only when you want
+Zenzic to become a gate inside your engine's build pipeline.
+
+### MkDocs Plugin
+
+```bash
+# Install the optional extra
+pip install "zenzic[mkdocs]"
+```
+
+```yaml
+# mkdocs.yml
+plugins:
+  - zenzic:
+      strict: false
+      fail_on_error: true
+      checks: [orphans, snippets, placeholders, assets]
+```
+
+The plugin class lives at `zenzic.integrations.mkdocs:ZenzicPlugin` and is auto-discovered
+by MkDocs via the `mkdocs.plugins` entry point — no manual path required.
+
+---
+
 ## Installation
 
 ### With `uv` (recommended)

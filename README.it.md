@@ -317,6 +317,48 @@ fallback i18n — per tutti i sistemi di documentazione.
 
 ---
 
+## Adapter vs. Integrazioni: L'Ecosistema Zenzic
+
+Zenzic separa **comprendere** dal **agire** attraverso due punti di estensione distinti:
+
+| | Adapter | Integrazione (Plugin) |
+| :--- | :--- | :--- |
+| **Scopo** | Permettere a Zenzic di *capire* il tuo sito. | Permettere a Zenzic di *sorvegliare* la tua build. |
+| **Direzione** | Engine → Zenzic | Zenzic → Engine |
+| **Dipendenze** | Nessuna — analisi testuale pura. | Richiesta (`mkdocs` lib per il plugin MkDocs). |
+| **Attivazione** | Automatica su ogni `zenzic check`. | Opt-in via config engine (es. `mkdocs.yml`). |
+| **Obiettivo** | Discovery e routing zero-config. | Blocco della build in caso di errori. |
+| **Posizione** | `zenzic.core.adapters.*` | `zenzic.integrations.*` |
+
+**In pratica:** l'Adapter è la *mente* — legge `mkdocs.yml` come testo puro e costruisce
+la VSM. L'Integrazione (plugin) è il *braccio* — si aggancia agli eventi di `mkdocs build`
+e solleva un `PluginError` se i controlli di qualità falliscono.
+
+La maggior parte degli utenti ha bisogno solo degli adapter (automatici). Installa
+un'integrazione solo quando vuoi che Zenzic diventi un guardiano nel pipeline di build.
+
+### Plugin MkDocs
+
+```bash
+# Installa l'extra opzionale
+pip install "zenzic[mkdocs]"
+```
+
+```yaml
+# mkdocs.yml
+plugins:
+  - zenzic:
+      strict: false
+      fail_on_error: true
+      checks: [orfani, snippet, segnaposto, assets]
+```
+
+La classe del plugin si trova in `zenzic.integrations.mkdocs:ZenzicPlugin` ed è
+auto-scoperta da MkDocs tramite l'entry point `mkdocs.plugins` — nessun percorso manuale
+richiesto.
+
+---
+
 ## Installazione
 
 ### Con `uv` (consigliato)
