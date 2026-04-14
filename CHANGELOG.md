@@ -11,6 +11,42 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.6.1a1] — 2026-04-14 — Obsidian Bastion
+
+### Breaking Changes
+
+- **Removed `zenzic serve` command.** Zenzic is now 100% subprocess-free,
+  focusing exclusively on static source analysis. To preview your documentation,
+  use your engine's native command: `mkdocs serve`, `docusaurus start`, or
+  `zensical serve`. This removal eliminates the sole exception to Pillar 2
+  (No Subprocess) and completes the architectural purity of the framework.
+
+### Added
+
+- **Layered Exclusion Manager** — New 4-level exclusion hierarchy (System
+  Guardrails > Forced Inclusions + VCS > Config > CLI). Pure-Python gitignore
+  parser (`VCSIgnoreParser`) with pre-compiled regex patterns. New config fields:
+  `respect_vcs_ignore`, `included_dirs`, `included_file_patterns`.
+- **Universal Discovery** — Zero `rglob` calls in the codebase. All file
+  iteration flows through `walk_files` / `iter_markdown_sources` from
+  `discovery.py`. Mandatory `exclusion_manager` parameter on all scanner and
+  validator entry points — no Optional, no fallbacks.
+- **CLI Exclusion Flags** — `--exclude-dir` and `--include-dir` repeatable
+  options on all check commands, `score`, and `diff`.
+- **Adapter Cache** — Module-level cache keyed by `(engine, docs_root,
+  repo_root)`. Single adapter instantiation per CLI session.
+- **F4-1 Jailbreak Protection** — `_validate_docs_root()` rejects `docs_dir`
+  paths that escape the repository root (Blood Sentinel Exit 3).
+- **F2-1 Shield Hardening** — Lines exceeding 1 MiB are silently truncated
+  before regex matching to prevent ReDoS.
+
+### Changed
+
+- **BREAKING (Alpha):** `exclusion_manager` parameter is now mandatory on
+  `walk_files`, `iter_markdown_sources`, `generate_virtual_site_map`,
+  `check_nav_contract`, and all scanner functions. No backward-compatible
+  `None` default.
+
 ## [0.6.0a2] — 2026-04-13 — Obsidian Glass
 
 ### Added
