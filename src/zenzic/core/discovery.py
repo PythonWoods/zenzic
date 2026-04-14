@@ -17,12 +17,16 @@ Public API
 
 from __future__ import annotations
 
-import fnmatch
 import os
 from collections.abc import Generator
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from zenzic.models.config import ZenzicConfig
+
+
+if TYPE_CHECKING:
+    from zenzic.core.exclusion import LayeredExclusionManager
 
 
 # Extensions recognised as documentation source files (not assets).
@@ -32,17 +36,25 @@ DOC_SUFFIXES: frozenset[str] = frozenset({".md", ".mdx"})
 def walk_files(
     root: Path,
     excluded_dirs: set[str] | frozenset[str],
+    exclusion_manager: LayeredExclusionManager,
 ) -> Generator[Path, None, None]:
     """Yield all regular files under *root*, pruning excluded directories.
 
     Unlike ``Path.rglob("*")``, this uses :func:`os.walk` with in-place
     directory pruning so that large excluded trees (e.g. ``.nox/``,
     ``node_modules/``) are never entered at all.
+
+    The *exclusion_manager* drives directory exclusion decisions via
+    :meth:`~LayeredExclusionManager.should_exclude_dir`.  The
+    *excluded_dirs* set provides an additional hard-prune layer (used by
+    ``find_unused_assets`` for ``excluded_asset_dirs``).
     """
     for dirpath, dirnames, filenames in os.walk(root):
-        # Prune in-place: remove excluded directory names so os.walk
-        # does not descend into them.
-        dirnames[:] = sorted(d for d in dirnames if d not in excluded_dirs)
+        dirnames[:] = sorted(
+            d
+            for d in dirnames
+            if not exclusion_manager.should_exclude_dir(d) and d not in excluded_dirs
+        )
         for fname in sorted(filenames):
             yield Path(dirpath) / fname
 
@@ -50,12 +62,13 @@ def walk_files(
 def iter_markdown_sources(
     docs_root: Path,
     config: ZenzicConfig,
+    exclusion_manager: LayeredExclusionManager,
 ) -> Generator[Path, None, None]:
     """Yield absolute paths to ``.md`` / ``.mdx`` files, honouring all exclusions.
 
-    Applies both ``config.excluded_dirs`` (directory-level pruning via
-    :func:`walk_files`) and ``config.excluded_file_patterns`` (filename-level
-    ``fnmatch`` filtering).  Symlinks are silently skipped.
+    All exclusion decisions are delegated to the *exclusion_manager*,
+    which implements the 4-level Layered Exclusion model (System Guardrails,
+    VCS, Config, CLI).
 
     This is the **single authorised entry point** for discovering documentation
     source files.  All modules (scanner, validator, orphan-checker) must use
@@ -64,25 +77,20 @@ def iter_markdown_sources(
 
     Args:
         docs_root: Absolute path to the documentation root directory.
-        config: Loaded Zenzic configuration (provides ``excluded_dirs`` and
-            ``excluded_file_patterns``).
+        config: Loaded Zenzic configuration (provides ``excluded_dirs``).
+        exclusion_manager: Layered Exclusion Manager for full
+            4-level exclusion evaluation.
 
     Yields:
         Absolute :class:`~pathlib.Path` objects for each qualifying source file,
         in deterministic sorted order (imposed by :func:`walk_files`).
     """
     excluded_dirs = set(config.excluded_dirs)
-    exclusion_patterns = set(config.excluded_file_patterns)
-    for md_file in walk_files(docs_root, excluded_dirs):
+    for md_file in walk_files(docs_root, excluded_dirs, exclusion_manager):
         if md_file.suffix not in DOC_SUFFIXES:
             continue
         if md_file.is_symlink():
             continue
-        rel = md_file.relative_to(docs_root)
-        if any(part in excluded_dirs for part in rel.parts):
-            continue
-        if exclusion_patterns and any(
-            fnmatch.fnmatch(md_file.name, pat) for pat in exclusion_patterns
-        ):
+        if exclusion_manager.should_exclude_file(md_file, docs_root):
             continue
         yield md_file
