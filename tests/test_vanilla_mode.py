@@ -15,6 +15,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from _helpers import make_mgr
 
 from zenzic.core.adapter import (
     BaseAdapter,
@@ -174,7 +175,10 @@ def test_find_orphans_no_config_returns_empty(tmp_path: Path) -> None:
     docs.mkdir()
     (docs / "index.md").write_text("# Home")
     (docs / "orphan.md").write_text("# Orphan")
-    assert find_orphans(tmp_path) == []
+    config = ZenzicConfig()
+    mgr = make_mgr(config, repo_root=tmp_path)
+    docs_root = tmp_path / config.docs_dir
+    assert find_orphans(docs_root, mgr, repo_root=tmp_path, config=config) == []
 
 
 def test_find_orphans_zensical_repo(tmp_path: Path) -> None:
@@ -188,7 +192,9 @@ def test_find_orphans_zensical_repo(tmp_path: Path) -> None:
     config = ZenzicConfig.model_validate(
         {"docs_dir": "docs", "build_context": {"engine": "zensical"}}
     )
-    orphans = find_orphans(tmp_path, config)
+    mgr = make_mgr(config, repo_root=tmp_path)
+    docs_root = tmp_path / config.docs_dir
+    orphans = find_orphans(docs_root, mgr, repo_root=tmp_path, config=config)
     assert Path("orphan.md") in orphans
     assert Path("index.md") not in orphans
 
@@ -201,5 +207,8 @@ def test_find_orphans_vanilla_suffix_file_appears_as_orphan(tmp_path: Path) -> N
     (docs / "index.md").write_text("# Home")
     (docs / "guide.it.md").write_text("# Guide IT")
 
-    orphans = find_orphans(tmp_path, ZenzicConfig())
+    config = ZenzicConfig()
+    mgr = make_mgr(config, repo_root=tmp_path)
+    docs_root = tmp_path / config.docs_dir
+    orphans = find_orphans(docs_root, mgr, repo_root=tmp_path, config=config)
     assert Path("guide.it.md") in orphans

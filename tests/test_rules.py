@@ -9,6 +9,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+from _helpers import make_mgr
 
 from zenzic.core.exceptions import PluginContractError
 from zenzic.core.rules import (
@@ -228,7 +229,9 @@ def test_scan_docs_with_custom_rules_from_config(tmp_path: Path) -> None:
             )
         ]
     )
-    reports, _ = scan_docs_references(tmp_path, config)
+    docs_root = tmp_path / config.docs_dir
+    mgr = make_mgr(config, repo_root=tmp_path)
+    reports, _ = scan_docs_references(docs_root, mgr, config=config)
     assert len(reports) == 1
     assert len(reports[0].rule_findings) == 1
     assert reports[0].rule_findings[0].rule_id == "ZZ-DRAFT"
@@ -259,7 +262,9 @@ def test_scan_docs_with_enabled_plugins_from_config(tmp_path: Path) -> None:
             return_value=[_PluginTodoRule()],
         ),
     ):
-        reports, _ = scan_docs_references(tmp_path, config)
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        reports, _ = scan_docs_references(docs_root, mgr, config=config)
 
     assert len(reports) == 1
     assert len(reports[0].rule_findings) == 1
@@ -275,8 +280,10 @@ def test_scan_docs_with_unknown_plugin_raises_contract_error(tmp_path: Path) -> 
     (docs / "page.md").write_text("# Page\n")
 
     config = ZenzicConfig(plugins=["does-not-exist"])
+    docs_root = tmp_path / config.docs_dir
+    mgr = make_mgr(config, repo_root=tmp_path)
     with pytest.raises(PluginContractError, match="Configured plugin rule IDs were not found"):
-        scan_docs_references(tmp_path, config)
+        scan_docs_references(docs_root, mgr, config=config)
 
 
 def test_plugin_registry_deduplicates_requested_plugin_ids(
@@ -360,7 +367,9 @@ def test_custom_rules_fire_regardless_of_engine(
     if engine == "zensical":
         (repo / "zensical.toml").write_text("[site]\nname = 'Test'\n")
 
-    reports, _ = scan_docs_references(repo, config)
+    docs_root = repo / config.docs_dir
+    mgr = make_mgr(config, repo_root=repo)
+    reports, _ = scan_docs_references(docs_root, mgr, config=config)
     assert len(reports) == 1, f"Expected 1 report for engine={engine!r}"
     rule_findings = reports[0].rule_findings
     assert len(rule_findings) == 1, (

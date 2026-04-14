@@ -20,9 +20,11 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from _helpers import make_mgr
 
 from zenzic.core.scanner import find_orphans
 from zenzic.core.validator import validate_links
+from zenzic.models.config import ZenzicConfig
 
 
 # ─── Fixture helpers ──────────────────────────────────────────────────────────
@@ -80,7 +82,10 @@ class TestTowerScenario01FullyTranslated:
         (docs / "api.md").write_text("# API EN\n")
         (docs_it / "api.md").write_text("# API IT\n")
         (docs_it / "guide.md").write_text("[api](api.md)\n")
-        assert validate_links(tmp_path) == []
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        assert validate_links(docs_root, mgr, repo_root=tmp_path, config=config) == []
 
 
 # ─── Scenario 2: Partial translation — fallback=true ─────────────────────────
@@ -97,7 +102,10 @@ class TestTowerScenario02PartialFallbackOn:
         _write_mkdocs(tmp_path, fallback=True, locales=["it"])
         (docs / "api.md").write_text("# API EN\n")
         (docs_it / "guide.md").write_text("[api](api.md)\n")
-        assert validate_links(tmp_path) == []
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        assert validate_links(docs_root, mgr, repo_root=tmp_path, config=config) == []
 
     def test_missing_asset_suppressed(self, tmp_path: Path) -> None:
         """docs/it/assets/diagram.png absent — fallback maps to docs/assets/diagram.png."""
@@ -108,7 +116,10 @@ class TestTowerScenario02PartialFallbackOn:
         _write_mkdocs(tmp_path, fallback=True, locales=["it"])
         (docs / "assets" / "diagram.png").write_bytes(b"\x89PNG")
         (docs_it / "guide.md").write_text("![diagram](assets/diagram.png)\n")
-        assert validate_links(tmp_path) == []
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        assert validate_links(docs_root, mgr, repo_root=tmp_path, config=config) == []
 
     def test_multi_locale_each_suppressed_independently(self, tmp_path: Path) -> None:
         """Multiple non-default locales (it, de) — each fallback resolved independently."""
@@ -119,7 +130,10 @@ class TestTowerScenario02PartialFallbackOn:
         (docs / "api.md").write_text("# API EN\n")
         (docs / "it" / "guide.md").write_text("[api](api.md)\n")
         (docs / "de" / "guide.md").write_text("[api](api.md)\n")
-        assert validate_links(tmp_path) == []
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        assert validate_links(docs_root, mgr, repo_root=tmp_path, config=config) == []
 
 
 # ─── Scenario 3: Partial translation — fallback=false ────────────────────────
@@ -136,7 +150,10 @@ class TestTowerScenario03PartialFallbackOff:
         _write_mkdocs(tmp_path, fallback=False, locales=["it"])
         (docs / "api.md").write_text("# API EN\n")
         (docs_it / "guide.md").write_text("[api](api.md)\n")
-        errors = validate_links(tmp_path)
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        errors = validate_links(docs_root, mgr, repo_root=tmp_path, config=config)
         assert len(errors) == 1
         assert "api.md" in errors[0]
 
@@ -154,7 +171,10 @@ class TestTowerScenario04GhostLink:
         docs_it.mkdir(parents=True)
         _write_mkdocs(tmp_path, fallback=True, locales=["it"])
         (docs_it / "guide.md").write_text("[ghost](ghost.md)\n")
-        errors = validate_links(tmp_path)
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        errors = validate_links(docs_root, mgr, repo_root=tmp_path, config=config)
         assert any("ghost" in e for e in errors)
 
     def test_ghost_reported_fallback_off(self, tmp_path: Path) -> None:
@@ -164,7 +184,10 @@ class TestTowerScenario04GhostLink:
         docs_it.mkdir(parents=True)
         _write_mkdocs(tmp_path, fallback=False, locales=["it"])
         (docs_it / "guide.md").write_text("[ghost](ghost.md)\n")
-        errors = validate_links(tmp_path)
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        errors = validate_links(docs_root, mgr, repo_root=tmp_path, config=config)
         assert any("ghost" in e for e in errors)
 
 
@@ -182,7 +205,10 @@ class TestTowerScenario05CrossLocaleDirectLink:
         _write_mkdocs(tmp_path, fallback=True, locales=["it"])
         (docs / "en.md").write_text("# EN only\n")
         (docs_it / "guide.md").write_text("[en](../en.md)\n")
-        assert validate_links(tmp_path) == []
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        assert validate_links(docs_root, mgr, repo_root=tmp_path, config=config) == []
 
     def test_parent_traversal_missing_reported(self, tmp_path: Path) -> None:
         """../missing.md from docs/it/guide.md is not in docs/ — FileNotFound, not suppressed."""
@@ -191,7 +217,10 @@ class TestTowerScenario05CrossLocaleDirectLink:
         docs_it.mkdir(parents=True)
         _write_mkdocs(tmp_path, fallback=True, locales=["it"])
         (docs_it / "guide.md").write_text("[missing](../missing.md)\n")
-        errors = validate_links(tmp_path)
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        errors = validate_links(docs_root, mgr, repo_root=tmp_path, config=config)
         assert any("missing" in e for e in errors)
 
 
@@ -212,7 +241,10 @@ class TestTowerScenario06CaseSensitivity:
         (docs / "assets" / "logo.png").write_bytes(b"\x89PNG")
         # Link uses Title-case — case-sensitive lookup must NOT find logo.png.
         (docs_it / "guide.md").write_text("![logo](assets/Logo.png)\n")
-        errors = validate_links(tmp_path)
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        errors = validate_links(docs_root, mgr, repo_root=tmp_path, config=config)
         assert any("Logo.png" in e for e in errors)
 
     def test_same_name_different_case_in_locale_vs_default(self, tmp_path: Path) -> None:
@@ -227,7 +259,10 @@ class TestTowerScenario06CaseSensitivity:
         (docs / "assets" / "report.pdf").write_bytes(b"%PDF")
         # Link to exact uppercase variant in locale dir — found in known_assets.
         (docs_it / "guide.md").write_text("![report](assets/report.PDF)\n")
-        assert validate_links(tmp_path) == []
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        assert validate_links(docs_root, mgr, repo_root=tmp_path, config=config) == []
 
 
 # ─── Scenario 7: Nested path inside locale dir ────────────────────────────────
@@ -244,7 +279,10 @@ class TestTowerScenario07NestedPath:
         _write_mkdocs(tmp_path, fallback=True, locales=["it"])
         (docs / "reference" / "cli.md").write_text("# CLI\n")
         (docs / "it" / "guide.md").write_text("[cli](reference/cli.md)\n")
-        assert validate_links(tmp_path) == []
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        assert validate_links(docs_root, mgr, repo_root=tmp_path, config=config) == []
 
     def test_nested_asset_fallback(self, tmp_path: Path) -> None:
         """docs/it/img/hero.jpg absent — fallback maps to docs/img/hero.jpg."""
@@ -254,7 +292,10 @@ class TestTowerScenario07NestedPath:
         _write_mkdocs(tmp_path, fallback=True, locales=["it"])
         (docs / "img" / "hero.jpg").write_bytes(b"\xff\xd8")
         (docs / "it" / "guide.md").write_text("![hero](img/hero.jpg)\n")
-        assert validate_links(tmp_path) == []
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        assert validate_links(docs_root, mgr, repo_root=tmp_path, config=config) == []
 
 
 # ─── Scenario 8: Orphan exclusion ─────────────────────────────────────────────
@@ -271,10 +312,11 @@ class TestTowerScenario08OrphanExclusion:
         _write_mkdocs(tmp_path, fallback=True, locales=["it"])
         (docs / "index.md").write_text("# Home\n")
         (docs_it / "guide.md").write_text("# Guida\n")
-        from zenzic.models.config import ZenzicConfig
 
         config = ZenzicConfig.model_validate({"docs_dir": str(docs)})
-        orphans = find_orphans(tmp_path, config=config)
+        mgr = make_mgr(config, repo_root=tmp_path)
+        docs_root = tmp_path / config.docs_dir
+        orphans = find_orphans(docs_root, mgr, repo_root=tmp_path, config=config)
         locale_orphans = [p for p in orphans if "it" in p.parts]
         assert locale_orphans == [], f"Locale files wrongly flagged as orphans: {locale_orphans}"
 
@@ -287,10 +329,11 @@ class TestTowerScenario08OrphanExclusion:
         (docs / "index.md").write_text("# Home\n")
         (docs / "it" / "guide.md").write_text("# Guida\n")
         (docs / "de" / "guide.md").write_text("# Anleitung\n")
-        from zenzic.models.config import ZenzicConfig
 
         config = ZenzicConfig.model_validate({"docs_dir": str(docs)})
-        orphans = find_orphans(tmp_path, config=config)
+        mgr = make_mgr(config, repo_root=tmp_path)
+        docs_root = tmp_path / config.docs_dir
+        orphans = find_orphans(docs_root, mgr, repo_root=tmp_path, config=config)
         locale_orphans = [p for p in orphans if ("it" in p.parts or "de" in p.parts)]
         assert locale_orphans == []
 
@@ -319,8 +362,11 @@ class TestTowerScenario09ConfigError:
         )
         (tmp_path / "mkdocs.yml").write_text(bad_mkdocs)
         (docs / "index.md").touch()
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
         with pytest.raises(ConfigurationError, match="fallback_to_default"):
-            validate_links(tmp_path)
+            validate_links(docs_root, mgr, repo_root=tmp_path, config=config)
 
     def test_null_languages_does_not_raise(self, tmp_path: Path) -> None:
         """languages: null with fallback_to_default: true — treated as disabled, no error."""
@@ -337,7 +383,10 @@ class TestTowerScenario09ConfigError:
         (tmp_path / "mkdocs.yml").write_text(null_languages)
         (docs / "index.md").touch()
         # Must not raise — null languages means i18n is not properly configured.
-        errors = validate_links(tmp_path)
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        errors = validate_links(docs_root, mgr, repo_root=tmp_path, config=config)
         assert isinstance(errors, list)
 
 
@@ -357,7 +406,10 @@ class TestTowerScenario10ReferenceLinks:
         _write_mkdocs(tmp_path, fallback=True, locales=["it"])
         (docs / "api.md").write_text("# API EN\n")
         (docs_it / "guide.md").write_text("[api][api-ref]\n\n[api-ref]: api.md\n")
-        assert validate_links(tmp_path) == []
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        assert validate_links(docs_root, mgr, repo_root=tmp_path, config=config) == []
 
     def test_ref_link_fallback_off_reported(self, tmp_path: Path) -> None:
         """Same scenario with fallback=false — error reported for the missing translation."""
@@ -367,7 +419,10 @@ class TestTowerScenario10ReferenceLinks:
         _write_mkdocs(tmp_path, fallback=False, locales=["it"])
         (docs / "api.md").write_text("# API EN\n")
         (docs_it / "guide.md").write_text("[api][api-ref]\n\n[api-ref]: api.md\n")
-        errors = validate_links(tmp_path)
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        errors = validate_links(docs_root, mgr, repo_root=tmp_path, config=config)
         assert len(errors) == 1
         assert "api.md" in errors[0]
 
@@ -378,7 +433,10 @@ class TestTowerScenario10ReferenceLinks:
         docs_it.mkdir(parents=True)
         _write_mkdocs(tmp_path, fallback=True, locales=["it"])
         (docs_it / "guide.md").write_text("[ghost][g]\n\n[g]: ghost.md\n")
-        errors = validate_links(tmp_path)
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        errors = validate_links(docs_root, mgr, repo_root=tmp_path, config=config)
         assert any("ghost" in e for e in errors)
 
 
@@ -423,7 +481,10 @@ class TestSuffixModeBaseLinkStrategy:
         (docs / "index.md").write_text("# Home EN\n")
         (docs / "index.it.md").write_text("# Home IT\n")
         (docs / "guide.it.md").write_text("[Home](index.md)\n")
-        errors = validate_links(tmp_path)
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        errors = validate_links(docs_root, mgr, repo_root=tmp_path, config=config)
         assert errors == []
 
     def test_translated_file_linking_missing_base_is_error(self, tmp_path: Path) -> None:
@@ -432,7 +493,10 @@ class TestSuffixModeBaseLinkStrategy:
         docs.mkdir()
         _write_mkdocs_suffix(tmp_path, locales=["it"])
         (docs / "guide.it.md").write_text("[Missing](missing.md)\n")
-        errors = validate_links(tmp_path)
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        errors = validate_links(docs_root, mgr, repo_root=tmp_path, config=config)
         assert any("missing.md" in e for e in errors)
 
     def test_translated_file_linking_sibling_locale_is_ok(self, tmp_path: Path) -> None:
@@ -446,5 +510,8 @@ class TestSuffixModeBaseLinkStrategy:
         _write_mkdocs_suffix(tmp_path, locales=["it"])
         (docs / "guide.it.md").write_text("[Other IT](other.it.md)\n")
         (docs / "other.it.md").write_text("# Other IT\n")
-        errors = validate_links(tmp_path)
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        errors = validate_links(docs_root, mgr, repo_root=tmp_path, config=config)
         assert errors == []

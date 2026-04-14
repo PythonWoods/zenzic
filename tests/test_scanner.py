@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 import yaml
+from _helpers import make_mgr
 
 from zenzic.core.adapter import _extract_i18n_locale_dirs, _extract_i18n_locale_patterns
 from zenzic.core.scanner import (
@@ -78,7 +79,8 @@ def test_find_orphans(tmp_path: Path) -> None:
     (docs / "includes/snippet.md").touch()
 
     config = ZenzicConfig(excluded_dirs=["includes"])
-    orphans = find_orphans(repo, config)
+    mgr = make_mgr(config, repo_root=repo)
+    orphans = find_orphans(docs, mgr, repo_root=repo, config=config)
 
     orphan_paths = [p.as_posix() for p in orphans]
     assert "orphan1.md" in orphan_paths
@@ -106,7 +108,8 @@ def test_find_placeholders(tmp_path: Path) -> None:
     (docs / "valid.md").write_text(valid_text)
 
     config = ZenzicConfig(placeholder_max_words=50, placeholder_patterns=["todo"])
-    findings = find_placeholders(repo, config)
+    mgr = make_mgr(config, repo_root=repo)
+    findings = find_placeholders(docs, mgr, config=config)
 
     assert len(findings) == 2
 
@@ -169,8 +172,10 @@ def test_find_orphans_no_config(tmp_path: Path) -> None:
         yaml.dump(nav, f)
     (docs / "index.md").touch()
     (docs / "extra.md").touch()
-    # Call without config — triggers the `if config is None` branch
-    orphans = find_orphans(repo)
+    # Call without config — triggers the default ZenzicConfig() branch
+    config = ZenzicConfig()
+    mgr = make_mgr(config, repo_root=repo)
+    orphans = find_orphans(docs, mgr, repo_root=repo, config=config)
     assert len(orphans) == 1
 
 
@@ -178,7 +183,10 @@ def test_find_orphans_config_file_missing(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()
     # No mkdocs.yml, no zensical.toml → find_config_file returns None → find_orphans returns []
-    orphans = find_orphans(repo)
+    config = ZenzicConfig()
+    mgr = make_mgr(config, repo_root=repo)
+    docs_root = repo / config.docs_dir
+    orphans = find_orphans(docs_root, mgr, repo_root=repo, config=config)
     assert orphans == []
 
 
@@ -190,7 +198,9 @@ def test_find_orphans_invalid_yaml(tmp_path: Path) -> None:
     (docs / "page.md").touch()
     # Should not raise; falls back to empty nav and MkDocs semantics treat
     # the site as filesystem-driven rather than synthesizing orphans.
-    orphans = find_orphans(repo)
+    config = ZenzicConfig()
+    mgr = make_mgr(config, repo_root=repo)
+    orphans = find_orphans(docs, mgr, repo_root=repo, config=config)
     assert orphans == []
 
 
@@ -205,7 +215,9 @@ def test_find_orphans_symlink_skipped(tmp_path: Path) -> None:
     real = tmp_path / "real.md"
     real.touch()
     (docs / "linked.md").symlink_to(real)
-    orphans = find_orphans(repo)
+    config = ZenzicConfig()
+    mgr = make_mgr(config, repo_root=repo)
+    orphans = find_orphans(docs, mgr, repo_root=repo, config=config)
     # symlink should not appear in orphans
     assert all(p.name != "linked.md" for p in orphans)
 
@@ -214,7 +226,10 @@ def test_find_orphans_docs_not_exist(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()
     (repo / "mkdocs.yml").write_text("nav:\n  - Home: index.md\n")
-    orphans = find_orphans(repo)
+    config = ZenzicConfig()
+    mgr = make_mgr(config, repo_root=repo)
+    docs_root = repo / config.docs_dir
+    orphans = find_orphans(docs_root, mgr, repo_root=repo, config=config)
     assert orphans == []
 
 
@@ -222,12 +237,17 @@ def test_find_placeholders_no_config(tmp_path: Path) -> None:
     docs = tmp_path / "docs"
     docs.mkdir()
     (docs / "stub.md").write_text("TODO: write me")
-    findings = find_placeholders(tmp_path)
+    config = ZenzicConfig()
+    mgr = make_mgr(config, repo_root=tmp_path)
+    findings = find_placeholders(docs, mgr, config=config)
     assert any(f.issue == "placeholder-text" for f in findings)
 
 
 def test_find_placeholders_docs_not_exist(tmp_path: Path) -> None:
-    findings = find_placeholders(tmp_path)
+    config = ZenzicConfig()
+    mgr = make_mgr(config, repo_root=tmp_path)
+    docs_root = tmp_path / config.docs_dir
+    findings = find_placeholders(docs_root, mgr, config=config)
     assert findings == []
 
 
@@ -237,7 +257,9 @@ def test_find_placeholders_symlink_skipped(tmp_path: Path) -> None:
     real = tmp_path / "real.md"
     real.write_text("TODO: skipped")
     (docs / "linked.md").symlink_to(real)
-    findings = find_placeholders(tmp_path, ZenzicConfig(placeholder_patterns=["todo"]))
+    config = ZenzicConfig(placeholder_patterns=["todo"])
+    mgr = make_mgr(config, repo_root=tmp_path)
+    findings = find_placeholders(docs, mgr, config=config)
     assert findings == []
 
 
@@ -248,12 +270,17 @@ def test_find_unused_assets_no_config(tmp_path: Path) -> None:
     assets.mkdir()
     (assets / "img.png").touch()
     (docs / "index.md").write_text("No images here.")
-    unused = find_unused_assets(tmp_path)
+    config = ZenzicConfig()
+    mgr = make_mgr(config, repo_root=tmp_path)
+    unused = find_unused_assets(docs, mgr, config=config)
     assert any(p.name == "img.png" for p in unused)
 
 
 def test_find_unused_assets_docs_not_exist(tmp_path: Path) -> None:
-    unused = find_unused_assets(tmp_path)
+    config = ZenzicConfig()
+    mgr = make_mgr(config, repo_root=tmp_path)
+    docs_root = tmp_path / config.docs_dir
+    unused = find_unused_assets(docs_root, mgr, config=config)
     assert unused == []
 
 
@@ -267,7 +294,8 @@ def test_find_orphans_excluded_file_patterns(tmp_path: Path) -> None:
     (docs / "index.md").touch()
     (docs / "index.it.md").touch()  # i18n locale variant — should not be an orphan
     config = ZenzicConfig(excluded_file_patterns=["*.it.md"])
-    orphans = find_orphans(repo, config)
+    mgr = make_mgr(config, repo_root=repo)
+    orphans = find_orphans(docs, mgr, repo_root=repo, config=config)
     assert orphans == []
 
 
@@ -282,7 +310,9 @@ def test_find_orphans_respects_mkdocs_route_classification(tmp_path: Path) -> No
     (docs / "guide" / "index.md").write_text("# Overview\n")
     (docs / "guide" / "orphan.md").write_text("# Orphan\n")
 
-    orphans = find_orphans(repo)
+    config = ZenzicConfig()
+    mgr = make_mgr(config, repo_root=repo)
+    orphans = find_orphans(docs, mgr, repo_root=repo, config=config)
     orphan_paths = {p.as_posix() for p in orphans}
 
     assert "guide/index.md" not in orphan_paths
@@ -322,7 +352,9 @@ def test_unlisted_file_detection(tmp_path: Path) -> None:
     (docs / "index.md").write_text("# Home\n", encoding="utf-8")
     (docs / "spy.md").write_text("# Spy\n", encoding="utf-8")
 
-    orphans = find_orphans(repo)
+    config = ZenzicConfig()
+    mgr = make_mgr(config, repo_root=repo)
+    orphans = find_orphans(docs, mgr, repo_root=repo, config=config)
     orphan_paths = {p.as_posix() for p in orphans}
 
     assert "spy.md" in orphan_paths
@@ -394,7 +426,9 @@ def test_find_orphans_i18n_auto_detect_mkdocs(tmp_path: Path) -> None:
     (docs / "index.md").touch()
     (docs / "index.it.md").touch()
     (docs / "index.fr.md").touch()
-    orphans = find_orphans(repo)
+    config = ZenzicConfig()
+    mgr = make_mgr(config, repo_root=repo)
+    orphans = find_orphans(docs, mgr, repo_root=repo, config=config)
     assert orphans == []
 
 
@@ -494,7 +528,9 @@ def test_i18n_languages_is_null(tmp_path: Path) -> None:
     assert _extract_i18n_locale_dirs(doc_config) == set()
 
     # find_orphans end-to-end must also not crash
-    orphans = find_orphans(repo)
+    config = ZenzicConfig()
+    mgr = make_mgr(config, repo_root=repo)
+    orphans = find_orphans(docs, mgr, repo_root=repo, config=config)
     assert orphans == []
 
 
@@ -602,7 +638,9 @@ def test_find_orphans_folder_i18n_excludes_locale_dirs(tmp_path: Path) -> None:
     (docs / "it" / "index.md").touch()  # Italian mirror — must NOT be flagged
     (docs / "orphan.md").touch()  # genuine orphan
 
-    orphans = find_orphans(repo)
+    config = ZenzicConfig()
+    mgr = make_mgr(config, repo_root=repo)
+    orphans = find_orphans(docs, mgr, repo_root=repo, config=config)
     orphan_posix = [p.as_posix() for p in orphans]
 
     assert "orphan.md" in orphan_posix
@@ -639,7 +677,9 @@ def test_find_orphans_folder_i18n_nested_file_excluded(tmp_path: Path) -> None:
     (docs / "it" / "index.md").touch()
     (docs / "it" / "guide" / "install.md").touch()
 
-    orphans = find_orphans(repo)
+    config = ZenzicConfig()
+    mgr = make_mgr(config, repo_root=repo)
+    orphans = find_orphans(docs, mgr, repo_root=repo, config=config)
     assert orphans == []
 
 
@@ -656,5 +696,7 @@ def test_find_unused_assets_symlink_skipped(tmp_path: Path) -> None:
     assets.mkdir()
     (assets / "img.png").touch()
     # symlinked md file is skipped → img.png has no references → unused
-    unused = find_unused_assets(tmp_path)
+    config = ZenzicConfig()
+    mgr = make_mgr(config, repo_root=tmp_path)
+    unused = find_unused_assets(docs, mgr, config=config)
     assert any(p.name == "img.png" for p in unused)

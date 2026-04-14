@@ -40,7 +40,7 @@ SPDX-License-Identifier: Apache-2.0
 </p>
 
 ```bash
-╭───────────────────────  🛡  ZENZIC SENTINEL  v0.6.0a2  ───────────────────────╮
+╭───────────────────────  🛡  ZENZIC SENTINEL  v0.6.1a1  ───────────────────────╮
 │                                                                              │
 │  docusaurus • 2 files (2 docs, 0 assets) • 0.0s                              │
 │                                                                              │
@@ -77,7 +77,7 @@ referenced ecosystem tools are third-party projects.
 - **Integrity** — O(V+E) circular link detection, Virtual Site Map with content-addressable cache, deterministic 0–100 quality score.
 - **Intelligence** — Multi-engine: MkDocs, Docusaurus, Zensical, and Vanilla. Third-party adapters install as Python packages via entry points.
 
-> 🚀 **Latest Release: v0.6.0a2 "Obsidian Glass"** — native Docusaurus v3 adapter, core-only architecture.
+> 🚀 **Latest Release: v0.6.1a1 "Obsidian Bastion"** — native Docusaurus v3 adapter, core-only architecture.
 > See [CHANGELOG.md](CHANGELOG.md) for the full release history.
 
 ---
@@ -93,7 +93,7 @@ Zenzic provides an extensive, engineering-grade documentation portal:
 - 🤝 **[Contributing][docs-contributing]**: Set up the local development environment (`uv`, `nox`), run the test suite, and submit PRs.
 
 <p align="center">
-  <a href="https://zenzic.pythonwoods.dev/"><strong>Explore the full documentation →</strong></a>
+  <a href="https://zenzic.dev/docs/"><strong>Explore the full documentation →</strong></a>
 </p>
 
 ---
@@ -314,6 +314,47 @@ fallback — for all documentation systems.
 
 ---
 
+## Adapters vs. Integrations: The Zenzic Ecosystem
+
+Zenzic separates **understanding** from **acting** through two distinct extension points:
+
+| | Adapter | Integration (Plugin) |
+| :--- | :--- | :--- |
+| **Purpose** | Let Zenzic *understand* your site. | Let Zenzic *guard* your build. |
+| **Direction** | Engine → Zenzic | Zenzic → Engine |
+| **Dependency** | None — pure text analysis. | Required (`mkdocs` lib for the MkDocs plugin). |
+| **Trigger** | Automatic on every `zenzic check`. | Opt-in via engine config (e.g. `mkdocs.yml`). |
+| **Goal** | Zero-config discovery & routing. | Build-blocking quality control. |
+| **Location** | `zenzic.core.adapters.*` | `zenzic.integrations.*` |
+
+**In practice:** the Adapter is the *mind* — it reads `mkdocs.yml` as plain text and builds
+the VSM. The Integration (plugin) is the *arm* — it hooks into `mkdocs build` events and
+raises a `PluginError` if quality checks fail.
+
+Most users only need adapters (automatic). Install an integration only when you want
+Zenzic to become a gate inside your engine's build pipeline.
+
+### MkDocs Plugin
+
+```bash
+# Install the optional extra
+pip install "zenzic[mkdocs]"
+```
+
+```yaml
+# mkdocs.yml
+plugins:
+  - zenzic:
+      strict: false
+      fail_on_error: true
+      checks: [orphans, snippets, placeholders, assets]
+```
+
+The plugin class lives at `zenzic.integrations.mkdocs:ZenzicPlugin` and is auto-discovered
+by MkDocs via the `mkdocs.plugins` entry point — no manual path required.
+
+---
+
 ## Installation
 
 ### With `uv` (recommended)
@@ -398,13 +439,11 @@ zenzic score --fail-under 80      # Exit 1 if below threshold
 # Regression detection against saved snapshot
 zenzic diff                       # Exit 1 on any score drop
 zenzic diff --threshold 5         # Exit 1 only if drop > 5 points
-
-# Development server (engine-agnostic)
-zenzic serve                      # Auto-detect mkdocs or zensical
-zenzic serve --engine mkdocs
-zenzic serve --port 9000
-zenzic serve --no-preflight
 ```
+
+> **Note (v0.6.1+):** `zenzic serve` has been removed. Zenzic focuses exclusively on
+> static analysis. To preview your docs, use your engine's native command:
+> `mkdocs serve`, `docusaurus start`, or `zensical serve`.
 
 ### Exit codes
 
@@ -589,7 +628,7 @@ nox -s preflight   # full CI pipeline (lint + test + self-check)
 The full Sentinel audit — banner, engine detection, and pass/fail verdict:
 
 ```bash
-╭───────────────────────  🛡  ZENZIC SENTINEL  v0.6.0a2  ───────────────────────╮
+╭───────────────────────  🛡  ZENZIC SENTINEL  v0.6.1a1  ───────────────────────╮
 │                                                                              │
 │  mkdocs • 12 files (10 docs, 2 assets) • 0.1s                                │
 │                                                                              │
@@ -613,7 +652,7 @@ canonical URLs — not filesystem paths — so orphan pages and slug overrides a
 accurately across all engines.
 
 For interactive screenshots and rich visual examples, visit the
-[documentation portal](https://zenzic.pythonwoods.dev/).
+[documentation portal](https://zenzic.dev/docs/).
 
 ---
 
@@ -649,11 +688,11 @@ Apache-2.0 — see [LICENSE][license].
 [mkdocs]:            https://www.mkdocs.org/
 [zensical]:          https://zensical.org/
 [uv]:                https://docs.astral.sh/uv/
-[docs-home]:         https://zenzic.pythonwoods.dev/
-[docs-badges]:       https://zenzic.pythonwoods.dev/usage/badges/
-[docs-cicd]:         https://zenzic.pythonwoods.dev/ci-cd/
-[docs-arch]:         https://zenzic.pythonwoods.dev/architecture/
-[docs-contributing]: https://zenzic.pythonwoods.dev/community/contribute/
+[docs-home]:         https://zenzic.dev/docs/
+[docs-badges]:       https://zenzic.dev/docs/usage/badges/
+[docs-cicd]:         https://zenzic.dev/docs/ci-cd/
+[docs-arch]:         https://zenzic.dev/docs/architecture/
+[docs-contributing]: https://zenzic.dev/docs/community/contribute/
 [ci-workflow]:       .github/workflows/ci.yml
 [contributing]:      CONTRIBUTING.md
 [license]:           LICENSE

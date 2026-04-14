@@ -13,7 +13,7 @@ from rich.console import Console
 from rich.panel import Panel
 
 from zenzic import __version__
-from zenzic.cli import check_app, clean_app, diff, init, plugins_app, score, serve
+from zenzic.cli import check_app, clean_app, diff, init, plugins_app, score
 from zenzic.core.exceptions import PluginContractError, ZenzicError
 from zenzic.core.logging import setup_cli_logging
 from zenzic.ui import INDIGO, ROSE, make_banner
@@ -60,7 +60,6 @@ app.add_typer(clean_app, name="clean", rich_help_panel="Core")
 app.add_typer(plugins_app, name="plugins", rich_help_panel="SDK & Plugins")
 app.command(name="score", rich_help_panel="Quality")(score)
 app.command(name="diff", rich_help_panel="Quality")(diff)
-app.command(name="serve", rich_help_panel="Development")(serve)
 app.command(name="init", rich_help_panel="SDK & Plugins")(init)
 
 _err_console = Console(stderr=True, highlight=False)
@@ -109,8 +108,8 @@ def cli_main() -> None:
     _rich_tb_install(show_locals=True, suppress=[typer], word_wrap=True)
     setup_cli_logging()
 
-    # Show an elegant banner on zero args or when starting the dev server
-    if len(sys.argv) == 1 or (len(sys.argv) >= 2 and sys.argv[1] == "serve"):
+    # Show an elegant banner on zero args
+    if len(sys.argv) == 1:
         _print_banner()
 
     try:

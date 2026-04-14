@@ -11,6 +11,53 @@ Le versioni seguono il [Semantic Versioning](https://semver.org/).
 
 ## [Non rilasciato]
 
+## [0.6.1a1] — 2026-04-14 — Obsidian Bastion
+
+### Breaking Changes
+
+- **Rimosso il comando `zenzic serve`.** Zenzic è ora 100% privo di sotto-processi,
+  concentrandosi esclusivamente sull'analisi statica del sorgente. Per visualizzare
+  la documentazione, usa il comando nativo del tuo engine: `mkdocs serve`,
+  `docusaurus start`, o `zensical serve`. Questa rimozione elimina l'unica eccezione
+  al Pillar 2 (Nessun Sottoprocesso) e completa la purezza architetturale del
+  framework.
+- **Plugin MkDocs spostato in `zenzic.integrations.mkdocs`** — In precedenza in
+  `zenzic.plugin`. Aggiornare `mkdocs.yml` e reinstallare il pacchetto;
+  il plugin viene ora auto-scoperto tramite l'entry point `mkdocs.plugins`.
+  Richiede `pip install "zenzic[mkdocs]"`.
+
+### Aggiunto
+
+- **Layered Exclusion Manager** — Nuova gerarchia di esclusione a 4 livelli
+  (Guardrail di Sistema > Inclusioni Forzate + VCS > Config > CLI). Parser
+  gitignore pure-Python (`VCSIgnoreParser`) con pattern regex pre-compilati.
+  Nuovi campi di configurazione: `respect_vcs_ignore`, `included_dirs`,
+  `included_file_patterns`.
+- **Discovery Universale** — Zero chiamate `rglob` nel codebase. Tutta
+  l'iterazione sui file passa attraverso `walk_files` / `iter_markdown_sources`
+  da `discovery.py`. Parametro `exclusion_manager` obbligatorio su tutti i punti
+  d'ingresso di scanner e validator — nessun Optional, nessun fallback.
+- **Flag CLI di Esclusione** — `--exclude-dir` e `--include-dir` ripetibili su
+  tutti i comandi check, `score` e `diff`.
+- **Cache Adapter** — Cache a livello di modulo con chiave `(engine, docs_root,
+  repo_root)`. Singola istanziazione dell'adapter per sessione CLI.
+- **F4-1 Protezione Jailbreak** — `_validate_docs_root()` rifiuta percorsi
+  `docs_dir` che escono dalla radice del repository (Sentinella di Sangue
+  Exit 3).
+- **F2-1 Hardening Shield** — Le righe che superano 1 MiB vengono troncate
+  silenziosamente prima del matching regex per prevenire ReDoS.
+- **Namespace `zenzic.integrations`** — Plugin MkDocs spostato da `zenzic.plugin`
+  a `zenzic.integrations.mkdocs`. Registrato come entry point ufficiale
+  `mkdocs.plugins`. Il core è ora privo di import specifici per engine.
+  Installa l'extra: `pip install "zenzic[mkdocs]"`.
+
+### Modificato
+
+- **BREAKING (Alpha):** il parametro `exclusion_manager` è ora obbligatorio su
+  `walk_files`, `iter_markdown_sources`, `generate_virtual_site_map`,
+  `check_nav_contract`, e tutte le funzioni dello scanner. Nessun default
+  `None` retrocompatibile.
+
 ## [0.6.0a2] — 2026-04-13 — Obsidian Glass
 
 ### Aggiunto

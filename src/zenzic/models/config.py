@@ -196,6 +196,33 @@ class ZenzicConfig(BaseModel):
             'Example: ["pdf/*.pdf", "assets/bundle.zip"]'
         ),
     )
+    respect_vcs_ignore: bool = Field(
+        default=False,
+        description=(
+            "When True, Zenzic reads .gitignore files from the repository root "
+            "and docs directory and excludes matching files from all checks. "
+            "Disabled by default to preserve Zero-Config surprise principle. "
+            "Forced inclusions (included_dirs, included_file_patterns) override "
+            "VCS exclusions, but System Guardrails are always enforced."
+        ),
+    )
+    included_dirs: list[str] = Field(
+        default=[],
+        description=(
+            "Directory names inside docs/ that are forcefully included even when "
+            "excluded by VCS ignore patterns or excluded_dirs. "
+            "Forced inclusions cannot override System Guardrails (.git, .venv, etc.)."
+        ),
+    )
+    included_file_patterns: list[str] = Field(
+        default=[],
+        description=(
+            "Filename glob patterns (fnmatch syntax) forcefully included even when "
+            "excluded by VCS ignore patterns or excluded_file_patterns. "
+            "Use for build-generated documentation that should be linted despite "
+            "being in .gitignore — e.g. 'api.generated.md'."
+        ),
+    )
     validate_same_page_anchors: bool = Field(
         default=False,
         description=(
@@ -288,7 +315,30 @@ class ZenzicConfig(BaseModel):
         Shared by :meth:`load` (``zenzic.toml``) and the ``pyproject.toml``
         fallback path.  Strips unknown keys and promotes sub-tables.
         """
+        import logging as _logging
+
+        _cfg_log = _logging.getLogger("zenzic")
         known_fields = cls.model_fields.keys()
+        # ── Warn on unrecognised TOML keys so users catch silent-discard bugs ──
+        # The most common pitfall: writing root-level settings AFTER a [section]
+        # header (e.g. `[project]`) causes TOML to nest them under that table,
+        # which is then silently dropped because `project` is not a known field.
+        _HANDLED_SECTIONS = frozenset({"build_context", "custom_rules"})
+        for key in data:
+            if key not in known_fields and key not in _HANDLED_SECTIONS:
+                if isinstance(data[key], dict):
+                    _cfg_log.warning(
+                        "zenzic.toml: unknown section [%s] will be ignored — "
+                        "all keys nested inside it are silently discarded. "
+                        "Root-level settings (e.g. placeholder_patterns, docs_dir) "
+                        "must appear BEFORE any [section] header.",
+                        key,
+                    )
+                else:
+                    _cfg_log.warning(
+                        "zenzic.toml: unknown key '%s' will be ignored.",
+                        key,
+                    )
         filtered_data = {k: v for k, v in data.items() if k in known_fields}
         if "build_context" in data and isinstance(data["build_context"], dict):
             filtered_data["build_context"] = BuildContext(

@@ -35,7 +35,7 @@ import tomllib
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal, NamedTuple
+from typing import TYPE_CHECKING, Any, Literal, NamedTuple
 from urllib.parse import urlsplit
 
 import httpx
@@ -53,6 +53,10 @@ from zenzic.core.resolver import (
 from zenzic.models.config import ZenzicConfig
 from zenzic.models.references import ReferenceMap
 from zenzic.models.vsm import build_vsm
+
+
+if TYPE_CHECKING:
+    from zenzic.core.exclusion import LayeredExclusionManager
 
 
 # ─── YAML loader (boundary layer — ignores unknown tags like MkDocs !ENV) ────
@@ -573,39 +577,27 @@ async def _check_external_links(
 
 
 async def validate_links_async(
-    repo_root: Path,
+    docs_root: Path,
+    exclusion_manager: LayeredExclusionManager,
     *,
+    repo_root: Path,
+    config: ZenzicConfig,
     strict: bool = False,
     structured: bool = False,
 ) -> list[str] | list[LinkError]:
     """Native link validator — no subprocesses, no MkDocs dependency.
 
-    **Internal links** (always checked):
-        Relative and site-absolute paths are resolved against the ``docs/``
-        directory.  The target file must exist within the scanned ``.md`` file
-        set.  ``#anchor`` fragments are validated against heading slugs
-        extracted from the destination file's content.
-
-    **External links** (``strict=True`` only):
-        Concurrent HEAD requests via ``httpx`` verify that HTTP / HTTPS URLs
-        return a successful or access-restricted response.
-
     Args:
-        repo_root:  Repository root directory (must contain ``docs/``).
-        strict:     When ``True``, also validate external HTTP/HTTPS links via
-                    network.  Adds latency; disabled by default for fast CI runs.
-        structured: When ``True``, return ``list[LinkError]`` with per-error
-                    source-line context for rich CLI rendering.  When ``False``
-                    (default), return the legacy ``list[str]`` for backwards
-                    compatibility.
+        docs_root: Resolved path to the documentation root.
+        exclusion_manager: Layered exclusion manager (mandatory).
+        repo_root: Repository root directory.
+        config: Zenzic configuration model.
+        strict: When True, also validate external HTTP/HTTPS links.
+        structured: When True, return list[LinkError] instead of list[str].
 
     Returns:
-        ``list[str]`` (``structured=False``) or ``list[LinkError]``
-        (``structured=True``); empty when all links pass.
+        list[str] or list[LinkError]; empty when all links pass.
     """
-    config, _ = ZenzicConfig.load(repo_root)
-    docs_root = (repo_root / config.docs_dir).resolve()
-
     if not docs_root.is_dir():
         return []
 
@@ -614,18 +606,16 @@ async def validate_links_async(
 
     # ── Pass 1: read all .md/.mdx files + map all non-doc assets into memory ──
     md_contents: dict[Path, str] = {}
-    for md_file in sorted(iter_markdown_sources(docs_root, config)):
+    for md_file in sorted(iter_markdown_sources(docs_root, config, exclusion_manager)):
         try:
             md_contents[md_file.resolve()] = md_file.read_text(encoding="utf-8")
         except OSError:
             continue
 
     # Build the asset map once — eliminates all Path.exists() calls from Pass 2.
-    # Stores resolved absolute path strings so the Pass 2 lookup is a single
-    # frozenset membership test (O(1), zero allocations per link).
     known_assets: frozenset[str] = frozenset(
         str(f.resolve())
-        for f in walk_files(docs_root, set(config.excluded_dirs))
+        for f in walk_files(docs_root, set(), exclusion_manager)
         if f.is_file() and not f.is_symlink() and f.suffix not in DOC_SUFFIXES
     )
 
@@ -899,50 +889,37 @@ async def validate_links_async(
     return [e.message for e in all_errors]
 
 
-def generate_virtual_site_map(docs_root: Path, docs_structure: str) -> frozenset[str]:
+def generate_virtual_site_map(
+    docs_root: Path,
+    docs_structure: str,
+    exclusion_manager: LayeredExclusionManager,
+) -> frozenset[str]:
     """Project the set of URL paths the build engine will generate.
 
-    This is a pure function: given a directory of Markdown source files and
-    a ``docs_structure`` strategy, it returns the exact set of URL paths that
-    the build engine (Zensical / MkDocs) will produce — without running the
-    build.
-
-    Transformation rules (empirically verified against Zensical 0.0.27):
-
-    * ``docs/page.md``        → ``/page/``      (default locale)
-    * ``docs/page.it.md``     → ``/page.it/``   (suffix mode — locale in stem)
-    * ``docs/index.md``       → ``/``           (root index special case)
-    * ``docs/dir/page.md``    → ``/dir/page/``
-    * ``docs/dir/index.md``   → ``/dir/``       (directory index special case)
-
-    The function does **not** discriminate between locales or docs_structure
-    strategies beyond walking the files — any ``.md`` file that exists on disk
-    will be served at a deterministic URL.
+    Uses :func:`walk_files` instead of ``rglob`` to respect system guardrails
+    and the full 4-level Layered Exclusion model.
 
     Args:
         docs_root: Path to the ``docs/`` directory.
-        docs_structure: Value of ``docs_structure`` from the i18n plugin config
-            (``"suffix"`` or ``"folder"``).  Currently unused — the URL
-            projection is the same regardless of strategy because in suffix mode
-            the locale is encoded in the filename stem, not in a directory
-            prefix.  Kept as a parameter for future folder-mode support.
+        docs_structure: Value of ``docs_structure`` from the i18n plugin config.
+        exclusion_manager: Layered Exclusion Manager for directory pruning.
 
     Returns:
         Frozenset of URL path strings (e.g. ``{"/", "/checks.it/", ...}``).
     """
+    from zenzic.models.config import SYSTEM_EXCLUDED_DIRS
+
     urls: set[str] = set()
     if not docs_root.is_dir():
         return frozenset()
-    for md_file in docs_root.rglob("*"):
-        if md_file.suffix not in DOC_SUFFIXES:
+    for md_file in walk_files(docs_root, SYSTEM_EXCLUDED_DIRS, exclusion_manager):
+        if md_file.suffix not in DOC_SUFFIXES or md_file.is_symlink():
             continue
         rel = md_file.relative_to(docs_root)
-        # Strip .md suffix → path stem
         stem = rel.with_suffix("")
         parts = list(stem.parts)
         if not parts:
             continue
-        # Directory index: dir/index → /dir/
         if parts[-1] == "index":
             parts = parts[:-1]
         if not parts:
@@ -952,7 +929,10 @@ def generate_virtual_site_map(docs_root: Path, docs_structure: str) -> frozenset
     return frozenset(urls)
 
 
-def check_nav_contract(repo_root: Path) -> list[str]:
+def check_nav_contract(
+    repo_root: Path,
+    exclusion_manager: LayeredExclusionManager,
+) -> list[str]:
     """Validate ``extra.alternate`` links against the Virtual Site Map.
 
     Loads ``mkdocs.yml``, projects the full set of URLs the build engine will
@@ -996,7 +976,7 @@ def check_nav_contract(repo_root: Path) -> list[str]:
     # ── Build the Virtual Site Map ────────────────────────────────────────────
     docs_dir = doc_config.get("docs_dir", "docs")
     docs_root_path = repo_root / docs_dir
-    vsm = generate_virtual_site_map(docs_root_path, docs_structure)
+    vsm = generate_virtual_site_map(docs_root_path, docs_structure, exclusion_manager)
 
     # ── Validate every extra.alternate link against the VSM ──────────────────
     extra = doc_config.get("extra") or {}
@@ -1024,43 +1004,70 @@ def check_nav_contract(repo_root: Path) -> list[str]:
     return errors
 
 
-def validate_links(repo_root: Path, *, strict: bool = False) -> list[str]:
+def validate_links(
+    docs_root: Path,
+    exclusion_manager: LayeredExclusionManager,
+    *,
+    repo_root: Path,
+    config: ZenzicConfig,
+    strict: bool = False,
+) -> list[str]:
     """Synchronous wrapper around :func:`validate_links_async`.
 
-    Always checks internal links (no network).  Pass ``strict=True`` to also
-    fire HTTP HEAD requests against every external URL found in the docs.
-
     Args:
+        docs_root: Resolved path to the documentation root.
+        exclusion_manager: Layered exclusion manager (mandatory).
         repo_root: Repository root directory.
-        strict: Include external HTTP/HTTPS link checks (requires network).
+        config: Zenzic configuration model.
+        strict: Include external HTTP/HTTPS link checks.
 
     Returns:
         Sorted list of human-readable error strings.
     """
-    result = asyncio.run(validate_links_async(repo_root, strict=strict, structured=False))
+    result = asyncio.run(
+        validate_links_async(
+            docs_root,
+            exclusion_manager,
+            repo_root=repo_root,
+            config=config,
+            strict=strict,
+            structured=False,
+        )
+    )
     assert isinstance(result, list)
     return result  # type: ignore[return-value]
 
 
 def validate_links_structured(
-    repo_root: Path,
+    docs_root: Path,
+    exclusion_manager: LayeredExclusionManager,
     *,
+    repo_root: Path,
+    config: ZenzicConfig,
     strict: bool = False,
 ) -> list[LinkError]:
     """Synchronous wrapper that returns rich :class:`LinkError` objects.
 
-    Identical to :func:`validate_links` but returns structured findings with
-    ``source_line`` and ``error_type`` populated, enabling the CLI to render
-    Visual Snippets with the ``│`` indicator.
-
     Args:
+        docs_root: Resolved path to the documentation root.
+        exclusion_manager: Layered exclusion manager (mandatory).
         repo_root: Repository root directory.
-        strict: Include external HTTP/HTTPS link checks (requires network).
+        config: Zenzic configuration model.
+        strict: Include external HTTP/HTTPS link checks.
 
     Returns:
-        Sorted list of :class:`LinkError` objects; empty when all links pass.
+        Sorted list of LinkError objects; empty when all links pass.
     """
-    result = asyncio.run(validate_links_async(repo_root, strict=strict, structured=True))
+    result = asyncio.run(
+        validate_links_async(
+            docs_root,
+            exclusion_manager,
+            repo_root=repo_root,
+            config=config,
+            strict=strict,
+            structured=True,
+        )
+    )
     assert isinstance(result, list)
     return result  # type: ignore[return-value]
 
@@ -1305,26 +1312,28 @@ class LinkValidator:
 # ─── CLI / I/O wrappers ───────────────────────────────────────────────────────
 
 
-def validate_snippets(repo_root: Path, config: ZenzicConfig | None = None) -> list[SnippetError]:
-    """Validate every fenced code block (Python, YAML, JSON, TOML) in docs and report syntax errors.
+def validate_snippets(
+    docs_root: Path,
+    exclusion_manager: LayeredExclusionManager,
+    *,
+    config: ZenzicConfig,
+) -> list[SnippetError]:
+    """Validate every fenced code block (Python, YAML, JSON, TOML) in docs.
 
     Args:
-        repo_root: Path to the repository root.
-        config: Optional Zenzic configuration.
+        docs_root: Resolved path to the documentation root.
+        exclusion_manager: Layered exclusion manager (mandatory).
+        config: Zenzic configuration model.
 
     Returns:
         List of SnippetError objects detailing the issues.
     """
-    if config is None:
-        config = ZenzicConfig()
-
-    docs_root = repo_root / config.docs_dir
     errors: list[SnippetError] = []
 
     if not docs_root.exists() or not docs_root.is_dir():
         return errors
 
-    for md_file in sorted(iter_markdown_sources(docs_root, config)):
+    for md_file in sorted(iter_markdown_sources(docs_root, config, exclusion_manager)):
         rel_path = md_file.relative_to(docs_root)
         content = md_file.read_text(encoding="utf-8")
         errors.extend(check_snippet_content(content, rel_path, config))

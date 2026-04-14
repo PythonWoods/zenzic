@@ -5,13 +5,8 @@
 from __future__ import annotations
 
 import difflib
-import errno
-import functools
-import http.server
 import json
 import re
-import shutil
-import socket
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -24,6 +19,7 @@ from rich.table import Table
 from rich.text import Text
 
 from zenzic.core.adapters import list_adapter_engines
+from zenzic.core.exclusion import LayeredExclusionManager
 from zenzic.core.reporter import Finding, SentinelReporter
 from zenzic.core.scanner import (
     PlaceholderFinding,
@@ -137,8 +133,67 @@ def _render_link_error(err: LinkError, docs_root: Path) -> None:
         console.print(f"    [dim]│[/] [italic]{err.source_line}[/]")
 
 
-def _count_docs_assets(docs_root: Path, repo_root: Path) -> tuple[int, int]:
-    """Return ``(docs_count, assets_count)`` for the Sentinel telemetry line."""
+def _build_exclusion_manager(
+    config: ZenzicConfig,
+    repo_root: Path,
+    docs_root: Path,
+    *,
+    exclude_dirs: list[str] | None = None,
+    include_dirs: list[str] | None = None,
+) -> LayeredExclusionManager:
+    """Construct a :class:`LayeredExclusionManager` from config + CLI flags.
+
+    This is the **single factory** for exclusion managers in the CLI layer.
+    Every command must call this and pass the result down the pipeline.
+
+    Includes F4-1 jailbreak protection: rejects ``docs_root`` paths that
+    escape the repository root via path traversal (``../``).
+    """
+    _validate_docs_root(repo_root, docs_root)
+    return LayeredExclusionManager(
+        config,
+        repo_root=repo_root,
+        docs_root=docs_root,
+        cli_exclude=exclude_dirs,
+        cli_include=include_dirs,
+    )
+
+
+def _validate_docs_root(repo_root: Path, docs_root: Path) -> None:
+    """F4-1: Reject docs_dir paths that escape the repository root.
+
+    Raises :class:`typer.Exit` with code 3 (Blood Sentinel) if
+    ``docs_root.resolve()`` is not under ``repo_root.resolve()``.
+    This prevents path-traversal attacks via ``docs_dir = "../../etc"``.
+    """
+    resolved_repo = repo_root.resolve()
+    resolved_docs = docs_root.resolve()
+    try:
+        resolved_docs.relative_to(resolved_repo)
+    except ValueError:
+        console.print(
+            f"[bold red]BLOOD SENTINEL:[/] docs_dir resolves to "
+            f"[bold]{resolved_docs}[/] which is outside the repository root "
+            f"[bold]{resolved_repo}[/]. Path traversal blocked."
+        )
+        raise typer.Exit(3) from None
+
+
+def _count_docs_assets(
+    docs_root: Path,
+    repo_root: Path,
+    exclusion_mgr: LayeredExclusionManager,
+    config: ZenzicConfig | None = None,
+) -> tuple[int, int]:
+    """Return ``(docs_count, assets_count)`` for the Sentinel telemetry line.
+
+    When *config* is provided and the adapter exposes ``get_locale_source_roots()``,
+    locale translation trees (e.g. Docusaurus ``i18n/``) are counted in
+    ``docs_count`` as well.
+    """
+    from zenzic.core.discovery import walk_files
+    from zenzic.models.config import SYSTEM_EXCLUDED_DIRS
+
     _INERT = {".css", ".js"}
     _CONFIG = {".yml", ".yaml", ".toml"}
     _DOC_EXT = {".md", ".mdx"}
@@ -146,20 +201,31 @@ def _count_docs_assets(docs_root: Path, repo_root: Path) -> tuple[int, int]:
         return 0, 0
     docs_count = sum(
         1
-        for p in docs_root.rglob("*")
-        if p.is_file() and (p.suffix.lower() in _DOC_EXT or p.suffix.lower() in _CONFIG)
+        for p in walk_files(docs_root, SYSTEM_EXCLUDED_DIRS, exclusion_mgr)
+        if p.suffix.lower() in _DOC_EXT or p.suffix.lower() in _CONFIG
     )
     docs_count += sum(
         1 for p in repo_root.iterdir() if p.is_file() and p.suffix.lower() in {".yml", ".yaml"}
     )
     assets_count = sum(
         1
-        for p in docs_root.rglob("*")
-        if p.is_file()
-        and p.suffix.lower() not in _INERT
+        for p in walk_files(docs_root, SYSTEM_EXCLUDED_DIRS, exclusion_mgr)
+        if p.suffix.lower() not in _INERT
         and p.suffix.lower() not in _CONFIG
         and p.suffix.lower() not in _DOC_EXT
     )
+    # Count locale source files (Docusaurus i18n only when config is available).
+    if config is not None:
+        from zenzic.core.adapters import get_adapter
+
+        adapter = get_adapter(config.build_context, docs_root, repo_root)
+        if hasattr(adapter, "get_locale_source_roots"):
+            for locale_root, _ in adapter.get_locale_source_roots(repo_root):
+                docs_count += sum(
+                    1
+                    for p in walk_files(locale_root, SYSTEM_EXCLUDED_DIRS, exclusion_mgr)
+                    if p.suffix.lower() in _DOC_EXT
+                )
     return docs_count, assets_count
 
 
@@ -176,6 +242,7 @@ def check_links(
     repo_root = find_repo_root()
     config, _ = ZenzicConfig.load(repo_root)
     docs_root = (repo_root / config.docs_dir).resolve()
+    exclusion_mgr = _build_exclusion_manager(config, repo_root, docs_root)
 
     def _rel(path: Path) -> str:
         try:
@@ -184,7 +251,13 @@ def check_links(
             return str(path)
 
     t0 = time.monotonic()
-    link_errors = validate_links_structured(repo_root, strict=strict)
+    link_errors = validate_links_structured(
+        docs_root,
+        exclusion_mgr,
+        repo_root=repo_root,
+        config=config,
+        strict=strict,
+    )
     elapsed = time.monotonic() - t0
 
     findings = [
@@ -207,7 +280,7 @@ def check_links(
         for err in link_errors
     ]
 
-    docs_count, assets_count = _count_docs_assets(docs_root, repo_root)
+    docs_count, assets_count = _count_docs_assets(docs_root, repo_root, exclusion_mgr)
     reporter = SentinelReporter(console, docs_root, docs_dir=str(config.docs_dir))
     errors, warnings = reporter.render(
         findings,
@@ -248,9 +321,10 @@ def check_orphans(
         _print_no_config_hint()
     config = _apply_engine_override(config, engine)
     docs_root = (repo_root / config.docs_dir).resolve()
+    exclusion_mgr = _build_exclusion_manager(config, repo_root, docs_root)
 
     t0 = time.monotonic()
-    orphans = find_orphans(repo_root, config)
+    orphans = find_orphans(docs_root, exclusion_mgr, repo_root=repo_root, config=config)
     elapsed = time.monotonic() - t0
 
     findings = [
@@ -264,7 +338,7 @@ def check_orphans(
         for path in orphans
     ]
 
-    docs_count, assets_count = _count_docs_assets(docs_root, repo_root)
+    docs_count, assets_count = _count_docs_assets(docs_root, repo_root, exclusion_mgr)
     reporter = SentinelReporter(console, docs_root, docs_dir=str(config.docs_dir))
     errors, warnings = reporter.render(
         findings,
@@ -295,6 +369,7 @@ def check_snippets(
     if not loaded_from_file:
         _print_no_config_hint()
     docs_root = (repo_root / config.docs_dir).resolve()
+    exclusion_mgr = _build_exclusion_manager(config, repo_root, docs_root)
 
     def _rel(path: Path) -> str:
         try:
@@ -303,7 +378,7 @@ def check_snippets(
             return str(path)
 
     t0 = time.monotonic()
-    snippet_errors = validate_snippets(repo_root, config)
+    snippet_errors = validate_snippets(docs_root, exclusion_mgr, config=config)
     elapsed = time.monotonic() - t0
 
     findings: list[Finding] = []
@@ -327,7 +402,7 @@ def check_snippets(
             )
         )
 
-    docs_count, assets_count = _count_docs_assets(docs_root, repo_root)
+    docs_count, assets_count = _count_docs_assets(docs_root, repo_root, exclusion_mgr)
     reporter = SentinelReporter(console, docs_root, docs_dir=str(config.docs_dir))
     errors, warnings = reporter.render(
         findings,
@@ -382,6 +457,7 @@ def check_references(
     if not loaded_from_file:
         _print_no_config_hint()
     docs_root = (repo_root / config.docs_dir).resolve()
+    exclusion_mgr = _build_exclusion_manager(config, repo_root, docs_root)
 
     def _rel(path: Path) -> str:
         try:
@@ -390,7 +466,12 @@ def check_references(
             return str(path)
 
     t0 = time.monotonic()
-    reports, ext_link_errors = scan_docs_references(repo_root, config, validate_links=links)
+    reports, ext_link_errors = scan_docs_references(
+        docs_root,
+        exclusion_mgr,
+        config=config,
+        validate_links=links,
+    )
     elapsed = time.monotonic() - t0
 
     # ── Build unified findings list ────────────────────────────────────────────
@@ -444,7 +525,7 @@ def check_references(
             )
         )
 
-    docs_count, assets_count = _count_docs_assets(docs_root, repo_root)
+    docs_count, assets_count = _count_docs_assets(docs_root, repo_root, exclusion_mgr)
     reporter = SentinelReporter(console, docs_root, docs_dir=str(config.docs_dir))
     errors, warnings = reporter.render(
         findings,
@@ -479,9 +560,10 @@ def check_assets(
     if not loaded_from_file:
         _print_no_config_hint()
     docs_root = (repo_root / config.docs_dir).resolve()
+    exclusion_mgr = _build_exclusion_manager(config, repo_root, docs_root)
 
     t0 = time.monotonic()
-    unused = find_unused_assets(repo_root, config)
+    unused = find_unused_assets(docs_root, exclusion_mgr, config=config)
     elapsed = time.monotonic() - t0
 
     findings = [
@@ -495,7 +577,7 @@ def check_assets(
         for path in unused
     ]
 
-    docs_count, assets_count = _count_docs_assets(docs_root, repo_root)
+    docs_count, assets_count = _count_docs_assets(docs_root, repo_root, exclusion_mgr)
     reporter = SentinelReporter(console, docs_root, docs_dir=str(config.docs_dir))
     errors, warnings = reporter.render(
         findings,
@@ -525,8 +607,9 @@ def clean_assets(
     repo_root = find_repo_root()
     config, _ = ZenzicConfig.load(repo_root)
     docs_root = repo_root / config.docs_dir
+    exclusion_mgr = _build_exclusion_manager(config, repo_root, docs_root)
 
-    unused = find_unused_assets(repo_root, config)
+    unused = find_unused_assets(docs_root, exclusion_mgr, config=config)
     if not unused:
         console.print("\n[green]OK:[/] no unused assets to clean.")
         return
@@ -570,9 +653,10 @@ def check_placeholders(
     if not loaded_from_file:
         _print_no_config_hint()
     docs_root = (repo_root / config.docs_dir).resolve()
+    exclusion_mgr = _build_exclusion_manager(config, repo_root, docs_root)
 
     t0 = time.monotonic()
-    raw_findings = find_placeholders(repo_root, config)
+    raw_findings = find_placeholders(docs_root, exclusion_mgr, config=config)
     elapsed = time.monotonic() - t0
 
     findings: list[Finding] = []
@@ -600,7 +684,7 @@ def check_placeholders(
             )
         )
 
-    docs_count, assets_count = _count_docs_assets(docs_root, repo_root)
+    docs_count, assets_count = _count_docs_assets(docs_root, repo_root, exclusion_mgr)
     reporter = SentinelReporter(console, docs_root, docs_dir=str(config.docs_dir))
     errors, warnings = reporter.render(
         findings,
@@ -645,19 +729,46 @@ class _AllCheckResults:
 
 def _collect_all_results(
     repo_root: Path,
+    docs_root: Path,
     config: ZenzicConfig,
+    exclusion_mgr: LayeredExclusionManager,
     strict: bool,
 ) -> _AllCheckResults:
     """Run all seven checks and return results as a typed container."""
-    ref_reports, _ = scan_docs_references(repo_root, config, validate_links=False)
+    from zenzic.core.adapters import get_adapter
+
+    # Resolve locale source roots from the adapter (Docusaurus i18n support).
+    adapter = get_adapter(config.build_context, docs_root, repo_root)
+    locale_roots: list[tuple[Path, str]] | None = None
+    if hasattr(adapter, "get_locale_source_roots"):
+        _roots = adapter.get_locale_source_roots(repo_root)
+        locale_roots = _roots if _roots else None
+
+    ref_reports, _ = scan_docs_references(
+        docs_root,
+        exclusion_mgr,
+        config=config,
+        validate_links=False,
+        locale_roots=locale_roots,
+    )
     security_events = sum(len(r.security_findings) for r in ref_reports)
     return _AllCheckResults(
-        link_errors=validate_links_structured(repo_root, strict=strict),
-        orphans=find_orphans(repo_root, config),
-        snippet_errors=validate_snippets(repo_root, config),
-        placeholders=find_placeholders(repo_root, config),
-        unused_assets=find_unused_assets(repo_root, config),
-        nav_contract_errors=check_nav_contract(repo_root),
+        link_errors=validate_links_structured(
+            docs_root,
+            exclusion_mgr,
+            repo_root=repo_root,
+            config=config,
+            strict=strict,
+        ),
+        orphans=find_orphans(docs_root, exclusion_mgr, repo_root=repo_root, config=config),
+        snippet_errors=validate_snippets(docs_root, exclusion_mgr, config=config),
+        placeholders=find_placeholders(
+            docs_root, exclusion_mgr, config=config, repo_root=repo_root
+        ),
+        unused_assets=find_unused_assets(
+            docs_root, exclusion_mgr, config=config, repo_root=repo_root
+        ),
+        nav_contract_errors=check_nav_contract(repo_root, exclusion_mgr),
         reference_reports=ref_reports,
         security_events=security_events,
     )
@@ -911,6 +1022,19 @@ def check_all(
         "Auto-detected from zenzic.toml when omitted.",
         metavar="ENGINE",
     ),
+    exclude_dir: list[str] | None = typer.Option(
+        None,
+        "--exclude-dir",
+        help="Additional directories to exclude from scanning (repeatable).",
+        metavar="DIR",
+    ),
+    include_dir: list[str] | None = typer.Option(
+        None,
+        "--include-dir",
+        help="Directories to force-include even if excluded by config (repeatable). "
+        "Cannot override system guardrails.",
+        metavar="DIR",
+    ),
     path: str | None = typer.Argument(
         None,
         help=(
@@ -944,15 +1068,27 @@ def check_all(
     _target_hint: str | None = None
     if path is not None:
         config, _single_file, _, _target_hint = _apply_target(repo_root, config, path)
-        # config.docs_dir is patched when path was outside the default docs dir.
-        # _collect_all_results and the docs_root assignment below both use config,
-        # so they automatically target the correct directory.
+
+    docs_root = (repo_root / config.docs_dir).resolve()
+    exclusion_mgr = _build_exclusion_manager(
+        config,
+        repo_root,
+        docs_root,
+        exclude_dirs=exclude_dir,
+        include_dirs=include_dir,
+    )
 
     effective_strict = strict if strict is not None else config.strict
     effective_exit_zero = exit_zero if exit_zero is not None else config.exit_zero
 
     t0 = time.monotonic()
-    results = _collect_all_results(repo_root, config, strict=effective_strict)
+    results = _collect_all_results(
+        repo_root,
+        docs_root,
+        config,
+        exclusion_mgr,
+        strict=effective_strict,
+    )
     elapsed = time.monotonic() - t0
 
     # ── JSON format ───────────────────────────────────────────────────────────
@@ -989,7 +1125,6 @@ def check_all(
     # ── Sentinel Report (text) ────────────────────────────────────────────────
     from zenzic import __version__
 
-    docs_root = (repo_root / config.docs_dir).resolve()
     all_findings = _to_findings(results, docs_root)
 
     # In single-file mode filter findings to the requested file only.
@@ -1002,7 +1137,7 @@ def check_all(
     if quiet:
         errors, warnings = reporter.render_quiet(all_findings)
     else:
-        docs_count, assets_count = _count_docs_assets(docs_root, repo_root)
+        docs_count, assets_count = _count_docs_assets(docs_root, repo_root, exclusion_mgr, config)
         # File-target mode: banner shows exactly 1 file.
         if _single_file is not None:
             docs_count, assets_count = 1, 0
@@ -1075,227 +1210,25 @@ def plugins_list() -> None:
     console.print()
 
 
-def _detect_engine(repo_root: Path, override: str | None) -> str | None:
-    """Resolve which documentation engine binary to use for ``zenzic serve``.
-
-    Resolution order (first match wins):
-
-    1. Explicit ``--engine`` flag → validate binary on PATH and ``mkdocs.yml``
-       presence, return it or exit.
-    2. ``mkdocs.yml`` present → prefer ``"zensical"`` (reads ``mkdocs.yml``
-       natively), fall back to ``"mkdocs"``.
-    3. No config file found → return ``None`` (caller falls back to static
-       serving of ``site/``).
-
-    Returning ``None`` rather than raising ensures ``serve`` works without any
-    documentation engine installed — satisfying the engine-agnostic constraint.
-
-    Args:
-        repo_root: Repository root directory.
-        override: Value of the ``--engine`` CLI flag (``None`` if not passed).
-
-    Returns:
-        Engine binary name (``"zensical"`` or ``"mkdocs"``), or ``None`` only
-        when ``mkdocs.yml`` is absent (pure static-fallback scenario).
-
-    Raises:
-        typer.Exit: When ``--engine`` binary is absent from ``$PATH`` or
-            ``mkdocs.yml`` is missing; or when ``mkdocs.yml`` is present but
-            neither engine binary is installed.
-    """
-    # Both engines accept mkdocs.yml; zensical reads it natively.
-    _ENGINE_CONFIGS: dict[str, tuple[str, ...]] = {
-        "zensical": ("mkdocs.yml",),
-        "mkdocs": ("mkdocs.yml",),
-    }
-    if override is not None:
-        if shutil.which(override) is None:
-            console.print(
-                f"[red]ERROR:[/] engine '[bold]{override}[/]' not found on PATH. Is it installed?"
-            )
-            raise typer.Exit(1)
-        accepted = _ENGINE_CONFIGS.get(override, ())
-        if accepted and not any((repo_root / cfg).exists() for cfg in accepted):
-            names = " or ".join(f"[bold]{c}[/]" for c in accepted)
-            console.print(
-                f"[red]ERROR:[/] --engine [bold]{override}[/] requires "
-                f"{names} in the repository root, but the file was not found."
-            )
-            raise typer.Exit(1)
-        return override
-
-    if (repo_root / "mkdocs.yml").exists():
-        if shutil.which("zensical"):
-            return "zensical"
-        if shutil.which("mkdocs"):
-            return "mkdocs"
-        console.print(
-            "[red]ERROR:[/] Found [bold]mkdocs.yml[/] but neither "
-            "[bold]zensical[/] nor [bold]mkdocs[/] is installed.\n"
-            "Install a documentation engine: [bold]uv add --dev zensical[/] "
-            "or [bold]uv add --dev mkdocs[/]"
-        )
-        raise typer.Exit(1)
-
-    return None  # No config file found — serve() falls back to static serving of site/
-
-
-def _find_free_port(start: int, limit: int = 10) -> int:
-    """Return the first available TCP port in ``[start, start+limit)``.
-
-    Probes by attempting a temporary bind on ``127.0.0.1`` so the result
-    is reliable before we hand it to either an engine subprocess or the
-    built-in static server.
-
-    Raises:
-        OSError: with ``errno.EADDRINUSE`` when no free port exists in the
-            scanned range.
-    """
-    for candidate in range(start, start + limit):
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            try:
-                s.bind(("127.0.0.1", candidate))
-                return candidate
-            except OSError as exc:
-                if exc.errno != errno.EADDRINUSE:
-                    raise
-    raise OSError(errno.EADDRINUSE, f"No free port in {start}–{start + limit - 1}")
-
-
-def serve(
-    engine_override: str | None = typer.Option(
-        None,
-        "--engine",
-        help="Force a specific engine: 'mkdocs', 'zensical', or 'vanilla'. Auto-detected when omitted.",
-        metavar="ENGINE",
-    ),
-    no_preflight: bool = typer.Option(
-        False,
-        "--no-preflight",
-        help="Skip the pre-flight quality check and start the server immediately.",
-    ),
-    port: int = typer.Option(
-        8000,
-        "--port",
-        "-p",
-        help="Starting port. Zenzic scans up to 10 consecutive ports if the requested one is busy.",
-        min=1024,
-        max=65535,
-    ),
-) -> None:
-    """Run pre-flight checks, then start the documentation development server.
-
-    Engine auto-detection (overridable with ``--engine``):
-
-    * ``mkdocs.yml`` present + ``zensical`` installed → ``zensical serve``
-    * ``mkdocs.yml`` present + only ``mkdocs`` avail  → ``mkdocs serve``
-
-    Quality issues found during the pre-flight are printed as warnings but
-    never block startup — fix them live while the server is running.
-    """
-    repo_root = find_repo_root()
-    engine = _detect_engine(repo_root, engine_override)
-
-    # ── Pre-flight check ──────────────────────────────────────────────────────
-    if not no_preflight:
-        console.print("[dim]Zenzic pre-flight check…[/]")
-        config, _ = ZenzicConfig.load(repo_root)
-        issue_count = 0
-
-        for orphan in find_orphans(repo_root, config):
-            console.print(f"  [yellow]{emoji('warn')}  [orphan][/] {orphan}")
-            issue_count += 1
-        for err in validate_snippets(repo_root, config):
-            console.print(
-                f"  [yellow]{emoji('warn')}  [snippet][/] {err.file_path}:{err.line_no} — {err.message}"
-            )
-            issue_count += 1
-        for finding in find_placeholders(repo_root, config):
-            console.print(
-                f"  [yellow]{emoji('warn')}  [placeholder][/] {finding.file_path}:{finding.line_no}"
-                f" [{finding.issue}]"
-            )
-            issue_count += 1
-        for asset in find_unused_assets(repo_root, config):
-            console.print(f"  [yellow]{emoji('warn')}  [asset][/] {asset}")
-            issue_count += 1
-
-        if issue_count:
-            console.print(
-                f"\n[yellow]{issue_count} issue(s) detected.[/] "
-                "Fix them while the server is running — "
-                "run [bold]zenzic check all[/] to recheck.\n"
-            )
-        else:
-            console.print("[green]OK[/] — all checks passed.\n")
-
-    # ── Resolve a free port (applies to both engine and static fallback) ──────
-    _PORT_SCAN_LIMIT = 10
-    try:
-        free_port = _find_free_port(port, _PORT_SCAN_LIMIT)
-    except OSError:
-        console.print(
-            f"[red]ERROR:[/] All ports {port}–{port + _PORT_SCAN_LIMIT - 1} "
-            "are in use. Free a port and try again."
-        )
-        raise typer.Exit(1) from None
-    if free_port != port:
-        console.print(f"[yellow]Port {port} already in use — using {free_port}[/]")
-
-    # ── Launch the dev server ─────────────────────────────────────────────────
-    if engine:
-        import subprocess  # deferred — only needed when an engine subprocess is launched
-
-        console.print(f"[bold blue]Zenzic:[/] Starting [bold]{engine} serve[/]…")
-        subprocess.run(
-            [engine, "serve", "--dev-addr", f"127.0.0.1:{free_port}"],
-            cwd=repo_root,
-        )
-    else:
-        site_dir = repo_root / "site"
-        if not site_dir.is_dir():
-            console.print(
-                "[red]ERROR:[/] No documentation engine found on PATH and no pre-built "
-                "[bold]site/[/] directory exists.\n"
-                "Install [bold]mkdocs[/] or [bold]zensical[/], or run a build first."
-            )
-            raise typer.Exit(1)
-        console.print(
-            "[bold blue]Zenzic:[/] No engine found — serving pre-built "
-            f"[bold]{site_dir.relative_to(repo_root)}[/] as static files "
-            "(no hot-reload).\n"
-            "Install [bold]mkdocs[/] or [bold]zensical[/] for a live-reload server."
-        )
-        handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(site_dir))
-        try:
-            with http.server.HTTPServer(("", free_port), handler) as httpd:
-                console.print(
-                    f"Serving on [link=http://localhost:{free_port}]http://localhost:{free_port}[/link]"
-                    " — Ctrl+C to stop."
-                )
-                try:
-                    httpd.serve_forever()
-                except KeyboardInterrupt:
-                    pass
-        except OSError as exc:
-            if exc.errno == errno.EADDRINUSE:
-                # TOCTOU: port was taken between probe and bind
-                console.print(f"[red]ERROR:[/] Port {free_port} became unavailable. Try again.")
-                raise typer.Exit(1) from None
-            raise
-
-
 def _run_all_checks(
     repo_root: Path,
+    docs_root: Path,
     config: ZenzicConfig,
+    exclusion_mgr: LayeredExclusionManager,
     strict: bool,
 ) -> ScoreReport:
     """Run all five checks and return a ScoreReport. Used by score and diff."""
-    link_errors = validate_links(repo_root, strict=strict)
-    orphans = find_orphans(repo_root, config)
-    snippet_errors = validate_snippets(repo_root, config)
-    placeholders = find_placeholders(repo_root, config)
-    unused_assets = find_unused_assets(repo_root, config)
+    link_errors = validate_links(
+        docs_root,
+        exclusion_mgr,
+        repo_root=repo_root,
+        config=config,
+        strict=strict,
+    )
+    orphans = find_orphans(docs_root, exclusion_mgr, repo_root=repo_root, config=config)
+    snippet_errors = validate_snippets(docs_root, exclusion_mgr, config=config)
+    placeholders = find_placeholders(docs_root, exclusion_mgr, config=config)
+    unused_assets = find_unused_assets(docs_root, exclusion_mgr, config=config)
 
     return compute_score(
         link_errors=len(link_errors),
@@ -1322,8 +1255,10 @@ def score(
     """Compute a 0–100 documentation quality score across all checks."""
     repo_root = find_repo_root()
     config, _ = ZenzicConfig.load(repo_root)
+    docs_root = (repo_root / config.docs_dir).resolve()
+    exclusion_mgr = _build_exclusion_manager(config, repo_root, docs_root)
     effective_strict = strict if strict is not None else config.strict
-    report = _run_all_checks(repo_root, config, strict=effective_strict)
+    report = _run_all_checks(repo_root, docs_root, config, exclusion_mgr, strict=effective_strict)
 
     # CLI flag takes precedence; fall back to zenzic.toml; 0 means disabled.
     effective_threshold = fail_under if fail_under > 0 else config.fail_under
@@ -1422,6 +1357,8 @@ def diff(
     """
     repo_root = find_repo_root()
     config, _ = ZenzicConfig.load(repo_root)
+    docs_root = (repo_root / config.docs_dir).resolve()
+    exclusion_mgr = _build_exclusion_manager(config, repo_root, docs_root)
     effective_strict = strict if strict is not None else config.strict
 
     baseline = load_snapshot(repo_root)
@@ -1432,7 +1369,7 @@ def diff(
         )
         raise typer.Exit(1)
 
-    current = _run_all_checks(repo_root, config, strict=effective_strict)
+    current = _run_all_checks(repo_root, docs_root, config, exclusion_mgr, strict=effective_strict)
     delta = current.score - baseline.score
 
     if output_format == "json":

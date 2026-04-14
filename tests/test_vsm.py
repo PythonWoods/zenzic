@@ -13,12 +13,13 @@ from __future__ import annotations
 from pathlib import Path
 
 import yaml
+from _helpers import make_mgr
 
 from zenzic.core.adapters._mkdocs import MkDocsAdapter
 from zenzic.core.adapters._vanilla import VanillaAdapter
 from zenzic.core.adapters._zensical import ZensicalAdapter
 from zenzic.core.validator import validate_links
-from zenzic.models.config import BuildContext
+from zenzic.models.config import BuildContext, ZenzicConfig
 from zenzic.models.vsm import Route, _detect_collisions, build_vsm
 
 
@@ -495,7 +496,10 @@ class TestUnreachableLinkDetection:
             link_to="guide/index.md",
             link_content="guide/index.md",
         )
-        errors = validate_links(repo)
+        config = ZenzicConfig()
+        docs_root = repo / config.docs_dir
+        mgr = make_mgr(config, repo_root=repo)
+        errors = validate_links(docs_root, mgr, repo_root=repo, config=config)
         assert not any("UNREACHABLE_LINK" in e for e in errors)
 
     def test_link_to_orphan_page_emits_unreachable_link(self, tmp_path: Path) -> None:
@@ -519,7 +523,10 @@ class TestUnreachableLinkDetection:
                 "nav": [{"Home": "index.md"}],  # guide/index.md intentionally absent
             },
         )
-        errors = validate_links(tmp_path)
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        errors = validate_links(docs_root, mgr, repo_root=tmp_path, config=config)
         assert any("UNREACHABLE_LINK" in e for e in errors), (
             f"Expected UNREACHABLE_LINK in errors but got: {errors}"
         )
@@ -536,7 +543,10 @@ class TestUnreachableLinkDetection:
         )
         _write_zenzic_toml(tmp_path, engine="mkdocs")
         # No mkdocs.yml → VanillaAdapter
-        errors = validate_links(tmp_path)
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        errors = validate_links(docs_root, mgr, repo_root=tmp_path, config=config)
         assert not any("UNREACHABLE_LINK" in e for e in errors)
 
     def test_zensical_never_emits_unreachable_link(self, tmp_path: Path) -> None:
@@ -552,7 +562,10 @@ class TestUnreachableLinkDetection:
         (tmp_path / "zensical.toml").write_text(
             '[site]\nname = "Test"\n[nav]\nnav = []\n', encoding="utf-8"
         )
-        errors = validate_links(tmp_path)
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        errors = validate_links(docs_root, mgr, repo_root=tmp_path, config=config)
         assert not any("UNREACHABLE_LINK" in e for e in errors)
 
     def test_conflict_route_not_emitting_unreachable_link(self, tmp_path: Path) -> None:
@@ -575,7 +588,10 @@ class TestUnreachableLinkDetection:
                 "nav": [{"Home": "index.md"}, {"Guide": "guide/index.md"}],
             },
         )
-        errors = validate_links(tmp_path)
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        errors = validate_links(docs_root, mgr, repo_root=tmp_path, config=config)
         # Should not contain UNREACHABLE_LINK for the CONFLICT route
         unreachable = [e for e in errors if "UNREACHABLE_LINK" in e]
         assert not unreachable, f"Unexpected UNREACHABLE_LINK for CONFLICT route: {unreachable}"

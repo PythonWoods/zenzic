@@ -82,6 +82,11 @@ _SECRETS: list[tuple[str, re.Pattern[str]]] = [
     ("hex-encoded-payload", re.compile(r"(?:\\x[0-9a-fA-F]{2}){3,}")),
 ]
 
+#: Maximum line length the Shield will scan.  Lines exceeding this limit
+#: are silently truncated before regex matching to prevent ReDoS or
+#: excessive memory consumption from pathological input (F2-1 hardening).
+_MAX_LINE_LENGTH: int = 1_048_576  # 1 MiB
+
 
 # ─── Data classes ─────────────────────────────────────────────────────────────
 
@@ -178,6 +183,9 @@ def scan_line_for_secrets(
         :class:`SecurityFinding` for each match found.
     """
     path = Path(file_path)
+    # F2-1 hardening: truncate pathologically long lines to prevent ReDoS
+    # or excessive memory consumption. The constant is defined above.
+    line = line[:_MAX_LINE_LENGTH]
     normalized = _normalize_line_for_shield(line)
     seen: set[str] = set()
 

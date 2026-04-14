@@ -285,6 +285,77 @@ perimeter-free access.
 See [ADR 003](https://zenzic.dev/docs/internals/adr/003-discovery-logic) for the full rationale and
 the ZRT-005 amendment history.
 
+### The Discovery Engine
+
+All file discovery in `src/zenzic/core/` flows through a single entry point:
+`iter_markdown_sources()` in `discovery.py`. Direct calls to `Path.rglob()`,
+`os.walk()`, or `Path.iterdir()` from scanner, validator, or Shield code are
+prohibited by design.
+
+Every function in `scanner.py` and `validator.py` that touches the filesystem
+takes a mandatory `exclusion_manager: LayeredExclusionManager` parameter. There
+are no `Optional` wrappers and no `None` fallbacks — the manager must be
+constructed before entry and passed explicitly.
+
+```python
+# ✅ Correct — mandatory ExclusionManager, single entry point
+from zenzic.core.discovery import iter_markdown_sources
+
+for md_file in iter_markdown_sources(docs_root, config, exclusion_manager):
+    content = md_file.read_text(encoding="utf-8")
+
+# ❌ Wrong — rglob bypasses the Layered Exclusion model
+for md_file in docs_root.rglob("*.md"):
+    ...
+```
+
+The `LayeredExclusionManager` implements a 4-level exclusion hierarchy:
+
+| Level | Name | Source | Mutable? |
+| :---: | :--- | :--- | :---: |
+| **L1** | System Guardrails | `SYSTEM_EXCLUDED_DIRS` (hardcoded) | No |
+| **L2** | Forced Inclusions + VCS | `included_dirs`, `.gitignore` | Config |
+| **L3** | Config Exclusions | `excluded_dirs`, `excluded_file_patterns` | Config |
+| **L4** | CLI Overrides | `--exclude-dir`, `--include-dir` | Per-run |
+
+**Testing standard:** All tests that need an `ExclusionManager` must use
+`make_mgr()` from `tests/_helpers.py`:
+
+```python
+from _helpers import make_mgr
+
+def test_my_scanner_function(tmp_path: Path) -> None:
+    config = ZenzicConfig()
+    mgr = make_mgr(config, repo_root=tmp_path, docs_root=tmp_path / "docs")
+    result = my_function(tmp_path / "docs", config, mgr)
+    ...
+```
+
+Do not import `make_mgr` from `conftest.py` — it is not importable under
+`--import-mode=importlib`. The `_helpers.py` module is made importable via
+`pythonpath = ["tests"]` in `pyproject.toml`.
+
+:::note[ADR-DEBT-001 — Test Helper Complexity Threshold]
+**Status:** Observed / Monitored
+**Date:** 2026-04-14
+**Context:** The `tests/_helpers.py` module was introduced in v0.6.1a1 to work
+around an incompatibility between pytest `--import-mode=importlib` and helpers
+defined in `conftest.py`. The workaround is correct and functional.
+
+**Concern:** As the test suite grows, `_helpers.py` risks accumulating unrelated
+utilities from multiple subsystems, becoming a de-facto "utility dumping ground".
+At the time of writing the suite has ~953 tests. If the suite surpasses **1,200
+tests**, the Architecture Lead should evaluate splitting `_helpers.py` into
+domain-specific helper modules (`_helpers_exclusion.py`, `_helpers_discovery.py`,
+etc.) using a Pytest-native fixture approach.
+
+**Acceptance criterion for refactor trigger:** Any sprint that adds more than 3
+distinct helper function categories to `_helpers.py` in a single PR should open
+a follow-up issue for the refactor.
+
+**Owner:** Architecture Lead
+:::
+
 ---
 
 ## Security & Compliance

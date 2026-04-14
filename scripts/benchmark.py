@@ -27,7 +27,8 @@ from pathlib import Path
 from rich.console import Console
 from rich.table import Table
 
-from zenzic.core.scanner import scan_docs_references, scan_docs_references_parallel
+from zenzic.core.exclusion import LayeredExclusionManager
+from zenzic.core.scanner import scan_docs_references
 from zenzic.models.config import ZenzicConfig
 
 
@@ -59,13 +60,26 @@ def _create_synthetic_repo(n_files: int) -> Path:
     return base
 
 
-def _bench(label: str, fn: object, repo: Path, config: ZenzicConfig, runs: int = 3) -> dict:
-    """Run *fn(repo, config)* *runs* times and return timing statistics."""
+def _make_exclusion_manager(config: ZenzicConfig, repo: Path) -> LayeredExclusionManager:
+    """Build a LayeredExclusionManager for *repo* using *config*."""
+    docs_root = (repo / config.docs_dir).resolve()
+    return LayeredExclusionManager(config, repo_root=repo, docs_root=docs_root)
+
+
+def _bench(
+    label: str,
+    docs_root: Path,
+    exclusion_mgr: LayeredExclusionManager,
+    config: ZenzicConfig,
+    workers: int = 1,
+    runs: int = 3,
+) -> dict:
+    """Run scan_docs_references *runs* times and return timing statistics."""
     times: list[float] = []
     n_reports = 0
     for _ in range(runs):
         t0 = time.perf_counter()
-        reports = fn(repo, config)  # type: ignore[call-arg]
+        reports, _ = scan_docs_references(docs_root, exclusion_mgr, config=config, workers=workers)
         elapsed = time.perf_counter() - t0
         times.append(elapsed)
         n_reports = len(reports)
@@ -113,26 +127,39 @@ def main() -> None:
         console.print("[dim]Generating synthetic repo…[/]")
         repo = _create_synthetic_repo(args.files)
     config = ZenzicConfig()
+    docs_root = (repo / config.docs_dir).resolve()
+    exclusion_mgr = _make_exclusion_manager(config, repo)
 
     results: list[dict] = []
 
-    console.print("[dim]Running sequential scan…[/]")
+    console.print("[dim]Running sequential scan (workers=1)…[/]")
     results.append(
-        _bench("Sequential (single-thread)", scan_docs_references, repo, config, args.runs)
+        _bench(
+            "Sequential (single-thread)",
+            docs_root,
+            exclusion_mgr,
+            config,
+            workers=1,
+            runs=args.runs,
+        )
     )
 
     if not args.no_parallel:
         console.print(f"[dim]Running parallel scan ({args.workers} workers)…[/]")
-
-        def parallel_fn(r: Path, c: ZenzicConfig) -> list:
-            return scan_docs_references_parallel(r, c, workers=args.workers)
-
         results.append(
-            _bench(f"Parallel ({args.workers} workers)", parallel_fn, repo, config, args.runs)
+            _bench(
+                f"Parallel ({args.workers} workers)",
+                docs_root,
+                exclusion_mgr,
+                config,
+                workers=args.workers,
+                runs=args.runs,
+            )
         )
 
     # ── Output table ───────────────────────────────────────────────────────────
-    table = Table(title=f"Results — {args.files} files, {args.runs} run(s)")
+    n_label = repo.name if use_real_repo else f"{args.files} synthetic files"
+    table = Table(title=f"Results — {n_label}, {args.runs} run(s)")
     table.add_column("Strategy", style="bold")
     table.add_column("Files", justify="right")
     table.add_column("Median (s)", justify="right")
@@ -161,7 +188,7 @@ def main() -> None:
         )
         console.print(
             f"\n[bold]Speedup:[/] parallel is [cyan]{speedup:.2f}×[/] faster than sequential "
-            f"({args.workers} workers, {args.files} files)\n"
+            f"({args.workers} workers, {n_label})\n"
         )
 
     # Cleanup (only remove synthetic repos, never real ones)

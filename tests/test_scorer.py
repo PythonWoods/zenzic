@@ -142,13 +142,25 @@ def test_snapshot_roundtrip_preserves_categories(tmp_path: Path) -> None:
 # ─── CLI: zenzic score ────────────────────────────────────────────────────────
 
 
-def _mock_all_checks_empty(repo_root: Path, config: object, strict: bool) -> ScoreReport:
+def _mock_all_checks_empty(
+    repo_root: Path,
+    docs_root: Path,
+    config: object,
+    exclusion_mgr: object,
+    strict: bool,
+) -> ScoreReport:
     return compute_score(
         link_errors=0, orphans=0, snippet_errors=0, placeholders=0, unused_assets=0
     )
 
 
-def _mock_all_checks_with_issues(repo_root: Path, config: object, strict: bool) -> ScoreReport:
+def _mock_all_checks_with_issues(
+    repo_root: Path,
+    docs_root: Path,
+    config: object,
+    exclusion_mgr: object,
+    strict: bool,
+) -> ScoreReport:
     return compute_score(
         link_errors=2, orphans=1, snippet_errors=1, placeholders=3, unused_assets=1
     )

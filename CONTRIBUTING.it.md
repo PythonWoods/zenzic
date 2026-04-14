@@ -225,6 +225,56 @@ Aggiungere `fallback_to_cwd=True` a qualsiasi comando diverso da `init` richiede
 
 Vedi [ADR 003](https://zenzic.dev/docs/internals/adr/003-discovery-logic) per la motivazione completa e la storia della modifica ZRT-005.
 
+### Il Motore di Discovery
+
+Tutta la scoperta dei file in `src/zenzic/core/` passa attraverso un singolo punto
+d'ingresso: `iter_markdown_sources()` in `discovery.py`. Le chiamate dirette a
+`Path.rglob()`, `os.walk()`, o `Path.iterdir()` da scanner, validator, o Shield
+sono proibite per design.
+
+Ogni funzione in `scanner.py` e `validator.py` che accede al filesystem prende un
+parametro obbligatorio `exclusion_manager: LayeredExclusionManager`. Non esistono
+wrapper `Optional` e nessun fallback `None` — il manager deve essere costruito
+prima dell'ingresso e passato esplicitamente.
+
+```python
+# ✅ Corretto — ExclusionManager obbligatorio, punto d'ingresso unico
+from zenzic.core.discovery import iter_markdown_sources
+
+for md_file in iter_markdown_sources(docs_root, config, exclusion_manager):
+    content = md_file.read_text(encoding="utf-8")
+
+# ❌ Errato — rglob aggira il modello di Esclusione a Livelli
+for md_file in docs_root.rglob("*.md"):
+    ...
+```
+
+Il `LayeredExclusionManager` implementa una gerarchia di esclusione a 4 livelli:
+
+| Livello | Nome | Sorgente | Mutabile? |
+| :---: | :--- | :--- | :---: |
+| **L1** | Guardrail di Sistema | `SYSTEM_EXCLUDED_DIRS` (hardcoded) | No |
+| **L2** | Inclusioni Forzate + VCS | `included_dirs`, `.gitignore` | Config |
+| **L3** | Esclusioni Config | `excluded_dirs`, `excluded_file_patterns` | Config |
+| **L4** | Override CLI | `--exclude-dir`, `--include-dir` | Per-run |
+
+**Standard per i test:** Tutti i test che necessitano di un `ExclusionManager`
+devono usare `make_mgr()` da `tests/_helpers.py`:
+
+```python
+from _helpers import make_mgr
+
+def test_my_scanner_function(tmp_path: Path) -> None:
+    config = ZenzicConfig()
+    mgr = make_mgr(config, repo_root=tmp_path, docs_root=tmp_path / "docs")
+    result = my_function(tmp_path / "docs", config, mgr)
+    ...
+```
+
+Non importare `make_mgr` da `conftest.py` — non è importabile sotto
+`--import-mode=importlib`. Il modulo `_helpers.py` è reso importabile tramite
+`pythonpath = ["tests"]` in `pyproject.toml`.
+
 ---
 
 ## Sicurezza & Conformità

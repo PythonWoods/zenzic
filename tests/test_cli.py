@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import ANY, patch
 
 import pytest
 from typer.testing import CliRunner
@@ -86,7 +86,13 @@ def test_check_links_with_errors(_links, _cfg, _root) -> None:
 @patch("zenzic.cli.validate_links_structured", return_value=[])
 def test_check_links_strict_passes_flag(mock_links, _cfg, _root) -> None:
     runner.invoke(app, ["check", "links", "--strict"])
-    mock_links.assert_called_once_with(_ROOT, strict=True)
+    mock_links.assert_called_once_with(
+        _ROOT / "docs",
+        ANY,
+        repo_root=_ROOT,
+        config=_CFG,
+        strict=True,
+    )
 
 
 @patch("zenzic.cli.find_repo_root", return_value=_ROOT)
