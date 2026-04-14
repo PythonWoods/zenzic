@@ -67,11 +67,12 @@ excluded_build_artifacts = [
 # External URLs excluded from the broken-link check.
 # The GitHub repository URL returns 429 in CI (rate-limited).
 # The settings/tokens URL requires authentication (403 for bots).
-# The zenzic.dev ADR link is valid but may time out in CI before the site is deployed.
+# zenzic.dev is excluded entirely: the site is not yet deployed and all
+# sub-paths time out (>10 s).  Re-enable once DNS propagation is complete.
 excluded_external_urls = [
     "https://github.com/PythonWoods/zenzic",
     "https://github.com/settings/tokens",
-    "https://zenzic.dev/docs/internals/adr/003-discovery-logic",
+    "https://zenzic.dev/",
 ]
 
 # Pattern matching disabled: the README and CHANGELOG describe placeholder

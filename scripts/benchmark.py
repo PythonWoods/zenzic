@@ -79,9 +79,7 @@ def _bench(
     n_reports = 0
     for _ in range(runs):
         t0 = time.perf_counter()
-        reports, _ = scan_docs_references(
-            docs_root, exclusion_mgr, config=config, workers=workers
-        )
+        reports, _ = scan_docs_references(docs_root, exclusion_mgr, config=config, workers=workers)
         elapsed = time.perf_counter() - t0
         times.append(elapsed)
         n_reports = len(reports)
@@ -136,7 +134,14 @@ def main() -> None:
 
     console.print("[dim]Running sequential scan (workers=1)…[/]")
     results.append(
-        _bench("Sequential (single-thread)", docs_root, exclusion_mgr, config, workers=1, runs=args.runs)
+        _bench(
+            "Sequential (single-thread)",
+            docs_root,
+            exclusion_mgr,
+            config,
+            workers=1,
+            runs=args.runs,
+        )
     )
 
     if not args.no_parallel:
