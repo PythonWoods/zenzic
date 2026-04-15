@@ -11,7 +11,7 @@ Le versioni seguono il [Semantic Versioning](https://semver.org/).
 
 ## [Non rilasciato]
 
-## [0.6.1a1] — 2026-04-14 — Obsidian Bastion
+## [0.6.1rc1] — 2026-04-15 — Obsidian Bastion
 
 ### Breaking Changes
 

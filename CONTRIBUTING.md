@@ -338,7 +338,7 @@ Do not import `make_mgr` from `conftest.py` — it is not importable under
 :::note[ADR-DEBT-001 — Test Helper Complexity Threshold]
 **Status:** Observed / Monitored
 **Date:** 2026-04-14
-**Context:** The `tests/_helpers.py` module was introduced in v0.6.1a1 to work
+**Context:** The `tests/_helpers.py` module was introduced in v0.6.1rc1 to work
 around an incompatibility between pytest `--import-mode=importlib` and helpers
 defined in `conftest.py`. The workaround is correct and functional.
 

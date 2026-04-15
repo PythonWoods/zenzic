@@ -35,18 +35,24 @@ SPDX-License-Identifier: Apache-2.0
 </p>
 
 <p align="center">
-  <strong>"Zenzic is the silent guardian of your documentation. It doesn't just check links; it audits your brand's technical integrity."</strong><br>
+  <em>Zenzic Shield internally audits this repository for credential leaks on every commit.</em>
+</p>
+
+<p align="center">
+  <strong>"Zenzic is the Safe Harbor for your documentation integrity. It doesn't just check links; it audits your brand's technical resilience."</strong><br>
   <em>Engineering-grade documentation linter — standalone, engine-agnostic, and security-hardened.</em>
 </p>
 
 ```bash
-╭───────────────────────  🛡  ZENZIC SENTINEL  v0.6.1a1  ───────────────────────╮
+╭───────────────────────  🛡  ZENZIC SENTINEL  v0.6.1rc1  ───────────────────────╮
 │                                                                              │
-│  docusaurus • 2 files (2 docs, 0 assets) • 0.0s                              │
+│  docusaurus • 38 files (18 docs, 20 assets) • 0.9s                           │
 │                                                                              │
 │  ──────────────────────────────────────────────────────────────────────────  │
 │                                                                              │
 │  ✔ All checks passed. Your documentation is secure.                          │
+│                                                                              │
+│    💡 4 info findings suppressed — use --show-info for details.              │
 │                                                                              │
 ╰──────────────────────────────────────────────────────────────────────────────╯
 ```
@@ -57,28 +63,24 @@ SPDX-License-Identifier: Apache-2.0
 
 Broken links, orphan pages, invalid code snippets, stale placeholder content, and leaked API keys
 accumulate over time — until users hit them in production. Zenzic catches all of these across
-[MkDocs][mkdocs] and [Zensical][zensical] projects as a **standalone CLI**.
+[Docusaurus][docusaurus], [MkDocs][mkdocs], and [Zensical][zensical] projects as a **standalone CLI** —
+no build framework required.
 
-Zenzic is **agnostic** — it works with any Markdown-based documentation system (MkDocs, Zensical,
-or a bare folder of `.md` files) without installing any build framework. And it is **opinionated**:
-absolute links are a hard error, and if you declare `engine = "zensical"` you must have
-`zensical.toml` — no fallback, no guessing.
-
-Current Zensical compatibility baseline: **v0.0.31+**.
-
-Project attribution: Zenzic is a PythonWoods project. Zensical, MkDocs, and other
-referenced ecosystem tools are third-party projects.
+Zenzic is **agnostic** — it works with any Markdown-based documentation system (Docusaurus, MkDocs,
+Zensical, or a bare folder of `.md` files) without installing any build framework. It reads raw source
+files and build configurations as plain text. And it is **opinionated**: absolute links are a hard error,
+engine identity must be provable, and the CLI is 100% subprocess-free.
 
 ---
 
 ## Core Capabilities
 
-- **Security** — Shield (8 credential families, Exit 2) & Blood Sentinel (host-path traversal, Exit 3). Neither is suppressed by `--exit-zero`.
+- **Security** — Shield (8 credential families, Exit 2) & Blood Sentinel (host-path traversal, Exit 3). ReDoS-safe regex (F2-1), jailbreak protection (F4-1). Neither is suppressed by `--exit-zero`.
 - **Integrity** — O(V+E) circular link detection, Virtual Site Map with content-addressable cache, deterministic 0–100 quality score.
-- **Intelligence** — Multi-engine: MkDocs, Docusaurus, Zensical, and Vanilla. Third-party adapters install as Python packages via entry points.
+- **Intelligence** — Multi-engine: MkDocs, Docusaurus v3, Zensical, and Vanilla. Module-level adapter cache. Third-party adapters install as Python packages via entry points.
+- **Discovery** — Universal VCS-aware file iteration (zero `rglob`), mandatory `ExclusionManager` on every entry point, 4-level Layered Exclusion hierarchy, pure-Python `.gitignore` parser.
 
-> 🚀 **Latest Release: v0.6.1a1 "Obsidian Bastion"** — native Docusaurus v3 adapter, core-only architecture.
-> See [CHANGELOG.md](CHANGELOG.md) for the full release history.
+> 🚀 **Latest Release: v0.6.1rc1 "Obsidian Bastion"** — see [CHANGELOG.md](CHANGELOG.md) for details.
 
 ---
 
@@ -140,40 +142,27 @@ hosted in a subdirectory (e.g. `https://example.com/docs/assets/logo.png` ≠
 The error message includes an explicit fix suggestion. External URLs (`https://...`) are not
 affected.
 
-### i18n Support: Suffix Mode and Folder Mode
+### i18n Support: Multi-Engine Locale Resolution
 
-Zenzic natively supports both i18n strategies used by `mkdocs-static-i18n`:
+Zenzic natively supports locale-aware documentation across all engines:
 
-**Suffix Mode** (`page.locale.md`) — translated files are siblings of the originals:
+**MkDocs — Suffix Mode** (`page.locale.md`) and **Folder Mode** (`docs/it/page.md`) via
+`mkdocs-static-i18n`. Links from translated pages to untranslated pages are resolved through
+the default-locale fallback when `fallback_to_default: true` is set.
 
-```text
-docs/
-  guide.md        ← default locale (EN)
-  guide.it.md     ← Italian translation (same depth, path-symmetric)
-  assets/
-    logo.png      ← shared asset, same relative path from both files
-```
+**Docusaurus v3 — i18n directory** (`i18n/it/docusaurus-plugin-content-docs/current/`).
+Zenzic discovers locale trees from `docusaurus.config.ts` automatically. Links between
+locale pages and default-locale assets are resolved without configuration.
 
-**Folder Mode** (`docs/it/page.md`) — non-default locales live in a top-level directory:
+**Zensical** — Suffix Mode only (`page.locale.md`), similar to MkDocs.
 
-```text
-docs/
-  guide.md
-  assets/
-    logo.png
-  it/
-    guide.md      ← Italian translation
-```
-
-In Folder Mode, Zenzic uses the `[build_context]` section in `zenzic.toml` to know which
-top-level directories are locale trees. Asset links from `docs/it/guide.md` that resolve to
-`docs/it/assets/logo.png` are automatically re-checked against `docs/assets/logo.png` —
-mirroring the engine's own fallback behaviour. Locale files are never reported as orphans.
+In Folder Mode (MkDocs) and Docusaurus i18n, Zenzic uses the `[build_context]` section in
+`zenzic.toml` to identify locale directories:
 
 ```toml
 # zenzic.toml
 [build_context]
-engine         = "mkdocs"      # "mkdocs", "docusaurus", or "zensical"
+engine         = "mkdocs"      # "mkdocs", "docusaurus", "zensical", or "vanilla"
 default_locale = "en"
 locales        = ["it", "fr"]  # non-default locale directory names
 ```
@@ -386,10 +375,22 @@ pip install --pre zenzic
 
 ### Lean & Agnostic by Design
 
-Zenzic performs a **static analysis** of your configuration files (`mkdocs.yml`, `zensical.toml`, `pyproject.toml`). It does **not** execute the build engine or its plugins.
+Zenzic performs a **static analysis** of your configuration files (`mkdocs.yml`, `docusaurus.config.ts`, `zensical.toml`, `pyproject.toml`). It does **not** execute the build engine or its plugins — it is 100% subprocess-free. Docusaurus configuration (`.ts`/`.js`) is analysed via static text parsing — Node.js is never invoked.
 
-This means you **do not need to install** MkDocs, Material for MkDocs, or any other build-related plugins in your linting environment. Zenzic remains lightweight and dependency-free, making it ideal for fast, isolated CI/CD pipelines.
+This means you **do not need to install** MkDocs, Docusaurus, Material for MkDocs, or any other
+build-related plugins in your linting environment. Zenzic remains lightweight and dependency-free,
+making it ideal for fast, isolated CI/CD pipelines.
 
+**Installation extras:**
+
+| Command | What you get |
+| :--- | :--- |
+| `pip install zenzic` | Core CLI + Docusaurus, Zensical, and Vanilla adapters. No engine library required. |
+| `pip install "zenzic[mkdocs]"` | Core + the **MkDocs plugin** (`zenzic.integrations.mkdocs`). Adds `mkdocs` as a dependency. |
+
+> The MkDocs extra is needed **only** if you want the build-time plugin integration.
+> For standalone CLI usage (`zenzic check all`), the base install is sufficient for every engine.
+>
 > **Build artifacts:** If your documentation links to files generated at build time
 > (PDFs, ZIPs), add their glob patterns to `excluded_build_artifacts` in `zenzic.toml`
 > rather than pre-generating them. See the [First-Class Integrations](#first-class-integrations) section above.
@@ -430,6 +431,11 @@ zenzic check references --links   # Also validate reference URLs via async HTTP
 zenzic check all --strict
 zenzic check all --exit-zero      # Report without blocking the pipeline
 zenzic check all --format json    # Machine-readable output
+zenzic check all --engine docusaurus  # Explicit engine override
+
+# Exclusion control
+zenzic check all --exclude-dir drafts --exclude-dir temp
+zenzic check all --include-dir guides  # Only scan specific directories
 
 # Quality score (0–100)
 zenzic score
@@ -575,7 +581,7 @@ fail_under = 80   # exit 1 if score drops below this; 0 = observational mode
 # Engine and i18n context — required only for folder-mode multi-locale projects.
 # When absent, Zenzic reads locale config directly from mkdocs.yml.
 [build_context]
-engine         = "mkdocs"   # "mkdocs" or "zensical"
+engine         = "mkdocs"   # "mkdocs", "docusaurus", "zensical", or "vanilla"
 default_locale = "en"
 locales        = ["it"]     # non-default locale directory names
 ```
@@ -628,19 +634,24 @@ nox -s preflight   # full CI pipeline (lint + test + self-check)
 The full Sentinel audit — banner, engine detection, and pass/fail verdict:
 
 ```bash
-╭───────────────────────  🛡  ZENZIC SENTINEL  v0.6.1a1  ───────────────────────╮
+╭───────────────────────  🛡  ZENZIC SENTINEL  v0.6.1rc1  ───────────────────────╮
 │                                                                              │
-│  mkdocs • 12 files (10 docs, 2 assets) • 0.1s                                │
+│  docusaurus • 38 files (18 docs, 20 assets) • 0.9s                           │
 │                                                                              │
-│  ───────────────────────────── docs/guide.md ──────────────────────────────  │
+│  ────────────────────── docs/guides/setup.mdx ───────────────────────────  │
 │                                                                              │
-│    ✗ [LINK]  Broken link → ../missing-page.md (file not found)               │
+│    ✗ 12:   [Z001]  'quickstart.mdx' not found in docs                        │
+│        │                                                                     │
+│    12  │ Read the [quickstart guide](quickstart.mdx) first.                  │
+│        │                                                                     │
 │                                                                              │
 │  ──────────────────────────────────────────────────────────────────────────  │
 │                                                                              │
 │  ✗ 1 error  • 1 file with findings                                           │
 │                                                                              │
 │  FAILED: One or more checks failed.                                          │
+│                                                                              │
+│    💡 4 info findings suppressed — use --show-info for details.              │
 │                                                                              │
 ╰──────────────────────────────────────────────────────────────────────────────╯
 ```
@@ -686,6 +697,7 @@ Apache-2.0 — see [LICENSE][license].
 <!-- ─── Reference link definitions ──────────────────────────────────────────── -->
 
 [mkdocs]:            https://www.mkdocs.org/
+[docusaurus]:        https://docusaurus.io/
 [zensical]:          https://zensical.org/
 [uv]:                https://docs.astral.sh/uv/
 [docs-home]:         https://zenzic.dev/docs/
