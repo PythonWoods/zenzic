@@ -235,3 +235,98 @@ class TestExitCodePriorityE2E:
             f"Exit 3 (security_incident) must beat Exit 2 (security_breach), "
             f"got {result.exit_code}.\nOutput:\n{result.stdout}"
         )
+
+
+# ── --format json on individual check commands ──────────────────────────────
+
+
+class TestJsonFormatE2E:
+    """--format json outputs structured JSON on individual check commands."""
+
+    def test_check_links_json(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """check links --format json outputs valid JSON with findings/summary keys."""
+        _make_sandbox(tmp_path, {"docs/index.md": "# Hello\n\nEnough words to not be a placeholder for the scanner."})
+        monkeypatch.chdir(tmp_path)
+
+        result = runner.invoke(app, ["check", "links", "--format", "json"])
+
+        assert result.exit_code == 0
+        import json
+
+        data = json.loads(result.stdout)
+        assert "findings" in data
+        assert "summary" in data
+        assert "errors" in data["summary"]
+        assert "elapsed_seconds" in data["summary"]
+
+    def test_check_orphans_json(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """check orphans --format json outputs valid JSON."""
+        _make_sandbox(tmp_path, {"docs/index.md": "# Home\n\nWords words words words words words words."})
+        monkeypatch.chdir(tmp_path)
+
+        result = runner.invoke(app, ["check", "orphans", "--format", "json"])
+
+        assert result.exit_code == 0
+        import json
+
+        data = json.loads(result.stdout)
+        assert "findings" in data
+        assert "summary" in data
+
+    def test_check_snippets_json(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """check snippets --format json outputs valid JSON."""
+        _make_sandbox(tmp_path, {"docs/index.md": "# Home\n\nWords words words."})
+        monkeypatch.chdir(tmp_path)
+
+        result = runner.invoke(app, ["check", "snippets", "--format", "json"])
+
+        assert result.exit_code == 0
+        import json
+
+        data = json.loads(result.stdout)
+        assert "findings" in data
+        assert "summary" in data
+
+    def test_check_references_json(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """check references --format json outputs valid JSON."""
+        _make_sandbox(tmp_path, {"docs/index.md": "# Home\n\nWords words words."})
+        monkeypatch.chdir(tmp_path)
+
+        result = runner.invoke(app, ["check", "references", "--format", "json"])
+
+        assert result.exit_code == 0
+        import json
+
+        data = json.loads(result.stdout)
+        assert "findings" in data
+        assert "summary" in data
+
+    def test_check_assets_json(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """check assets --format json outputs valid JSON."""
+        _make_sandbox(tmp_path, {"docs/index.md": "# Home\n\nWords words words."})
+        monkeypatch.chdir(tmp_path)
+
+        result = runner.invoke(app, ["check", "assets", "--format", "json"])
+
+        assert result.exit_code == 0
+        import json
+
+        data = json.loads(result.stdout)
+        assert "findings" in data
+        assert "summary" in data
+
+    def test_check_links_json_exit_code_on_error(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """check links --format json still exits 1 on broken links."""
+        _make_sandbox(tmp_path, {"docs/index.md": "# Home\n\n[Broken](nope.md)"})
+        monkeypatch.chdir(tmp_path)
+
+        result = runner.invoke(app, ["check", "links", "--format", "json"])
+
+        assert result.exit_code == 1
+        import json
+
+        data = json.loads(result.stdout)
+        assert data["summary"]["errors"] > 0
+        assert len(data["findings"]) > 0
