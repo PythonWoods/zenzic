@@ -111,6 +111,31 @@ def _apply_engine_override(config: ZenzicConfig, engine: str | None) -> ZenzicCo
     return config.model_copy(update={"build_context": new_context})
 
 
+def _output_json_findings(findings: list[Finding], elapsed: float) -> None:
+    """Serialize findings list to JSON and print to stdout."""
+    report = {
+        "findings": [
+            {
+                "rel_path": f.rel_path,
+                "line_no": f.line_no,
+                "code": f.code,
+                "severity": f.severity,
+                "message": f.message,
+            }
+            for f in findings
+        ],
+        "summary": {
+            "errors": sum(1 for f in findings if f.severity == "error"),
+            "warnings": sum(1 for f in findings if f.severity == "warning"),
+            "info": sum(1 for f in findings if f.severity == "info"),
+            "security_incidents": sum(1 for f in findings if f.severity == "security_incident"),
+            "security_breaches": sum(1 for f in findings if f.severity == "security_breach"),
+            "elapsed_seconds": round(elapsed, 3),
+        },
+    }
+    print(json.dumps(report, indent=2))
+
+
 def _render_link_error(err: LinkError, docs_root: Path) -> None:
     """Print a single LinkError with a Visual Snippet when source context is available."""
     try:
@@ -232,6 +257,7 @@ def _count_docs_assets(
 @check_app.command(name="links")
 def check_links(
     strict: bool = typer.Option(False, "--strict", "-s", help="Exit non-zero on any warning."),
+    output_format: str = typer.Option("text", "--format", help="Output format: text or json."),
     show_info: bool = typer.Option(
         False, "--show-info", help="Show info-level findings (e.g. circular links) in the report."
     ),
@@ -280,6 +306,16 @@ def check_links(
         for err in link_errors
     ]
 
+    if output_format == "json":
+        _output_json_findings(findings, elapsed)
+        incidents = sum(1 for f in findings if f.severity == "security_incident")
+        if incidents:
+            raise typer.Exit(3)
+        errors_count = sum(1 for f in findings if f.severity == "error")
+        if errors_count:
+            raise typer.Exit(1)
+        return
+
     docs_count, assets_count = _count_docs_assets(docs_root, repo_root, exclusion_mgr)
     reporter = SentinelReporter(console, docs_root, docs_dir=str(config.docs_dir))
     errors, warnings = reporter.render(
@@ -308,6 +344,7 @@ def check_orphans(
         "Auto-detected from zenzic.toml when omitted.",
         metavar="ENGINE",
     ),
+    output_format: str = typer.Option("text", "--format", help="Output format: text or json."),
     show_info: bool = typer.Option(
         False, "--show-info", help="Show info-level findings (e.g. circular links) in the report."
     ),
@@ -338,6 +375,12 @@ def check_orphans(
         for path in orphans
     ]
 
+    if output_format == "json":
+        _output_json_findings(findings, elapsed)
+        if findings:
+            raise typer.Exit(1)
+        return
+
     docs_count, assets_count = _count_docs_assets(docs_root, repo_root, exclusion_mgr)
     reporter = SentinelReporter(console, docs_root, docs_dir=str(config.docs_dir))
     errors, warnings = reporter.render(
@@ -357,6 +400,7 @@ def check_orphans(
 
 @check_app.command(name="snippets")
 def check_snippets(
+    output_format: str = typer.Option("text", "--format", help="Output format: text or json."),
     show_info: bool = typer.Option(
         False, "--show-info", help="Show info-level findings (e.g. circular links) in the report."
     ),
@@ -402,6 +446,13 @@ def check_snippets(
             )
         )
 
+    if output_format == "json":
+        _output_json_findings(findings, elapsed)
+        errors_count = sum(1 for f in findings if f.severity == "error")
+        if errors_count:
+            raise typer.Exit(1)
+        return
+
     docs_count, assets_count = _count_docs_assets(docs_root, repo_root, exclusion_mgr)
     reporter = SentinelReporter(console, docs_root, docs_dir=str(config.docs_dir))
     errors, warnings = reporter.render(
@@ -432,6 +483,7 @@ def check_references(
         "-l",
         help="Also validate external HTTP/HTTPS reference URLs via async HEAD requests.",
     ),
+    output_format: str = typer.Option("text", "--format", help="Output format: text or json."),
     show_info: bool = typer.Option(
         False, "--show-info", help="Show info-level findings (e.g. circular links) in the report."
     ),
@@ -525,6 +577,17 @@ def check_references(
             )
         )
 
+    if output_format == "json":
+        _output_json_findings(findings, elapsed)
+        breaches = sum(1 for f in findings if f.severity == "security_breach")
+        if breaches:
+            raise typer.Exit(2)
+        errors_count = sum(1 for f in findings if f.severity == "error")
+        warnings_count = sum(1 for f in findings if f.severity == "warning")
+        if errors_count or (strict and warnings_count):
+            raise typer.Exit(1)
+        return
+
     docs_count, assets_count = _count_docs_assets(docs_root, repo_root, exclusion_mgr)
     reporter = SentinelReporter(console, docs_root, docs_dir=str(config.docs_dir))
     errors, warnings = reporter.render(
@@ -548,6 +611,7 @@ def check_references(
 
 @check_app.command(name="assets")
 def check_assets(
+    output_format: str = typer.Option("text", "--format", help="Output format: text or json."),
     show_info: bool = typer.Option(
         False, "--show-info", help="Show info-level findings (e.g. circular links) in the report."
     ),
@@ -576,6 +640,12 @@ def check_assets(
         )
         for path in unused
     ]
+
+    if output_format == "json":
+        _output_json_findings(findings, elapsed)
+        if findings:
+            raise typer.Exit(1)
+        return
 
     docs_count, assets_count = _count_docs_assets(docs_root, repo_root, exclusion_mgr)
     reporter = SentinelReporter(console, docs_root, docs_dir=str(config.docs_dir))
