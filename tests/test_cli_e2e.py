@@ -245,7 +245,10 @@ class TestJsonFormatE2E:
 
     def test_check_links_json(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """check links --format json outputs valid JSON with findings/summary keys."""
-        _make_sandbox(tmp_path, {"docs/index.md": "# Hello\n\nEnough words to not be a placeholder for the scanner."})
+        _make_sandbox(
+            tmp_path,
+            {"docs/index.md": "# Hello\n\nEnough words to not be a placeholder for the scanner."},
+        )
         monkeypatch.chdir(tmp_path)
 
         result = runner.invoke(app, ["check", "links", "--format", "json"])
@@ -261,7 +264,9 @@ class TestJsonFormatE2E:
 
     def test_check_orphans_json(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """check orphans --format json outputs valid JSON."""
-        _make_sandbox(tmp_path, {"docs/index.md": "# Home\n\nWords words words words words words words."})
+        _make_sandbox(
+            tmp_path, {"docs/index.md": "# Home\n\nWords words words words words words words."}
+        )
         monkeypatch.chdir(tmp_path)
 
         result = runner.invoke(app, ["check", "orphans", "--format", "json"])
