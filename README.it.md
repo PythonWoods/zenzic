@@ -44,7 +44,7 @@ SPDX-License-Identifier: Apache-2.0
 </p>
 
 ```bash
-╭───────────────────────  🛡  ZENZIC SENTINEL  v0.6.1a1  ───────────────────────╮
+╭───────────────────────  🛡  ZENZIC SENTINEL  v0.6.1rc1  ───────────────────────╮
 │                                                                              │
 │  docusaurus • 38 files (18 docs, 20 assets) • 0.9s                           │
 │                                                                              │
@@ -82,7 +82,7 @@ dimostrabile, e la CLI è 100% subprocess-free.
 - **Intelligenza** — Multi-engine: MkDocs, Docusaurus v3, Zensical e Vanilla. Cache adapter a livello di modulo. Gli adapter di terze parti si installano come pacchetti Python tramite entry point.
 - **Discovery** — Iterazione file universale VCS-aware (zero `rglob`), `ExclusionManager` obbligatorio su ogni entry point, gerarchia di Esclusione a 4 livelli, parser `.gitignore` pure-Python.
 
-> 🚀 **Ultima Release: v0.6.1a1 "Obsidian Bastion"** — vedi [CHANGELOG.md](CHANGELOG.md) per i dettagli.
+> 🚀 **Ultima Release: v0.6.1rc1 "Obsidian Bastion"** — vedi [CHANGELOG.md](CHANGELOG.md) per i dettagli.
 
 ---
 
@@ -642,7 +642,7 @@ nox -s preflight   # pipeline CI completa (lint + test + self-check)
 L'audit completo della Sentinella — banner, rilevamento engine e verdetto:
 
 ```bash
-╭───────────────────────  🛡  ZENZIC SENTINEL  v0.6.1a1  ───────────────────────╮
+╭───────────────────────  🛡  ZENZIC SENTINEL  v0.6.1rc1  ───────────────────────╮
 │                                                                              │
 │  docusaurus • 38 files (18 docs, 20 assets) • 0.9s                           │
 │                                                                              │
