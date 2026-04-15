@@ -273,6 +273,33 @@ class TestShieldNormalizer:
         types = [f.secret_type for f in findings]
         assert types.count("aws-access-key") == 1, "Deduplication must prevent double-emit"
 
+    def test_scan_line_catches_gitlab_pat(self) -> None:
+        """scan_line_for_secrets must catch a GitLab Personal Access Token."""
+        line = "token: glpat-xxxxxxxxxxxxxxxxxxxx"
+        findings = list(scan_line_for_secrets(line, Path("docs/config.md"), 1))
+        assert len(findings) >= 1
+        assert findings[0].secret_type == "gitlab-pat"
+
+    def test_scan_line_catches_gitlab_pat_in_url(self) -> None:
+        """GitLab PAT embedded in a URL must be detected."""
+        url = "https://gitlab.com/api/v4/projects?private_token=glpat-AbCdEfGhIjKlMnOpQrSt1234"
+        findings = list(scan_line_for_secrets(url, Path("docs/api.md"), 5))
+        secret_types = {f.secret_type for f in findings}
+        assert "gitlab-pat" in secret_types
+
+    def test_scan_line_no_false_positive_on_glpat_prefix(self) -> None:
+        """Short strings starting with glpat- must not trigger (need 20+ chars after)."""
+        line = "variable: glpat-short"
+        findings = list(scan_line_for_secrets(line, Path("docs/config.md"), 1))
+        gitlab_findings = [f for f in findings if f.secret_type == "gitlab-pat"]
+        assert gitlab_findings == []
+
+    def test_scan_line_no_false_positive_on_clean_line(self) -> None:
+        """Clean lines must not trigger GitLab PAT detection."""
+        line = "GitLab is a DevOps platform"
+        findings = list(scan_line_for_secrets(line, Path("docs/intro.md"), 1))
+        assert findings == []
+
 
 # ─── ZRT-004: VSMBrokenLinkRule context-aware URL resolution ──────────────────
 

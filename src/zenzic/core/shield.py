@@ -16,6 +16,7 @@ Supported patterns
 - Slack token:          ``xox[baprs]-[0-9a-zA-Z]{10,48}``
 - Google API key:       ``AIza[0-9A-Za-z\\-_]{35}``
 - Generic private key:  ``-----BEGIN [A-Z ]+ PRIVATE KEY-----``
+- GitLab PAT:           ``glpat-[A-Za-z0-9\-_]{20,}``
 
 Exit code contract
 ------------------
@@ -80,6 +81,7 @@ _SECRETS: list[tuple[str, re.Pattern[str]]] = [
     ("google-api-key", re.compile(r"AIza[0-9A-Za-z\-_]{35}")),
     ("private-key", re.compile(r"-----BEGIN [A-Z ]+ PRIVATE KEY-----")),
     ("hex-encoded-payload", re.compile(r"(?:\\x[0-9a-fA-F]{2}){3,}")),
+    ("gitlab-pat", re.compile(r"glpat-[A-Za-z0-9\-_]{20,}")),
 ]
 
 #: Maximum line length the Shield will scan.  Lines exceeding this limit
