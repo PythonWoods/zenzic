@@ -18,6 +18,9 @@ Le versioni seguono il [Semantic Versioning](https://semver.org/).
   con uno schema uniforme `findings`/`summary`. I codici di uscita sono preservati in
   modalità JSON.
   ([#55](https://github.com/PythonWoods/zenzic/pull/55) — contributo di [@xyaz1313](https://github.com/xyaz1313))
+- **Shield: rilevamento GitLab Personal Access Token.** Lo scanner di credenziali
+  rileva ora i token `glpat-` (9 famiglie di credenziali in totale).
+  ([#57](https://github.com/PythonWoods/zenzic/pull/57) — contributo di [@gtanb4l](https://github.com/gtanb4l))
 
 ## [0.6.1rc1] — 2026-04-15 — Obsidian Bastion
 
