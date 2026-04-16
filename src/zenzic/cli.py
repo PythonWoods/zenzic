@@ -1595,7 +1595,7 @@ def _init_standalone(repo_root: Path, force: bool) -> None:
         "# Zenzic Shield — built-in credential scanner (always active, no config required).\n"
         "# Detected pattern families: openai-api-key, github-token, aws-access-key,\n"
         "#   stripe-live-key, slack-token, google-api-key, private-key,\n"
-        "#   hex-encoded-payload (3+ consecutive \\xNN sequences).\n"
+        "#   hex-encoded-payload (3+ consecutive \\xNN sequences), gitlab-pat.\n"
         "# All lines including fenced code blocks are scanned. Exit code 2 on detection.\n"
         "\n"
         "# Declare project-specific lint rules (no Python required):\n"

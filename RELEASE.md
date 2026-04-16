@@ -1,18 +1,19 @@
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Zenzic v0.6.1rc1 — Obsidian Bastion Release Protocol
+# Zenzic v0.6.1rc2 — Obsidian Bastion (Hardened) Release Protocol
 
 **Prepared by:** S-1 (Auditor)
-**Date:** 2026-04-15
-**Status:** RELEASE CANDIDATE — All gates passed
+**Date:** 2026-04-16
+**Status:** RELEASE CANDIDATE 2 — Security audit completed
 **Branch:** `main`
-**Codename:** Obsidian Bastion — The Fortress Architecture
+**Codename:** Obsidian Bastion (Hardened) — Post-Stress-Test Seal
 
-> **Tech Lead note:** This RC1 marks the culmination of 5 alpha releases since
-> The Sentinel (v0.5.0a4). Zenzic has evolved from a MkDocs-specific linter into
-> an **engine-agnostic Documentation Platform Analyser** with 4 adapters, Layered
-> Exclusion, and zero subprocesses. All gates below have been verified.
+> **Tech Lead note:** RC2 follows Operation Obsidian Stress — a controlled
+> siege by Red/Blue/Purple teams. The Red Team found 4 Shield bypass vectors
+> (Unicode Cf, HTML entities, comment-interleaving, cross-line split). All
+> have been sealed. The Purple Team identified 6 documentation drift items
+> including a phantom `serve` command. All corrected. 1046 tests pass.
 
 ---
 
@@ -20,12 +21,12 @@
 
 | Location | Expected | Status |
 | :--- | :--- | :---: |
-| `src/zenzic/__init__.py` | `0.6.1rc1` | ✅ |
-| `pyproject.toml` `[project]` | `0.6.1rc1` | ✅ |
-| `pyproject.toml` `[tool.bumpversion]` | `0.6.1rc1` | ✅ |
-| `CITATION.cff` | `0.6.1rc1` | ✅ |
-| `CHANGELOG.md` top entry | `[0.6.1rc1]` | ✅ |
-| `CHANGELOG.it.md` top entry | `[0.6.1rc1]` | ✅ |
+| `src/zenzic/__init__.py` | `0.6.1rc2` | ✅ |
+| `pyproject.toml` `[project]` | `0.6.1rc2` | ✅ |
+| `pyproject.toml` `[tool.bumpversion]` | `0.6.1rc2` | ✅ |
+| `CITATION.cff` | `0.6.1rc2` | ✅ |
+| `CHANGELOG.md` top entry | `[0.6.1rc2]` | ✅ |
+| `CHANGELOG.it.md` top entry | `[0.6.1rc2]` | ✅ |
 
 **Not tracked** (Clean Harbor):
 
@@ -95,6 +96,12 @@
 - [x] **F4-1:** `_validate_docs_root()` rejects `docs_dir` escaping repo root (Exit Code 3)
 - [x] **Adapter Cache:** Module-level dict keyed by `(engine, docs_root, repo_root)`, thread-safe
 - [x] **Shield IO Middleware:** Frontmatter lines scanned before any parser processes them
+- [x] **ZRT-006:** Unicode Cf character stripping in Shield normalizer (zero-width bypass)
+- [x] **ZRT-006:** HTML entity decoding in Shield normalizer (`&#NNN;` bypass)
+- [x] **ZRT-007:** HTML/MDX comment stripping in Shield normalizer (interleaving bypass)
+- [x] **ZRT-007:** 1-line lookback buffer `scan_lines_with_lookback()` (split-token bypass)
+- [x] **Red Team:** 11 Blood Sentinel jailbreak vectors tested — all blocked
+- [x] **Red Team:** DoS resilience verified (10MB lines, 5000 files, 50-level nesting)
 
 ---
 
@@ -125,11 +132,11 @@
 
 ## 8. Quality Gates
 
-- [x] `pytest` — 929 tests passing, 0 failed
+- [x] `pytest` — 1046 tests passing, 0 failed
 - [x] `ruff check src/` → 0 violations
 - [x] `reuse lint` → compliant
 - [x] `pip install -e .` → `zenzic --help` outputs usage
-- [x] `uv run zenzic --version` → `Zenzic v0.6.1rc1`
+- [x] `uv run zenzic --version` → `Zenzic v0.6.1rc2`
 
 ---
 
@@ -151,16 +158,17 @@
 
 ---
 
-## 11. RC1 Gate Decision
+## 11. RC2 Gate Decision
 
 - [x] All gates (§§ 2–9) verified
 - [x] Benchmark § 10 within acceptable thresholds
-- [x] No open blocking issues
+- [x] Operation Obsidian Stress completed — 4 Shield bypasses sealed
+- [x] Documentation Reality Sync — 6 drift items corrected
 - [x] CI pipeline green on `main`
 
-**Decision:** ✅ RC1 approved — `v0.6.1rc1` tagged and published to PyPI
+**Decision:** ✅ RC2 approved — `v0.6.1rc2` tagged and published to PyPI
 
 ---
 
-*"La Sentinella non rilascia sulla fiducia, rilascia sull'evidenza."*
+*"Il Bastione non si fida dell'assenza di attacchi — si fida della resistenza verificata."*
 — Senior Tech Lead

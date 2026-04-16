@@ -11,6 +11,27 @@ Le versioni seguono il [Semantic Versioning](https://semver.org/).
 
 ## [Non rilasciato]
 
+## [0.6.1rc2] — 2026-04-16 — Obsidian Bastion (Hardened)
+
+### SICUREZZA: Risultati Operation Obsidian Stress
+
+- **Shield: bypass tramite caratteri Unicode di formato (ZRT-006).** Caratteri
+  Unicode invisibili (ZWJ U+200D, ZWNJ U+200C, ZWSP U+200B) inseriti all'interno
+  di un token potevano eludere il pattern matching. Il normalizzatore ora rimuove
+  tutti i caratteri Unicode di categoria Cf prima della scansione.
+- **Shield: bypass tramite offuscamento con entità HTML (ZRT-006).** I riferimenti
+  a caratteri HTML (`&#65;&#75;` → `AK`) potevano nascondere i prefissi delle
+  credenziali. Il normalizzatore ora decodifica le entità `&#NNN;`/`&#xHH;`
+  tramite `html.unescape()`.
+- **Shield: bypass tramite interleaving di commenti (ZRT-007).** Commenti HTML
+  (`<!-- -->`) e commenti MDX (`{/* */}`) inseriti all'interno di un token
+  potevano interrompere il pattern matching. Il normalizzatore ora rimuove
+  entrambe le forme di commento.
+- **Shield: rilevamento token spezzati tra righe (ZRT-007).** Aggiunto un buffer
+  lookback di 1 riga tramite `scan_lines_with_lookback()` per rilevare segreti
+  suddivisi su due righe consecutive (es. scalari YAML folded). I duplicati sono
+  soppressi tramite il set di tipi già rilevati sulla riga precedente.
+
 ### Aggiunto
 
 - **`--format json` sui comandi di controllo singoli.** `check links`, `check orphans`,

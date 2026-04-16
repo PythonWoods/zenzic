@@ -32,7 +32,7 @@ from zenzic.core.discovery import (
 )
 from zenzic.core.reporter import Finding
 from zenzic.core.rules import AdaptiveRuleEngine, BaseRule
-from zenzic.core.shield import SecurityFinding, scan_line_for_secrets, scan_url_for_secrets
+from zenzic.core.shield import SecurityFinding, scan_lines_with_lookback, scan_url_for_secrets
 from zenzic.core.validator import LinkValidator
 from zenzic.models.config import ZenzicConfig
 from zenzic.models.references import IntegrityReport, ReferenceFinding, ReferenceMap
@@ -637,10 +637,9 @@ class ReferenceScanner:
         secret_line_nos: set[int] = set()
         shield_events: list[HarvestEvent] = []
         with self.file_path.open(encoding="utf-8") as fh:
-            for lineno, line in enumerate(fh, start=1):  # ALL lines, no filter
-                for finding in scan_line_for_secrets(line, self.file_path, lineno):
-                    shield_events.append((lineno, "SECRET", finding))
-                    secret_line_nos.add(lineno)
+            for finding in scan_lines_with_lookback(enumerate(fh, start=1), self.file_path):
+                shield_events.append((finding.line_no, "SECRET", finding))
+                secret_line_nos.add(finding.line_no)
 
         # ── 1.b Content pass: harvest ref-defs and alt-text (fences skipped) ─
         content_events: list[HarvestEvent] = []
