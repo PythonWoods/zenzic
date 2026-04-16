@@ -22,6 +22,13 @@ Le versioni seguono il [Semantic Versioning](https://semver.org/).
   rileva ora i token `glpat-` (9 famiglie di credenziali in totale).
   ([#57](https://github.com/PythonWoods/zenzic/pull/57) — contributo di [@gtanb4l](https://github.com/gtanb4l))
 
+### Corretto
+
+- **Asimmetria exit-code JSON in `check orphans` e `check assets`.** Entrambi i comandi
+  ora distinguono la severità `error` da `warning` prima di decidere il codice di uscita,
+  in modo coerente con `check references` e `check snippets`. In precedenza, qualsiasi
+  finding (inclusi i warning) attivava Exit 1 in modalità JSON.
+
 ## [0.6.1rc1] — 2026-04-15 — Obsidian Bastion
 
 ### Breaking Changes

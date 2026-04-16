@@ -377,7 +377,8 @@ def check_orphans(
 
     if output_format == "json":
         _output_json_findings(findings, elapsed)
-        if findings:
+        errors_count = sum(1 for f in findings if f.severity == "error")
+        if errors_count:
             raise typer.Exit(1)
         return
 
@@ -643,7 +644,8 @@ def check_assets(
 
     if output_format == "json":
         _output_json_findings(findings, elapsed)
-        if findings:
+        errors_count = sum(1 for f in findings if f.severity == "error")
+        if errors_count:
             raise typer.Exit(1)
         return
 
