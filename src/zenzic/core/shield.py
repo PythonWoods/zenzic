@@ -26,7 +26,9 @@ The Shield itself returns findings; callers are responsible for the exit.
 
 from __future__ import annotations
 
+import html
 import re
+import unicodedata
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
@@ -40,6 +42,9 @@ _BACKTICK_INLINE_RE = re.compile(r"`([^`]*)`")
 _CONCAT_OP_RE = re.compile(r"[`'\"\s]*\+[`'\"\s]*")
 # Replace table-cell separators with spaces
 _TABLE_PIPE_RE = re.compile(r"\|")
+# ZRT-007: strip HTML comments <!-- ... --> and MDX comments {/* ... */}
+_HTML_COMMENT_RE = re.compile(r"<!--.*?-->")
+_MDX_COMMENT_RE = re.compile(r"\{/\*.*?\*/\}")
 
 
 def _normalize_line_for_shield(line: str) -> str:
@@ -64,7 +69,18 @@ def _normalize_line_for_shield(line: str) -> str:
     Returns:
         Normalised string ready for regex scanning.
     """
-    normalized = _BACKTICK_INLINE_RE.sub(r"\1", line)  # unwrap `...` spans
+    # ZRT-006 hardening: strip Unicode format characters (category Cf) that
+    # can be inserted invisibly to break regex matches (zero-width joiners,
+    # zero-width spaces, etc.).
+    normalized = "".join(c for c in line if unicodedata.category(c) != "Cf")
+    # ZRT-006 hardening: decode HTML character references (&#NNN; / &#xHH;)
+    # that can obfuscate secret prefixes in Markdown/MDX prose.
+    normalized = html.unescape(normalized)
+    # ZRT-007 hardening: strip HTML/MDX comments that can interleave tokens
+    # e.g. ghp_ABC{/* comment */}DEF or ghp_ABC<!-- comment -->DEF
+    normalized = _HTML_COMMENT_RE.sub("", normalized)
+    normalized = _MDX_COMMENT_RE.sub("", normalized)
+    normalized = _BACKTICK_INLINE_RE.sub(r"\1", normalized)  # unwrap `...` spans
     normalized = _CONCAT_OP_RE.sub("", normalized)  # remove + concat ops
     normalized = _TABLE_PIPE_RE.sub(" ", normalized)  # collapse table pipes
     return " ".join(normalized.split())  # collapse whitespace
@@ -211,6 +227,76 @@ def scan_line_for_secrets(
                     col_start=raw_m.start() if raw_m else 0,
                     match_text=match_text,
                 )
+
+
+def scan_lines_with_lookback(
+    lines: Iterator[tuple[int, str]],
+    file_path: Path | str,
+) -> Iterator[SecurityFinding]:
+    """Stateful scanner with a 1-line lookback buffer (ZRT-007).
+
+    Scans each individual line *and* the concatenation of the previous line's
+    tail with the current line's head.  This catches secrets that an author
+    (or attacker) splits across two consecutive lines — e.g. a YAML folded
+    scalar or a Markdown line break in the middle of a token.
+
+    The lookback join is performed on **normalised** text (after comment
+    stripping, backtick removal, etc.) so that cross-line obfuscation such as::
+
+        api_key: >-
+          AKIA
+          IOSFODNN7EXAMPLE
+
+    is reconstructed as ``AKIAIOSFODNN7EXAMPLE`` and matched.
+
+    Only *new* secret types found in the joined form (not already found on the
+    individual lines) are yielded, avoiding duplicate findings.
+
+    Args:
+        lines: Iterator of ``(line_no, raw_line)`` tuples — typically
+            ``enumerate(file_handle, start=1)``.
+        file_path: Path identifier (no disk access).
+
+    Yields:
+        :class:`SecurityFinding` for each match found.
+    """
+    path = Path(file_path)
+    prev_normalized: str = ""
+    prev_seen: set[str] = set()
+
+    for lineno, raw_line in lines:
+        # 1. Scan individual line (existing logic)
+        seen_this_line: set[str] = set()
+        for finding in scan_line_for_secrets(raw_line, file_path, lineno):
+            seen_this_line.add(finding.secret_type)
+            yield finding
+
+        # 2. Lookback: join previous line tail + current line head (normalised)
+        if prev_normalized:
+            current_normalized = _normalize_line_for_shield(raw_line[:_MAX_LINE_LENGTH])
+            # Take last 80 chars of prev + first 80 chars of current.
+            # Secret patterns are at most ~50 chars; 80 gives generous margin.
+            joined = prev_normalized[-80:] + current_normalized[:80]
+            # Skip secrets already found on this line OR the previous line
+            already_seen = seen_this_line | prev_seen
+            for secret_type, pattern in _SECRETS:
+                if secret_type in already_seen:
+                    continue
+                m = pattern.search(joined)
+                if m:
+                    yield SecurityFinding(
+                        file_path=path,
+                        line_no=lineno,
+                        secret_type=secret_type,
+                        url=raw_line.strip(),
+                        col_start=0,
+                        match_text=m.group(0),
+                    )
+                    seen_this_line.add(secret_type)
+
+        # Rotate buffer
+        prev_normalized = _normalize_line_for_shield(raw_line[:_MAX_LINE_LENGTH])
+        prev_seen = seen_this_line
 
 
 # ─── Shield as IO Middleware ──────────────────────────────────────────────────

@@ -361,6 +361,7 @@ a follow-up issue for the refactor.
 ## Security & Compliance
 
 - **Security First:** Any new path resolution MUST be tested against Path Traversal. Use `PathTraversal` logic from `core`.
+- **Shield Obfuscation Tests:** Every new Shield pattern or normalizer rule MUST include obfuscation regression tests: Unicode format characters (category Cf), HTML entity encoding, comment interleaving (HTML `<!-- -->` and MDX `{/* */}`), and cross-line split tokens. See `tests/test_shield_obfuscation.py` for reference.
 - **Bilingual Parity:** Documentation lives in [zenzic-doc](https://github.com/PythonWoods/zenzic-doc). Refer documentation contributors there.
 
 ---

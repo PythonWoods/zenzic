@@ -6,7 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 # VCS-Aware Project Example
 
 This example demonstrates Zenzic's **VCS-aware exclusion** features introduced
-in v0.6.1rc1 "Obsidian Bastion".
+in v0.6.1rc2 "Obsidian Bastion".
 
 ## What this example shows
 

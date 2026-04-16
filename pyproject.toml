@@ -7,7 +7,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "zenzic"
-version = "0.6.1rc1"
+version = "0.6.1rc2"
 description = "Engineering-grade, engine-agnostic linter and security shield for Markdown documentation"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -183,7 +183,7 @@ pytest_add_cli_args = ["--import-mode=prepend"]
 # ─── Version bumping ───────────────────────────────────────────────────────────
 
 [tool.bumpversion]
-current_version = "0.6.1rc1"
+current_version = "0.6.1rc2"
 commit = true
 tag = true
 tag_name = "v{new_version}"
@@ -217,17 +217,25 @@ search = "version: {current_version}"
 replace = "version: {new_version}"
 
 [[tool.bumpversion.files]]
+filename = "CITATION.cff"
+search = "date-released: \\d{{4}}-\\d{{2}}-\\d{{2}}"
+replace = "date-released: {now:%Y-%m-%d}"
+regex = true
+
+[[tool.bumpversion.files]]
 # CHANGELOG uses PEP 440 normalized form: 0.5.0-a2 (hyphen before pre-release label).
 # The serialize pattern below produces that form; pyproject uses 0.5.0a2 (no hyphen).
 filename = "CHANGELOG.md"
-search = "[{current_version}]"
-replace = "[{new_version}]"
+# Cerca solo l'header di secondo livello — evita match su sezioni storiche e link di riferimento
+search = "## [{current_version}]"
+replace = "## [{new_version}]"
 serialize = ["{major}.{minor}.{patch}{pre_l}{pre_n}", "{major}.{minor}.{patch}"]
 
 [[tool.bumpversion.files]]
 filename = "CHANGELOG.it.md"
-search = "[{current_version}]"
-replace = "[{new_version}]"
+# Cerca solo l'header di secondo livello — evita match su sezioni storiche e link di riferimento
+search = "## [{current_version}]"
+replace = "## [{new_version}]"
 serialize = ["{major}.{minor}.{patch}{pre_l}{pre_n}", "{major}.{minor}.{patch}"]
 
 [[tool.bumpversion.files]]
