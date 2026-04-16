@@ -38,6 +38,9 @@ __pycache__/
 build/
 dist/
 *.egg-info/
+
+# Zenzic: Drafts
+drafts/
 *.egg
 MANIFEST
 .installed.cfg

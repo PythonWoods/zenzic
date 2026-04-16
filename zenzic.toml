@@ -19,6 +19,7 @@ excluded_dirs = [
     "mutants",
     "scripts",
     "assets",
+    "drafts",
     "LICENSES",
     ".redteam",
     "arch",
