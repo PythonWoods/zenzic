@@ -16,7 +16,7 @@ Supported patterns
 - Slack token:          ``xox[baprs]-[0-9a-zA-Z]{10,48}``
 - Google API key:       ``AIza[0-9A-Za-z\\-_]{35}``
 - Generic private key:  ``-----BEGIN [A-Z ]+ PRIVATE KEY-----``
-- GitLab PAT:           ``glpat-[A-Za-z0-9\-_]{20,}``
+- GitLab PAT:           ``glpat-[A-Za-z0-9\\-_]{20,}``
 
 Exit code contract
 ------------------

@@ -17,6 +17,9 @@ Versions follow [Semantic Versioning](https://semver.org/).
   `check snippets`, `check references`, and `check assets` now accept `--format json`
   with a uniform `findings`/`summary` schema. Exit codes are preserved in JSON mode.
   ([#55](https://github.com/PythonWoods/zenzic/pull/55) — contributed by [@xyaz1313](https://github.com/xyaz1313))
+- **Shield: GitLab Personal Access Token detection.** The credential scanner now
+  detects `glpat-` tokens (9 credential families total).
+  ([#57](https://github.com/PythonWoods/zenzic/pull/57) — contributed by [@gtanb4l](https://github.com/gtanb4l))
 
 ## [0.6.1rc1] — 2026-04-15 — Obsidian Bastion
 
