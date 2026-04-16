@@ -11,6 +11,13 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **`--format json` on individual check commands.** `check links`, `check orphans`,
+  `check snippets`, `check references`, and `check assets` now accept `--format json`
+  with a uniform `findings`/`summary` schema. Exit codes are preserved in JSON mode.
+  ([#55](https://github.com/PythonWoods/zenzic/pull/55) — contributed by [@xyaz1313](https://github.com/xyaz1313))
+
 ## [0.6.1rc1] — 2026-04-15 — Obsidian Bastion
 
 ### Breaking Changes
