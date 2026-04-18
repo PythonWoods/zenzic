@@ -137,6 +137,7 @@ artifacts/
 .vscode/
 !.vscode/extensions.json
 !.vscode/settings.json
+!.vscode/mcp.json
 
 # IntelliJ IDEA / PyCharm
 .idea/
