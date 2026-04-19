@@ -264,6 +264,9 @@ class DocusaurusAdapter:
         # no prefix (docs are already relative to docs_root).
         self._route_base_path = route_base_path
         self._versions: tuple[str, ...] = tuple(versions or [])
+        # The first entry in versions.json is the "latest" version; it serves
+        # docs at the routeBasePath root (no version label in URL).
+        self._latest_version: str | None = versions[0] if versions else None
 
         # Locale configuration from BuildContext (zenzic.toml).
         self._locale_dirs: frozenset[str] = frozenset(context.locales)
@@ -411,9 +414,14 @@ class DocusaurusAdapter:
         slug = self._slug_map.get(rel_posix)
         if slug is not None:
             if slug.startswith("/"):
-                # Absolute slug: use as-is
+                # Absolute slug: always prefixed with routeBasePath.
+                # Docusaurus: permalink = normalizeUrl([versionMetadata.path, docSlug])
+                # where versionMetadata.path IS the routeBasePath.
+                rbp = self._route_base_path if self._route_base_path is not None else "docs"
                 url = slug.rstrip("/") or ""
-                return url + "/"
+                if rbp:
+                    return "/" + rbp + url + "/"
+                return url + "/" if url else "/"
             # Relative slug: replace the last path segment
             parent = rel.parent
             if parent == Path("."):
@@ -439,9 +447,18 @@ class DocusaurusAdapter:
             if parts:
                 version = parts.pop(0)
 
-        # index files collapse to their parent directory
-        if parts and parts[-1] == "index":
-            parts = parts[:-1]
+        # isCategoryIndex: collapse when name is 'index', 'readme', or matches
+        # the immediate parent folder name (case-insensitive).
+        # Mirrors Docusaurus isCategoryIndex() logic exactly.
+        if parts:
+            file_name_lower = parts[-1].lower()
+            parent_name_lower = parts[-2].lower() if len(parts) >= 2 else None
+            if (
+                file_name_lower == "index"
+                or file_name_lower == "readme"
+                or (parent_name_lower is not None and file_name_lower == parent_name_lower)
+            ):
+                parts = parts[:-1]
 
         url_parts = []
         if locale:
@@ -452,7 +469,9 @@ class DocusaurusAdapter:
             # Note: root routeBasePath is empty string
             url_parts.append(rbp)
 
-        if version:
+        # The latest version (first entry in versions.json) is served at the
+        # routeBasePath root — no version label in the URL.
+        if version and version != self._latest_version:
             url_parts.append(version)
 
         url_parts.extend(parts)

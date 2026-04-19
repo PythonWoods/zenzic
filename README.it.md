@@ -82,7 +82,10 @@ dimostrabile, e la CLI è 100% subprocess-free.
 - **Intelligenza** — Multi-engine: MkDocs, Docusaurus v3, Zensical e Vanilla. Cache adapter a livello di modulo. Gli adapter di terze parti si installano come pacchetti Python tramite entry point.
 - **Discovery** — Iterazione file universale VCS-aware (zero `rglob`), `ExclusionManager` obbligatorio su ogni entry point, gerarchia di Esclusione a 4 livelli, parser `.gitignore` pure-Python.
 
-> 🚀 **Ultima Release: v0.6.1 "Obsidian Glass"** — vedi [CHANGELOG.md](CHANGELOG.md) per i dettagli.
+> 🚀 **Ultima Release: v0.6.1 "Obsidian Glass" (Stabile)** — Include il supporto completo
+> al versioning di Docusaurus v3, la risoluzione dell'alias `@site/`, il collasso
+> intelligente dei file e il proxy trasparente per Zensical.
+> Vedi [CHANGELOG.md](CHANGELOG.md) per i dettagli.
 
 ---
 

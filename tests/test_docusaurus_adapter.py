@@ -446,7 +446,8 @@ class TestSLUG01FrontmatterSlug:
 
         adapter.set_slug_map({md: md.read_text()})
         url = adapter.map_url(Path("guide/install.mdx"))
-        assert url == "/getting-started/"
+        # Absolute slug is appended to routeBasePath (Docusaurus official spec).
+        assert url == "/docs/getting-started/"
 
     def test_relative_slug_replaces_filename(self, tmp_path: Path) -> None:
         adapter = _make_adapter(tmp_path)
@@ -483,7 +484,7 @@ class TestSLUG01FrontmatterSlug:
         assert url == "/docs/intro/"
 
     def test_absolute_slug_root(self, tmp_path: Path) -> None:
-        """slug: / should map to root."""
+        """slug: / with default routeBasePath maps to /docs/."""
         adapter = _make_adapter(tmp_path)
         docs = tmp_path / "docs"
         docs.mkdir(exist_ok=True)
@@ -492,7 +493,8 @@ class TestSLUG01FrontmatterSlug:
 
         adapter.set_slug_map({md: md.read_text()})
         url = adapter.map_url(Path("intro.mdx"))
-        assert url == "/"
+        # slug: / is the doc-relative root; full permalink = /docs/ (routeBasePath prefix).
+        assert url == "/docs/"
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

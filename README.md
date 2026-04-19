@@ -80,7 +80,9 @@ engine identity must be provable, and the CLI is 100% subprocess-free.
 - **Intelligence** — Multi-engine: MkDocs, Docusaurus v3, Zensical, and Vanilla. Module-level adapter cache. Third-party adapters install as Python packages via entry points.
 - **Discovery** — Universal VCS-aware file iteration (zero `rglob`), mandatory `ExclusionManager` on every entry point, 4-level Layered Exclusion hierarchy, pure-Python `.gitignore` parser.
 
-> 🚀 **Latest Release: v0.6.1 "Obsidian Glass"** — see [CHANGELOG.md](CHANGELOG.md) for details.
+> 🚀 **Latest Release: v0.6.1 "Obsidian Glass" (Stable)** — Featuring full Docusaurus v3
+> versioning support, `@site/` alias resolution, smart file collapsing, and Zensical
+> transparent proxying. See [CHANGELOG.md](CHANGELOG.md) for details.
 
 ---
 

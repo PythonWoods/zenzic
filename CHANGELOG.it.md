@@ -32,8 +32,21 @@ Le versioni seguono il [Semantic Versioning](https://semver.org/).
 
 ### Corretto
 
-- **Passaggio di Stabilità Finale.** Risolte 14 violazioni di pre-commit (ruff format/lint)
-  e sincronizzati i README bilingue.
+- **Audit dei Guardiani: Allineamento Specifiche Ufficiali.**
+  - **Versioning Docusaurus:** Corretta la mappatura URL della versione "latest" (prima voce
+    in `versions.json`) per escludere il prefisso dell'etichetta di versione, allineandosi
+    al comportamento ufficiale di Docusaurus. In precedenza ogni file versionato riceveva
+    un prefisso `/versione/`, generando falsi positivi per tutte le pagine della versione latest.
+  - **Slug Docusaurus:** Gli slug frontmatter assoluti (es. `slug: /mio-percorso`) sono
+    ora correttamente preceduti dalla `routeBasePath` (es. `/docs/mio-percorso/`),
+    allineandosi alla specifica Docusaurus `normalizeUrl([versionMetadata.path, docSlug])`.
+  - **Collasso Intelligente dei File:** La logica `isCategoryIndex` ora rispecchia
+    esattamente Docusaurus: `README.md`, `INDEX.md` (case-insensitive) e
+    `{NomeCartella}/{NomeCartella}.md` collassano nell'URL della directory genitore,
+    prevenendo falsi positivi per le convenzioni valide di landing page di categoria.
+  - **Risoluzione Alias `@site/`:** `InMemoryPathResolver` ora risolve i link `@site/`
+    rispetto al corretto confine `repo_root` invece di sfuggire tramite `../`,
+    eliminando errori `PathTraversal` spuri per tutti i link relativi al progetto Docusaurus.
 - **Integrità dei Metadati.** Corretto l'allineamento delle stringhe di versione in
   `CITATION.cff` e `pyproject.toml`.
 - **Default routeBasePath Docusaurus.** Ripristinato `docs` come prefisso URL predefinito

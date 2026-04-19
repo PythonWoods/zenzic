@@ -142,8 +142,9 @@ class TestBuildVsmDocusaurus:
         }
         adapter.set_slug_map(md_contents)
         vsm = build_vsm(adapter, docs.resolve(), md_contents)
-        assert "/" in vsm
-        assert "/getting-started/" in vsm
+        # Absolute slugs are prefixed with routeBasePath (Docusaurus spec).
+        assert "/docs/" in vsm
+        assert "/docs/getting-started/" in vsm
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
