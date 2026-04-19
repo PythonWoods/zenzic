@@ -412,6 +412,7 @@ class MkDocsAdapter:
         config_file_found: bool = False,
     ) -> None:
         self._docs_root = docs_root
+        self._context = context
         self._doc_config: dict[str, Any] = doc_config if doc_config is not None else {}
         self._config_file_found: bool = config_file_found
 
@@ -573,7 +574,10 @@ class MkDocsAdapter:
         Returns:
             Canonical URL string (always starts and ends with ``/``).
         """
-        use_dir = self._doc_config.get("use_directory_urls", True)
+        if getattr(self._context, "offline_mode", False):
+            use_dir = False
+        else:
+            use_dir = self._doc_config.get("use_directory_urls", True)
         stem = rel.with_suffix("")
         parts = list(stem.parts)
         if not parts:

@@ -21,13 +21,30 @@ Zensical v0.0.31+ uses a single ``[project]`` scope for all settings::
 
 from __future__ import annotations
 
+import logging
 import tomllib
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from zenzic.core.adapters._mkdocs import MkDocsAdapter, _load_doc_config, find_config_file
 from zenzic.core.adapters._utils import remap_to_default_locale
 from zenzic.core.exceptions import ConfigurationError
 from zenzic.models.config import BuildContext
+
+
+_log = logging.getLogger(__name__)
+
+_UNSUPPORTED_MKDOCS_KEYS = {
+    "remote_branch",
+    "remote_name",
+    "exclude_docs",
+    "draft_docs",
+    "not_in_nav",
+    "validation",
+    "strict",
+    "hooks",
+    "watch",
+}
 
 
 if TYPE_CHECKING:
@@ -92,6 +109,50 @@ def _extract_nav_paths(items: list[object]) -> set[str]:
 # ── Adapter ───────────────────────────────────────────────────────────────────
 
 
+class ZensicalLegacyProxy:
+    """Proxy that wraps MkDocsAdapter for Zensical legacy compatibility mode.
+
+    Delegates all BaseAdapter protocol methods to the underlying MkDocsAdapter,
+    while carrying the is_compatibility_mode flag for upstream reporting.
+    """
+
+    def __init__(self, adapter: MkDocsAdapter) -> None:
+        self._adapter = adapter
+        self.is_compatibility_mode = True
+
+    def is_locale_dir(self, part: str) -> bool:
+        return self._adapter.is_locale_dir(part)
+
+    def resolve_asset(self, missing_abs: Path, docs_root: Path) -> Path | None:
+        return self._adapter.resolve_asset(missing_abs, docs_root)
+
+    def resolve_anchor(
+        self, resolved_file: Path, anchor: str, anchors_cache: dict[Path, set[str]], docs_root: Path
+    ) -> bool:
+        return self._adapter.resolve_anchor(resolved_file, anchor, anchors_cache, docs_root)
+
+    def is_shadow_of_nav_page(self, rel: Path, nav_paths: frozenset[str]) -> bool:
+        return self._adapter.is_shadow_of_nav_page(rel, nav_paths)
+
+    def get_ignored_patterns(self) -> set[str]:
+        return self._adapter.get_ignored_patterns()
+
+    def get_nav_paths(self) -> frozenset[str]:
+        return self._adapter.get_nav_paths()
+
+    def has_engine_config(self) -> bool:
+        return self._adapter.has_engine_config()
+
+    def map_url(self, rel: Path) -> str:
+        return self._adapter.map_url(rel)
+
+    def classify_route(self, rel: Path, nav_paths: frozenset[str]) -> RouteStatus:
+        return self._adapter.classify_route(rel, nav_paths)
+
+    def get_route_info(self, rel: Path) -> RouteMetadata:
+        return self._adapter.get_route_info(rel)
+
+
 class ZensicalAdapter:
     """Adapter for the Zensical build engine — reads ``zensical.toml`` natively.
 
@@ -142,8 +203,11 @@ class ZensicalAdapter:
         self._nav_paths: frozenset[str] = frozenset(_extract_nav_paths(_raw_nav))
         # True only when the user supplied an explicit, non-empty nav list.
         self._has_explicit_nav: bool = bool(_raw_nav)
-        # Honour use_directory_urls = false (default: true).
-        self._use_directory_urls: bool = bool(_project.get("use_directory_urls", True))
+        # Offline Mode Tactical Fix
+        if context.offline_mode:
+            self._use_directory_urls = False
+        else:
+            self._use_directory_urls = bool(_project.get("use_directory_urls", True))
 
     # ── Public contract ────────────────────────────────────────────────────────
 
@@ -305,20 +369,36 @@ class ZensicalAdapter:
         context: BuildContext,
         docs_root: Path,
         repo_root: Path,
-    ) -> ZensicalAdapter:
+    ) -> ZensicalAdapter | ZensicalLegacyProxy:
         """Construct from a live repository root.
 
-        Enforces the Zensical contract: ``zensical.toml`` **must** exist in
-        *repo_root*.  Raises :class:`~zenzic.core.exceptions.ConfigurationError`
-        when it is absent so callers get an actionable error rather than a
-        silent no-op.
+        Enforces the Zensical contract: if ``zensical.toml`` is missing but
+        ``mkdocs.yml`` is present, returns a ZensicalLegacyProxy that delegates
+        to MkDocsAdapter, enabling a seamless migration path.
         """
-        if find_zensical_config(repo_root) is None:
-            raise ConfigurationError(
-                "engine 'zensical' declared in zenzic.toml but zensical.toml is missing",
-                context={
-                    "repo_root": str(repo_root),
-                    "hint": "create zensical.toml or set engine = 'mkdocs' for MkDocs projects",
-                },
-            )
-        return cls(context, docs_root, _load_zensical_config(repo_root))
+        if find_zensical_config(repo_root) is not None:
+            return cls(context, docs_root, _load_zensical_config(repo_root))
+
+        # Transparent Bridge: fallback to MkDocs config
+        if find_config_file(repo_root) is not None:
+            mkdocs_config = _load_doc_config(repo_root)
+            # Warn about unsupported keys
+            for key in _UNSUPPORTED_MKDOCS_KEYS:
+                if key in mkdocs_config:
+                    _log.warning(
+                        "Zensical ignores MkDocs '%s' parameter — it will not affect the build.",
+                        key,
+                    )
+
+            # Delegate to MkDocsAdapter
+            adapter = MkDocsAdapter(context, docs_root, mkdocs_config, config_file_found=True)
+            return ZensicalLegacyProxy(adapter)
+
+        # Neither config exists
+        raise ConfigurationError(
+            "engine 'zensical' declared in zenzic.toml but no configuration file was found",
+            context={
+                "repo_root": str(repo_root),
+                "hint": "create zensical.toml (or mkdocs.yml for legacy mode)",
+            },
+        )

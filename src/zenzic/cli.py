@@ -261,12 +261,17 @@ def check_links(
     show_info: bool = typer.Option(
         False, "--show-info", help="Show info-level findings (e.g. circular links) in the report."
     ),
+    offline: bool = typer.Option(
+        False, "--offline", help="Force flat URL resolution for offline builds."
+    ),
 ) -> None:
     """Check for broken internal links. Pass --strict to also validate external URLs."""
     from zenzic import __version__
 
     repo_root = find_repo_root()
     config, _ = ZenzicConfig.load(repo_root)
+    if offline:
+        config.build_context.offline_mode = True
     docs_root = (repo_root / config.docs_dir).resolve()
     exclusion_mgr = _build_exclusion_manager(config, repo_root, docs_root)
 
@@ -348,6 +353,9 @@ def check_orphans(
     show_info: bool = typer.Option(
         False, "--show-info", help="Show info-level findings (e.g. circular links) in the report."
     ),
+    offline: bool = typer.Option(
+        False, "--offline", help="Force flat URL resolution for offline builds."
+    ),
 ) -> None:
     """Detect .md files not listed in the nav."""
     from zenzic import __version__
@@ -357,6 +365,8 @@ def check_orphans(
     if not loaded_from_file:
         _print_no_config_hint()
     config = _apply_engine_override(config, engine)
+    if offline:
+        config.build_context.offline_mode = True
     docs_root = (repo_root / config.docs_dir).resolve()
     exclusion_mgr = _build_exclusion_manager(config, repo_root, docs_root)
 
@@ -1122,6 +1132,9 @@ def check_all(
     show_info: bool = typer.Option(
         False, "--show-info", help="Show info-level findings (e.g. circular links) in the report."
     ),
+    offline: bool = typer.Option(
+        False, "--offline", help="Force flat URL resolution for offline builds."
+    ),
 ) -> None:
     """Run all checks: links, orphans, snippets, placeholders, assets, references.
 
@@ -1134,6 +1147,8 @@ def check_all(
     if not loaded_from_file and not quiet:
         _print_no_config_hint()
     config = _apply_engine_override(config, engine)
+    if offline:
+        config.build_context.offline_mode = True
 
     # ── Target mode (single file OR custom directory) ──────────────────────────
     _single_file: Path | None = None

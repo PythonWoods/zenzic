@@ -11,6 +11,35 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.6.1] — 2026-04-19 — Obsidian Glass (Stable)
+
+### Added
+
+- **`--offline` flag for Flat URL resolution.** Available on `check all`, `check links`,
+  and `check orphans`. Forces all adapters to produce `.html` URLs (e.g. `guide/install.md`
+  → `/guide/install.html`) instead of directory-style slugs.
+- **Docusaurus v3 Multi-version support.** The `DocusaurusAdapter` now identifies
+  `versions.json`, `versioned_docs/`, and versioned translations.
+- **Zensical Transparent Proxy.** If `engine = "zensical"` is declared but `zensical.toml`
+  is missing, the adapter automatically bridges your existing `mkdocs.yml`.
+- **Version-aware Ghost Routing.** Versioned documentation paths are automatically
+  classified as `REACHABLE`.
+- **@site/ Alias Resolution.** Added support for the `@site/` path alias in
+  `DocusaurusAdapter`, enabling project-relative links to be resolved correctly.
+- **Sentinel Banner Notifications.** New status messages for **Offline Mode** and
+  **Proxy Mode** activation.
+
+### Fixed
+
+- **Final Stability Pass.** Resolved 14 pre-commit violations (ruff format/lint) and
+  synchronized bilingual READMEs.
+- **Metadata Integrity.** Corrected version string alignment in `CITATION.cff` and `pyproject.toml`.
+- **Docusaurus routeBasePath default.** Restored `docs` as the default URL prefix for
+  Docusaurus projects to match official engine behavior.
+
+- **Bilingual Documentation Parity.** Full EN/IT documentation coverage for all
+  v0.6.1 features across the Architecture, Engine, and Command guides.
+
 ## [0.6.1rc2] — 2026-04-16 — Obsidian Bastion (Hardened)
 
 ### SECURITY: Operation Obsidian Stress Findings
@@ -91,7 +120,7 @@ Versions follow [Semantic Versioning](https://semver.org/).
   `check_nav_contract`, and all scanner functions. No backward-compatible
   `None` default.
 
-## [0.6.0a2] — 2026-04-13 — Obsidian Glass
+## [0.6.0a2] — 2026-04-13 — Obsidian Glass (Alpha 2)
 
 ### Added
 

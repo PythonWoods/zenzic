@@ -480,7 +480,7 @@ class TestSLUG01FrontmatterSlug:
 
         adapter.set_slug_map({md: md.read_text()})
         url = adapter.map_url(Path("intro.mdx"))
-        assert url == "/intro/"
+        assert url == "/docs/intro/"
 
     def test_absolute_slug_root(self, tmp_path: Path) -> None:
         """slug: / should map to root."""
@@ -606,22 +606,22 @@ class TestMapUrlRegression:
         return _make_adapter(tmp_path)
 
     def test_mdx_extension_stripped(self, adapter: DocusaurusAdapter) -> None:
-        assert adapter.map_url(Path("guide/install.mdx")) == "/guide/install/"
+        assert adapter.map_url(Path("guide/install.mdx")) == "/docs/guide/install/"
 
     def test_md_extension_stripped(self, adapter: DocusaurusAdapter) -> None:
-        assert adapter.map_url(Path("guide/install.md")) == "/guide/install/"
+        assert adapter.map_url(Path("guide/install.md")) == "/docs/guide/install/"
 
     def test_index_collapses(self, adapter: DocusaurusAdapter) -> None:
-        assert adapter.map_url(Path("guide/index.mdx")) == "/guide/"
+        assert adapter.map_url(Path("guide/index.mdx")) == "/docs/guide/"
 
     def test_root_index(self, adapter: DocusaurusAdapter) -> None:
-        assert adapter.map_url(Path("index.mdx")) == "/"
+        assert adapter.map_url(Path("index.mdx")) == "/docs/"
 
     def test_checks(self, adapter: DocusaurusAdapter) -> None:
-        assert adapter.map_url(Path("checks.mdx")) == "/checks/"
+        assert adapter.map_url(Path("checks.mdx")) == "/docs/checks/"
 
     def test_nested_path(self, adapter: DocusaurusAdapter) -> None:
-        assert adapter.map_url(Path("a/b/c.md")) == "/a/b/c/"
+        assert adapter.map_url(Path("a/b/c.md")) == "/docs/a/b/c/"
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

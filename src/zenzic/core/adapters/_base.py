@@ -52,6 +52,7 @@ class RouteMetadata:
             pages auto-created by ``reconfigure_material`` or Docusaurus's
             i18n entry points).  Proxy routes are ``REACHABLE`` but should
             not be checked for content integrity.
+        version: Optional version identifier for multi-version setups (e.g. Docusaurus versioned_docs).
     """
 
     canonical_url: str
@@ -59,6 +60,7 @@ class RouteMetadata:
     slug: str | None = None
     route_base_path: str = "/"
     is_proxy: bool = False
+    version: str | None = None
 
 
 # ── BaseAdapter Protocol ─────────────────────────────────────────────────────

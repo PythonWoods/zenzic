@@ -20,6 +20,7 @@ excluded_dirs = [
     "scripts",
     "assets",
     "drafts",
+    "Draft",
     "LICENSES",
     ".redteam",
     "arch",

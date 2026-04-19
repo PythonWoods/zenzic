@@ -11,6 +11,37 @@ Le versioni seguono il [Semantic Versioning](https://semver.org/).
 
 ## [Non rilasciato]
 
+## [0.6.1] — 2026-04-19 — Obsidian Glass (Stable)
+
+### Aggiunto
+
+- **Flag `--offline` per la risoluzione URL Flat.** Disponibile su `check all`,
+  `check links` e `check orphans`. Forza tutti gli adapter a produrre URL `.html`
+  (es. `guida/install.md` → `/guida/install.html`) invece di slug in stile directory.
+- **Supporto multi-versione Docusaurus v3.** `DocusaurusAdapter` ora identifica
+  `versions.json`, `versioned_docs/` e le traduzioni versionate.
+- **Proxy Trasparente Zensical.** Se viene dichiarato `engine = "zensical"` ma
+  `zensical.toml` è assente, l'adapter crea automaticamente un ponte con il tuo
+  `mkdocs.yml` esistente.
+- **Ghost Routing consapevole delle versioni.** I percorsi della documentazione
+  versionata sono automaticamente classificati come `REACHABLE`.
+- **Risoluzione Alias @site/.** Aggiunto il supporto per l'alias di percorso `@site/`
+  in `DocusaurusAdapter`, permettendo la corretta risoluzione dei link relativi al progetto.
+- **Notifiche nel Banner Sentinel.** Nuovi messaggi di stato per l'attivazione della
+  **Modalità Offline** e della **Modalità Proxy**.
+
+### Corretto
+
+- **Passaggio di Stabilità Finale.** Risolte 14 violazioni di pre-commit (ruff format/lint)
+  e sincronizzati i README bilingue.
+- **Integrità dei Metadati.** Corretto l'allineamento delle stringhe di versione in
+  `CITATION.cff` e `pyproject.toml`.
+- **Default routeBasePath Docusaurus.** Ripristinato `docs` come prefisso URL predefinito
+  per i progetti Docusaurus per corrispondere al comportamento ufficiale dell'engine.
+
+- **Parità Documentale Bilingue.** Copertura completa della documentazione EN/IT per
+  tutte le feature della v0.6.1 nelle guide Architettura, Motori e Comandi.
+
 ## [0.6.1rc2] — 2026-04-16 — Obsidian Bastion (Hardened)
 
 ### SICUREZZA: Risultati Operation Obsidian Stress
@@ -97,7 +128,7 @@ Le versioni seguono il [Semantic Versioning](https://semver.org/).
   `check_nav_contract`, e tutte le funzioni dello scanner. Nessun default
   `None` retrocompatibile.
 
-## [0.6.0a2] — 2026-04-13 — Obsidian Glass
+## [0.6.0a2] — 2026-04-13 — Obsidian Glass (Alpha 2)
 
 ### Aggiunto
 

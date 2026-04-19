@@ -155,6 +155,21 @@ def get_adapter(
     if not adapter.has_engine_config():
         adapter = VanillaAdapter()
 
+    messages = []
+    if getattr(adapter, "is_compatibility_mode", False):
+        messages.append(
+            "[bold cyan]SENTINEL:[/bold cyan] Zensical engine active via [yellow]mkdocs.yml[/yellow] compatibility bridge."
+        )
+    if getattr(context, "offline_mode", False):
+        messages.append(
+            "[bold cyan]SENTINEL:[/bold cyan] [Offline Mode Active: forcing flat URL structure]"
+        )
+
+    if messages:
+        from rich.console import Console
+
+        Console(highlight=False).print("\n" + "\n".join(messages))
+
     # Write under lock: prevents double-instantiation if a caller ever uses
     # threads to construct adapters concurrently.
     with _adapter_cache_lock:

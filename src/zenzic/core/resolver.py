@@ -295,6 +295,12 @@ class InMemoryPathResolver:
         """
         if path_part.startswith("/"):
             raw = self._root_str + os.sep + path_part.lstrip("/")
+        elif path_part.startswith("@site/docs/"):
+            # Docusaurus alias: @site/docs/ is the docs_root.
+            raw = self._root_str + os.sep + path_part[len("@site/docs/") :]
+        elif path_part.startswith("@site/"):
+            # Docusaurus alias: @site/ is the repo_root (one level above docs_root).
+            raw = self._root_str + os.sep + ".." + os.sep + path_part[len("@site/") :]
         else:
             raw = str(source_file.parent) + os.sep + path_part
         return os.path.normpath(raw)

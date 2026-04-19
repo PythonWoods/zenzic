@@ -187,7 +187,7 @@ class TestGetRouteInfoContract:
         adapter = DocusaurusAdapter(ctx, Path("/docs"))
         meta = adapter.get_route_info(Path("guide/install.mdx"))
         assert isinstance(meta, RouteMetadata)
-        assert meta.canonical_url == "/guide/install/"
+        assert meta.canonical_url == "/docs/guide/install/"
         assert meta.status == "REACHABLE"
 
     def test_docusaurus_with_slug(self) -> None:

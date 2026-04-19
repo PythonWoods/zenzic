@@ -135,20 +135,23 @@ def test_get_adapter_unknown_engine_falls_back_to_vanilla(tmp_path: Path) -> Non
 
 
 def test_zensical_engine_without_zensical_toml_raises(tmp_path: Path) -> None:
-    """Identity Violation: engine='zensical' + no zensical.toml → ConfigurationError."""
+    """Identity Violation: engine='zensical' + no configuration → ConfigurationError."""
     context = BuildContext(engine="zensical")
-    with pytest.raises(ConfigurationError, match="zensical.toml is missing"):
+    # No zensical.toml AND no mkdocs.yml
+    with pytest.raises(ConfigurationError, match="no configuration file was found"):
         get_adapter(context, tmp_path / "docs", tmp_path)
 
 
-def test_zensical_engine_mkdocs_yml_present_but_no_zensical_toml_raises(
-    tmp_path: Path,
-) -> None:
-    """mkdocs.yml present is NOT a substitute — only zensical.toml counts."""
+def test_zensical_engine_mkdocs_yml_bridge_works(tmp_path: Path) -> None:
+    """Transparent Bridge: engine='zensical' + mkdocs.yml → ZensicalLegacyProxy."""
     _mkdocs(tmp_path)  # mkdocs.yml exists, but no zensical.toml
     context = BuildContext(engine="zensical")
-    with pytest.raises(ConfigurationError):
-        get_adapter(context, tmp_path / "docs", tmp_path)
+    adapter = get_adapter(context, tmp_path / "docs", tmp_path)
+
+    # It should not raise; it should return a proxy that identifies as Zensical but uses MkDocs rules
+    assert adapter.has_engine_config() is True
+    # The factory returns the underlying adapter or proxy
+    assert "Zensical" in str(type(adapter))
 
 
 def test_zensical_engine_with_zensical_toml_does_not_raise(tmp_path: Path) -> None:
