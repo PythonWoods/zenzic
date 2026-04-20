@@ -589,6 +589,41 @@ class DocusaurusAdapter:
             version=version,
         )
 
+    def provides_index(self, directory_path: Path) -> bool:
+        """Return ``True`` when Docusaurus will generate a landing page for this directory.
+
+        Docusaurus serves a directory landing page when any of the following
+        conditions holds:
+
+        * An ``index.md``, ``index.mdx``, ``README.md``, or ``README.mdx`` file
+          exists directly inside *directory_path*.
+        * A ``_category_.json`` exists with ``"link": {"type": "generated-index"}``,
+          causing Docusaurus to auto-generate a category index page.
+
+        I/O is permitted here — this method is called once per directory during
+        the discovery phase, never inside per-link or per-file hot loops.
+
+        Args:
+            directory_path: Absolute path to the directory to inspect.
+
+        Returns:
+            ``True`` if the directory provides (or will generate) an index page.
+        """
+        index_files = ("index.md", "index.mdx", "README.md", "README.mdx")
+        if any((directory_path / f).exists() for f in index_files):
+            return True
+        category_json = directory_path / "_category_.json"
+        if category_json.exists():
+            try:
+                import json as _json
+
+                data = _json.loads(category_json.read_text(encoding="utf-8"))
+                link = data.get("link", {})
+                return isinstance(link, dict) and link.get("type") == "generated-index"
+            except Exception:  # noqa: BLE001
+                return True  # conservative: assume it provides an index
+        return False
+
     # ── Factory hook ───────────────────────────────────────────────────────
 
     @classmethod

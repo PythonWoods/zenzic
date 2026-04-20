@@ -90,3 +90,20 @@ class VanillaAdapter:
             canonical_url=self.map_url(rel),
             status="REACHABLE",
         )
+
+    def provides_index(self, directory_path: Path) -> bool:
+        """Return ``True`` when a plain ``index.md`` exists in the directory.
+
+        For vanilla (no-engine) projects, the conventional ``index.md`` is the
+        sole indicator that a directory landing page will be served.
+
+        I/O is permitted here — this method is called once per directory during
+        the discovery phase, never inside per-link or per-file hot loops.
+
+        Args:
+            directory_path: Absolute path to the directory to inspect.
+
+        Returns:
+            ``True`` if an ``index.md`` exists in the directory.
+        """
+        return (directory_path / "index.md").exists()

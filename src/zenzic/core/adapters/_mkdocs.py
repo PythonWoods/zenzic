@@ -678,6 +678,23 @@ class MkDocsAdapter:
             is_proxy=is_proxy,
         )
 
+    def provides_index(self, directory_path: Path) -> bool:
+        """Return ``True`` when MkDocs will serve an index page for this directory.
+
+        MkDocs treats ``index.md`` (and the legacy ``README.md``) as the index
+        page for the enclosing directory, rendering it at the directory URL.
+
+        I/O is permitted here — this method is called once per directory during
+        the discovery phase, never inside per-link or per-file hot loops.
+
+        Args:
+            directory_path: Absolute path to the directory to inspect.
+
+        Returns:
+            ``True`` if an ``index.md`` or ``README.md`` exists in the directory.
+        """
+        return any((directory_path / f).exists() for f in ("index.md", "README.md"))
+
     @classmethod
     def from_repo(
         cls,

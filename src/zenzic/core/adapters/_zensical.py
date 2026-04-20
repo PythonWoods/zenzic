@@ -152,6 +152,9 @@ class ZensicalLegacyProxy:
     def get_route_info(self, rel: Path) -> RouteMetadata:
         return self._adapter.get_route_info(rel)
 
+    def provides_index(self, directory_path: Path) -> bool:
+        return self._adapter.provides_index(directory_path)
+
 
 class ZensicalAdapter:
     """Adapter for the Zensical build engine — reads ``zensical.toml`` natively.
@@ -362,6 +365,23 @@ class ZensicalAdapter:
             canonical_url=self.map_url(rel),
             status=self.classify_route(rel, nav_paths),
         )
+
+    def provides_index(self, directory_path: Path) -> bool:
+        """Return ``True`` when Zensical will serve an index page for this directory.
+
+        Zensical uses ``index.md`` as the canonical index file for a directory,
+        rendering it at the directory URL without a filename suffix.
+
+        I/O is permitted here — this method is called once per directory during
+        the discovery phase, never inside per-link or per-file hot loops.
+
+        Args:
+            directory_path: Absolute path to the directory to inspect.
+
+        Returns:
+            ``True`` if an ``index.md`` exists in the directory.
+        """
+        return (directory_path / "index.md").exists()
 
     @classmethod
     def from_repo(

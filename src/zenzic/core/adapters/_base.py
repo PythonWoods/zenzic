@@ -193,3 +193,23 @@ class BaseAdapter(Protocol):
             :class:`RouteMetadata` with all routing fields populated.
         """
         ...
+
+    def provides_index(self, directory_path: Path) -> bool:
+        """Return ``True`` when the engine generates a landing page for *directory_path*.
+
+        Called once per discovered directory during the I/O discovery phase
+        (never inside a per-link loop).  Implementations may call
+        ``Path.exists()`` because this method is part of the I/O phase, not
+        the hot-path rule engine.
+
+        Conservative default: ``False``.  Adapters that generate directory
+        index pages must override this method.
+
+        Args:
+            directory_path: Absolute path to the directory to check.
+
+        Returns:
+            ``True`` if the engine will serve a valid page at the directory
+            URL (e.g. ``/docs/guides/``); ``False`` otherwise.
+        """
+        ...
