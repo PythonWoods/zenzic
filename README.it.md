@@ -102,7 +102,7 @@ dimostrabile, e la CLI è 100% subprocess-free.
   di documentazione.
 
 <p align="center">
-  <a href="https://zenzic.dev/docs/it/"><strong>Esplora la documentazione completa →</strong></a>
+  <a href="https://zenzic.dev/it/docs/"><strong>Esplora la documentazione completa →</strong></a>
 </p>
 
 ---
@@ -674,7 +674,7 @@ assicura che la validazione dei link operi su URL canonici — non su percorsi f
 così che pagine orfane e slug override vengano rilevati accuratamente su tutti gli engine.
 
 Per screenshot interattivi ed esempi visivi completi, visita il
-[portale documentazione](https://zenzic.dev/docs/it/).
+[portale documentazione](https://zenzic.dev/it/docs/).
 
 ---
 
@@ -712,12 +712,12 @@ Apache-2.0 — vedi [LICENSE][license].
 [docusaurus]:         https://docusaurus.io/
 [zensical]:           https://zensical.org/
 [uv]:                 https://docs.astral.sh/uv/
-[docs-it-home]:       https://zenzic.dev/docs/it/usage/
-[docs-it-config]:     https://zenzic.dev/docs/it/configuration/
-[docs-it-migration]:  https://zenzic.dev/docs/it/guide/migration/
-[docs-it-arch]:       https://zenzic.dev/docs/it/architecture/
-[docs-it-adapter]:    https://zenzic.dev/docs/it/developers/writing-an-adapter/
-[docs-it-cicd]:       https://zenzic.dev/docs/it/ci-cd/
+[docs-it-home]:       https://zenzic.dev/it/docs/usage/
+[docs-it-config]:     https://zenzic.dev/it/docs/guides/configuration-reference/
+[docs-it-migration]:  https://zenzic.dev/it/docs/guides/migration/
+[docs-it-arch]:       https://zenzic.dev/it/docs/internals/architecture-overview/
+[docs-it-adapter]:    https://zenzic.dev/it/docs/internals/developers/writing-an-adapter/
+[docs-it-cicd]:       https://zenzic.dev/it/docs/guides/ci-cd/
 [ci-workflow]:        .github/workflows/ci.yml
 [contributing]:       CONTRIBUTING.md
 [license]:            LICENSE

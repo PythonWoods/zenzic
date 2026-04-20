@@ -61,9 +61,9 @@ zenzic = "zenzic.integrations.mkdocs:ZenzicPlugin"
 
 [project.urls]
 Homepage      = "https://zenzic.dev"
-Documentation = "https://zenzic.dev/docs"
+Documentation = "https://zenzic.dev/docs/"
 Repository    = "https://github.com/PythonWoods/zenzic"
-Changelog     = "https://zenzic.dev/docs/changelog"
+Changelog     = "https://github.com/PythonWoods/zenzic/blob/main/CHANGELOG.md"
 Issues        = "https://github.com/PythonWoods/zenzic/issues"
 
 # ─── Build ────────────────────────────────────────────────────────────────────

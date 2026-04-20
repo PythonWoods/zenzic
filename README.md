@@ -704,8 +704,8 @@ Apache-2.0 — see [LICENSE][license].
 [uv]:                https://docs.astral.sh/uv/
 [docs-home]:         https://zenzic.dev/docs/
 [docs-badges]:       https://zenzic.dev/docs/usage/badges/
-[docs-cicd]:         https://zenzic.dev/docs/ci-cd/
-[docs-arch]:         https://zenzic.dev/docs/architecture/
+[docs-cicd]:         https://zenzic.dev/docs/guides/ci-cd/
+[docs-arch]:         https://zenzic.dev/docs/internals/architecture-overview/
 [docs-contributing]: https://zenzic.dev/docs/community/contribute/
 [ci-workflow]:       .github/workflows/ci.yml
 [contributing]:      CONTRIBUTING.md
