@@ -27,6 +27,11 @@ Le versioni seguono il [Semantic Versioning](https://semver.org/).
   versionata sono automaticamente classificati come `REACHABLE`.
 - **Risoluzione Alias @site/.** Aggiunto il supporto per l'alias di percorso `@site/`
   in `DocusaurusAdapter`, permettendo la corretta risoluzione dei link relativi al progetto.
+- **Integrità dell'Indice di Directory.** Nuovo metodo `provides_index(path)` nel protocollo
+  `BaseAdapter` per il rilevamento engine-aware delle directory prive di landing page.
+  Il finding `MISSING_DIRECTORY_INDEX` (severità: `info`), emesso da `zenzic check all`,
+  avvisa di ogni sottodirectory che contiene sorgenti Markdown ma nessun indice fornito
+  dall'engine — prevenendo i 404 gerarchici prima del deploy.
 - **Notifiche nel Banner Sentinel.** Nuovi messaggi di stato per l'attivazione della
   **Modalità Offline** e della **Modalità Proxy**.
 
