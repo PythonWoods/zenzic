@@ -24,6 +24,7 @@ from zenzic.core.reporter import Finding, SentinelReporter
 from zenzic.core.scanner import (
     PlaceholderFinding,
     _map_shield_to_finding,
+    find_missing_directory_indices,
     find_orphans,
     find_placeholders,
     find_repo_root,
@@ -793,6 +794,7 @@ class _AllCheckResults:
     nav_contract_errors: list[str]
     reference_reports: list[IntegrityReport]
     security_events: int
+    directory_index_issues: list[Path]
 
     @property
     def failed(self) -> bool:
@@ -853,6 +855,9 @@ def _collect_all_results(
         nav_contract_errors=check_nav_contract(repo_root, exclusion_mgr),
         reference_reports=ref_reports,
         security_events=security_events,
+        directory_index_issues=find_missing_directory_indices(
+            docs_root, exclusion_mgr, repo_root=repo_root, config=config
+        ),
     )
 
 
@@ -1004,6 +1009,20 @@ def _to_findings(results: _AllCheckResults, docs_root: Path) -> list[Finding]:
         # and the reporter (see Obligation 4 / Mutation Gate in CONTRIBUTING.md).
         for sf in report.security_findings:
             findings.append(_map_shield_to_finding(sf, docs_root))
+
+    for dir_path in results.directory_index_issues:
+        findings.append(
+            Finding(
+                rel_path=str(dir_path),
+                line_no=0,
+                code="MISSING_DIRECTORY_INDEX",
+                severity="info",
+                message=(
+                    "Directory contains Markdown files but has no index page — "
+                    "the directory URL may return a 404."
+                ),
+            )
+        )
 
     return findings
 
