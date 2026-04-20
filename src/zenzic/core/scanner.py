@@ -426,6 +426,65 @@ def find_unused_assets(
     return [Path(p) for p in calculate_unused_assets(all_assets, used_assets)]
 
 
+def find_missing_directory_indices(
+    docs_root: Path,
+    exclusion_manager: LayeredExclusionManager,
+    *,
+    repo_root: Path,
+    config: ZenzicConfig,
+) -> list[Path]:
+    """Return directories that contain ``.md`` / ``.mdx`` source files but no
+    engine-provided index page, indicating a potential 404 at the directory URL.
+
+    The check is engine-aware: it delegates to
+    :meth:`~zenzic.core.adapters._base.BaseAdapter.provides_index` on the
+    resolved adapter so that each engine's index-page conventions are respected
+    (Docusaurus ``index.mdx`` / ``_category_.json``, MkDocs ``README.md``,
+    Zensical strict ``index.md``, etc.).
+
+    The docs root itself is excluded — a missing ``docs/index.*`` is reported
+    only when it actually causes a 404 visible to end-users (i.e. sub-dirs).
+
+    I/O is permitted here: this function is part of the discovery phase and
+    calls :meth:`provides_index` exactly once per candidate directory.
+
+    Args:
+        docs_root: Resolved absolute path to the documentation root.
+        exclusion_manager: Mandatory layered exclusion manager.
+        repo_root: Repository root used to instantiate the adapter.
+        config: Zenzic configuration model.
+
+    Returns:
+        List of :class:`~pathlib.Path` objects relative to *docs_root*,
+        sorted lexicographically, for directories that lack an index page.
+    """
+    if not docs_root.exists() or not docs_root.is_dir():
+        return []
+
+    adapter = get_adapter(config.build_context, docs_root, repo_root)
+
+    # Collect the set of unique parent directories that contain at least one
+    # Markdown source file (excluding docs_root itself — the root index is a
+    # separate concern handled in DIRETTIVA CEO 011).
+    dirs_with_docs: set[Path] = set()
+    for file_path in walk_files(docs_root, set(), exclusion_manager):
+        if file_path.suffix.lower() in DOC_SUFFIXES and file_path.parent != docs_root:
+            dirs_with_docs.add(file_path.parent)
+
+    if not dirs_with_docs:
+        return []
+
+    missing: list[Path] = []
+    for dir_abs in sorted(dirs_with_docs):
+        if not adapter.provides_index(dir_abs):
+            try:
+                missing.append(dir_abs.relative_to(docs_root))
+            except ValueError:
+                missing.append(dir_abs)
+
+    return missing
+
+
 # ─── Two-Pass Reference Pipeline ──────────────────────────────────────────────
 
 # Harvest event type aliases (yielded by ReferenceScanner.harvest())
