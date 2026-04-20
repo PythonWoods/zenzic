@@ -1,0 +1,29 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# zenzic.toml — Zensical Transparent Proxy (Bridge) example.
+#
+# engine = "zensical" is declared, but NO zensical.toml is present.
+# Zenzic detects the mkdocs.yml and automatically activates the
+# ZensicalLegacyProxy (Transparent Bridge), delegating all checks to
+# MkDocsAdapter internally.
+#
+# The Sentinel Banner is printed on stdout at runtime:
+#   SENTINEL: Zensical engine active via mkdocs.yml compatibility bridge.
+#
+# This is NOT a silent fallback. The banner ensures engine identity is
+# always transparent to the operator.
+#
+# Run: zenzic check all
+# Expected: SENTINEL banner + all checks pass
+
+docs_dir = "docs"
+fail_under = 90
+
+# Zenzic Shield — built-in credential scanner (always active, no config required).
+# Detected pattern families: openai-api-key, github-token, aws-access-key,
+#   stripe-live-key, slack-token, google-api-key, private-key,
+#   hex-encoded-payload (3+ consecutive \xNN sequences).
+# All lines including fenced code blocks are scanned. Exit code 2 on detection.
+
+[build_context]
+engine = "zensical"
