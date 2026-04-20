@@ -12,7 +12,7 @@ SPDX-License-Identifier: Apache-2.0
 
 <p align="center">
   <a href="https://pypi.org/project/zenzic/">
-    <img src="https://img.shields.io/pypi/v/zenzic?include_prereleases&label=PyPI&color=38bdf8&style=flat-square&cacheBuster=sentinel-a4" alt="PyPI Version">
+    <img src="https://img.shields.io/pypi/v/zenzic?label=PyPI&color=38bdf8&style=flat-square&cacheBuster=sentinel-a4" alt="PyPI Version">
   </a>
   <a href="https://pypi.org/project/zenzic/">
     <img src="https://img.shields.io/pypi/pyversions/zenzic?color=10b981&style=flat-square" alt="Python Versions">
@@ -219,9 +219,11 @@ Quattro adapter sono disponibili, selezionati automaticamente da `get_adapter()`
 | `ZensicalAdapter` | `engine = "zensical"` | `zensical.toml` (TOML, zero YAML) |
 | `VanillaAdapter` | Nessun file config, nessuna locale dichiarata | — (tutti no-op) |
 
-**Applicazione Nativa** — `engine = "zensical"` richiede che `zensical.toml` sia presente.
-Se è assente, Zenzic lancia `ConfigurationError` immediatamente. Non c'è nessun fallback a
-`mkdocs.yml` e nessuna degradazione silenziosa. L'identità Zensical deve essere dimostrabile.
+**Flessibile ma Trasparente** — Quando viene dichiarato `engine = "zensical"`, Zenzic cerca
+`zensical.toml`. Se assente, attiva automaticamente il Proxy Trasparente per connettere il
+tuo `mkdocs.yml` esistente. Non si tratta di un fallback silenzioso: Zenzic ti avviserà
+tramite il Banner Sentinel per garantire che l'identità del motore rimanga chiara, offrendo
+al contempo un percorso di migrazione senza attriti.
 
 ### Come funziona — Virtual Site Map (VSM)
 
@@ -360,25 +362,27 @@ richiesto.
 
 ```bash
 # Esecuzione una-tantum senza installazione
-uvx --pre zenzic check all
+uvx zenzic check all
 
 # Strumento globale disponibile in qualsiasi progetto
-uv tool install --pre zenzic
+uv tool install zenzic
 
 # Dipendenza dev del progetto — versione fissata in uv.lock
-uv add --dev --pre zenzic
+uv add --dev zenzic
 ```
 
 ### Con `pip`
 
 ```bash
-# Installazione globale (considera un ambiente virtuale)
-pip install --pre zenzic
+pip install zenzic
+```
 
-# Dentro un ambiente virtuale (consigliato)
-python -m venv .venv
-source .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install --pre zenzic
+**Tre comandi per iniziare:**
+
+```bash
+pip install zenzic       # 1. Installa
+zenzic lab               # 2. Esplora — 9 esempi interattivi, ogni engine, zero setup
+zenzic check all         # 3. Proteggi — audita la tua documentazione
 ```
 
 ### Lean e Agnostico per Design
@@ -412,6 +416,37 @@ zenzic init --pyproject # incorpora [tool.zenzic] in pyproject.toml
 
 Quando `pyproject.toml` esiste, `zenzic init` chiede interattivamente se incorporare
 la configurazione lì. Usa `--pyproject` per saltare il prompt.
+
+---
+
+## Il Showroom Zenzic
+
+La cartella `examples/` è un laboratorio di test certificato — ogni esempio è
+Zenzic-ready e supera `zenzic check all` con l'esito atteso. Usali come punto di
+partenza per un nuovo progetto o come fixture di regressione in CI.
+
+| Esempio | Engine | Cosa imparerai |
+| :--- | :--- | :--- |
+| `examples/mkdocs-basic/` | MkDocs | Rilevamento di `FILE_NOT_FOUND` e `BROKEN_ANCHOR` su un albero MkDocs 1.x standard |
+| `examples/zensical-bridge/` | Zensical | Proxy Trasparente in azione: `engine = "zensical"` con solo `mkdocs.yml` — Banner Sentinel visibile |
+| `examples/docusaurus-v3-enterprise/` | Docusaurus v3 | Versioned docs, risoluzione alias `@site/`, Ghost Routing bilingue — senza Node.js |
+| `examples/vanilla-markdown/` | Vanilla | `MISSING_DIRECTORY_INDEX` su un albero `.md` puro senza motore di build |
+| `examples/i18n-standard/` | MkDocs | Validazione multi-locale — lo Standard d'Oro, 100/100 |
+| `examples/broken-docs/` | MkDocs | Ogni classe di errore in un unico fixture — gli errori sono la funzionalità |
+| `examples/security_lab/` | MkDocs | Lo Shield blocca l'esposizione di credenziali — exit code 2 |
+
+Esegui il Philosophy Tour completo (9 atti, tutti gli esiti attesi verificati):
+
+```bash
+zenzic lab
+```
+
+Esegui un atto singolo:
+
+```bash
+zenzic lab --act 3   # Lo Shield — demo esposizione credenziali
+zenzic lab --list    # Stampa l'indice degli atti
+```
 
 ---
 
@@ -558,10 +593,10 @@ collassato silenziosamente in un generico "file non trovato".
 
 ```yaml
 - name: Lint documentazione
-  run: uvx --pre zenzic check all
+  run: uvx zenzic check all
 
 - name: Controlla riferimenti ed esegui Shield
-  run: uvx --pre zenzic check references
+  run: uvx zenzic check references
 ```
 
 Workflow completo: [`.github/workflows/zenzic.yml`][ci-workflow]
