@@ -16,6 +16,7 @@ from zenzic import __version__
 from zenzic.cli import check_app, clean_app, diff, init, plugins_app, score
 from zenzic.core.exceptions import PluginContractError, ZenzicError
 from zenzic.core.logging import setup_cli_logging
+from zenzic.lab import lab
 from zenzic.ui import INDIGO, ROSE, make_banner
 
 
@@ -58,6 +59,7 @@ def _main(
 app.add_typer(check_app, name="check", rich_help_panel="Core")
 app.add_typer(clean_app, name="clean", rich_help_panel="Core")
 app.add_typer(plugins_app, name="plugins", rich_help_panel="SDK & Plugins")
+app.command(name="lab", rich_help_panel="Core")(lab)
 app.command(name="score", rich_help_panel="Quality")(score)
 app.command(name="diff", rich_help_panel="Quality")(diff)
 app.command(name="init", rich_help_panel="SDK & Plugins")(init)

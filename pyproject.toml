@@ -71,6 +71,9 @@ Issues        = "https://github.com/PythonWoods/zenzic/issues"
 [tool.hatch.build.targets.wheel]
 packages = ["src/zenzic"]
 
+[tool.hatch.build.targets.wheel.force-include]
+"examples" = "zenzic/examples"
+
 # ─── Development dependencies (PEP 735 — managed by uv) ──────────────────────
 
 [dependency-groups]
