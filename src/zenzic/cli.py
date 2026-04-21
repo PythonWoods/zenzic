@@ -19,11 +19,13 @@ from rich.table import Table
 from rich.text import Text
 
 from zenzic.core.adapters import list_adapter_engines
+from zenzic.core.codes import normalize as _normalize_code
 from zenzic.core.exclusion import LayeredExclusionManager
 from zenzic.core.reporter import Finding, SentinelReporter
 from zenzic.core.scanner import (
     PlaceholderFinding,
     _map_shield_to_finding,
+    find_missing_directory_indices,
     find_orphans,
     find_placeholders,
     find_repo_root,
@@ -261,12 +263,17 @@ def check_links(
     show_info: bool = typer.Option(
         False, "--show-info", help="Show info-level findings (e.g. circular links) in the report."
     ),
+    offline: bool = typer.Option(
+        False, "--offline", help="Force flat URL resolution for offline builds."
+    ),
 ) -> None:
     """Check for broken internal links. Pass --strict to also validate external URLs."""
     from zenzic import __version__
 
     repo_root = find_repo_root()
     config, _ = ZenzicConfig.load(repo_root)
+    if offline:
+        config.build_context.offline_mode = True
     docs_root = (repo_root / config.docs_dir).resolve()
     exclusion_mgr = _build_exclusion_manager(config, repo_root, docs_root)
 
@@ -290,7 +297,7 @@ def check_links(
         Finding(
             rel_path=_rel(err.file_path),
             line_no=err.line_no,
-            code=err.error_type,
+            code=_normalize_code(err.error_type),
             severity=(
                 "security_incident"
                 if err.error_type == "PATH_TRAVERSAL_SUSPICIOUS"
@@ -348,6 +355,9 @@ def check_orphans(
     show_info: bool = typer.Option(
         False, "--show-info", help="Show info-level findings (e.g. circular links) in the report."
     ),
+    offline: bool = typer.Option(
+        False, "--offline", help="Force flat URL resolution for offline builds."
+    ),
 ) -> None:
     """Detect .md files not listed in the nav."""
     from zenzic import __version__
@@ -357,6 +367,8 @@ def check_orphans(
     if not loaded_from_file:
         _print_no_config_hint()
     config = _apply_engine_override(config, engine)
+    if offline:
+        config.build_context.offline_mode = True
     docs_root = (repo_root / config.docs_dir).resolve()
     exclusion_mgr = _build_exclusion_manager(config, repo_root, docs_root)
 
@@ -368,7 +380,7 @@ def check_orphans(
         Finding(
             rel_path=str(path),
             line_no=0,
-            code="ORPHAN",
+            code="Z402",
             severity="warning",
             message="Physical file not listed in navigation.",
         )
@@ -440,7 +452,7 @@ def check_snippets(
             Finding(
                 rel_path=_rel(s_err.file_path),
                 line_no=s_err.line_no,
-                code="SNIPPET",
+                code="Z503",
                 severity="error",
                 message=s_err.message,
                 source_line=src,
@@ -545,7 +557,7 @@ def check_references(
                 Finding(
                     rel_path=rel,
                     line_no=ref_f.line_no,
-                    code=ref_f.issue,
+                    code=_normalize_code(ref_f.issue),
                     severity="warning" if ref_f.is_warning else "error",
                     message=ref_f.detail,
                     source_line=src,
@@ -556,7 +568,7 @@ def check_references(
                 Finding(
                     rel_path=rel,
                     line_no=rule_f.line_no,
-                    code=rule_f.rule_id,
+                    code=_normalize_code(rule_f.rule_id),
                     severity=rule_f.severity,
                     message=rule_f.message,
                     source_line=rule_f.matched_line or "",
@@ -572,7 +584,7 @@ def check_references(
             Finding(
                 rel_path="(external-urls)",
                 line_no=0,
-                code="LINK_URL",
+                code="Z101",
                 severity="error",
                 message=err_str,
             )
@@ -635,7 +647,7 @@ def check_assets(
         Finding(
             rel_path=str(path),
             line_no=0,
-            code="ASSET",
+            code="Z903",
             severity="warning",
             message="File not referenced in any documentation page.",
         )
@@ -747,7 +759,7 @@ def check_placeholders(
             Finding(
                 rel_path=str(pf.file_path),
                 line_no=pf.line_no,
-                code=pf.issue,
+                code=_normalize_code(pf.issue),
                 severity="warning",
                 message=pf.detail,
                 source_line=src,
@@ -783,6 +795,7 @@ class _AllCheckResults:
     nav_contract_errors: list[str]
     reference_reports: list[IntegrityReport]
     security_events: int
+    directory_index_issues: list[Path]
 
     @property
     def failed(self) -> bool:
@@ -843,6 +856,9 @@ def _collect_all_results(
         nav_contract_errors=check_nav_contract(repo_root, exclusion_mgr),
         reference_reports=ref_reports,
         security_events=security_events,
+        directory_index_issues=find_missing_directory_indices(
+            docs_root, exclusion_mgr, repo_root=repo_root, config=config
+        ),
     )
 
 
@@ -861,7 +877,7 @@ def _to_findings(results: _AllCheckResults, docs_root: Path) -> list[Finding]:
             Finding(
                 rel_path=_rel(err.file_path),
                 line_no=err.line_no,
-                code=err.error_type,
+                code=_normalize_code(err.error_type),
                 severity=(
                     "security_incident"
                     if err.error_type == "PATH_TRAVERSAL_SUSPICIOUS"
@@ -881,7 +897,7 @@ def _to_findings(results: _AllCheckResults, docs_root: Path) -> list[Finding]:
             Finding(
                 rel_path=str(path),
                 line_no=0,
-                code="ORPHAN",
+                code="Z402",
                 severity="warning",
                 message="Physical file not listed in navigation.",
             )
@@ -900,7 +916,7 @@ def _to_findings(results: _AllCheckResults, docs_root: Path) -> list[Finding]:
             Finding(
                 rel_path=_rel(s_err.file_path),
                 line_no=s_err.line_no,
-                code="SNIPPET",
+                code="Z503",
                 severity="error",
                 message=s_err.message,
                 source_line=src,
@@ -922,7 +938,7 @@ def _to_findings(results: _AllCheckResults, docs_root: Path) -> list[Finding]:
             Finding(
                 rel_path=str(pf.file_path),
                 line_no=pf.line_no,
-                code=pf.issue,
+                code=_normalize_code(pf.issue),
                 severity="warning",
                 message=pf.detail,
                 source_line=src,
@@ -936,7 +952,7 @@ def _to_findings(results: _AllCheckResults, docs_root: Path) -> list[Finding]:
             Finding(
                 rel_path=str(path),
                 line_no=0,
-                code="ASSET",
+                code="Z903",
                 severity="warning",
                 message="File not referenced in any documentation page.",
             )
@@ -947,7 +963,7 @@ def _to_findings(results: _AllCheckResults, docs_root: Path) -> list[Finding]:
             Finding(
                 rel_path="(nav)",
                 line_no=0,
-                code="NAV",
+                code="Z904",
                 severity="error",
                 message=msg,
             )
@@ -970,7 +986,7 @@ def _to_findings(results: _AllCheckResults, docs_root: Path) -> list[Finding]:
                 Finding(
                     rel_path=rel,
                     line_no=ref_f.line_no,
-                    code=ref_f.issue,
+                    code=_normalize_code(ref_f.issue),
                     severity="warning" if ref_f.is_warning else "error",
                     message=ref_f.detail,
                     source_line=src,
@@ -981,7 +997,7 @@ def _to_findings(results: _AllCheckResults, docs_root: Path) -> list[Finding]:
                 Finding(
                     rel_path=rel,
                     line_no=rule_f.line_no,
-                    code=rule_f.rule_id,
+                    code=_normalize_code(rule_f.rule_id),
                     severity=rule_f.severity,
                     message=rule_f.message,
                     source_line=rule_f.matched_line,
@@ -994,6 +1010,20 @@ def _to_findings(results: _AllCheckResults, docs_root: Path) -> list[Finding]:
         # and the reporter (see Obligation 4 / Mutation Gate in CONTRIBUTING.md).
         for sf in report.security_findings:
             findings.append(_map_shield_to_finding(sf, docs_root))
+
+    for dir_path in results.directory_index_issues:
+        findings.append(
+            Finding(
+                rel_path=str(dir_path),
+                line_no=0,
+                code="Z401",
+                severity="info",
+                message=(
+                    "Directory contains Markdown files but has no index page — "
+                    "the directory URL may return a 404."
+                ),
+            )
+        )
 
     return findings
 
@@ -1122,6 +1152,9 @@ def check_all(
     show_info: bool = typer.Option(
         False, "--show-info", help="Show info-level findings (e.g. circular links) in the report."
     ),
+    offline: bool = typer.Option(
+        False, "--offline", help="Force flat URL resolution for offline builds."
+    ),
 ) -> None:
     """Run all checks: links, orphans, snippets, placeholders, assets, references.
 
@@ -1134,6 +1167,8 @@ def check_all(
     if not loaded_from_file and not quiet:
         _print_no_config_hint()
     config = _apply_engine_override(config, engine)
+    if offline:
+        config.build_context.offline_mode = True
 
     # ── Target mode (single file OR custom directory) ──────────────────────────
     _single_file: Path | None = None
@@ -1521,7 +1556,7 @@ def init(
     Performs engine auto-detection: if ``mkdocs.yml`` is present the generated
     file pre-sets ``engine = "mkdocs"``; if ``zensical.toml`` is present it
     pre-sets ``engine = "zensical"``.  Otherwise the ``[build_context]`` block
-    is omitted and the vanilla (engine-agnostic) defaults apply.
+    is omitted and the standalone (engine-agnostic) defaults apply.
     """
     repo_root = find_repo_root(fallback_to_cwd=True)
 
@@ -1560,7 +1595,7 @@ def _engine_feedback(detected_engine: str | None) -> str:
     if detected_engine:
         source = "mkdocs.yml" if detected_engine == "mkdocs" else "zensical.toml"
         return f"  Engine pre-set to [bold cyan]{detected_engine}[/] (detected from {source}).\n"
-    return "  No engine config file found — using vanilla (engine-agnostic) defaults.\n"
+    return "  No engine config file found — using standalone (engine-agnostic) defaults.\n"
 
 
 def _init_standalone(repo_root: Path, force: bool) -> None:

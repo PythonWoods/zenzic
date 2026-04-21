@@ -1,0 +1,26 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# zenzic.toml — Vanilla Markdown example.
+#
+# No build engine. No mkdocs.yml, no zensical.toml, no docusaurus.config.ts.
+# Demonstrates that Zenzic protects bare Markdown projects too.
+#
+# Demo findings:
+#   • MISSING_DIRECTORY_INDEX — docs/deep-folder/ contains .md files but
+#     has no index.md. Zenzic reports this via --show-info.
+#
+# Run: zenzic check all --show-info
+# Expected: MISSING_DIRECTORY_INDEX info finding for docs/deep-folder/
+#           All other checks pass, exit code 0
+
+docs_dir = "docs"
+fail_under = 80
+
+# Zenzic Shield — built-in credential scanner (always active, no config required).
+# Detected pattern families: openai-api-key, github-token, aws-access-key,
+#   stripe-live-key, slack-token, google-api-key, private-key,
+#   hex-encoded-payload (3+ consecutive \xNN sequences).
+# All lines including fenced code blocks are scanned. Exit code 2 on detection.
+
+[build_context]
+engine = "vanilla"

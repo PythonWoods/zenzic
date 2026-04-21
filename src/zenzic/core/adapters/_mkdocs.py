@@ -412,6 +412,7 @@ class MkDocsAdapter:
         config_file_found: bool = False,
     ) -> None:
         self._docs_root = docs_root
+        self._context = context
         self._doc_config: dict[str, Any] = doc_config if doc_config is not None else {}
         self._config_file_found: bool = config_file_found
 
@@ -573,7 +574,10 @@ class MkDocsAdapter:
         Returns:
             Canonical URL string (always starts and ends with ``/``).
         """
-        use_dir = self._doc_config.get("use_directory_urls", True)
+        if getattr(self._context, "offline_mode", False):
+            use_dir = False
+        else:
+            use_dir = self._doc_config.get("use_directory_urls", True)
         stem = rel.with_suffix("")
         parts = list(stem.parts)
         if not parts:
@@ -674,6 +678,23 @@ class MkDocsAdapter:
             is_proxy=is_proxy,
         )
 
+    def provides_index(self, directory_path: Path) -> bool:
+        """Return ``True`` when MkDocs will serve an index page for this directory.
+
+        MkDocs treats ``index.md`` (and the legacy ``README.md``) as the index
+        page for the enclosing directory, rendering it at the directory URL.
+
+        I/O is permitted here — this method is called once per directory during
+        the discovery phase, never inside per-link or per-file hot loops.
+
+        Args:
+            directory_path: Absolute path to the directory to inspect.
+
+        Returns:
+            ``True`` if an ``index.md`` or ``README.md`` exists in the directory.
+        """
+        return any((directory_path / f).exists() for f in ("index.md", "README.md"))
+
     @classmethod
     def from_repo(
         cls,
@@ -686,7 +707,7 @@ class MkDocsAdapter:
         Loads ``mkdocs.yml`` from *repo_root* and falls back to an empty config
         dict when the file is absent or contains invalid YAML.  The
         ``config_file_found`` flag distinguishes "file absent" from
-        "file present but unparseable" — only the former triggers vanilla
+        "file present but unparseable" — only the former triggers standalone
         fallback in the factory.
         """
         config_file_found = find_config_file(repo_root) is not None

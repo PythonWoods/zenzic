@@ -158,7 +158,7 @@ def test_check_orphans_with_orphans(_orphans, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "orphans"])
     assert result.exit_code == 1
     assert "ZENZIC SENTINEL" in result.stdout
-    assert "ORPHAN" in result.stdout
+    assert "Z402" in result.stdout
 
 
 # ---------------------------------------------------------------------------
@@ -192,7 +192,7 @@ def test_check_snippets_with_errors(_snip, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "snippets"])
     assert result.exit_code == 1
     assert "ZENZIC SENTINEL" in result.stdout
-    assert "SNIPPET" in result.stdout
+    assert "Z503" in result.stdout
 
 
 # ---------------------------------------------------------------------------
@@ -217,7 +217,7 @@ def test_check_assets_with_unused(_assets, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "assets"])
     assert result.exit_code == 1
     assert "ZENZIC SENTINEL" in result.stdout
-    assert "ASSET" in result.stdout
+    assert "Z903" in result.stdout
 
 
 # ---------------------------------------------------------------------------
@@ -249,7 +249,7 @@ def test_check_placeholders_with_findings(_ph, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "placeholders"])
     assert result.exit_code == 1
     assert "ZENZIC SENTINEL" in result.stdout
-    assert "short-content" in result.stdout
+    assert "Z502" in result.stdout
 
 
 # ---------------------------------------------------------------------------
@@ -910,10 +910,10 @@ def test_init_interactive_prompt_chooses_standalone(
     assert "[tool.zenzic]" not in content
 
 
-def test_init_vanilla_no_engine_no_build_context(
+def test_init_standalone_no_engine_detected(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Without mkdocs.yml or zensical.toml, no [build_context] block is written."""
+    """Without mkdocs.yml or zensical.toml, standalone feedback is shown."""
     repo = tmp_path / "repo"
     repo.mkdir()
     (repo / ".git").mkdir()
@@ -922,9 +922,7 @@ def test_init_vanilla_no_engine_no_build_context(
     result = runner.invoke(app, ["init"])
     assert result.exit_code == 0
 
-    content = (repo / "zenzic.toml").read_text(encoding="utf-8")
-    assert "[build_context]" not in content
-    assert "vanilla" in result.stdout.lower() or "engine-agnostic" in result.stdout.lower()
+    assert "standalone" in result.stdout.lower() or "engine-agnostic" in result.stdout.lower()
 
 
 # ---------------------------------------------------------------------------

@@ -12,7 +12,7 @@ SPDX-License-Identifier: Apache-2.0
 
 <p align="center">
   <a href="https://pypi.org/project/zenzic/">
-    <img src="https://img.shields.io/pypi/v/zenzic?include_prereleases&label=PyPI&color=38bdf8&style=flat-square&cacheBuster=sentinel-a4" alt="PyPI Version">
+    <img src="https://img.shields.io/pypi/v/zenzic?label=PyPI&color=38bdf8&style=flat-square&cacheBuster=sentinel-a4" alt="PyPI Version">
   </a>
   <a href="https://pypi.org/project/zenzic/">
     <img src="https://img.shields.io/pypi/pyversions/zenzic?color=10b981&style=flat-square" alt="Python Versions">
@@ -39,602 +39,234 @@ SPDX-License-Identifier: Apache-2.0
 </p>
 
 <p align="center">
-  <strong>"Zenzic is the Safe Harbor for your documentation integrity. It doesn't just check links; it audits your brand's technical resilience."</strong><br>
-  <em>Engineering-grade documentation linter — standalone, engine-agnostic, and security-hardened.</em>
-</p>
-
-```bash
-╭───────────────────────  🛡  ZENZIC SENTINEL  v0.6.1rc2  ───────────────────────╮
-│                                                                              │
-│  docusaurus • 38 files (18 docs, 20 assets) • 0.9s                           │
-│                                                                              │
-│  ──────────────────────────────────────────────────────────────────────────  │
-│                                                                              │
-│  ✔ All checks passed. Your documentation is secure.                          │
-│                                                                              │
-│    💡 4 info findings suppressed — use --show-info for details.              │
-│                                                                              │
-╰──────────────────────────────────────────────────────────────────────────────╯
-```
-
----
-
-> Documentation doesn't fail loudly. It decays silently.
-
-Broken links, orphan pages, invalid code snippets, stale placeholder content, and leaked API keys
-accumulate over time — until users hit them in production. Zenzic catches all of these across
-[Docusaurus][docusaurus], [MkDocs][mkdocs], and [Zensical][zensical] projects as a **standalone CLI** —
-no build framework required.
-
-Zenzic is **agnostic** — it works with any Markdown-based documentation system (Docusaurus, MkDocs,
-Zensical, or a bare folder of `.md` files) without installing any build framework. It reads raw source
-files and build configurations as plain text. And it is **opinionated**: absolute links are a hard error,
-engine identity must be provable, and the CLI is 100% subprocess-free.
-
----
-
-## Core Capabilities
-
-- **Security** — Shield (9 credential families, Exit 2) with Unicode obfuscation resistance, HTML entity decoding, comment-interleaving defense, and cross-line split-token lookback. Blood Sentinel (host-path traversal, Exit 3). ReDoS-safe regex (F2-1), jailbreak protection (F4-1). Neither is suppressed by `--exit-zero`.
-- **Integrity** — O(V+E) circular link detection, Virtual Site Map with content-addressable cache, deterministic 0–100 quality score.
-- **Intelligence** — Multi-engine: MkDocs, Docusaurus v3, Zensical, and Vanilla. Module-level adapter cache. Third-party adapters install as Python packages via entry points.
-- **Discovery** — Universal VCS-aware file iteration (zero `rglob`), mandatory `ExclusionManager` on every entry point, 4-level Layered Exclusion hierarchy, pure-Python `.gitignore` parser.
-
-> 🚀 **Latest Release: v0.6.1rc2 "Obsidian Bastion"** — see [CHANGELOG.md](CHANGELOG.md) for details.
-
----
-
-## 📖 Documentation
-
-Zenzic provides an extensive, engineering-grade documentation portal:
-
-- 🚀 **[User Guide][docs-home]**: Installation, CLI usage, and all available checks.
-- 🏅 **[Badges][docs-badges]**: Official Zenzic Shield and Score badge snippets for your README.
-- 🔄 **[CI/CD Integration][docs-cicd]**: GitHub Actions workflows, dynamic badges, and regression detection.
-- ⚙️ **[Developer Guide][docs-arch]**: Deep dive into the deterministic pure-core architecture, Two-Pass Pipeline, and state-machine parsing.
-- 🤝 **[Contributing][docs-contributing]**: Set up the local development environment (`uv`, `nox`), run the test suite, and submit PRs.
-
-<p align="center">
-  <a href="https://zenzic.dev/docs/"><strong>Explore the full documentation →</strong></a>
+  <strong>The Safe Harbor for your Markdown documentation.</strong><br>
+  <em>Engine-agnostic static analysis — standalone, security-hardened, zero configuration needed.</em>
 </p>
 
 ---
 
-## What Zenzic checks
+## ⚡ Try it now — Zero Installation
 
-| Check | CLI command | What it detects |
-| --- | --- | --- |
-| Links | `zenzic check links` | Broken internal links, dead anchors, and **path traversal** attempts |
-| Orphans | `zenzic check orphans` | `.md` files absent from `nav` |
-| Snippets | `zenzic check snippets` | Python, YAML, JSON, and TOML blocks with syntax errors |
-| Placeholders | `zenzic check placeholders` | Stub pages and forbidden text patterns |
-| Assets | `zenzic check assets` | Images and files not referenced anywhere |
-| **References** | `zenzic check references` | Dangling References, Dead Definitions, **Zenzic Shield** |
+Got a folder of Markdown files? Run an instant security and link audit using [`uv`][uv]:
 
-Beyond pass/fail, `zenzic score` aggregates all checks into a deterministic 0–100 quality score.
-`zenzic diff` compares the current score against a saved baseline — enabling regression detection
-on every pull request.
+```bash
+uvx zenzic check all ./your-folder
+```
 
-**Autofix:** Zenzic also provides active cleanup utilities. Run `zenzic clean assets` to automatically deleting the unused images identified by `check assets` (interactive or via `-y`).
+Zenzic will identify your engine via its configuration files or default to **Vanilla mode** for
+standalone folders — providing immediate protection for links, credentials, and structural integrity.
 
 ---
 
-## Portability Standards
+## 🚀 Quick Start
 
-Zenzic enforces two rules that make documentation portable across any hosting environment
-and independent of any specific build engine.
-
-### Relative Path Enforcement
-
-Zenzic **rejects internal links that start with `/`**. Absolute paths are environment-dependent:
-a link to `/assets/logo.png` works when the site is at the domain root, but returns 404 when
-hosted in a subdirectory (e.g. `https://example.com/docs/assets/logo.png` ≠
-`https://example.com/assets/logo.png`).
-
-```markdown
-<!-- Rejected by Zenzic -->
-[Download](/assets/guide.pdf)
-
-<!-- Correct — works at any hosting path -->
-[Download](../assets/guide.pdf)
+```bash
+pip install zenzic
+zenzic lab        # Interactive showroom — 9 acts, every engine, zero setup
+zenzic check all  # Audit the current directory
 ```
 
-The error message includes an explicit fix suggestion. External URLs (`https://...`) are not
-affected.
+📖 [Full docs →][docs-home] · 🏅 [Badges][docs-badges] · 🔄 [CI/CD guide][docs-cicd]
 
-### i18n Support: Multi-Engine Locale Resolution
+---
 
-Zenzic natively supports locale-aware documentation across all engines:
+## 🎯 Why Zenzic?
 
-**MkDocs — Suffix Mode** (`page.locale.md`) and **Folder Mode** (`docs/it/page.md`) via
-`mkdocs-static-i18n`. Links from translated pages to untranslated pages are resolved through
-the default-locale fallback when `fallback_to_default: true` is set.
-
-**Docusaurus v3 — i18n directory** (`i18n/it/docusaurus-plugin-content-docs/current/`).
-Zenzic discovers locale trees from `docusaurus.config.ts` automatically. Links between
-locale pages and default-locale assets are resolved without configuration.
-
-**Zensical** — Suffix Mode only (`page.locale.md`), similar to MkDocs.
-
-In Folder Mode (MkDocs) and Docusaurus i18n, Zenzic uses the `[build_context]` section in
-`zenzic.toml` to identify locale directories:
-
-```toml
-# zenzic.toml
-[build_context]
-engine         = "mkdocs"      # "mkdocs", "docusaurus", "zensical", or "vanilla"
-default_locale = "en"
-locales        = ["it", "fr"]  # non-default locale directory names
-```
-
-When `zenzic.toml` is absent, Zenzic reads locale configuration directly from `mkdocs.yml`
-(respecting `docs_structure`, `fallback_to_default`, and `languages`). No configuration is
-required for projects that do not use i18n.
-
-## First-Class Integrations
-
-Zenzic is **build-engine agnostic**. It works with any Markdown-based documentation system —
-MkDocs, Docusaurus, Zensical, or a bare folder of `.md` files. No build framework needs to be installed;
-Zenzic reads raw source files only.
-
-Where a documentation ecosystem defines well-known conventions for multi-locale structure or
-build-time artifact generation, Zenzic provides enhanced, opt-in support by reading the project's
-configuration file (YAML, TOML, or plain-text JS/TS) — never by importing or executing the
-framework itself.
-
-### Engine Adapters
-
-Zenzic translates engine-specific knowledge into engine-agnostic answers through a thin
-**adapter layer**:
-
-```text
-zenzic.toml  →  get_adapter()  →  Adapter  →  Core (Scanner + Validator)
-```
-
-The adapter answers the questions the Core needs without knowing anything about MkDocs or
-Zensical internals:
-
-| Method | Question |
+| Without Zenzic | With Zenzic |
 | :--- | :--- |
-| `is_locale_dir(part)` | Is this path component a non-default locale directory? |
-| `resolve_asset(path)` | Does a default-locale fallback exist for this missing asset? |
-| `is_shadow_of_nav_page(rel, nav)` | Is this locale file a mirror of a nav-listed page? |
-| `get_nav_paths()` | Which `.md` paths are declared in the nav? |
-| `get_ignored_patterns()` | Which filename patterns are non-default locale files (suffix mode)? |
-| `get_route_info(rel)` | Full route metadata: canonical URL, status, slug, route base path? |
-
-Four adapters are available, selected automatically by `get_adapter()`:
-
-| Adapter | When selected | Config source |
-| :--- | :--- | :--- |
-| `MkDocsAdapter` | `engine = "mkdocs"` or unknown engine | `mkdocs.yml` (YAML) |
-| `DocusaurusAdapter` | `engine = "docusaurus"` | `docusaurus.config.ts` / `.js` (plain text) |
-| `ZensicalAdapter` | `engine = "zensical"` | `zensical.toml` (TOML, zero YAML) |
-| `VanillaAdapter` | No config file, no locales declared | — (all no-ops) |
-
-**Native Enforcement** — `engine = "zensical"` requires `zensical.toml` to be present.
-If it is absent, Zenzic raises `ConfigurationError` immediately. There is no fallback to
-`mkdocs.yml` and no silent degradation. Zensical identity must be provable.
-
-### How it works — Virtual Site Map (VSM)
-
-Most documentation linters check whether a linked file exists on disk.
-Zenzic goes further: it builds a **Virtual Site Map** before any rule fires.
-
-```text
-Source files  ──►  Adapter  ──►  VSM  ──►  Rule Engine  ──►  Violations
-  .md + config      (engine-       (URL → status)   (pure functions)
-                    specific
-                    knowledge)
-```
-
-The VSM maps every `.md` source file to the canonical URL the build engine
-will serve — **without running the build**. Each route carries a status:
-
-| Status | Meaning |
-| :--- | :--- |
-| `REACHABLE` | Page is in the nav; users can find it. |
-| `ORPHAN_BUT_EXISTING` | File exists on disk but is absent from `nav:`. Users cannot find it via navigation. |
-| `CONFLICT` | Two files map to the same URL (e.g. `index.md` + `README.md`). Build result is undefined. |
-| `IGNORED` | File will not be served (unlisted `README.md`, Zensical `_private/` dirs). |
-
-This makes Zenzic uniquely precise: a link to an `ORPHAN_BUT_EXISTING` page
-is caught as `UNREACHABLE_LINK` — the file exists, the link resolves, but
-the user will hit a 404 after the build because the page is not navigable.
-
-**Ghost Routes** (`reconfigure_material: true`) — when `mkdocs-material`
-auto-generates locale entry points (e.g. `/it/`) at build time, those pages
-never appear in `nav:`. Zenzic detects this flag and marks them `REACHABLE`
-automatically, so no false orphan warnings are emitted.
-
-**Content-addressable cache** — Zenzic avoids re-linting unchanged files by
-keying results on `SHA256(content) + SHA256(config)`. For VSM-aware rules
-the key also includes `SHA256(vsm_snapshot)`, ensuring invalidation when any
-file's routing state changes. Timestamps are never consulted — the cache is
-correct in CI environments where `git clone` resets `mtime`.
-
-### MkDocs — i18n fallback
-
-When `mkdocs.yml` declares the i18n plugin with `fallback_to_default: true`, Zenzic mirrors
-the plugin's resolution logic: a link from a translated page to an untranslated page is **not**
-reported as broken, because the build will serve the default-locale version. Supported for both
-`docs_structure: suffix` and `docs_structure: folder`.
-
-```yaml
-# mkdocs.yml
-plugins:
-  - i18n:
-      docs_structure: folder
-      fallback_to_default: true
-      languages:
-        - locale: en
-          default: true
-          build: true
-        - locale: it
-          build: true
-```
-
-If `mkdocs.yml` is absent (or the i18n plugin is not configured), Zenzic falls back to standard
-single-locale validation — no errors, no warnings, no framework required.
-
-### Build-time artifacts (`excluded_build_artifacts`)
-
-Applies to any documentation system. If links point to files generated at build time (PDFs,
-ZIPs), declare their glob patterns in `zenzic.toml`:
-
-```toml
-# zenzic.toml
-excluded_build_artifacts = ["pdf/*.pdf", "dist/*.zip"]
-```
-
-Zenzic suppresses errors for matching paths at lint time. The build remains responsible for
-generating the artifacts; Zenzic trusts the link without requiring the file on disk.
-
-### Reference-style links
-
-`[text][id]` links are resolved through the same pipeline as inline links — including i18n
-fallback — for all documentation systems.
-
-```markdown
-[API Reference][api-ref]
-
-[api-ref]: api.md
-```
+| ❌ Broken anchors silently 200 OK in Docusaurus v3 | ✅ Mathematical anchor validation via VSM |
+| ❌ Leaked API keys in code blocks committed to git | ✅ **The Shield** — 9-family credential scanner, exit 2 |
+| ❌ Path traversal `../../../../etc/passwd` in links | ✅ **Blood Sentinel** — non-suppressible exit 3 |
+| ❌ Orphan pages unreachable from any nav link | ✅ Semantic orphan detection — not just file-exists |
+| ❌ Silent 404s accumulating in Google Search Console | ✅ Directory Index Integrity checks |
+| ❌ MkDocs → Zensical migration with unknown breakage | ✅ **Transparent Proxy** — lint both with one command |
 
 ---
 
-## Adapters vs. Integrations: The Zenzic Ecosystem
+## 🧩 What Zenzic is NOT
 
-Zenzic separates **understanding** from **acting** through two distinct extension points:
-
-| | Adapter | Integration (Plugin) |
-| :--- | :--- | :--- |
-| **Purpose** | Let Zenzic *understand* your site. | Let Zenzic *guard* your build. |
-| **Direction** | Engine → Zenzic | Zenzic → Engine |
-| **Dependency** | None — pure text analysis. | Required (`mkdocs` lib for the MkDocs plugin). |
-| **Trigger** | Automatic on every `zenzic check`. | Opt-in via engine config (e.g. `mkdocs.yml`). |
-| **Goal** | Zero-config discovery & routing. | Build-blocking quality control. |
-| **Location** | `zenzic.core.adapters.*` | `zenzic.integrations.*` |
-
-**In practice:** the Adapter is the *mind* — it reads `mkdocs.yml` as plain text and builds
-the VSM. The Integration (plugin) is the *arm* — it hooks into `mkdocs build` events and
-raises a `PluginError` if quality checks fail.
-
-Most users only need adapters (automatic). Install an integration only when you want
-Zenzic to become a gate inside your engine's build pipeline.
-
-### MkDocs Plugin
-
-```bash
-# Install the optional extra
-pip install "zenzic[mkdocs]"
-```
-
-```yaml
-# mkdocs.yml
-plugins:
-  - zenzic:
-      strict: false
-      fail_on_error: true
-      checks: [orphans, snippets, placeholders, assets]
-```
-
-The plugin class lives at `zenzic.integrations.mkdocs:ZenzicPlugin` and is auto-discovered
-by MkDocs via the `mkdocs.plugins` entry point — no manual path required.
+- **Not a site generator.** It audits source; it never builds HTML.
+- **Not a build wrapper.** Zero-Trust Execution: no subprocesses, no `mkdocs` or `docusaurus` binaries invoked.
+- **Not a spell checker.** Structure and security — not prose.
+- **Not an HTTP crawler.** All validation is local and file-based.
 
 ---
 
-## Installation
+## 📋 Capability Matrix
 
-### With `uv` (recommended)
+| Capability | Command | Detects | Exit |
+| :--- | :--- | :--- | :---: |
+| Link integrity | `check links` | Broken links, dead anchors | 1 |
+| Orphan detection | `check orphans` | Files absent from `nav` — invisible after build | 1 |
+| Code snippets | `check snippets` | Syntax errors in Python / YAML / JSON / TOML blocks | 1 |
+| Placeholder content | `check placeholders` | Stub pages and forbidden text patterns | 1 |
+| Unused assets | `check assets` | Images and files not referenced anywhere | 1 |
+| **Credential scanning** | `check references` | **9 credential families** — text, URLs, code blocks | **2** |
+| **Path traversal** | `check links` | System-path escape attempts | **3** |
+| Quality score | `score` | Deterministic 0–100 composite metric | — |
+| Regression detection | `diff` | Score drop vs saved baseline — CI-friendly | 1 |
 
-[`uv`][uv] is the fastest way to install and run Zenzic:
+**Autofix:** `zenzic clean assets [-y] [--dry-run]` deletes unused images.
 
-```bash
-# Zero-install, one-shot audit
-uvx --pre zenzic check all
-
-# Global CLI tool — available in any project
-uv tool install --pre zenzic
-
-# Project dev dependency — version-pinned in uv.lock
-uv add --dev --pre zenzic
-```
-
-### With `pip`
-
-```bash
-# Global install (consider a virtual environment)
-pip install --pre zenzic
-
-# Inside a virtual environment (recommended)
-python -m venv .venv
-source .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install --pre zenzic
-```
-
-### Lean & Agnostic by Design
-
-Zenzic performs a **static analysis** of your configuration files (`mkdocs.yml`, `docusaurus.config.ts`, `zensical.toml`, `pyproject.toml`). It does **not** execute the build engine or its plugins — it is 100% subprocess-free. Docusaurus configuration (`.ts`/`.js`) is analysed via static text parsing — Node.js is never invoked.
-
-This means you **do not need to install** MkDocs, Docusaurus, Material for MkDocs, or any other
-build-related plugins in your linting environment. Zenzic remains lightweight and dependency-free,
-making it ideal for fast, isolated CI/CD pipelines.
-
-**Installation extras:**
-
-| Command | What you get |
-| :--- | :--- |
-| `pip install zenzic` | Core CLI + Docusaurus, Zensical, and Vanilla adapters. No engine library required. |
-| `pip install "zenzic[mkdocs]"` | Core + the **MkDocs plugin** (`zenzic.integrations.mkdocs`). Adds `mkdocs` as a dependency. |
-
-> The MkDocs extra is needed **only** if you want the build-time plugin integration.
-> For standalone CLI usage (`zenzic check all`), the base install is sufficient for every engine.
->
-> **Build artifacts:** If your documentation links to files generated at build time
-> (PDFs, ZIPs), add their glob patterns to `excluded_build_artifacts` in `zenzic.toml`
-> rather than pre-generating them. See the [First-Class Integrations](#first-class-integrations) section above.
-
-### Project setup
-
-```bash
-zenzic init             # creates zenzic.toml with auto-detected engine
-zenzic init --pyproject # embeds [tool.zenzic] in pyproject.toml instead
-```
-
-When `pyproject.toml` exists, `zenzic init` asks interactively whether to embed
-configuration there. Pass `--pyproject` to skip the prompt.
+> 🚀 **v0.6.1 "Obsidian Glass" (Stable)** — Full Docusaurus v3 versioning, `@site/` alias
+> resolution, and Zensical Transparent Proxy. See [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
-## CLI usage
+## 🛡️ Security: The Shield & Blood Sentinel
 
-```bash
-# Individual checks
-zenzic check links --strict
-zenzic check orphans
-zenzic check snippets
-zenzic check placeholders
-zenzic check assets
+Two security layers are permanently active — neither is suppressible by `--exit-zero`:
 
-# Autofix & Cleanup
-zenzic clean assets               # Interactively delete unused assets
-zenzic clean assets -y            # Delete unused assets immediately
-zenzic clean assets --dry-run     # Preview what would be deleted
+**The Shield** scans every line — including fenced code blocks — for credentials. Unicode
+normalization defeats obfuscation (HTML entities, comment interleaving, cross-line lookback).
+Detected families: AWS, GitHub/GitLab, Stripe, Slack, OpenAI, Google, PEM headers, hex payloads.
+**→ Exit 2. Rotate and audit immediately.**
 
-# Reference pipeline
-zenzic check references           # Harvest → Cross-Check → Shield → Integrity score
-zenzic check references --strict  # Treat Dead Definitions as errors
-zenzic check references --links   # Also validate reference URLs via async HTTP
+**Blood Sentinel** normalizes every resolved link with `os.path.normpath` and rejects any path
+escaping the `docs/` root. Catches `../../../../etc/passwd`-style traversal before any OS syscall.
+**→ Exit 3.**
 
-# All checks in one command
-zenzic check all --strict
-zenzic check all --exit-zero      # Report without blocking the pipeline
-zenzic check all --format json    # Machine-readable output
-zenzic check all --engine docusaurus  # Explicit engine override
-
-# Exclusion control
-zenzic check all --exclude-dir drafts --exclude-dir temp
-zenzic check all --include-dir guides  # Only scan specific directories
-
-# Quality score (0–100)
-zenzic score
-zenzic score --save               # Persist baseline snapshot
-zenzic score --fail-under 80      # Exit 1 if below threshold
-
-# Regression detection against saved snapshot
-zenzic diff                       # Exit 1 on any score drop
-zenzic diff --threshold 5         # Exit 1 only if drop > 5 points
-```
-
-> **Note (v0.6.1+):** `zenzic serve` has been removed. Zenzic focuses exclusively on
-> static analysis. To preview your docs, use your engine's native command:
-> `mkdocs serve`, `docusaurus start`, or `zensical serve`.
-
-### Exit codes
-
-| Code | Meaning |
+| Exit | Meaning |
 | :---: | :--- |
-| `0` | All selected checks passed |
-| `1` | One or more checks reported issues |
-| **`2`** | **SECURITY CRITICAL — Zenzic Shield detected a leaked credential** |
-| **`3`** | **SECURITY CRITICAL — Blood Sentinel detected a system-path traversal** |
+| `0` | All checks passed |
+| `1` | Quality issues found |
+| **`2`** | **SECURITY — leaked credential detected** |
+| **`3`** | **SECURITY — system-path traversal detected** |
 
-> **Warning:**
-> **Exit code 2** is reserved for Shield events (leaked credentials). **Exit code 3** is
-> reserved for Blood Sentinel events (path traversal to OS system directories such as
-> `/etc/`, `/root/`). Both are never suppressed by `--exit-zero`. Rotate and audit immediately.
+> Add `zenzic check references` to your pre-commit hooks to catch leaks before git history.
 
 ---
 
-## 🛡️ Zenzic Shield
+## 🔌 Multi-Engine Support
 
-The **Zenzic Shield** is a two-layer security system built into the core engine:
+Zenzic reads config files as plain text — never imports or executes your build framework:
 
-| Layer | Protects against |
-| --- | --- |
-| **Credential detection** | Leaked API keys / tokens embedded in reference URLs |
-| **Path traversal** | `../../../../etc/passwd`-style escape from `docs/` |
+| Engine | Adapter | Highlights |
+| :--- | :--- | :--- |
+| [Docusaurus v3][docusaurus] | `DocusaurusAdapter` | Versioned docs, `@site/` alias, Ghost Route detection |
+| [MkDocs][mkdocs] | `MkDocsAdapter` | i18n suffix + folder modes, `fallback_to_default` |
+| [Zensical][zensical] | `ZensicalAdapter` | Transparent Proxy bridges `mkdocs.yml` if `zensical.toml` absent |
+| Any folder | `VanillaAdapter` | Zero-config, Directory Index Integrity — no engine required |
 
-### Credential detection
-
-The credential layer runs during **Pass 1** (Harvesting) of the reference pipeline and scans
-every reference URL for known credential patterns before any HTTP request is issued.
-
-```markdown
-<!-- This definition would trigger an immediate Exit 2 -->
-[api-docs]: https://api.example.com/?key=sk-xxxx-xxxx-xxxx-xxxx-xxxx-xxxx
-```
-
-```bash
-╔══════════════════════════════════════╗
-║        SECURITY CRITICAL             ║
-║  Secret(s) detected in documentation ║
-╚══════════════════════════════════════╝
-
-  [SHIELD] docs/api.md:12 — openai-api-key detected in URL
-    https://api.example.com/?key=sk-xxxx-xxxx-x...
-
-Build aborted. Rotate the exposed credential immediately.
-```
-
-**How it works:**
-
-1. The Shield runs *inside* Pass 1 — before Pass 2 validates links and before any HTTP ping is
-   issued. A document containing a leaked credential is never used to make outbound requests.
-2. Patterns use exact-length quantifiers (`{48}`, `{36}`, `{16}`) — no backtracking, O(1) per line.
-3. Eight credential families are covered out of the box:
-
-| Type | Pattern |
-| --- | --- |
-| OpenAI API key | `sk-[a-zA-Z0-9]{48}` |
-| GitHub token | `gh[pousr]_[a-zA-Z0-9]{36}` |
-| AWS access key | `AKIA[0-9A-Z]{16}` |
-| Stripe live key | `sk_live_[0-9a-zA-Z]{24}` |
-| Slack token | `xox[baprs]-[0-9a-zA-Z]{10,48}` |
-| Google API key | `AIza[0-9A-Za-z\-_]{35}` |
-| PEM private key | `-----BEGIN [A-Z ]+ PRIVATE KEY-----` |
-| Hex-encoded payload | 3+ consecutive `\xNN` escape sequences |
-
-1. **No blind spots** — the Shield scans every line of the source file, including lines inside
-   fenced code blocks (`bash`, `yaml`, unlabelled, etc.). A credential committed inside a code
-   example is still a committed credential.
-
-> **Tip:**
-> Add `zenzic check references` to your pre-commit hooks to catch leaked credentials before they
-> are ever committed to version control.
-
-### Path traversal
-
-The path traversal layer runs inside `InMemoryPathResolver` during `check links`. It normalises
-every resolved href with `os.path.normpath` (pure C, zero kernel calls) and verifies the result
-is contained within `docs/` using a single string prefix check — $O(1)$, allocation-free.
-
-```bash
-Attack href:   ../../../../etc/passwd
-After resolve: /etc/passwd
-Shield check:  /etc/passwd does not start with /docs/ → PathTraversal returned, link rejected
-```
-
-Any href that escapes the docs root is surfaced as a distinct `PathTraversal` error — never
-silently collapsed into a generic "file not found".
+Third-party adapters install via the `zenzic.adapters` entry-point group.
+See the [Developer Guide][docs-arch] for the adapter API.
 
 ---
 
-## CI/CD integration
+## ⚙️ Configuration
 
-### GitHub Actions
-
-```yaml
-- name: Lint documentation
-  run: uvx --pre zenzic check all
-
-- name: Check references and run Shield
-  run: uvx --pre zenzic check references
-```
-
-Full workflow: [`.github/workflows/zenzic.yml`][ci-workflow]
-
-For dynamic badge automation and regression detection, see the [CI/CD Integration guide][docs-cicd].
-
----
-
-## Configuration
-
-All fields are optional. Zenzic works with no configuration file at all.
-
-Zenzic follows a three-level **Agnostic Citizen** priority chain:
-
-1. `zenzic.toml` at the repository root — sovereign; always wins.
-2. `[tool.zenzic]` in `pyproject.toml` — used when `zenzic.toml` is absent.
-3. Built-in defaults.
+Zero-config by default. Priority: `zenzic.toml` > `[tool.zenzic]` in `pyproject.toml` > built-ins.
 
 ```toml
-# zenzic.toml  (or [tool.zenzic] in pyproject.toml)
-docs_dir = "docs"
-excluded_dirs = ["includes", "assets", "stylesheets", "overrides", "hooks"]
-snippet_min_lines = 1
-placeholder_max_words = 50
-placeholder_patterns = ["coming soon", "todo", "stub"]
-fail_under = 80   # exit 1 if score drops below this; 0 = observational mode
+# zenzic.toml  (all fields optional)
+docs_dir                 = "docs"
+fail_under               = 80       # exit 1 if score < threshold; 0 = observe only
+excluded_dirs            = ["includes", "assets", "overrides"]
+excluded_build_artifacts = ["pdf/*.pdf", "dist/*.zip"]
+placeholder_patterns     = ["coming soon", "todo", "stub"]
 
-# Engine and i18n context — required only for folder-mode multi-locale projects.
-# When absent, Zenzic reads locale config directly from mkdocs.yml.
 [build_context]
-engine         = "mkdocs"   # "mkdocs", "docusaurus", "zensical", or "vanilla"
+engine         = "mkdocs"   # mkdocs | docusaurus | zensical | vanilla
 default_locale = "en"
-locales        = ["it"]     # non-default locale directory names
+locales        = ["it"]
 ```
 
----
+```bash
+zenzic init             # Generate zenzic.toml with auto-detected values
+zenzic init --pyproject # Embed [tool.zenzic] in pyproject.toml
+```
 
-## DSL `[[custom_rules]]`
-
-Declare project-specific lint rules in `zenzic.toml` without writing Python:
+**Custom lint rules** — declare project-specific patterns in `zenzic.toml`, no Python required:
 
 ```toml
 [[custom_rules]]
 id       = "ZZ-NODRAFT"
 pattern  = "(?i)\\bDRAFT\\b"
-message  = "Remove the DRAFT marker before publishing."
+message  = "Remove DRAFT marker before publishing."
 severity = "warning"
-
-[[custom_rules]]
-id       = "ZZ-NOINTERNAL"
-pattern  = "internal\\.corp\\.example\\.com"
-message  = "Internal hostname must not appear in public documentation."
-severity = "error"
 ```
 
-Rules fire identically across all adapters (MkDocs, Docusaurus, Zensical, Vanilla). No changes
-required after migrating from one engine to another.
+Rules fire identically across all adapters. No changes required after engine migration.
 
 ---
 
-## Development
+## 🔄 CI/CD Integration
 
-For a faster, interactive development workflow using **just**, or for detailed instructions on
-adding new checks, see the [Contributing Guide][contributing].
+```yaml
+- name: 🛡️ Zenzic Sentinel
+  run: uvx zenzic check all --strict
+  # Exit 1 = quality · Exit 2 = leaked credential · Exit 3 = path traversal
+  # Exits 2 and 3 are never suppressible.
+
+- name: Regression gate
+  run: |
+    uvx zenzic score --save    # on main branch
+    uvx zenzic diff            # on PR — exit 1 if score drops
+```
+
+For badge automation and regression gates, see the [CI/CD guide][docs-cicd].
+Full workflow: [`.github/workflows/ci.yml`][ci-workflow]
+
+---
+
+## 📦 Installation
 
 ```bash
-uv sync --group dev
-nox -s dev         # Install pre-commit hooks (once)
+# Zero-install, one-shot audit (recommended for CI and exploration)
+uvx zenzic check all ./docs
 
-nox -s tests       # pytest + coverage
-nox -s lint        # ruff check
-nox -s format      # ruff format
-nox -s typecheck   # mypy --strict
-nox -s preflight   # full CI pipeline (lint + test + self-check)
+# Global CLI tool
+uv tool install zenzic
+
+# Pinned dev dependency
+uv add --dev zenzic
+
+# pip
+pip install zenzic
+pip install "zenzic[mkdocs]"   # + MkDocs build-time plugin
+```
+
+> The `[mkdocs]` extra adds the build-time plugin (`zenzic.integrations.mkdocs`).
+> All engine adapters (Docusaurus, Zensical, Vanilla) are included in the base install.
+
+**Portability:** Zenzic rejects absolute internal links (starting with `/`). Relative links
+work at any hosting path. External `https://` URLs are never affected.
+
+---
+
+## 🖥️ CLI Reference
+
+```bash
+# Checks
+zenzic check links [--strict]
+zenzic check orphans
+zenzic check snippets
+zenzic check placeholders
+zenzic check assets
+zenzic check references [--strict] [--links]
+zenzic check all [--strict] [--exit-zero] [--format json] [--engine ENGINE]
+zenzic check all [--exclude-dir DIR] [--include-dir DIR]
+
+# Score & diff
+zenzic score [--save] [--fail-under N]
+zenzic diff  [--threshold N]
+
+# Autofix
+zenzic clean assets [-y] [--dry-run]
+
+# Init
+zenzic init [--pyproject]
+
+# Interactive showroom
+zenzic lab [--act N] [--list]
 ```
 
 ---
 
-## Visual Tour
+## 📟 Visual Tour
 
-The full Sentinel audit — banner, engine detection, and pass/fail verdict:
-
-```bash
-╭───────────────────────  🛡  ZENZIC SENTINEL  v0.6.1rc2  ───────────────────────╮
+```text
+╭───────────────────────  🛡  ZENZIC SENTINEL  v0.6.1  ────────────────────────╮
 │                                                                              │
 │  docusaurus • 38 files (18 docs, 20 assets) • 0.9s                           │
 │                                                                              │
@@ -644,45 +276,95 @@ The full Sentinel audit — banner, engine detection, and pass/fail verdict:
 │        │                                                                     │
 │    12  │ Read the [quickstart guide](quickstart.mdx) first.                  │
 │        │                                                                     │
-│                                                                              │
 │  ──────────────────────────────────────────────────────────────────────────  │
 │                                                                              │
-│  ✗ 1 error  • 1 file with findings                                           │
-│                                                                              │
-│  FAILED: One or more checks failed.                                          │
-│                                                                              │
-│    💡 4 info findings suppressed — use --show-info for details.              │
+│  ✗ 1 error  • 1 file with findings • FAILED                                  │
 │                                                                              │
 ╰──────────────────────────────────────────────────────────────────────────────╯
 ```
 
-**Shield** catches leaked credentials before any HTTP request is issued. **Blood Sentinel**
-blocks path traversal attempts that escape the `docs/` root. Both trigger non-suppressible
-exit codes (2 and 3). The **VSM** (Virtual Site Map) ensures link validation operates on
-canonical URLs — not filesystem paths — so orphan pages and slug overrides are detected
-accurately across all engines.
-
-For interactive screenshots and rich visual examples, visit the
-[documentation portal](https://zenzic.dev/docs/).
+Visit the [documentation portal][docs-home] for interactive screenshots and rich examples.
 
 ---
 
-## Contributing
+## 🗺️ Roadmap v0.7.0
 
-We welcome bug reports, documentation improvements, and pull requests. Before you start:
+- [ ] **Auto-fix Engine** — Automatic repair of broken links and orphaned anchors.
+- [ ] **IDE Extensions** — Real-time linting for VS Code and Cursor via LSP.
+- [ ] **AI Context Provider** — VSM export in LLM-friendly format for AI agents.
+- [ ] **Astro & VitePress Adapters** — Expanding the Safe Harbor to JS frameworks.
 
-1. Open an issue to discuss the change — use the [bug report][issues], [feature request][issues], or [docs issue][issues] template.
-2. Read the [Contributing Guide][contributing] — especially the **Local development setup** and the **Zenzic Way** checklist (pure functions, no subprocesses, source-first).
-3. Every PR must pass `nox -s preflight` (tests + lint + typecheck + self-dogfood) and include REUSE/SPDX headers on new files.
+---
 
-Please also review our [Code of Conduct][coc] and [Security Policy][security].
+## 🏗️ Design Philosophy
 
-## Citing Zenzic
+Zenzic is built on three operational contracts:
 
-A [`CITATION.cff`][citation-cff] file is present at the root of the repository. GitHub renders
-it automatically — click **"Cite this repository"** on the repo page for APA or BibTeX output.
+**Lint the Source, Not the Build.** The VSM (Virtual Site Map) maps every `.md` file to its
+canonical URL without running the build — errors are caught before they reach production.
 
-## License
+**Zero-Trust Execution.** No subprocesses, no arbitrary code execution, no build engine imports.
+Docusaurus `.ts`/`.js` configs are parsed via static text analysis — Node.js is never invoked.
+
+**Mandatory Exclusion at Every Entry Point.** All file discovery goes through
+`LayeredExclusionManager` — a 4-level hierarchy (System → VCS → Config → CLI). No global scan
+without an explicit exclusion context.
+
+See the [Architecture Guide][docs-arch] for the Two-Pass Reference Pipeline and VSM deep-dive.
+
+---
+
+## 🙋 FAQ
+
+**Why not `grep`?** Grep is blind to structure. Zenzic understands Docusaurus versioning,
+MkDocs i18n fallbacks, and Ghost Routes — pages that don't exist as files but are valid URLs.
+
+**Does it run my build engine?** No. 100% subprocess-free. Static analysis on plain text only.
+
+**Can it handle thousands of files?** Yes. Adaptive parallelism for discovery; O(1) VSM lookup
+per link; content-addressable cache (`SHA256(content + config + vsm_snapshot)`) skips unchanged files.
+
+**Shield vs Blood Sentinel?** Shield = secrets *inside* content (exit 2). Blood Sentinel =
+links pointing to OS system *paths* (exit 3). Both are non-suppressible.
+
+**No `zenzic.toml` needed?** Correct. Zenzic identifies the engine from config files present and applies safe defaults. Run
+`zenzic init` at any time to generate a pre-populated config file.
+
+**What is `zenzic lab`?** A 9-act interactive showroom covering every engine and error class.
+Run it once before integrating Zenzic into any project.
+
+---
+
+## 🛠️ Development
+
+```bash
+uv sync --all-groups
+nox -s tests       # pytest + coverage
+nox -s lint        # ruff
+nox -s typecheck   # mypy --strict
+nox -s preflight   # lint + format + typecheck + pytest + reuse
+just verify        # preflight + zenzic check all --strict (self-dogfood)
+```
+
+See the [Contributing Guide][contributing] for the Zenzic Way checklist and PR conventions.
+
+---
+
+## 🤝 Contributing
+
+1. Open an [issue][issues] to discuss the change.
+2. Read the [Contributing Guide][contributing] — Zenzic Way checklist, pure functions, no
+   subprocesses, source-first.
+3. Every PR must pass `nox -s preflight` and include REUSE/SPDX headers on new files.
+
+See also: [Code of Conduct][coc] · [Security Policy][security]
+
+## 📎 Citing
+
+A [`CITATION.cff`][citation-cff] is present at the root. Click **"Cite this repository"** on
+GitHub for APA or BibTeX output.
+
+## 📄 License
 
 Apache-2.0 — see [LICENSE][license].
 
@@ -702,9 +384,8 @@ Apache-2.0 — see [LICENSE][license].
 [uv]:                https://docs.astral.sh/uv/
 [docs-home]:         https://zenzic.dev/docs/
 [docs-badges]:       https://zenzic.dev/docs/usage/badges/
-[docs-cicd]:         https://zenzic.dev/docs/ci-cd/
-[docs-arch]:         https://zenzic.dev/docs/architecture/
-[docs-contributing]: https://zenzic.dev/docs/community/contribute/
+[docs-cicd]:         https://zenzic.dev/docs/guides/ci-cd/
+[docs-arch]:         https://zenzic.dev/docs/internals/architecture-overview/
 [ci-workflow]:       .github/workflows/ci.yml
 [contributing]:      CONTRIBUTING.md
 [license]:           LICENSE

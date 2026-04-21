@@ -216,9 +216,9 @@ class TestPartialTranslations:
             docs / "it" / "index.mdx": "# Home IT",
         }
         vsm = build_vsm(adapter, docs, md_contents)
-        assert vsm["/"].status == "REACHABLE"
-        assert vsm["/guide/"].status == "REACHABLE"
-        assert vsm["/it/"].status == "REACHABLE"
+        assert vsm["/docs/"].status == "REACHABLE"
+        assert vsm["/docs/guide/"].status == "REACHABLE"
+        assert vsm["/it/docs/"].status == "REACHABLE"
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

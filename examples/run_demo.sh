@@ -4,14 +4,17 @@
 #
 # run_demo.sh — The Zenzic Philosophy Tour.
 #
-# Five acts that cover the full spectrum of documentation integrity:
+# Nine acts (Acts 0–8) that cover the full spectrum of documentation integrity:
 #
-#   Act 0 — MkDocs Baseline    : mkdocs-basic must pass as 1.x reference.
+#   Act 0 — Linter Demo        : mkdocs-basic shows FILE_NOT_FOUND + BROKEN_ANCHOR.
 #   Act 1 — The Gold Standard  : i18n-standard must pass with 100/100.
 #   Act 2 — The Broken Docs    : broken-docs must fail, showing every error class.
 #   Act 3 — The Shield         : security_lab must block traversal and absolute links.
 #   Act 4 — Single-File Target : single-file-target — audit only README.md.
 #   Act 5 — Custom Dir Target  : custom-dir-target — audit content/ instead of docs/.
+#   Act 6 — Transparent Proxy  : zensical-bridge — SENTINEL banner + bridge activation.
+#   Act 7 — The Flagship       : docusaurus-v3-enterprise — versioned docs + @site/ + i18n.
+#   Act 8 — Minimum Viable     : vanilla-markdown — MISSING_DIRECTORY_INDEX on bare .md.
 #
 # Usage (from repo root):
 #   bash examples/run_demo.sh
@@ -53,14 +56,15 @@ echo "  i18n-standard assets are ghost artifacts — excluded_build_artifacts ha
 
 # ─── Act 0: MkDocs baseline ──────────────────────────────────────────────────
 
-print_header "Act 0 — MkDocs baseline (mkdocs-basic)"
-echo "  Expected: SUCCESS — clean MkDocs 1.6-style fixture."
+print_header "Act 0 — Linter Demo (mkdocs-basic)"
+echo "  Expected: FAILURE — FILE_NOT_FOUND (guide/index.md → ../deployment.md)"
+echo "                       BROKEN_ANCHOR (api.md → guide/index.md#advanced-configuration)"
 echo ""
 
 if (cd "$REPO_ROOT/examples/mkdocs-basic" && uv run zenzic check all); then
-    print_result "mkdocs-basic check all" "PASS"
+    print_result "mkdocs-basic check all" "UNEXPECTED PASS"
 else
-    print_result "mkdocs-basic check all" "UNEXPECTED FAILURE"
+    print_result "mkdocs-basic check all (errors are the feature)" "FAIL"
 fi
 
 # ─── Act 1: Gold Standard ─────────────────────────────────────────────────────
@@ -128,6 +132,45 @@ else
     print_result "custom-dir-target check all content/" "UNEXPECTED FAILURE"
 fi
 
+# ─── Act 6: Transparent Proxy ───────────────────────────────────────────────
+
+print_header "Act 6 — Transparent Proxy (zensical-bridge)"
+echo "  engine = \"zensical\" declared, NO zensical.toml present — only mkdocs.yml."
+echo "  Expected: SENTINEL banner printed + SUCCESS."
+echo ""
+
+if (cd "$REPO_ROOT/examples/zensical-bridge" && uv run zenzic check all); then
+    print_result "zensical-bridge check all (SENTINEL banner + pass)" "PASS"
+else
+    print_result "zensical-bridge check all" "UNEXPECTED FAILURE"
+fi
+
+# ─── Act 7: The Flagship ────────────────────────────────────────────────
+
+print_header "Act 7 — The Flagship (docusaurus-v3-enterprise)"
+echo "  Versioned docs (versioned_docs/version-1.0.0/) + @site/ aliases + i18n."
+echo "  Expected: SUCCESS — all cross-version alias links resolve."
+echo ""
+
+if (cd "$REPO_ROOT/examples/docusaurus-v3-enterprise" && uv run zenzic check all); then
+    print_result "docusaurus-v3-enterprise check all" "PASS"
+else
+    print_result "docusaurus-v3-enterprise check all" "UNEXPECTED FAILURE"
+fi
+
+# ─── Act 8: Minimum Viable ──────────────────────────────────────────────
+
+print_header "Act 8 — Minimum Viable (vanilla-markdown)"
+echo "  No build engine. docs/deep-folder/ has no index.md."
+echo "  Expected: MISSING_DIRECTORY_INDEX info finding + SUCCESS."
+echo ""
+
+if (cd "$REPO_ROOT/examples/vanilla-markdown" && uv run zenzic check all --show-info); then
+    print_result "vanilla-markdown check all --show-info" "PASS"
+else
+    print_result "vanilla-markdown check all --show-info" "UNEXPECTED FAILURE"
+fi
+
 # ─── Self-audit + score snapshot ──────────────────────────────────────────────
 
 print_header "Self-audit + Score Snapshot (main repo)"
@@ -149,9 +192,13 @@ cat .zenzic-score.json
 echo ""
 
 print_header "Demo complete"
-echo "  Act 1 (Gold Standard)     : must be green"
-echo "  Act 2 (Broken Docs)       : must be red — errors are the feature"
-echo "  Act 3 (Shield)            : must be red — attacks are blocked"
-echo "  Act 4 (Single-File Target): must be green — 1 file audited"
-echo "  Act 5 (Custom Dir Target) : must be green — content/ audited"
+echo "  Act 0 (Linter Demo)         : must be red — FILE_NOT_FOUND + BROKEN_ANCHOR shown"
+echo "  Act 1 (Gold Standard)       : must be green"
+echo "  Act 2 (Broken Docs)         : must be red — errors are the feature"
+echo "  Act 3 (Shield)              : must be red — attacks are blocked"
+echo "  Act 4 (Single-File Target)  : must be green — 1 file audited"
+echo "  Act 5 (Custom Dir Target)   : must be green — content/ audited"
+echo "  Act 6 (Transparent Proxy)   : must be green — SENTINEL banner + bridge"
+echo "  Act 7 (Flagship)            : must be green — versioned @site/ + i18n"
+echo "  Act 8 (Minimum Viable)      : must be green — MISSING_DIRECTORY_INDEX fires"
 echo ""

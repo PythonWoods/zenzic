@@ -534,8 +534,8 @@ def test_i18n_languages_is_null(tmp_path: Path) -> None:
     assert orphans == []
 
 
-def test_extract_i18n_locale_dirs_scenario_vanilla() -> None:
-    """Scenario 'Vanilla': mkdocs.yml without any plugin returns empty set.
+def test_extract_i18n_locale_dirs_scenario_standalone() -> None:
+    """Scenario 'Standalone': mkdocs.yml without any plugin returns empty set.
 
     Zenzic must be a safe drop-in for projects that have not yet adopted i18n.
     """

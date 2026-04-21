@@ -52,6 +52,7 @@ class RouteMetadata:
             pages auto-created by ``reconfigure_material`` or Docusaurus's
             i18n entry points).  Proxy routes are ``REACHABLE`` but should
             not be checked for content integrity.
+        version: Optional version identifier for multi-version setups (e.g. Docusaurus versioned_docs).
     """
 
     canonical_url: str
@@ -59,6 +60,7 @@ class RouteMetadata:
     slug: str | None = None
     route_base_path: str = "/"
     is_proxy: bool = False
+    version: str | None = None
 
 
 # ── BaseAdapter Protocol ─────────────────────────────────────────────────────
@@ -125,7 +127,7 @@ class BaseAdapter(Protocol):
     def has_engine_config(self) -> bool:
         """Return ``True`` when a build-engine config was found and loaded.
 
-        ``VanillaAdapter`` returns ``False``.  All concrete adapters return
+        ``StandaloneAdapter`` returns ``False``.  All concrete adapters return
         ``True``.  Callers use this to decide whether a nav-based check
         (e.g. orphan detection) can produce meaningful results.
         """
@@ -189,5 +191,25 @@ class BaseAdapter(Protocol):
 
         Returns:
             :class:`RouteMetadata` with all routing fields populated.
+        """
+        ...
+
+    def provides_index(self, directory_path: Path) -> bool:
+        """Return ``True`` when the engine generates a landing page for *directory_path*.
+
+        Called once per discovered directory during the I/O discovery phase
+        (never inside a per-link loop).  Implementations may call
+        ``Path.exists()`` because this method is part of the I/O phase, not
+        the hot-path rule engine.
+
+        Conservative default: ``False``.  Adapters that generate directory
+        index pages must override this method.
+
+        Args:
+            directory_path: Absolute path to the directory to check.
+
+        Returns:
+            ``True`` if the engine will serve a valid page at the directory
+            URL (e.g. ``/docs/guides/``); ``False`` otherwise.
         """
         ...

@@ -23,6 +23,7 @@ from hypothesis import given, settings, strategies as st
 from zenzic.core.adapters._base import BaseAdapter, RouteMetadata
 from zenzic.core.adapters._docusaurus import DocusaurusAdapter
 from zenzic.core.adapters._mkdocs import MkDocsAdapter
+from zenzic.core.adapters._standalone import StandaloneAdapter
 from zenzic.core.adapters._utils import (
     build_metadata_cache,
     extract_frontmatter_draft,
@@ -30,7 +31,6 @@ from zenzic.core.adapters._utils import (
     extract_frontmatter_tags,
     extract_frontmatter_unlisted,
 )
-from zenzic.core.adapters._vanilla import VanillaAdapter
 from zenzic.core.adapters._zensical import ZensicalAdapter
 from zenzic.core.shield import ShieldViolation, safe_read_line
 from zenzic.models.config import BuildContext
@@ -42,7 +42,7 @@ from zenzic.models.config import BuildContext
 def _make_context(**overrides: object) -> BuildContext:
     """Create a minimal BuildContext for testing."""
     defaults: dict[str, object] = {
-        "engine": "vanilla",
+        "engine": "standalone",
         "default_locale": "en",
         "locales": [],
         "fallback_to_default": True,
@@ -102,8 +102,8 @@ _special_path = st.sampled_from(
 class TestProtocolCompliance:
     """Every adapter must satisfy the BaseAdapter protocol (PEP 544)."""
 
-    def test_vanilla_satisfies_protocol(self) -> None:
-        assert isinstance(VanillaAdapter(), BaseAdapter)
+    def test_standalone_satisfies_protocol(self) -> None:
+        assert isinstance(StandaloneAdapter(), BaseAdapter)
 
     def test_mkdocs_satisfies_protocol(self) -> None:
         ctx = _make_context(engine="mkdocs")
@@ -162,15 +162,15 @@ class TestRouteMetadataInvariants:
 class TestGetRouteInfoContract:
     """get_route_info() must return valid RouteMetadata for all adapters."""
 
-    def test_vanilla_returns_reachable(self) -> None:
-        adapter = VanillaAdapter()
+    def test_standalone_returns_reachable(self) -> None:
+        adapter = StandaloneAdapter()
         meta = adapter.get_route_info(Path("guide.md"))
         assert isinstance(meta, RouteMetadata)
         assert meta.status == "REACHABLE"
         assert meta.canonical_url == "/guide/"
 
-    def test_vanilla_index_collapses(self) -> None:
-        adapter = VanillaAdapter()
+    def test_standalone_index_collapses(self) -> None:
+        adapter = StandaloneAdapter()
         meta = adapter.get_route_info(Path("index.md"))
         assert meta.canonical_url == "/"
 
@@ -187,7 +187,7 @@ class TestGetRouteInfoContract:
         adapter = DocusaurusAdapter(ctx, Path("/docs"))
         meta = adapter.get_route_info(Path("guide/install.mdx"))
         assert isinstance(meta, RouteMetadata)
-        assert meta.canonical_url == "/guide/install/"
+        assert meta.canonical_url == "/docs/guide/install/"
         assert meta.status == "REACHABLE"
 
     def test_docusaurus_with_slug(self) -> None:
@@ -214,8 +214,8 @@ class TestGetRouteInfoHypothesis:
 
     @given(rel=_rel_path)
     @settings()
-    def test_vanilla_never_crashes(self, rel: Path) -> None:
-        adapter = VanillaAdapter()
+    def test_standalone_never_crashes(self, rel: Path) -> None:
+        adapter = StandaloneAdapter()
         meta = adapter.get_route_info(rel)
         assert isinstance(meta, RouteMetadata)
         assert meta.status == "REACHABLE"
@@ -245,7 +245,7 @@ class TestGetRouteInfoHypothesis:
     @settings()
     def test_special_paths_never_crash(self, rel: Path) -> None:
         for adapter in [
-            VanillaAdapter(),
+            StandaloneAdapter(),
             MkDocsAdapter(_make_context(engine="mkdocs"), Path("/docs")),
             DocusaurusAdapter(_make_context(engine="docusaurus"), Path("/docs")),
         ]:
@@ -255,7 +255,7 @@ class TestGetRouteInfoHypothesis:
     @given(rel=_long_path)
     @settings()
     def test_deep_nesting_never_crashes(self, rel: Path) -> None:
-        adapter = VanillaAdapter()
+        adapter = StandaloneAdapter()
         meta = adapter.get_route_info(rel)
         assert isinstance(meta, RouteMetadata)
         assert meta.canonical_url.startswith("/")
@@ -267,8 +267,8 @@ class TestGetRouteInfoHypothesis:
 class TestPickleSafety:
     """Adapters must survive pickle round-trip for parallel processing."""
 
-    def test_vanilla_pickle(self) -> None:
-        adapter = VanillaAdapter()
+    def test_standalone_pickle(self) -> None:
+        adapter = StandaloneAdapter()
         restored = pickle.loads(pickle.dumps(adapter))
         meta = restored.get_route_info(Path("test.md"))
         assert meta.canonical_url == "/test/"
@@ -419,17 +419,17 @@ class TestShieldMiddleware:
 # ── Vanilla Adapter — No Spurious Warnings ───────────────────────────────────
 
 
-class TestVanillaNoSpuriousWarnings:
-    """VanillaAdapter must not emit warnings on pure Markdown repos."""
+class TestStandaloneNoSpuriousWarnings:
+    """StandaloneAdapter must not emit warnings on pure Markdown repos."""
 
     def test_no_warnings_on_classify(self, capsys: pytest.CaptureFixture[str]) -> None:
-        adapter = VanillaAdapter()
+        adapter = StandaloneAdapter()
         adapter.classify_route(Path("page.md"), frozenset())
         captured = capsys.readouterr()
         assert captured.err == ""
 
     def test_no_warnings_on_get_route_info(self, capsys: pytest.CaptureFixture[str]) -> None:
-        adapter = VanillaAdapter()
+        adapter = StandaloneAdapter()
         adapter.get_route_info(Path("page.md"))
         captured = capsys.readouterr()
         assert captured.err == ""

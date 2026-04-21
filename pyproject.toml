@@ -7,7 +7,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "zenzic"
-version = "0.6.1rc2"
+version = "0.6.1"
 description = "Engineering-grade, engine-agnostic linter and security shield for Markdown documentation"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -49,7 +49,7 @@ zenzic = "zenzic.main:cli_main"
 docusaurus = "zenzic.core.adapters:DocusaurusAdapter"
 mkdocs     = "zenzic.core.adapters:MkDocsAdapter"
 zensical   = "zenzic.core.adapters:ZensicalAdapter"
-vanilla    = "zenzic.core.adapters:VanillaAdapter"
+standalone = "zenzic.core.adapters:StandaloneAdapter"
 
 [project.entry-points."zenzic.rules"]
 broken-links = "zenzic.core.rules:VSMBrokenLinkRule"
@@ -61,15 +61,18 @@ zenzic = "zenzic.integrations.mkdocs:ZenzicPlugin"
 
 [project.urls]
 Homepage      = "https://zenzic.dev"
-Documentation = "https://zenzic.dev/docs"
+Documentation = "https://zenzic.dev/docs/"
 Repository    = "https://github.com/PythonWoods/zenzic"
-Changelog     = "https://zenzic.dev/docs/changelog"
+Changelog     = "https://github.com/PythonWoods/zenzic/blob/main/CHANGELOG.md"
 Issues        = "https://github.com/PythonWoods/zenzic/issues"
 
 # ─── Build ────────────────────────────────────────────────────────────────────
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/zenzic"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"examples" = "zenzic/examples"
 
 # ─── Development dependencies (PEP 735 — managed by uv) ──────────────────────
 
@@ -183,7 +186,7 @@ pytest_add_cli_args = ["--import-mode=prepend"]
 # ─── Version bumping ───────────────────────────────────────────────────────────
 
 [tool.bumpversion]
-current_version = "0.6.1rc2"
+current_version = "0.6.1"
 commit = true
 tag = true
 tag_name = "v{new_version}"

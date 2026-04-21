@@ -11,6 +11,76 @@ Le versioni seguono il [Semantic Versioning](https://semver.org/).
 
 ## [Non rilasciato]
 
+## [0.6.1] — 2026-04-19 — Obsidian Glass (Stable)
+
+### Modifiche che rompono la compatibilità
+
+- **Standalone Engine sostituisce Vanilla (Direttiva 037).** `VanillaAdapter` e la
+  keyword `engine = "vanilla"` sono stati rimossi. Tutti i progetti devono migrare a
+  `engine = "standalone"`. Qualsiasi `zenzic.toml` che usa ancora `engine = "vanilla"`
+  genera una `ConfigurationError [Z000]` all'avvio con un messaggio di migrazione chiaro.
+  *Migrazione:* sostituire `engine = "vanilla"` con `engine = "standalone"` nel proprio
+  `zenzic.toml` o nel blocco `[tool.zenzic]`.
+
+### Aggiunto
+
+- **Codici Finding (Zxxx) (Direttiva 036).** Ogni diagnostica emessa da Zenzic ora
+  porta un identificatore univoco leggibile dalla macchina (es. `Z101 LINK_BROKEN`,
+  `Z201 SHIELD_SECRET`, `Z401 MISSING_DIRECTORY_INDEX`). Il registro completo si trova
+  in `src/zenzic/core/codes.py` — unica fonte di verità per tutti i codici.
+- **Menu interattivo del Lab.** `zenzic lab` senza argomenti mostra ora l'indice degli
+  atti per scegliere quale scenario esplorare. Eseguire `zenzic lab <N>` per avviare
+  un atto specifico (0–8). L'opzione `--act` è stata sostituita da un argomento
+  posizionale.
+- **Identità Standalone Mode.** `StandaloneAdapter` è il motore no-op canonico per
+  progetti Markdown puri. `zenzic init` ora scrive `engine = "standalone"` quando non
+  viene rilevata nessuna configurazione di framework.
+
+- **Flag `--offline` per la risoluzione URL Flat.** Disponibile su `check all`,
+  `check links` e `check orphans`. Forza tutti gli adapter a produrre URL `.html`
+  (es. `guida/install.md` → `/guida/install.html`) invece di slug in stile directory.
+- **Supporto multi-versione Docusaurus v3.** `DocusaurusAdapter` ora identifica
+  `versions.json`, `versioned_docs/` e le traduzioni versionate.
+- **Proxy Trasparente Zensical.** Se viene dichiarato `engine = "zensical"` ma
+  `zensical.toml` è assente, l'adapter crea automaticamente un ponte con il tuo
+  `mkdocs.yml` esistente.
+- **Ghost Routing consapevole delle versioni.** I percorsi della documentazione
+  versionata sono automaticamente classificati come `REACHABLE`.
+- **Risoluzione Alias @site/.** Aggiunto il supporto per l'alias di percorso `@site/`
+  in `DocusaurusAdapter`, permettendo la corretta risoluzione dei link relativi al progetto.
+- **Integrità dell'Indice di Directory.** Nuovo metodo `provides_index(path)` nel protocollo
+  `BaseAdapter` per il rilevamento engine-aware delle directory prive di landing page.
+  Il finding `MISSING_DIRECTORY_INDEX` (severità: `info`), emesso da `zenzic check all`,
+  avvisa di ogni sottodirectory che contiene sorgenti Markdown ma nessun indice fornito
+  dall'engine — prevenendo i 404 gerarchici prima del deploy.
+- **Notifiche nel Banner Sentinel.** Nuovi messaggi di stato per l'attivazione della
+  **Modalità Offline** e della **Modalità Proxy**.
+
+### Corretto
+
+- **Audit dei Guardiani: Allineamento Specifiche Ufficiali.**
+  - **Versioning Docusaurus:** Corretta la mappatura URL della versione "latest" (prima voce
+    in `versions.json`) per escludere il prefisso dell'etichetta di versione, allineandosi
+    al comportamento ufficiale di Docusaurus. In precedenza ogni file versionato riceveva
+    un prefisso `/versione/`, generando falsi positivi per tutte le pagine della versione latest.
+  - **Slug Docusaurus:** Gli slug frontmatter assoluti (es. `slug: /mio-percorso`) sono
+    ora correttamente preceduti dalla `routeBasePath` (es. `/docs/mio-percorso/`),
+    allineandosi alla specifica Docusaurus `normalizeUrl([versionMetadata.path, docSlug])`.
+  - **Collasso Intelligente dei File:** La logica `isCategoryIndex` ora rispecchia
+    esattamente Docusaurus: `README.md`, `INDEX.md` (case-insensitive) e
+    `{NomeCartella}/{NomeCartella}.md` collassano nell'URL della directory genitore,
+    prevenendo falsi positivi per le convenzioni valide di landing page di categoria.
+  - **Risoluzione Alias `@site/`:** `InMemoryPathResolver` ora risolve i link `@site/`
+    rispetto al corretto confine `repo_root` invece di sfuggire tramite `../`,
+    eliminando errori `PathTraversal` spuri per tutti i link relativi al progetto Docusaurus.
+- **Integrità dei Metadati.** Corretto l'allineamento delle stringhe di versione in
+  `CITATION.cff` e `pyproject.toml`.
+- **Default routeBasePath Docusaurus.** Ripristinato `docs` come prefisso URL predefinito
+  per i progetti Docusaurus per corrispondere al comportamento ufficiale dell'engine.
+
+- **Parità Documentale Bilingue.** Copertura completa della documentazione EN/IT per
+  tutte le feature della v0.6.1 nelle guide Architettura, Motori e Comandi.
+
 ## [0.6.1rc2] — 2026-04-16 — Obsidian Bastion (Hardened)
 
 ### SICUREZZA: Risultati Operation Obsidian Stress
@@ -97,7 +167,7 @@ Le versioni seguono il [Semantic Versioning](https://semver.org/).
   `check_nav_contract`, e tutte le funzioni dello scanner. Nessun default
   `None` retrocompatibile.
 
-## [0.6.0a2] — 2026-04-13 — Obsidian Glass
+## [0.6.0a2] — 2026-04-13 — Obsidian Glass (Alpha 2)
 
 ### Aggiunto
 

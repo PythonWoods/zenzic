@@ -12,7 +12,7 @@ from pathlib import Path
 
 from zenzic.core.adapters._docusaurus import DocusaurusAdapter
 from zenzic.core.adapters._mkdocs import MkDocsAdapter
-from zenzic.core.adapters._vanilla import VanillaAdapter
+from zenzic.core.adapters._standalone import StandaloneAdapter
 from zenzic.models.config import BuildContext
 from zenzic.models.vsm import Route, _detect_collisions, build_vsm
 
@@ -44,7 +44,7 @@ class TestMdxMdMixing:
         adapter = _docusaurus(tmp_path)
         url_md = adapter.map_url(Path("guide/install.md"))
         url_mdx = adapter.map_url(Path("guide/install.mdx"))
-        assert url_md == url_mdx == "/guide/install/"
+        assert url_md == url_mdx == "/docs/guide/install/"
 
         routes = [
             Route(url=url_md, source="guide/install.md", status="REACHABLE"),
@@ -58,13 +58,13 @@ class TestMdxMdMixing:
         adapter = _docusaurus(tmp_path)
         url1 = adapter.map_url(Path("index.md"))
         url2 = adapter.map_url(Path("index.mdx"))
-        assert url1 == url2 == "/"
+        assert url1 == url2 == "/docs/"
 
     def test_different_dirs_no_collision(self, tmp_path: Path) -> None:
         """guide/install.md and api/install.mdx → different URLs."""
         adapter = _docusaurus(tmp_path)
-        assert adapter.map_url(Path("guide/install.md")) == "/guide/install/"
-        assert adapter.map_url(Path("api/install.mdx")) == "/api/install/"
+        assert adapter.map_url(Path("guide/install.md")) == "/docs/guide/install/"
+        assert adapter.map_url(Path("api/install.mdx")) == "/docs/api/install/"
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -78,18 +78,18 @@ class TestSpecialCharacterFilenames:
     def test_spaces_in_filename(self, tmp_path: Path) -> None:
         adapter = _docusaurus(tmp_path)
         url = adapter.map_url(Path("my guide.md"))
-        assert url == "/my guide/"
+        assert url == "/docs/my guide/"
 
     def test_dots_in_filename(self, tmp_path: Path) -> None:
         adapter = _docusaurus(tmp_path)
         url = adapter.map_url(Path("v1.2.3-release.md"))
         # Should strip .md, keep dots in stem
-        assert url == "/v1.2.3-release/"
+        assert url == "/docs/v1.2.3-release/"
 
     def test_dashes_in_filename(self, tmp_path: Path) -> None:
         adapter = _docusaurus(tmp_path)
         url = adapter.map_url(Path("getting-started.mdx"))
-        assert url == "/getting-started/"
+        assert url == "/docs/getting-started/"
 
     def test_underscored_file_not_in_underscore_dir(self, tmp_path: Path) -> None:
         """_intro.md inside a non-underscore dir is still IGNORED (Docusaurus rule)."""
@@ -100,7 +100,7 @@ class TestSpecialCharacterFilenames:
     def test_deeply_nested_path(self, tmp_path: Path) -> None:
         adapter = _docusaurus(tmp_path)
         url = adapter.map_url(Path("a/b/c/d/e/f.md"))
-        assert url == "/a/b/c/d/e/f/"
+        assert url == "/docs/a/b/c/d/e/f/"
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -124,9 +124,9 @@ class TestBuildVsmDocusaurus:
             for f in ["index.mdx", "guide/install.md", "guide/config.mdx"]
         }
         vsm = build_vsm(adapter, docs.resolve(), md_contents)
-        assert "/" in vsm
-        assert "/guide/install/" in vsm
-        assert "/guide/config/" in vsm
+        assert "/docs/" in vsm
+        assert "/docs/guide/install/" in vsm
+        assert "/docs/guide/config/" in vsm
         assert all(r.status == "REACHABLE" for r in vsm.values())
 
     def test_slug_override_in_vsm(self, tmp_path: Path) -> None:
@@ -142,8 +142,9 @@ class TestBuildVsmDocusaurus:
         }
         adapter.set_slug_map(md_contents)
         vsm = build_vsm(adapter, docs.resolve(), md_contents)
-        assert "/" in vsm
-        assert "/getting-started/" in vsm
+        # Absolute slugs are prefixed with routeBasePath (Docusaurus spec).
+        assert "/docs/" in vsm
+        assert "/docs/getting-started/" in vsm
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -203,18 +204,18 @@ class TestMkDocsNestedNav:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# VSM-EDGE-06: VanillaAdapter always REACHABLE
+# VSM-EDGE-06: StandaloneAdapter always REACHABLE
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
-class TestVanillaEdgeCases:
-    """VanillaAdapter treats everything as reachable."""
+class TestStandaloneEdgeCases:
+    """StandaloneAdapter treats everything as reachable."""
 
     def test_deeply_nested(self) -> None:
-        adapter = VanillaAdapter()
+        adapter = StandaloneAdapter()
         assert adapter.map_url(Path("a/b/c/d.md")) == "/a/b/c/d/"
 
     def test_special_chars(self) -> None:
-        adapter = VanillaAdapter()
+        adapter = StandaloneAdapter()
         url = adapter.map_url(Path("my-file (1).md"))
         assert "/my-file (1)/" == url

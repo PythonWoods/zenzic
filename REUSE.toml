@@ -19,6 +19,11 @@ path = ".zenzic-score.json"
 SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
 SPDX-License-Identifier = "Apache-2.0"
 
+[[annotations]]
+path = "coverage.json"
+SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
+SPDX-License-Identifier = "Apache-2.0"
+
 # ── Source ────────────────────────────────────────────────────────────────────
 
 [[annotations]]

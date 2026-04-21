@@ -1,9 +1,19 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
 # zenzic.toml — MkDocs 1.x baseline fixture.
+#
+# This example intentionally contains two demo findings to show Zenzic's
+# detection capabilities:
+#
+#   • FILE_NOT_FOUND — guide/index.md links to ../deployment.md (absent)
+#   • BROKEN_ANCHOR  — api.md links to guide/index.md#advanced-configuration
+#                       (anchor does not exist)
+#
+# Run: zenzic check all
+# Expected: two findings reported, exit code 1
 
 docs_dir = "docs"
-fail_under = 90
+fail_under = 0
 
 # Zenzic Shield — built-in credential scanner (always active, no config required).
 # Detected pattern families: openai-api-key, github-token, aws-access-key,

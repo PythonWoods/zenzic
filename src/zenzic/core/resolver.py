@@ -140,6 +140,8 @@ class InMemoryPathResolver:
         "_root_dir",
         "_root_str",
         "_root_prefix",
+        "_repo_root_str",
+        "_repo_root_prefix",
         "_md_contents",
         "_anchors_cache",
         "_lookup_map",
@@ -150,6 +152,7 @@ class InMemoryPathResolver:
         root_dir: Path,
         md_contents: dict[Path, str],
         anchors_cache: dict[Path, set[str]],
+        repo_root: Path | None = None,
     ) -> None:
         self._root_dir: Path = self._coerce_path(root_dir)
 
@@ -157,6 +160,12 @@ class InMemoryPathResolver:
         # touches pathlib during the Shield check.
         self._root_str: str = str(self._root_dir)
         self._root_prefix: str = self._root_str + os.sep
+
+        # repo_root is the project root for @site/ alias resolution.
+        # Defaults to root_dir when not provided (no @site/ links expected).
+        _repo = self._coerce_path(repo_root) if repo_root is not None else self._root_dir
+        self._repo_root_str: str = str(_repo)
+        self._repo_root_prefix: str = self._repo_root_str + os.sep
 
         # Store coerced maps for anchor validation (Path keys needed there).
         self._md_contents: dict[Path, str] = {
@@ -215,10 +224,17 @@ class InMemoryPathResolver:
         target_str = self._build_target(source_file, path_part)
 
         # ── Shield: O(1) string prefix check ─────────────────────────────────
-        # os.path.normpath already collapsed ../../../../etc/passwd into
-        # /etc/passwd inside _build_target.  We then verify containment with
-        # two string comparisons instead of pathlib's segment-by-segment walk.
-        if not (target_str == self._root_str or target_str.startswith(self._root_prefix)):
+        # @site/ links resolve relative to repo_root; all other links must stay
+        # within root_dir.  Two separate boundary sets, each checked via two
+        # string comparisons (zero pathlib overhead).
+        is_site_alias = path_part.startswith("@site/")
+        if is_site_alias:
+            shield_ok = target_str == self._repo_root_str or target_str.startswith(
+                self._repo_root_prefix
+            )
+        else:
+            shield_ok = target_str == self._root_str or target_str.startswith(self._root_prefix)
+        if not shield_ok:
             return PathTraversal(raw_href=href)
 
         # ── Lookup: single dict.get() — O(1), zero Path constructions ────────
@@ -295,6 +311,12 @@ class InMemoryPathResolver:
         """
         if path_part.startswith("/"):
             raw = self._root_str + os.sep + path_part.lstrip("/")
+        elif path_part.startswith("@site/docs/"):
+            # Docusaurus alias: @site/docs/ maps to docs_root (root_dir).
+            raw = self._root_str + os.sep + path_part[len("@site/docs/") :]
+        elif path_part.startswith("@site/"):
+            # Docusaurus alias: @site/ maps to repo_root.
+            raw = self._repo_root_str + os.sep + path_part[len("@site/") :]
         else:
             raw = str(source_file.parent) + os.sep + path_part
         return os.path.normpath(raw)

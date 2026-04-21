@@ -74,7 +74,9 @@ class TestBloodSentinelE2E:
             f"Expected exit 3 (security_incident), got {result.exit_code}.\n"
             f"Output:\n{result.stdout}"
         )
-        assert "PATH_TRAVERSAL_SUSPICIOUS" in result.stdout
+        assert (
+            "PATH_TRAVERSAL" in result.stdout or "Z202" in result.stdout or "Z203" in result.stdout
+        )
 
     def test_blood_exit_3_not_suppressed_by_exit_zero(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch

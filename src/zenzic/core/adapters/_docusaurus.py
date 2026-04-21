@@ -254,13 +254,19 @@ class DocusaurusAdapter:
         docs_root: Path,
         base_url: str = "/",
         route_base_path: str | None = None,
+        versions: list[str] | None = None,
     ) -> None:
         self._docs_root = docs_root
+        self._context = context
         self._base_url = base_url.rstrip("/") or ""
         # Docusaurus default routeBasePath is 'docs', but when docs are at
         # the site root it is ''.  None means "not set in config" → use
         # no prefix (docs are already relative to docs_root).
         self._route_base_path = route_base_path
+        self._versions: tuple[str, ...] = tuple(versions or [])
+        # The first entry in versions.json is the "latest" version; it serves
+        # docs at the routeBasePath root (no version label in URL).
+        self._latest_version: str | None = versions[0] if versions else None
 
         # Locale configuration from BuildContext (zenzic.toml).
         self._locale_dirs: frozenset[str] = frozenset(context.locales)
@@ -408,9 +414,14 @@ class DocusaurusAdapter:
         slug = self._slug_map.get(rel_posix)
         if slug is not None:
             if slug.startswith("/"):
-                # Absolute slug: use as-is
+                # Absolute slug: always prefixed with routeBasePath.
+                # Docusaurus: permalink = normalizeUrl([versionMetadata.path, docSlug])
+                # where versionMetadata.path IS the routeBasePath.
+                rbp = self._route_base_path if self._route_base_path is not None else "docs"
                 url = slug.rstrip("/") or ""
-                return url + "/"
+                if rbp:
+                    return "/" + rbp + url + "/"
+                return url + "/" if url else "/"
             # Relative slug: replace the last path segment
             parent = rel.parent
             if parent == Path("."):
@@ -425,17 +436,56 @@ class DocusaurusAdapter:
             stem = stem.with_suffix("")
 
         parts = list(stem.parts)
-        if not parts:
-            return "/"
 
-        # index files collapse to their parent directory
-        if parts[-1] == "index":
-            parts = parts[:-1]
+        locale = None
+        if parts and parts[0] in self._locale_dirs:
+            locale = parts.pop(0)
 
-        if not parts:
-            return "/"
+        version = None
+        if parts and parts[0] == "_version_":
+            parts.pop(0)
+            if parts:
+                version = parts.pop(0)
 
-        return "/" + "/".join(parts) + "/"
+        # isCategoryIndex: collapse when name is 'index', 'readme', or matches
+        # the immediate parent folder name (case-insensitive).
+        # Mirrors Docusaurus isCategoryIndex() logic exactly.
+        if parts:
+            file_name_lower = parts[-1].lower()
+            parent_name_lower = parts[-2].lower() if len(parts) >= 2 else None
+            if (
+                file_name_lower == "index"
+                or file_name_lower == "readme"
+                or (parent_name_lower is not None and file_name_lower == parent_name_lower)
+            ):
+                parts = parts[:-1]
+
+        url_parts = []
+        if locale:
+            url_parts.append(locale)
+
+        rbp = self._route_base_path if self._route_base_path is not None else "docs"
+        if rbp:
+            # Note: root routeBasePath is empty string
+            url_parts.append(rbp)
+
+        # The latest version (first entry in versions.json) is served at the
+        # routeBasePath root — no version label in the URL.
+        if version and version != self._latest_version:
+            url_parts.append(version)
+
+        url_parts.extend(parts)
+
+        use_dir = True
+        if getattr(self._context, "offline_mode", False):
+            use_dir = False
+
+        if not url_parts:
+            return "/" if use_dir else "/index.html"
+
+        if use_dir:
+            return "/" + "/".join(url_parts) + "/"
+        return "/" + "/".join(url_parts) + ".html"
 
     def classify_route(self, rel: Path, nav_paths: frozenset[str]) -> RouteStatus:
         """Classify a Docusaurus route.
@@ -462,10 +512,17 @@ class DocusaurusAdapter:
             ``RouteStatus`` literal (never ``'CONFLICT'``).
         """
         # Rule 1: Private/meta files starting with _
-        if any(part.startswith("_") for part in rel.parts):
+        # Exemption: _version_ sentinel prefix is injected by ZenzicAdapter — not a real user dir.
+        non_sentinel_parts = [p for p in rel.parts if p != "_version_"]
+        if any(part.startswith("_") for part in non_sentinel_parts):
             return "IGNORED"
 
         # Draft files: check is deferred to frontmatter parsing (future).
+
+        # Version Ghost Routes: all files under a known versioned_docs tree are REACHABLE.
+        # The path sentinel prefix is _version_/<version_label>/...
+        if len(rel.parts) >= 2 and rel.parts[0] == "_version_":
+            return "REACHABLE"
 
         # Rule 2: No explicit nav → auto-generated sidebar → all REACHABLE
         if not nav_paths:
@@ -518,13 +575,54 @@ class DocusaurusAdapter:
             if locale_dir in self._locale_dirs:
                 is_proxy = True
 
+        # Extract version from sentinel path prefix (_version_/<label>/...)
+        version: str | None = None
+        if len(rel.parts) >= 2 and rel.parts[0] == "_version_":
+            version = rel.parts[1]
+
         return RouteMetadata(
             canonical_url=canonical_url,
             status=status,
             slug=slug,
-            route_base_path=self._route_base_path or "docs",
+            route_base_path=self._route_base_path if self._route_base_path is not None else "docs",
             is_proxy=is_proxy,
+            version=version,
         )
+
+    def provides_index(self, directory_path: Path) -> bool:
+        """Return ``True`` when Docusaurus will generate a landing page for this directory.
+
+        Docusaurus serves a directory landing page when any of the following
+        conditions holds:
+
+        * An ``index.md``, ``index.mdx``, ``README.md``, or ``README.mdx`` file
+          exists directly inside *directory_path*.
+        * A ``_category_.json`` exists with ``"link": {"type": "generated-index"}``,
+          causing Docusaurus to auto-generate a category index page.
+
+        I/O is permitted here — this method is called once per directory during
+        the discovery phase, never inside per-link or per-file hot loops.
+
+        Args:
+            directory_path: Absolute path to the directory to inspect.
+
+        Returns:
+            ``True`` if the directory provides (or will generate) an index page.
+        """
+        index_files = ("index.md", "index.mdx", "README.md", "README.mdx")
+        if any((directory_path / f).exists() for f in index_files):
+            return True
+        category_json = directory_path / "_category_.json"
+        if category_json.exists():
+            try:
+                import json as _json
+
+                data = _json.loads(category_json.read_text(encoding="utf-8"))
+                link = data.get("link", {})
+                return isinstance(link, dict) and link.get("type") == "generated-index"
+            except Exception:  # noqa: BLE001
+                return True  # conservative: assume it provides an index
+        return False
 
     # ── Factory hook ───────────────────────────────────────────────────────
 
@@ -559,8 +657,20 @@ class DocusaurusAdapter:
         else:
             base_url = "/"
 
+        import json
+
+        versions: list[str] = []
+        versions_json = repo_root / "versions.json"
+        if versions_json.is_file():
+            try:
+                parsed = json.loads(versions_json.read_text(encoding="utf-8"))
+                if isinstance(parsed, list):
+                    versions = [str(v) for v in parsed]
+            except Exception:
+                pass
+
         route_base_path = _extract_route_base_path(config_path) if config_path else None
-        return cls(context, docs_root, base_url, route_base_path)
+        return cls(context, docs_root, base_url, route_base_path, versions)
 
     def get_locale_source_roots(self, repo_root: Path) -> list[tuple[Path, str]]:
         """Return (locale_root, locale_name) pairs for all configured locales.
@@ -586,4 +696,23 @@ class DocusaurusAdapter:
             root = (repo_root / self._i18n_prefix / locale / self._plugin_docs_segment).resolve()
             if root.is_dir():
                 result.append((root, locale))
+
+        for version in self._versions:
+            # Default locale versioned docs
+            v_root = (repo_root / f"versioned_docs/version-{version}").resolve()
+            if v_root.is_dir():
+                result.append((v_root, f"_version_/{version}"))
+
+            # Translated versioned docs
+            for locale in sorted(self._locale_dirs):
+                vl_root = (
+                    repo_root
+                    / self._i18n_prefix
+                    / locale
+                    / "docusaurus-plugin-content-docs"
+                    / f"version-{version}"
+                ).resolve()
+                if vl_root.is_dir():
+                    result.append((vl_root, f"{locale}/_version_/{version}"))
+
         return result

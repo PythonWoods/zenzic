@@ -538,8 +538,8 @@ class TestShieldReportingIntegrity:
         assert sf.secret_type in result.message, (
             "secret_type must appear in the Finding message for operator triage."
         )
-        assert result.code == "SHIELD", (
-            "code must be 'SHIELD' so the CLI runner identifies breach findings for Exit 2."
+        assert result.code == "Z201", (
+            "code must be 'Z201' (SHIELD_SECRET) so the CLI runner identifies breach findings for Exit 2."
         )
 
         # Pipeline test: N SecurityFindings → exactly N breach Findings.

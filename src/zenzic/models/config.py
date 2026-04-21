@@ -72,6 +72,10 @@ class BuildContext(BaseModel):
             "Set to False to report every missing locale file as an error."
         ),
     )
+    offline_mode: bool = Field(
+        default=False,
+        description="When True, adapters force flat URL structure (e.g. use_directory_urls=False) for offline builds.",
+    )
 
 
 # ── System Guardrails ────────────────────────────────────────────────────────

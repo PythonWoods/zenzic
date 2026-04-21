@@ -88,7 +88,7 @@ def extract_frontmatter_slug(content: str) -> str | None:
     returned as-is (may be absolute ``/custom`` or relative ``custom``).
 
     This function is **engine-agnostic** — it works identically for
-    MkDocs, Docusaurus, Zensical, and Vanilla.
+    MkDocs, Docusaurus, Zensical, and Standalone.
 
     Args:
         content: Raw Markdown/MDX source text.

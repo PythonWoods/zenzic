@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
-"""Adapter factory — dynamic entry-point discovery with VanillaAdapter fallback.
+"""Adapter factory — dynamic entry-point discovery with StandaloneAdapter fallback.
 
 Adapter registration
 --------------------
@@ -25,7 +25,7 @@ When ``from_repo`` is absent the factory falls back to calling
 
 Fallback
 --------
-When no entry point matches the requested engine, :class:`VanillaAdapter` is
+When no entry point matches the requested engine, :class:`StandaloneAdapter` is
 returned.  This keeps Zenzic functional as a plain Markdown linter even when
 the docs engine is not installed.
 """
@@ -41,7 +41,7 @@ from zenzic.models.config import BuildContext
 
 from ._docusaurus import DocusaurusAdapter
 from ._mkdocs import MkDocsAdapter
-from ._vanilla import VanillaAdapter
+from ._standalone import StandaloneAdapter
 from ._zensical import ZensicalAdapter
 
 
@@ -52,7 +52,7 @@ _BUILTIN_ADAPTERS: dict[str, type[Any]] = {
     "docusaurus": DocusaurusAdapter,
     "mkdocs": MkDocsAdapter,
     "zensical": ZensicalAdapter,
-    "vanilla": VanillaAdapter,
+    "standalone": StandaloneAdapter,
 }
 
 
@@ -62,7 +62,19 @@ def _load_adapter_class(engine: str) -> type[Any] | None:
     Resolution order:
     1. ``zenzic.adapters`` entry-point group (allows third-party overrides).
     2. Built-in adapter registry (always available regardless of install state).
+
+    Raises:
+        :class:`~zenzic.core.exceptions.ConfigurationError`: when *engine* is
+            ``"vanilla"`` (removed in v0.6.1 — use ``"standalone"`` instead).
     """
+    from zenzic.core.exceptions import ConfigurationError  # deferred: avoid circular import
+
+    # TODO: Remove this migration guard in v0.7.0.
+    if engine == "vanilla":
+        raise ConfigurationError(
+            "[Z000] Engine 'vanilla' has been removed. "
+            'Update your zenzic.toml: set engine = "standalone" instead.'
+        )
     eps = entry_points(group="zenzic.adapters")
     for ep in eps:
         if ep.name == engine:
@@ -111,7 +123,7 @@ def get_adapter(
     2. If found: instantiate via ``from_repo(context, docs_root, repo_root)``
        classmethod when present; otherwise call
        ``AdapterClass(context, docs_root)``.
-    3. If not found: return :class:`VanillaAdapter` (neutral no-op behaviour).
+    3. If not found: return :class:`StandaloneAdapter` (neutral no-op behaviour).
 
     Adapter instances are cached by ``(engine, docs_root, repo_root)`` key
     to prevent redundant construction when called from multiple modules in
@@ -142,8 +154,8 @@ def get_adapter(
 
     adapter_class = _load_adapter_class(context.engine)
 
-    if adapter_class is None or adapter_class is VanillaAdapter:
-        adapter: Any = VanillaAdapter()
+    if adapter_class is None or adapter_class is StandaloneAdapter:
+        adapter: Any = StandaloneAdapter()
     elif hasattr(adapter_class, "from_repo"):
         # Prefer the richer from_repo constructor when available.
         adapter = adapter_class.from_repo(context, docs_root, repo_root)
@@ -151,9 +163,24 @@ def get_adapter(
         adapter = adapter_class(context, docs_root)
 
     # If the adapter found no engine config and no locale information, fall
-    # back to VanillaAdapter so nav-dependent checks are skipped cleanly.
+    # back to StandaloneAdapter so nav-dependent checks are skipped cleanly.
     if not adapter.has_engine_config():
-        adapter = VanillaAdapter()
+        adapter = StandaloneAdapter()
+
+    messages = []
+    if getattr(adapter, "is_compatibility_mode", False):
+        messages.append(
+            "[bold cyan]SENTINEL:[/bold cyan] Zensical engine active via [yellow]mkdocs.yml[/yellow] compatibility bridge."
+        )
+    if getattr(context, "offline_mode", False):
+        messages.append(
+            "[bold cyan]SENTINEL:[/bold cyan] [Offline Mode Active: forcing flat URL structure]"
+        )
+
+    if messages:
+        from rich.console import Console
+
+        Console(highlight=False).print("\n" + "\n".join(messages))
 
     # Write under lock: prevents double-instantiation if a caller ever uses
     # threads to construct adapters concurrently.

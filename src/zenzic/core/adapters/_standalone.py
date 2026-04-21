@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
-"""VanillaAdapter — no-op adapter for projects with no recognised build engine."""
+"""StandaloneAdapter — no-op adapter for projects with no recognised build engine."""
 
 from __future__ import annotations
 
@@ -13,13 +13,16 @@ if TYPE_CHECKING:
     from zenzic.models.vsm import RouteStatus
 
 
-class VanillaAdapter:
-    """Adapter for projects with no recognised build engine.
+class StandaloneAdapter:
+    """Adapter for projects with no recognised build engine (Standalone Mode).
 
     Returned by :func:`~zenzic.core.adapters.get_adapter` when neither a
     ``mkdocs.yml`` nor explicit locales are detected.  Provides neutral,
     no-op behaviour so Zenzic operates as a plain Markdown linter without
     any i18n awareness.
+
+    In Standalone Mode, navigation-based checks (orphans) are disabled
+    because there is no declared nav to compare against.
 
     All methods are pure and perform no I/O.
     """
@@ -55,7 +58,7 @@ class VanillaAdapter:
         return frozenset()
 
     def has_engine_config(self) -> bool:
-        """``False`` — VanillaAdapter is active only when no engine was detected."""
+        """``False`` — StandaloneAdapter is active only when no engine was detected."""
         return False
 
     def map_url(self, rel: Path) -> str:  # noqa: ARG002
@@ -81,7 +84,7 @@ class VanillaAdapter:
     def get_route_info(self, rel: Path) -> RouteMetadata:
         """Return route metadata derived purely from the filesystem.
 
-        VanillaAdapter has no engine config, no nav, no slug support.
+        StandaloneAdapter has no engine config, no nav, no slug support.
         Every file is ``REACHABLE`` with a filesystem-derived URL.
         """
         from zenzic.core.adapters._base import RouteMetadata
@@ -90,3 +93,20 @@ class VanillaAdapter:
             canonical_url=self.map_url(rel),
             status="REACHABLE",
         )
+
+    def provides_index(self, directory_path: Path) -> bool:
+        """Return ``True`` when a plain ``index.md`` exists in the directory.
+
+        For standalone (no-engine) projects, the conventional ``index.md`` is the
+        sole indicator that a directory landing page will be served.
+
+        I/O is permitted here — this method is called once per directory during
+        the discovery phase, never inside per-link or per-file hot loops.
+
+        Args:
+            directory_path: Absolute path to the directory to inspect.
+
+        Returns:
+            ``True`` if an ``index.md`` exists in the directory.
+        """
+        return (directory_path / "index.md").exists()

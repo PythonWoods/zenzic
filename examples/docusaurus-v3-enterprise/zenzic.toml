@@ -1,0 +1,25 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# zenzic.toml — Docusaurus v3 Enterprise reference fixture.
+#
+# Demonstrates:
+#   • Versioned docs (versioned_docs/version-1.0.0/) with versions.json
+#   • @site/ alias resolution — versioned page links to current /docs/intro
+#   • Ghost Routing — Italian translations in i18n/it/
+#   • Cross-version link resolution without Node.js
+#
+# Run: zenzic check all
+# Expected: SUCCESS — all links and aliases resolve
+
+docs_dir = "docs"
+fail_under = 90
+
+# Zenzic Shield — built-in credential scanner (always active, no config required).
+# Detected pattern families: openai-api-key, github-token, aws-access-key,
+#   stripe-live-key, slack-token, google-api-key, private-key,
+#   hex-encoded-payload (3+ consecutive \xNN sequences).
+# All lines including fenced code blocks are scanned. Exit code 2 on detection.
+
+[build_context]
+engine   = "docusaurus"
+locales  = ["it"]

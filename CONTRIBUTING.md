@@ -282,7 +282,7 @@ Adding `fallback_to_cwd=True` to any command other than `init` requires a
 recorded Architecture Decision Record explaining why that command needs
 perimeter-free access.
 
-See [ADR 003](https://zenzic.dev/docs/internals/adr/003-discovery-logic) for the full rationale and
+See [ADR 003](https://zenzic.dev/docs/internals/adr/discovery-logic/) for the full rationale and
 the ZRT-005 amendment history.
 
 ### The Discovery Engine

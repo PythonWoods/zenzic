@@ -1,0 +1,11 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+
+site_name: Zensical Bridge Demo
+site_url: https://example.com/docs/
+
+nav:
+  - Home: index.md
+  - Guide:
+      - guide/index.md
+      - Migration: guide/migration.md
