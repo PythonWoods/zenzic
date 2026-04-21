@@ -127,7 +127,7 @@ class BaseAdapter(Protocol):
     def has_engine_config(self) -> bool:
         """Return ``True`` when a build-engine config was found and loaded.
 
-        ``VanillaAdapter`` returns ``False``.  All concrete adapters return
+        ``StandaloneAdapter`` returns ``False``.  All concrete adapters return
         ``True``.  Callers use this to decide whether a nav-based check
         (e.g. orphan detection) can produce meaningful results.
         """

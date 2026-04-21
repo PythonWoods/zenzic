@@ -13,7 +13,28 @@ Le versioni seguono il [Semantic Versioning](https://semver.org/).
 
 ## [0.6.1] — 2026-04-19 — Obsidian Glass (Stable)
 
+### Modifiche che rompono la compatibilità
+
+- **Standalone Engine sostituisce Vanilla (Direttiva 037).** `VanillaAdapter` e la
+  keyword `engine = "vanilla"` sono stati rimossi. Tutti i progetti devono migrare a
+  `engine = "standalone"`. Qualsiasi `zenzic.toml` che usa ancora `engine = "vanilla"`
+  genera una `ConfigurationError [Z000]` all'avvio con un messaggio di migrazione chiaro.
+  *Migrazione:* sostituire `engine = "vanilla"` con `engine = "standalone"` nel proprio
+  `zenzic.toml` o nel blocco `[tool.zenzic]`.
+
 ### Aggiunto
+
+- **Codici Finding (Zxxx) (Direttiva 036).** Ogni diagnostica emessa da Zenzic ora
+  porta un identificatore univoco leggibile dalla macchina (es. `Z101 LINK_BROKEN`,
+  `Z201 SHIELD_SECRET`, `Z401 MISSING_DIRECTORY_INDEX`). Il registro completo si trova
+  in `src/zenzic/core/codes.py` — unica fonte di verità per tutti i codici.
+- **Menu interattivo del Lab.** `zenzic lab` senza argomenti mostra ora l'indice degli
+  atti per scegliere quale scenario esplorare. Eseguire `zenzic lab <N>` per avviare
+  un atto specifico (0–8). L'opzione `--act` è stata sostituita da un argomento
+  posizionale.
+- **Identità Standalone Mode.** `StandaloneAdapter` è il motore no-op canonico per
+  progetti Markdown puri. `zenzic init` ora scrive `engine = "standalone"` quando non
+  viene rilevata nessuna configurazione di framework.
 
 - **Flag `--offline` per la risoluzione URL Flat.** Disponibile su `check all`,
   `check links` e `check orphans`. Forza tutti gli adapter a produrre URL `.html`

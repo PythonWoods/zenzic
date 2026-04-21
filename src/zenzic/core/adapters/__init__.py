@@ -11,7 +11,7 @@ Classes:
     BaseAdapter       — ``@runtime_checkable`` Protocol every adapter must satisfy.
     MkDocsAdapter     — Folder-mode and suffix-mode i18n for MkDocs projects.
     ZensicalAdapter   — Native TOML-based adapter for Zensical projects.
-    VanillaAdapter    — No-op adapter for projects with no recognised engine.
+    StandaloneAdapter — No-op adapter for projects with no recognised engine.
 
 Factory:
     get_adapter(context, docs_root, repo_root) → adapter instance.
@@ -50,7 +50,7 @@ from ._mkdocs import (
     _validate_i18n_fallback_config,
     find_config_file,
 )
-from ._vanilla import VanillaAdapter
+from ._standalone import StandaloneAdapter
 from ._zensical import ZensicalAdapter, _load_zensical_config, find_zensical_config
 
 
@@ -62,7 +62,7 @@ __all__ = [
     "DocusaurusAdapter",
     "MkDocsAdapter",
     "ZensicalAdapter",
-    "VanillaAdapter",
+    "StandaloneAdapter",
     # Factory
     "get_adapter",
     "clear_adapter_cache",

@@ -12,7 +12,7 @@ from pathlib import Path
 
 from zenzic.core.adapters._docusaurus import DocusaurusAdapter
 from zenzic.core.adapters._mkdocs import MkDocsAdapter
-from zenzic.core.adapters._vanilla import VanillaAdapter
+from zenzic.core.adapters._standalone import StandaloneAdapter
 from zenzic.models.config import BuildContext
 from zenzic.models.vsm import Route, _detect_collisions, build_vsm
 
@@ -204,18 +204,18 @@ class TestMkDocsNestedNav:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# VSM-EDGE-06: VanillaAdapter always REACHABLE
+# VSM-EDGE-06: StandaloneAdapter always REACHABLE
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
-class TestVanillaEdgeCases:
-    """VanillaAdapter treats everything as reachable."""
+class TestStandaloneEdgeCases:
+    """StandaloneAdapter treats everything as reachable."""
 
     def test_deeply_nested(self) -> None:
-        adapter = VanillaAdapter()
+        adapter = StandaloneAdapter()
         assert adapter.map_url(Path("a/b/c/d.md")) == "/a/b/c/d/"
 
     def test_special_chars(self) -> None:
-        adapter = VanillaAdapter()
+        adapter = StandaloneAdapter()
         url = adapter.map_url(Path("my-file (1).md"))
         assert "/my-file (1)/" == url

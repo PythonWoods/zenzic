@@ -16,7 +16,7 @@ import yaml
 from _helpers import make_mgr
 
 from zenzic.core.adapters._mkdocs import MkDocsAdapter
-from zenzic.core.adapters._vanilla import VanillaAdapter
+from zenzic.core.adapters._standalone import StandaloneAdapter
 from zenzic.core.adapters._zensical import ZensicalAdapter
 from zenzic.core.validator import validate_links
 from zenzic.models.config import BuildContext, ZenzicConfig
@@ -449,10 +449,10 @@ class TestBuildVsm:
         assert vsm["/"].status == "REACHABLE"
         assert vsm["/draft/"].status == "REACHABLE"
 
-    def test_vanilla_all_reachable(self, tmp_path: Path) -> None:
+    def test_standalone_all_reachable(self, tmp_path: Path) -> None:
         _make_docs(tmp_path, {"index.md": "# Home", "page.md": "# Page"})
         docs_root = (tmp_path / "docs").resolve()
-        adapter = VanillaAdapter()
+        adapter = StandaloneAdapter()
         md_contents = {
             (docs_root / "index.md").resolve(): "# Home",
             (docs_root / "page.md").resolve(): "# Page",
@@ -531,8 +531,8 @@ class TestUnreachableLinkDetection:
             f"Expected UNREACHABLE_LINK in errors but got: {errors}"
         )
 
-    def test_vanilla_adapter_never_emits_unreachable_link(self, tmp_path: Path) -> None:
-        """Without mkdocs.yml (VanillaAdapter), no UNREACHABLE_LINK is emitted
+    def test_standalone_adapter_never_emits_unreachable_link(self, tmp_path: Path) -> None:
+        """Without mkdocs.yml (StandaloneAdapter), no UNREACHABLE_LINK is emitted
         because every file is implicitly reachable."""
         _make_docs(
             tmp_path,
@@ -542,7 +542,7 @@ class TestUnreachableLinkDetection:
             },
         )
         _write_zenzic_toml(tmp_path, engine="mkdocs")
-        # No mkdocs.yml → VanillaAdapter
+        # No mkdocs.yml → StandaloneAdapter
         config = ZenzicConfig()
         docs_root = tmp_path / config.docs_dir
         mgr = make_mgr(config, repo_root=tmp_path)

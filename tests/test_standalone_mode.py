@@ -1,13 +1,14 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
-"""Tests for the Adapter Factory: VanillaAdapter, engine routing, and
+"""Tests for the Adapter Factory: StandaloneAdapter, engine routing, and
 Zensical Native Enforcement.
 
 Covers:
-* VanillaAdapter unit behaviour
+* StandaloneAdapter unit behaviour
 * get_adapter engine routing (Multi-Engine Matrix)
 * Zensical Identity Violation — ConfigurationError when zensical.toml is absent
-* find_orphans integration for vanilla and Zensical repos
+* find_orphans integration for standalone and Zensical repos
+* Z000 migration guard — engine = "vanilla" raises ConfigurationError
 """
 
 from __future__ import annotations
@@ -20,7 +21,7 @@ from _helpers import make_mgr
 from zenzic.core.adapter import (
     BaseAdapter,
     MkDocsAdapter,
-    VanillaAdapter,
+    StandaloneAdapter,
     ZensicalAdapter,
     get_adapter,
 )
@@ -46,53 +47,53 @@ def _zensical(repo: Path, nav: list[str] | None = None) -> None:
     )
 
 
-# ── VanillaAdapter unit tests ─────────────────────────────────────────────────
+# ── StandaloneAdapter unit tests ─────────────────────────────────────────────
 
 
-def test_vanilla_adapter_satisfies_base_adapter_protocol() -> None:
-    assert isinstance(VanillaAdapter(), BaseAdapter)
+def test_standalone_adapter_satisfies_base_adapter_protocol() -> None:
+    assert isinstance(StandaloneAdapter(), BaseAdapter)
 
 
-def test_vanilla_is_locale_dir_always_false() -> None:
-    a = VanillaAdapter()
+def test_standalone_is_locale_dir_always_false() -> None:
+    a = StandaloneAdapter()
     for code in ("it", "fr", "en", ""):
         assert not a.is_locale_dir(code)
 
 
-def test_vanilla_resolve_asset_always_none(tmp_path: Path) -> None:
+def test_standalone_resolve_asset_always_none(tmp_path: Path) -> None:
     docs = tmp_path / "docs"
-    assert VanillaAdapter().resolve_asset(docs / "it" / "logo.png", docs) is None
+    assert StandaloneAdapter().resolve_asset(docs / "it" / "logo.png", docs) is None
 
 
-def test_vanilla_is_shadow_of_nav_page_always_false() -> None:
+def test_standalone_is_shadow_of_nav_page_always_false() -> None:
     nav = frozenset({"index.md", "guide/start.md"})
-    a = VanillaAdapter()
+    a = StandaloneAdapter()
     assert not a.is_shadow_of_nav_page(Path("it/index.md"), nav)
     assert not a.is_shadow_of_nav_page(Path("fr/guide/start.md"), nav)
 
 
-def test_vanilla_get_ignored_patterns_empty() -> None:
-    assert VanillaAdapter().get_ignored_patterns() == set()
+def test_standalone_get_ignored_patterns_empty() -> None:
+    assert StandaloneAdapter().get_ignored_patterns() == set()
 
 
-def test_vanilla_get_nav_paths_empty() -> None:
-    assert VanillaAdapter().get_nav_paths() == frozenset()
+def test_standalone_get_nav_paths_empty() -> None:
+    assert StandaloneAdapter().get_nav_paths() == frozenset()
 
 
 @pytest.mark.parametrize("filename", ["guide.it.md", "page.fr.md", "index.pt.md"])
-def test_vanilla_suffix_files_not_treated_as_translations(filename: str) -> None:
+def test_standalone_suffix_files_not_treated_as_translations(filename: str) -> None:
     locale = filename.rsplit(".", 2)[1]
-    assert not VanillaAdapter().is_locale_dir(locale)
-    assert VanillaAdapter().get_ignored_patterns() == set()
+    assert not StandaloneAdapter().is_locale_dir(locale)
+    assert StandaloneAdapter().get_ignored_patterns() == set()
 
 
 # ── get_adapter factory: Multi-Engine Matrix ──────────────────────────────────
 
 
-def test_get_adapter_no_config_no_locales_returns_vanilla(tmp_path: Path) -> None:
-    """Test C: no config files + no locales → VanillaAdapter."""
+def test_get_adapter_no_config_no_locales_returns_standalone(tmp_path: Path) -> None:
+    """Test C: no config files + no locales → StandaloneAdapter."""
     adapter = get_adapter(BuildContext(), tmp_path / "docs", tmp_path)
-    assert isinstance(adapter, VanillaAdapter)
+    assert isinstance(adapter, StandaloneAdapter)
 
 
 def test_get_adapter_mkdocs_engine_with_config(tmp_path: Path) -> None:
@@ -122,13 +123,20 @@ def test_get_adapter_locales_no_config_uses_engine(tmp_path: Path) -> None:
     )
 
 
-def test_get_adapter_unknown_engine_falls_back_to_vanilla(tmp_path: Path) -> None:
-    """An unrecognised engine string → VanillaAdapter (no entry point registered)."""
+def test_get_adapter_unknown_engine_falls_back_to_standalone(tmp_path: Path) -> None:
+    """An unrecognised engine string → StandaloneAdapter (no entry point registered)."""
     _mkdocs(tmp_path)
     context = BuildContext(engine="hugo", locales=["it"])
     adapter = get_adapter(context, tmp_path / "docs", tmp_path)
-    # Dynamic factory: unknown engines have no entry point → VanillaAdapter.
-    assert isinstance(adapter, VanillaAdapter)
+    # Dynamic factory: unknown engines have no entry point → StandaloneAdapter.
+    assert isinstance(adapter, StandaloneAdapter)
+
+
+def test_get_adapter_vanilla_engine_raises_configuration_error(tmp_path: Path) -> None:
+    """Z000 Migration Guard: engine = 'vanilla' must raise ConfigurationError."""
+    context = BuildContext(engine="vanilla")
+    with pytest.raises(ConfigurationError, match="Z000"):
+        get_adapter(context, tmp_path / "docs", tmp_path)
 
 
 # ── Zensical Identity Violation (enforcement) ─────────────────────────────────
@@ -173,7 +181,7 @@ def test_zensical_adapter_nav_paths_from_toml(tmp_path: Path) -> None:
 
 
 def test_find_orphans_no_config_returns_empty(tmp_path: Path) -> None:
-    """Vanilla repo (no mkdocs.yml, no zensical.toml) → no orphan check → []."""
+    """Standalone repo (no mkdocs.yml, no zensical.toml) → no orphan check → []."""
     docs = tmp_path / "docs"
     docs.mkdir()
     (docs / "index.md").write_text("# Home")
@@ -202,8 +210,8 @@ def test_find_orphans_zensical_repo(tmp_path: Path) -> None:
     assert Path("index.md") not in orphans
 
 
-def test_find_orphans_vanilla_suffix_file_appears_as_orphan(tmp_path: Path) -> None:
-    """In vanilla mode, guide.it.md is an ordinary page — not silently excluded."""
+def test_find_orphans_standalone_suffix_file_appears_as_orphan(tmp_path: Path) -> None:
+    """In standalone mode, guide.it.md is an ordinary page — not silently excluded."""
     docs = tmp_path / "docs"
     docs.mkdir()
     (tmp_path / "mkdocs.yml").write_text("site_name: T\nnav:\n  - Home: index.md\n")

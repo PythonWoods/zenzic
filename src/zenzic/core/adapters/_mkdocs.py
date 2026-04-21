@@ -707,7 +707,7 @@ class MkDocsAdapter:
         Loads ``mkdocs.yml`` from *repo_root* and falls back to an empty config
         dict when the file is absent or contains invalid YAML.  The
         ``config_file_found`` flag distinguishes "file absent" from
-        "file present but unparseable" — only the former triggers vanilla
+        "file present but unparseable" — only the former triggers standalone
         fallback in the factory.
         """
         config_file_found = find_config_file(repo_root) is not None

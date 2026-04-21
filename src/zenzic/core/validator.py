@@ -644,7 +644,7 @@ async def validate_links_async(
     # ── Build the Virtual Site Map (VSM) ──────────────────────────────────────
     # The VSM maps every .md file to its canonical URL and routing status.
     # It is only meaningful when the adapter has a nav (MkDocs with mkdocs.yml);
-    # for VanillaAdapter / Zensical every file is REACHABLE by definition.
+    # for StandaloneAdapter / Zensical every file is REACHABLE by definition.
     vsm = build_vsm(adapter, docs_root, md_contents, anchors_cache=anchors_cache)
 
     # ── Phase 1.5: cycle registry (requires resolver + links_cache) ───────────

@@ -19,6 +19,7 @@ from rich.table import Table
 from rich.text import Text
 
 from zenzic.core.adapters import list_adapter_engines
+from zenzic.core.codes import normalize as _normalize_code
 from zenzic.core.exclusion import LayeredExclusionManager
 from zenzic.core.reporter import Finding, SentinelReporter
 from zenzic.core.scanner import (
@@ -296,7 +297,7 @@ def check_links(
         Finding(
             rel_path=_rel(err.file_path),
             line_no=err.line_no,
-            code=err.error_type,
+            code=_normalize_code(err.error_type),
             severity=(
                 "security_incident"
                 if err.error_type == "PATH_TRAVERSAL_SUSPICIOUS"
@@ -379,7 +380,7 @@ def check_orphans(
         Finding(
             rel_path=str(path),
             line_no=0,
-            code="ORPHAN",
+            code="Z402",
             severity="warning",
             message="Physical file not listed in navigation.",
         )
@@ -451,7 +452,7 @@ def check_snippets(
             Finding(
                 rel_path=_rel(s_err.file_path),
                 line_no=s_err.line_no,
-                code="SNIPPET",
+                code="Z503",
                 severity="error",
                 message=s_err.message,
                 source_line=src,
@@ -556,7 +557,7 @@ def check_references(
                 Finding(
                     rel_path=rel,
                     line_no=ref_f.line_no,
-                    code=ref_f.issue,
+                    code=_normalize_code(ref_f.issue),
                     severity="warning" if ref_f.is_warning else "error",
                     message=ref_f.detail,
                     source_line=src,
@@ -567,7 +568,7 @@ def check_references(
                 Finding(
                     rel_path=rel,
                     line_no=rule_f.line_no,
-                    code=rule_f.rule_id,
+                    code=_normalize_code(rule_f.rule_id),
                     severity=rule_f.severity,
                     message=rule_f.message,
                     source_line=rule_f.matched_line or "",
@@ -583,7 +584,7 @@ def check_references(
             Finding(
                 rel_path="(external-urls)",
                 line_no=0,
-                code="LINK_URL",
+                code="Z101",
                 severity="error",
                 message=err_str,
             )
@@ -646,7 +647,7 @@ def check_assets(
         Finding(
             rel_path=str(path),
             line_no=0,
-            code="ASSET",
+            code="Z903",
             severity="warning",
             message="File not referenced in any documentation page.",
         )
@@ -758,7 +759,7 @@ def check_placeholders(
             Finding(
                 rel_path=str(pf.file_path),
                 line_no=pf.line_no,
-                code=pf.issue,
+                code=_normalize_code(pf.issue),
                 severity="warning",
                 message=pf.detail,
                 source_line=src,
@@ -876,7 +877,7 @@ def _to_findings(results: _AllCheckResults, docs_root: Path) -> list[Finding]:
             Finding(
                 rel_path=_rel(err.file_path),
                 line_no=err.line_no,
-                code=err.error_type,
+                code=_normalize_code(err.error_type),
                 severity=(
                     "security_incident"
                     if err.error_type == "PATH_TRAVERSAL_SUSPICIOUS"
@@ -896,7 +897,7 @@ def _to_findings(results: _AllCheckResults, docs_root: Path) -> list[Finding]:
             Finding(
                 rel_path=str(path),
                 line_no=0,
-                code="ORPHAN",
+                code="Z402",
                 severity="warning",
                 message="Physical file not listed in navigation.",
             )
@@ -915,7 +916,7 @@ def _to_findings(results: _AllCheckResults, docs_root: Path) -> list[Finding]:
             Finding(
                 rel_path=_rel(s_err.file_path),
                 line_no=s_err.line_no,
-                code="SNIPPET",
+                code="Z503",
                 severity="error",
                 message=s_err.message,
                 source_line=src,
@@ -937,7 +938,7 @@ def _to_findings(results: _AllCheckResults, docs_root: Path) -> list[Finding]:
             Finding(
                 rel_path=str(pf.file_path),
                 line_no=pf.line_no,
-                code=pf.issue,
+                code=_normalize_code(pf.issue),
                 severity="warning",
                 message=pf.detail,
                 source_line=src,
@@ -951,7 +952,7 @@ def _to_findings(results: _AllCheckResults, docs_root: Path) -> list[Finding]:
             Finding(
                 rel_path=str(path),
                 line_no=0,
-                code="ASSET",
+                code="Z903",
                 severity="warning",
                 message="File not referenced in any documentation page.",
             )
@@ -962,7 +963,7 @@ def _to_findings(results: _AllCheckResults, docs_root: Path) -> list[Finding]:
             Finding(
                 rel_path="(nav)",
                 line_no=0,
-                code="NAV",
+                code="Z904",
                 severity="error",
                 message=msg,
             )
@@ -985,7 +986,7 @@ def _to_findings(results: _AllCheckResults, docs_root: Path) -> list[Finding]:
                 Finding(
                     rel_path=rel,
                     line_no=ref_f.line_no,
-                    code=ref_f.issue,
+                    code=_normalize_code(ref_f.issue),
                     severity="warning" if ref_f.is_warning else "error",
                     message=ref_f.detail,
                     source_line=src,
@@ -996,7 +997,7 @@ def _to_findings(results: _AllCheckResults, docs_root: Path) -> list[Finding]:
                 Finding(
                     rel_path=rel,
                     line_no=rule_f.line_no,
-                    code=rule_f.rule_id,
+                    code=_normalize_code(rule_f.rule_id),
                     severity=rule_f.severity,
                     message=rule_f.message,
                     source_line=rule_f.matched_line,
@@ -1015,7 +1016,7 @@ def _to_findings(results: _AllCheckResults, docs_root: Path) -> list[Finding]:
             Finding(
                 rel_path=str(dir_path),
                 line_no=0,
-                code="MISSING_DIRECTORY_INDEX",
+                code="Z401",
                 severity="info",
                 message=(
                     "Directory contains Markdown files but has no index page — "
@@ -1555,7 +1556,7 @@ def init(
     Performs engine auto-detection: if ``mkdocs.yml`` is present the generated
     file pre-sets ``engine = "mkdocs"``; if ``zensical.toml`` is present it
     pre-sets ``engine = "zensical"``.  Otherwise the ``[build_context]`` block
-    is omitted and the vanilla (engine-agnostic) defaults apply.
+    is omitted and the standalone (engine-agnostic) defaults apply.
     """
     repo_root = find_repo_root(fallback_to_cwd=True)
 
@@ -1594,7 +1595,7 @@ def _engine_feedback(detected_engine: str | None) -> str:
     if detected_engine:
         source = "mkdocs.yml" if detected_engine == "mkdocs" else "zensical.toml"
         return f"  Engine pre-set to [bold cyan]{detected_engine}[/] (detected from {source}).\n"
-    return "  No engine config file found — using vanilla (engine-agnostic) defaults.\n"
+    return "  No engine config file found — using standalone (engine-agnostic) defaults.\n"
 
 
 def _init_standalone(repo_root: Path, force: bool) -> None:

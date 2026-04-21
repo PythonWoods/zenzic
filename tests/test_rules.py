@@ -347,14 +347,14 @@ def test_custom_rules_fire_regardless_of_engine(
 
     The rule engine operates on raw Markdown text — it has no knowledge of the
     build engine.  This test verifies that the DRAFT rule is triggered whether
-    the adapter is MkDocs, Zensical, or VanillaAdapter (auto-detected).
+    the adapter is MkDocs, Zensical, or StandaloneAdapter (auto-detected).
     """
     from zenzic.core.scanner import scan_docs_references
 
     repo = _make_repo_with_draft(tmp_path)
 
     # Build a config that selects the requested adapter via build_context.engine.
-    # For "auto" no engine override is needed — VanillaAdapter will be selected
+    # For "auto" no engine override is needed — StandaloneAdapter will be selected
     # because no mkdocs.yml or zensical.toml is present.
     base_config = _draft_rule_config()
     if engine != "auto":

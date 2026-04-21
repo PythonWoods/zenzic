@@ -13,7 +13,27 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [0.6.1] — 2026-04-19 — Obsidian Glass (Stable)
 
+### Breaking Changes
+
+- **Standalone Engine replaces Vanilla (Direttiva 037).** The `VanillaAdapter` and the
+  `engine = "vanilla"` keyword have been removed. All projects must migrate to
+  `engine = "standalone"`. Any `zenzic.toml` still using `engine = "vanilla"` will
+  raise a `ConfigurationError [Z000]` at startup with a clear migration message.
+  *Migration:* replace `engine = "vanilla"` with `engine = "standalone"` in your
+  `zenzic.toml` or `[tool.zenzic]` block.
+
 ### Added
+
+- **Finding Codes (Zxxx) (Direttiva 036).** Every diagnostic emitted by Zenzic now
+  carries a unique machine-readable identifier (e.g. `Z101 LINK_BROKEN`,
+  `Z201 SHIELD_SECRET`, `Z401 MISSING_DIRECTORY_INDEX`). The full registry lives in
+  `src/zenzic/core/codes.py` — the single source of truth for all codes.
+- **Interactive Lab menu.** `zenzic lab` without arguments now displays the act index
+  so you can choose which scenario to explore. Run `zenzic lab <N>` to execute a
+  specific act (0–8). The `--act` option has been replaced by a positional argument.
+- **Standalone Mode identity.** `StandaloneAdapter` is the canonical no-op engine for
+  pure Markdown projects. `zenzic init` now writes `engine = "standalone"` when no
+  framework config is detected.
 
 - **`--offline` flag for Flat URL resolution.** Available on `check all`, `check links`,
   and `check orphans`. Forces all adapters to produce `.html` URLs (e.g. `guide/install.md`

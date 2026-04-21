@@ -49,7 +49,7 @@ zenzic = "zenzic.main:cli_main"
 docusaurus = "zenzic.core.adapters:DocusaurusAdapter"
 mkdocs     = "zenzic.core.adapters:MkDocsAdapter"
 zensical   = "zenzic.core.adapters:ZensicalAdapter"
-vanilla    = "zenzic.core.adapters:VanillaAdapter"
+standalone = "zenzic.core.adapters:StandaloneAdapter"
 
 [project.entry-points."zenzic.rules"]
 broken-links = "zenzic.core.rules:VSMBrokenLinkRule"

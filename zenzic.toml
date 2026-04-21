@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
-# zenzic.toml — Vanilla Guard configuration for the Zenzic Core repository.
+# zenzic.toml — Standalone configuration for the Zenzic Core repository.
 #
 # This is a "Prose-only Maintenance" config: it scans root-level Markdown
 # files (README, CONTRIBUTING, CHANGELOG, SECURITY, etc.) without any
@@ -85,7 +85,7 @@ snippet_min_lines = 1
 placeholder_max_words = 50
 
 [build_context]
-engine = "vanilla"
+engine = "standalone"
 
 # ── Internal dogfood rules ────────────────────────────────────────────────────
 # Minimal rule set for root-level prose files.

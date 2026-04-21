@@ -10,7 +10,7 @@ from zenzic.core.adapters import *  # noqa: F401, F403
 from zenzic.core.adapters import (  # noqa: F401
     BaseAdapter,
     MkDocsAdapter,
-    VanillaAdapter,
+    StandaloneAdapter,
     ZensicalAdapter,
     _collect_nav_paths,
     _extract_i18n_fallback_to_default,

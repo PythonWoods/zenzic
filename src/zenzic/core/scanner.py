@@ -148,7 +148,7 @@ def _map_shield_to_finding(sf: SecurityFinding, docs_root: Path) -> Finding:
     return Finding(
         rel_path=rel,
         line_no=sf.line_no,
-        code="SHIELD",
+        code="Z201",
         severity="security_breach",
         message=f"Secret detected ({sf.secret_type}) — rotate immediately.",
         source_line=sf.url,

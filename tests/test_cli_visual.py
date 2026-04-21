@@ -91,17 +91,17 @@ def test_visual_snippet_absent_when_source_line_empty() -> None:
 
 
 @pytest.mark.parametrize(
-    "error_type",
+    "error_type,expected_code",
     [
-        "FILE_NOT_FOUND",
-        "UNREACHABLE_LINK",
-        "ANCHOR_MISSING",
-        "ABSOLUTE_PATH",
-        "PATH_TRAVERSAL",
+        ("FILE_NOT_FOUND", "Z104"),
+        ("UNREACHABLE_LINK", "Z101"),
+        ("ANCHOR_MISSING", "Z102"),
+        ("ABSOLUTE_PATH", "Z105"),
+        ("PATH_TRAVERSAL", "Z202"),
     ],
 )
-def test_error_type_badge_present(error_type: str) -> None:
-    """Every non-LINK_ERROR type must appear as a badge in the header."""
+def test_error_type_badge_present(error_type: str, expected_code: str) -> None:
+    """Every error type must appear as a normalized Zxxx badge in the output."""
     err = LinkError(
         file_path=_DOCS / "page.md",
         line_no=1,
@@ -110,11 +110,11 @@ def test_error_type_badge_present(error_type: str) -> None:
         error_type=error_type,
     )
     result = _invoke_with_errors([err])
-    assert error_type in result.stdout
+    assert expected_code in result.stdout
 
 
 def test_generic_link_error_has_no_badge() -> None:
-    """LINK_ERROR code is shown as a standard Sentinel code badge."""
+    """LINK_ERROR code is normalised to Z101 LINK_BROKEN."""
     err = LinkError(
         file_path=_DOCS / "page.md",
         line_no=1,
@@ -123,8 +123,7 @@ def test_generic_link_error_has_no_badge() -> None:
         error_type="LINK_ERROR",
     )
     result = _invoke_with_errors([err])
-    # Sentinel always shows the code; LINK_ERROR is a valid code badge
-    assert "LINK_ERROR" in result.stdout
+    assert "Z101" in result.stdout
 
 
 # ---------------------------------------------------------------------------
@@ -152,8 +151,8 @@ def test_multiple_errors_each_have_snippet() -> None:
     result = _invoke_with_errors(errors)
     # Each error with a source_line emits an ❱ indicator
     assert result.stdout.count("❱") == 2
-    assert "FILE_NOT_FOUND" in result.stdout
-    assert "UNREACHABLE_LINK" in result.stdout
+    assert "Z104" in result.stdout
+    assert "Z101" in result.stdout
 
 
 # ---------------------------------------------------------------------------
@@ -170,9 +169,9 @@ def test_sandbox_mkdocs_expected_error_types(monkeypatch: pytest.MonkeyPatch) ->
     monkeypatch.chdir(_SANDBOX_MKDOCS)
     result = runner.invoke(app, ["check", "links"])
     assert result.exit_code == 1
-    assert "ABSOLUTE_PATH" in result.stdout
-    assert "UNREACHABLE_LINK" in result.stdout
-    assert "FILE_NOT_FOUND" in result.stdout
+    assert "Z105" in result.stdout  # ABSOLUTE_PATH
+    assert "Z101" in result.stdout  # UNREACHABLE_LINK / LINK_BROKEN
+    assert "Z104" in result.stdout  # FILE_NOT_FOUND
     # Each error must have a │ snippet
     assert "│" in result.stdout
 

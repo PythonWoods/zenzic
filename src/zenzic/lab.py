@@ -144,9 +144,9 @@ _ACTS: list[_Act] = [
     ),
     _Act(
         8,
-        "Minimum Viable",
-        "MISSING_DIRECTORY_INDEX info on a bare Markdown tree",
-        "vanilla-markdown",
+        "Standalone Excellence",
+        "MISSING_DIRECTORY_INDEX info on a bare Markdown tree (Standalone Mode)",
+        "standalone-markdown",
         expected_pass=True,
         show_info=True,
     ),
@@ -308,11 +308,9 @@ def _print_act_index() -> None:
 
 
 def lab(
-    act_number: int | None = typer.Option(
+    act_number: int | None = typer.Argument(
         None,
-        "--act",
-        "-a",
-        help="Run only the specified act (0–8). Omit to run all.",
+        help="Act number to run (0–8). Omit to display the act menu.",
         show_default=False,
     ),
     list_acts: bool = typer.Option(
@@ -322,18 +320,30 @@ def lab(
         help="Print the act index without running checks.",
     ),
 ) -> None:
-    """Showcase bundled examples — pure Python, zero subprocess.
+    """Zenzic Lab — interactive showcase of bundled documentation examples.
 
-    Runs all nine acts in sequence, demonstrating every check class:
-    broken links, orphaned files, credential exposure, multi-locale
-    routing, versioned documentation, and bare Markdown auditing.
-    Use [bold cyan]--act N[/] to run a single act (0–8).
+    Run without arguments to display the act menu.  Pass an act number to
+    execute that single act:
+
+        [bold cyan]zenzic lab[/]      — show act menu
+        [bold cyan]zenzic lab 0[/]    — run Act 0 (Linter Demo)
+        [bold cyan]zenzic lab 3[/]    — run Act 3 (The Shield)
+        [bold cyan]zenzic lab --list[/] — print act index without running
     """
     if list_acts:
         _print_act_index()
         return
 
-    if act_number is not None and not (0 <= act_number <= 8):
+    if act_number is None:
+        # No argument: show the menu and instructions, do not run any act.
+        _print_act_index()
+        _console.print(
+            "\n[bold]Welcome to the Zenzic Lab.[/] Choose an act to see the Sentinel in action.\n"
+            "  Run [bold cyan]zenzic lab <N>[/] to execute a specific act (e.g. [cyan]zenzic lab 0[/]).\n"
+        )
+        return
+
+    if not (0 <= act_number <= 8):
         _console.print(f"[bold red]ERROR:[/] Act number must be between 0 and 8, got {act_number}.")
         raise typer.Exit(1)
 
@@ -343,9 +353,7 @@ def lab(
         _console.print(f"[bold red]ERROR:[/] {exc}")
         raise typer.Exit(1) from exc
 
-    acts_to_run = (
-        [a for a in _ACTS if a.id == act_number] if act_number is not None else list(_ACTS)
-    )
+    acts_to_run = [a for a in _ACTS if a.id == act_number]
 
     act_results: list[_ActResult] = []
     for act in acts_to_run:
