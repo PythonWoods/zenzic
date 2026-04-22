@@ -321,7 +321,7 @@ def test_check_all_json_with_errors(
 def test_check_all_text_ok(_refs, _nav, _assets, _ph, _snip, _orphans, _links, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "all"])
     assert result.exit_code == 0
-    assert "All checks passed" in result.stdout or "SUCCESS" in result.stdout
+    assert "Obsidian Seal" in result.stdout or "SUCCESS" in result.stdout
 
 
 @patch("zenzic.cli.find_repo_root", return_value=_ROOT)
@@ -567,8 +567,8 @@ class TestSentinelReporter:
         assert errors == 0
         assert warnings == 0
         output = buf.getvalue()
-        assert "ZENZIC" in output
-        assert "All checks passed" in output
+        assert "auto" in output  # telemetry engine field
+        assert "Obsidian Seal" in output
 
     def test_render_grouped_findings(self) -> None:
         from io import StringIO

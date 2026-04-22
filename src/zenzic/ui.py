@@ -13,6 +13,10 @@ from __future__ import annotations
 import os
 import sys
 
+from rich import box as _rich_box
+from rich.console import RenderableType
+from rich.panel import Panel
+
 
 # ── Brand colours (Sentinel Palette) ────────────────────────────────────────
 
@@ -71,6 +75,7 @@ _EMOJI: dict[str, tuple[str, str]] = {
     "bolt": ("\u26a1", ">"),  # ⚡
     "dot": ("\u2022", "-"),  # •
     "arrow": ("\u279c", "->"),  # ➜
+    "sparkles": ("\u2728", "*"),  # ✨
 }
 
 
@@ -136,4 +141,32 @@ def make_sentinel_header(
     return (
         f"[{STYLE_BRAND}]{shield}  ZENZIC SENTINEL[/]  [{STYLE_DIM}]v{version}[/]\n"
         f"[{STYLE_DIM}]{meta}[/]"
+    )
+
+
+# ── Forge Frame Panel Factory ────────────────────────────────────────────────
+
+
+def make_obsidian_panel(
+    content: RenderableType,
+    *,
+    title: str = "PythonWoods",
+    subtitle: str = "Apache-2.0",
+    border_style: str | None = None,
+) -> Panel:
+    """The canonical Forge Frame: left-aligned title, bottom-right subtitle, Indigo rounded border.
+
+    Every Zenzic Sentinel output panel must be created through this factory to
+    guarantee visual consistency.  Pass ``border_style`` to override the Indigo
+    default (e.g. for Lab seal panels that signal pass/fail with Emerald/Rose).
+    """
+    return Panel(
+        content,
+        title=f"[bold {INDIGO}]{title}[/]",
+        title_align="left",
+        subtitle=f"[dim]{subtitle}[/]",
+        subtitle_align="right",
+        border_style=border_style if border_style is not None else INDIGO,
+        box=_rich_box.ROUNDED,
+        padding=(1, 2),
     )

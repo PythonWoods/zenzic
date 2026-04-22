@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import difflib
 import json
+import os
 import re
 import time
 from dataclasses import dataclass, field
@@ -43,7 +44,7 @@ from zenzic.core.validator import (
 )
 from zenzic.models.config import ZenzicConfig
 from zenzic.models.references import IntegrityReport
-from zenzic.ui import INDIGO, SLATE, emoji
+from zenzic.ui import EMERALD, INDIGO, SLATE, emoji, make_banner, make_obsidian_panel
 
 
 check_app = typer.Typer(
@@ -67,7 +68,25 @@ plugins_app = typer.Typer(
     rich_markup_mode="rich",
 )
 
-console = Console(highlight=False)
+console = Console(
+    highlight=False,
+    no_color=os.environ.get("NO_COLOR") is not None,
+    force_terminal=os.environ.get("FORCE_COLOR") is not None and os.environ.get("NO_COLOR") is None,
+)
+
+
+def configure_console(*, no_color: bool = False, force_color: bool = False) -> None:
+    """Reconfigure the module-level console for color control.
+
+    Called by main.py callback when --no-color or --force-color flags are passed.
+    CLI flags take priority over environment variables.
+    """
+    global console
+    if no_color:
+        console = Console(highlight=False, no_color=True)
+    elif force_color:
+        console = Console(highlight=False, force_terminal=True)
+
 
 # ── CI-safe emoji degradation (delegated to zenzic.ui) ──────────────────────
 
@@ -324,6 +343,9 @@ def check_links(
         return
 
     docs_count, assets_count = _count_docs_assets(docs_root, repo_root, exclusion_mgr)
+    console.print()
+    console.print(make_obsidian_panel(make_banner(__version__)))
+    console.print()
     reporter = SentinelReporter(console, docs_root, docs_dir=str(config.docs_dir))
     errors, warnings = reporter.render(
         findings,
@@ -395,6 +417,9 @@ def check_orphans(
         return
 
     docs_count, assets_count = _count_docs_assets(docs_root, repo_root, exclusion_mgr)
+    console.print()
+    console.print(make_obsidian_panel(make_banner(__version__)))
+    console.print()
     reporter = SentinelReporter(console, docs_root, docs_dir=str(config.docs_dir))
     errors, warnings = reporter.render(
         findings,
@@ -467,6 +492,9 @@ def check_snippets(
         return
 
     docs_count, assets_count = _count_docs_assets(docs_root, repo_root, exclusion_mgr)
+    console.print()
+    console.print(make_obsidian_panel(make_banner(__version__)))
+    console.print()
     reporter = SentinelReporter(console, docs_root, docs_dir=str(config.docs_dir))
     errors, warnings = reporter.render(
         findings,
@@ -602,6 +630,9 @@ def check_references(
         return
 
     docs_count, assets_count = _count_docs_assets(docs_root, repo_root, exclusion_mgr)
+    console.print()
+    console.print(make_obsidian_panel(make_banner(__version__)))
+    console.print()
     reporter = SentinelReporter(console, docs_root, docs_dir=str(config.docs_dir))
     errors, warnings = reporter.render(
         findings,
@@ -662,6 +693,9 @@ def check_assets(
         return
 
     docs_count, assets_count = _count_docs_assets(docs_root, repo_root, exclusion_mgr)
+    console.print()
+    console.print(make_obsidian_panel(make_banner(__version__)))
+    console.print()
     reporter = SentinelReporter(console, docs_root, docs_dir=str(config.docs_dir))
     errors, warnings = reporter.render(
         findings,
@@ -695,7 +729,18 @@ def clean_assets(
 
     unused = find_unused_assets(docs_root, exclusion_mgr, config=config)
     if not unused:
-        console.print("\n[green]OK:[/] no unused assets to clean.")
+        from zenzic import __version__
+
+        console.print()
+        console.print(make_obsidian_panel(make_banner(__version__)))
+        console.print()
+        console.print(
+            Text.from_markup(
+                f"{emoji('sparkles')} "
+                f"[bold {EMERALD}]Obsidian Seal:[/bold {EMERALD}]"
+                f" [{EMERALD}]No unused assets found \u2014 documentation tree is clean.[/{EMERALD}]"
+            )
+        )
         return
 
     console.print(f"\n[yellow]Found {len(unused)} unused asset(s):[/]")
@@ -769,6 +814,9 @@ def check_placeholders(
         )
 
     docs_count, assets_count = _count_docs_assets(docs_root, repo_root, exclusion_mgr)
+    console.print()
+    console.print(make_obsidian_panel(make_banner(__version__)))
+    console.print()
     reporter = SentinelReporter(console, docs_root, docs_dir=str(config.docs_dir))
     errors, warnings = reporter.render(
         findings,
@@ -1279,6 +1327,9 @@ def check_all(
     if quiet:
         errors, warnings = reporter.render_quiet(all_findings)
     else:
+        console.print()
+        console.print(make_obsidian_panel(make_banner(__version__)))
+        console.print()
         docs_count, assets_count = _count_docs_assets(docs_root, repo_root, exclusion_mgr, config)
         # File-target mode: banner shows exactly 1 file.
         if _single_file is not None:
@@ -1328,28 +1379,47 @@ def plugins_list() -> None:
     * **Origin** — distribution that registered the rule.
     * **Class** — fully qualified Python class name.
     """
+    from zenzic import __version__
     from zenzic.core.rules import list_plugin_rules
 
     rules = list_plugin_rules()
     if not rules:
-        console.print("[yellow]No rules found in the 'zenzic.rules' entry-point group.[/]")
+        console.print(make_obsidian_panel(make_banner(__version__)))
+        console.print()
         console.print(
-            "[dim]Install a plugin package or check that Zenzic is installed correctly.[/]"
+            Text.from_markup(
+                f"  [{SLATE}]No rules found \u2014 no plugins are registered.[/{SLATE}]"
+            )
         )
         return
 
-    console.print(f"\n[bold]Installed plugin rules[/] ({len(rules)} found)\n")
+    rules_table = Table(
+        box=box.ROUNDED,
+        border_style=SLATE,
+        header_style=f"bold {INDIGO}",
+        pad_edge=True,
+        padding=(0, 1),
+    )
+    rules_table.add_column("Rule", style="bold cyan", min_width=14)
+    rules_table.add_column("Code", style="bold", min_width=6)
+    rules_table.add_column("Origin", min_width=8)
+    rules_table.add_column("Class", style="dim")
     for info in rules:
         origin_badge = (
-            "[dim cyan](core)[/]" if info.origin == "zenzic" else f"[dim green]({info.origin})[/]"
+            "[cyan](core)[/]" if info.origin == "zenzic" else f"[green]({info.origin})[/]"
         )
-        console.print(
-            f"  [bold cyan]{info.source}[/]  "
-            f"[bold]{info.rule_id}[/]  "
-            f"{origin_badge}  "
-            f"[dim]{info.class_name}[/]"
-        )
+        rules_table.add_row(info.source, info.rule_id, origin_badge, info.class_name)
+
     console.print()
+    console.print(make_obsidian_panel(make_banner(__version__)))
+    console.print()
+    console.print(
+        Text.from_markup(
+            f"  [{SLATE}]{len(rules)} rule{'s' if len(rules) != 1 else ''} registered[/{SLATE}]"
+        )
+    )
+    console.print()
+    console.print(rules_table)
 
 
 def _run_all_checks(
@@ -1413,31 +1483,21 @@ def score(
     if output_format == "json":
         print(json.dumps(report.to_dict(), indent=2))
     else:
-        # ── Sentinel Score Display ────────────────────────────────────────
+        from zenzic import __version__
+
+        # ── Build score summary text ──────────────────────────────────────
         if report.score >= 80:
-            score_style, score_icon = f"bold {INDIGO}", emoji("check")
+            score_style = f"bold {EMERALD}"
         elif report.score >= 50:
-            score_style, score_icon = "bold yellow", emoji("warn")
+            score_style = "bold yellow"
         else:
-            score_style, score_icon = "bold red", emoji("cross")
+            score_style = "bold red"
 
-        score_text = Text()
-        score_text.append(f" {score_icon} ", style="bold")
-        score_text.append(f" {report.score}", style=score_style)
-        score_text.append("/100 ", style="dim")
-
-        console.print()
-        console.print(
-            Panel(
-                score_text,
-                title="[bold]Zenzic Quality Score[/]",
-                title_align="left",
-                border_style=INDIGO,
-                expand=False,
-                padding=(0, 2),
-            )
+        score_summary = Text.from_markup(
+            f"{emoji('sparkles')} "
+            f"[bold {EMERALD}]Quality Score:[/bold {EMERALD}]"
+            f" [{score_style}]{report.score}/100[/{score_style}]\n"
         )
-        console.print()
 
         table = Table(
             box=box.ROUNDED,
@@ -1469,6 +1529,10 @@ def score(
                 f"{cat.contribution:.2f}",
             )
 
+        console.print()
+        console.print(make_obsidian_panel(make_banner(__version__)))
+        console.print()
+        console.print(score_summary)
         console.print(table)
 
     if effective_threshold > 0 and report.score < effective_threshold:
@@ -1537,22 +1601,45 @@ def diff(
             )
         )
     else:
-        console.print(f"\nBaseline: [bold]{baseline.score}/100[/]")
-        console.print(f"Current:  [bold]{current.score}/100[/]")
+        from zenzic import __version__
+
         delta_colour = "green" if delta >= 0 else "red"
         sign = "+" if delta >= 0 else ""
-        console.print(f"Delta:    [{delta_colour}]{sign}{delta}[/]")
-        console.print("")
+        diff_table = Table(
+            box=box.ROUNDED,
+            border_style=SLATE,
+            show_header=True,
+            header_style=f"bold {INDIGO}",
+            pad_edge=True,
+            padding=(0, 1),
+        )
+        diff_table.add_column("Category", style="bold", min_width=14)
+        diff_table.add_column("Baseline", justify="right")
+        diff_table.add_column("Current", justify="right")
+        diff_table.add_column("Delta", justify="right")
         for cat in current.categories:
             base_cat = next((b for b in baseline.categories if b.name == cat.name), None)
             base_issues = base_cat.issues if base_cat else 0
             issue_delta = cat.issues - base_issues
             sign_i = "+" if issue_delta > 0 else ""
             colour = "red" if issue_delta > 0 else "green" if issue_delta < 0 else "dim"
-            console.print(
-                f"  {cat.name:<14} baseline {base_issues:>3}  current {cat.issues:>3}  "
-                f"[{colour}]{sign_i}{issue_delta}[/]"
+            diff_table.add_row(
+                cat.name,
+                str(base_issues),
+                str(cat.issues),
+                f"[{colour}]{sign_i}{issue_delta}[/]",
             )
+        body = Text.from_markup(
+            f"  Baseline: [bold]{baseline.score}/100[/]   "
+            f"Current: [bold {delta_colour}]{current.score}/100[/]   "
+            f"Delta: [{delta_colour}]{sign}{delta}[/]\n"
+        )
+        console.print()
+        console.print(make_obsidian_panel(make_banner(__version__)))
+        console.print()
+        console.print(body)
+        console.print(diff_table)
+        console.print()
 
     dropped = -delta  # positive means score went down
     if dropped > threshold:
@@ -1593,6 +1680,11 @@ def init(
     pre-sets ``engine = "zensical"``.  Otherwise the ``[build_context]`` block
     is omitted and the standalone (engine-agnostic) defaults apply.
     """
+    from zenzic import __version__
+
+    console.print()
+    console.print(make_obsidian_panel(make_banner(__version__)))
+    console.print()
     repo_root = find_repo_root(fallback_to_cwd=True)
 
     if plugin is not None:
