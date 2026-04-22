@@ -9,7 +9,7 @@ instead of the entire docs tree.
 ## What it demonstrates
 
 - `zenzic check all README.md` targets a single Markdown file
-- Zenzic auto-selects the VanillaAdapter when the file lives outside `docs_dir`
+- Zenzic auto-selects the `StandaloneAdapter` when the file lives outside `docs_dir`
 - The banner reports `1 file (1 docs, 0 assets)` — not the full site count
 - Only findings for the requested file appear in the report
 - The `docs/` directory is untouched: its files are not scanned
@@ -35,5 +35,5 @@ Expected exit code: **0** — banner shows `./README.md • 1 file (1 docs, 0 as
 README.md        ← this file — the single-file target in the demo
 docs/
   index.md       ← part of the configured docs tree, not audited by the demo
-zenzic.toml      ← docs_dir = "docs", engine = "vanilla"
+zenzic.toml      ← docs_dir = "docs", engine = "standalone"
 ```

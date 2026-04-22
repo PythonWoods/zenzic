@@ -53,8 +53,14 @@ Hai una cartella di file Markdown? Esegui un audit istantaneo dei link e della s
 uvx zenzic check all ./tua-cartella
 ```
 
-Zenzic identificherà il tuo motore tramite i file di configurazione o passerà alla **modalità Vanilla**
-per cartelle indipendenti — garantendo protezione immediata per link, credenziali e integrità strutturale.
+Zenzic identificherà il tuo motore tramite i file di configurazione o passerà alla **Standalone Mode**
+per cartelle Markdown pure — garantendo protezione immediata per link, credenziali e
+integrità dei file.
+
+> **Nota:** In Standalone Mode non esiste un contratto di navigazione dichiarato, quindi il
+> rilevamento delle pagine orfane (`Z402`) è disabilitato. Ciò che ottieni: validazione completa
+> dei link (`Z101`/`Z104`), scansione delle credenziali (`Z201`), blocco del path-traversal
+> (`Z202`) e controlli di integrità dell'indice di directory (`Z401`).
 
 ---
 
@@ -101,6 +107,7 @@ zenzic check all  # Analizza la cartella corrente
 | Snippet di codice | `check snippets` | Errori di sintassi in blocchi Python / YAML / JSON / TOML | 1 |
 | Contenuto placeholder | `check placeholders` | Pagine stub e pattern di testo vietati | 1 |
 | Asset inutilizzati | `check assets` | Immagini e file non referenziati | 1 |
+| Integrità asset di config | `check all` | Percorsi di favicon e OG image dichiarati nella config del motore verificati su disco (`Z404`) | 1 |
 | **Scansione credenziali** | `check references` | **9 famiglie di credenziali** — testo, URL, blocchi di codice | **2** |
 | **Path traversal** | `check links` | Tentativi di fuga verso path di sistema | **3** |
 | Punteggio qualità | `score` | Metrica composita deterministica 0–100 | — |
@@ -108,8 +115,8 @@ zenzic check all  # Analizza la cartella corrente
 
 **Correzione automatica:** `zenzic clean assets [-y] [--dry-run]` elimina gli asset inutilizzati.
 
-> 🚀 **v0.6.1 "Obsidian Glass" (Stabile)** — Versioning completo Docusaurus v3, risoluzione
-> alias `@site/` e Transparent Proxy Zensical. Vedi [CHANGELOG.md](CHANGELOG.md).
+> 🚀 **v0.7.0 "Obsidian Integrity" (Stabile)** — Suggerimenti proattivi Z104, audit di verità
+> Standalone Mode e hardening dell'Engineering Ledger. Vedi [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
@@ -148,7 +155,7 @@ Zenzic legge i file di configurazione come testo semplice — non importa né es
 | [Docusaurus v3][docusaurus] | `DocusaurusAdapter` | Docs versionati, alias `@site/`, rilevamento Ghost Route |
 | [MkDocs][mkdocs] | `MkDocsAdapter` | Modalità i18n suffix + folder, `fallback_to_default` |
 | [Zensical][zensical] | `ZensicalAdapter` | Transparent Proxy ponte `mkdocs.yml` se `zensical.toml` assente |
-| Qualsiasi cartella | `VanillaAdapter` | Zero-config, Directory Index Integrity — nessun motore richiesto |
+| Qualsiasi cartella | `StandaloneAdapter` | Solo integrità dei file — rilevamento orfani disabilitato senza contratto di navigazione |
 
 Adapter di terze parti si installano tramite il gruppo di entry-point `zenzic.adapters`.
 Vedi la [Guida Developer][docs-it-arch] per le API degli adapter.
@@ -168,7 +175,7 @@ excluded_build_artifacts = ["pdf/*.pdf", "dist/*.zip"]
 placeholder_patterns     = ["coming soon", "todo", "stub"]
 
 [build_context]
-engine         = "mkdocs"   # mkdocs | docusaurus | zensical | vanilla
+engine         = "mkdocs"   # mkdocs | docusaurus | zensical | standalone
 default_locale = "en"
 locales        = ["it"]
 ```
@@ -229,7 +236,7 @@ pip install "zenzic[mkdocs]"   # + plugin build-time MkDocs
 ```
 
 > L'extra `[mkdocs]` aggiunge il plugin build-time (`zenzic.integrations.mkdocs`).
-> Tutti gli adapter dei motori (Docusaurus, Zensical, Vanilla) sono inclusi nell'installazione base.
+> Tutti gli adapter dei motori (Docusaurus, Zensical, Standalone) sono inclusi nell'installazione base.
 
 **Portabilità:** Zenzic rifiuta i link interni assoluti (che iniziano con `/`). I link relativi
 funzionano con qualsiasi percorso di hosting. Gli URL esterni `https://` non sono mai interessati.
@@ -268,7 +275,7 @@ zenzic lab [--act N] [--list]
 ## 📟 Tour Visivo
 
 ```text
-╭───────────────────────  🛡  ZENZIC SENTINEL  v0.6.1  ────────────────────────╮
+╭───────────────────────  🛡  ZENZIC SENTINEL  v0.7.0  ────────────────────────╮
 │                                                                              │
 │  docusaurus • 38 file (18 docs, 20 asset) • 0.9s                             │
 │                                                                              │
@@ -298,20 +305,49 @@ Visita il [portale di documentazione][docs-it-home] per screenshot interattivi e
 
 ---
 
-## 🏗️ Filosofia di Design
+## 🧱 Registro Ingegneristico
 
-Zenzic è costruito su tre contratti operativi:
+Zenzic è governato da tre contratti operativi non negoziabili — ciascuno
+verificabile dalla macchina, non dalla convenzione:
 
-**Analizza la Sorgente, non la Build.** La VSM (Virtual Site Map) mappa ogni file `.md` al suo
-URL canonico senza eseguire la build — gli errori vengono intercettati prima di raggiungere la produzione.
+<table>
+<tr>
+<td width="33%" valign="top">
 
-**Zero-Trust Execution.** Nessun sottoprocesso, nessuna esecuzione di codice arbitrario, nessuna
-importazione di motori di build. I config Docusaurus `.ts`/`.js` sono analizzati tramite analisi
-testuale statica — Node.js non viene mai invocato.
+**Zero Assunzioni** — Ogni adapter gira con `mypy --strict`. Nessun `Any`, nessuna coercizione
+silenziosa. Il sistema di tipi è un contratto a tempo di compilazione.
 
-**Esclusione Obbligatoria ad Ogni Entry Point.** Tutta la scoperta dei file passa attraverso
-`LayeredExclusionManager` — una gerarchia a 4 livelli (Sistema → VCS → Config → CLI). Nessuna
-scansione globale senza un contesto di esclusione esplicito.
+```python
+# mypy: strict = true
+# Zero def non tipizzate, zero errori ignorati.
+```
+
+</td>
+<td width="33%" valign="top">
+
+**Subprocess-Free** — `subprocess.Popen` è permanentemente vietato in `src/`. I config
+Docusaurus `.ts` sono analizzati come testo semplice. Node.js non
+viene mai invocato.
+
+```python
+# ruff: ban = ["subprocess"]
+# Solo analisi statica deterministica.
+```
+
+</td>
+<td width="33%" valign="top">
+
+**Conformità Deterministica** — Ogni file sorgente porta un'intestazione SPDX. REUSE 3.x è applicato
+in CI. Nessuna licenza ambigua — verificabile dalla macchina su ogni PR.
+
+```toml
+# REUSE-IgnoreStart / REUSE-IgnoreEnd
+# SPDX-License-Identifier: Apache-2.0
+```
+
+</td>
+</tr>
+</table>
 
 Vedi la [Guida all'Architettura][docs-it-arch] per il Two-Pass Reference Pipeline e l'analisi approfondita della VSM.
 
@@ -387,9 +423,9 @@ Apache-2.0 — vedi [LICENSE][license].
 [zensical]:          https://zensical.org/
 [uv]:                https://docs.astral.sh/uv/
 [docs-it-home]:      https://zenzic.dev/it/docs/
-[docs-it-badges]:    https://zenzic.dev/it/docs/usage/badges/
-[docs-it-cicd]:      https://zenzic.dev/it/docs/guides/ci-cd/
-[docs-it-arch]:      https://zenzic.dev/it/docs/internals/architecture-overview/
+[docs-it-badges]:    https://zenzic.dev/it/docs/how-to/add-badges/
+[docs-it-cicd]:      https://zenzic.dev/it/docs/how-to/configure-ci-cd/
+[docs-it-arch]:      https://zenzic.dev/it/docs/explanation/architecture/
 [ci-workflow]:       .github/workflows/ci.yml
 [contributing]:      CONTRIBUTING.it.md
 [license]:           LICENSE
