@@ -50,7 +50,7 @@ body:
       options:
         - MkDocs (mkdocs.yml present)
         - Zensical (zensical.toml present)
-        - Vanilla (no engine config)
+        - Standalone (no engine config)
         - Not applicable / unsure
       multiple: false
     validations:
