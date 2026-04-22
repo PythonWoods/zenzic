@@ -3,8 +3,6 @@ SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# 🛡️ Zenzic
-
 <p align="center">
   <img src="assets/brand/svg/zenzic-wordmark.svg#gh-light-mode-only" alt="Zenzic" width="360">
   <img src="assets/brand/svg/zenzic-wordmark-dark.svg#gh-dark-mode-only" alt="Zenzic" width="360">
@@ -296,15 +294,6 @@ Visita il [portale di documentazione][docs-it-home] per screenshot interattivi e
 
 ---
 
-## 🗺️ Roadmap v0.7.0
-
-- [ ] **Auto-fix Engine** — Riparazione automatica di link rotti e ancore orfane.
-- [ ] **Estensioni IDE** — Lint in tempo reale per VS Code e Cursor tramite LSP.
-- [ ] **AI Context Provider** — Export VSM in formato LLM-friendly per agenti AI.
-- [ ] **Adapter Astro & VitePress** — Espandere il Safe Harbor ai framework JS.
-
----
-
 ## 🧱 Registro Ingegneristico
 
 Zenzic è governato da tre contratti operativi non negoziabili — ciascuno
@@ -410,11 +399,28 @@ Apache-2.0 — vedi [LICENSE][license].
 
 ---
 
-<p align="center">
-  &copy; 2026 <strong>PythonWoods</strong>. Ingegnerizzato con precisione.<br>
-  Con sede in Italia 🇮🇹 &nbsp;·&nbsp; Dediti all'arte dello sviluppo Python.<br>
-  <a href="mailto:dev@pythonwoods.dev">dev@pythonwoods.dev</a>
-</p>
+## 📚 Le Cronache Ossidiane
+
+Zenzic è nato da un percorso tecnico attraverso la fragilità dei moderni ecosistemi di
+documentazione. Scopri la filosofia, l'assedio della sicurezza e l'ingegneria dietro il
+Sentinel nella [**Obsidian Engineering Series**](https://dev.to/pythonwoods/series/38629) su Dev.to.
+
+---
+
+<div align="center">
+  <a href="https://zenzic.dev/it/">
+    <img src="assets/brand/pythonwoods-logo.svg" alt="PythonWoods" height="50" />
+  </a>
+  <p>
+    <strong>Ingegnerizzato con precisione da PythonWoods in Italia 🇮🇹</strong><br/>
+    <em>"Costruiamo il Porto Sicuro per la conoscenza tecnica."</em>
+  </p>
+  <p>
+    <a href="https://zenzic.dev/it/"><strong>Documentazione</strong></a> &middot;
+    <a href="https://github.com/PythonWoods"><strong>GitHub</strong></a> &middot;
+    <a href="https://zenzic.dev/it/blog"><strong>Journal</strong></a>
+  </p>
+</div>
 
 <!-- ─── Definizioni dei link di riferimento ──────────────────────────────────── -->
 
