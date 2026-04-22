@@ -53,8 +53,14 @@ Got a folder of Markdown files? Run an instant security and link audit using [`u
 uvx zenzic check all ./your-folder
 ```
 
-Zenzic will identify your engine via its configuration files or default to **Vanilla mode** for
-standalone folders — providing immediate protection for links, credentials, and structural integrity.
+Zenzic will identify your engine via its configuration files or default to **Standalone Mode**
+for plain Markdown folders — providing immediate protection for links, credentials, and
+file integrity.
+
+> **Note:** In Standalone Mode there is no declared navigation contract, so orphan-page
+> detection (`Z402`) is disabled. What you get: full link validation (`Z101`/`Z104`),
+> credential scanning (`Z201`), path-traversal blocking (`Z202`), and directory-index
+> integrity checks (`Z401`).
 
 ---
 
@@ -101,6 +107,7 @@ zenzic check all  # Audit the current directory
 | Code snippets | `check snippets` | Syntax errors in Python / YAML / JSON / TOML blocks | 1 |
 | Placeholder content | `check placeholders` | Stub pages and forbidden text patterns | 1 |
 | Unused assets | `check assets` | Images and files not referenced anywhere | 1 |
+| Config asset integrity | `check all` | Favicon and OG image paths declared in engine config confirmed on disk (`Z404`) | 1 |
 | **Credential scanning** | `check references` | **9 credential families** — text, URLs, code blocks | **2** |
 | **Path traversal** | `check links` | System-path escape attempts | **3** |
 | Quality score | `score` | Deterministic 0–100 composite metric | — |
@@ -108,8 +115,8 @@ zenzic check all  # Audit the current directory
 
 **Autofix:** `zenzic clean assets [-y] [--dry-run]` deletes unused images.
 
-> 🚀 **v0.6.1 "Obsidian Glass" (Stable)** — Full Docusaurus v3 versioning, `@site/` alias
-> resolution, and Zensical Transparent Proxy. See [CHANGELOG.md](CHANGELOG.md).
+> 🚀 **v0.7.0 "Obsidian Integrity" (Stable)** — Z104 proactive suggestions, Standalone
+> Mode truth audit, and Engineering Ledger hardening. See [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
@@ -146,7 +153,7 @@ Zenzic reads config files as plain text — never imports or executes your build
 | [Docusaurus v3][docusaurus] | `DocusaurusAdapter` | Versioned docs, `@site/` alias, Ghost Route detection |
 | [MkDocs][mkdocs] | `MkDocsAdapter` | i18n suffix + folder modes, `fallback_to_default` |
 | [Zensical][zensical] | `ZensicalAdapter` | Transparent Proxy bridges `mkdocs.yml` if `zensical.toml` absent |
-| Any folder | `VanillaAdapter` | Zero-config, Directory Index Integrity — no engine required |
+| Any folder | `StandaloneAdapter` | File integrity checks only — orphan detection disabled without a nav contract |
 
 Third-party adapters install via the `zenzic.adapters` entry-point group.
 See the [Developer Guide][docs-arch] for the adapter API.
@@ -166,7 +173,7 @@ excluded_build_artifacts = ["pdf/*.pdf", "dist/*.zip"]
 placeholder_patterns     = ["coming soon", "todo", "stub"]
 
 [build_context]
-engine         = "mkdocs"   # mkdocs | docusaurus | zensical | vanilla
+engine         = "mkdocs"   # mkdocs | docusaurus | zensical | standalone
 default_locale = "en"
 locales        = ["it"]
 ```
@@ -227,7 +234,7 @@ pip install "zenzic[mkdocs]"   # + MkDocs build-time plugin
 ```
 
 > The `[mkdocs]` extra adds the build-time plugin (`zenzic.integrations.mkdocs`).
-> All engine adapters (Docusaurus, Zensical, Vanilla) are included in the base install.
+> All engine adapters (Docusaurus, Zensical, Standalone) are included in the base install.
 
 **Portability:** Zenzic rejects absolute internal links (starting with `/`). Relative links
 work at any hosting path. External `https://` URLs are never affected.
@@ -266,7 +273,7 @@ zenzic lab [--act N] [--list]
 ## 📟 Visual Tour
 
 ```text
-╭───────────────────────  🛡  ZENZIC SENTINEL  v0.6.1  ────────────────────────╮
+╭───────────────────────  🛡  ZENZIC SENTINEL  v0.7.0  ────────────────────────╮
 │                                                                              │
 │  docusaurus • 38 files (18 docs, 20 assets) • 0.9s                           │
 │                                                                              │
@@ -296,19 +303,48 @@ Visit the [documentation portal][docs-home] for interactive screenshots and rich
 
 ---
 
-## 🏗️ Design Philosophy
+## 🧱 Engineering Ledger
 
-Zenzic is built on three operational contracts:
+Zenzic is governed by three non-negotiable operational contracts — each
+enforce-able by machine, not by convention:
 
-**Lint the Source, Not the Build.** The VSM (Virtual Site Map) maps every `.md` file to its
-canonical URL without running the build — errors are caught before they reach production.
+<table>
+<tr>
+<td width="33%" valign="top">
 
-**Zero-Trust Execution.** No subprocesses, no arbitrary code execution, no build engine imports.
-Docusaurus `.ts`/`.js` configs are parsed via static text analysis — Node.js is never invoked.
+**Zero Assumptions** — Every adapter runs under `mypy --strict`. No `Any`, no silent coercions.
+The type system is a compile-time contract — not a suggestion.
 
-**Mandatory Exclusion at Every Entry Point.** All file discovery goes through
-`LayeredExclusionManager` — a 4-level hierarchy (System → VCS → Config → CLI). No global scan
-without an explicit exclusion context.
+```python
+# mypy: strict = true
+# Zero untyped defs, zero ignored errors.
+```
+
+</td>
+<td width="33%" valign="top">
+
+**Subprocess-Free** — `subprocess.Popen` is permanently banned from `src/`. Docusaurus `.ts`
+configs are parsed as plain text. Node.js is never invoked.
+
+```python
+# ruff: ban = ["subprocess"]
+# Deterministic static analysis only.
+```
+
+</td>
+<td width="33%" valign="top">
+
+**Deterministic Compliance** — Every source file carries an SPDX header. REUSE 3.x is enforced in CI.
+No ambiguous licensing — machine-verifiable on every PR.
+
+```toml
+# REUSE-IgnoreStart / REUSE-IgnoreEnd
+# SPDX-License-Identifier: Apache-2.0
+```
+
+</td>
+</tr>
+</table>
 
 See the [Architecture Guide][docs-arch] for the Two-Pass Reference Pipeline and VSM deep-dive.
 
@@ -383,9 +419,9 @@ Apache-2.0 — see [LICENSE][license].
 [zensical]:          https://zensical.org/
 [uv]:                https://docs.astral.sh/uv/
 [docs-home]:         https://zenzic.dev/docs/
-[docs-badges]:       https://zenzic.dev/docs/usage/badges/
-[docs-cicd]:         https://zenzic.dev/docs/guides/ci-cd/
-[docs-arch]:         https://zenzic.dev/docs/internals/architecture-overview/
+[docs-badges]:       https://zenzic.dev/docs/how-to/add-badges/
+[docs-cicd]:         https://zenzic.dev/docs/how-to/configure-ci-cd/
+[docs-arch]:         https://zenzic.dev/docs/explanation/architecture/
 [ci-workflow]:       .github/workflows/ci.yml
 [contributing]:      CONTRIBUTING.md
 [license]:           LICENSE

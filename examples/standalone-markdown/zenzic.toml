@@ -1,9 +1,13 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
-# zenzic.toml — Vanilla Markdown example.
+# zenzic.toml — Standalone Markdown example.
 #
 # No build engine. No mkdocs.yml, no zensical.toml, no docusaurus.config.ts.
 # Demonstrates that Zenzic protects bare Markdown projects too.
+#
+# Standalone Mode truth: orphan detection (Z402) is disabled because there
+# is no navigation contract to compare against. File integrity checks (links,
+# credentials, directory index) are fully active.
 #
 # Demo findings:
 #   • MISSING_DIRECTORY_INDEX — docs/deep-folder/ contains .md files but
@@ -23,4 +27,4 @@ fail_under = 80
 # All lines including fenced code blocks are scanned. Exit code 2 on detection.
 
 [build_context]
-engine = "vanilla"
+engine = "standalone"

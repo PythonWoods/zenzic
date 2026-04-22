@@ -1,4 +1,4 @@
-# Vanilla Markdown — MISSING_DIRECTORY_INDEX Demo
+# Standalone Markdown — MISSING_DIRECTORY_INDEX Demo
 
 This example demonstrates `MISSING_DIRECTORY_INDEX` detection on a bare Markdown
 project with no build engine.
@@ -34,7 +34,7 @@ Add an `index.md` to `docs/deep-folder/` to resolve it.
 ## Run
 
 ```bash
-cd examples/vanilla-markdown
+cd examples/standalone-markdown
 zenzic check all --show-info
 ```
 

@@ -14,3 +14,8 @@ overrides:
       # Keep a Changelog uses repeated ### Added / ### Fixed / ### Changed
       # headings under each version block — this is intentional and correct.
       MD024: false
+  - files: ["README.md", "README.it.md"]
+    config:
+      # The Engineering Ledger uses **Bold** labels inside HTML <td> cells as
+      # intentional visual column headers — not as heading substitutes in prose.
+      MD036: false

@@ -17,4 +17,4 @@ docs_dir = "docs"
 # All lines including fenced code blocks are scanned. Exit code 2 on detection.
 
 [build_context]
-engine = "vanilla"
+engine = "standalone"
