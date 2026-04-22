@@ -32,7 +32,8 @@ from zenzic.core.adapters._docusaurus import (
     _strip_js_comments,
     find_docusaurus_config,
 )
-from zenzic.models.config import BuildContext
+from zenzic.core.validator import _DOCUSAURUS_SKIP_SCHEMES, _SKIP_SCHEMES, validate_links_structured
+from zenzic.models.config import BuildContext, ZenzicConfig
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -651,3 +652,78 @@ class TestClassifyRouteRegression:
     def test_locale_ghost_route(self, adapter: DocusaurusAdapter) -> None:
         nav = frozenset({"intro.mdx"})
         assert adapter.classify_route(Path("it/index.mdx"), nav) == "REACHABLE"
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# D117: pathname:/// protocol — Docusaurus-only escape hatch
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestPathnameProtocolSupport:
+    """D117 — pathname:/// is a verified Docusaurus escape hatch.
+
+    Docusaurus uses ``pathname:///`` to link static assets (PDFs, HTML downloads)
+    that live outside the React router.  Zenzic must:
+      - Treat ``pathname:`` as a valid skip in Docusaurus mode (no Z101/Z105 error).
+      - Flag ``pathname:`` as an error in non-Docusaurus engines.
+    """
+
+    def test_pathname_not_in_global_skip_schemes(self) -> None:
+        """pathname: must NOT be in the unconditional skip list."""
+        assert "pathname:" not in _SKIP_SCHEMES
+
+    def test_pathname_in_docusaurus_skip_schemes(self) -> None:
+        """pathname: MUST be in the Docusaurus-specific skip list."""
+        assert "pathname:" in _DOCUSAURUS_SKIP_SCHEMES
+
+    def test_pathname_link_not_flagged_in_docusaurus(self, tmp_path: Path) -> None:
+        """validate_links_structured must not raise any error for pathname:/// in Docusaurus mode."""
+        from zenzic.core.exclusion import LayeredExclusionManager
+
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        # A Markdown file that uses pathname:/// — legitimate Docusaurus idiom
+        (docs / "guide.md").write_text(
+            "[Download brand system](pathname:///assets/brand-system.html)\n",
+            encoding="utf-8",
+        )
+        config = ZenzicConfig(
+            docs_dir="docs",
+            build_context=BuildContext(engine="docusaurus"),
+        )
+        em = LayeredExclusionManager(config, docs_root=docs, repo_root=tmp_path)
+        errors = validate_links_structured(
+            docs,
+            em,
+            repo_root=tmp_path,
+            config=config,
+            strict=False,
+        )
+        assert errors == [], f"Unexpected errors for pathname:/// in Docusaurus: {errors}"
+
+    def test_pathname_link_flagged_in_mkdocs(self, tmp_path: Path) -> None:
+        """validate_links_structured MUST raise Z105 for pathname:/// in MkDocs mode."""
+        from zenzic.core.exclusion import LayeredExclusionManager
+
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        (docs / "guide.md").write_text(
+            "[Download](pathname:///assets/file.pdf)\n",
+            encoding="utf-8",
+        )
+        config = ZenzicConfig(
+            docs_dir="docs",
+            build_context=BuildContext(engine="mkdocs"),
+        )
+        em = LayeredExclusionManager(config, docs_root=docs, repo_root=tmp_path)
+        errors = validate_links_structured(
+            docs,
+            em,
+            repo_root=tmp_path,
+            config=config,
+            strict=False,
+        )
+        # pathname:/// starts with "/" after scheme removal — triggers ABSOLUTE_PATH (Z105)
+        assert any("pathname" in str(e) or "absolute" in str(e).lower() for e in errors), (
+            f"Expected Z105 for pathname:/// in MkDocs, got: {errors}"
+        )
