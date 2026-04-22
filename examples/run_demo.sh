@@ -14,7 +14,7 @@
 #   Act 5 — Custom Dir Target  : custom-dir-target — audit content/ instead of docs/.
 #   Act 6 — Transparent Proxy  : zensical-bridge — SENTINEL banner + bridge activation.
 #   Act 7 — The Flagship       : docusaurus-v3-enterprise — versioned docs + @site/ + i18n.
-#   Act 8 — Minimum Viable     : vanilla-markdown — MISSING_DIRECTORY_INDEX on bare .md.
+#   Act 8 — Minimum Viable     : standalone-markdown — MISSING_DIRECTORY_INDEX on bare .md.
 #
 # Usage (from repo root):
 #   bash examples/run_demo.sh
@@ -160,15 +160,15 @@ fi
 
 # ─── Act 8: Minimum Viable ──────────────────────────────────────────────
 
-print_header "Act 8 — Minimum Viable (vanilla-markdown)"
+print_header "Act 8 — Minimum Viable (standalone-markdown)"
 echo "  No build engine. docs/deep-folder/ has no index.md."
 echo "  Expected: MISSING_DIRECTORY_INDEX info finding + SUCCESS."
 echo ""
 
-if (cd "$REPO_ROOT/examples/vanilla-markdown" && uv run zenzic check all --show-info); then
-    print_result "vanilla-markdown check all --show-info" "PASS"
+if (cd "$REPO_ROOT/examples/standalone-markdown" && uv run zenzic check all --show-info); then
+    print_result "standalone-markdown check all --show-info" "PASS"
 else
-    print_result "vanilla-markdown check all --show-info" "UNEXPECTED FAILURE"
+    print_result "standalone-markdown check all --show-info" "UNEXPECTED FAILURE"
 fi
 
 # ─── Self-audit + score snapshot ──────────────────────────────────────────────
