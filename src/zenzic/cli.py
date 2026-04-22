@@ -8,7 +8,7 @@ import difflib
 import json
 import re
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import typer
@@ -796,6 +796,7 @@ class _AllCheckResults:
     reference_reports: list[IntegrityReport]
     security_events: int
     directory_index_issues: list[Path]
+    config_asset_issues: list[tuple[str, str]] = field(default_factory=list)
 
     @property
     def failed(self) -> bool:
@@ -837,6 +838,28 @@ def _collect_all_results(
         locale_roots=locale_roots,
     )
     security_events = sum(len(r.security_findings) for r in ref_reports)
+
+    # Z404: check infrastructure assets declared in the engine config (favicon, OG image, logo).
+    config_asset_issues: list[tuple[str, str]] = []
+    _engine = config.build_context.engine
+    if _engine == "docusaurus":
+        from zenzic.core.adapters._docusaurus import (
+            check_config_assets as _docusaurus_check_assets,
+            find_docusaurus_config,
+        )
+
+        dc_config = find_docusaurus_config(repo_root)
+        if dc_config is not None:
+            config_asset_issues = _docusaurus_check_assets(dc_config, repo_root)
+    elif _engine == "mkdocs":
+        from zenzic.core.adapters._mkdocs import check_config_assets as _mkdocs_check_assets
+
+        config_asset_issues = _mkdocs_check_assets(repo_root)
+    elif _engine == "zensical":
+        from zenzic.core.adapters._zensical import check_config_assets as _zensical_check_assets
+
+        config_asset_issues = _zensical_check_assets(repo_root)
+
     return _AllCheckResults(
         link_errors=validate_links_structured(
             docs_root,
@@ -859,6 +882,7 @@ def _collect_all_results(
         directory_index_issues=find_missing_directory_indices(
             docs_root, exclusion_mgr, repo_root=repo_root, config=config
         ),
+        config_asset_issues=config_asset_issues,
     )
 
 
@@ -1025,6 +1049,17 @@ def _to_findings(results: _AllCheckResults, docs_root: Path) -> list[Finding]:
             )
         )
 
+    for rel_path, message in results.config_asset_issues:
+        findings.append(
+            Finding(
+                rel_path=rel_path,
+                line_no=0,
+                code="Z404",
+                severity="warning",
+                message=message,
+            )
+        )
+
     return findings
 
 
@@ -1160,7 +1195,7 @@ def check_all(
 
     Optionally pass PATH to scope the audit to a single Markdown file or a custom
     directory (e.g. ``README.md``, ``content/``).  Zenzic auto-selects the
-    VanillaAdapter when the target lives outside the configured docs directory.
+    StandaloneAdapter when the target lives outside the configured docs directory.
     """
     repo_root = find_repo_root()
     config, loaded_from_file = ZenzicConfig.load(repo_root)

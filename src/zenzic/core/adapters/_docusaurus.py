@@ -117,6 +117,17 @@ _BASE_URL_RE = re.compile(r"""baseUrl\s*:\s*['"]([^'"]+)['"]""")
 
 _ROUTE_BASE_PATH_RE = re.compile(r"""routeBasePath\s*:\s*['"]([^'"]*?)['"]""")
 
+# ── Infrastructure asset path extraction (Z404) ──────────────────────────────
+
+# Matches: favicon: 'some/path' or favicon: "some/path"
+_FAVICON_ASSET_RE = re.compile(r"""favicon\s*:\s*['"]([^'"]+)['"]""")
+
+# Matches: image: 'path.png' — restricted to image extensions to avoid
+# matching unrelated 'image:' keys (e.g. Docker image references).
+_OG_IMAGE_ASSET_RE = re.compile(
+    r"""(?<!\w)image\s*:\s*['"]([^'"]+\.(?:png|jpg|jpeg|svg|gif|webp))['"]"""
+)
+
 
 def _extract_base_url(config_path: Path) -> str:
     """Extract ``baseUrl`` from a Docusaurus config file via static analysis.
@@ -187,6 +198,70 @@ def _extract_route_base_path(config_path: Path) -> str | None:
     if match is None:
         return None
     return match.group(1)
+
+
+def check_config_assets(config_path: Path, repo_root: Path) -> list[tuple[str, str]]:
+    """Check that infrastructure assets referenced in ``docusaurus.config.*`` exist.
+
+    Extracts ``favicon`` and ``themeConfig.image`` (OG/social-card) values via
+    static analysis and verifies the physical files exist inside the Docusaurus
+    ``static/`` directory.
+
+    No subprocess execution.  Only two existence checks (one per asset class)
+    — safe to call during discovery phase outside hot-path loops.
+
+    Args:
+        config_path: Path to ``docusaurus.config.ts`` or ``.js``.
+        repo_root:   Repository root (parent of ``static/``).
+
+    Returns:
+        List of ``(rel_path, message)`` tuples for each missing asset.
+        ``rel_path`` is relative to ``repo_root`` (e.g.
+        ``"static/assets/favicon/png/icon.png"``).  Empty list when all
+        referenced assets exist or the config cannot be parsed.
+    """
+    try:
+        raw = config_path.read_text(encoding="utf-8")
+    except OSError:
+        return []
+
+    content = _strip_js_comments(raw)
+    static_root = repo_root / "static"
+    issues: list[tuple[str, str]] = []
+
+    # -- favicon ------------------------------------------------------------
+    favicon_match = _FAVICON_ASSET_RE.search(content)
+    if favicon_match:
+        asset_rel = favicon_match.group(1).lstrip("/")
+        if not (static_root / asset_rel).exists():
+            issues.append(
+                (
+                    f"static/{asset_rel}",
+                    f"favicon asset not found on disk: "
+                    f"'static/{asset_rel}' "
+                    f"(declared as favicon: '{favicon_match.group(1)}' "
+                    f"in {config_path.name}) [Z404]",
+                )
+            )
+
+    # -- OG / social-card image -------------------------------------------
+    # Take the first image-extension match; the themeConfig.image field is
+    # always the first occurrence in a well-structured config.
+    og_match = _OG_IMAGE_ASSET_RE.search(content)
+    if og_match:
+        asset_rel = og_match.group(1).lstrip("/")
+        if not (static_root / asset_rel).exists():
+            issues.append(
+                (
+                    f"static/{asset_rel}",
+                    f"OG/social-card image not found on disk: "
+                    f"'static/{asset_rel}' "
+                    f"(declared as image: '{og_match.group(1)}' "
+                    f"in {config_path.name}) [Z404]",
+                )
+            )
+
+    return issues
 
 
 # ── Frontmatter slug extraction ──────────────────────────────────────────────

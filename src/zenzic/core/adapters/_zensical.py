@@ -22,6 +22,7 @@ Zensical v0.0.31+ uses a single ``[project]`` scope for all settings::
 from __future__ import annotations
 
 import logging
+import re
 import tomllib
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -73,7 +74,55 @@ def _load_zensical_config(repo_root: Path) -> dict[str, Any]:
         return {}
 
 
-# ── Nav helpers ──────────────────────────────────────────────────────────────
+# ── Infrastructure asset path extraction (Z404) ──────────────────────────────
+
+_IMAGE_EXT_RE_ZENSICAL = re.compile(r"\.(?:png|jpg|jpeg|svg|gif|ico|webp)$", re.IGNORECASE)
+
+
+def check_config_assets(repo_root: Path) -> list[tuple[str, str]]:
+    """Check that theme assets declared in ``zensical.toml`` exist on disk.
+
+    Checks ``[project].favicon`` and ``[project].logo`` (file-path values only).
+    Both fields are resolved relative to ``[project].docs_dir`` (default: ``docs/``).
+
+    Args:
+        repo_root: Repository root (parent of ``zensical.toml``).
+
+    Returns:
+        List of ``(rel_path, message)`` tuples for each missing asset.
+        Empty list when all referenced assets exist or the config is absent.
+    """
+    zensical_cfg = _load_zensical_config(repo_root)
+    if not zensical_cfg:
+        return []
+
+    project = zensical_cfg.get("project") or {}
+    if not isinstance(project, dict):
+        return []
+
+    docs_dir = str(project.get("docs_dir") or "docs")
+    docs_root = repo_root / docs_dir
+
+    issues: list[tuple[str, str]] = []
+
+    for field_key in ("favicon", "logo"):
+        value = project.get(field_key)
+        if not value or not isinstance(value, str):
+            continue
+        if not _IMAGE_EXT_RE_ZENSICAL.search(value):
+            continue
+        asset_path = docs_root / value.lstrip("/")
+        if not asset_path.exists():
+            rel = f"{docs_dir}/{value.lstrip('/')}"
+            issues.append(
+                (
+                    rel,
+                    f"{field_key} asset not found on disk: '{rel}' "
+                    f"(declared as [project].{field_key}: '{value}' in zensical.toml) [Z404]",
+                )
+            )
+
+    return issues
 
 
 def _extract_nav_paths(items: list[object]) -> set[str]:

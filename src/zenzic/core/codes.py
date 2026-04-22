@@ -29,6 +29,7 @@ Z4xx — Structure
     Z401  MISSING_DIRECTORY_INDEX — directory lacks an index page (Standalone Mode)
     Z402  ORPHAN_PAGE          — Markdown file not listed in the site navigation
     Z403  MISSING_ALT          — image element has no alt text
+    Z404  CONFIG_ASSET_MISSING — infrastructure asset referenced in engine config not found on disk
 
 Z5xx — Content Quality
     Z501  PLACEHOLDER          — page contains stub / TODO content
@@ -74,6 +75,7 @@ LEGACY_TO_CODE: dict[str, str] = {
     # Structure (Z4xx)
     "MISSING_DIRECTORY_INDEX": "Z401",
     "ORPHAN": "Z402",
+    "CONFIG_ASSET_MISSING": "Z404",
     # Content quality (Z5xx)
     "placeholder-text": "Z501",
     "short-content": "Z502",
@@ -103,6 +105,7 @@ CODE_NAMES: dict[str, str] = {
     "Z401": "MISSING_DIRECTORY_INDEX",
     "Z402": "ORPHAN_PAGE",
     "Z403": "MISSING_ALT",
+    "Z404": "CONFIG_ASSET_MISSING",
     "Z501": "PLACEHOLDER",
     "Z502": "SHORT_CONTENT",
     "Z503": "SNIPPET_ERROR",

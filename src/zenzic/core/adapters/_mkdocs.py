@@ -180,6 +180,64 @@ def _load_doc_config(repo_root: Path) -> dict[str, Any]:
             return {}
 
 
+# ── Infrastructure asset path extraction (Z404) ──────────────────────────────
+
+_IMAGE_EXT_RE_MKDOCS = re.compile(r"\.(png|jpg|jpeg|svg|gif|ico|webp)$", re.IGNORECASE)
+
+
+def check_config_assets(repo_root: Path) -> list[tuple[str, str]]:
+    """Check that theme assets declared in ``mkdocs.yml`` exist on disk.
+
+    Checks ``theme.favicon`` and ``theme.logo`` (file-path values only).
+    Both fields are resolved relative to ``docs_dir`` (MkDocs default: ``docs/``).
+    Icon-name values (e.g. ``material/library``) are silently skipped because
+    they reference bundled theme icons, not local files.
+
+    No YAML re-parsing beyond what ``_load_doc_config`` already does.
+    No disk I/O in hot-path loops — only two existence checks at most.
+
+    Args:
+        repo_root: Repository root (parent of ``mkdocs.yml``).
+
+    Returns:
+        List of ``(rel_path, message)`` tuples for each missing asset.
+        Empty list when all referenced assets exist or the config is absent.
+    """
+    doc_config = _load_doc_config(repo_root)
+    if not doc_config:
+        return []
+
+    docs_dir = str(doc_config.get("docs_dir") or "docs")
+    docs_root = repo_root / docs_dir
+
+    theme = doc_config.get("theme") or {}
+    if not isinstance(theme, dict):
+        # theme: readthedocs  (scalar shorthand) — no file paths possible
+        return []
+
+    issues: list[tuple[str, str]] = []
+
+    for field_key, config_key in [("favicon", "theme.favicon"), ("logo", "theme.logo")]:
+        value = theme.get(field_key)
+        if not value or not isinstance(value, str):
+            continue
+        # Skip icon names (e.g. "material/cloud") — they have no image extension.
+        if not _IMAGE_EXT_RE_MKDOCS.search(value):
+            continue
+        asset_path = docs_root / value.lstrip("/")
+        if not asset_path.exists():
+            rel = f"{docs_dir}/{value.lstrip('/')}"
+            issues.append(
+                (
+                    rel,
+                    f"{field_key} asset not found on disk: '{rel}' "
+                    f"(declared as {config_key}: '{value}' in mkdocs.yml) [Z404]",
+                )
+            )
+
+    return issues
+
+
 # ── i18n plugin extraction helpers ───────────────────────────────────────────
 
 
