@@ -3,8 +3,6 @@ SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# 🛡️ Zenzic
-
 <p align="center">
   <img src="assets/brand/svg/zenzic-wordmark.svg#gh-light-mode-only" alt="Zenzic" width="360">
   <img src="assets/brand/svg/zenzic-wordmark-dark.svg#gh-dark-mode-only" alt="Zenzic" width="360">
@@ -272,34 +270,11 @@ zenzic lab [--act N] [--list]
 
 ## 📟 Visual Tour
 
-```text
-╭───────────────────────  🛡  ZENZIC SENTINEL  v0.7.0  ────────────────────────╮
-│                                                                              │
-│  docusaurus • 38 files (18 docs, 20 assets) • 0.9s                           │
-│                                                                              │
-│  ────────────────────── docs/guides/setup.mdx ───────────────────────────  │
-│                                                                              │
-│    ✗ 12:   [Z001]  'quickstart.mdx' not found in docs                        │
-│        │                                                                     │
-│    12  │ Read the [quickstart guide](quickstart.mdx) first.                  │
-│        │                                                                     │
-│  ──────────────────────────────────────────────────────────────────────────  │
-│                                                                              │
-│  ✗ 1 error  • 1 file with findings • FAILED                                  │
-│                                                                              │
-╰──────────────────────────────────────────────────────────────────────────────╯
-```
+<p align="center">
+  <img src="assets/brand/svg/zenzic-terminal-obsidian.svg" alt="Zenzic Sentinel Report — All checks passed, score 100/100" width="720">
+</p>
 
 Visit the [documentation portal][docs-home] for interactive screenshots and rich examples.
-
----
-
-## 🗺️ Roadmap v0.7.0
-
-- [ ] **Auto-fix Engine** — Automatic repair of broken links and orphaned anchors.
-- [ ] **IDE Extensions** — Real-time linting for VS Code and Cursor via LSP.
-- [ ] **AI Context Provider** — VSM export in LLM-friendly format for AI agents.
-- [ ] **Astro & VitePress Adapters** — Expanding the Safe Harbor to JS frameworks.
 
 ---
 
@@ -406,11 +381,28 @@ Apache-2.0 — see [LICENSE][license].
 
 ---
 
-<p align="center">
-  &copy; 2026 <strong>PythonWoods</strong>. Engineered with precision.<br>
-  Based in Italy 🇮🇹 &nbsp;·&nbsp; Committed to the craft of Python development.<br>
-  <a href="mailto:dev@pythonwoods.dev">dev@pythonwoods.dev</a>
-</p>
+## 📚 The Obsidian Chronicles
+
+Zenzic was born from a technical journey through the fragility of modern documentation
+ecosystems. Discover the philosophy, the security siege, and the engineering behind the
+Sentinel in the [**Obsidian Engineering Series**](https://dev.to/pythonwoods/series/38629) on Dev.to.
+
+---
+
+<div align="center">
+  <a href="https://zenzic.dev">
+    <img src="assets/brand/pythonwoods-logo.svg" alt="PythonWoods" height="50" />
+  </a>
+  <p>
+    <strong>Engineered with precision by PythonWoods in Italy 🇮🇹</strong><br/>
+    <em>"Building the Safe Harbor for technical knowledge."</em>
+  </p>
+  <p>
+    <a href="https://zenzic.dev"><strong>Documentation</strong></a> &middot;
+    <a href="https://github.com/PythonWoods"><strong>GitHub</strong></a> &middot;
+    <a href="https://zenzic.dev/blog"><strong>Journal</strong></a>
+  </p>
+</div>
 
 <!-- ─── Reference link definitions ──────────────────────────────────────────── -->
 

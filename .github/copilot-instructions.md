@@ -13,10 +13,10 @@ It is a STABLE product. Agents must prioritize precision, security, and "Value-F
 
 ---
 
-## 🚀 Key Features (v0.6.1 — Obsidian Glass Stable)
+## 🚀 Key Features (v0.7.0 — Obsidian Maturity Stable)
 
 - **Instant Entry:** `uvx zenzic check all ./path` is the primary curiosity path.
-- **Zenzic Lab:** 9 interactive Acts for onboarding (zero-config showroom). Run `zenzic lab` to see the menu; `zenzic lab <N>` to run a specific act.
+- **Zenzic Lab:** 10 interactive Acts for onboarding (zero-config showroom). Run `zenzic lab` to see the menu; `zenzic lab <N>` to run a specific act.
 - **Standalone Mode:** Default engine for pure Markdown projects with no recognised build system. Replaces the old "Vanilla" identity entirely.
 - **Zensical Bridge:** Transparent Proxy for `mkdocs.yml` compatibility under `engine = "zensical"`.
 - **Enterprise Docusaurus:** Full versioning, `@site/` alias, and slug logic alignment.
@@ -130,6 +130,9 @@ When editing `README.md` or `README.it.md`:
 4. **Bilingual Parity:** EN and IT must be perfectly mirrored in structure and quality.
 5. **Branding:** Keep "Shield", "Blood Sentinel", "VSM", "Ghost Routes" as-is (Proper Nouns).
 6. **Standalone, not Vanilla:** Never write "Vanilla Mode" in user-facing copy. Use "Standalone Mode".
+7. **Footer Social Links:** GitHub + Journal are the only authorised social links. Never add X.com / Twitter. Footer identity line must always include `in Italy 🇮🇹` (EN) / `in Italia 🇮🇹` (IT).
+8. **No title heading:** README opens with the wordmark SVG, no `# 🛡️ Zenzic` heading. No Roadmap section.
+9. **Chronicles position:** The Obsidian Chronicles section always precedes the footer.
 
 ---
 
@@ -137,11 +140,10 @@ When editing `README.md` or `README.it.md`:
 
 ### 1. Vanilla-to-Standalone Migration Guard
 
-- **Status:** Deprecated.
-- **Location:** `src/zenzic/core/adapters/_factory.py` (check for `engine == "vanilla"`).
-- **Behavior:** Raises a `ConfigurationError` with code `Z000` to guide users to `engine = "standalone"`.
-- **Sunset Target:** **v0.7.0**.
-- **Instruction:** Do NOT remove this guard in 0.6.x patches. MUST be deleted entirely in the 0.7.0 release to achieve zero-legacy codebase.
+- **Status:** ✅ REMOVED in v0.7.0.
+- **Location (historical):** `src/zenzic/core/adapters/_factory.py`.
+- **Behavior (historical):** Raised `ConfigurationError [Z000]` for `engine = "vanilla"` users.
+- **Sunset Target:** **v0.7.0** — completed. Guard deleted. Zero-legacy codebase achieved.
 
 ### 2. Finding Codes (Zxxx)
 
@@ -226,3 +228,52 @@ Lab Obsidian Seal added. GitHub release workflow for zenzic-doc. Favicon/OG meta
 - `finding-codes.mdx` (EN + IT): Z404 section rewritten as agnostic — per-engine field tables, per-engine remediation snippets, adapter coverage updated.
 - `examples/mkdocs-z404/` + `examples/zensical-z404/`: New Lab fixtures for Z404 demo.
 - `lab.py`: Acts 9 (MkDocs Favicon Guard) and 10 (Zensical Logo Guard) added. Validator updated to `0–10`.
+
+### Direttive 109–116 — Typography, Navigation & Layout Polish
+
+**Version:** 0.7.0 · **Date:** 2026-04-22
+
+Visual polish sprint for zenzic-doc: typography system (Geist + JetBrains Mono), navigation arrows, responsive layout hardening, hero/feature section refinements. Committed to `release/v0.7.0`.
+
+### Direttiva 117 — `pathname:` Protocol Support
+
+**Version:** 0.7.0 · **Date:** 2026-04-22
+
+`validator.py` now recognises the Docusaurus `pathname:///` escape hatch and skips those links without emitting a false-positive Z101. Tests added. `reference/engines.mdx` (EN + IT) documents the behaviour and scope.
+
+### Direttive 118–119 — Blog Title Consistency & Sibling Release Protocol
+
+**Version:** 0.7.0 · **Date:** 2026-04-22
+
+- **D118:** blog list `h2 a` colors locked across `:visited`/`:active`/`:hover` — Zinc-700 light, White/Silk dark, Cyan on hover only.
+- **D119:** RELEASE.md in core repo rewritten as Sibling Release Protocol. `scripts/bump-version.sh` + `just bump` recipe added to `zenzic-doc`. Badge corrected v0.6.2 → v0.7.0.
+
+### Direttiva 122 — Governance Pack
+
+**Version:** 0.7.0 · **Date:** 2026-04-22
+
+Created `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `CITATION.cff`, `SECURITY.md` in `zenzic-doc`. `REUSE.toml` updated to full compliance.
+
+### Direttive 123–125 — Global Brand Sync
+
+**Version:** 0.7.0 · **Date:** 2026-04-22
+
+- Both `README.md` and `README.it.md`: `# 🛡️ Zenzic` title removed (wordmark-only), Roadmap removed, Obsidian Chronicles added, PythonWoods Obsidian Signature footer added.
+- `assets/brand/pythonwoods-logo.svg` added to core repo with REUSE sidecar. REUSE 256/256.
+- `zenzic-doc/README.md`: 4 badges added (Docs CI, License, REUSE, Diátaxis), Node 20→22 corrected, Chronicles added, footer aligned.
+
+### Direttiva CEO 127 — The Sovereign Identity Protocol
+
+**Version:** 0.7.0 · **Date:** 2026-04-22
+
+**Brand audit and correction:** X.com links removed from all user-facing files. Italian identity restored.
+
+- `README.md`: X (Twitter) link removed. Footer now reads `Engineered with precision by PythonWoods in Italy 🇮🇹`.
+- `README.it.md`: X (Twitter) link removed. Footer now reads `Ingegnerizzato con precisione da PythonWoods in Italia 🇮🇹`.
+- `zenzic-doc/README.md`: X (Twitter) link removed. Italian flag 🇮🇹 restored.
+- `RELEASE.md` (both repos): `🇮🇹` flag already present — confirmed clean.
+- `blog/authors.yml`: already X.com-free — confirmed clean.
+- **Rule added to README Restyling Rules:** Never add X.com / Twitter links. GitHub + Journal are the only authorised social links.
+- `RELEASE.md` signatures aligned: cross-reference added between core ↔ doc RELEASE files.
+- `pyproject.toml` bumpversion: `RELEASE.md` added as a file target.
+- `bump-version.sh` (zenzic-doc): RELEASE.md pattern generalised to `v{old}` covering all occurrences.
