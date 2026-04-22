@@ -197,6 +197,8 @@ Every promise made in v0.6.1 has been audited, corrected, and verified end-to-en
 Zenzic is developed by **PythonWoods**, based in Italy, and committed to the craft of
 high-performance, deterministic Python engineering.
 
+**For the documentation portal release, see [zenzic-doc v0.7.0](https://github.com/PythonWoods/zenzic-doc/blob/main/RELEASE.md).**
+
 [**Read the Full Documentation →**](https://zenzic.dev)
 
 ## "Precision, Security, and the new Standalone Standard."

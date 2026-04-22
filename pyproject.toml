@@ -260,6 +260,11 @@ replace = "v{new_version}"
 serialize = ["{major}.{minor}.{patch}{pre_l}{pre_n}", "{major}.{minor}.{patch}"]
 
 [[tool.bumpversion.files]]
+filename = "RELEASE.md"
+search = "v{current_version}"
+replace = "v{new_version}"
+
+[[tool.bumpversion.files]]
 filename = ".github/ISSUE_TEMPLATE/security_vulnerability.yml"
 search = '"{current_version}"'
 replace = '"{new_version}"'
