@@ -18,7 +18,6 @@ from pathlib import Path
 import typer
 from rich import box
 from rich.console import Console, Group
-from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
@@ -32,7 +31,7 @@ from zenzic.cli import (
 from zenzic.core.exclusion import LayeredExclusionManager
 from zenzic.core.reporter import Finding, SentinelReporter
 from zenzic.models.config import ZenzicConfig
-from zenzic.ui import EMERALD, INDIGO, ROSE, SLATE, emoji
+from zenzic.ui import EMERALD, INDIGO, ROSE, SLATE, emoji, make_banner, make_obsidian_panel
 
 
 _console = Console(highlight=False)
@@ -332,13 +331,15 @@ def _print_summary(results: list[_ActResult]) -> None:
 
     _console.print()
     _console.print(
-        Panel(
-            Group(*seal_items),
-            title=f"[bold white on {INDIGO}] {emoji('shield')}  OBSIDIAN SEAL — Lab Complete [/]",
-            title_align="center",
+        make_obsidian_panel(
+            Group(
+                Text.from_markup(
+                    f"[bold {INDIGO}]{emoji('shield')} OBSIDIAN SEAL — Lab Complete[/]"
+                ),
+                Text(),
+                *seal_items,
+            ),
             border_style=seal_border,
-            padding=(1, 2),
-            expand=True,
         )
     )
 
@@ -365,13 +366,13 @@ def _print_act_seal(r: _ActResult) -> None:
 
     _console.print()
     _console.print(
-        Panel(
-            Group(*seal_items),
-            title=f"[bold white on {INDIGO}] {emoji('shield')}  OBSIDIAN SEAL [/]",
-            title_align="center",
+        make_obsidian_panel(
+            Group(
+                Text.from_markup(f"[bold {INDIGO}]{emoji('shield')} OBSIDIAN SEAL[/]"),
+                Text(),
+                *seal_items,
+            ),
             border_style=seal_border,
-            padding=(1, 2),
-            expand=True,
         )
     )
 
@@ -429,6 +430,9 @@ def lab(
         [bold cyan]zenzic lab 9[/]    — run Act 9 (MkDocs Favicon Guard)
         [bold cyan]zenzic lab 10[/]   — run Act 10 (Zensical Logo Guard)
     """
+    _console.print()
+    _console.print(make_obsidian_panel(make_banner(__version__)))
+
     if list_acts:
         _print_act_index()
         return
@@ -460,11 +464,12 @@ def lab(
     for act in acts_to_run:
         _console.print()
         _console.print(
-            Panel(
-                f"[bold]{act.description}[/]",
-                title=f"[bold #4f46e5]Act {act.id} — {act.title}[/]",
-                border_style="#4f46e5",
-                expand=False,
+            make_obsidian_panel(
+                Group(
+                    Text.from_markup(f"[bold {INDIGO}]Act {act.id} — {act.title}[/]"),
+                    Text(),
+                    Text.from_markup(f"[bold]{act.description}[/]"),
+                )
             )
         )
         result = _run_act(act, examples_root)

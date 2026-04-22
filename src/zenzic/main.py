@@ -13,11 +13,11 @@ from rich.console import Console
 from rich.panel import Panel
 
 from zenzic import __version__
-from zenzic.cli import check_app, clean_app, diff, init, plugins_app, score
+from zenzic.cli import check_app, clean_app, configure_console, diff, init, plugins_app, score
 from zenzic.core.exceptions import PluginContractError, ZenzicError
 from zenzic.core.logging import setup_cli_logging
 from zenzic.lab import lab
-from zenzic.ui import INDIGO, ROSE, make_banner
+from zenzic.ui import INDIGO, ROSE, make_banner, make_obsidian_panel
 
 
 def _version_callback(value: bool) -> None:
@@ -37,6 +37,7 @@ app = typer.Typer(
     rich_markup_mode="rich",
     no_args_is_help=True,
     rich_help_panel="Core",
+    epilog=f"[bold {INDIGO}]PythonWoods[/]  [dim]·  Apache-2.0  ·  https://zenzic.dev[/]",
 )
 
 
@@ -52,8 +53,24 @@ def _main(
             help="Show the Zenzic version and exit.",
         ),
     ] = None,
+    no_color: Annotated[
+        bool,
+        typer.Option(
+            "--no-color",
+            help="Disable ANSI color and style output (also respects the NO_COLOR env var).",
+            envvar="NO_COLOR",
+        ),
+    ] = False,
+    force_color: Annotated[
+        bool,
+        typer.Option(
+            "--force-color",
+            help="Force ANSI color output even when stdout is not a TTY (also respects FORCE_COLOR env var).",
+            envvar="FORCE_COLOR",
+        ),
+    ] = False,
 ) -> None:
-    pass
+    configure_console(no_color=no_color, force_color=force_color)
 
 
 app.add_typer(check_app, name="check", rich_help_panel="Core")
@@ -86,20 +103,8 @@ def _sentinel_alert(exc: ZenzicError, *, border_style: str, title: str) -> None:
 
 
 def _print_banner() -> None:
-    """Print the Indigo-branded Zenzic banner to stderr."""
-    _err_console.print(
-        Panel(
-            make_banner(__version__),
-            border_style=f"bold {INDIGO}",
-            box=rich_box.HEAVY,
-            padding=(1, 3),
-            title=f"[{INDIGO}]PythonWoods[/]",
-            title_align="left",
-            subtitle="[dim]Apache-2.0[/]",
-            subtitle_align="right",
-            expand=False,
-        )
-    )
+    """Print the Forge Frame Zenzic banner to stderr."""
+    _err_console.print(make_obsidian_panel(make_banner(__version__)))
     _err_console.print()
 
 
@@ -110,8 +115,8 @@ def cli_main() -> None:
     _rich_tb_install(show_locals=True, suppress=[typer], word_wrap=True)
     setup_cli_logging()
 
-    # Show an elegant banner on zero args
-    if len(sys.argv) == 1:
+    # Show an elegant banner on zero args or bare --help
+    if len(sys.argv) == 1 or (len(sys.argv) == 2 and sys.argv[1] in ("--help", "-h")):
         _print_banner()
 
     try:

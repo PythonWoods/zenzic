@@ -14,7 +14,7 @@ from rich.panel import Panel
 from rich.rule import Rule
 from rich.text import Text
 
-from zenzic.ui import AMBER, BLOOD, EMERALD, INDIGO, ROSE, SLATE, emoji
+from zenzic.ui import AMBER, BLOOD, EMERALD, INDIGO, ROSE, SLATE, emoji, make_obsidian_panel
 
 
 @dataclass(slots=True)
@@ -212,6 +212,9 @@ class SentinelReporter:
             parts.append(f"[{INDIGO}]{total}[/] file{'s' if total != 1 else ''} {breakdown}")
         if elapsed:
             parts.append(f"[{INDIGO}]{elapsed:.1f}[/]s")
+            if total:
+                throughput = total / elapsed
+                parts.append(f"[{INDIGO}]{throughput:.0f}[/] files/s")
         telemetry = Text.from_markup(f"[{SLATE}]{f' {dot} '.join(parts)}[/]")
 
         # ── Security breach panels (rendered BEFORE main panel) ───────────────
@@ -248,13 +251,19 @@ class SentinelReporter:
 
         if not normal_findings and not breach_findings:
             # ── All-clear panel ───────────────────────────────────────────────
-            _ok = ok_message or "All checks passed. Your documentation is secure."
+            _ok = ok_message or (
+                f"[bold {EMERALD}]Obsidian Seal:[/bold {EMERALD}]"
+                f" [{EMERALD}]All statically-detectable links, credentials,"
+                f" and references verified.[/{EMERALD}]"
+            )
             _ok_items: list[RenderableType] = [
                 telemetry,
                 Text(),
                 Rule(style=SLATE),
                 Text(),
-                Text.from_markup(f"[{EMERALD}]{emoji('check')} {_ok}[/]"),
+                Text.from_markup(f"{emoji('sparkles')} {_ok}")
+                if not ok_message
+                else Text.from_markup(f"[{EMERALD}]{emoji('check')} {_ok}[/]"),
             ]
             if info_count:
                 _ok_items.append(Text())
@@ -266,16 +275,7 @@ class SentinelReporter:
                     )
                 )
             self._con.print()
-            self._con.print(
-                Panel(
-                    Group(*_ok_items),
-                    title=f"[bold white on {INDIGO}] {emoji('shield')}  ZENZIC SENTINEL  v{version} [/]",
-                    title_align="center",
-                    border_style=f"bold {INDIGO}",
-                    padding=(1, 2),
-                    expand=True,
-                )
-            )
+            self._con.print(make_obsidian_panel(Group(*_ok_items)))
             return 0, 0
 
         # ── Grouped findings (non-breach only) ───────────────────────────────
@@ -363,8 +363,16 @@ class SentinelReporter:
                 Text.from_markup(f"[bold {ROSE}]FAILED:[/] One or more checks failed.")
             )
         else:
-            _ok = ok_message or "All checks passed."
-            renderables.append(Text.from_markup(f"[{EMERALD}]{emoji('check')} {_ok}[/]"))
+            _ok = ok_message or (
+                f"[bold {EMERALD}]Obsidian Seal:[/bold {EMERALD}]"
+                f" [{EMERALD}]All statically-detectable links, credentials,"
+                f" and references verified.[/{EMERALD}]"
+            )
+            renderables.append(
+                Text.from_markup(f"{emoji('sparkles')} {_ok}")
+                if not ok_message
+                else Text.from_markup(f"[{EMERALD}]{emoji('check')} {_ok}[/]")
+            )
 
         if info_count:
             renderables.append(Text())
@@ -378,16 +386,7 @@ class SentinelReporter:
 
         # ── Single unified panel ──────────────────────────────────────────────
         self._con.print()
-        self._con.print(
-            Panel(
-                Group(telemetry, Text(), *renderables),
-                title=f"[bold white on {INDIGO}] {emoji('shield')}  ZENZIC SENTINEL  v{version} [/]",
-                title_align="center",
-                border_style=f"bold {INDIGO}",
-                padding=(1, 2),
-                expand=True,
-            )
-        )
+        self._con.print(make_obsidian_panel(Group(telemetry, Text(), *renderables)))
         # ── Usage hint (outside the audit box) ───────────────────────────────
         self._con.print(Text.from_markup(f"[{SLATE}]Try 'zenzic check --help' for options.[/]"))
         return errors, warnings
