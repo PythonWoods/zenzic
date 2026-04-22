@@ -6,6 +6,13 @@
 # files (README, CONTRIBUTING, CHANGELOG, SECURITY, etc.) without any
 # nav-awareness.  The full documentation site lives in the separate
 # zenzic-doc repository, which uses engine = "docusaurus".
+#
+# ⚠️  PERIMETER INVARIANT (v0.6.2): docs_dir = "." ensures that README.md
+# and README.it.md are ALWAYS inside the validation perimeter.
+# Do NOT change docs_dir to a subdirectory without explicitly re-adding
+# README.md and README.it.md via an include_files entry.
+# Rationale: the README is the primary entry point for users; broken links
+# there are indistinguishable from broken links in the documentation itself.
 
 docs_dir = "."
 
@@ -66,15 +73,16 @@ excluded_build_artifacts = [
     ".github/workflows/*.yml",
 ]
 
-# External URLs excluded from the broken-link check.
+# External URLs excluded from the broken-link check (applies only with --strict).
 # The GitHub repository URL returns 429 in CI (rate-limited).
 # The settings/tokens URL requires authentication (403 for bots).
-# zenzic.dev is excluded entirely: the site is not yet deployed and all
-# sub-paths time out (>10 s).  Re-enable once DNS propagation is complete.
+# NOTE: the previous blanket https://zenzic.dev/ exclusion has been REMOVED (v0.6.2).
+# All zenzic.dev/* links are now subject to --strict validation.
+# If a CI runner cannot reach zenzic.dev, pass --exclude-url https://zenzic.dev/
+# as a runtime flag rather than encoding the bypass in the config file.
 excluded_external_urls = [
     "https://github.com/PythonWoods/zenzic",
     "https://github.com/settings/tokens",
-    "https://zenzic.dev/",
 ]
 
 # Pattern matching disabled: the README and CHANGELOG describe placeholder
