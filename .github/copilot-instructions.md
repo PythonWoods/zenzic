@@ -1,4 +1,4 @@
-# Zenzic Agent Guidelines — v0.6.1 "Obsidian Glass" Stable
+# Zenzic Agent Guidelines — v0.7.0 "Obsidian Maturity" Stable
 
 Zenzic is the high-performance, engine-agnostic Safe Harbor for Markdown documentation.
 It is a STABLE product. Agents must prioritize precision, security, and "Value-First" communication.
@@ -171,3 +171,58 @@ Migration guard in `_factory.py` annotated with `# TODO: Remove this migration g
 ### Direttiva 040 — Institutional Memory
 
 This file (`.github/copilot-instructions.md`) created / restored as the canonical agent briefing document, embedding all sprint directives and sunset clauses for permanent institutional memory.
+
+### Direttiva 076/077/078/079 — Sprint v0.6.2 "Obsidian Integrity"
+
+**Version:** 0.7.0 · **Date:** 2026-04-22
+
+#### Direttiva 077 — Z104 Suggestion Engine
+
+`difflib.get_close_matches` (cutoff 0.6) integrated into `validator.py` at the `FILE_NOT_FOUND` case.
+The `_known_rel_paths` list is pre-computed from `md_contents` before Pass 2 begins — no disk I/O in hot path.
+Error message appends `💡 Did you mean: '...'?` when a close match is found.
+
+#### Direttiva 078 — Vanilla Purge
+
+All user-facing copy purged of "Vanilla mode" and "VanillaAdapter". Replaced with "Standalone Mode" and "StandaloneAdapter".
+Affected: `README.md`, `README.it.md`, `examples/vanilla/`, `examples/standalone-markdown/`, `examples/custom-dir-target/`, `examples/single-file-target/`.
+Engineering Ledger (HTML table, three non-negotiable contracts) replaced the "Design Philosophy" prose section in both READMEs.
+Standalone Mode now explicitly declares: orphan detection (`Z402`) is disabled without a navigation contract.
+
+#### Direttiva 079 — Sentinel Mesh Tightening
+
+**Forensic finding:** `excluded_external_urls` contained `"https://zenzic.dev/"` — a blanket bypass
+added when the site was undeployed. After the Diátaxis restructure, three links in `README.md` had
+already rotted silently behind this curtain:
+
+- `/docs/usage/badges/` (old) → `/docs/how-to/add-badges/` (correct)
+- `/docs/guides/ci-cd/` (old) → `/docs/how-to/configure-ci-cd/` (correct)
+- `/docs/internals/architecture-overview/` (old) → `/docs/explanation/architecture/` (correct)
+
+**Fix:** Blanket exclusion removed. Links corrected in `README.md` and `README.it.md`.
+`zenzic.toml` now carries a `⚠ PERIMETER INVARIANT` comment documenting that `docs_dir = "."`
+is a safety invariant (README.md must always be inside the perimeter).
+`zenzic check all` on the core repo now exits 0 with the corrected links.
+
+### Direttiva 082/083/084/085/086 — The Obsidian Mirror Pass
+
+**Version:** 0.7.0 · **Date:** 2026-04-22
+
+Z404 CONFIG_ASSET_MISSING introduced for Docusaurus (`check_config_assets()` in `_docusaurus.py`).
+Lab Obsidian Seal added. GitHub release workflow for zenzic-doc. Favicon/OG meta tag fixes.
+`finding-codes.mdx` Docusaurus Z404 section added. zenzic-doc v0.6.1 deprecated.
+
+### Direttiva CEO 087 — The Agnostic Universalism
+
+**Version:** 0.7.0 · **Date:** 2026-04-22
+
+**Core fix:** Z404 was Docusaurus-only — architectural flaw for a Safe Harbor claiming engine-agnosticism.
+
+#### Changes
+
+- `_mkdocs.py`: `check_config_assets(repo_root)` added — checks `theme.favicon` + `theme.logo` (image-ext filter, relative to `docs_dir/`).
+- `_zensical.py`: `check_config_assets(repo_root)` added — checks `[project].favicon` + `[project].logo` (same filter, relative to `[project].docs_dir/`).
+- `cli.py`: docusaurus-only `if engine == "docusaurus"` block replaced with multi-engine dispatch covering all three engines.
+- `finding-codes.mdx` (EN + IT): Z404 section rewritten as agnostic — per-engine field tables, per-engine remediation snippets, adapter coverage updated.
+- `examples/mkdocs-z404/` + `examples/zensical-z404/`: New Lab fixtures for Z404 demo.
+- `lab.py`: Acts 9 (MkDocs Favicon Guard) and 10 (Zensical Logo Guard) added. Validator updated to `0–10`.
