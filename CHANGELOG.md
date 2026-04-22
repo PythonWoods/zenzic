@@ -15,6 +15,27 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 > ⚓ Zenzic v0.7.0 marks the consolidation of our core architecture and the full alignment with official specifications. Supersedes v0.6.1.
 
+### Docusaurus Protocol Support (Direttiva CEO 117)
+
+#### Added
+
+- **`pathname:///` URL scheme — Docusaurus Compatibility (Direttiva CEO 117).**
+  Zenzic now natively recognises the `pathname:///` URL scheme used in Docusaurus to
+  reference static assets (PDFs, standalone HTML pages, downloads) that live outside
+  the React router and are served directly by the dev server / CDN.
+  - **Engine-aware:** the bypass is active **only** when `engine = "docusaurus"`.
+    Projects using `mkdocs`, `zensical`, or `standalone` will still receive a
+    `Z105 ABSOLUTE_PATH` error for any `pathname:///` link, guiding migration.
+  - **Implementation:** `_DOCUSAURUS_SKIP_SCHEMES` constant added to `validator.py`;
+    the validation loop resolves the effective skip tuple per-run from `config.build_context.engine`.
+    `pathname:` removed from the global `_SKIP_SCHEMES` to preserve engine isolation.
+  - **Tested:** `TestPathnameProtocolSupport` in `test_docusaurus_adapter.py` covers
+    constant isolation, Docusaurus no-error, and MkDocs Z105 assertion.
+  - **Documented:** `docs/reference/engines.mdx` and IT mirror gain
+    "Special URL schemes" section under the Docusaurus chapter.
+
+---
+
 ### The Agnostic Universalism: Z404 for All Engines (Direttiva CEO 087)
 
 #### Added
