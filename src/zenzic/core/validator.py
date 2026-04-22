@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import asyncio
 import concurrent.futures
+import difflib
 import fnmatch
 import json
 import os
@@ -656,6 +657,10 @@ async def validate_links_async(
     # ─────────────────────────────────────────────────────────────────────────
 
     # ── Phase 2: validate against global indexes ────────────────────────────
+    # Pre-compute known relative paths once for Z104 "Did you mean?" hints.
+    # No disk I/O — md_contents is already in memory from Pass 1.
+    _known_rel_paths: list[str] = sorted(f.relative_to(docs_root).as_posix() for f in md_contents)
+
     internal_errors: list[LinkError] = []
     external_entries: list[tuple[str, str, int]] = []  # (url, file_label, lineno)
 
@@ -776,11 +781,17 @@ async def validate_links_async(
                             fnmatch.fnmatch(rel_asset, pat)
                             for pat in config.excluded_build_artifacts
                         ):
+                            _suggestions = difflib.get_close_matches(
+                                path_part, _known_rel_paths, n=1, cutoff=0.6
+                            )
+                            _hint = (
+                                f" 💡 Did you mean: '{_suggestions[0]}'?" if _suggestions else ""
+                            )
                             internal_errors.append(
                                 LinkError(
                                     file_path=md_file,
                                     line_no=lineno,
-                                    message=f"{label}:{lineno}: '{path_part}' not found in docs",
+                                    message=f"{label}:{lineno}: '{path_part}' not found in docs{_hint}",
                                     source_line=_source_line(md_file, lineno),
                                     error_type="FILE_NOT_FOUND",
                                     col_start=link.col_start,
