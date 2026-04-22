@@ -223,7 +223,7 @@ repo_root = find_repo_root()
 
 Aggiungere `fallback_to_cwd=True` a qualsiasi comando diverso da `init` richiede un Architecture Decision Record che spieghi perché quel comando necessita di accesso senza perimetro.
 
-Vedi [ADR 003](https://zenzic.dev/docs/internals/adr/discovery-logic/) per la motivazione completa e la storia della modifica ZRT-005.
+Vedi [ADR 003](https://zenzic.dev/docs/explanation/discovery/) per la motivazione completa e la storia della modifica ZRT-005.
 
 ### Il Motore di Discovery
 
