@@ -11,7 +11,155 @@ Le versioni seguono il [Semantic Versioning](https://semver.org/).
 
 ## [Non rilasciato]
 
-## [0.6.1] — 2026-04-19 — Obsidian Glass (Stable)
+## [0.7.0] — 2026-04-22 — Obsidian Integrity (Stable)
+
+### L'Universalismo Agnostico: Z404 per Tutti i Motori (Direttiva CEO 087)
+
+#### Aggiunto
+
+- **Z404 esteso a MkDocs e Zensical (Direttiva 087).** `check_config_assets()`
+  implementato in `_mkdocs.py` (controlla `theme.favicon` + `theme.logo` rispetto a `docs_dir/`)
+  e `_zensical.py` (controlla `[project].favicon` + `[project].logo` rispetto a `[project].docs_dir/`).
+  I nomi di icone (es. `material/library`) vengono saltati tramite filtro sull'estensione immagine.
+  Il blocco Z404 in `cli.py` è stato sostituito con un dispatch multi-motore (`docusaurus` / `mkdocs` / `zensical`).
+- **Lab Atti 9 & 10: MkDocs Favicon Guard + Zensical Logo Guard (Direttiva 087).**
+  Due nuovi atti Lab con fixture di esempio corrispondenti (`examples/mkdocs-z404/`,
+  `examples/zensical-z404/`) dimostrano il rilevamento Z404 su tutti e tre i motori
+  supportati. Il validatore dell'atto è stato aggiornato a `0–10`.
+
+#### Modificato
+
+- **Documentazione Z404 riscritta come agnostica rispetto al motore (Direttiva 087).**
+  La sezione Z404 di `finding-codes.mdx` (EN + IT) ora copre tutti e tre i motori—
+  Docusaurus, MkDocs, Zensical—con tabelle di campi per motore, snippet di rimedio
+  per motore e una nota sulla Copertura Adapter aggiornata che conferma il supporto universale.
+
+---
+
+### Il Passaggio Obsidian Mirror: Lab, Shield & Allineamento Docs (Direttive 082–086)
+
+#### Aggiunto
+
+- **Z404 CONFIG_ASSET_MISSING (Direttiva 085).** L'adapter Docusaurus analizza ora
+  staticamente `docusaurus.config.ts` e verifica che ogni percorso `favicon:` e `image:`
+  (OG social card) risolva in un file reale all'interno di `static/`. Implementato come
+  `check_config_assets()` in `_docusaurus.py` — puro regex, zero subprocess. Codice
+  registrato in `codes.py`; collegato tramite `_AllCheckResults.config_asset_issues` in
+  `cli.py`. Severità: `warning` (promuovibile a Exit 1 via `--strict`).
+- **Lab Obsidian Seal (Direttiva 086).** Ogni esecuzione `zenzic lab <N>` si chiude
+  ora con un pannello **Obsidian Seal** dedicato (bordo indigo, colori Sentinel Palette)
+  che mostra il conteggio file, tempo trascorso, throughput in file/s e un verdetto
+  pass/fail per atto. I sommari di esecuzione completa mostrano un Obsidian Seal
+  aggregato con throughput totale tra tutti gli atti.
+- **Campi di throughput nel Lab (Direttiva 086).** `_ActResult` aggiunge le proprietà
+  `docs_count`, `assets_count`, `total_files` e `throughput`. La tabella di sommario
+  completa include ora una colonna **Files** e una colonna **files/s**.
+- **Copertura Dependabot GitHub Actions (Direttiva 085).** `zenzic-doc/.github/dependabot.yml`
+  esteso con un ecosystem `github-actions` e due dependency group (`docusaurus-all`,
+  `react-ecosystem`) per ridurre il rumore di PR.
+- **`scripts/bump-version.sh` + recipe `just bump` per zenzic-doc (Direttiva 083).**
+  Script di bump automatizzato che copre tutte e sei le stringhe di versione hardcoded
+  nel portale doc: `docusaurus.config.ts`, `Quickstart.tsx`, `Hero.tsx`,
+  `src/pages/index.tsx` (LD+JSON `softwareVersion`), `i18n/en/code.json`,
+  `i18n/it/code.json`.
+- **Workflow GitHub Release per zenzic-doc (Direttiva 082).** Aggiunto
+  `.github/workflows/release.yml` — si attiva sui tag `v*.*.*`, costruisce il sito
+  Docusaurus e crea un GitHub Release con l'artefatto di build allegato.
+
+#### Modificato
+
+- **UI del Lab ricostruita con Sentinel Palette (Direttiva 086).** `_print_summary`
+  usa ora lo stile header `INDIGO`, colonne dim `SLATE` e il titolo branded
+  `⬡ ZENZIC LAB — Full Run Summary` al posto del semplice `Lab Summary`.
+- **Pannelli titolo atto ora con bordo Indigo (Direttiva 082).** Il Panel per-atto
+  usa `border_style="#4f46e5"` per corrispondere alla Sentinel Palette — identico
+  all'output live di `SentinelReporter`.
+- **Z404 documentato su tutte le superfici (Direttiva 086).** `finding-codes.mdx`
+  (EN + IT) contiene ora una sezione completa `Config Asset Integrity / Integrità
+  Asset di Configurazione` con spiegazione tecnica, tabella campi, motivazione
+  severità, passi di rimedio e nota sulla copertura adapter. `README.md` e
+  `README.it.md` includono entrambi una riga `Config asset integrity` che referenzia
+  `Z404` nella Capability Matrix.
+- **Dipendenze zenzic-doc aggiornate (Direttiva 086).** `package.json` aggiornato:
+  `tailwindcss` 4.2.2 → 4.2.4 · `@tailwindcss/postcss` 4.2.2 → 4.2.4 ·
+  `autoprefixer` 10.4.27 → 10.5.0 · `postcss` 8.5.9 → 8.5.10 ·
+  `typescript` 6.0.2 → 6.0.3. Build di produzione confermata verde.
+
+#### Corretto
+
+- **Favicon 404 zenzic-doc (Direttiva 084).** `docusaurus.config.ts` dichiarava
+  `favicon: 'img/favicon.ico'` — un percorso inesistente in `static/`. Corretto in
+  `'assets/favicon/png/zenzic-icon-32.png'` (file reale). Questo era esattamente
+  il tipo di guasto infrastrutturale che Z404 è stato costruito per intercettare.
+- **Completezza meta tag OG/Twitter (Direttiva 084).** Tre meta tag erano assenti:
+  `twitter:image:alt`, `og:image:width` (1200), `og:image:height` (630). Aggiunti
+  a `docusaurus.config.ts`. Asset social card confermato a 1200×630 px, 33 KB.
+- **Release GitHub v0.6.1 marcata come superseded (Direttiva 085).** I titoli delle
+  GitHub Release v0.6.1 di entrambi i repo (core e `zenzic-doc`) aggiornati a
+  `[SUPERSEDED by v0.6.2]` con un callout `[!WARNING]` preposto alle note di rilascio.
+
+---
+
+### Passaggio Obsidian Integrity: Hardening UX e Audit della Verità (Direttive 076–079)
+
+#### Aggiunto
+
+- **Motore di Suggerimento Proattivo Z104 (Direttiva 077).** Quando un target di link
+  non viene trovato (`Z104 FILE_NOT_FOUND`), Zenzic calcola ora il file più simile
+  nel VSM usando `difflib.get_close_matches` (cutoff 0.6) e aggiunge un suggerimento
+  `💡 Intendevi: '...'?` al messaggio di errore. Nessuna I/O su disco nel hot path —
+  il diff viene eseguito sulla mappa `md_contents` in memoria costruita nel Pass 1.
+- **Invariante del Perimetro README (Direttiva CEO 076).** Il file `zenzic.toml` del
+  repository principale contiene ora un esplicito commento `⚠ PERIMETER INVARIANT`
+  che documenta che `docs_dir = "."` è un invariante di sicurezza che mantiene
+  `README.md` e `README.it.md` all'interno del perimetro di validazione. Modificare
+  `docs_dir` senza re-aggiungere questi file creerebbe una falsa zona di sicurezza.
+
+#### Modificato
+
+- **Audit della Verità Standalone Mode (Direttiva 078).** Ogni descrizione
+  user-facing della Standalone Mode dichiara ora esplicitamente che il rilevamento
+  degli orfani (`Z402`) è disabilitato perché non esiste un contratto di navigazione.
+  Sostituito "integrità strutturale" con "integrità dei file" per riflettere la
+  capacità reale. `README.md`, `README.it.md` e tutti i file degli esempi aggiornati.
+- **Engineering Ledger sostituisce Design Philosophy.** La sezione `## Design Philosophy`
+  di `README.md` e `README.it.md` è stata ricostruita come HTML-table Engineering Ledger
+  (tre contratti non negoziabili: Zero Assumptions, Subprocess-Free, Deterministic
+  Compliance) con frammenti di codice reali come evidenza.
+- **Purga Vanilla — esempi.** Tutti i file esempio `zenzic.toml` che usavano
+  `engine = "vanilla"` ora usano `engine = "standalone"`. Interessati:
+  `examples/vanilla/`, `examples/standalone-markdown/`, `examples/custom-dir-target/`,
+  `examples/single-file-target/`. Il contenuto Markdown inline e i README all'interno
+  di questi esempi sono stati riscritti di conseguenza.
+- **Riferimenti di versione.** `pyproject.toml`, `src/zenzic/__init__.py` e
+  `CITATION.cff` aggiornati da `0.6.1` a `0.6.2`. Data di rilascio: 2026-04-22.
+
+#### Corretto
+
+- **Tightening Sentinel Mesh — Link Diátaxis Obsoleti (Direttiva 079).** L'audit
+  forense ha rivelato che `README.md` conteneva tre target di link diventati obsoleti
+  dopo la ristrutturazione della documentazione Diátaxis:
+  - `https://zenzic.dev/docs/usage/badges/` → `https://zenzic.dev/docs/how-to/add-badges/`
+  - `https://zenzic.dev/docs/guides/ci-cd/` → `https://zenzic.dev/docs/how-to/configure-ci-cd/`
+  - `https://zenzic.dev/docs/internals/architecture-overview/` → `https://zenzic.dev/docs/explanation/architecture/`
+  Stesse tre corrette in `README.it.md` (prefisso `/it/docs/`).
+- **Esclusione Blanket zenzic.dev Rimossa (Direttiva 079).** La voce `excluded_external_urls`
+  `"https://zenzic.dev/"` era una soluzione temporanea aggiunta quando il sito di
+  documentazione non era ancora distribuito. Era diventata un punto cieco permanente,
+  silenziando la validazione `--strict` di tutti i link al portale anche mentre si
+  deterioravano. La voce è stata rimossa. Un flag runtime
+  (`--exclude-url https://zenzic.dev/`) è la valvola di sfogo corretta per i runner
+  CI offline invece di un bypass nel file di configurazione.
+- **README Developer zenzic-doc.** Prerequisito Node.js corretto da 20 a 24.
+  Il testo della matrice CI aggiornato in "Node 22 e 24". La rotta i18n obsoleta
+  `/docs/intro` sostituita con la corretta `/docs/` (indice radice) dopo la
+  ristrutturazione Diátaxis.
+
+---
+
+## [0.6.1] — 2026-04-19 — Obsidian Glass [SUPERSEDED]
+
+> ⚠ **[SUPERSEDED dalla v0.7.0]** — La versione 0.6.1 è deprecata a causa di problemi di allineamento con le specifiche Docusaurus e terminologia legacy. Tutti gli utenti devono aggiornare alla v0.7.0 "Obsidian Maturity".
 
 ### Modifiche che rompono la compatibilità
 
