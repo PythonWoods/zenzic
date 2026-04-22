@@ -1,0 +1,16 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# zenzic.toml — MkDocs Z404 CONFIG_ASSET_MISSING fixture.
+#
+# This example demonstrates Z404 detection for MkDocs projects.
+# mkdocs.yml declares:
+#   theme.favicon: assets/images/missing-favicon.png   (absent from docs/)
+#   theme.logo:    assets/images/missing-logo.svg      (absent from docs/)
+#
+# Run: zenzic check all
+# Expected: two Z404 warnings, exit code 0 (warning severity)
+
+docs_dir = "docs"
+
+[build_context]
+engine = "mkdocs"
