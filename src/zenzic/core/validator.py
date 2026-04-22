@@ -109,6 +109,11 @@ _REF_SHORTCUT_RE = re.compile(r"(?<![!\]])\[([^\]]+)\](?![\[(:])")
 # URL schemes that are valid syntax but point to non-HTTP targets we skip.
 _SKIP_SCHEMES = ("mailto:", "data:", "ftp:", "tel:", "javascript:", "irc:", "xmpp:")
 
+# Docusaurus-specific escape hatch: pathname:/// links to static/ assets that
+# bypass the React router. Only valid in Docusaurus projects — other engines
+# have no equivalent and should receive a Z101 error.
+_DOCUSAURUS_SKIP_SCHEMES = ("pathname:",)
+
 # Maximum number of simultaneous outbound HTTP connections during external link checks.
 # Prevents exhausting OS file descriptors and avoids triggering rate-limits on target servers.
 _MAX_CONCURRENT_REQUESTS = 20
@@ -664,6 +669,10 @@ async def validate_links_async(
     internal_errors: list[LinkError] = []
     external_entries: list[tuple[str, str, int]] = []  # (url, file_label, lineno)
 
+    # Engine-aware skip schemes: pathname:/// is a Docusaurus-only escape hatch.
+    _engine = (config.build_context.engine or "").lower()
+    _effective_skip = _SKIP_SCHEMES + (_DOCUSAURUS_SKIP_SCHEMES if _engine == "docusaurus" else ())
+
     def _source_line(md_file: Path, lineno: int) -> str:
         """Return the raw source line (1-based) from the pre-split cache."""
         lines = source_lines_cache.get(md_file, [])
@@ -677,7 +686,7 @@ async def validate_links_async(
         for link in all_links:
             url, lineno = link.url, link.lineno
             # Skip non-navigable schemes and bare fragment-only links
-            if url.startswith(_SKIP_SCHEMES) or url == "#":
+            if url.startswith(_effective_skip) or url == "#":
                 continue
 
             parsed = urlsplit(url)
