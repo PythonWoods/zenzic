@@ -14,8 +14,8 @@ abstract: >-
   Markdown-based documentation. Zenzic introduces Universal Discovery,
   VCS-aware exclusion mapping, and the Sentinel Shield middleware to provide
   a deterministic Safe Harbor for complex documentation lifecycles.
-version: 0.6.1
-date-released: 2026-04-19
+version: 0.7.0
+date-released: 2026-04-22
 url: "https://zenzic.dev"
 repository-code: "https://github.com/PythonWoods/zenzic"
 repository-artifact: "https://pypi.org/project/zenzic/"
