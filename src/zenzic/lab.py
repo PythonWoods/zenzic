@@ -17,9 +17,10 @@ from pathlib import Path
 
 import typer
 from rich import box
-from rich.console import Console
+from rich.console import Console, Group
 from rich.panel import Panel
 from rich.table import Table
+from rich.text import Text
 
 from zenzic import __version__
 from zenzic.cli import (
@@ -31,7 +32,7 @@ from zenzic.cli import (
 from zenzic.core.exclusion import LayeredExclusionManager
 from zenzic.core.reporter import Finding, SentinelReporter
 from zenzic.models.config import ZenzicConfig
-from zenzic.ui import emoji
+from zenzic.ui import EMERALD, INDIGO, ROSE, SLATE, emoji
 
 
 _console = Console(highlight=False)
@@ -145,10 +146,24 @@ _ACTS: list[_Act] = [
     _Act(
         8,
         "Standalone Excellence",
-        "MISSING_DIRECTORY_INDEX info on a bare Markdown tree (Standalone Mode)",
+        "The ONLY engine for config-free folders: full link + Shield + Z401 checks, zero nav contract required",
         "standalone-markdown",
         expected_pass=True,
         show_info=True,
+    ),
+    _Act(
+        9,
+        "MkDocs Favicon Guard",
+        "Z404 fired for theme.favicon + theme.logo declared but missing (MkDocs engine)",
+        "mkdocs-z404",
+        expected_pass=False,
+    ),
+    _Act(
+        10,
+        "Zensical Logo Guard",
+        "Z404 fired for [project].favicon + [project].logo declared but missing (Zensical engine)",
+        "zensical-z404",
+        expected_pass=False,
     ),
 ]
 
@@ -164,6 +179,17 @@ class _ActResult:
     has_breach: bool
     elapsed: float
     engine: str
+    docs_count: int = 0
+    assets_count: int = 0
+
+    @property
+    def total_files(self) -> int:
+        return self.docs_count + self.assets_count
+
+    @property
+    def throughput(self) -> float:
+        """Files per second — 0.0 when elapsed is zero."""
+        return self.total_files / self.elapsed if self.elapsed > 0 else 0.0
 
     @property
     def met_expectation(self) -> bool:
@@ -224,6 +250,8 @@ def _run_act(act: _Act, examples_root: Path) -> _ActResult:
         has_breach=has_breach,
         elapsed=elapsed,
         engine=config.build_context.engine,
+        docs_count=docs_count,
+        assets_count=assets_count,
     )
 
 
@@ -246,49 +274,118 @@ def _status_cell(r: _ActResult) -> str:
 
 def _print_summary(results: list[_ActResult]) -> None:
     table = Table(
-        title="\n[bold]Lab Summary[/]",
+        title=f"\n[bold {INDIGO}]⬡  ZENZIC LAB — Full Run Summary[/]",
         box=box.ROUNDED,
         show_header=True,
-        header_style="bold",
+        header_style=f"bold {INDIGO}",
     )
-    table.add_column("Act", justify="center", style="dim", width=5)
-    table.add_column("Title", min_width=22)
+    table.add_column("Act", justify="center", style=f"bold {INDIGO}", width=5)
+    table.add_column("Title", style="bold", min_width=22)
     table.add_column("Engine", style="cyan", min_width=10)
+    table.add_column("Files", justify="right", style=SLATE, min_width=7)
+    table.add_column("files/s", justify="right", style=SLATE, min_width=8)
     table.add_column("Result", min_width=26)
     table.add_column("Time", justify="right", style="dim", min_width=7)
 
     unexpected = sum(1 for r in results if not r.met_expectation)
+    total_files = sum(r.total_files for r in results)
+    total_elapsed = sum(r.elapsed for r in results)
     for r in results:
         table.add_row(
             str(r.act.id),
             r.act.title,
             r.engine,
+            str(r.total_files),
+            f"{r.throughput:.0f}",
             _status_cell(r),
             f"{r.elapsed:.2f}s",
         )
 
     _console.print(table)
+
+    # ── Obsidian Seal footer ──────────────────────────────────────────────────
+    avg_throughput = total_files / total_elapsed if total_elapsed > 0 else 0.0
+    seal_items = [
+        Text.from_markup(
+            f"[{SLATE}]{total_files} files scanned across {len(results)} acts"
+            f" {emoji('dot')} {total_elapsed:.2f}s total"
+            f" {emoji('dot')} {avg_throughput:.0f} files/s[/]"
+        ),
+        Text(),
+    ]
     if unexpected == 0:
-        _console.print(
-            f"\n[bold green]{emoji('check')} All {len(results)} act(s) met expectations.[/]"
+        seal_items.append(
+            Text.from_markup(
+                f"[bold {EMERALD}]{emoji('check')} All {len(results)} act(s) met expectations."
+                " The Obsidian Mirror is clear.[/]"
+            )
         )
+        seal_border = f"bold {INDIGO}"
     else:
-        _console.print(
-            f"\n[bold red]{emoji('cross')} {unexpected}/{len(results)} "
-            "act(s) did not meet expectations.[/]"
+        seal_items.append(
+            Text.from_markup(
+                f"[bold {ROSE}]{emoji('cross')} {unexpected}/{len(results)} act(s)"
+                " did not meet expectations.[/]"
+            )
         )
+        seal_border = f"bold {ROSE}"
+
+    _console.print()
+    _console.print(
+        Panel(
+            Group(*seal_items),
+            title=f"[bold white on {INDIGO}] {emoji('shield')}  OBSIDIAN SEAL — Lab Complete [/]",
+            title_align="center",
+            border_style=seal_border,
+            padding=(1, 2),
+            expand=True,
+        )
+    )
+
+
+def _print_act_seal(r: _ActResult) -> None:
+    """Render an Obsidian Seal footer after a single-act run."""
+    files_line = (
+        f"{r.total_files} file{'s' if r.total_files != 1 else ''} scanned"
+        f" {emoji('dot')} {r.elapsed:.2f}s"
+        + (f" {emoji('dot')} {r.throughput:.0f} files/s" if r.total_files else "")
+    )
+    seal_items: list[Text] = [
+        Text.from_markup(f"[{SLATE}]{files_line}[/]"),
+        Text(),
+    ]
+    if r.met_expectation:
+        verdict = f"{emoji('check')} Act {r.act.id} — {r.act.title} — expectation met."
+        seal_items.append(Text.from_markup(f"[bold {EMERALD}]{verdict}[/]"))
+        seal_border = f"bold {INDIGO}"
+    else:
+        verdict = f"{emoji('cross')} Act {r.act.id} — {r.act.title} — expectation NOT met."
+        seal_items.append(Text.from_markup(f"[bold {ROSE}]{verdict}[/]"))
+        seal_border = f"bold {ROSE}"
+
+    _console.print()
+    _console.print(
+        Panel(
+            Group(*seal_items),
+            title=f"[bold white on {INDIGO}] {emoji('shield')}  OBSIDIAN SEAL [/]",
+            title_align="center",
+            border_style=seal_border,
+            padding=(1, 2),
+            expand=True,
+        )
+    )
 
 
 def _print_act_index() -> None:
     table = Table(
-        title="[bold]Zenzic Lab — Act Index[/]",
-        box=box.SIMPLE,
+        title=f"[bold #4f46e5]⬡  ZENZIC LAB[/]  [dim]v{__version__}[/]",
+        box=box.ROUNDED,
         show_header=True,
-        header_style="bold",
+        header_style="bold cyan",
     )
-    table.add_column("Act", justify="center", width=5)
-    table.add_column("Title", min_width=22)
-    table.add_column("Description")
+    table.add_column("Act", justify="center", style="bold cyan", width=5)
+    table.add_column("Title", style="bold", min_width=22)
+    table.add_column("Description", style="#f59e0b")
     table.add_column("Expects", justify="center", min_width=10)
 
     for act in _ACTS:
@@ -310,7 +407,7 @@ def _print_act_index() -> None:
 def lab(
     act_number: int | None = typer.Argument(
         None,
-        help="Act number to run (0–8). Omit to display the act menu.",
+        help="Act number to run (0–10). Omit to display the act menu.",
         show_default=False,
     ),
     list_acts: bool = typer.Option(
@@ -329,6 +426,8 @@ def lab(
         [bold cyan]zenzic lab 0[/]    — run Act 0 (Linter Demo)
         [bold cyan]zenzic lab 3[/]    — run Act 3 (The Shield)
         [bold cyan]zenzic lab --list[/] — print act index without running
+        [bold cyan]zenzic lab 9[/]    — run Act 9 (MkDocs Favicon Guard)
+        [bold cyan]zenzic lab 10[/]   — run Act 10 (Zensical Logo Guard)
     """
     if list_acts:
         _print_act_index()
@@ -343,8 +442,10 @@ def lab(
         )
         return
 
-    if not (0 <= act_number <= 8):
-        _console.print(f"[bold red]ERROR:[/] Act number must be between 0 and 8, got {act_number}.")
+    if not (0 <= act_number <= 10):
+        _console.print(
+            f"[bold red]ERROR:[/] Act number must be between 0 and 10, got {act_number}."
+        )
         raise typer.Exit(1)
 
     try:
@@ -369,5 +470,7 @@ def lab(
         result = _run_act(act, examples_root)
         act_results.append(result)
 
-    if len(act_results) > 1:
+    if len(act_results) == 1:
+        _print_act_seal(act_results[0])
+    elif len(act_results) > 1:
         _print_summary(act_results)
