@@ -14,7 +14,7 @@ from rich.panel import Panel
 from rich.rule import Rule
 from rich.text import Text
 
-from zenzic.ui import AMBER, BLOOD, EMERALD, INDIGO, ROSE, SLATE, emoji, make_obsidian_panel
+from zenzic.ui import AMBER, BLOOD, EMERALD, INDIGO, ROSE, SLATE, ObsidianUI, emoji
 
 
 @dataclass(slots=True)
@@ -275,7 +275,7 @@ class SentinelReporter:
                     )
                 )
             self._con.print()
-            self._con.print(make_obsidian_panel(Group(*_ok_items)))
+            self._con.print(ObsidianUI.make_panel(Group(*_ok_items)))
             return 0, 0
 
         # ── Grouped findings (non-breach only) ───────────────────────────────
@@ -386,7 +386,7 @@ class SentinelReporter:
 
         # ── Single unified panel ──────────────────────────────────────────────
         self._con.print()
-        self._con.print(make_obsidian_panel(Group(telemetry, Text(), *renderables)))
+        self._con.print(ObsidianUI.make_panel(Group(telemetry, Text(), *renderables)))
         # ── Usage hint (outside the audit box) ───────────────────────────────
         self._con.print(Text.from_markup(f"[{SLATE}]Try 'zenzic check --help' for options.[/]"))
         return errors, warnings
