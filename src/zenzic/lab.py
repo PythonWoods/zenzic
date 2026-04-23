@@ -31,7 +31,7 @@ from zenzic.cli import (
 from zenzic.core.exclusion import LayeredExclusionManager
 from zenzic.core.reporter import Finding, SentinelReporter
 from zenzic.models.config import ZenzicConfig
-from zenzic.ui import EMERALD, INDIGO, ROSE, SLATE, emoji, make_banner, make_obsidian_panel
+from zenzic.ui import EMERALD, INDIGO, ROSE, SLATE, ObsidianUI, emoji
 
 
 _console = Console(highlight=False)
@@ -319,7 +319,6 @@ def _print_summary(results: list[_ActResult]) -> None:
                 " The Obsidian Mirror is clear.[/]"
             )
         )
-        seal_border = f"bold {INDIGO}"
     else:
         seal_items.append(
             Text.from_markup(
@@ -327,20 +326,17 @@ def _print_summary(results: list[_ActResult]) -> None:
                 " did not meet expectations.[/]"
             )
         )
-        seal_border = f"bold {ROSE}"
 
     _console.print()
+    ui = ObsidianUI(_console)
+    ui.print_header(__version__)
+    _console.print()
     _console.print(
-        make_obsidian_panel(
-            Group(
-                Text.from_markup(
-                    f"[bold {INDIGO}]{emoji('shield')} OBSIDIAN SEAL — Lab Complete[/]"
-                ),
-                Text(),
-                *seal_items,
-            ),
-            border_style=seal_border,
-        )
+        Group(
+            Text.from_markup(f"[bold {INDIGO}]{emoji('shield')} OBSIDIAN SEAL — Lab Complete[/]"),
+            Text(),
+            *seal_items,
+        ),
     )
 
 
@@ -358,22 +354,20 @@ def _print_act_seal(r: _ActResult) -> None:
     if r.met_expectation:
         verdict = f"{emoji('check')} Act {r.act.id} — {r.act.title} — expectation met."
         seal_items.append(Text.from_markup(f"[bold {EMERALD}]{verdict}[/]"))
-        seal_border = f"bold {INDIGO}"
     else:
         verdict = f"{emoji('cross')} Act {r.act.id} — {r.act.title} — expectation NOT met."
         seal_items.append(Text.from_markup(f"[bold {ROSE}]{verdict}[/]"))
-        seal_border = f"bold {ROSE}"
 
     _console.print()
+    ui = ObsidianUI(_console)
+    ui.print_header(__version__)
+    _console.print()
     _console.print(
-        make_obsidian_panel(
-            Group(
-                Text.from_markup(f"[bold {INDIGO}]{emoji('shield')} OBSIDIAN SEAL[/]"),
-                Text(),
-                *seal_items,
-            ),
-            border_style=seal_border,
-        )
+        Group(
+            Text.from_markup(f"[bold {INDIGO}]{emoji('shield')} OBSIDIAN SEAL[/]"),
+            Text(),
+            *seal_items,
+        ),
     )
 
 
@@ -431,7 +425,8 @@ def lab(
         [bold cyan]zenzic lab 10[/]   — run Act 10 (Zensical Logo Guard)
     """
     _console.print()
-    _console.print(make_obsidian_panel(make_banner(__version__)))
+    ui = ObsidianUI(_console)
+    ui.print_header(__version__)
 
     if list_acts:
         _print_act_index()
@@ -463,13 +458,14 @@ def lab(
     act_results: list[_ActResult] = []
     for act in acts_to_run:
         _console.print()
+        ui = ObsidianUI(_console)
+        ui.print_header(__version__)
+        _console.print()
         _console.print(
-            make_obsidian_panel(
-                Group(
-                    Text.from_markup(f"[bold {INDIGO}]Act {act.id} — {act.title}[/]"),
-                    Text(),
-                    Text.from_markup(f"[bold]{act.description}[/]"),
-                )
+            Group(
+                Text.from_markup(f"[bold {INDIGO}]Act {act.id} — {act.title}[/]"),
+                Text(),
+                Text.from_markup(f"[bold]{act.description}[/]"),
             )
         )
         result = _run_act(act, examples_root)

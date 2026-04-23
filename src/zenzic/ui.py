@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import os
 import sys
+from typing import Any
 
 from rich import box as _rich_box
 from rich.console import RenderableType
@@ -144,29 +145,69 @@ def make_sentinel_header(
     )
 
 
-# ── Forge Frame Panel Factory ────────────────────────────────────────────────
+# ── ObsidianUI: Centralized UI Bridge ──────────────────────────────────────
 
 
-def make_obsidian_panel(
-    content: RenderableType,
-    *,
-    title: str = "PythonWoods",
-    subtitle: str = "Apache-2.0",
-    border_style: str | None = None,
-) -> Panel:
-    """The canonical Forge Frame: left-aligned title, bottom-right subtitle, Indigo rounded border.
+class ObsidianUI:
+    """Central UI bridge for all Zenzic CLI output.
 
-    Every Zenzic Sentinel output panel must be created through this factory to
-    guarantee visual consistency.  Pass ``border_style`` to override the Indigo
-    default (e.g. for Lab seal panels that signal pass/fail with Emerald/Rose).
+    All header, seal, telemetry, and alert panels must go through this interface.
+    This ensures consistent Forge Frame styling across all commands.
     """
-    return Panel(
-        content,
-        title=f"[bold {INDIGO}]{title}[/]",
-        title_align="left",
-        subtitle=f"[dim]{subtitle}[/]",
-        subtitle_align="right",
-        border_style=border_style if border_style is not None else INDIGO,
-        box=_rich_box.ROUNDED,
-        padding=(1, 2),
-    )
+
+    def __init__(self, console: Any):
+        self.console = console
+
+    @staticmethod
+    def make_panel(
+        content: RenderableType,
+        *,
+        title: str = "PythonWoods",
+        subtitle: str = "Apache-2.0",
+        border_style: str | None = None,
+    ) -> Panel:
+        """Create a canonical Forge Frame panel.
+
+        The frame features a left-aligned title, bottom-right subtitle, and an
+        Indigo rounded border. Every Zenzic Sentinel output panel must be created
+        through this factory to guarantee visual consistency.
+        """
+        return Panel(
+            content,
+            title=f"[bold {INDIGO}]{title}[/]",
+            title_align="left",
+            subtitle=f"[dim]{subtitle}[/]",
+            subtitle_align="right",
+            border_style=border_style if border_style is not None else INDIGO,
+            box=_rich_box.ROUNDED,
+            padding=(1, 2),
+        )
+
+    def print_header(self, version: str) -> None:
+        """Print the standardized Zenzic banner panel."""
+        banner = make_banner(version)
+        panel = self.make_panel(banner)
+        self.console.print()
+        self.console.print(panel)
+        self.console.print()
+
+
+__all__ = [
+    "ObsidianUI",
+    "make_banner",
+    "make_sentinel_header",
+    "emoji",
+    "INDIGO",
+    "SLATE",
+    "EMERALD",
+    "AMBER",
+    "ROSE",
+    "BLOOD",
+    "STYLE_BRAND",
+    "STYLE_DIM",
+    "STYLE_OK",
+    "STYLE_WARN",
+    "STYLE_ERR",
+    "SUPPORTS_COLOR",
+    "SUPPORTS_EMOJI",
+]

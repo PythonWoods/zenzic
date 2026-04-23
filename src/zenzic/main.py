@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import os
 import sys
 from typing import Annotated
 
@@ -17,7 +18,7 @@ from zenzic.cli import check_app, clean_app, configure_console, diff, init, plug
 from zenzic.core.exceptions import PluginContractError, ZenzicError
 from zenzic.core.logging import setup_cli_logging
 from zenzic.lab import lab
-from zenzic.ui import INDIGO, ROSE, make_banner, make_obsidian_panel
+from zenzic.ui import INDIGO, ROSE, ObsidianUI
 
 
 def _version_callback(value: bool) -> None:
@@ -81,7 +82,12 @@ app.command(name="score", rich_help_panel="Quality")(score)
 app.command(name="diff", rich_help_panel="Quality")(diff)
 app.command(name="init", rich_help_panel="SDK & Plugins")(init)
 
-_err_console = Console(stderr=True, highlight=False)
+_err_console = Console(
+    stderr=True,
+    highlight=False,
+    no_color=os.environ.get("NO_COLOR") is not None,
+    force_terminal=os.environ.get("FORCE_COLOR") is not None and os.environ.get("NO_COLOR") is None,
+)
 
 
 def _sentinel_alert(exc: ZenzicError, *, border_style: str, title: str) -> None:
@@ -104,7 +110,8 @@ def _sentinel_alert(exc: ZenzicError, *, border_style: str, title: str) -> None:
 
 def _print_banner() -> None:
     """Print the Forge Frame Zenzic banner to stderr."""
-    _err_console.print(make_obsidian_panel(make_banner(__version__)))
+    ui = ObsidianUI(_err_console)
+    ui.print_header(__version__)
     _err_console.print()
 
 

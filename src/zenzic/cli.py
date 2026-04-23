@@ -44,7 +44,7 @@ from zenzic.core.validator import (
 )
 from zenzic.models.config import ZenzicConfig
 from zenzic.models.references import IntegrityReport
-from zenzic.ui import EMERALD, INDIGO, SLATE, emoji, make_banner, make_obsidian_panel
+from zenzic.ui import EMERALD, INDIGO, SLATE, ObsidianUI, emoji
 
 
 check_app = typer.Typer(
@@ -343,9 +343,8 @@ def check_links(
         return
 
     docs_count, assets_count = _count_docs_assets(docs_root, repo_root, exclusion_mgr)
-    console.print()
-    console.print(make_obsidian_panel(make_banner(__version__)))
-    console.print()
+    ui = ObsidianUI(console)
+    ui.print_header(__version__)
     reporter = SentinelReporter(console, docs_root, docs_dir=str(config.docs_dir))
     errors, warnings = reporter.render(
         findings,
@@ -417,9 +416,8 @@ def check_orphans(
         return
 
     docs_count, assets_count = _count_docs_assets(docs_root, repo_root, exclusion_mgr)
-    console.print()
-    console.print(make_obsidian_panel(make_banner(__version__)))
-    console.print()
+    ui = ObsidianUI(console)
+    ui.print_header(__version__)
     reporter = SentinelReporter(console, docs_root, docs_dir=str(config.docs_dir))
     errors, warnings = reporter.render(
         findings,
@@ -492,9 +490,8 @@ def check_snippets(
         return
 
     docs_count, assets_count = _count_docs_assets(docs_root, repo_root, exclusion_mgr)
-    console.print()
-    console.print(make_obsidian_panel(make_banner(__version__)))
-    console.print()
+    ui = ObsidianUI(console)
+    ui.print_header(__version__)
     reporter = SentinelReporter(console, docs_root, docs_dir=str(config.docs_dir))
     errors, warnings = reporter.render(
         findings,
@@ -630,9 +627,8 @@ def check_references(
         return
 
     docs_count, assets_count = _count_docs_assets(docs_root, repo_root, exclusion_mgr)
-    console.print()
-    console.print(make_obsidian_panel(make_banner(__version__)))
-    console.print()
+    ui = ObsidianUI(console)
+    ui.print_header(__version__)
     reporter = SentinelReporter(console, docs_root, docs_dir=str(config.docs_dir))
     errors, warnings = reporter.render(
         findings,
@@ -693,9 +689,8 @@ def check_assets(
         return
 
     docs_count, assets_count = _count_docs_assets(docs_root, repo_root, exclusion_mgr)
-    console.print()
-    console.print(make_obsidian_panel(make_banner(__version__)))
-    console.print()
+    ui = ObsidianUI(console)
+    ui.print_header(__version__)
     reporter = SentinelReporter(console, docs_root, docs_dir=str(config.docs_dir))
     errors, warnings = reporter.render(
         findings,
@@ -731,9 +726,8 @@ def clean_assets(
     if not unused:
         from zenzic import __version__
 
-        console.print()
-        console.print(make_obsidian_panel(make_banner(__version__)))
-        console.print()
+        ui = ObsidianUI(console)
+        ui.print_header(__version__)
         console.print(
             Text.from_markup(
                 f"{emoji('sparkles')} "
@@ -814,9 +808,8 @@ def check_placeholders(
         )
 
     docs_count, assets_count = _count_docs_assets(docs_root, repo_root, exclusion_mgr)
-    console.print()
-    console.print(make_obsidian_panel(make_banner(__version__)))
-    console.print()
+    ui = ObsidianUI(console)
+    ui.print_header(__version__)
     reporter = SentinelReporter(console, docs_root, docs_dir=str(config.docs_dir))
     errors, warnings = reporter.render(
         findings,
@@ -1327,9 +1320,8 @@ def check_all(
     if quiet:
         errors, warnings = reporter.render_quiet(all_findings)
     else:
-        console.print()
-        console.print(make_obsidian_panel(make_banner(__version__)))
-        console.print()
+        ui = ObsidianUI(console)
+        ui.print_header(__version__)
         docs_count, assets_count = _count_docs_assets(docs_root, repo_root, exclusion_mgr, config)
         # File-target mode: banner shows exactly 1 file.
         if _single_file is not None:
@@ -1384,7 +1376,8 @@ def plugins_list() -> None:
 
     rules = list_plugin_rules()
     if not rules:
-        console.print(make_obsidian_panel(make_banner(__version__)))
+        ui = ObsidianUI(console)
+        ui.print_header(__version__)
         console.print()
         console.print(
             Text.from_markup(
@@ -1411,7 +1404,8 @@ def plugins_list() -> None:
         rules_table.add_row(info.source, info.rule_id, origin_badge, info.class_name)
 
     console.print()
-    console.print(make_obsidian_panel(make_banner(__version__)))
+    ui = ObsidianUI(console)
+    ui.print_header(__version__)
     console.print()
     console.print(
         Text.from_markup(
@@ -1530,7 +1524,8 @@ def score(
             )
 
         console.print()
-        console.print(make_obsidian_panel(make_banner(__version__)))
+        ui = ObsidianUI(console)
+        ui.print_header(__version__)
         console.print()
         console.print(score_summary)
         console.print(table)
@@ -1635,7 +1630,8 @@ def diff(
             f"Delta: [{delta_colour}]{sign}{delta}[/]\n"
         )
         console.print()
-        console.print(make_obsidian_panel(make_banner(__version__)))
+        ui = ObsidianUI(console)
+        ui.print_header(__version__)
         console.print()
         console.print(body)
         console.print(diff_table)
@@ -1650,6 +1646,7 @@ def diff(
 
 
 def init(
+    ctx: typer.Context,
     plugin: str | None = typer.Option(
         None,
         "--plugin",
@@ -1682,8 +1679,8 @@ def init(
     """
     from zenzic import __version__
 
-    console.print()
-    console.print(make_obsidian_panel(make_banner(__version__)))
+    ui = ObsidianUI(console)
+    ui.print_header(__version__)
     console.print()
     repo_root = find_repo_root(fallback_to_cwd=True)
 
