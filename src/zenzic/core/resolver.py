@@ -145,6 +145,7 @@ class InMemoryPathResolver:
         "_md_contents",
         "_anchors_cache",
         "_lookup_map",
+        "_allowed_root_pairs",
     )
 
     def __init__(
@@ -153,6 +154,7 @@ class InMemoryPathResolver:
         md_contents: dict[Path, str],
         anchors_cache: dict[Path, set[str]],
         repo_root: Path | None = None,
+        allowed_roots: list[Path] | None = None,
     ) -> None:
         self._root_dir: Path = self._coerce_path(root_dir)
 
@@ -160,6 +162,22 @@ class InMemoryPathResolver:
         # touches pathlib during the Shield check.
         self._root_str: str = str(self._root_dir)
         self._root_prefix: str = self._root_str + os.sep
+
+        # Multi-root Shield: the primary docs_root is always authorised.
+        # Additional roots (e.g. i18n locale directories passed by the
+        # validator) extend the boundary so that cross-locale relative links
+        # are validated rather than mis-classified as PathTraversal.
+        # Stored as (root_str, root_prefix) tuples for zero-allocation O(1)
+        # prefix checks in the hot path — identical design to _root_prefix.
+        _extra = [self._coerce_path(r) for r in (allowed_roots or [])]
+        _seen: set[str] = set()
+        _pairs: list[tuple[str, str]] = []
+        for _r in [self._root_dir, *_extra]:
+            _s = str(_r)
+            if _s not in _seen:
+                _seen.add(_s)
+                _pairs.append((_s, _s + os.sep))
+        self._allowed_root_pairs: tuple[tuple[str, str], ...] = tuple(_pairs)
 
         # repo_root is the project root for @site/ alias resolution.
         # Defaults to root_dir when not provided (no @site/ links expected).
@@ -225,15 +243,20 @@ class InMemoryPathResolver:
 
         # ── Shield: O(1) string prefix check ─────────────────────────────────
         # @site/ links resolve relative to repo_root; all other links must stay
-        # within root_dir.  Two separate boundary sets, each checked via two
-        # string comparisons (zero pathlib overhead).
+        # within an authorised root.  For @site/ we keep the single repo_root
+        # boundary; for regular links we check all allowed_roots (docs_root +
+        # any i18n locale directories) so that cross-locale relative links are
+        # not mis-classified as path traversals.
         is_site_alias = path_part.startswith("@site/")
         if is_site_alias:
             shield_ok = target_str == self._repo_root_str or target_str.startswith(
                 self._repo_root_prefix
             )
         else:
-            shield_ok = target_str == self._root_str or target_str.startswith(self._root_prefix)
+            shield_ok = any(
+                target_str == root_str or target_str.startswith(root_prefix)
+                for root_str, root_prefix in self._allowed_root_pairs
+            )
         if not shield_ok:
             return PathTraversal(raw_href=href)
 
