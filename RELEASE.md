@@ -74,6 +74,40 @@ reminder for when pip ships a fix.
 
 ---
 
+### 🧬 Test Coverage & Mutation Testing Sprint (2026-04-24)
+
+A targeted sprint to measure and strengthen the test suite using both line coverage
+and mutation testing (`mutmut`). The output: 1 195 passing tests, a new `test_cache.py`
+module from scratch, and targeted mutant-killing tests for three critical subsystems.
+
+#### New Test Modules
+
+- **`tests/test_cache.py`** — 29 tests covering the entire content-addressable cache
+  (`cache.py`). Pure hash stability, `CacheManager` get/put/overwrite, hit-rate tracking,
+  atomic save, parent-dir creation, corrupt-JSON resilience, and OSError cleanup.
+- **`tests/test_reporter.py`** — 12 tests for `_read_snippet` and `_strip_prefix`.
+  Exercises the `or`/`and` boundary that guards against empty files and invalid line
+  numbers, context-window clamping, and prefix-stripping semantics.
+
+#### Mutation Testing Results
+
+Full `mutmut` run across `rules.py`, `shield.py`, and `reporter.py`. High-impact logic
+mutants confirmed killed:
+
+| Mutant class | Function | Representative mutation | Killed by |
+|---|---|---|---|
+| Boundary | `_obfuscate_secret` | `<= 8` → `< 8` | `TestObfuscateSecretMutantKill` |
+| Logic inversion | `_to_canonical_url` | `and "…" in path` → `or` | `TestToCanonicalUrlMutantKill` |
+| Strip substitution | `_normalize_line_for_shield` | MDX sub → `"XXXX"` | `TestNormalizeLineForShieldMutantKill` |
+| String mutation | `_to_canonical_url` | `rstrip("/")` → `rstrip(None)` | `test_trailing_slash_is_stripped_*` |
+| Index arithmetic | `_to_canonical_url` | `parts[:-1]` → `parts[:+1]` | `test_nested_index_removed` |
+
+Remaining survivors are equivalent mutants: template string variations in
+`SentinelReporter.render` output formatting and `encoding`/`errors` argument
+mutations that Python's codec system normalises at runtime.
+
+---
+
 ### 🚀 What Changed
 
 #### 1. Z104 Proactive Suggestion Engine (New)

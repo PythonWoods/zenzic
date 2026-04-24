@@ -391,6 +391,44 @@ The `[mkdocs]` optional extra no longer exists. `pip install zenzic` is the comp
 
 ---
 
+### Test Coverage & Mutation Testing Sprint (2026-04-24)
+
+#### Added
+
+- **`tests/test_cache.py`** (29 tests) — full coverage of `src/zenzic/core/cache.py`.
+  Pure hash helpers (`make_content_hash`, `make_config_hash`, `make_vsm_snapshot_hash`,
+  `make_file_key`) and `CacheManager` in-memory and I/O operations (`get`, `put`, `load`,
+  `save`). Covers atomic write, parent-dir creation, corrupt-JSON fallback, and OSError
+  cleanup via `json.dump` monkeypatching.
+
+- **`tests/test_reporter.py`** (12 tests) — coverage of `_read_snippet` and `_strip_prefix`
+  in `src/zenzic/core/reporter.py`. Exercises `or`/`and` boundary in the empty-file /
+  invalid-line-no guard, context-window clamping at file start and end, and prefix
+  stripping semantics (line 0 bypass, partial-match retention).
+
+- **`TestToCanonicalUrlMutantKill`** (15 tests) added to `tests/test_rules.py` — targets
+  `VSMBrokenLinkRule._to_canonical_url`. Kills `rstrip(None)` / `lstrip("/")` mutations,
+  backslash normalisation, `index.md` → parent-dir strip, context-aware `..` resolution,
+  `source_dir`/`docs_root` guard logic inversions, and `"."` relative-path edge case.
+
+- **`TestObfuscateSecretMutantKill`** (7 tests) added to `tests/test_redteam_remediation.py`
+  — targets `_obfuscate_secret` in `reporter.py`. Kills `<= 8` → `< 8`, `<= 8` → `<= 9`
+  boundary mutations and `raw[:4]` → `raw[:5]` prefix-width mutation. Verifies star count
+  equals `len(raw) - 8` and total length is always preserved.
+
+- **`TestNormalizeLineForShieldMutantKill`** (4 tests) added to
+  `tests/test_shield_obfuscation.py` — kills MDX-comment sub → `"XXXX"` (mutmut_22),
+  table-pipe sub → `"XX XX"` (mutmut_40), and whitespace join → `"XX XX".join` (mutmut_42).
+
+- **`mutmut` mutation testing run** on `rules.py`, `shield.py`, `reporter.py` — full run
+  completed. 200+ surviving mutants analysed; high-impact logic mutants in
+  `_to_canonical_url`, `_obfuscate_secret`, and `_normalize_line_for_shield` killed by new
+  tests. Remaining surviving mutants classified as equivalent (template string variations in
+  `SentinelReporter.render`, defensive assertions, or `encoding="UTF-8"` / `errors="REPLACE"`
+  mutations with identical runtime behaviour).
+
+---
+
 ## [0.6.1] — 2026-04-19 — Obsidian Glass [SUPERSEDED]
 
 > ⚠ **[SUPERSEDED by v0.7.0]** — Version 0.6.1 is deprecated due to alignment issues with Docusaurus specifications and legacy terminology. All users must upgrade to v0.7.0 "Obsidian Maturity".
