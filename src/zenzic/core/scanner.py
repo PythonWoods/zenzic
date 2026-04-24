@@ -375,7 +375,7 @@ def find_unused_assets(
         if file_path.is_dir() or file_path.is_symlink() or file_path.suffix in DOC_SUFFIXES:
             continue
         rel_path = file_path.relative_to(docs_root)
-        if rel_path.suffix in {".css", ".js", ".yml", ".license", ".j2"}:
+        if rel_path.suffix in {".css", ".js", ".yml", ".sarif", ".license", ".j2"}:
             continue
         if any(part in config.excluded_asset_dirs for part in rel_path.parts):
             continue

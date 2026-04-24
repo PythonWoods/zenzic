@@ -142,6 +142,145 @@ def _output_json_findings(findings: list[Finding], elapsed: float) -> None:
     print(json.dumps(report, indent=2))
 
 
+# ── SARIF output ──────────────────────────────────────────────────────────────
+
+_SARIF_SCHEMA = "https://json.schemastore.org/sarif-2.1.0.json"
+
+_SARIF_RULE_NAMES: dict[str, str] = {
+    "Z101": "ConfigurationAssetMissing",
+    "Z105": "AbsolutePathViolation",
+    "Z201": "CredentialExposure",
+    "Z301": "BrokenInternalLink",
+    "Z302": "BrokenExternalLink",
+    "Z303": "CircularLink",
+    "Z304": "PathTraversal",
+    "Z402": "OrphanPage",
+    "Z503": "InvalidSnippet",
+    "Z601": "DanglingReference",
+    "Z602": "DeadDefinition",
+    "Z603": "DuplicateDefinition",
+    "Z604": "MissingAltText",
+    "Z701": "PlaceholderStub",
+    "Z702": "ShortPage",
+    "Z903": "UnusedAsset",
+}
+
+_SARIF_RULE_DESCRIPTIONS: dict[str, str] = {
+    "Z101": "Configuration asset path not found on disk",
+    "Z105": "Absolute URL path detected; use a relative or base-relative path",
+    "Z201": "Potential credential or secret detected in documentation content",
+    "Z301": "Broken internal link — target file or anchor not found",
+    "Z302": "Broken external URL — HTTP request returned an error",
+    "Z303": "Circular link chain detected between documentation pages",
+    "Z304": "Path traversal attempt — link escapes the documentation root",
+    "Z402": "Orphan page — file exists but is not listed in the site navigation",
+    "Z503": "Invalid code snippet — syntax error in a fenced code block",
+    "Z601": "Dangling reference — reference-style link has no matching definition",
+    "Z602": "Dead definition — link definition is declared but never used",
+    "Z603": "Duplicate link definition — same reference ID defined more than once",
+    "Z604": "Missing alt text on image element",
+    "Z701": "Placeholder stub — page content is too short or contains forbidden patterns",
+    "Z702": "Short page — word count is below the minimum threshold",
+    "Z903": "Unreferenced asset — file is not referenced by any documentation page",
+}
+
+# Default SARIF level per rule, aligned with how each finding is emitted.
+# Individual result.level always takes precedence; this is the rule-catalogue default.
+_SARIF_RULE_DEFAULT_LEVEL: dict[str, str] = {
+    "Z101": "warning",
+    "Z105": "error",
+    "Z201": "error",
+    "Z301": "error",
+    "Z302": "error",
+    "Z303": "note",
+    "Z304": "error",
+    "Z402": "warning",
+    "Z503": "error",
+    "Z601": "error",
+    "Z602": "warning",
+    "Z603": "warning",
+    "Z604": "warning",
+    "Z701": "warning",
+    "Z702": "warning",
+    "Z903": "warning",
+}
+
+_SARIF_SECURITY_SEVERITY: dict[str, str] = {
+    "security_breach": "9.5",
+    "security_incident": "9.0",
+}
+
+
+def _sarif_level(severity: str) -> str:
+    return {
+        "security_breach": "error",
+        "security_incident": "error",
+        "error": "error",
+        "warning": "warning",
+        "info": "note",
+    }.get(severity, "note")
+
+
+def _output_sarif_findings(findings: list[Finding], version: str) -> None:
+    """Serialize findings list to SARIF 2.1.0 JSON and print to stdout."""
+    seen_rule_ids: set[str] = set()
+    sarif_results: list[dict[str, object]] = []
+    for f in findings:
+        seen_rule_ids.add(f.code)
+        result: dict[str, object] = {
+            "ruleId": f.code,
+            "level": _sarif_level(f.severity),
+            "message": {"text": f.message},
+            "locations": [
+                {
+                    "physicalLocation": {
+                        "artifactLocation": {
+                            "uri": f.rel_path.replace("\\", "/"),
+                            "uriBaseId": "%SRCROOT%",
+                        },
+                        "region": {"startLine": max(f.line_no, 1)},
+                    }
+                }
+            ],
+        }
+        if f.severity in _SARIF_SECURITY_SEVERITY:
+            result["properties"] = {"security-severity": _SARIF_SECURITY_SEVERITY[f.severity]}
+        sarif_results.append(result)
+
+    rules = [
+        {
+            "id": rule_id,
+            "name": _SARIF_RULE_NAMES.get(rule_id, rule_id),
+            "shortDescription": {
+                "text": _SARIF_RULE_DESCRIPTIONS.get(
+                    rule_id, _SARIF_RULE_NAMES.get(rule_id, rule_id)
+                )
+            },
+            "defaultConfiguration": {"level": _SARIF_RULE_DEFAULT_LEVEL.get(rule_id, "warning")},
+        }
+        for rule_id in sorted(seen_rule_ids)
+    ]
+
+    report = {
+        "$schema": _SARIF_SCHEMA,
+        "version": "2.1.0",
+        "runs": [
+            {
+                "tool": {
+                    "driver": {
+                        "name": "zenzic",
+                        "version": version,
+                        "informationUri": "https://zenzic.dev",
+                        "rules": rules,
+                    }
+                },
+                "results": sarif_results,
+            }
+        ],
+    }
+    print(json.dumps(report, indent=2))
+
+
 # ── Link error renderer ───────────────────────────────────────────────────────
 
 

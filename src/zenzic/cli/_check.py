@@ -52,7 +52,9 @@ check_app = typer.Typer(
 @check_app.command(name="links")
 def check_links(
     strict: bool = typer.Option(False, "--strict", "-s", help="Exit non-zero on any warning."),
-    output_format: str = typer.Option("text", "--format", help="Output format: text or json."),
+    output_format: str = typer.Option(
+        "text", "--format", help="Output format: text, json, or sarif."
+    ),
     show_info: bool = typer.Option(
         False, "--show-info", help="Show info-level findings (e.g. circular links) in the report."
     ),
@@ -115,6 +117,15 @@ def check_links(
         if errors_count:
             raise typer.Exit(1)
         return
+    elif output_format == "sarif":
+        _shared._output_sarif_findings(findings, __version__)
+        incidents = sum(1 for f in findings if f.severity == "security_incident")
+        if incidents:
+            raise typer.Exit(3)
+        errors_count = sum(1 for f in findings if f.severity == "error")
+        if errors_count:
+            raise typer.Exit(1)
+        return
 
     docs_count, assets_count = _shared._count_docs_assets(docs_root, repo_root, exclusion_mgr)
     _shared._ui.print_header(__version__)
@@ -145,7 +156,9 @@ def check_orphans(
         "Auto-detected from zenzic.toml when omitted.",
         metavar="ENGINE",
     ),
-    output_format: str = typer.Option("text", "--format", help="Output format: text or json."),
+    output_format: str = typer.Option(
+        "text", "--format", help="Output format: text, json, or sarif."
+    ),
     show_info: bool = typer.Option(
         False, "--show-info", help="Show info-level findings (e.g. circular links) in the report."
     ),
@@ -187,6 +200,12 @@ def check_orphans(
         if errors_count:
             raise typer.Exit(1)
         return
+    elif output_format == "sarif":
+        _shared._output_sarif_findings(findings, __version__)
+        errors_count = sum(1 for f in findings if f.severity == "error")
+        if errors_count:
+            raise typer.Exit(1)
+        return
 
     docs_count, assets_count = _shared._count_docs_assets(docs_root, repo_root, exclusion_mgr)
     _shared._ui.print_header(__version__)
@@ -208,7 +227,9 @@ def check_orphans(
 
 @check_app.command(name="snippets")
 def check_snippets(
-    output_format: str = typer.Option("text", "--format", help="Output format: text or json."),
+    output_format: str = typer.Option(
+        "text", "--format", help="Output format: text, json, or sarif."
+    ),
     show_info: bool = typer.Option(
         False, "--show-info", help="Show info-level findings (e.g. circular links) in the report."
     ),
@@ -260,6 +281,12 @@ def check_snippets(
         if errors_count:
             raise typer.Exit(1)
         return
+    elif output_format == "sarif":
+        _shared._output_sarif_findings(findings, __version__)
+        errors_count = sum(1 for f in findings if f.severity == "error")
+        if errors_count:
+            raise typer.Exit(1)
+        return
 
     docs_count, assets_count = _shared._count_docs_assets(docs_root, repo_root, exclusion_mgr)
     _shared._ui.print_header(__version__)
@@ -292,7 +319,9 @@ def check_references(
         "-l",
         help="Also validate external HTTP/HTTPS reference URLs via async HEAD requests.",
     ),
-    output_format: str = typer.Option("text", "--format", help="Output format: text or json."),
+    output_format: str = typer.Option(
+        "text", "--format", help="Output format: text, json, or sarif."
+    ),
     show_info: bool = typer.Option(
         False, "--show-info", help="Show info-level findings (e.g. circular links) in the report."
     ),
@@ -395,6 +424,16 @@ def check_references(
         if errors_count or (strict and warnings_count):
             raise typer.Exit(1)
         return
+    elif output_format == "sarif":
+        _shared._output_sarif_findings(findings, __version__)
+        breaches = sum(1 for f in findings if f.severity == "security_breach")
+        if breaches:
+            raise typer.Exit(2)
+        errors_count = sum(1 for f in findings if f.severity == "error")
+        warnings_count = sum(1 for f in findings if f.severity == "warning")
+        if errors_count or (strict and warnings_count):
+            raise typer.Exit(1)
+        return
 
     docs_count, assets_count = _shared._count_docs_assets(docs_root, repo_root, exclusion_mgr)
     _shared._ui.print_header(__version__)
@@ -420,7 +459,9 @@ def check_references(
 
 @check_app.command(name="assets")
 def check_assets(
-    output_format: str = typer.Option("text", "--format", help="Output format: text or json."),
+    output_format: str = typer.Option(
+        "text", "--format", help="Output format: text, json, or sarif."
+    ),
     show_info: bool = typer.Option(
         False, "--show-info", help="Show info-level findings (e.g. circular links) in the report."
     ),
@@ -452,6 +493,12 @@ def check_assets(
 
     if output_format == "json":
         _shared._output_json_findings(findings, elapsed)
+        errors_count = sum(1 for f in findings if f.severity == "error")
+        if errors_count:
+            raise typer.Exit(1)
+        return
+    elif output_format == "sarif":
+        _shared._output_sarif_findings(findings, __version__)
         errors_count = sum(1 for f in findings if f.severity == "error")
         if errors_count:
             raise typer.Exit(1)
@@ -885,7 +932,9 @@ def check_all(
     strict: bool | None = typer.Option(
         None, "--strict", "-s", help="Treat warnings as errors (exit non-zero on any warning)."
     ),
-    output_format: str = typer.Option("text", "--format", help="Output format: text or json."),
+    output_format: str = typer.Option(
+        "text", "--format", help="Output format: text, json, or sarif."
+    ),
     exit_zero: bool | None = typer.Option(
         None, "--exit-zero", help="Always exit 0; report issues without failing."
     ),
@@ -999,6 +1048,21 @@ def check_all(
         }
         print(json.dumps(report, indent=2))
         if results.failed and not effective_exit_zero:
+            raise typer.Exit(1)
+        return
+    elif output_format == "sarif":
+        from zenzic import __version__
+
+        all_findings = _to_findings(results, docs_root)
+        _shared._output_sarif_findings(all_findings, __version__)
+        incidents = sum(1 for f in all_findings if f.severity == "security_incident")
+        if incidents:
+            raise typer.Exit(3)
+        breaches = sum(1 for f in all_findings if f.severity == "security_breach")
+        if breaches:
+            raise typer.Exit(2)
+        errors_count = sum(1 for f in all_findings if f.severity == "error")
+        if errors_count and not effective_exit_zero:
             raise typer.Exit(1)
         return
 
