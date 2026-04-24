@@ -208,6 +208,61 @@ undocumented.** The Guardians' work is the final seal of the Porto Sicuro.
 
 ---
 
+### 🌐 Bilingual Integrity Seal — Multi-Root Safe Harbor (Direttive 123–128)
+
+The i18n blind spot that v0.7.0 closes is architectural, not cosmetic.
+
+When a translator working in `i18n/it/` updates `[link text](#contesto)` but leaves the
+heading as `{#context}`, no prior version of Zenzic raised an error.
+`validate_same_page_anchors` defaults to `False`, and the locale file lived outside
+`docs_root` — invisible to both the anchor checker and the Shield.
+
+#### What changed
+
+**Multi-Root Shield** (`InMemoryPathResolver` — `allowed_roots`)
+Cross-locale relative links (`i18n/it/intro.md` → `i18n/it/guide.md`) no longer trigger
+false-positive `PATH_TRAVERSAL_SUSPICIOUS`. The resolver now holds a tuple of
+`(root_str, root_prefix)` pairs — one per authorised root — and the Shield performs
+an `any()` prefix check in the hot path with zero `Path` allocations.
+Security invariant preserved: a link to `../../../../etc/passwd` still hits
+`PATH_TRAVERSAL_SUSPICIOUS` because the target falls outside every authorised root.
+
+**Mandatory i18n Anchor Integrity**
+Files inside `i18n/` locale directories are always validated for same-page anchors,
+regardless of `validate_same_page_anchors`. The `locale_file_set: frozenset[Path]`
+tracks which files came from locale roots; the anchor check fires when
+`config.validate_same_page_anchors or md_file in locale_file_set`.
+
+**`@site/` Alias Extended to `repo_root`**
+`known_assets` now scans `repo_root` instead of only `docs_root`, so that
+`@site/static/logo.png` referenced inside a locale file resolves correctly against
+`static/` at the repository root.
+
+**`zenzic init` Docusaurus Template**
+`zenzic init` detects `docusaurus.config.ts` / `docusaurus.config.js` and emits:
+
+```toml
+[build_context]
+engine = "docusaurus"
+# locales = []  # e.g. ["it", "fr"]
+# Zenzic v0.7.0+ automatically authorizes i18n/ locale roots.
+# No extra configuration is needed for standard translation folders.
+```
+
+**Guardian Coverage**
+`tests/guardians/test_i18n_path_integrity.py` defines four invariants (INT-001 through
+INT-004) across eleven test cases. The suite runs on every push to `main` and
+`release/**` — it is not a unit test, it is a contractual guarantee.
+
+| Invariant | Guarantee |
+|-----------|-----------|
+| INT-001 | Cross-locale relative links → PASS |
+| INT-002 | Traversal to OS system path from locale file → PATH_TRAVERSAL_SUSPICIOUS |
+| INT-003 | Same-page anchor mismatch in locale file → ANCHOR_MISSING (always) |
+| INT-004 | `@site/static/` assets resolve correctly from locale files |
+
+---
+
 ### ⚓ Stability Declaration
 
 **v0.7.0 is the canonical stable reference for the Obsidian Maturity sprint.**

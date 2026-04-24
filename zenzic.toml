@@ -94,6 +94,11 @@ placeholder_max_words = 50
 
 [build_context]
 engine = "standalone"
+# This repo uses engine = "standalone" because docs_dir = "." scans root-level
+# Markdown prose (README, CONTRIBUTING, CHANGELOG, etc.) with no nav contract.
+# The actual documentation site lives in the separate zenzic-doc repository,
+# which uses engine = "docusaurus" with i18n locale roots auto-authorised by the
+# Multi-Root Safe Harbor (v0.7.0+).  No locales key is needed here.
 
 # ── Internal dogfood rules ────────────────────────────────────────────────────
 # Minimal rule set for root-level prose files.
