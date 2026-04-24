@@ -343,6 +343,50 @@ The `[mkdocs]` optional extra no longer exists. `pip install zenzic` is the comp
 
 ---
 
+### Codebase Parity & Platform Robustness Sprint (2026-04-24)
+
+#### Fixed
+
+- **Case-sensitive asset fallback on Windows / macOS** — `resolve_asset()` in all
+  three adapter modules (`_mkdocs.py`, `_zensical.py`, `_docusaurus.py`) used
+  `Path.exists()` to test fallback paths, which returns `True` on case-insensitive
+  filesystems regardless of capitalisation. Replaced with `case_sensitive_exists()`
+  (new helper in `_utils.py`, using `os.listdir()`) which enforces exact case
+  matching on every platform. Fixes a CI regression surfaced on the Windows and macOS
+  legs of the cross-platform matrix.
+
+- **MDX / HTML comments excluded from placeholder word count** —
+  `check_placeholder_content()` counted words in raw Markdown source, causing
+  `{/* … */}` MDX block-comments and `<!-- … -->` HTML comments to inflate the
+  visible word count. A file below the `placeholder_max_words` threshold was not
+  flagged if it contained a long comment header. Introduced `_visible_word_count(text)`
+  which strips YAML frontmatter, MDX comments, and HTML comments before splitting.
+  Regression test `test_placeholder_mdx_comments_excluded_from_word_count` added.
+
+- **Z000 migration guard promoted from TODO to permanent** — `_factory.py` carried
+  `# TODO: Remove this migration guard in v0.7.0`, implying the `engine = "vanilla"`
+  check was temporary. The guard is intentionally permanent (vanilla was removed in
+  v0.6.1); replaced with an explanatory comment.
+
+- **Documentation parity audit** (zenzic-doc) — Thirteen remaining references to the
+  removed `VanillaAdapter` class replaced with `StandaloneAdapter` (EN + IT locales).
+  JSON examples in `cli.mdx` and `configure-ci-cd.mdx` used the non-existent code
+  `"BROKEN_LINK"`; corrected to `"Z104"` with canonical message format. Z000 entry in
+  `finding-codes.mdx` now explicitly documents it as a `ConfigurationError` exception
+  absent from `--format json` output. Reference scanner ASCII diagram in `checks.mdx`
+  replaced with a Mermaid `flowchart LR` using ObsidianPalette colours.
+
+#### Security
+
+- **CVE-2026-3219 — pip polyglot archive handling** — `pip 26.0.1` is affected by
+  CVE-2026-3219 (concatenated tar + ZIP archives treated as ZIP regardless of filename;
+  no patched release on PyPI). Zenzic uses `uv` for all package management and never
+  invokes pip programmatically; pip is a transitive dev-only dependency of pip-audit.
+  All packages are pinned in `uv.lock`. Added `--ignore-vuln CVE-2026-3219` to the
+  `nox security` session with a removal reminder.
+
+---
+
 ## [0.6.1] — 2026-04-19 — Obsidian Glass [SUPERSEDED]
 
 > ⚠ **[SUPERSEDED by v0.7.0]** — Version 0.6.1 is deprecated due to alignment issues with Docusaurus specifications and legacy terminology. All users must upgrade to v0.7.0 "Obsidian Maturity".
