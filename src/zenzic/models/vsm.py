@@ -172,6 +172,11 @@ def build_vsm(
 
     routes: list[Route] = []
     for abs_path, _content in md_contents.items():
+        # Locale files (i18n/<locale>/…) live outside docs_root and carry no
+        # canonical URL in the VSM — they are validated for link integrity but
+        # excluded from URL routing and orphan detection.
+        if not abs_path.is_relative_to(docs_root):
+            continue
         rel = abs_path.relative_to(docs_root)
         rel_posix = rel.as_posix()
 

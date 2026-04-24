@@ -79,12 +79,21 @@ def check_links(
             return str(path)
 
     t0 = time.monotonic()
+    from zenzic.core.adapters import get_adapter
+
+    adapter = get_adapter(config.build_context, docs_root, repo_root)
+    locale_roots: list[tuple[Path, str]] | None = None
+    if hasattr(adapter, "get_locale_source_roots"):
+        _roots = adapter.get_locale_source_roots(repo_root)
+        locale_roots = _roots if _roots else None
+
     link_errors = validate_links_structured(
         docs_root,
         exclusion_mgr,
         repo_root=repo_root,
         config=config,
         strict=strict,
+        locale_roots=locale_roots,
     )
     elapsed = time.monotonic() - t0
 
@@ -668,6 +677,7 @@ def _collect_all_results(
             repo_root=repo_root,
             config=config,
             strict=strict,
+            locale_roots=locale_roots,
         ),
         orphans=find_orphans(docs_root, exclusion_mgr, repo_root=repo_root, config=config),
         snippet_errors=validate_snippets(docs_root, exclusion_mgr, config=config),

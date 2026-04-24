@@ -43,7 +43,12 @@ import httpx
 import yaml
 
 from zenzic.core.adapter import get_adapter
-from zenzic.core.discovery import DOC_SUFFIXES, iter_markdown_sources, walk_files
+from zenzic.core.discovery import (
+    DOC_SUFFIXES,
+    iter_locale_markdown_sources,
+    iter_markdown_sources,
+    walk_files,
+)
 from zenzic.core.resolver import (
     AnchorMissing,
     FileNotFound,
@@ -590,6 +595,7 @@ async def validate_links_async(
     config: ZenzicConfig,
     strict: bool = False,
     structured: bool = False,
+    locale_roots: list[tuple[Path, str]] | None = None,
 ) -> list[str] | list[LinkError]:
     """Native link validator — no subprocesses, no MkDocs dependency.
 
@@ -600,6 +606,10 @@ async def validate_links_async(
         config: Zenzic configuration model.
         strict: When True, also validate external HTTP/HTTPS links.
         structured: When True, return list[LinkError] instead of list[str].
+        locale_roots: Optional list of (locale_root, locale_name) pairs from the
+            adapter's ``get_locale_source_roots()`` — when provided, i18n
+            translation files are included in both the anchor index and link
+            validation pass so that broken anchors in translated pages are caught.
 
     Returns:
         list[str] or list[LinkError]; empty when all links pass.
@@ -618,12 +628,48 @@ async def validate_links_async(
         except OSError:
             continue
 
+    # ── Pass 1b: include i18n locale files when provided ──────────────────────
+    # Locale files live outside docs_root (under i18n/<locale>/…) so they are
+    # invisible to iter_markdown_sources.  Loading them here ensures that:
+    #   • their headings are indexed (anchors_cache),
+    #   • links *within* each translated page are validated, and
+    #   • cross-references from locale files into main docs resolve correctly.
+    if locale_roots:
+        for locale_root, locale_name in locale_roots:
+            for abs_path, _logical_rel in iter_locale_markdown_sources(
+                locale_root, locale_name, config, exclusion_manager
+            ):
+                try:
+                    md_contents[abs_path.resolve()] = abs_path.read_text(encoding="utf-8")
+                except OSError:
+                    continue
+
     # Build the asset map once — eliminates all Path.exists() calls from Pass 2.
+    # Scanning repo_root (not just docs_root) ensures that @site/static/ assets
+    # referenced from locale files (or any page) are included in the map.
+    # System-guardrail directories (.git, node_modules, .venv, …) are pruned by
+    # the exclusion_manager so the walk remains fast even for large repos.
     known_assets: frozenset[str] = frozenset(
         str(f.resolve())
-        for f in walk_files(docs_root, set(), exclusion_manager)
+        for f in walk_files(repo_root, set(), exclusion_manager)
         if f.is_file() and not f.is_symlink() and f.suffix not in DOC_SUFFIXES
     )
+
+    # ── Locale file registry + multi-root Shield setup ───────────────────────
+    # locale_file_set: files loaded from i18n/ directories (outside docs_root).
+    # Used in Phase 2 to:
+    #   • Force same-page anchor validation regardless of validate_same_page_anchors
+    #     (translation drift is exactly the class of error the sentinel must catch).
+    #   • Never suppress genuine path-traversal attempts (security invariant).
+    locale_file_set: frozenset[Path] = frozenset(
+        p for p in md_contents if not p.is_relative_to(docs_root)
+    )
+    # Multi-root allowed list passed to the resolver: docs_root is always in the
+    # list; locale roots are added so that cross-locale relative links resolve
+    # within an authorised boundary instead of firing PATH_TRAVERSAL.
+    _allowed_roots: list[Path] = [docs_root]
+    if locale_roots:
+        _allowed_roots.extend(locale_root for locale_root, _ in locale_roots)
 
     # ── Phase 1: parallel index (anchors + resolved links) ────────────────
     # Workers return immutable payloads. The main process only merges maps
@@ -645,7 +691,10 @@ async def validate_links_async(
     # Instantiate the resolver ONCE — _lookup_map is built here, not per-link.
     # Instantiating inside the file loop would regenerate the map N times,
     # cancelling the 14× performance gain from the pre-computed flat dict.
-    resolver = InMemoryPathResolver(docs_root, md_contents, anchors_cache)
+    # allowed_roots extends the Shield boundary to authorised locale directories.
+    resolver = InMemoryPathResolver(
+        docs_root, md_contents, anchors_cache, allowed_roots=_allowed_roots
+    )
 
     # ── Build the Virtual Site Map (VSM) ──────────────────────────────────────
     # The VSM maps every .md file to its canonical URL and routing status.
@@ -664,7 +713,9 @@ async def validate_links_async(
     # ── Phase 2: validate against global indexes ────────────────────────────
     # Pre-compute known relative paths once for Z104 "Did you mean?" hints.
     # No disk I/O — md_contents is already in memory from Pass 1.
-    _known_rel_paths: list[str] = sorted(f.relative_to(docs_root).as_posix() for f in md_contents)
+    _known_rel_paths: list[str] = sorted(
+        f.relative_to(docs_root).as_posix() for f in md_contents if f.is_relative_to(docs_root)
+    )
 
     internal_errors: list[LinkError] = []
     external_entries: list[tuple[str, str, int]] = []  # (url, file_label, lineno)
@@ -680,7 +731,12 @@ async def validate_links_async(
         return lines[idx].strip() if 0 <= idx < len(lines) else ""
 
     for md_file in md_contents:
-        label = str(md_file.relative_to(docs_root))
+        # Locale files live outside docs_root — use repo-relative path for labels.
+        label = (
+            str(md_file.relative_to(docs_root))
+            if md_file.is_relative_to(docs_root)
+            else str(md_file.relative_to(repo_root))
+        )
         all_links = links_cache.get(md_file, [])
 
         for link in all_links:
@@ -696,10 +752,17 @@ async def validate_links_async(
                 external_entries.append((url, label, lineno))
                 continue
 
-            # Pure same-page anchor (#section) — validated only when
-            # validate_same_page_anchors is enabled in zenzic.toml.
+            # Pure same-page anchor (#section).
+            # Always validated for locale files: translation drift (e.g. a
+            # translator updating the link text but not the heading's {#id})
+            # is exactly the failure mode the i18n sentinel must catch.
+            # For main-docs files the check is gated by validate_same_page_anchors
+            # (disabled by default — anchors can be generated by plugins/macros
+            # at build time that are invisible at source-scan time).
             if not parsed.path:
-                if config.validate_same_page_anchors and parsed.fragment:
+                if (
+                    config.validate_same_page_anchors or md_file in locale_file_set
+                ) and parsed.fragment:
                     anchor = parsed.fragment
                     if anchor not in anchors_cache.get(md_file, set()):
                         internal_errors.append(
@@ -775,6 +838,17 @@ async def validate_links_async(
                         asset_str = os.path.normpath(
                             str(docs_root) + os.sep + path_part.lstrip("/")
                         )
+                    elif path_part.startswith("@site/docs/"):
+                        # Docusaurus alias: @site/docs/ maps to docs_root.
+                        asset_str = os.path.normpath(
+                            str(docs_root) + os.sep + path_part[len("@site/docs/") :]
+                        )
+                    elif path_part.startswith("@site/"):
+                        # Docusaurus alias: @site/ maps to repo_root.
+                        # known_assets is built from repo_root so this resolves correctly.
+                        asset_str = os.path.normpath(
+                            str(repo_root) + os.sep + path_part[len("@site/") :]
+                        )
                     else:
                         asset_str = os.path.normpath(str(md_file.parent) + os.sep + path_part)
                     if asset_str not in known_assets:
@@ -785,28 +859,28 @@ async def validate_links_async(
                             continue
                         # Suppress errors for build-time generated artifacts
                         # (e.g. PDFs from to-pdf plugin, ZIPs assembled in CI).
-                        rel_asset = Path(asset_str).relative_to(docs_root).as_posix()
-                        if not any(
-                            fnmatch.fnmatch(rel_asset, pat)
+                        # Assets outside docs_root (e.g. from locale file links)
+                        # skip this check — artifact patterns are docs-relative.
+                        if Path(asset_str).is_relative_to(docs_root) and any(
+                            fnmatch.fnmatch(Path(asset_str).relative_to(docs_root).as_posix(), pat)
                             for pat in config.excluded_build_artifacts
                         ):
-                            _suggestions = difflib.get_close_matches(
-                                path_part, _known_rel_paths, n=1, cutoff=0.6
+                            continue
+                        _suggestions = difflib.get_close_matches(
+                            path_part, _known_rel_paths, n=1, cutoff=0.6
+                        )
+                        _hint = f" 💡 Did you mean: '{_suggestions[0]}'?" if _suggestions else ""
+                        internal_errors.append(
+                            LinkError(
+                                file_path=md_file,
+                                line_no=lineno,
+                                message=f"{label}:{lineno}: '{path_part}' not found in docs{_hint}",
+                                source_line=_source_line(md_file, lineno),
+                                error_type="FILE_NOT_FOUND",
+                                col_start=link.col_start,
+                                match_text=link.match_text,
                             )
-                            _hint = (
-                                f" 💡 Did you mean: '{_suggestions[0]}'?" if _suggestions else ""
-                            )
-                            internal_errors.append(
-                                LinkError(
-                                    file_path=md_file,
-                                    line_no=lineno,
-                                    message=f"{label}:{lineno}: '{path_part}' not found in docs{_hint}",
-                                    source_line=_source_line(md_file, lineno),
-                                    error_type="FILE_NOT_FOUND",
-                                    col_start=link.col_start,
-                                    match_text=link.match_text,
-                                )
-                            )
+                        )
                 case AnchorMissing(path_part=path_part, anchor=anchor, resolved_file=resolved_file):
                     # Mirror the FileNotFound i18n fallback: when a locale file
                     # exists but lacks the anchor (because headings are translated),
@@ -1065,6 +1139,7 @@ def validate_links_structured(
     repo_root: Path,
     config: ZenzicConfig,
     strict: bool = False,
+    locale_roots: list[tuple[Path, str]] | None = None,
 ) -> list[LinkError]:
     """Synchronous wrapper that returns rich :class:`LinkError` objects.
 
@@ -1074,6 +1149,8 @@ def validate_links_structured(
         repo_root: Repository root directory.
         config: Zenzic configuration model.
         strict: Include external HTTP/HTTPS link checks.
+        locale_roots: Optional list of (locale_root, locale_name) pairs — when
+            provided, i18n translation files are included in link validation.
 
     Returns:
         Sorted list of LinkError objects; empty when all links pass.
@@ -1086,6 +1163,7 @@ def validate_links_structured(
             config=config,
             strict=strict,
             structured=True,
+            locale_roots=locale_roots,
         )
     )
     assert isinstance(result, list)
