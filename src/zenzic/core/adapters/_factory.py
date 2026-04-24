@@ -69,7 +69,8 @@ def _load_adapter_class(engine: str) -> type[Any] | None:
     """
     from zenzic.core.exceptions import ConfigurationError  # deferred: avoid circular import
 
-    # TODO: Remove this migration guard in v0.7.0.
+    # Permanent guard: engine = "vanilla" was removed in v0.6.1 and replaced by
+    # "standalone". Raise a descriptive error instead of silently falling back.
     if engine == "vanilla":
         raise ConfigurationError(
             "[Z000] Engine 'vanilla' has been removed. "
