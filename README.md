@@ -74,6 +74,21 @@ zenzic check all  # Audit the current directory
 
 ---
 
+> 🚀 **CI/CD Ready:** Use the [Official Zenzic Action](https://github.com/PythonWoods/zenzic-action) to run Zenzic in GitHub Actions — findings surface directly in Code Scanning, PR annotations, and the Security tab.
+>
+> ```yaml
+> - uses: PythonWoods/zenzic-action@v1
+>   with:
+>     format: sarif
+>     upload-sarif: "true"
+> ```
+
+<p align="center">
+  <img alt="GitHub Code Scanning showing Zenzic findings" src="https://raw.githubusercontent.com/PythonWoods/zenzic-action/main/assets/sarif-showcase.svg" width="760">
+</p>
+
+---
+
 ## 🎯 Why Zenzic?
 
 | Without Zenzic | With Zenzic |
