@@ -11,30 +11,6 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-### Added
-
-- **Multi-Root Path Resolution** (D124) — `InMemoryPathResolver` now accepts
-  `allowed_roots: list[Path]`. When locale roots are provided, cross-locale
-  relative links (e.g. `i18n/it/intro.md` → `i18n/it/guide.md`) resolve
-  correctly instead of triggering a false-positive `PATH_TRAVERSAL_SUSPICIOUS`.
-  Security invariant is preserved: targets outside all authorised roots are
-  still rejected.
-
-- **Mandatory i18n Anchor Integrity** (D125) — Same-page anchor validation is
-  now **always active** for files inside `i18n/` locale directories, regardless
-  of the `validate_same_page_anchors` config flag. A translator updating
-  `[link](#contesto)` while leaving the heading as `{#context}` is caught
-  immediately.
-
-- **Expanded `@site/` Alias to `repo_root`** (D123) — `known_assets` now scans
-  `repo_root` rather than only `docs_root`, so Docusaurus `@site/static/` image
-  references inside locale files resolve correctly.
-
-- **Docusaurus auto-detection in `zenzic init`** (D128) — `zenzic init` now
-  detects `docusaurus.config.ts` / `docusaurus.config.js` and emits an expanded
-  `[build_context]` template with i18n commentary and the Multi-Root Safe Harbor
-  note. Configuration reference URL updated to `zenzic.dev/docs/reference/`.
-
 ## [0.7.0] — 2026-04-22 — Obsidian Maturity (Stable)
 
 > ⚓ Zenzic v0.7.0 marks the consolidation of our core architecture and the full alignment with official specifications. Supersedes v0.6.1.
@@ -340,6 +316,34 @@ The `[mkdocs]` optional extra no longer exists. `pip install zenzic` is the comp
   and uploads via `github/codeql-action/upload-sarif`. Configurable inputs: `version`,
   `docs-dir`, `format`, `sarif-file`, `upload-sarif`, `strict`, `fail-on-error`.
   Removes the need for manual `uvx zenzic` invocations in CI.
+
+---
+
+### Bilingual Integrity Seal — Multi-Root Safe Harbor Sprint (D123–D128)
+
+#### Added
+
+- **Multi-Root Path Resolution** (D124) — `InMemoryPathResolver` now accepts
+  `allowed_roots: list[Path]`. When locale roots are provided, cross-locale
+  relative links (e.g. `i18n/it/intro.md` → `i18n/it/guide.md`) resolve
+  correctly instead of triggering a false-positive `PATH_TRAVERSAL_SUSPICIOUS`.
+  Security invariant is preserved: targets outside all authorised roots are
+  still rejected.
+
+- **Mandatory i18n Anchor Integrity** (D125) — Same-page anchor validation is
+  now **always active** for files inside `i18n/` locale directories, regardless
+  of the `validate_same_page_anchors` config flag. A translator updating
+  `[link](#contesto)` while leaving the heading as `{#context}` is caught
+  immediately.
+
+- **Expanded `@site/` Alias to `repo_root`** (D123) — `known_assets` now scans
+  `repo_root` rather than only `docs_root`, so Docusaurus `@site/static/` image
+  references inside locale files resolve correctly.
+
+- **Docusaurus auto-detection in `zenzic init`** (D128) — `zenzic init` now
+  detects `docusaurus.config.ts` / `docusaurus.config.js` and emits an expanded
+  `[build_context]` template with i18n commentary and the Multi-Root Safe Harbor
+  note. Configuration reference URL updated to `zenzic.dev/docs/reference/`.
 
 ---
 
