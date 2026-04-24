@@ -12,6 +12,68 @@ bug fixes. It is a new standard of precision.
 
 **v0.6.1 is superseded.** v0.7.0 is the canonical reference for all deployments.
 
+---
+
+### 🔬 Codebase Parity & Platform Robustness Sprint (2026-04-24)
+
+A forensic sprint driven by failures surfaced on the Windows and macOS CI legs and
+by a documentation audit comparing every public claim against the actual codebase.
+The codebase is the single source of truth — documentation that contradicts it is a bug.
+
+#### Cross-Platform Asset Resolution
+
+`resolve_asset()` in all three adapter modules used `Path.exists()` for fallback path
+validation. On Windows (NTFS) and macOS (HFS+), `Path.exists()` is case-insensitive:
+`Logo.png` passes even when the file on disk is `logo.png`. This produced false
+"asset found" results that silently suppressed valid Z403/Z404 findings.
+
+**Fix:** `case_sensitive_exists(path)` — a new helper in `_utils.py` that uses
+`os.listdir(path.parent)` to obtain the actual stored filenames from the OS and
+performs an exact membership test. No platform branching; `os.listdir()` always
+returns real names on every OS.
+
+#### Placeholder Scanner Accuracy
+
+`check_placeholder_content()` counted words in the raw Markdown source. Files with
+`{/* long MDX comment */}` headers — used for copyright notices and SPDX metadata —
+inflated the word count above the `placeholder_max_words` threshold, hiding genuine
+short-content pages from detection (`docs/community/license.mdx` was the forensic case).
+
+**Fix:** `_visible_word_count(text)` strips YAML frontmatter, MDX block-comments
+(`{/* … */}`), and HTML comments (`<!-- … -->`) before splitting. The scanner now
+counts only prose visible to the reader.
+
+#### Z000 Guard — TODO Removed
+
+`_factory.py` carried `# TODO: Remove this migration guard in v0.7.0`. The guard
+that raises `ConfigurationError` when `engine = "vanilla"` is not temporary — vanilla
+was permanently removed in v0.6.1. The comment has been replaced with a permanent
+explanation so no future maintainer mistakes it for technical debt to delete.
+
+#### Documentation Audit — 5 DOC_ERRORs Corrected (zenzic-doc)
+
+A full pass comparing every documentation claim against the codebase found five
+categories of error, all classified as **DOC_ERROR** (wrong docs, correct code):
+
+| Finding | Location | Correction |
+|---|---|---|
+| `VanillaAdapter` (13 occurrences) | architecture, engines, adapter guide, glossary, install, custom-rules, faqs, i18n mirrors | → `StandaloneAdapter` |
+| `"code": "BROKEN_LINK"` | `cli.mdx`, `configure-ci-cd.mdx` (EN + IT) | → `"code": "Z104"` |
+| Z000 described as a collectable finding | `finding-codes.mdx` (EN + IT) | → `ConfigurationError` exception, absent from `--format json` |
+| ASCII box diagram | `checks.mdx` (EN + IT) | → Mermaid `flowchart LR` with ObsidianPalette colours |
+| Incorrect message format in JSON examples | `cli.mdx`, `configure-ci-cd.mdx` (EN + IT) | → `"file:line: 'target' not found in docs"` |
+
+#### Security — CVE-2026-3219 (pip polyglot archive)
+
+`pip 26.0.1` is affected by CVE-2026-3219: concatenated tar + ZIP archives are treated
+as ZIP regardless of filename, potentially installing the wrong files. No patched pip
+release exists on PyPI. Zenzic is not at risk — `uv` handles all package management
+and pip is present only as a transitive dependency of pip-audit. All packages are pinned
+via `uv.lock`. Added `--ignore-vuln CVE-2026-3219` to `nox -s security` with a removal
+reminder for when pip ships a fix.
+
+---
+
 ### 🚀 What Changed
 
 #### 1. Z104 Proactive Suggestion Engine (New)
