@@ -21,6 +21,9 @@ performance improvements) — you are in the right place.
 **If you want to contribute to the documentation** (guides, tutorials, translations) —
 head to [zenzic-doc](https://github.com/PythonWoods/zenzic-doc).
 
+> **Brand System** — The visual identity and color palette reference live at
+> <https://zenzic.dev/assets/brand/zenzic-brand-system.html>
+
 ## Mission
 
 Zenzic is not just a linter. It is a long-term safety layer for documentation teams that
