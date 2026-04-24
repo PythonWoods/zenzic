@@ -11,6 +11,31 @@ Le versioni seguono il [Semantic Versioning](https://semver.org/).
 
 ## [Non rilasciato]
 
+### Aggiunto
+
+- **Risoluzione Multi-Root dei Percorsi** (D124) — `InMemoryPathResolver` accetta ora
+  `allowed_roots: list[Path]`. Quando vengono fornite le radici locale, i link
+  relativi cross-locale (es. `i18n/it/intro.md` → `i18n/it/guide.md`) si
+  risolvono correttamente invece di generare un falso positivo
+  `PATH_TRAVERSAL_SUSPICIOUS`. L'invariante di sicurezza è preservata: i target
+  al di fuori di tutte le radici autorizzate vengono comunque rifiutati.
+
+- **Integrità delle Ancore i18n Obbligatoria** (D125) — La validazione delle
+  ancore same-page è ora **sempre attiva** per i file nelle directory locale
+  `i18n/`, indipendentemente dal flag di configurazione
+  `validate_same_page_anchors`. Un traduttore che aggiorna `[link](#contesto)`
+  lasciando il titolo come `{#context}` viene rilevato immediatamente.
+
+- **Alias `@site/` espanso a `repo_root`** (D123) — `known_assets` ora scansiona
+  `repo_root` invece del solo `docs_root`, in modo che i riferimenti alle
+  immagini Docusaurus `@site/static/` all'interno dei file locale si risolvano
+  correttamente.
+
+- **Auto-rilevamento Docusaurus in `zenzic init`** (D128) — `zenzic init` ora
+  rileva `docusaurus.config.ts` / `docusaurus.config.js` ed emette un template
+  `[build_context]` espanso con commenti i18n e la nota Multi-Root Safe Harbor.
+  URL di riferimento alla configurazione aggiornato a `zenzic.dev/docs/reference/`.
+
 ## [0.7.0] — 2026-04-22 — Obsidian Maturity (Stable)
 
 > ⚓ Zenzic v0.7.0 segna il consolidamento dell'architettura core e il pieno allineamento con le specifiche ufficiali. Sostituisce v0.6.1.
