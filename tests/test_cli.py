@@ -87,7 +87,7 @@ def test_check_links_with_errors(_links, _cfg, _root) -> None:
 def test_check_links_strict_passes_flag(mock_links, _cfg, _root) -> None:
     runner.invoke(app, ["check", "links", "--strict"])
     mock_links.assert_called_once_with(
-        _ROOT / "docs",
+        (_ROOT / "docs").resolve(),
         ANY,
         repo_root=_ROOT,
         config=_CFG,
