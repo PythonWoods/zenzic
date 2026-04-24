@@ -633,7 +633,7 @@ mark surviving mutants as equivalent without explicit Architecture Lead approval
 
 ## Adding a new check
 
-Zenzic's checks live in `src/zenzic/core/`. Each check is a standalone function in either `scanner.py` (filesystem traversal) or `validator.py` (content validation). CLI wiring is in `cli.py`.
+Zenzic's checks live in `src/zenzic/core/`. Each check is a standalone function in either `scanner.py` (filesystem traversal) or `validator.py` (content validation). CLI wiring is in the `cli/` package (`src/zenzic/cli/`).
 
 When adding a new check:
 
@@ -645,7 +645,7 @@ When adding a new check:
    See [Core Laws — Zero I/O in the hot path](#zero-io-in-the-hot-path) above.
 3. If the check involves file paths, test it in all three i18n configurations.
    See [Core Laws — i18n determinism](#i18n-determinism) above.
-4. Add a corresponding command (or sub-command) in `cli.py`.
+4. Add a corresponding command (or sub-command) in the `cli/` package — see [CLI Architecture](#cli-architecture) below.
 5. Write tests in `tests/` covering both passing and failing cases, including a performance
    baseline (5 000 links resolved in < 100 ms against a mock in-memory corpus).
 6. Update the examples in `examples/` to exercise the new check — Zenzic validates its own
@@ -654,6 +654,62 @@ When adding a new check:
 > **Performance contract:** the `zenzic.core` hot path must remain allocation-free. No `Path`
 > object construction, no syscalls, and no `relative_to()` calls inside the resolution loop.
 > See `docs/architecture.md` — *IO Purity contract* and *Contributor rules* for the rationale.
+
+---
+
+## CLI Architecture {#cli-architecture}
+
+The CLI is organised as a **package** (`src/zenzic/cli/`) rather than a single module. Each file owns one domain of responsibility:
+
+| Module | Responsibility |
+|:-------|:---------------|
+| `_shared.py` | `console` singleton, `_ui` singleton, `configure_console()`, and all cross-command utilities (`_build_exclusion_manager`, `_output_json_findings`, `_render_link_error`, etc.) |
+| `_check.py` | `check_app` Typer sub-app + seven `check *` commands and their private helpers |
+| `_clean.py` | `clean_app` Typer sub-app + `clean assets` command |
+| `_plugins.py` | `plugins_app` Typer sub-app + `plugins list` command |
+| `_standalone.py` | `score`, `diff`, and `init` commands + their private helpers |
+| `__init__.py` | Public re-export surface consumed by `main.py` — **do not add logic here** |
+
+### The Visual State Guardian
+
+`_shared.py` is the **sole owner of all console and UI state**. This is the most critical architectural rule in the CLI layer:
+
+> **PROHIBITION:** No command module may instantiate `Console()` or `ObsidianUI()` directly. All output must go through `get_ui()` and `get_console()` from `_shared.py`.
+
+```python
+# ✅ Correct — in any _check.py / _clean.py / _standalone.py command
+from . import _shared
+_shared.get_ui().print_header(__version__)
+_shared.get_console().print("output")
+
+# ❌ FORBIDDEN — never do this in a command module
+from rich.console import Console
+from zenzic.ui import ObsidianUI
+console = Console(...)      # breaks shared state
+ui = ObsidianUI(console)    # creates an orphaned instance
+```
+
+This rule exists because `configure_console()` replaces the module-level `console` and `_ui` singletons when `--no-color` or `--force-color` is passed. Any locally-created `Console` or `ObsidianUI` instance will be frozen at the pre-flag state and will ignore the user's color preference.
+
+The `force_terminal` parameter of the module-level `Console` is always `None` (auto-detect via `sys.stdout.isatty()`), never `False` (which would explicitly disable color). Setting `force_terminal=False` is a silent bug that strips all ANSI styling even in interactive terminals.
+
+### Adding a command to an existing sub-app
+
+```python
+# src/zenzic/cli/_check.py (example: adding "check metadata")
+@check_app.command(name="metadata")
+def check_metadata(path: Path = ...) -> None:
+    ...
+```
+
+No changes to `__init__.py` or `main.py` are required — Typer discovers the new sub-command automatically.
+
+### Adding a new top-level sub-app
+
+1. Create `src/zenzic/cli/_myfeature.py` with `myfeature_app = typer.Typer(...)` and your commands.
+2. Export `myfeature_app` from `src/zenzic/cli/__init__.py`.
+3. Register in `src/zenzic/main.py`: `app.add_typer(myfeature_app, name="myfeature", rich_help_panel="...")`.
+4. If the sub-app uses `no_args_is_help=True`, add `"myfeature"` to the `_SUBAPPS_WITH_MENU` frozenset in `cli_main()` so the Zenzic banner appears when the sub-app is invoked with no arguments.
 
 ---
 

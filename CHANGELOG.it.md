@@ -11,7 +11,94 @@ Le versioni seguono il [Semantic Versioning](https://semver.org/).
 
 ## [Non rilasciato]
 
-## [0.7.0] — 2026-04-22 — Obsidian Integrity (Stable)
+## [0.7.0] — 2026-04-22 — Obsidian Maturity (Stable)
+
+> ⚓ Zenzic v0.7.0 segna il consolidamento dell'architettura core e il pieno allineamento con le specifiche ufficiali. Sostituisce v0.6.1.
+
+### ⚠️ BREAKING CHANGE — Plugin MkDocs Rimosso (Direttiva CEO 055)
+
+> **DEPRECAZIONE E RIMOZIONE:** Il plugin MkDocs interno (`zenzic.integrations.mkdocs`) è stato
+> rimosso permanentemente. Zenzic è ora una **CLI Sovrana**. Ciò garantisce che ogni utente,
+> indipendentemente dal motore utilizzato, benefici della piena potenza della Virtual Site Map (VSM),
+> dello Shield (scansione delle credenziali con hardening ZRT-006/007) e del Blood Sentinel
+> (rilevamento path-traversal). Le integrazioni engine interne sono ufficialmente sostituite dal
+> workflow CLI engine-agnostico.
+
+**Migrazione:** Rimuovi `pip install "zenzic[mkdocs]"` e la voce `plugins: - zenzic` da
+`mkdocs.yml`. Aggiungi `zenzic check all` come step CI (prima o dopo `mkdocs build`):
+
+```yaml
+# GitHub Actions — sostituisci il gate del plugin MkDocs con:
+- run: zenzic check all --strict
+```
+
+L'extra opzionale `[mkdocs]` non esiste più. `pip install zenzic` è l'installazione completa.
+
+---
+
+### Refactoring Architetturale — CLI Sovrana e Legge del Core (Direttive 061–068)
+
+#### ⚠️ BREAKING CHANGE — Comando `zenzic plugins` Rimosso (Direttiva CEO 068)
+
+> **RIMOSSO:** Il comando `zenzic plugins` è stato eliminato completamente nella v0.7.0.
+> `zenzic inspect` è ora l'**unica** interfaccia di introspezione. Invocare
+> `zenzic plugins` produce: `No such command 'plugins'`.
+>
+> **Migrazione:** Sostituisci ogni script o step CI che chiama `zenzic plugins list`
+> con `zenzic inspect capabilities`.
+
+#### Modificato
+
+- **`zenzic plugins` ribrandizzato in `zenzic inspect`; sotto-comando `list` → `capabilities`, poi rimosso (Direttive 061-B, 068 — "The Sovereign Rebranding" / "Decapitazione Totale di 'Plugins'").**
+  Il comando di introspezione è ora esclusivamente `zenzic inspect capabilities`.
+  `inspect` è il nome canonico; `plugins` è scomparso dalla CLI.
+
+- **`src/zenzic/ui.py` spostato in `src/zenzic/core/ui.py` (Direttiva 062-B — "The Core Law Enforcement").**
+  `SentinelReporter` (nel `core/`) importava `zenzic.ui`, violando la legge dei layer per cui il
+  core non deve mai guardare verso l'alto. `ObsidianPalette`, `ObsidianUI`, `make_banner`,
+  `emoji` e `SUPPORTS_COLOR` risiedono ora canonicamente in `zenzic.core.ui`. Il vecchio percorso
+  `zenzic.ui` è mantenuto come stub di compatibilità a una riga
+  (`from zenzic.core.ui import *`) per non impattare il codice di terze parti.
+
+- **`src/zenzic/lab.py` spostato in `src/zenzic/cli/_lab.py` (Direttiva 063 — "The Final Relocation").**
+  Il comando Lab è orchestrazione CLI, non logica core. Lo spostamento nel package `cli/`
+  lo allinea con `_check.py`, `_clean.py` e `_inspect.py` — tutti i comandi vivono nello stesso layer.
+
+- **`run_rule()` spostata da `src/zenzic/rules.py` a `src/zenzic/core/rules.py` (Direttiva 064 — "Bonifica dell'SDK").**
+  L'helper di test che esegue una singola regola plugin su una stringa Markdown fa ora parte del
+  core engine. `src/zenzic/rules.py` è ridotta a una façade SDK di sei righe che ri-esporta
+  `BaseRule`, `CustomRule`, `RuleFinding`, `Severity`, `Violation` e `run_rule` dal `core`.
+  Tutti gli statement `from zenzic.rules import ...` esistenti rimangono validi senza modifiche.
+
+#### Rimosso
+
+- **Directory `src/zenzic/integrations/` eliminata fisicamente (Direttiva 066 — "The Physical Purge").**
+  Il plugin `zenzic.integrations.mkdocs` era già stato deprecato dalla Direttiva 055 (Breaking
+  Change sopra). La directory è ora eliminata dal repository — nessun file fantasma rimane.
+  Zenzic è una **CLI Sovrana** pura; non esistono hook engine incorporati.
+
+---
+
+### Supporto Protocollo Docusaurus (Direttiva CEO 117)
+
+#### Aggiunto
+
+- **Schema URL `pathname:///` — Compatibilità Docusaurus (Direttiva CEO 117).**
+  Zenzic riconosce ora nativamente lo schema URL `pathname:///` usato in Docusaurus per
+  referenziare asset statici (PDF, pagine HTML standalone, download) che vivono al di
+  fuori del router React e vengono serviti direttamente dal dev server / CDN.
+  - **Consapevolezza del motore:** il bypass è attivo **solo** quando `engine = "docusaurus"`.
+    I progetti che usano `mkdocs`, `zensical` o `standalone` riceveranno comunque un errore
+    `Z105 ABSOLUTE_PATH` per qualsiasi link `pathname:///`, guidando la migrazione.
+  - **Implementazione:** costante `_DOCUSAURUS_SKIP_SCHEMES` aggiunta a `validator.py`;
+    il loop di validazione risolve la tupla di skip effettiva per-run da `config.build_context.engine`.
+    `pathname:` rimosso dagli `_SKIP_SCHEMES` globali per preservare l'isolamento del motore.
+  - **Testato:** `TestPathnameProtocolSupport` in `test_docusaurus_adapter.py` copre
+    l'isolamento delle costanti, il no-error Docusaurus e l'asserzione MkDocs Z105.
+  - **Documentato:** `docs/reference/engines.mdx` e il mirror IT aggiungono la sezione
+    "Schemi URL speciali" nel capitolo Docusaurus.
+
+---
 
 ### L'Universalismo Agnostico: Z404 per Tutti i Motori (Direttiva CEO 087)
 

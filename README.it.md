@@ -124,7 +124,7 @@ Due livelli di sicurezza sono permanentemente attivi — nessuno è sopprimibile
 
 **The Shield** scansiona ogni riga — inclusi i blocchi di codice delimitati — alla ricerca di
 credenziali. La normalizzazione Unicode sconfigge l'offuscamento (entità HTML, interposizione
-di commenti, lookback multi-riga). Famiglie rilevate: AWS, GitHub/GitLab, Stripe, Slack, OpenAI,
+di commenti, lookback multi-riga). Famiglie rilevate: AWS, GitHub, GitLab PAT, Stripe, Slack, OpenAI,
 Google, intestazioni PEM, payload esadecimali.
 **→ Exit 2. Ruota e verifica immediatamente.**
 
@@ -230,11 +230,7 @@ uv add --dev zenzic
 
 # pip
 pip install zenzic
-pip install "zenzic[mkdocs]"   # + plugin build-time MkDocs
 ```
-
-> L'extra `[mkdocs]` aggiunge il plugin build-time (`zenzic.integrations.mkdocs`).
-> Tutti gli adapter dei motori (Docusaurus, Zensical, Standalone) sono inclusi nell'installazione base.
 
 **Portabilità:** Zenzic rifiuta i link interni assoluti (che iniziano con `/`). I link relativi
 funzionano con qualsiasi percorso di hosting. Gli URL esterni `https://` non sono mai interessati.

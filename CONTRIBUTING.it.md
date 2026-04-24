@@ -24,6 +24,16 @@ dirigiti verso [zenzic-doc](https://github.com/PythonWoods/zenzic-doc).
 
 ---
 
+## Missione
+
+Zenzic non è solo un linter. È un livello di sicurezza a lungo termine per i team di
+documentazione che dipendono da file sorgente aperti e verificabili. Preserviamo la
+continuità della validazione attraverso i cambiamenti di motore (MkDocs, Docusaurus,
+Zensical e futuri adapter) affinché i progetti mantengano il controllo sui propri dati
+e processi di qualità indipendentemente dall'evoluzione dell'ecosistema.
+
+---
+
 ## Inizio rapido
 
 ```bash
@@ -75,7 +85,7 @@ just verify
 Queste regole proteggono le garanzie di prestazioni e determinismo di `src/zenzic/core/`.
 Una PR che viola una qualsiasi di esse verrà rifiutata indipendentemente dalla copertura dei test.
 
-### Zero I/O nel percorso critico
+### Zero I/O nel percorso critico {#zero-io-in-the-hot-path}
 
 `src/zenzic/core/` **non deve mai** chiamare `Path.exists()`, `Path.is_file()`, `open()`,
 o qualsiasi altra operazione del filesystem o di esecuzione processi all'interno di un loop iterativo sui link o sui file.
@@ -93,7 +103,7 @@ Tutto ciò che avviene dopo il Passo 1 deve utilizzare esclusivamente strutture 
 - Risoluzione di asset non `.md` → testata con `asset_str in known_assets` (`frozenset[str]`, O(1))
 - Soppressione artefatti a tempo di build → pattern match `fnmatch` contro gli array `excluded_build_artifacts`
 
-### Determinismo i18n
+### Determinismo i18n {#i18n-determinism}
 
 Eventuali nuove regole di convalida che coinvolgono percorsi di file **devono** essere testate in tre scenari distinti:
 
@@ -280,6 +290,7 @@ Non importare `make_mgr` da `conftest.py` — non è importabile sotto
 ## Sicurezza & Conformità
 
 - **Sicurezza Prima di Tutto:** Qualsiasi nuova risoluzione di percorso DEVE essere testata contro il Path Traversal. Usa la logica `PathTraversal` da `core`.
+- **Test di Offuscamento Shield:** Ogni nuovo pattern Shield o regola normalizzatore DEVE includere test di regressione sull'offuscamento: caratteri di formato Unicode (categoria Cf), codifica HTML entity, interleaving di commenti (HTML `<!-- -->` e MDX `{/* */}`), e token divisi su più righe. Vedi `tests/test_shield_obfuscation.py` come riferimento.
 - **Parità Bilingue:** La documentazione risiede in [zenzic-doc](https://github.com/PythonWoods/zenzic-doc). Indirizza lì i contributori di documentazione.
 
 ---
@@ -534,7 +545,7 @@ del responsabile architettura.
 
 I check di Zenzic si trovano in `src/zenzic/core/`. Ogni check è una funzione autonoma in
 `scanner.py` (traversal del filesystem) o `validator.py` (validazione del contenuto). Il
-cablaggio CLI si trova in `cli.py`.
+cablaggio CLI si trova nel package `cli/` (`src/zenzic/cli/`).
 
 Quando si aggiunge un nuovo check:
 
@@ -544,10 +555,10 @@ Quando si aggiunge un nuovo check:
    all'interno di un loop per-link. Il resolver viene istanziato una volta prima del loop;
    la re-istanziazione per file annulla il `_lookup_map` pre-calcolato e riduce il throughput
    da 430 000+ a meno di 30 000 risoluzioni/s.
-   Vedi [Leggi Core — Zero I/O nel percorso critico](#zero-io-nel-percorso-critico).
+   Vedi [Leggi Core — Zero I/O nel percorso critico](#zero-io-in-the-hot-path).
 3. Se il check riguarda path di file, testalo nelle tre configurazioni i18n.
-   Vedi [Leggi Core — Determinismo i18n](#determinismo-i18n).
-4. Aggiungi un comando corrispondente (o sotto-comando) in `cli.py`.
+   Vedi [Leggi Core — Determinismo i18n](#i18n-determinism).
+4. Aggiungi un comando corrispondente (o sotto-comando) nel package `cli/` — vedi [Architettura CLI](#cli-architecture) sotto.
 5. Scrivi test in `tests/` che coprono sia i casi di successo che quelli di fallimento,
    incluso un benchmark prestazionale (5 000 link risolti in < 100 ms su corpus mock in memoria).
 6. Aggiorna gli esempi in `examples/` per esercitare il nuovo check — Zenzic valida i propri
@@ -557,6 +568,62 @@ Quando si aggiunge un nuovo check:
 > allocazioni. Nessuna costruzione di oggetti `Path`, nessuna syscall, e nessuna chiamata
 > `relative_to()` all'interno del loop di risoluzione.
 > Vedi `docs/architecture.md` — sezioni *IO Purity contract* e *Contributor rules*.
+
+---
+
+## Architettura CLI {#cli-architecture}
+
+La CLI è organizzata come **package** (`src/zenzic/cli/`) anziché come modulo singolo. Ogni file è responsabile di un dominio specifico:
+
+| Modulo | Responsabilità |
+|:-------|:---------------|
+| `_shared.py` | Singleton `console`, singleton `_ui`, `configure_console()`, e tutte le utility trasversali ai comandi (`_build_exclusion_manager`, `_output_json_findings`, `_render_link_error`, ecc.) |
+| `_check.py` | Sub-app Typer `check_app` + sette comandi `check *` e i loro helper privati |
+| `_clean.py` | Sub-app Typer `clean_app` + comando `clean assets` |
+| `_plugins.py` | Sub-app Typer `plugins_app` + comando `plugins list` |
+| `_standalone.py` | Comandi `score`, `diff`, e `init` + i loro helper privati |
+| `__init__.py` | Superficie di re-export pubblica consumata da `main.py` — **non aggiungere logica qui** |
+
+### Il Custode dello Stato Visivo
+
+`_shared.py` è il **solo proprietario di tutto lo stato console e UI**. Questa è la regola architetturale più critica del layer CLI:
+
+> **DIVIETO:** Nessun modulo di comando può istanziare `Console()` o `ObsidianUI()` direttamente. Tutto l'output deve passare attraverso `get_ui()` e `get_console()` di `_shared.py`.
+
+```python
+# ✅ Corretto — in qualsiasi modulo _check.py / _clean.py / _standalone.py
+from . import _shared
+_shared.get_ui().print_header(__version__)
+_shared.get_console().print("output")
+
+# ❌ VIETATO — non farlo mai in un modulo di comando
+from rich.console import Console
+from zenzic.ui import ObsidianUI
+console = Console(...)      # rompe lo stato condiviso
+ui = ObsidianUI(console)    # crea un'istanza orfana
+```
+
+Questa regola esiste perché `configure_console()` sostituisce i singleton `console` e `_ui` a livello di modulo quando vengono passati `--no-color` o `--force-color`. Qualsiasi istanza locale di `Console` o `ObsidianUI` rimarrà congelata allo stato pre-flag e ignorerà la preferenza colore dell'utente.
+
+Il parametro `force_terminal` del `Console` a livello di modulo è sempre `None` (rilevamento automatico via `sys.stdout.isatty()`), mai `False` (che disabiliterebbe esplicitamente il colore). Impostare `force_terminal=False` è un bug silenzioso che rimuove tutti gli stili ANSI anche nei terminali interattivi.
+
+### Aggiungere un comando a una sub-app esistente
+
+```python
+# src/zenzic/cli/_check.py (esempio: aggiungere "check metadata")
+@check_app.command(name="metadata")
+def check_metadata(path: Path = ...) -> None:
+    ...
+```
+
+Non sono necessarie modifiche a `__init__.py` o `main.py` — Typer rileva automaticamente il nuovo sotto-comando.
+
+### Aggiungere una nuova sub-app di primo livello
+
+1. Crea `src/zenzic/cli/_miafeature.py` con `miafeature_app = typer.Typer(...)` e i tuoi comandi.
+2. Esporta `miafeature_app` da `src/zenzic/cli/__init__.py`.
+3. Registra in `src/zenzic/main.py`: `app.add_typer(miafeature_app, name="miafeature", rich_help_panel="...")`.
+4. Se la sub-app usa `no_args_is_help=True`, aggiungi `"miafeature"` al frozenset `_SUBAPPS_WITH_MENU` in `cli_main()` affinché il banner Zenzic appaia quando la sub-app viene invocata senza argomenti.
 
 ---
 
@@ -572,6 +639,44 @@ Questo repository core contiene solamente:
 - `examples/` — fixture mantenuti che Zenzic auto-valida.
 
 Per contribuire alla documentazione, apri una PR nel repository `zenzic-doc`.
+
+---
+
+## QA Avanzato: Mutanti & Proprietà
+
+Zenzic usa due tecniche di test avanzate per garantire che il cuore della Sentinella sia indurito.
+
+### Test Basati sulle Proprietà (Hypothesis)
+
+`tests/test_properties.py` usa [Hypothesis](https://hypothesis.readthedocs.io/) per generare
+migliaia di input casuali e verificare **invarianti** che devono valere per qualsiasi input:
+
+- `extract_links()` non va mai in crash, restituisce sempre `LinkInfo`, i numeri di riga rimangono nel range.
+- `slug_heading()` è in minuscolo, idempotente e privo di trattini iniziali/finali.
+- `CustomRule.check()` restituisce finding validi con `col_start` nel range.
+- `InMemoryPathResolver.resolve()` restituisce sempre un tipo di esito valido e intercetta il path traversal.
+
+Esegui i test sulle proprietà:
+
+```bash
+uv run pytest tests/test_properties.py -x -q
+```
+
+### Mutation Testing (mutmut)
+
+[mutmut](https://mutmut.readthedocs.io/) modifica il codice sorgente (es. cambia `>` in `>=`)
+e verifica se la suite di test intercetta la mutazione. Un mutante sopravvissuto indica una lacuna nei test.
+
+Modulo target: `src/zenzic/core/rules.py` — il cuore della logica di rilevamento della Sentinella.
+
+Esegui il mutation testing:
+
+```bash
+nox -s mutation
+```
+
+**Requisito per il merge:** qualsiasi nuova regola core deve raggiungere un **mutation score > 90%**. Se `mutmut`
+riporta mutanti sopravvissuti in `rules.py`, aggiungi test mirati prima del merge.
 
 ---
 

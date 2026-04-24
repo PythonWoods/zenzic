@@ -15,6 +15,69 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 > ⚓ Zenzic v0.7.0 marks the consolidation of our core architecture and the full alignment with official specifications. Supersedes v0.6.1.
 
+### ⚠️ BREAKING CHANGE — MkDocs Plugin Removed (Direttiva CEO 055)
+
+> **DEPRECATION & REMOVAL:** The internal MkDocs plugin (`zenzic.integrations.mkdocs`) has been
+> permanently removed. Zenzic is now a **Sovereign CLI**. This ensures that every user, regardless
+> of their engine, benefits from the full power of the Virtual Site Map (VSM), the Shield
+> (credential scanning with ZRT-006/007 hardening), and the Blood Sentinel (path-traversal
+> detection). Internal engine integrations are officially replaced by the engine-agnostic CLI
+> workflow.
+
+**Migration:** Remove `pip install "zenzic[mkdocs]"` and the `plugins: - zenzic` entry from
+`mkdocs.yml`. Add `zenzic check all` as a CI step (before or after `mkdocs build`):
+
+```yaml
+# GitHub Actions — replace the MkDocs plugin gate with:
+- run: zenzic check all --strict
+```
+
+The `[mkdocs]` optional extra no longer exists. `pip install zenzic` is the complete install.
+
+---
+
+### Architectural Refactoring — Sovereign CLI & Core Law Enforcement (Direttive 061–068)
+
+#### ⚠️ BREAKING CHANGE — `zenzic plugins` Command Removed (Direttiva CEO 068)
+
+> **REMOVED:** The `zenzic plugins` command has been entirely removed in v0.7.0.
+> `zenzic inspect` is now the **only** introspection interface. If you invoke
+> `zenzic plugins`, the CLI responds with `No such command 'plugins'`.
+>
+> **Migration:** Replace any script or CI step that calls `zenzic plugins list`
+> with `zenzic inspect capabilities`.
+
+#### Changed
+
+- **`zenzic plugins` rebranded to `zenzic inspect`; sub-command `list` → `capabilities` then removed (Direttive 061-B, 068 — "The Sovereign Rebranding" / "The Total Decapitation of 'Plugins'").**
+  The introspection command is now exclusively `zenzic inspect capabilities`.
+  `inspect` is the canonical name; `plugins` is gone from the CLI entirely.
+
+- **`src/zenzic/ui.py` relocated to `src/zenzic/core/ui.py` (Direttiva 062-B — "The Core Law Enforcement").**
+  `SentinelReporter` (in `core/`) imported `zenzic.ui`, violating the layer law that the core must
+  never look upward. `ObsidianPalette`, `ObsidianUI`, `make_banner`, `emoji`, and `SUPPORTS_COLOR`
+  now live canonically in `zenzic.core.ui`. The old path `zenzic.ui` is kept as a one-line
+  compatibility stub (`from zenzic.core.ui import *`) so third-party code is unaffected.
+
+- **`src/zenzic/lab.py` relocated to `src/zenzic/cli/_lab.py` (Direttiva 063 — "The Final Relocation").**
+  The Lab command is CLI orchestration, not core logic. Moving it into the `cli/` package aligns
+  it with `_check.py`, `_clean.py`, and `_inspect.py` — all commands live in the same layer.
+
+- **`run_rule()` moved from `src/zenzic/rules.py` to `src/zenzic/core/rules.py` (Direttiva 064 — "The SDK Cleansing" / "Bonifica dell'SDK").**
+  The test helper that runs a single plugin rule against a Markdown string is now part of the core
+  engine. `src/zenzic/rules.py` is reduced to a six-line SDK façade re-exporting
+  `BaseRule`, `CustomRule`, `RuleFinding`, `Severity`, `Violation`, and `run_rule` from `core`.
+  All existing `from zenzic.rules import ...` statements remain valid with zero changes.
+
+#### Removed
+
+- **`src/zenzic/integrations/` directory physically purged (Direttiva 066 — "The Physical Purge").**
+  The `zenzic.integrations.mkdocs` plugin had already been deprecated by Direttiva 055 (Breaking
+  Change above). The directory is now deleted from the repository — no ghost files remain.
+  Zenzic is a pure **Sovereign CLI**; there are no embedded engine hooks.
+
+---
+
 ### Docusaurus Protocol Support (Direttiva CEO 117)
 
 #### Added
@@ -174,6 +237,54 @@ Versions follow [Semantic Versioning](https://semver.org/).
 - **zenzic-doc Developer README.** Node.js prerequisite corrected from 20 to 24.
   CI matrix wording updated to "Node 22 and 24". Stale i18n route `/docs/intro`
   replaced with the correct `/docs/` (root index) following the Diátaxis restructure.
+
+---
+
+### Guardians Security Audit & Final Hardening Sprint (Direttive 050–052)
+
+#### Added
+
+- **`gitlab-pat` — 9th Shield pattern family.** `glpat-[A-Za-z0-9\-_]{20,}` added
+  to the Shield pattern registry in `src/zenzic/core/shield.py`. The README capability
+  matrix already reflected 9 families; the missing pattern has been registered and
+  documented. `README.md` and `README.it.md` Shield prose updated from "GitHub/GitLab"
+  to "GitHub, GitLab PAT" to reflect the distinct family.
+- **CLI de-monolitization — `cli.py` → `cli/` package.** `src/zenzic/cli.py` (1 968
+  lines, 4 responsibility domains) has been split into a coherent package:
+
+  | Module | Responsibility |
+  |:-------|:---------------|
+  | `_shared.py` | `console` / `_ui` singletons, `configure_console()`, cross-command utilities |
+  | `_check.py` | `check_app` + seven `check *` commands |
+  | `_clean.py` | `clean_app` + `clean assets` command |
+  | `_plugins.py` | `plugins_app` + `plugins list` command |
+  | `_standalone.py` | `score`, `diff`, `init` commands |
+  | `__init__.py` | Public re-export surface — `main.py` import contract unchanged |
+
+  The **Visual State Guardian** law is enforced: no command module may instantiate
+  `Console()` or `ObsidianUI()` directly. All output routes through `get_ui()` and
+  `get_console()` from `_shared.py`.
+
+#### Changed
+
+- **Shield Hardening — ZRT-006 documented.** `_normalize_line_for_shield()` already
+  stripped Unicode format characters (category Cf — zero-width joiners, soft hyphens,
+  etc.) and decoded HTML character references (`html.unescape()`). These capabilities
+  were present in code since v0.6.1 but absent from documentation. Added to
+  `architecture.mdx` (EN + IT) Pre-scan Normalizer table.
+- **Shield Hardening — ZRT-007 documented.** Comment interleaving stripping
+  (`_HTML_COMMENT_RE`, `_MDX_COMMENT_RE`) and the 1-line lookback buffer
+  (`scan_lines_with_lookback()`) were live in `shield.py` but undocumented.
+  `scan_lines_with_lookback()` joins `prev_normalized[-80:] + current_normalized[:80]`
+  and scans the concatenation to catch secrets split across YAML folded scalars or
+  Markdown line breaks. Added to `architecture.mdx` Hardening section (EN + IT).
+- **Tripla Parità: Codice = Docs EN = Docs IT (Direttiva 051).** Forensic audit
+  eliminated a 125-line content delta between EN and IT `architecture.mdx` caused by
+  missing technical content (not natural-language verbosity). Eight targeted additions
+  brought the delta to +36 lines — genuinely fisiologico for bilingual prose.
+  Pre-scan Normalizer table expanded from 3 rows (ZRT-003 only) to 6 rows (ZRT-006,
+  ZRT-007, ZRT-003). Pattern Families table updated from 8 to 9 rows. Hardening
+  section gains the lookback buffer bullet. All changes mirrored to IT.
 
 ---
 
