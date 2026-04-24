@@ -325,6 +325,10 @@ def init(
 
 def _detect_init_engine(repo_root: Path) -> str | None:
     """Auto-detect the documentation engine from config files at *repo_root*."""
+    if (repo_root / "docusaurus.config.ts").is_file() or (
+        repo_root / "docusaurus.config.js"
+    ).is_file():
+        return "docusaurus"
     if (repo_root / "mkdocs.yml").is_file():
         return "mkdocs"
     if (repo_root / "zensical.toml").is_file():
@@ -334,6 +338,8 @@ def _detect_init_engine(repo_root: Path) -> str | None:
 
 def _engine_feedback(detected_engine: str | None) -> str:
     """Return a Rich-formatted engine status line for init output."""
+    if detected_engine == "docusaurus":
+        return "  Engine pre-set to [bold cyan]docusaurus[/] (detected from docusaurus.config.ts/js).\n"
     if detected_engine:
         source = "mkdocs.yml" if detected_engine == "mkdocs" else "zensical.toml"
         return f"  Engine pre-set to [bold cyan]{detected_engine}[/] (detected from {source}).\n"
@@ -354,13 +360,27 @@ def _init_standalone(repo_root: Path, force: bool) -> None:
 
     detected_engine = _detect_init_engine(repo_root)
 
-    build_context_block = ""
-    if detected_engine:
-        build_context_block = f'\n[build_context]\nengine = "{detected_engine}"\n'
+    i18n_note = (
+        '# locales = ["it"]  # list non-default locale directories\n'
+        "# Zenzic v0.7.0+ automatically authorizes these as safe roots.\n"
+    )
+
+    if detected_engine == "docusaurus":
+        build_context_block = (
+            "\n[build_context]\n"
+            'engine = "docusaurus"\n'
+            + i18n_note
+            + "# Note: @site/ alias is resolved automatically for Docusaurus.\n"
+        )
+    elif detected_engine:
+        build_context_block = f'\n[build_context]\nengine = "{detected_engine}"\n' + i18n_note
+    else:
+        build_context_block = ""
 
     toml_content = (
         "# zenzic.toml — project configuration for Zenzic\n"
-        "# See https://zenzic.pythonwoods.dev/configuration/ for full reference.\n"
+        "# See https://zenzic.dev/docs/reference/configuration/ for full reference.\n"
+        "# See https://zenzic.dev/docs/reference/finding-codes/ for all ZXXX diagnostic codes.\n"
         "\n"
         '# docs_dir = "docs"   # default: docs\n'
         "\n"
@@ -415,19 +435,33 @@ def _init_pyproject(repo_root: Path, pyproject_path: Path, force: bool) -> None:
 
     detected_engine = _detect_init_engine(repo_root)
 
-    engine_line = ""
-    if detected_engine:
-        engine_line = f'engine = "{detected_engine}"\n'
+    i18n_note = (
+        '# locales = ["it"]  # list non-default locale directories\n'
+        "# Zenzic v0.7.0+ automatically authorizes these as safe roots.\n"
+    )
+
+    if detected_engine == "docusaurus":
+        engine_section = (
+            "\n[tool.zenzic.build_context]\n"
+            'engine = "docusaurus"\n'
+            + i18n_note
+            + "# Note: @site/ alias is resolved automatically for Docusaurus.\n"
+        )
+    elif detected_engine:
+        engine_section = (
+            f'\n[tool.zenzic.build_context]\nengine = "{detected_engine}"\n' + i18n_note
+        )
+    else:
+        engine_section = '\n# [tool.zenzic.build_context]\n# engine = "standalone"\n'
 
     section = (
         "\n[tool.zenzic]\n"
-        "# See https://zenzic.pythonwoods.dev/configuration/ for full reference.\n"
+        "# See https://zenzic.dev/docs/reference/configuration/ for full reference.\n"
+        "# See https://zenzic.dev/docs/reference/finding-codes/ for all ZXXX diagnostic codes.\n"
         '# docs_dir = "docs"\n'
         "# excluded_check_dirs = []\n"
         "# fail_under = 0\n"
-    )
-    if engine_line:
-        section += f"\n[tool.zenzic.build_context]\n{engine_line}"
+    ) + engine_section
 
     if force and "[tool.zenzic]" in existing:
         existing = re.sub(
