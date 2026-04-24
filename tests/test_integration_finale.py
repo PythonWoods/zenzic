@@ -3,7 +3,7 @@
 """Integration tests for v0.5.0a1 Integration Finale sprint.
 
 Covers:
-- zenzic plugins list (PluginRuleInfo, list_plugin_rules)
+- zenzic inspect capabilities (PluginRuleInfo, list_plugin_rules)
 - Performance telemetry (scan_docs_references verbose=True)
 """
 
@@ -126,34 +126,34 @@ def test_list_plugin_rules_fallback_keeps_sorted_order() -> None:
     assert sources == sorted(sources)
 
 
-# ─── CLI: zenzic plugins list ────────────────────────────────────────────────
+# ─── CLI: zenzic inspect capabilities ───────────────────────────────────────
 
 
-def test_cli_plugins_list_command_runs() -> None:
-    """zenzic plugins list exits 0 and prints output."""
+def test_cli_inspect_capabilities_command_runs() -> None:
+    """zenzic inspect capabilities exits 0 and prints output."""
     from typer.testing import CliRunner
 
     from zenzic.main import app
 
     runner = CliRunner()
-    result = runner.invoke(app, ["plugins", "list"])
+    result = runner.invoke(app, ["inspect", "capabilities"])
     assert result.exit_code == 0
 
 
-def test_cli_plugins_list_shows_broken_links() -> None:
-    """plugins list output mentions the broken-links core rule."""
+def test_cli_inspect_capabilities_shows_broken_links() -> None:
+    """inspect capabilities output mentions the broken-links core rule."""
     from typer.testing import CliRunner
 
     from zenzic.main import app
 
     runner = CliRunner()
-    result = runner.invoke(app, ["plugins", "list"])
+    result = runner.invoke(app, ["inspect", "capabilities"])
     assert "broken-links" in result.output
     assert "Z001" in result.output
 
 
-def test_cli_plugins_list_empty_when_no_rules(monkeypatch: pytest.MonkeyPatch) -> None:
-    """When no rules are registered, prints an informational message without crashing."""
+def test_cli_inspect_capabilities_empty_when_no_rules(monkeypatch: pytest.MonkeyPatch) -> None:
+    """When no extensible rules are registered, both sections still appear and exit 0."""
     from typer.testing import CliRunner
 
     from zenzic.main import app
@@ -161,9 +161,26 @@ def test_cli_plugins_list_empty_when_no_rules(monkeypatch: pytest.MonkeyPatch) -
     monkeypatch.setattr("zenzic.core.rules.list_plugin_rules", lambda: [])
 
     runner = CliRunner()
-    result = runner.invoke(app, ["plugins", "list"])
+    result = runner.invoke(app, ["inspect", "capabilities"])
     assert result.exit_code == 0
-    assert "No rules found" in result.output
+    # Core scanners section always present
+    assert "Core Scanners" in result.output
+    assert "The Shield" in result.output
+    assert "Blood Sentinel" in result.output
+    # Extensible rules section always present, with placeholder row
+    assert "Extensible Rules" in result.output
+    assert "No third-party plugins installed" in result.output
+
+
+def test_cli_plugins_command_removed() -> None:
+    """D068: 'zenzic plugins' is entirely removed — must return a non-zero exit code."""
+    from typer.testing import CliRunner
+
+    from zenzic.main import app
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["plugins", "list"])
+    assert result.exit_code != 0
 
 
 # ─── Telemetry ────────────────────────────────────────────────────────────────

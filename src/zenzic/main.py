@@ -9,16 +9,24 @@ import sys
 from typing import Annotated
 
 import typer
-from rich import box as rich_box
 from rich.console import Console
-from rich.panel import Panel
 
 from zenzic import __version__
-from zenzic.cli import check_app, clean_app, configure_console, diff, init, plugins_app, score
+from zenzic.cli import (
+    check_app,
+    clean_app,
+    configure_console,
+    diff,
+    get_console,
+    get_ui,
+    init,
+    inspect_app,
+    lab,
+    score,
+)
 from zenzic.core.exceptions import PluginContractError, ZenzicError
 from zenzic.core.logging import setup_cli_logging
-from zenzic.lab import lab
-from zenzic.ui import INDIGO, ROSE, ObsidianUI
+from zenzic.core.ui import ObsidianPalette, ObsidianUI
 
 
 def _version_callback(value: bool) -> None:
@@ -30,7 +38,7 @@ def _version_callback(value: bool) -> None:
 app = typer.Typer(
     name="zenzic",
     help=(
-        "[bold #4f46e5]Zenzic[/] — Engine-agnostic linter and security shield "
+        f"[bold {ObsidianPalette.BRAND}]Zenzic[/] — Engine-agnostic linter and security shield "
         "for Markdown documentation.\n\n"
         "Run [bold cyan]zenzic check all[/] for a full audit, or pick individual "
         "checks below."
@@ -38,7 +46,7 @@ app = typer.Typer(
     rich_markup_mode="rich",
     no_args_is_help=True,
     rich_help_panel="Core",
-    epilog=f"[bold {INDIGO}]PythonWoods[/]  [dim]·  Apache-2.0  ·  https://zenzic.dev[/]",
+    epilog=f"[bold {ObsidianPalette.BRAND}]PythonWoods[/]  [dim]·  Apache-2.0  ·  https://zenzic.dev[/]",
 )
 
 
@@ -76,7 +84,7 @@ def _main(
 
 app.add_typer(check_app, name="check", rich_help_panel="Core")
 app.add_typer(clean_app, name="clean", rich_help_panel="Core")
-app.add_typer(plugins_app, name="plugins", rich_help_panel="SDK & Plugins")
+app.add_typer(inspect_app, name="inspect", rich_help_panel="Introspection")
 app.command(name="lab", rich_help_panel="Core")(lab)
 app.command(name="score", rich_help_panel="Quality")(score)
 app.command(name="diff", rich_help_panel="Quality")(diff)
@@ -86,33 +94,28 @@ _err_console = Console(
     stderr=True,
     highlight=False,
     no_color=os.environ.get("NO_COLOR") is not None,
-    force_terminal=os.environ.get("FORCE_COLOR") is not None and os.environ.get("NO_COLOR") is None,
+    force_terminal=True
+    if os.environ.get("FORCE_COLOR") and not os.environ.get("NO_COLOR")
+    else None,
 )
+
+_err_ui = ObsidianUI(_err_console)
 
 
 def _sentinel_alert(exc: ZenzicError, *, border_style: str, title: str) -> None:
     """Render a styled Sentinel Alert panel for a ZenzicError."""
-    lines = [str(exc.message)]
-    if exc.context:
-        lines.append("")
-        for k, v in exc.context.items():
-            lines.append(f"  [dim]{k}:[/] {v}")
-    _err_console.print(
-        Panel(
-            "\n".join(lines),
-            title=f"[{border_style}]{title}[/]",
-            border_style=border_style,
-            box=rich_box.ROUNDED,
-            padding=(0, 1),
-        )
+    _err_ui.print_exception_alert(
+        str(exc.message),
+        context=dict(exc.context) if exc.context else None,
+        title=title,
+        border_style=border_style,
     )
 
 
 def _print_banner() -> None:
-    """Print the Forge Frame Zenzic banner to stderr."""
-    ui = ObsidianUI(_err_console)
-    ui.print_header(__version__)
-    _err_console.print()
+    """Print the Forge Frame Zenzic banner to stdout (same console as commands)."""
+    get_ui().print_header(__version__)
+    get_console().print()
 
 
 def cli_main() -> None:
@@ -122,8 +125,15 @@ def cli_main() -> None:
     _rich_tb_install(show_locals=True, suppress=[typer], word_wrap=True)
     setup_cli_logging()
 
-    # Show an elegant banner on zero args or bare --help
-    if len(sys.argv) == 1 or (len(sys.argv) == 2 and sys.argv[1] in ("--help", "-h")):
+    # Show an elegant banner on zero args, --help/-h at any nesting level,
+    # or when a sub-app (check/clean/inspect) is invoked with no further args
+    # — those hit no_args_is_help=True and show only Typer help without our frame.
+    _SUBAPPS_WITH_MENU = frozenset({"check", "clean", "inspect"})
+    if (
+        len(sys.argv) == 1
+        or any(arg in sys.argv for arg in ("--help", "-h"))
+        or (len(sys.argv) == 2 and sys.argv[1] in _SUBAPPS_WITH_MENU)
+    ):
         _print_banner()
 
     try:
@@ -133,14 +143,14 @@ def cli_main() -> None:
     except PluginContractError as exc:
         _sentinel_alert(
             exc,
-            border_style=f"bold {INDIGO}",
+            border_style=ObsidianPalette.STYLE_BRAND,
             title="Zenzic Plugin Contract Violation",
         )
         sys.exit(1)
     except ZenzicError as exc:
         _sentinel_alert(
             exc,
-            border_style=f"bold {ROSE}",
+            border_style=ObsidianPalette.STYLE_ERR,
             title="Zenzic Error",
         )
         sys.exit(1)

@@ -35,6 +35,7 @@ Z5xx — Content Quality
     Z501  PLACEHOLDER          — page contains stub / TODO content
     Z502  SHORT_CONTENT        — page word count below minimum threshold
     Z503  SNIPPET_ERROR        — fenced code block fails syntax validation
+    Z504  QUALITY_REGRESSION   — Obsidian Scorer detected score drop vs saved baseline
 
 Z9xx — Engine / System
     Z901  RULE_ENGINE_ERROR    — plugin rule raised an unexpected exception
@@ -44,6 +45,8 @@ Z9xx — Engine / System
 """
 
 from __future__ import annotations
+
+from typing import NamedTuple
 
 
 # ── Canonical code map ────────────────────────────────────────────────────────
@@ -109,11 +112,103 @@ CODE_NAMES: dict[str, str] = {
     "Z501": "PLACEHOLDER",
     "Z502": "SHORT_CONTENT",
     "Z503": "SNIPPET_ERROR",
+    "Z504": "QUALITY_REGRESSION",
     "Z901": "RULE_ENGINE_ERROR",
     "Z902": "RULE_TIMEOUT",
     "Z903": "UNUSED_ASSET",
     "Z904": "NAV_CONTRACT",
 }
+
+
+# ── Core Scanner Registry ─────────────────────────────────────────────────────
+
+
+class CoreScanner(NamedTuple):
+    """Static descriptor for a built-in Zenzic scanner.
+
+    These scanners are compiled into Zenzic itself — always active, not
+    configurable or removable via the ``zenzic.rules`` entry-point group.
+    """
+
+    codes: str
+    """Display code range, e.g. ``"Z201"`` or ``"Z202\u2013203"``."""
+
+    name: str
+    """Human-readable scanner name, e.g. ``"The Shield"``."""
+
+    capability: str
+    """One-line capability summary shown in ``zenzic inspect capabilities``."""
+
+    primary_exit: int
+    """Primary exit code: 1 (quality), 2 (Shield), or 3 (Blood Sentinel)."""
+
+    non_suppressible: bool
+    """``True`` when ``--exit-zero`` cannot override this scanner's exit."""
+
+
+#: Built-in scanners — static, always active, single source of truth for
+#: ``zenzic inspect capabilities`` and any future Arsenal introspection.
+CORE_SCANNERS: list[CoreScanner] = [
+    CoreScanner(
+        codes="Z201",
+        name="The Shield",
+        capability=(
+            "Credential & secret detection \u2014 9 families "
+            "(AWS, GitHub, GitLab PAT, Stripe, Slack, OpenAI, Google, PEM, hex)"
+        ),
+        primary_exit=2,
+        non_suppressible=True,
+    ),
+    CoreScanner(
+        codes="Z202\u2013203",
+        name="Blood Sentinel",
+        capability=(
+            "Path-traversal boundary enforcement \u2014 rejects any link escaping the docs/ root"
+        ),
+        primary_exit=3,
+        non_suppressible=True,
+    ),
+    CoreScanner(
+        codes="Z101\u2013106",
+        name="Link Validator",
+        capability=(
+            "Broken links, dead anchors, circular refs, "
+            "absolute internal links, proactive suggestions"
+        ),
+        primary_exit=1,
+        non_suppressible=False,
+    ),
+    CoreScanner(
+        codes="Z301\u2013303",
+        name="Reference Scanner",
+        capability="Dangling reference IDs, dead link definitions, duplicate reference keys",
+        primary_exit=1,
+        non_suppressible=False,
+    ),
+    CoreScanner(
+        codes="Z401\u2013404",
+        name="Structure Guard",
+        capability=(
+            "Directory-index integrity, orphan pages, missing alt text, config asset paths"
+        ),
+        primary_exit=1,
+        non_suppressible=False,
+    ),
+    CoreScanner(
+        codes="Z501\u2013503",
+        name="Content Guard",
+        capability=("Placeholder / stub text, overly short pages, syntax errors in code snippets"),
+        primary_exit=1,
+        non_suppressible=False,
+    ),
+    CoreScanner(
+        codes="Z903",
+        name="Asset Sentry",
+        capability="Unused images and media files not referenced anywhere in the docs tree",
+        primary_exit=1,
+        non_suppressible=False,
+    ),
+]
 
 
 def normalize(legacy_code: str) -> str:

@@ -166,9 +166,9 @@ def _mock_all_checks_with_issues(
     )
 
 
-@patch("zenzic.cli.find_repo_root")
-@patch("zenzic.cli.ZenzicConfig.load")
-@patch("zenzic.cli._run_all_checks", side_effect=_mock_all_checks_empty)
+@patch("zenzic.cli._standalone.find_repo_root")
+@patch("zenzic.cli._standalone.ZenzicConfig.load")
+@patch("zenzic.cli._standalone._run_all_checks", side_effect=_mock_all_checks_empty)
 def test_score_text_perfect(mock_run, mock_load, mock_root, tmp_path: Path) -> None:
     mock_root.return_value = tmp_path
     mock_load.return_value = (_CFG, True)
@@ -177,9 +177,9 @@ def test_score_text_perfect(mock_run, mock_load, mock_root, tmp_path: Path) -> N
     assert "100/100" in result.stdout
 
 
-@patch("zenzic.cli.find_repo_root")
-@patch("zenzic.cli.ZenzicConfig.load")
-@patch("zenzic.cli._run_all_checks", side_effect=_mock_all_checks_empty)
+@patch("zenzic.cli._standalone.find_repo_root")
+@patch("zenzic.cli._standalone.ZenzicConfig.load")
+@patch("zenzic.cli._standalone._run_all_checks", side_effect=_mock_all_checks_empty)
 def test_score_json_output(mock_run, mock_load, mock_root, tmp_path: Path) -> None:
     mock_root.return_value = tmp_path
     mock_load.return_value = (_CFG, True)
@@ -193,9 +193,9 @@ def test_score_json_output(mock_run, mock_load, mock_root, tmp_path: Path) -> No
     assert len(data["categories"]) == 5
 
 
-@patch("zenzic.cli.find_repo_root")
-@patch("zenzic.cli.ZenzicConfig.load")
-@patch("zenzic.cli._run_all_checks", side_effect=_mock_all_checks_empty)
+@patch("zenzic.cli._standalone.find_repo_root")
+@patch("zenzic.cli._standalone.ZenzicConfig.load")
+@patch("zenzic.cli._standalone._run_all_checks", side_effect=_mock_all_checks_empty)
 def test_score_save_creates_snapshot(mock_run, mock_load, mock_root, tmp_path: Path) -> None:
     mock_root.return_value = tmp_path
     mock_load.return_value = (_CFG, True)
@@ -204,9 +204,9 @@ def test_score_save_creates_snapshot(mock_run, mock_load, mock_root, tmp_path: P
     assert (tmp_path / ".zenzic-score.json").exists()
 
 
-@patch("zenzic.cli.find_repo_root")
-@patch("zenzic.cli.ZenzicConfig.load")
-@patch("zenzic.cli._run_all_checks", side_effect=_mock_all_checks_with_issues)
+@patch("zenzic.cli._standalone.find_repo_root")
+@patch("zenzic.cli._standalone.ZenzicConfig.load")
+@patch("zenzic.cli._standalone._run_all_checks", side_effect=_mock_all_checks_with_issues)
 def test_score_fail_under_triggers(mock_run, mock_load, mock_root, tmp_path: Path) -> None:
     mock_root.return_value = tmp_path
     mock_load.return_value = (_CFG, True)
@@ -214,9 +214,9 @@ def test_score_fail_under_triggers(mock_run, mock_load, mock_root, tmp_path: Pat
     assert result.exit_code == 1
 
 
-@patch("zenzic.cli.find_repo_root")
-@patch("zenzic.cli.ZenzicConfig.load")
-@patch("zenzic.cli._run_all_checks", side_effect=_mock_all_checks_empty)
+@patch("zenzic.cli._standalone.find_repo_root")
+@patch("zenzic.cli._standalone.ZenzicConfig.load")
+@patch("zenzic.cli._standalone._run_all_checks", side_effect=_mock_all_checks_empty)
 def test_score_fail_under_passes_when_above(mock_run, mock_load, mock_root, tmp_path: Path) -> None:
     mock_root.return_value = tmp_path
     mock_load.return_value = (_CFG, True)
@@ -227,8 +227,8 @@ def test_score_fail_under_passes_when_above(mock_run, mock_load, mock_root, tmp_
 # ─── CLI: zenzic diff ─────────────────────────────────────────────────────────
 
 
-@patch("zenzic.cli.find_repo_root")
-@patch("zenzic.cli.ZenzicConfig.load")
+@patch("zenzic.cli._standalone.find_repo_root")
+@patch("zenzic.cli._standalone.ZenzicConfig.load")
 def test_diff_no_snapshot_exits_1(mock_load, mock_root, tmp_path: Path) -> None:
     mock_root.return_value = tmp_path
     mock_load.return_value = (_CFG, True)
@@ -237,9 +237,9 @@ def test_diff_no_snapshot_exits_1(mock_load, mock_root, tmp_path: Path) -> None:
     assert "no snapshot" in result.stdout.lower()
 
 
-@patch("zenzic.cli.find_repo_root")
-@patch("zenzic.cli.ZenzicConfig.load")
-@patch("zenzic.cli._run_all_checks", side_effect=_mock_all_checks_empty)
+@patch("zenzic.cli._standalone.find_repo_root")
+@patch("zenzic.cli._standalone.ZenzicConfig.load")
+@patch("zenzic.cli._standalone._run_all_checks", side_effect=_mock_all_checks_empty)
 def test_diff_no_regression(mock_run, mock_load, mock_root, tmp_path: Path) -> None:
     mock_root.return_value = tmp_path
     mock_load.return_value = (_CFG, True)
@@ -254,9 +254,9 @@ def test_diff_no_regression(mock_run, mock_load, mock_root, tmp_path: Path) -> N
     assert "100" in result.stdout
 
 
-@patch("zenzic.cli.find_repo_root")
-@patch("zenzic.cli.ZenzicConfig.load")
-@patch("zenzic.cli._run_all_checks", side_effect=_mock_all_checks_with_issues)
+@patch("zenzic.cli._standalone.find_repo_root")
+@patch("zenzic.cli._standalone.ZenzicConfig.load")
+@patch("zenzic.cli._standalone._run_all_checks", side_effect=_mock_all_checks_with_issues)
 def test_diff_regression_detected(mock_run, mock_load, mock_root, tmp_path: Path) -> None:
     mock_root.return_value = tmp_path
     mock_load.return_value = (_CFG, True)
@@ -271,9 +271,9 @@ def test_diff_regression_detected(mock_run, mock_load, mock_root, tmp_path: Path
     assert "REGRESSION" in result.stdout
 
 
-@patch("zenzic.cli.find_repo_root")
-@patch("zenzic.cli.ZenzicConfig.load")
-@patch("zenzic.cli._run_all_checks", side_effect=_mock_all_checks_with_issues)
+@patch("zenzic.cli._standalone.find_repo_root")
+@patch("zenzic.cli._standalone.ZenzicConfig.load")
+@patch("zenzic.cli._standalone._run_all_checks", side_effect=_mock_all_checks_with_issues)
 def test_diff_threshold_suppresses_exit(mock_run, mock_load, mock_root, tmp_path: Path) -> None:
     mock_root.return_value = tmp_path
     mock_load.return_value = (_CFG, True)
@@ -287,9 +287,9 @@ def test_diff_threshold_suppresses_exit(mock_run, mock_load, mock_root, tmp_path
     assert result.exit_code == 0
 
 
-@patch("zenzic.cli.find_repo_root")
-@patch("zenzic.cli.ZenzicConfig.load")
-@patch("zenzic.cli._run_all_checks", side_effect=_mock_all_checks_with_issues)
+@patch("zenzic.cli._standalone.find_repo_root")
+@patch("zenzic.cli._standalone.ZenzicConfig.load")
+@patch("zenzic.cli._standalone._run_all_checks", side_effect=_mock_all_checks_with_issues)
 def test_diff_json_output(mock_run, mock_load, mock_root, tmp_path: Path) -> None:
     mock_root.return_value = tmp_path
     mock_load.return_value = (_CFG, True)
@@ -310,18 +310,18 @@ def test_diff_json_output(mock_run, mock_load, mock_root, tmp_path: Path) -> Non
 # ─── CLI: check all --exit-zero ───────────────────────────────────────────────
 
 
-@patch("zenzic.cli.find_repo_root")
-@patch("zenzic.cli.ZenzicConfig.load")
+@patch("zenzic.cli._check.find_repo_root")
+@patch("zenzic.cli._check.ZenzicConfig.load")
 @patch(
-    "zenzic.cli.validate_links_structured",
+    "zenzic.cli._check.validate_links_structured",
     return_value=[LinkError(file_path=Path("docs/x.md"), line_no=1, message="broken link")],
 )
-@patch("zenzic.cli.find_orphans", return_value=[])
-@patch("zenzic.cli.validate_snippets", return_value=[])
-@patch("zenzic.cli.find_placeholders", return_value=[])
-@patch("zenzic.cli.find_unused_assets", return_value=[])
-@patch("zenzic.cli.check_nav_contract", return_value=[])
-@patch("zenzic.cli.scan_docs_references", return_value=([], []))
+@patch("zenzic.cli._check.find_orphans", return_value=[])
+@patch("zenzic.cli._check.validate_snippets", return_value=[])
+@patch("zenzic.cli._check.find_placeholders", return_value=[])
+@patch("zenzic.cli._check.find_unused_assets", return_value=[])
+@patch("zenzic.cli._check.check_nav_contract", return_value=[])
+@patch("zenzic.cli._check.scan_docs_references", return_value=([], []))
 def test_check_all_exit_zero_with_failures(
     _refs,
     _nav,
@@ -341,18 +341,18 @@ def test_check_all_exit_zero_with_failures(
     assert "FAILED" in result.stdout  # report is printed but exit is 0
 
 
-@patch("zenzic.cli.find_repo_root")
-@patch("zenzic.cli.ZenzicConfig.load")
+@patch("zenzic.cli._check.find_repo_root")
+@patch("zenzic.cli._check.ZenzicConfig.load")
 @patch(
-    "zenzic.cli.validate_links_structured",
+    "zenzic.cli._check.validate_links_structured",
     return_value=[LinkError(file_path=Path("docs/x.md"), line_no=1, message="broken link")],
 )
-@patch("zenzic.cli.find_orphans", return_value=[])
-@patch("zenzic.cli.validate_snippets", return_value=[])
-@patch("zenzic.cli.find_placeholders", return_value=[])
-@patch("zenzic.cli.find_unused_assets", return_value=[])
-@patch("zenzic.cli.check_nav_contract", return_value=[])
-@patch("zenzic.cli.scan_docs_references", return_value=([], []))
+@patch("zenzic.cli._check.find_orphans", return_value=[])
+@patch("zenzic.cli._check.validate_snippets", return_value=[])
+@patch("zenzic.cli._check.find_placeholders", return_value=[])
+@patch("zenzic.cli._check.find_unused_assets", return_value=[])
+@patch("zenzic.cli._check.check_nav_contract", return_value=[])
+@patch("zenzic.cli._check.scan_docs_references", return_value=([], []))
 def test_check_all_exit_zero_json(
     _refs,
     _nav,
