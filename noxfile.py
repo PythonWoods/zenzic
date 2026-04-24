@@ -95,6 +95,16 @@ def security(session: nox.Session) -> None:
         "--strict",
         "-r",
         req,
+        # CVE-2026-3219: pip mishandles polyglot (tar+ZIP) archives, treating
+        # them as ZIP regardless of filename.  Attack requires a malicious
+        # archive already present on disk or fetched from a compromised index.
+        # Zenzic uses uv for all package management; pip is a transitive
+        # dev-only dependency of pip-audit itself and never installs packages
+        # programmatically.  All packages are pinned via uv.lock.
+        # No patched pip release exists on PyPI yet.
+        # Remove this exemption once pip ships a fix.
+        "--ignore-vuln",
+        "CVE-2026-3219",
         # CVE-2026-4539: ReDoS in Pygments AdlLexer (archetype.py).
         # Attack vector is LOCAL-only (crafted .adl file); Zenzic does not
         # process ADL input and uses Pygments only for documentation syntax
