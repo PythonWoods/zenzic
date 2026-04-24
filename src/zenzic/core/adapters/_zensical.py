@@ -28,7 +28,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from zenzic.core.adapters._mkdocs import MkDocsAdapter, _load_doc_config, find_config_file
-from zenzic.core.adapters._utils import remap_to_default_locale
+from zenzic.core.adapters._utils import case_sensitive_exists, remap_to_default_locale
 from zenzic.core.exceptions import ConfigurationError
 from zenzic.models.config import BuildContext
 
@@ -272,7 +272,7 @@ class ZensicalAdapter:
         if not self._fallback_to_default:
             return None
         fallback = remap_to_default_locale(missing_abs, docs_root, self._locale_dirs)
-        return fallback if fallback is not None and fallback.exists() else None
+        return fallback if fallback is not None and case_sensitive_exists(fallback) else None
 
     def resolve_anchor(
         self,

@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING, Any
 import yaml
 from yaml.nodes import MappingNode, ScalarNode, SequenceNode
 
-from zenzic.core.adapters._utils import remap_to_default_locale
+from zenzic.core.adapters._utils import case_sensitive_exists, remap_to_default_locale
 from zenzic.core.exceptions import ConfigurationError
 from zenzic.models.config import BuildContext
 
@@ -530,7 +530,7 @@ class MkDocsAdapter:
         if not self._fallback_to_default:
             return None
         fallback = remap_to_default_locale(missing_abs, docs_root, self._locale_dirs)
-        return fallback if fallback is not None and fallback.exists() else None
+        return fallback if fallback is not None and case_sensitive_exists(fallback) else None
 
     def resolve_anchor(
         self,
