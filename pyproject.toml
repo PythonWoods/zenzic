@@ -246,6 +246,13 @@ search = "v{current_version}"
 replace = "v{new_version}"
 
 [[tool.bumpversion.files]]
+# Requires zenzic-doc checked out as sibling directory: ../zenzic-doc/
+# bump-my-version exits non-zero if the pattern is not found — D077 hardening.
+filename = "../zenzic-doc/static/assets/brand/zenzic-brand-system.html"
+search = "v{current_version}"
+replace = "v{new_version}"
+
+[[tool.bumpversion.files]]
 filename = ".github/ISSUE_TEMPLATE/security_vulnerability.yml"
 search = '"{current_version}"'
 replace = '"{new_version}"'
