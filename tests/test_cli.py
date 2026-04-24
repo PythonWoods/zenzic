@@ -783,7 +783,7 @@ def test_init_standalone_force_overwrites(tmp_path: Path, monkeypatch: pytest.Mo
     assert result.exit_code == 0
 
     content = (repo / "zenzic.toml").read_text(encoding="utf-8")
-    assert "pythonwoods.dev" in content
+    assert "zenzic.dev/docs/reference/configuration/" in content
     assert "# old" not in content
 
 
