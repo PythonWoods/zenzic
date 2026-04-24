@@ -124,7 +124,7 @@ Two security layers are permanently active — neither is suppressible by `--exi
 
 **The Shield** scans every line — including fenced code blocks — for credentials. Unicode
 normalization defeats obfuscation (HTML entities, comment interleaving, cross-line lookback).
-Detected families: AWS, GitHub/GitLab, Stripe, Slack, OpenAI, Google, PEM headers, hex payloads.
+Detected families: AWS, GitHub, GitLab PAT, Stripe, Slack, OpenAI, Google, PEM headers, hex payloads.
 **→ Exit 2. Rotate and audit immediately.**
 
 **Blood Sentinel** normalizes every resolved link with `os.path.normpath` and rejects any path
@@ -228,11 +228,7 @@ uv add --dev zenzic
 
 # pip
 pip install zenzic
-pip install "zenzic[mkdocs]"   # + MkDocs build-time plugin
 ```
-
-> The `[mkdocs]` extra adds the build-time plugin (`zenzic.integrations.mkdocs`).
-> All engine adapters (Docusaurus, Zensical, Standalone) are included in the base install.
 
 **Portability:** Zenzic rejects absolute internal links (starting with `/`). Relative links
 work at any hosting path. External `https://` URLs are never affected.

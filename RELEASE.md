@@ -176,6 +176,38 @@ Full-run summaries (all acts) aggregate throughput across the entire showcase ru
 - **Bump script:** `scripts/bump-version.sh` + `just bump` automate all six
   hardcoded version strings in the portal on every release.
 
+---
+
+### 🛡️ Guardians Security Audit — Pre-Release Shield Hardening
+
+The final sprint before the v0.7.0 tag was a forensic audit of `shield.py` conducted
+by the Guardians team. The audit revealed three hardening techniques and one credential
+family that were implemented in code but invisible to users in the documentation.
+
+**What was found:**
+
+| Finding | Status before audit | Status after |
+|---------|--------------------|----|
+| ZRT-006: Unicode Cf character stripping | ✅ In code since v0.6.1 | ✅ Documented (EN + IT) |
+| ZRT-006: HTML entity decode (`html.unescape`) | ✅ In code since v0.6.1 | ✅ Documented (EN + IT) |
+| ZRT-007: Comment interleaving strip | ✅ In code since v0.6.1 | ✅ Documented (EN + IT) |
+| ZRT-007: 1-line lookback buffer (`scan_lines_with_lookback`) | ✅ In code since v0.6.1 | ✅ Documented (EN + IT) |
+| `gitlab-pat` — 9th credential family (`glpat-[A-Za-z0-9\-_]{20,}`) | ✅ In code | ✅ Documented + README updated |
+
+**Impact:** `architecture.mdx` Pre-scan Normalizer table expanded from 3 rows to 6 rows.
+Pattern Families table updated from 8 to 9 entries. Hardening section documents the
+80-char tail-head join that catches secrets split across line boundaries.
+
+**CLI Refactor:** `cli.py` (1 968 lines) de-monolitized into the `cli/` package with
+five responsibility-scoped modules and a Visual State Guardian law enforced via
+`get_ui()` and `get_console()` in `_shared.py`. The `main.py` import contract is
+unchanged — this is a zero-impact internal restructure.
+
+**Releasing v0.7.0 without this audit would have left five security features
+undocumented.** The Guardians' work is the final seal of the Porto Sicuro.
+
+---
+
 ### ⚓ Stability Declaration
 
 **v0.7.0 is the canonical stable reference for the Obsidian Maturity sprint.**
