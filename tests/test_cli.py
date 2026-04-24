@@ -50,9 +50,9 @@ def test_cli_help() -> None:
 # ---------------------------------------------------------------------------
 
 
-@patch("zenzic.cli.find_repo_root", return_value=_ROOT)
-@patch("zenzic.cli.ZenzicConfig.load", return_value=(_CFG, False))
-@patch("zenzic.cli.validate_links_structured", return_value=[])
+@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, False))
+@patch("zenzic.cli._check.validate_links_structured", return_value=[])
 def test_check_links_ok(_links, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "links"])
     assert result.exit_code == 0
@@ -60,10 +60,10 @@ def test_check_links_ok(_links, _cfg, _root) -> None:
     assert "No broken links found." in result.stdout
 
 
-@patch("zenzic.cli.find_repo_root", return_value=_ROOT)
-@patch("zenzic.cli.ZenzicConfig.load", return_value=(_CFG, False))
+@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, False))
 @patch(
-    "zenzic.cli.validate_links_structured",
+    "zenzic.cli._check.validate_links_structured",
     return_value=[
         LinkError(
             file_path=_ROOT / "docs" / "index.md",
@@ -81,9 +81,9 @@ def test_check_links_with_errors(_links, _cfg, _root) -> None:
     assert "FILE_NOT_FOUND" in result.stdout or "error" in result.stdout.lower()
 
 
-@patch("zenzic.cli.find_repo_root", return_value=_ROOT)
-@patch("zenzic.cli.ZenzicConfig.load", return_value=(_CFG, False))
-@patch("zenzic.cli.validate_links_structured", return_value=[])
+@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, False))
+@patch("zenzic.cli._check.validate_links_structured", return_value=[])
 def test_check_links_strict_passes_flag(mock_links, _cfg, _root) -> None:
     runner.invoke(app, ["check", "links", "--strict"])
     mock_links.assert_called_once_with(
@@ -95,10 +95,10 @@ def test_check_links_strict_passes_flag(mock_links, _cfg, _root) -> None:
     )
 
 
-@patch("zenzic.cli.find_repo_root", return_value=_ROOT)
-@patch("zenzic.cli.ZenzicConfig.load", return_value=(_CFG, False))
+@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, False))
 @patch(
-    "zenzic.cli.validate_links_structured",
+    "zenzic.cli._check.validate_links_structured",
     return_value=[
         LinkError(
             file_path=_ROOT / "docs" / "index.md",
@@ -115,10 +115,10 @@ def test_check_links_system_path_traversal_exits_3(_links, _cfg, _root) -> None:
     assert result.exit_code == 3
 
 
-@patch("zenzic.cli.find_repo_root", return_value=_ROOT)
-@patch("zenzic.cli.ZenzicConfig.load", return_value=(_CFG, False))
+@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, False))
 @patch(
-    "zenzic.cli.validate_links_structured",
+    "zenzic.cli._check.validate_links_structured",
     return_value=[
         LinkError(
             file_path=_ROOT / "docs" / "index.md",
@@ -151,9 +151,9 @@ def test_cli_check_orphans_empty(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     assert "No orphan pages found." in result.stdout
 
 
-@patch("zenzic.cli.find_repo_root", return_value=_ROOT)
-@patch("zenzic.cli.ZenzicConfig.load", return_value=(_CFG, True))
-@patch("zenzic.cli.find_orphans", return_value=[Path("orphan.md")])
+@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
+@patch("zenzic.cli._check.find_orphans", return_value=[Path("orphan.md")])
 def test_check_orphans_with_orphans(_orphans, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "orphans"])
     assert result.exit_code == 1
@@ -166,9 +166,9 @@ def test_check_orphans_with_orphans(_orphans, _cfg, _root) -> None:
 # ---------------------------------------------------------------------------
 
 
-@patch("zenzic.cli.find_repo_root", return_value=_ROOT)
-@patch("zenzic.cli.ZenzicConfig.load", return_value=(_CFG, True))
-@patch("zenzic.cli.validate_snippets", return_value=[])
+@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
+@patch("zenzic.cli._check.validate_snippets", return_value=[])
 def test_check_snippets_ok(_snip, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "snippets"])
     assert result.exit_code == 0
@@ -176,10 +176,10 @@ def test_check_snippets_ok(_snip, _cfg, _root) -> None:
     assert "All code snippets are syntactically valid." in result.stdout
 
 
-@patch("zenzic.cli.find_repo_root", return_value=_ROOT)
-@patch("zenzic.cli.ZenzicConfig.load", return_value=(_CFG, True))
+@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
 @patch(
-    "zenzic.cli.validate_snippets",
+    "zenzic.cli._check.validate_snippets",
     return_value=[
         SnippetError(
             file_path=Path("api.md"),
@@ -200,9 +200,9 @@ def test_check_snippets_with_errors(_snip, _cfg, _root) -> None:
 # ---------------------------------------------------------------------------
 
 
-@patch("zenzic.cli.find_repo_root", return_value=_ROOT)
-@patch("zenzic.cli.ZenzicConfig.load", return_value=(_CFG, True))
-@patch("zenzic.cli.find_unused_assets", return_value=[])
+@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
+@patch("zenzic.cli._check.find_unused_assets", return_value=[])
 def test_check_assets_ok(_assets, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "assets"])
     assert result.exit_code == 0
@@ -210,9 +210,9 @@ def test_check_assets_ok(_assets, _cfg, _root) -> None:
     assert "No unused assets found." in result.stdout
 
 
-@patch("zenzic.cli.find_repo_root", return_value=_ROOT)
-@patch("zenzic.cli.ZenzicConfig.load", return_value=(_CFG, True))
-@patch("zenzic.cli.find_unused_assets", return_value=[Path("assets/unused.png")])
+@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
+@patch("zenzic.cli._check.find_unused_assets", return_value=[Path("assets/unused.png")])
 def test_check_assets_with_unused(_assets, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "assets"])
     assert result.exit_code == 1
@@ -225,9 +225,9 @@ def test_check_assets_with_unused(_assets, _cfg, _root) -> None:
 # ---------------------------------------------------------------------------
 
 
-@patch("zenzic.cli.find_repo_root", return_value=_ROOT)
-@patch("zenzic.cli.ZenzicConfig.load", return_value=(_CFG, True))
-@patch("zenzic.cli.find_placeholders", return_value=[])
+@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
+@patch("zenzic.cli._check.find_placeholders", return_value=[])
 def test_check_placeholders_ok(_ph, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "placeholders"])
     assert result.exit_code == 0
@@ -235,10 +235,10 @@ def test_check_placeholders_ok(_ph, _cfg, _root) -> None:
     assert "No placeholder stubs found." in result.stdout
 
 
-@patch("zenzic.cli.find_repo_root", return_value=_ROOT)
-@patch("zenzic.cli.ZenzicConfig.load", return_value=(_CFG, True))
+@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
 @patch(
-    "zenzic.cli.find_placeholders",
+    "zenzic.cli._check.find_placeholders",
     return_value=[
         PlaceholderFinding(
             file_path=Path("stub.md"), line_no=1, issue="short-content", detail="5 words"
@@ -277,10 +277,10 @@ def test_cli_check_all_json_empty(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
     }
 
 
-@patch("zenzic.cli.find_repo_root", return_value=_ROOT)
-@patch("zenzic.cli.ZenzicConfig.load", return_value=(_CFG, True))
+@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
 @patch(
-    "zenzic.cli.validate_links_structured",
+    "zenzic.cli._check.validate_links_structured",
     return_value=[
         LinkError(
             file_path=_ROOT / "docs" / "index.md",
@@ -289,12 +289,12 @@ def test_cli_check_all_json_empty(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
         )
     ],
 )
-@patch("zenzic.cli.find_orphans", return_value=[])
-@patch("zenzic.cli.validate_snippets", return_value=[])
-@patch("zenzic.cli.find_placeholders", return_value=[])
-@patch("zenzic.cli.find_unused_assets", return_value=[])
-@patch("zenzic.cli.check_nav_contract", return_value=[])
-@patch("zenzic.cli.scan_docs_references", return_value=([], []))
+@patch("zenzic.cli._check.find_orphans", return_value=[])
+@patch("zenzic.cli._check.validate_snippets", return_value=[])
+@patch("zenzic.cli._check.find_placeholders", return_value=[])
+@patch("zenzic.cli._check.find_unused_assets", return_value=[])
+@patch("zenzic.cli._check.check_nav_contract", return_value=[])
+@patch("zenzic.cli._check.scan_docs_references", return_value=([], []))
 def test_check_all_json_with_errors(
     _refs, _nav, _assets, _ph, _snip, _orphans, _links, _cfg, _root
 ) -> None:
@@ -309,25 +309,25 @@ def test_check_all_json_with_errors(
 # ---------------------------------------------------------------------------
 
 
-@patch("zenzic.cli.find_repo_root", return_value=_ROOT)
-@patch("zenzic.cli.ZenzicConfig.load", return_value=(_CFG, True))
-@patch("zenzic.cli.validate_links_structured", return_value=[])
-@patch("zenzic.cli.find_orphans", return_value=[])
-@patch("zenzic.cli.validate_snippets", return_value=[])
-@patch("zenzic.cli.find_placeholders", return_value=[])
-@patch("zenzic.cli.find_unused_assets", return_value=[])
-@patch("zenzic.cli.check_nav_contract", return_value=[])
-@patch("zenzic.cli.scan_docs_references", return_value=([], []))
+@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
+@patch("zenzic.cli._check.validate_links_structured", return_value=[])
+@patch("zenzic.cli._check.find_orphans", return_value=[])
+@patch("zenzic.cli._check.validate_snippets", return_value=[])
+@patch("zenzic.cli._check.find_placeholders", return_value=[])
+@patch("zenzic.cli._check.find_unused_assets", return_value=[])
+@patch("zenzic.cli._check.check_nav_contract", return_value=[])
+@patch("zenzic.cli._check.scan_docs_references", return_value=([], []))
 def test_check_all_text_ok(_refs, _nav, _assets, _ph, _snip, _orphans, _links, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "all"])
     assert result.exit_code == 0
     assert "Obsidian Seal" in result.stdout or "SUCCESS" in result.stdout
 
 
-@patch("zenzic.cli.find_repo_root", return_value=_ROOT)
-@patch("zenzic.cli.ZenzicConfig.load", return_value=(_CFG, True))
+@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
 @patch(
-    "zenzic.cli.validate_links_structured",
+    "zenzic.cli._check.validate_links_structured",
     return_value=[
         LinkError(
             file_path=_ROOT / "docs" / "index.md",
@@ -336,20 +336,20 @@ def test_check_all_text_ok(_refs, _nav, _assets, _ph, _snip, _orphans, _links, _
         )
     ],
 )
-@patch("zenzic.cli.find_orphans", return_value=[Path("orphan.md")])
+@patch("zenzic.cli._check.find_orphans", return_value=[Path("orphan.md")])
 @patch(
-    "zenzic.cli.validate_snippets",
+    "zenzic.cli._check.validate_snippets",
     return_value=[SnippetError(file_path=Path("api.md"), line_no=5, message="SyntaxError")],
 )
 @patch(
-    "zenzic.cli.find_placeholders",
+    "zenzic.cli._check.find_placeholders",
     return_value=[
         PlaceholderFinding(file_path=Path("stub.md"), line_no=1, issue="short-content", detail="x")
     ],
 )
-@patch("zenzic.cli.find_unused_assets", return_value=[Path("assets/unused.png")])
-@patch("zenzic.cli.check_nav_contract", return_value=[])
-@patch("zenzic.cli.scan_docs_references", return_value=([], []))
+@patch("zenzic.cli._check.find_unused_assets", return_value=[Path("assets/unused.png")])
+@patch("zenzic.cli._check.check_nav_contract", return_value=[])
+@patch("zenzic.cli._check.scan_docs_references", return_value=([], []))
 def test_check_all_text_with_all_errors(
     _refs, _nav, _assets, _ph, _snip, _orphans, _links, _cfg, _root
 ) -> None:
@@ -367,15 +367,15 @@ def test_check_all_text_with_all_errors(
 # ---------------------------------------------------------------------------
 
 
-@patch("zenzic.cli.find_repo_root", return_value=_ROOT)
-@patch("zenzic.cli.ZenzicConfig.load", return_value=(_CFG, True))
-@patch("zenzic.cli.validate_links_structured", return_value=[])
-@patch("zenzic.cli.find_orphans", return_value=[])
-@patch("zenzic.cli.validate_snippets", return_value=[])
-@patch("zenzic.cli.find_placeholders", return_value=[])
-@patch("zenzic.cli.find_unused_assets", return_value=[])
-@patch("zenzic.cli.check_nav_contract", return_value=[])
-@patch("zenzic.cli.scan_docs_references", return_value=([], []))
+@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
+@patch("zenzic.cli._check.validate_links_structured", return_value=[])
+@patch("zenzic.cli._check.find_orphans", return_value=[])
+@patch("zenzic.cli._check.validate_snippets", return_value=[])
+@patch("zenzic.cli._check.find_placeholders", return_value=[])
+@patch("zenzic.cli._check.find_unused_assets", return_value=[])
+@patch("zenzic.cli._check.check_nav_contract", return_value=[])
+@patch("zenzic.cli._check.scan_docs_references", return_value=([], []))
 def test_check_all_quiet_ok(
     _refs, _nav, _assets, _ph, _snip, _orphans, _links, _cfg, _root
 ) -> None:
@@ -385,10 +385,10 @@ def test_check_all_quiet_ok(
     assert "zenzic" not in result.stdout.lower() or result.stdout.strip() == ""
 
 
-@patch("zenzic.cli.find_repo_root", return_value=_ROOT)
-@patch("zenzic.cli.ZenzicConfig.load", return_value=(_CFG, True))
+@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
 @patch(
-    "zenzic.cli.validate_links_structured",
+    "zenzic.cli._check.validate_links_structured",
     return_value=[
         LinkError(
             file_path=_ROOT / "docs" / "index.md",
@@ -397,12 +397,12 @@ def test_check_all_quiet_ok(
         )
     ],
 )
-@patch("zenzic.cli.find_orphans", return_value=[])
-@patch("zenzic.cli.validate_snippets", return_value=[])
-@patch("zenzic.cli.find_placeholders", return_value=[])
-@patch("zenzic.cli.find_unused_assets", return_value=[])
-@patch("zenzic.cli.check_nav_contract", return_value=[])
-@patch("zenzic.cli.scan_docs_references", return_value=([], []))
+@patch("zenzic.cli._check.find_orphans", return_value=[])
+@patch("zenzic.cli._check.validate_snippets", return_value=[])
+@patch("zenzic.cli._check.find_placeholders", return_value=[])
+@patch("zenzic.cli._check.find_unused_assets", return_value=[])
+@patch("zenzic.cli._check.check_nav_contract", return_value=[])
+@patch("zenzic.cli._check.scan_docs_references", return_value=([], []))
 def test_check_all_quiet_with_errors(
     _refs, _nav, _assets, _ph, _snip, _orphans, _links, _cfg, _root
 ) -> None:
@@ -416,15 +416,15 @@ def test_check_all_quiet_with_errors(
 # ---------------------------------------------------------------------------
 
 
-@patch("zenzic.cli.find_repo_root", return_value=_ROOT)
-@patch("zenzic.cli.ZenzicConfig.load", return_value=(_CFG, True))
-@patch("zenzic.cli.validate_links_structured", return_value=[])
-@patch("zenzic.cli.find_orphans", return_value=[])
-@patch("zenzic.cli.validate_snippets", return_value=[])
-@patch("zenzic.cli.find_placeholders", return_value=[])
-@patch("zenzic.cli.find_unused_assets", return_value=[])
-@patch("zenzic.cli.check_nav_contract", return_value=[])
-@patch("zenzic.cli.scan_docs_references")
+@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
+@patch("zenzic.cli._check.validate_links_structured", return_value=[])
+@patch("zenzic.cli._check.find_orphans", return_value=[])
+@patch("zenzic.cli._check.validate_snippets", return_value=[])
+@patch("zenzic.cli._check.find_placeholders", return_value=[])
+@patch("zenzic.cli._check.find_unused_assets", return_value=[])
+@patch("zenzic.cli._check.check_nav_contract", return_value=[])
+@patch("zenzic.cli._check.scan_docs_references")
 def test_check_all_strict_fails_on_warnings_only(
     mock_refs, _nav, _assets, _ph, _snip, _orphans, _links, _cfg, _root
 ) -> None:
@@ -446,15 +446,15 @@ def test_check_all_strict_fails_on_warnings_only(
     assert result.exit_code == 1
 
 
-@patch("zenzic.cli.find_repo_root", return_value=_ROOT)
-@patch("zenzic.cli.ZenzicConfig.load", return_value=(_CFG, True))
-@patch("zenzic.cli.validate_links_structured", return_value=[])
-@patch("zenzic.cli.find_orphans", return_value=[])
-@patch("zenzic.cli.validate_snippets", return_value=[])
-@patch("zenzic.cli.find_placeholders", return_value=[])
-@patch("zenzic.cli.find_unused_assets", return_value=[])
-@patch("zenzic.cli.check_nav_contract", return_value=[])
-@patch("zenzic.cli.scan_docs_references")
+@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
+@patch("zenzic.cli._check.validate_links_structured", return_value=[])
+@patch("zenzic.cli._check.find_orphans", return_value=[])
+@patch("zenzic.cli._check.validate_snippets", return_value=[])
+@patch("zenzic.cli._check.find_placeholders", return_value=[])
+@patch("zenzic.cli._check.find_unused_assets", return_value=[])
+@patch("zenzic.cli._check.check_nav_contract", return_value=[])
+@patch("zenzic.cli._check.scan_docs_references")
 def test_check_all_no_strict_passes_on_warnings_only(
     mock_refs, _nav, _assets, _ph, _snip, _orphans, _links, _cfg, _root
 ) -> None:
@@ -481,8 +481,8 @@ def test_check_all_no_strict_passes_on_warnings_only(
 # ---------------------------------------------------------------------------
 
 
-@patch("zenzic.cli.find_repo_root", return_value=_ROOT)
-@patch("zenzic.cli.ZenzicConfig.load", return_value=(_CFG, True))
+@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
 def test_check_all_target_not_found(_cfg, _root) -> None:
     """Non-existent target must exit 1 with an error message."""
     result = runner.invoke(app, ["check", "all", "nonexistent.md"])
@@ -637,10 +637,10 @@ class TestSentinelReporter:
 # ---------------------------------------------------------------------------
 
 
-@patch("zenzic.cli.find_repo_root", return_value=_ROOT)
-@patch("zenzic.cli.ZenzicConfig.load", return_value=(_CFG, True))
+@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
 @patch(
-    "zenzic.cli.scan_docs_references",
+    "zenzic.cli._check.scan_docs_references",
     return_value=([], []),
 )
 def test_check_references_ok(_scan, _cfg, _root) -> None:
@@ -650,9 +650,9 @@ def test_check_references_ok(_scan, _cfg, _root) -> None:
     assert "All references resolved." in result.stdout
 
 
-@patch("zenzic.cli.find_repo_root", return_value=_ROOT)
-@patch("zenzic.cli.ZenzicConfig.load", return_value=(_CFG, True))
-@patch("zenzic.cli.scan_docs_references")
+@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
+@patch("zenzic.cli._check.scan_docs_references")
 def test_check_references_rule_findings_surfaced(mock_scan, _cfg, _root) -> None:
     """rule_findings on IntegrityReport must appear in check references output."""
     from zenzic.core.rules import RuleFinding
@@ -1007,15 +1007,15 @@ class TestShowInfoFilter:
         assert errors == 0
         assert warnings == 0
 
-    @patch("zenzic.cli.find_repo_root", return_value=_ROOT)
-    @patch("zenzic.cli.ZenzicConfig.load", return_value=(_CFG, True))
-    @patch("zenzic.cli.validate_links_structured", return_value=[])
-    @patch("zenzic.cli.find_orphans", return_value=[])
-    @patch("zenzic.cli.validate_snippets", return_value=[])
-    @patch("zenzic.cli.find_placeholders", return_value=[])
-    @patch("zenzic.cli.find_unused_assets", return_value=[])
-    @patch("zenzic.cli.check_nav_contract", return_value=[])
-    @patch("zenzic.cli.scan_docs_references", return_value=([], []))
+    @patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+    @patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
+    @patch("zenzic.cli._check.validate_links_structured", return_value=[])
+    @patch("zenzic.cli._check.find_orphans", return_value=[])
+    @patch("zenzic.cli._check.validate_snippets", return_value=[])
+    @patch("zenzic.cli._check.find_placeholders", return_value=[])
+    @patch("zenzic.cli._check.find_unused_assets", return_value=[])
+    @patch("zenzic.cli._check.check_nav_contract", return_value=[])
+    @patch("zenzic.cli._check.scan_docs_references", return_value=([], []))
     def test_check_all_show_info_flag_accepted(
         self, _refs, _nav, _assets, _ph, _snip, _orphans, _links, _cfg, _root
     ) -> None:

@@ -998,3 +998,34 @@ def list_plugin_rules() -> list[PluginRuleInfo]:
         Sorted list of :class:`PluginRuleInfo`, ordered by ``source`` name.
     """
     return PluginRegistry().list_rules()
+
+
+def run_rule(
+    rule: BaseRule,
+    text: str,
+    *,
+    file_path: Path | str = "test.md",
+) -> list[RuleFinding]:
+    """Run a single rule against *text* and return findings.
+
+    This is the recommended way for plugin authors to test their rules::
+
+        from zenzic.rules import BaseRule, RuleFinding, run_rule
+
+        def test_my_rule():
+            findings = run_rule(MyRule(), "some DRAFT content")
+            assert len(findings) == 1
+            assert findings[0].severity == "warning"
+
+    Args:
+        rule: A :class:`BaseRule` instance to test.
+        text: Raw Markdown content to scan.
+        file_path: Optional file path for labelling (default: ``test.md``).
+
+    Returns:
+        List of :class:`RuleFinding` objects.
+    """
+    from pathlib import Path
+
+    engine = AdaptiveRuleEngine([rule])
+    return engine.run(Path(file_path), text)

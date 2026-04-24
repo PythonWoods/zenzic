@@ -17,24 +17,25 @@ from pathlib import Path
 
 import typer
 from rich import box
-from rich.console import Console, Group
+from rich.console import Group
 from rich.table import Table
 from rich.text import Text
 
 from zenzic import __version__
-from zenzic.cli import (
+from zenzic.cli._check import (
     _apply_target,
     _collect_all_results,
-    _count_docs_assets,
     _to_findings,
+)
+from zenzic.cli._shared import (
+    _count_docs_assets,
+    get_console,
+    get_ui,
 )
 from zenzic.core.exclusion import LayeredExclusionManager
 from zenzic.core.reporter import Finding, SentinelReporter
+from zenzic.core.ui import ObsidianPalette, emoji
 from zenzic.models.config import ZenzicConfig
-from zenzic.ui import EMERALD, INDIGO, ROSE, SLATE, ObsidianUI, emoji
-
-
-_console = Console(highlight=False)
 
 
 # ── Path resolution ──────────────────────────────────────────────────────────
@@ -47,7 +48,7 @@ def _examples_root() -> Path:
 
     1. **Installed wheel** — ``zenzic/examples/`` inside the package tree, as
        populated by the ``force-include`` hatchling directive.
-    2. **Editable / source checkout** — three directories above ``lab.py``
+    2. **Editable / source checkout** — four directories above ``_lab.py``
        (``<repo>/examples/``).
 
     Raises :exc:`FileNotFoundError` when neither location resolves to a
@@ -57,8 +58,8 @@ def _examples_root() -> Path:
     installed = pkg_root / "examples"
     if installed.is_dir():
         return installed
-    # lab.py is at src/zenzic/lab.py; the repo root is three levels above.
-    dev = Path(__file__).resolve().parent.parent.parent / "examples"
+    # _lab.py is at src/zenzic/cli/_lab.py; the repo root is four levels above.
+    dev = Path(__file__).resolve().parent.parent.parent.parent / "examples"
     if dev.is_dir():
         return dev
     raise FileNotFoundError(
@@ -229,7 +230,7 @@ def _run_act(act: _Act, examples_root: Path) -> _ActResult:
     if single_file is not None:
         docs_count, assets_count = 1, 0
 
-    reporter = SentinelReporter(_console, docs_root, docs_dir=str(config.docs_dir))
+    reporter = SentinelReporter(get_console(), docs_root, docs_dir=str(config.docs_dir))
     errors, warnings = reporter.render(
         findings,
         version=__version__,
@@ -273,16 +274,16 @@ def _status_cell(r: _ActResult) -> str:
 
 def _print_summary(results: list[_ActResult]) -> None:
     table = Table(
-        title=f"\n[bold {INDIGO}]⬡  ZENZIC LAB — Full Run Summary[/]",
+        title=f"\n[bold {ObsidianPalette.BRAND}]⬡  ZENZIC LAB — Full Run Summary[/]",
         box=box.ROUNDED,
         show_header=True,
-        header_style=f"bold {INDIGO}",
+        header_style=ObsidianPalette.STYLE_BRAND,
     )
-    table.add_column("Act", justify="center", style=f"bold {INDIGO}", width=5)
+    table.add_column("Act", justify="center", style=ObsidianPalette.STYLE_BRAND, width=5)
     table.add_column("Title", style="bold", min_width=22)
     table.add_column("Engine", style="cyan", min_width=10)
-    table.add_column("Files", justify="right", style=SLATE, min_width=7)
-    table.add_column("files/s", justify="right", style=SLATE, min_width=8)
+    table.add_column("Files", justify="right", style=ObsidianPalette.DIM, min_width=7)
+    table.add_column("files/s", justify="right", style=ObsidianPalette.DIM, min_width=8)
     table.add_column("Result", min_width=26)
     table.add_column("Time", justify="right", style="dim", min_width=7)
 
@@ -300,13 +301,14 @@ def _print_summary(results: list[_ActResult]) -> None:
             f"{r.elapsed:.2f}s",
         )
 
-    _console.print(table)
+    con = get_console()
+    con.print(table)
 
     # ── Obsidian Seal footer ──────────────────────────────────────────────────
     avg_throughput = total_files / total_elapsed if total_elapsed > 0 else 0.0
     seal_items = [
         Text.from_markup(
-            f"[{SLATE}]{total_files} files scanned across {len(results)} acts"
+            f"[{ObsidianPalette.DIM}]{total_files} files scanned across {len(results)} acts"
             f" {emoji('dot')} {total_elapsed:.2f}s total"
             f" {emoji('dot')} {avg_throughput:.0f} files/s[/]"
         ),
@@ -315,25 +317,26 @@ def _print_summary(results: list[_ActResult]) -> None:
     if unexpected == 0:
         seal_items.append(
             Text.from_markup(
-                f"[bold {EMERALD}]{emoji('check')} All {len(results)} act(s) met expectations."
+                f"[bold {ObsidianPalette.SUCCESS}]{emoji('check')} All {len(results)} act(s) met expectations."
                 " The Obsidian Mirror is clear.[/]"
             )
         )
     else:
         seal_items.append(
             Text.from_markup(
-                f"[bold {ROSE}]{emoji('cross')} {unexpected}/{len(results)} act(s)"
+                f"[bold {ObsidianPalette.ERROR}]{emoji('cross')} {unexpected}/{len(results)} act(s)"
                 " did not meet expectations.[/]"
             )
         )
 
-    _console.print()
-    ui = ObsidianUI(_console)
-    ui.print_header(__version__)
-    _console.print()
-    _console.print(
+    con.print()
+    get_ui().print_header(__version__)
+    con.print()
+    con.print(
         Group(
-            Text.from_markup(f"[bold {INDIGO}]{emoji('shield')} OBSIDIAN SEAL — Lab Complete[/]"),
+            Text.from_markup(
+                f"[bold {ObsidianPalette.BRAND}]{emoji('shield')} OBSIDIAN SEAL — Lab Complete[/]"
+            ),
             Text(),
             *seal_items,
         ),
@@ -348,23 +351,23 @@ def _print_act_seal(r: _ActResult) -> None:
         + (f" {emoji('dot')} {r.throughput:.0f} files/s" if r.total_files else "")
     )
     seal_items: list[Text] = [
-        Text.from_markup(f"[{SLATE}]{files_line}[/]"),
+        Text.from_markup(f"[{ObsidianPalette.DIM}]{files_line}[/]"),
         Text(),
     ]
     if r.met_expectation:
         verdict = f"{emoji('check')} Act {r.act.id} — {r.act.title} — expectation met."
-        seal_items.append(Text.from_markup(f"[bold {EMERALD}]{verdict}[/]"))
+        seal_items.append(Text.from_markup(f"[bold {ObsidianPalette.SUCCESS}]{verdict}[/]"))
     else:
         verdict = f"{emoji('cross')} Act {r.act.id} — {r.act.title} — expectation NOT met."
-        seal_items.append(Text.from_markup(f"[bold {ROSE}]{verdict}[/]"))
+        seal_items.append(Text.from_markup(f"[bold {ObsidianPalette.ERROR}]{verdict}[/]"))
 
-    _console.print()
-    ui = ObsidianUI(_console)
-    ui.print_header(__version__)
-    _console.print()
-    _console.print(
+    con = get_console()
+    con.print()
+    get_ui().print_header(__version__)
+    con.print()
+    con.print(
         Group(
-            Text.from_markup(f"[bold {INDIGO}]{emoji('shield')} OBSIDIAN SEAL[/]"),
+            Text.from_markup(f"[bold {ObsidianPalette.BRAND}]{emoji('shield')} OBSIDIAN SEAL[/]"),
             Text(),
             *seal_items,
         ),
@@ -373,14 +376,14 @@ def _print_act_seal(r: _ActResult) -> None:
 
 def _print_act_index() -> None:
     table = Table(
-        title=f"[bold #4f46e5]⬡  ZENZIC LAB[/]  [dim]v{__version__}[/]",
+        title=f"[bold {ObsidianPalette.BRAND}]⬡  ZENZIC LAB[/]  [dim]v{__version__}[/]",
         box=box.ROUNDED,
         show_header=True,
         header_style="bold cyan",
     )
     table.add_column("Act", justify="center", style="bold cyan", width=5)
     table.add_column("Title", style="bold", min_width=22)
-    table.add_column("Description", style="#f59e0b")
+    table.add_column("Description", style=ObsidianPalette.WARNING)
     table.add_column("Expects", justify="center", min_width=10)
 
     for act in _ACTS:
@@ -393,7 +396,7 @@ def _print_act_index() -> None:
         )
         table.add_row(str(act.id), act.title, act.description, expects)
 
-    _console.print(table)
+    get_console().print(table)
 
 
 # ── CLI command ───────────────────────────────────────────────────────────────
@@ -424,9 +427,9 @@ def lab(
         [bold cyan]zenzic lab 9[/]    — run Act 9 (MkDocs Favicon Guard)
         [bold cyan]zenzic lab 10[/]   — run Act 10 (Zensical Logo Guard)
     """
-    _console.print()
-    ui = ObsidianUI(_console)
-    ui.print_header(__version__)
+    con = get_console()
+    con.print()
+    get_ui().print_header(__version__)
 
     if list_acts:
         _print_act_index()
@@ -435,35 +438,32 @@ def lab(
     if act_number is None:
         # No argument: show the menu and instructions, do not run any act.
         _print_act_index()
-        _console.print(
+        con.print(
             "\n[bold]Welcome to the Zenzic Lab.[/] Choose an act to see the Sentinel in action.\n"
             "  Run [bold cyan]zenzic lab <N>[/] to execute a specific act (e.g. [cyan]zenzic lab 0[/]).\n"
         )
         return
 
     if not (0 <= act_number <= 10):
-        _console.print(
-            f"[bold red]ERROR:[/] Act number must be between 0 and 10, got {act_number}."
-        )
+        con.print(f"[bold red]ERROR:[/] Act number must be between 0 and 10, got {act_number}.")
         raise typer.Exit(1)
 
     try:
         examples_root = _examples_root()
     except FileNotFoundError as exc:
-        _console.print(f"[bold red]ERROR:[/] {exc}")
+        con.print(f"[bold red]ERROR:[/] {exc}")
         raise typer.Exit(1) from exc
 
     acts_to_run = [a for a in _ACTS if a.id == act_number]
 
     act_results: list[_ActResult] = []
     for act in acts_to_run:
-        _console.print()
-        ui = ObsidianUI(_console)
-        ui.print_header(__version__)
-        _console.print()
-        _console.print(
+        con.print()
+        get_ui().print_header(__version__)
+        con.print()
+        con.print(
             Group(
-                Text.from_markup(f"[bold {INDIGO}]Act {act.id} — {act.title}[/]"),
+                Text.from_markup(f"[bold {ObsidianPalette.BRAND}]Act {act.id} — {act.title}[/]"),
                 Text(),
                 Text.from_markup(f"[bold]{act.description}[/]"),
             )
