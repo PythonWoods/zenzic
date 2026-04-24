@@ -167,6 +167,27 @@ class PlaceholderFinding:
     match_text: str = ""
 
 
+# Strips YAML frontmatter (leading ---...--- block).
+_FRONTMATTER_RE: re.Pattern[str] = re.compile(r"\A\s*---\s*\n.*?\n---\s*\n?", re.DOTALL)
+# Strips MDX comments {/* ... */} — invisible in the rendered page.
+_MDX_COMMENT_RE: re.Pattern[str] = re.compile(r"\{/\*.*?\*/\}", re.DOTALL)
+# Strips HTML comments <!-- ... --> — also invisible.
+_HTML_COMMENT_RE: re.Pattern[str] = re.compile(r"<!--.*?-->", re.DOTALL)
+
+
+def _visible_word_count(text: str) -> int:
+    """Return the number of prose words in *text*, excluding invisible markup.
+
+    Strips YAML frontmatter, MDX comments ``{/* … */}``, and HTML comments
+    ``<!-- … -->`` before splitting — these are never rendered to the reader
+    and must not inflate the word count.
+    """
+    text = _FRONTMATTER_RE.sub("", text)
+    text = _MDX_COMMENT_RE.sub("", text)
+    text = _HTML_COMMENT_RE.sub("", text)
+    return len(text.split())
+
+
 def check_placeholder_content(
     text: str,
     file_path: Path | str,
@@ -189,14 +210,14 @@ def check_placeholder_content(
     findings: list[PlaceholderFinding] = []
     patterns = config.placeholder_patterns_compiled
 
-    words = text.split()
-    if len(words) < config.placeholder_max_words:
+    visible = _visible_word_count(text)
+    if visible < config.placeholder_max_words:
         findings.append(
             PlaceholderFinding(
                 file_path=path,
                 line_no=1,
                 issue="short-content",
-                detail=f"Page has only {len(words)} words (minimum {config.placeholder_max_words}).",
+                detail=f"Page has only {visible} words (minimum {config.placeholder_max_words}).",
             )
         )
 

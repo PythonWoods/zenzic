@@ -13,6 +13,7 @@ from _helpers import make_mgr
 
 from zenzic.core.adapter import _extract_i18n_locale_dirs, _extract_i18n_locale_patterns
 from zenzic.core.scanner import (
+    check_placeholder_content,
     find_orphans,
     find_placeholders,
     find_repo_root,
@@ -261,6 +262,40 @@ def test_find_placeholders_symlink_skipped(tmp_path: Path) -> None:
     mgr = make_mgr(config, repo_root=tmp_path)
     findings = find_placeholders(docs, mgr, config=config)
     assert findings == []
+
+
+def test_placeholder_mdx_comments_excluded_from_word_count() -> None:
+    """MDX {/* … */} and HTML <!-- … --> comments must not count as prose words.
+
+    Regression: docs/community/license.mdx had <10 visible words but was not
+    flagged because its {/* … */} comment block (70+ words) inflated the count.
+    """
+    # Only 4 visible prose words — far below the default threshold of 50.
+    # The comment contains >60 words and must be ignored.
+    text = """\
+---
+sidebar_label: "License"
+description: "Licensing information."
+---
+
+# License
+
+{/*
+This page uses the pymdownx snippets extension to include the root LICENSE file
+directly — single source of truth, no divergence possible.
+
+Below, we add some extra explanation text about how this license applies to the
+Zenzic documentation and source code, as required to provide more context to our users
+and to pass internal minimum content validation checks within our own linting loops.
+*/}
+
+See LICENSE file.
+"""
+    config = ZenzicConfig(placeholder_max_words=50)
+    findings = check_placeholder_content(text, "community/license.mdx", config)
+    assert any(f.issue == "short-content" for f in findings), (
+        "Page with MDX-comment-inflated word count must still be flagged as short-content"
+    )
 
 
 def test_find_unused_assets_no_config(tmp_path: Path) -> None:
