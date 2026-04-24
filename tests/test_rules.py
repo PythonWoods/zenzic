@@ -1473,3 +1473,130 @@ class TestPluginRegistryMutantKill:
         rules = reg.list_rules()
         my_rule = next(r for r in rules if r.source == "my-rule")
         assert my_rule.origin == "my-package"
+
+
+# ─── Mutant-Killing Tests: VSMBrokenLinkRule._to_canonical_url ───────────────
+
+
+class TestToCanonicalUrlMutantKill:
+    """Kill mutants in VSMBrokenLinkRule._to_canonical_url.
+
+    Tested directly on the method to avoid routing through check_vsm overhead.
+    """
+
+    _RULE = VSMBrokenLinkRule()
+
+    def _url(
+        self, href: str, source_dir: Path | None = None, docs_root: Path | None = None
+    ) -> str | None:
+        return self._RULE._to_canonical_url(href, source_dir, docs_root)
+
+    # ── rstrip("/") kills ────────────────────────────────────────────────────
+
+    def test_trailing_slash_is_stripped_before_processing(self) -> None:
+        """rstrip(None) / lstrip("/") / rstrip("XX/XX") mutants leave a trailing slash
+        that would produce "//guide//" or cause wrong path splits."""
+        # "guide/" → must become "/guide/"  (rstrip strips the trailing slash)
+        result = self._url("guide/")
+        assert result == "/guide/"
+
+    def test_trailing_slash_on_md_link(self) -> None:
+        """guide.md/ (pathological) — rstrip removes trailing slash first."""
+        result = self._url("guide.md/")
+        assert result == "/guide/"
+
+    # ── replace("\\", "/") kills ─────────────────────────────────────────────
+
+    def test_backslash_normalized_to_forward_slash(self) -> None:
+        """Windows-style backslash must be converted to '/' before URL parsing.
+        Kills replace("XX\\XX", "/") and replace("\\", "XX/XX") mutants."""
+        result = self._url("a\\b")
+        assert result == "/a/b/"
+
+    # ── empty path → None kills ───────────────────────────────────────────────
+
+    def test_empty_path_returns_none(self) -> None:
+        """Bare query string has no path — must return None."""
+        assert self._url("?foo=bar") is None
+
+    def test_fragment_only_returns_none(self) -> None:
+        """Fragment-only href has no path component."""
+        assert self._url("#section") is None
+
+    # ── index stripping kills (parts[:-1] → parts[:+1]) ──────────────────────
+
+    def test_index_md_becomes_parent_dir(self) -> None:
+        """'dir/index.md' → '/dir/' — kills parts[:-1] → parts[:+1] mutant."""
+        result = self._url("dir/index.md")
+        assert result == "/dir/"
+
+    def test_bare_index_md_becomes_root(self) -> None:
+        """'index.md' → '/' — kills the return '/' after index removal."""
+        result = self._url("index.md")
+        assert result == "/"
+
+    def test_empty_path_after_md_strip_becomes_root(self) -> None:
+        """'index.md' strips to 'index', then index is removed → '/' from empty parts.
+        Kills return 'XX/XX' mutant in both empty-parts return statements."""
+        result = self._url("index.md")
+        assert result == "/"
+
+    def test_nested_index_removed(self) -> None:
+        """'a/b/index.md' → '/a/b/' — kills parts[:-1] → parts[:+1] mutant."""
+        result = self._url("a/b/index.md")
+        assert result == "/a/b/"
+
+    # ── source_dir / docs_root logic kills ───────────────────────────────────
+
+    def test_dotdot_with_context_resolves_correctly(self, tmp_path: Path) -> None:
+        """With context, '../sibling.md' resolves relative to source_dir.
+        Kills 'and … or' logic mutations in the context guard."""
+        docs_root = tmp_path / "docs"
+        source_dir = docs_root / "guide"
+        # '../sibling' → docs_root/sibling → '/sibling/'
+        result = self._url("../sibling.md", source_dir=source_dir, docs_root=docs_root)
+        assert result == "/sibling/"
+
+    def test_dotdot_without_context_treated_as_literal(self) -> None:
+        """Without source_dir+docs_root, '..' in path is kept as-is (root-relative path)."""
+        # No source_dir/docs_root supplied → context branch not taken
+        result = self._url("../page.md")
+        # '../page.md' → path = '../page' → parts = ['..', 'page'] → '/../page/'
+        # This is an awkward URL but the function is pure — no filesystem checks
+        assert result is not None  # does not raise, returns some value
+
+    def test_dotdot_escaping_docs_root_returns_none(self, tmp_path: Path) -> None:
+        """Path escaping docs_root must return None — kills inversion mutant."""
+        docs_root = tmp_path / "docs"
+        source_dir = docs_root / "sub"
+        # '../../evil' escapes docs_root
+        result = self._url("../../evil.md", source_dir=source_dir, docs_root=docs_root)
+        assert result is None
+
+    def test_source_dir_none_skips_context_branch(self, tmp_path: Path) -> None:
+        """source_dir=None → context branch NOT taken even if docs_root is set.
+        Kills 'source_dir is not None or docs_root is not None' mutant."""
+        docs_root = tmp_path / "docs"
+        # No source_dir → no context-aware resolution regardless of docs_root
+        result = self._url("../page.md", source_dir=None, docs_root=docs_root)
+        # Without context, '..' is kept literally — no escaping check
+        assert result is not None  # does not return None from the context guard
+
+    def test_docs_root_none_skips_context_branch(self, tmp_path: Path) -> None:
+        """docs_root=None → context branch NOT taken even if source_dir is set.
+        Kills 'source_dir is not None or docs_root is not None' mutant."""
+        source_dir = tmp_path / "docs" / "sub"
+        result = self._url("../page.md", source_dir=source_dir, docs_root=None)
+        assert result is not None  # no context-guard None
+
+    def test_rel_dot_becomes_empty_path(self, tmp_path: Path) -> None:
+        """When normpath gives '.' (same-dir reference) path becomes '' → '/'.
+        Kills rel != 'XX.XX' and else 'XXXX' mutants."""
+        docs_root = tmp_path / "docs"
+        source_dir = docs_root / "sub"
+        # './sub' relative to source_dir (docs/sub) → normpath → docs/sub → rel='sub'
+        # Let's use '.' to get rel='.'
+        # source_dir/../ = docs_root itself
+        result = self._url("../sub/../", source_dir=source_dir, docs_root=docs_root)
+        # This resolves to docs_root itself → rel='.' → path='' → return '/'
+        assert result == "/"

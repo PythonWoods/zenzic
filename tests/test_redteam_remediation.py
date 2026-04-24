@@ -555,3 +555,68 @@ class TestShieldReportingIntegrity:
             f"Expected 2 Finding objects from 2 SecurityFindings, got {len(findings_list)}. "
             "A Silencer mutant (no-op return / conditional append) would produce 0."
         )
+
+
+# ─── Mutant-Killing Tests: _obfuscate_secret boundary conditions ──────────────
+
+
+@_shield_skip
+class TestObfuscateSecretMutantKill:
+    """Kill surviving mutants in _obfuscate_secret().
+
+    Targeted mutants:
+    - mutmut_1: ``<= 8`` → ``< 8``  (length-8 string should be fully redacted)
+    - mutmut_2: ``<= 8`` → ``<= 9`` (length-9 string should be partially redacted)
+    - mutmut_7: ``raw[:4]`` → ``raw[:5]`` (prefix must be exactly 4 chars)
+    - mutmut_10/11/12/13: suffix ``raw[-4:]`` and ``(len(raw) - 8)`` star count
+    """
+
+    def test_length_8_is_fully_redacted(self) -> None:
+        """Exact boundary: 8-char string → all stars.
+        Kills ``< 8`` mutant (would partially redact length-8)."""
+        raw = "12345678"  # exactly 8 chars
+        result = _obfuscate_secret(raw)
+        assert result == "********", f"Expected 8 stars, got {result!r}"
+        assert len(result) == 8
+
+    def test_length_9_is_partially_redacted(self) -> None:
+        """One above boundary: 9-char string → prefix + stars + suffix.
+        Kills ``<= 9`` mutant (would fully redact length-9)."""
+        raw = "123456789"  # exactly 9 chars
+        result = _obfuscate_secret(raw)
+        # Should be: raw[:4] + "*" * 1 + raw[-4:] = "1234*6789"
+        assert result != "*" * 9, "length-9 must NOT be fully redacted"
+        assert result[0] == "1"  # prefix preserved
+        assert result[-4:] == "6789"  # suffix preserved
+        assert "*" in result
+
+    def test_prefix_is_exactly_4_chars(self) -> None:
+        """raw[:4] — kills raw[:5] mutant."""
+        raw = "ABCDEFGHIJKLMNOP"  # 16 chars
+        result = _obfuscate_secret(raw)
+        assert result[:4] == "ABCD"
+        assert result[4] != "E", "5th char must be a star, not 'E'"
+
+    def test_suffix_is_exactly_4_chars(self) -> None:
+        """raw[-4:] — kills raw[-5:] or raw[-3:] mutants."""
+        raw = "ABCDEFGHIJKLMNOP"  # 16 chars
+        result = _obfuscate_secret(raw)
+        assert result[-4:] == "MNOP"
+
+    def test_star_count_is_length_minus_8(self) -> None:
+        """Middle star count: len(raw) - 8 — kills off-by-one mutants."""
+        raw = "ABCDEFGHIJKLMNOP"  # 16 chars → 16 - 8 = 8 stars
+        result = _obfuscate_secret(raw)
+        stars = result[4:-4]
+        assert stars == "*" * 8, f"Expected 8 stars, got {stars!r}"
+
+    def test_length_1_fully_redacted(self) -> None:
+        """Very short string — not a boundary case but validates the path."""
+        assert _obfuscate_secret("X") == "*"
+
+    def test_total_length_preserved(self) -> None:
+        """Obfuscated string must always have same length as input."""
+        for n in range(1, 20):
+            raw = "A" * n
+            result = _obfuscate_secret(raw)
+            assert len(result) == n, f"len mismatch for n={n}: {result!r}"

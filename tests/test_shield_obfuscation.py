@@ -505,3 +505,60 @@ class TestBase64Bypass:
         assert len(aws) == 0, (
             "Base64 AWS key unexpectedly detected — if intentional, update this test"
         )
+
+
+# ─── Mutant-Killing Tests: _normalize_line_for_shield ────────────────────────
+
+
+class TestNormalizeLineForShieldMutantKill:
+    """Kill surviving mutants in _normalize_line_for_shield().
+
+    Targeted mutants:
+    - mutmut_22: MDX comment sub → "XXXX" instead of ""
+    - mutmut_40: table pipe sub → "XX XX" instead of " "
+    - mutmut_42: whitespace join → "XX XX".join instead of " ".join
+    """
+
+    def test_mdx_comment_removed_not_replaced(self) -> None:
+        """MDX comment must be stripped (empty string), not replaced with noise.
+        Kills mutmut_22: _MDX_COMMENT_RE.sub('XXXX', normalized)."""
+        line = "ghp_ABC{/* comment */}DEF"
+        result = _normalize_line_for_shield(line)
+        assert "XXXX" not in result
+        assert "{" not in result
+        assert "comment" not in result
+        # The reconstructed token should be intact
+        assert "ghp_ABCDEF" in result
+
+    def test_table_pipe_replaced_with_single_space(self) -> None:
+        """Table pipe must become a single space, not 'XX XX' or empty.
+        Kills mutmut_40: _TABLE_PIPE_RE.sub('XX XX', normalized)."""
+        line = "col1 | col2 | col3"
+        result = _normalize_line_for_shield(line)
+        assert "XX XX" not in result
+        assert "|" not in result
+        # Pipes replaced by space — after whitespace collapse: "col1 col2 col3"
+        assert "col1" in result
+        assert "col2" in result
+        assert "col3" in result
+
+    def test_whitespace_collapsed_with_single_space_join(self) -> None:
+        """Final join must use single space ' ', not 'XX XX'.
+        Kills mutmut_42: 'XX XX'.join(normalized.split())."""
+        line = "  lots   of   spaces  "
+        result = _normalize_line_for_shield(line)
+        assert "XX XX" not in result
+        # After " ".join(normalized.split()): single spaces between words
+        assert result == "lots of spaces"
+
+    def test_mdx_comment_interleaved_token_reconstructed(self) -> None:
+        """Full integration: MDX comment inside a secret token is stripped.
+        Verifies the MDX strip produces '' and reconstructed token is scannable."""
+        raw_line = (
+            "token: sk-{/* obfuscation */}live_ABCDEFGHIJ1234567890abcdefghijklmnopqrstuvwxyz12"
+        )
+        result = _normalize_line_for_shield(raw_line)
+        assert "{" not in result
+        assert "obfuscation" not in result
+        # The merged token should be present after stripping
+        assert "sk-live_" in result
