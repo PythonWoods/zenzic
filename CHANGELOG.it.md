@@ -244,6 +244,33 @@ L'extra opzionale `[mkdocs]` non esiste più. `pip install zenzic` è l'installa
 
 ---
 
+### Espansione Enterprise CI (Direttive CEO 092–095)
+
+#### Aggiunto
+
+- **Esportazione SARIF 2.1.0 — `--format sarif` (Direttiva CEO 092).**
+  Tutti i sotto-comandi `check` (`links`, `orphans`, `snippets`, `references`, `assets`, `all`)
+  accettano ora `--format sarif`. Il formatter produce JSON SARIF 2.1.0 valido con l'URL
+  SchemaStore nel campo `$schema` (`https://json.schemastore.org/sarif-2.1.0.json`),
+  regole nominate e punteggi `properties.security-severity` (`9.5` per `security_breach`,
+  `9.0` per `security_incident`). Il caricamento di `zenzic-results.sarif` su GitHub Code
+  Scanning espone i risultati direttamente nei diff delle Pull Request e nella tab Security
+  del repository — senza dover analizzare i log.
+- **Matrice CI Cross-Platform — runner Windows e macOS (Direttiva CEO 093).**
+  Il job `quality` in `.github/workflows/ci.yml` testa ora ogni commit su una matrice
+  `3 × 3`: `os: [ubuntu-latest, windows-latest, macos-latest]` ×
+  `python-version: ["3.11", "3.12", "3.13"]`. `fail-fast: false` garantisce che tutte
+  e 9 le combinazioni vengano riportate. Il caricamento della copertura è limitato a
+  `ubuntu-latest / 3.13`.
+- **GitHub Action Ufficiale — `PythonWoods/zenzic-action` (Direttiva CEO 094).**
+  Action composita scaffoldata nel repository `zenzic-action`. Installa Zenzic tramite
+  `uv tool install`, esegue `check all --format sarif`, scrive `zenzic-results.sarif` e
+  carica il file tramite `github/codeql-action/upload-sarif`. Input configurabili:
+  `version`, `docs-dir`, `format`, `sarif-file`, `upload-sarif`, `strict`,
+  `fail-on-error`. Elimina la necessità di invocazioni manuali `uvx zenzic` in CI.
+
+---
+
 ## [0.6.1] — 2026-04-19 — Obsidian Glass [SUPERSEDED]
 
 > ⚠ **[SUPERSEDED dalla v0.7.0]** — La versione 0.6.1 è deprecata a causa di problemi di allineamento con le specifiche Docusaurus e terminologia legacy. Tutti gli utenti devono aggiornare alla v0.7.0 "Obsidian Maturity".

@@ -108,6 +108,7 @@ zenzic check all  # Audit the current directory
 | Config asset integrity | `check all` | Favicon and OG image paths declared in engine config confirmed on disk (`Z404`) | 1 |
 | **Credential scanning** | `check references` | **9 credential families** — text, URLs, code blocks | **2** |
 | **Path traversal** | `check links` | System-path escape attempts | **3** |
+| **Enterprise reporting** | `check all --format sarif` | SARIF 2.1.0 output for GitHub Code Scanning — inline PR annotations | 1/2/3 |
 | Quality score | `score` | Deterministic 0–100 composite metric | — |
 | Regression detection | `diff` | Score drop vs saved baseline — CI-friendly | 1 |
 
@@ -196,6 +197,25 @@ Rules fire identically across all adapters. No changes required after engine mig
 ---
 
 ## 🔄 CI/CD Integration
+
+### Official GitHub Action (Recommended)
+
+```yaml
+permissions:
+  contents: read
+  security-events: write   # required for Code Scanning upload
+
+steps:
+  - uses: actions/checkout@v6
+
+  - name: 🛡️ Zenzic Documentation Quality Gate
+    uses: PythonWoods/zenzic-action@v1
+    with:
+      format: sarif
+      upload-sarif: "true"   # findings appear in the Security tab and as PR annotations
+```
+
+### Zero-install with `uvx`
 
 ```yaml
 - name: 🛡️ Zenzic Sentinel

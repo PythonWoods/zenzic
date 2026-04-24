@@ -68,6 +68,17 @@ Esegui il controllo pre-PR completo con:
 just verify
 ```
 
+### Compatibilità cross-platform
+
+Zenzic è validato su Ubuntu, Windows e macOS ad ogni commit. Quando si lavora con percorsi
+di file in qualsiasi contributo, utilizza `pathlib.Path` — mai concatenazione di stringhe o
+`os.sep`. Regole fondamentali:
+
+- `Path("a") / "b"` — sempre, mai `"a" + os.sep + "b"` o `"a/b"` come letterale stringa.
+- Usa `.as_posix()` solo nel punto di confronto con URL o valori di configurazione in stile POSIX.
+- Le fixture di test che costruiscono percorsi devono usare `tmp_path / "subdir"`, non `"/tmp/subdir"`.
+- Le PR che introducono concatenazione di percorsi con `str` saranno rifiutate dalla matrice CI cross-platform.
+
 ---
 
 ## Convenzioni sul codice
