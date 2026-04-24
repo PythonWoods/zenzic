@@ -33,6 +33,20 @@ their data and quality process regardless of ecosystem churn.
 
 ---
 
+## Prerequisites
+
+| Requirement | Version | Notes |
+|:------------|:--------|:------|
+| **Python** | ≥ 3.11 | Core engine and CLI |
+| **uv** | latest | Package manager — `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
+| **just** | latest | Task runner — `cargo install just` or via your OS package manager |
+| **Node.js** | ≥ 24 | Required for docs CI (`zenzic-doc`) and coverage upload (`codecov-action@v6`) |
+
+The core Python library and CLI work without Node. Node 24 is only needed if you are
+contributing to the documentation site or running the full CI suite locally.
+
+---
+
 ## Quick start
 
 ```bash
@@ -68,6 +82,21 @@ Run the full pre-push gate with:
 ```bash
 just verify
 ```
+
+### Cross-platform compatibility
+
+Zenzic is validated on Ubuntu, Windows, and macOS on every commit. When working with file
+paths in any contribution, use `pathlib.Path` throughout — never string concatenation or
+`os.sep`. Key rules:
+
+- `Path("a") / "b"` — always, never `"a" + os.sep + "b"` or `"a/b"` as a string literal.
+- Use `.as_posix()` only at the point of comparison against URLs or POSIX-style config values.
+- Test fixtures that construct paths must use `tmp_path / "subdir"`, not `"/tmp/subdir"`.
+- PRs that introduce `str` path concatenation will be rejected by the cross-platform CI matrix.
+
+> **CI matrix note:** Coverage upload uses `codecov/codecov-action@v6`, which requires the
+> Node 24 runner environment. GitHub-hosted runners (`ubuntu-latest`) satisfy this
+> automatically; self-hosted runners must use Node ≥ 24.
 
 ---
 

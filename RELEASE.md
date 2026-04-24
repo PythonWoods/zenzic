@@ -296,6 +296,46 @@ If you are currently using MkDocs and considering a move to a more modern, TOML-
 
 ---
 
+### 🚀 Zenzic goes Enterprise (Direttive CEO 092–095)
+
+Zenzic v0.7.0 is not just "more accurate" — it is now a **first-class CI infrastructure component**.
+
+#### SARIF Export: Into the Security Dashboard
+
+Every `check` command now supports `--format sarif`. Upload the output to GitHub Code Scanning and
+your documentation errors appear **inline in Pull Request diffs** and in the **Security tab** —
+no log parsing, no custom scripts, no manual triage.
+
+```bash
+zenzic check all --format sarif > zenzic-results.sarif
+```
+
+The SARIF report is valid against [SchemaStore 2.1.0](https://json.schemastore.org/sarif-2.1.0.json),
+includes named rule entries for every Z-code, and carries `security-severity` scores (`9.5` for
+credential breaches, `9.0` for path-traversal incidents) for GitHub Advanced Security prioritization.
+
+#### Official GitHub Action
+
+Stop writing manual `uvx` steps. One block is all you need:
+
+```yaml
+- name: 🛡️ Zenzic Documentation Quality Gate
+  uses: PythonWoods/zenzic-action@v1
+  with:
+    format: sarif
+    upload-sarif: "true"
+```
+
+The action installs Zenzic, runs `check all`, writes `zenzic-results.sarif`, and uploads to Code
+Scanning automatically. Add `permissions: security-events: write` to the job and the rest is handled.
+
+#### Cross-Platform Validation Matrix
+
+Every commit now runs on Ubuntu, Windows, and macOS across Python 3.11, 3.12, and 3.13.
+Nine jobs. `fail-fast: false`. Pure Python is claimed — now it is proven.
+
+---
+
 ### 🇮🇹 Engineered with Precision
 
 Zenzic is developed by **PythonWoods**, based in Italy, and committed to the craft of high-performance, deterministic Python engineering.

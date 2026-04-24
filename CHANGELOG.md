@@ -288,6 +288,32 @@ The `[mkdocs]` optional extra no longer exists. `pip install zenzic` is the comp
 
 ---
 
+### Enterprise CI Expansion (Direttive CEO 092–095)
+
+#### Added
+
+- **SARIF 2.1.0 Export — `--format sarif` (Direttiva CEO 092).**
+  All `check` sub-commands (`links`, `orphans`, `snippets`, `references`, `assets`, `all`)
+  now accept `--format sarif`. The formatter produces valid SARIF 2.1.0 JSON with the
+  SchemaStore `$schema` URL (`https://json.schemastore.org/sarif-2.1.0.json`), named
+  rule entries, and `properties.security-severity` scores (`9.5` for `security_breach`,
+  `9.0` for `security_incident`). Uploading `zenzic-results.sarif` to GitHub Code
+  Scanning surfaces findings inline in Pull Request diffs and the repository Security tab
+  — no log parsing required.
+- **Cross-Platform CI Matrix — Windows & macOS runners (Direttiva CEO 093).**
+  The `quality` job in `.github/workflows/ci.yml` now tests every commit across a
+  `3 × 3` matrix: `os: [ubuntu-latest, windows-latest, macos-latest]` ×
+  `python-version: ["3.11", "3.12", "3.13"]`. `fail-fast: false` ensures all 9
+  combinations are reported. Coverage upload is scoped to `ubuntu-latest / 3.13`.
+- **Official GitHub Action — `PythonWoods/zenzic-action` (Direttiva CEO 094).**
+  Composite action scaffolded in the `zenzic-action` repository. Installs Zenzic via
+  `uv tool install`, runs `check all --format sarif`, writes `zenzic-results.sarif`,
+  and uploads via `github/codeql-action/upload-sarif`. Configurable inputs: `version`,
+  `docs-dir`, `format`, `sarif-file`, `upload-sarif`, `strict`, `fail-on-error`.
+  Removes the need for manual `uvx zenzic` invocations in CI.
+
+---
+
 ## [0.6.1] — 2026-04-19 — Obsidian Glass [SUPERSEDED]
 
 > ⚠ **[SUPERSEDED by v0.7.0]** — Version 0.6.1 is deprecated due to alignment issues with Docusaurus specifications and legacy terminology. All users must upgrade to v0.7.0 "Obsidian Maturity".
