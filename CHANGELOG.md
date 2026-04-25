@@ -764,6 +764,22 @@ misdiagnosis. CEO-052 fix (already applied) eliminates the false Z104 when scann
 
 ---
 
+### The Genesis Nomad Enforcement (D062 — 2026-04-25)
+
+#### Added
+
+- **Banner & Hint Sync.** All 6 `check` sub-commands print
+  `Scanning: <resolved-target>` after the Obsidian header when `PATH` is provided.
+  `init` prints `Target: <resolved-path>` in Genesis Nomad mode. Operators now have
+  visual confirmation of the active sovereign root before results are displayed.
+
+- **Sovereign Root Protocol documentation** (`docs/explanation/architecture.mdx` EN + IT).
+  New section documents the three-step sovereignty protocol (`find_repo_root` →
+  `_apply_target` → CEO-043 sandbox guard), the Genesis Nomad invariants table, and
+  the Context Hijacking problem/solution narrative.
+
+---
+
 ## [0.6.1] — 2026-04-19 — Obsidian Glass [SUPERSEDED]
 
 > ⚠ **[SUPERSEDED by v0.7.0]** — Version 0.6.1 is deprecated due to alignment issues with Docusaurus specifications and legacy terminology. All users must upgrade to v0.7.0 "Obsidian Maturity".

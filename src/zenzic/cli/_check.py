@@ -154,6 +154,12 @@ def check_links(
 
     docs_count, assets_count = _shared._count_docs_assets(docs_root, repo_root, exclusion_mgr)
     _shared._ui.print_header(__version__)
+    if path is not None:
+        try:
+            _hint = str(docs_root.relative_to(Path.cwd()))
+        except ValueError:
+            _hint = str(docs_root)
+        _shared.console.print(f"[dim]  Scanning: {_hint}[/]\n")
     reporter = SentinelReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
     errors, warnings = reporter.render(
         findings,
@@ -250,6 +256,12 @@ def check_orphans(
 
     docs_count, assets_count = _shared._count_docs_assets(docs_root, repo_root, exclusion_mgr)
     _shared._ui.print_header(__version__)
+    if path is not None:
+        try:
+            _hint = str(docs_root.relative_to(Path.cwd()))
+        except ValueError:
+            _hint = str(docs_root)
+        _shared.console.print(f"[dim]  Scanning: {_hint}[/]\n")
     reporter = SentinelReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
     errors, warnings = reporter.render(
         findings,
@@ -347,6 +359,12 @@ def check_snippets(
 
     docs_count, assets_count = _shared._count_docs_assets(docs_root, repo_root, exclusion_mgr)
     _shared._ui.print_header(__version__)
+    if path is not None:
+        try:
+            _hint = str(docs_root.relative_to(Path.cwd()))
+        except ValueError:
+            _hint = str(docs_root)
+        _shared.console.print(f"[dim]  Scanning: {_hint}[/]\n")
     reporter = SentinelReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
     errors, warnings = reporter.render(
         findings,
@@ -510,6 +528,12 @@ def check_references(
 
     docs_count, assets_count = _shared._count_docs_assets(docs_root, repo_root, exclusion_mgr)
     _shared._ui.print_header(__version__)
+    if path is not None:
+        try:
+            _hint = str(docs_root.relative_to(Path.cwd()))
+        except ValueError:
+            _hint = str(docs_root)
+        _shared.console.print(f"[dim]  Scanning: {_hint}[/]\n")
     reporter = SentinelReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
     errors, warnings = reporter.render(
         findings,
@@ -603,6 +627,12 @@ def check_assets(
 
     docs_count, assets_count = _shared._count_docs_assets(docs_root, repo_root, exclusion_mgr)
     _shared._ui.print_header(__version__)
+    if path is not None:
+        try:
+            _hint = str(docs_root.relative_to(Path.cwd()))
+        except ValueError:
+            _hint = str(docs_root)
+        _shared.console.print(f"[dim]  Scanning: {_hint}[/]\n")
     reporter = SentinelReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
     errors, warnings = reporter.render(
         findings,
@@ -682,6 +712,12 @@ def check_placeholders(
 
     docs_count, assets_count = _shared._count_docs_assets(docs_root, repo_root, exclusion_mgr)
     _shared._ui.print_header(__version__)
+    if path is not None:
+        try:
+            _hint = str(docs_root.relative_to(Path.cwd()))
+        except ValueError:
+            _hint = str(docs_root)
+        _shared.console.print(f"[dim]  Scanning: {_hint}[/]\n")
     reporter = SentinelReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
     errors, warnings = reporter.render(
         findings,

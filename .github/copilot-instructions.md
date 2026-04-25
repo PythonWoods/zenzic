@@ -667,3 +667,9 @@ Law of Contemporary Testimony codified as mandatory policy in [POLICIES] at top 
 **Version:** 0.7.0 · **Date:** 2026-04-25
 
 PATH argument and sovereign root semantics applied to all remaining filesystem-interacting CLI commands: `check links`, `check orphans`, `check snippets`, `check placeholders`, `check assets`, `check references`, `init`. Each command now accepts an optional positional `PATH` with `find_repo_root(search_from=target)` + `_apply_target()` integration. `init` uses Genesis Nomad mode: when PATH is given, `repo_root = Path(path).resolve()` with `mkdir(parents=True, exist_ok=True)` — the target directory is created if absent. Two regression tests added: `test_init_nomad_writes_to_target_not_cwd`, `test_init_nomad_creates_target_directory`. CLI docs updated (EN + IT): PATH examples for all check sub-commands and init Nomad mode. Rule R18 "Total CLI Symmetry" codified.
+
+### D062 (CEO) — The Genesis Nomad Enforcement
+
+**Version:** 0.7.0 · **Date:** 2026-04-25
+
+Banner & Hint Sync: all 6 `check` sub-commands now print `[dim]  Scanning: <resolved-target>[/]` after the Obsidian header when PATH is provided, giving the operator visual confirmation of the active sovereign root. `init` prints `[dim]  Target: <resolved-path>[/]` in Genesis Nomad mode. Architecture documentation updated: `docs/explanation/architecture.mdx` (EN + IT) — new "Sovereign Root Protocol" section documents the three-step sovereignty protocol (find_repo_root → _apply_target → CEO-043 sandbox guard), the Genesis Nomad invariants table, and the Context Hijacking problem/solution.

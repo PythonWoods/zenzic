@@ -716,6 +716,22 @@ Z104 nella scansione remota.
 
 ---
 
+### L'Applicazione del Genesis Nomad (D062 — 2026-04-25)
+
+#### Aggiunto
+
+- **Banner & Hint Sync.** Tutti e 6 i sotto-comandi `check` stampano
+  `Scanning: <target-risolto>` dopo l'intestazione Obsidian quando `PATH` viene fornito.
+  `init` stampa `Target: <percorso-risolto>` in modalità Genesis Nomad. Gli operatori hanno
+  ora conferma visiva della sovereign root attiva prima che i risultati vengano visualizzati.
+
+- **Documentazione Protocollo Sovereign Root** (`docs/explanation/architecture.mdx` EN + IT).
+  Nuova sezione che documenta il protocollo di sovranità in tre passi (`find_repo_root` →
+  `_apply_target` → guardia sandbox CEO-043), la tabella degli invarianti Genesis Nomad e il
+  racconto problema/soluzione del Context Hijacking.
+
+---
+
 ## [0.6.1] — 2026-04-19 — Obsidian Glass [SUPERSEDED]
 
 > ⚠ **[SUPERSEDED dalla v0.7.0]** — La versione 0.6.1 è deprecata a causa di problemi di allineamento con le specifiche Docusaurus e terminologia legacy. Tutti gli utenti devono aggiornare alla v0.7.0 "Obsidian Maturity".

@@ -361,6 +361,11 @@ def init(
     if path is not None:
         repo_root = Path(path).resolve()
         repo_root.mkdir(parents=True, exist_ok=True)
+        try:
+            _hint = str(repo_root.relative_to(Path.cwd()))
+        except ValueError:
+            _hint = str(repo_root)
+        _shared.console.print(f"[dim]  Target: {_hint}[/]\n")
     else:
         repo_root = find_repo_root(fallback_to_cwd=True)
 

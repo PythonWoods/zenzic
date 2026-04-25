@@ -863,6 +863,38 @@ you work.
 
 ---
 
+### 🗺 The Genesis Nomad Enforcement (D062, 2026-04-25)
+
+After adding PATH awareness everywhere, D062 closes the loop on operator experience and
+documentation.
+
+#### Banner & Hint Sync
+
+Every `check` sub-command now prints the resolved target path immediately after the Obsidian
+header when a `PATH` argument is supplied:
+
+```text
+  Scanning: ../other-project/docs
+```
+
+`zenzic init <path>` shows:
+
+```text
+  Target: ../new-project
+```
+
+No more guessing which root Zenzic is scanning — the active sovereign root is visible before
+the first result appears.
+
+#### Sovereign Root Protocol — now documented
+
+`docs/explanation/architecture.mdx` (English + Italian) gains a new **Sovereign Root Protocol**
+section explaining the three-step sovereignty mechanism, the Genesis Nomad invariants, and the
+Context Hijacking problem that motivated the design. New contributors and CI engineers now have
+a canonical reference for why PATH arguments behave the way they do.
+
+---
+
 ### 🇮🇹 Engineered with Precision
 
 Zenzic is developed by **PythonWoods**, based in Italy, and committed to the craft of high-performance, deterministic Python engineering.
