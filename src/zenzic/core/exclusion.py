@@ -32,7 +32,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Self
 
-from zenzic.models.config import SYSTEM_EXCLUDED_DIRS
+from zenzic.models.config import (
+    SYSTEM_EXCLUDED_DIRS,
+    SYSTEM_EXCLUDED_FILE_NAMES,
+    SYSTEM_EXCLUDED_FILE_PATTERNS,
+)
 
 
 if TYPE_CHECKING:
@@ -301,6 +305,7 @@ class LayeredExclusionManager:
 
     __slots__ = (
         "_system_dirs",
+        "_adapter_metadata_files",
         "_config_excluded_dirs",
         "_config_included_dirs",
         "_cli_exclude_dirs",
@@ -319,8 +324,10 @@ class LayeredExclusionManager:
         docs_root: Path | None = None,
         cli_exclude: list[str] | None = None,
         cli_include: list[str] | None = None,
+        adapter_metadata_files: frozenset[str] = frozenset(),
     ) -> None:
         self._system_dirs: frozenset[str] = SYSTEM_EXCLUDED_DIRS
+        self._adapter_metadata_files: frozenset[str] = adapter_metadata_files
 
         # Config-level dirs — strip system guardrails to keep layers clean
         raw_excluded = getattr(config, "excluded_dirs", []) or []
@@ -419,6 +426,14 @@ class LayeredExclusionManager:
             rel_path = file_path.relative_to(docs_root).as_posix()
         except ValueError:
             rel_path = filename
+
+        # L1a: System file guardrails — immutable (infrastructure + adapter metadata)
+        if (
+            filename in SYSTEM_EXCLUDED_FILE_NAMES
+            or any(fnmatch.fnmatch(filename, p) for p in SYSTEM_EXCLUDED_FILE_PATTERNS)
+            or filename in self._adapter_metadata_files
+        ):
+            return True
 
         # L1: System guardrails — check path components
         for part in Path(rel_path).parts[:-1]:  # directories only, not filename

@@ -444,6 +444,20 @@ class DocusaurusAdapter:
         """``True`` — DocusaurusAdapter is constructed only when a config exists."""
         return True
 
+    def get_metadata_files(self) -> frozenset[str]:
+        """Docusaurus configuration and sidebar files — shielded from Z903."""
+        return frozenset(
+            {
+                "docusaurus.config.ts",
+                "docusaurus.config.js",
+                "docusaurus.config.mjs",
+                "sidebars.ts",
+                "sidebars.js",
+                "versions.json",
+                "_category_.json",
+            }
+        )
+
     # ── VSM integration ────────────────────────────────────────────────────
 
     def map_url(self, rel: Path) -> str:

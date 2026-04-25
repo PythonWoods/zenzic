@@ -675,3 +675,65 @@ class TestPathTraversalSafety:
         parser = VCSIgnoreParser(["*.md"], base_dir=None)
         # Parser works on string paths — it doesn't touch the filesystem
         assert parser.is_excluded("link.md", is_dir=False)
+
+
+# ─── L1a System File Guardrails (CEO-050) ────────────────────────────────────
+
+
+class TestSystemFileGuardrails:
+    """Level 1a: SYSTEM_EXCLUDED_FILE_NAMES / SYSTEM_EXCLUDED_FILE_PATTERNS
+    are immutable and cannot be overridden by config or CLI flags."""
+
+    def test_l1a_exact_name_excluded_from_should_exclude_file(self, tmp_path: Path) -> None:
+        """package.json must be excluded regardless of where it sits in docs/."""
+        from zenzic.core.exclusion import LayeredExclusionManager
+
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        config = ZenzicConfig()
+        mgr = LayeredExclusionManager(config, docs_root=docs)
+        assert mgr.should_exclude_file(docs / "package.json", docs)
+
+    def test_l1a_glob_pattern_excluded_from_should_exclude_file(self, tmp_path: Path) -> None:
+        """eslint.config.mjs matches the 'eslint.config.*' system pattern."""
+        from zenzic.core.exclusion import LayeredExclusionManager
+
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        mgr = LayeredExclusionManager(ZenzicConfig(), docs_root=docs)
+        assert mgr.should_exclude_file(docs / "eslint.config.mjs", docs)
+
+    def test_l1a_lock_file_pattern_excluded(self, tmp_path: Path) -> None:
+        """Any *.lock file is excluded by the system pattern."""
+        from zenzic.core.exclusion import LayeredExclusionManager
+
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        mgr = LayeredExclusionManager(ZenzicConfig(), docs_root=docs)
+        assert mgr.should_exclude_file(docs / "custom.lock", docs)
+
+    def test_l1b_adapter_metadata_excluded(self, tmp_path: Path) -> None:
+        """Adapter metadata files (L1b) are excluded when passed to __init__."""
+        from zenzic.core.exclusion import LayeredExclusionManager
+
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        mgr = LayeredExclusionManager(
+            ZenzicConfig(),
+            docs_root=docs,
+            adapter_metadata_files=frozenset({"docusaurus.config.ts"}),
+        )
+        assert mgr.should_exclude_file(docs / "docusaurus.config.ts", docs)
+
+    def test_l1b_non_metadata_file_not_excluded(self, tmp_path: Path) -> None:
+        """A regular doc file is not accidentally excluded by the guardrails."""
+        from zenzic.core.exclusion import LayeredExclusionManager
+
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        mgr = LayeredExclusionManager(
+            ZenzicConfig(),
+            docs_root=docs,
+            adapter_metadata_files=frozenset({"docusaurus.config.ts"}),
+        )
+        assert not mgr.should_exclude_file(docs / "guide.md", docs)

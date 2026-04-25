@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import shutil
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
@@ -110,21 +111,34 @@ def _render_snippet(
         is_err = cur == line_no
         num = str(cur).rjust(gutter_w)
 
+        # Prefix overhead: "    {num}  ❱  " or "    {num}  │  "
+        # = 4 + gutter_w + 2 + 3 = 9 + gutter_w visual chars.
+        # Keep source display within 2/3 of the terminal width so long lines
+        # don't wrap and misalign the caret row below.
+        term_cols = shutil.get_terminal_size(fallback=(120, 24)).columns
+        max_src = max(20, term_cols - 9 - gutter_w)
+
         t = Text()
         t.append(f"    {num}  ", style=ObsidianPalette.DIM)
         if is_err:
             t.append("❱  ", style=ObsidianPalette.STYLE_ERR)
-            t.append(src)
+            if len(src) > max_src:
+                t.append(src[: max_src - 1] + "…")
+            else:
+                t.append(src)
         else:
             t.append("│  ", style=ObsidianPalette.DIM)
-            t.append(src, style="dim")
+            if len(src) > max_src:
+                t.append(src[: max_src - 1] + "…", style="dim")
+            else:
+                t.append(src, style="dim")
         result.append(t)
 
-        # Surgical caret: only when the checker provided native position data
-        # and the caret won't be misaligned by terminal line-wrapping.
+        # Surgical caret: render only when the checker provided native position data
+        # AND the caret falls within the visible (non-truncated) portion of the line.
         if is_err and match_text and col_start >= 0:
             caret_len = len(match_text)
-            if col_start + caret_len <= 60:
+            if col_start + caret_len <= max_src:
                 ct = Text()
                 ct.append(f"    {' ' * gutter_w}  ", style=ObsidianPalette.DIM)
                 ct.append("│  ", style=ObsidianPalette.DIM)

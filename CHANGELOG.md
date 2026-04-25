@@ -429,6 +429,136 @@ The `[mkdocs]` optional extra no longer exists. `pip install zenzic` is the comp
 
 ---
 
+### Sentinel Integrity & Knowledge Codification Sprint (D041–D047 — 2026-04-25)
+
+#### Fixed
+
+- **Blood Sentinel false positive — explicit external targets (Direttiva CEO 043 — "The Sentinel's Sanity Pass").**
+  `zenzic check all ../external-path` raised Exit 3 (Blood Sentinel) when the explicit target
+  lived outside the CWD repository root. `_validate_docs_root` (F4-1 guard) treated any
+  `docs_root` outside `repo_root` as a path traversal attack, regardless of whether the user
+  had explicitly provided that path as a CLI argument.
+  **Fix (ADR-007 — Sovereign Sandbox):** After resolving `docs_root`, if
+  `docs_root.relative_to(repo_root)` raises `ValueError`, reassign `repo_root = docs_root`.
+  The explicit user target becomes the sovereign sandbox; Blood Sentinel then guards escapes
+  _from_ that target, not the _location_ of it.
+  Integration test `test_check_all_external_docs_root_not_blocked_by_sentinel` added to
+  `tests/test_cli.py`.
+
+- **Zenzic banner missing on early fatal exits (Direttiva CEO 043).**
+  `_ui.print_header(__version__)` was called inside the text-format display block, after all
+  validation. Any fatal exit before that point (missing config, Blood Sentinel rejection, Shield
+  breach) produced output with no banner. **Fix:** banner hoisted to the start of `check_all`,
+  guarded by `not quiet and output_format == "text"`.
+
+#### Documentation
+
+- **Frontmatter integrity confirmed — ZRT-001 audit (Direttiva CEO 041).**
+  Confirmed that `check_shield()` scans via `enumerate(fh, start=1)` — every line including
+  YAML frontmatter — before any filtered pass. The `_visible_word_count()` fix (Codebase Parity
+  Sprint) strips frontmatter for Z502 word-count only and has zero impact on Shield coverage.
+  No code change required.
+
+- **Agent Instruction Obsidian Ledger (Direttive CEO 046–047 — "The Knowledge Refactoring" / "The Knowledge Trinity").**
+  All three repository `.github/copilot-instructions.md` files rewritten into the Obsidian Ledger
+  schema: `[MANIFESTO] → [POLICIES] → [ARCHITECTURE] → [ADR] → [CHRONICLES] → [SPRINT LOG]`.
+  Architectural corrections applied: `cli/` package structure, `core/ui.py`, `cli/_lab.py`,
+  11 Acts (0–10), Z504 `QUALITY_REGRESSION` documented for the first time. `zenzic-action`
+  receives its first-ever agent instruction file (`.github/` directory created from scratch).
+
+- **Memory Law codified (Direttiva CEO 042).**
+  Section 9 — "Documenting Evolution (The Memory Law)" — added to both `zenzic` and `zenzic-doc`
+  agent instruction files. Agents must codify all sprint innovations before a directive is closed.
+
+- **Bilingual Structural Invariant codified (Direttiva CEO 045 — "Codifying the Symmetry").**
+  Law of Italian Mirroring formally codified in both agent instruction files: any `git mv` in
+  `docs/` must be accompanied by a corresponding `git mv` in `i18n/it/` **in the same commit**.
+  Symmetry audit (diff command) run and confirmed zero asymmetries.
+
+---
+
+### Obsidian Memory Law & Precision Polish Sprint (D048–D049 — 2026-04-25)
+
+#### Fixed
+
+- **Z502 `SHORT_CONTENT` pointer targeting frontmatter (Direttiva CEO 048 — Bug 1).**
+  `check_placeholder_content` had `line_no=1` hardcoded in the short-content `PlaceholderFinding`,
+  causing the diagnostic `❱` arrow to point at the opening `---` of YAML frontmatter — not the
+  first content line. **Fix:** `_first_content_line(text)` uses `_FRONTMATTER_RE.match()` to
+  count newlines through the frontmatter block and return the first post-frontmatter line number.
+  Test: `test_short_content_pointer_skips_frontmatter`.
+
+- **Z503 YAML snippet errors report relative line instead of absolute file line (Direttiva CEO 048 — Bug 2).**
+  The YAML handler in `check_snippet_content` used `line_no=fence_line + 1` unconditionally,
+  discarding the YAML parser's `exc.problem_mark.line` offset. A syntax error on snippet line 3
+  at file line 183 was reported as line 181 instead of 183.
+  **Fix:** `offset = (mark.line + 1) if mark is not None else 1` where `mark = getattr(exc,
+  "problem_mark", None)`. Consistent with the Python handler (`fence_line + exc.lineno`).
+  Test: `test_check_snippet_yaml_absolute_line_no`.
+
+- **Caret `^^^^` misaligns after terminal line wrap (Direttiva CEO 048 — Bug 3).**
+  `_render_snippet` used a hardcoded `col_start + caret_len <= 60` threshold that did not
+  account for terminal width or gutter overhead. Very long source lines (200+ chars) wrapped in
+  the terminal, misplacing the caret row on the wrong visual line.
+  **Fix:** `shutil.get_terminal_size(fallback=(120, 24)).columns` determines `max_src`.
+  Source lines are truncated at `max_src` with a `…` suffix. Carets are only rendered when
+  `col_start + caret_len <= max_src`.
+  Tests: `test_render_snippet_long_line_truncated`, `test_render_snippet_caret_suppressed_when_beyond_visible`.
+
+- **Z503 YAML multi-document snippets raise false positive (Direttiva CEO 048 — Bug 4).**
+  `yaml.safe_load(snippet)` rejected YAML snippets containing `---` document separators with
+  "expected a single document in the stream". Docusaurus documentation frequently shows
+  frontmatter examples using `---` inside code blocks.
+  **Fix:** `list(yaml.safe_load_all(snippet))` — the generator is consumed to force full parsing
+  while accepting multi-document YAML streams.
+  Test: `test_check_snippet_yaml_multi_doc_no_false_positive`.
+
+#### Documentation
+
+- **`[CLOSING PROTOCOL]` — Obsidian Memory Law codified (Direttiva CEO 049 — "The Obsidian Memory Law").**
+  All three repository agent instruction files receive a `[CLOSING PROTOCOL]` section, placed
+  immediately after `[MANIFESTO]`. Defines a mandatory per-repo checklist (update instructions,
+  update changelogs, run staleness audit, run verification gate). Skipping any step is a Class 1
+  violation (Technical Debt). Resolves the "Paradosso del Custode senza Memoria".
+  Memory Law in `[POLICIES]` upgraded to "The Custodian's Contract" with the Class 1 violation
+  clause and explicit "Definition of Done" invariant.
+
+### The Intelligent Perimeter Sprint (D050 — 2026-04-25)
+
+#### Fixed
+
+- **Z903 false positives on engine config and infrastructure files (BUG-009 — Direttiva CEO 050 "The Intelligent Perimeter").**
+  Running `zenzic check all .` from the project root emitted spurious Z903 (Unused Asset) warnings
+  on `docusaurus.config.ts`, `package.json`, `pyproject.toml`, and other toolchain files.
+  These files are the inputs Zenzic reads to operate; flagging them is a contradiction.
+  Root cause: `find_unused_assets()` had no file-level system guardrail check — any non-Markdown
+  file in `docs_root` not referenced by a page was flagged.
+
+  **Fix — Two-layer guardrail system (L1a + L1b):**
+
+  - **L1a — `SYSTEM_EXCLUDED_FILE_NAMES` / `SYSTEM_EXCLUDED_FILE_PATTERNS`** added to
+    `src/zenzic/models/config.py`: universal toolchain files (`package.json`, `pyproject.toml`,
+    `yarn.lock`, `tsconfig.json`, `uv.lock`, `eslint.config.*`, `.prettierrc*`, etc.) are
+    hardcoded system guardrails, immutable by user config or CLI flags.
+  - **L1b — `BaseAdapter.get_metadata_files() -> frozenset[str]`**: each adapter declares
+    the engine config files it consumes (`docusaurus.config.ts` / `sidebars.ts` for Docusaurus;
+    `mkdocs.yml` for MkDocs; `zensical.toml` for Zensical). `LayeredExclusionManager` stores
+    and enforces them in `should_exclude_file()`. `find_unused_assets()` applies both layers
+    before building the asset set. `_build_exclusion_manager` in `_shared.py` propagates
+    adapter metadata to the exclusion manager at construction time.
+
+  Rule R13 (CEO-050) codified in `[POLICIES]`: _"Never ask the user to exclude them manually."_
+
+#### Tests
+
+- `tests/test_exclusion.py::TestSystemFileGuardrails` — 5 new tests: exact name exclusion,
+  glob pattern exclusion (`eslint.config.mjs`), `*.lock` pattern, adapter metadata L1b, and
+  non-exclusion of legitimate doc files.
+- `tests/test_scanner.py::test_find_unused_assets_skips_system_infrastructure_files` — L1a end-to-end.
+- `tests/test_scanner.py::test_find_unused_assets_skips_adapter_metadata_files` — L1b end-to-end.
+
+---
+
 ## [0.6.1] — 2026-04-19 — Obsidian Glass [SUPERSEDED]
 
 > ⚠ **[SUPERSEDED by v0.7.0]** — Version 0.6.1 is deprecated due to alignment issues with Docusaurus specifications and legacy terminology. All users must upgrade to v0.7.0 "Obsidian Maturity".
@@ -439,7 +569,7 @@ The `[mkdocs]` optional extra no longer exists. `pip install zenzic` is the comp
   `engine = "vanilla"` keyword have been removed. All projects must migrate to
   `engine = "standalone"`. Any `zenzic.toml` still using `engine = "vanilla"` will
   raise a `ConfigurationError [Z000]` at startup with a clear migration message.
-  *Migration:* replace `engine = "vanilla"` with `engine = "standalone"` in your
+  _Migration:_ replace `engine = "vanilla"` with `engine = "standalone"` in your
   `zenzic.toml` or `[tool.zenzic]` block.
 
 ### Added
@@ -808,8 +938,8 @@ The `[mkdocs]` optional extra no longer exists. `pip install zenzic` is the comp
   still uses `_iter_content_lines()` with frontmatter skipping to avoid
   false-positive link findings from metadata values. This is the
   **Dual-Stream** architecture described in the remediation directives.
-  *Exploit PoC confirmed via live script: 0 findings before fix, correct
-  detection of AWS / OpenAI / Stripe / GitHub tokens after fix.*
+  _Exploit PoC confirmed via live script: 0 findings before fix, correct
+  detection of AWS / OpenAI / Stripe / GitHub tokens after fix._
 
 - **[ZRT-002] ReDoS + ProcessPoolExecutor Deadlock (HIGH).**
   A `[[custom_rules]]` pattern like `^(a+)+$` passed the eager
@@ -818,18 +948,18 @@ The `[mkdocs]` optional extra no longer exists. `pip install zenzic` is the comp
   timeout: any worker hitting a ReDoS-vulnerable pattern on a long input
   line hung permanently, blocking the entire CI pipeline.
   **Two defences added:**
-  — *Canary (prevention):* `_assert_regex_canary()` stress-tests every
+  — _Canary (prevention):_ `_assert_regex_canary()` stress-tests every
     `CustomRule` pattern against three canary strings (`"a"*30+"b"`, etc.)
     under a `signal.SIGALRM` watchdog of 100 ms at `AdaptiveRuleEngine`
     construction time. ReDoS patterns raise `PluginContractError` before the
     first file is scanned. (Linux/macOS only; silently skipped on Windows.)
-  — *Timeout (containment):* `ProcessPoolExecutor.map()` replaced with
+  — _Timeout (containment):_ `ProcessPoolExecutor.map()` replaced with
     `submit()` + `future.result(timeout=30)`. A timed-out worker produces a
     `Z009: ANALYSIS_TIMEOUT` `RuleFinding` instead of hanging the scan.
     The new `_make_timeout_report()` and `_make_error_report()` helpers
     ensure clean error surfacing in the standard findings UI.
-  *Exploit PoC confirmed: `^(a+)+$` on `"a"*30+"b"` timed out in 5 s;
-  both defences independently prevent scan lock-up.*
+  _Exploit PoC confirmed: `^(a+)+$` on `"a"*30+"b"` timed out in 5 s;
+  both defences independently prevent scan lock-up._
 
 - **[ZRT-003] Split-Token Shield Bypass — Markdown Table Obfuscation (MEDIUM).**
   The Shield's `scan_line_for_secrets()` ran each raw line through the
@@ -873,22 +1003,22 @@ The `[mkdocs]` optional extra no longer exists. `pip install zenzic` is the comp
 - **[Z-SEC-002] Secure Breach Reporting Pipeline (Commit 2).**
   Four structural changes harden the path from secret detection to CI output:
 
-  — *Breach Panel (`reporter.py`):* findings with `severity="security_breach"`
+  — _Breach Panel (`reporter.py`):_ findings with `severity="security_breach"`
   render as a dedicated high-contrast panel (red on white) positioned before
   all other findings. Surgical caret underlines (`^^^^`) are positioned using
   the `col_start` and `match_text` fields added to `SecurityFinding`.
 
-  — *Surgical Secret Masking — `_obfuscate_secret()`:* raw secret material is
+  — _Surgical Secret Masking — `_obfuscate_secret()`:_ raw secret material is
   never passed to Rich or CI log streams. The function partially redacts
   credentials (first 4 + last 4 chars; full redaction for strings ≤ 8 chars)
   and is the **sole authorised path** for rendering secret values in output.
 
-  — *Bridge Function — `_map_shield_to_finding()` (`scanner.py`):* a single
+  — _Bridge Function — `_map_shield_to_finding()` (`scanner.py`):_ a single
   pure function is the only authorised conversion point between the Shield
   detection layer and `SentinelReporter`. Extracted as a standalone function
   so that mutation testing can target it directly and unambiguously.
 
-  — *Post-Render Exit 2 (`cli.py`):* the security hard-stop is now applied
+  — _Post-Render Exit 2 (`cli.py`):_ the security hard-stop is now applied
   **after** `reporter.render()`, guaranteeing the full breach panel is
   visible in CI logs before the process exits with code 2.
 
@@ -920,13 +1050,13 @@ The `[mkdocs]` optional extra no longer exists. `pip install zenzic` is the comp
 - **`TestShieldReportingIntegrity` — Mutation Gate (Commit 3, Z-TEST-003).**
   Three mandatory tests serving as permanent Mutation Gate guards for the
   security reporting pipeline:
-  - *The Invisible:* `_map_shield_to_finding()` must always emit
+  - _The Invisible:_ `_map_shield_to_finding()` must always emit
     `severity="security_breach"` — a downgrade to `"warning"` is caught
     immediately (`assert 'warning' == 'security_breach'`).
-  - *The Amnesiac:* `_obfuscate_secret()` must never return the raw secret
+  - _The Amnesiac:_ `_obfuscate_secret()` must never return the raw secret
     — removing the redaction logic is caught immediately
     (`assert raw_key not in output`).
-  - *The Silencer:* `_map_shield_to_finding()` must never return `None` —
+  - _The Silencer:_ `_map_shield_to_finding()` must never return `None` —
     a bridge function that discards findings is caught immediately
     (`assert result is not None`).
 
@@ -1222,8 +1352,8 @@ The `[mkdocs]` optional extra no longer exists. `pip install zenzic` is the comp
   `dist/` and `.zenzic-score.json`
 - `CONTRIBUTING.md`: Quick Start updated to `just sync`; task table aligned to
   current `just` commands
-- `docs/developers/index.md`: added *Interactive Workflow with Just* section
-- All `zenzic[docs]` references replaced with *Lean & Agnostic by Design*
+- `docs/developers/index.md`: added _Interactive Workflow with Just_ section
+- All `zenzic[docs]` references replaced with _Lean & Agnostic by Design_
   narrative across `README.md`, `README.it.md`, `docs/usage/index.md`,
   `docs/it/usage/index.md`, and contributor guides
 - `pyproject.toml` `[tool.bumpversion]`: added `parse`, `serialize`, and
@@ -1502,9 +1632,9 @@ It has been superseded by the 0.5.x stabilization cycle.
 
 - **`CacheManager`** (`zenzic.core.cache`) — content-addressable in-memory cache for rule
   findings.  Key: `SHA256(content) + SHA256(config) [+ SHA256(vsm_snapshot)]`.
-  - *Atomic rules* (e.g. `CustomRule`): key omits VSM hash; cache survives unrelated file
+  - _Atomic rules_ (e.g. `CustomRule`): key omits VSM hash; cache survives unrelated file
     changes.
-  - *Global rules* (e.g. `VSMBrokenLinkRule`): key includes VSM hash; entire routing-state
+  - _Global rules_ (e.g. `VSMBrokenLinkRule`): key includes VSM hash; entire routing-state
     change invalidates entries.
   - Persistence: `load()` / `save()` are the only I/O operations; `get()` / `put()` are
     pure in-memory.  Atomic write via temp-file rename prevents corruption.
@@ -1515,8 +1645,8 @@ It has been superseded by the 0.5.x stabilization cycle.
   anchor sets sorted before serialisation.
 
 - **Rule dependency taxonomy** — documented in `rules.py` module docstring:
-  *Atomic* (single-file, cache key omits VSM), *Global* (VSM-aware, cache key includes VSM
-  snapshot), *Cross-file* (future; not cacheable per-file without a dependency graph).
+  _Atomic_ (single-file, cache key omits VSM), _Global_ (VSM-aware, cache key includes VSM
+  snapshot), _Cross-file_ (future; not cacheable per-file without a dependency graph).
 
 ### Changed
 

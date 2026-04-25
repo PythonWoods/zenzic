@@ -133,6 +133,15 @@ class BaseAdapter(Protocol):
         """
         ...
 
+    def get_metadata_files(self) -> frozenset[str]:
+        """Return basenames of files consumed by this adapter as configuration.
+
+        These files are Level 1b System Guardrails (CEO-050): automatically
+        shielded from Z903 (Unused Asset) and other quality checks.  Return
+        only plain filenames — no paths, no wildcards.
+        """
+        ...
+
     def map_url(self, rel: Path) -> str:
         """Map a physical source file path to its canonical virtual URL.
 

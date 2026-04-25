@@ -487,6 +487,118 @@ Nine jobs. `fail-fast: false`. Pure Python is claimed — now it is proven.
 
 ---
 
+### 🛡️ Sentinel Integrity & Knowledge Codification Sprint (2026-04-25)
+
+#### Blood Sentinel Sovereign Sandbox (Direttiva CEO 043)
+
+`zenzic check all ../external-docs` previously raised **Exit 3** (Blood Sentinel — path
+traversal) when the explicit target lived outside the CWD repository root. This was a
+false positive: the F4-1 guard could not distinguish a user-supplied external path from
+an adversarial path injected via a malicious config file.
+
+**The fix: the explicit target becomes the sovereign sandbox.** If the CLI receives a
+`PATH` argument and `docs_root` falls outside `repo_root`, the engine reassigns
+`repo_root = docs_root`. Blood Sentinel then guards escapes *from* that target — which
+is exactly its purpose. The flag is gone; the logic is correct.
+
+A companion fix hoists the Zenzic banner to the start of `check_all`, guarded by format
+mode — so every exit, including fatal ones, announces itself correctly.
+
+Integration test `test_check_all_external_docs_root_not_blocked_by_sentinel` locks this
+behaviour permanently.
+
+#### Obsidian Ledger — The Knowledge Trinity (Direttive CEO 046–047)
+
+The three repository agent instruction files (`.github/copilot-instructions.md`) have
+been completely rewritten into the **Obsidian Ledger** schema:
+
+> `[MANIFESTO] → [POLICIES] → [ARCHITECTURE] → [ADR] → [CHRONICLES] → [SPRINT LOG]`
+
+Key corrections applied to the `zenzic` ledger: the CLI is a *package* (`cli/`), not a
+single file; the UI module lives in `core/ui.py`; the Lab is in `cli/_lab.py`; there are
+11 Acts (0–10); Z504 `QUALITY_REGRESSION` is documented for the first time. The
+`_factory.py` Z000 guard is marked permanent — not a TODO.
+
+`zenzic-action` receives its first-ever agent instruction file. The Knowledge Trinity is
+complete: Core + Docs + Action all have authoritative Obsidian Ledger instructions.
+
+---
+
+### 🧠 Obsidian Memory Law & Precision Polish (Direttive CEO 048–049)
+
+#### The Custodian's Contract — Resolving the Memory Paradox (D049)
+
+An AI agent has no persistent memory between sessions. Left unaddressed, this means
+every sprint closure depends on the agent remembering its own obligations — a paradox.
+The **Obsidian Memory Law** resolves it structurally.
+
+Each of the three Obsidian Ledger files now opens with a **`[CLOSING PROTOCOL]`** —
+a mandatory, per-repo sprint-closure checklist positioned *before* `[POLICIES]` so it
+cannot be skimmed past. Skipping any step is classified as a **Class 1 violation
+(Technical Debt)**. The Memory Law in `[POLICIES]` is elevated to "The Custodian's
+Contract": this file is the agent's only persistent memory, and a sprint is not closed
+until every checkbox is ticked. The paradox is not solved by memory — it is solved by
+*protocol*.
+
+#### Four Precision Bug Fixes (D048)
+
+A precision audit of the reporter and snippet validator surfaces four bugs, all fixed
+with regression tests:
+
+**Z502 — Pointer targets frontmatter, not content.** Short-content findings reported
+`line_no=1`, pointing at the YAML frontmatter `---` delimiter. A new `_first_content_line()`
+helper uses `_FRONTMATTER_RE` to locate the first post-frontmatter line; the pointer now
+targets actual content.
+
+**Z503 — YAML errors report snippet-relative line, not absolute file line.** The YAML
+exception handler always emitted `fence_line + 1`, discarding the parser's own
+`problem_mark.line` offset. A syntax error on snippet line 3 at file line 183 was
+reported as line 181. The handler now reads `exc.problem_mark.line` (0-indexed) and
+adds it correctly to the fence offset.
+
+**Z105/Z503 — Caret misalignment on long source lines.** The `_render_snippet()`
+function rendered full source lines and computed carets based on raw string length,
+ignoring terminal wrapping. A caret at column 80 on a 200-character line appeared on
+the wrong visual row after wrapping. The fix: lines are truncated to
+`terminal_width − gutter_overhead` characters with a `…` suffix; carets are suppressed
+when `col_start` falls in the truncated (invisible) region.
+
+**Z503 — False positive for multi-document YAML snippets.** `yaml.safe_load()` raises
+`ComposerError: expected a single document` when a snippet contains `---` (a valid
+YAML document separator, common in Docusaurus frontmatter examples). The fix replaces
+`safe_load()` with `list(yaml.safe_load_all())`, which correctly handles
+multi-document streams.
+
+---
+
+### 🛡️ The Intelligent Perimeter (Direttiva CEO 050)
+
+A tool that flags its own configuration inputs as quality issues is not a Safe Harbor — it is a
+noise generator. **D050** closes the last gap in the exclusion architecture.
+
+#### Zero-Noise Asset Scanning
+
+When `docs_root` equals the project root, Zenzic previously emitted spurious Z903 (Unused Asset)
+warnings on `docusaurus.config.ts`, `package.json`, `pyproject.toml`, and other toolchain files.
+These files are the inputs Zenzic reads to operate. The fix is architectural, not cosmetic.
+
+**Level 1a — Global Infrastructure Guardrails:** A new `SYSTEM_EXCLUDED_FILE_NAMES` frozenset
+and `SYSTEM_EXCLUDED_FILE_PATTERNS` tuple in `models/config.py` enumerate universal toolchain
+files that are never documentation content. Like `SYSTEM_EXCLUDED_DIRS`, these are immutable
+system guardrails — no user config or CLI flag can override them.
+
+**Level 1b — Adapter-Driven Metadata:** Each adapter now declares which engine config files it
+consumes via `BaseAdapter.get_metadata_files()`. Docusaurus shields `docusaurus.config.ts`,
+`sidebars.ts`, and `_category_.json`. MkDocs shields `mkdocs.yml`. Zensical shields
+`zensical.toml`. `LayeredExclusionManager` stores adapter metadata files at construction time
+and enforces them in `should_exclude_file()`. `find_unused_assets()` applies both layers before
+building the asset set.
+
+The result: zero Z903 warnings on infrastructure. The user's `zenzic.toml` stays clean,
+focused only on *their* business exclusions — not on the scaffolding of the tool itself.
+
+---
+
 ### 🇮🇹 Engineered with Precision
 
 Zenzic is developed by **PythonWoods**, based in Italy, and committed to the craft of high-performance, deterministic Python engineering.

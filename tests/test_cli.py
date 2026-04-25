@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from unittest.mock import ANY, patch
 
@@ -542,6 +543,32 @@ def test_check_all_target_directory(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     assert result.exit_code == 0
     assert "./content/" in result.stdout
     assert "other.md" not in result.stdout
+
+
+def test_check_all_external_docs_root_not_blocked_by_sentinel(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """The External Audit (CEO-043): explicit path outside CWD repo root must not trigger Blood Sentinel (Exit 3).
+
+    Simulates: `zenzic check all ../zenzic-doc` from inside a sibling project.
+    The Blood Sentinel must guard escapes FROM the target, not the location OF the target.
+    """
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / "zenzic.toml").touch()
+
+    ext_docs = tmp_path / "ext_docs"
+    ext_docs.mkdir()
+    (ext_docs / "index.md").write_text("# External Docs\n\n" + "word " * 60)
+
+    monkeypatch.chdir(repo)
+    rel = os.path.relpath(ext_docs, repo)  # resolves to "../ext_docs"
+    result = runner.invoke(app, ["check", "all", rel])
+
+    assert result.exit_code != 3, (
+        f"Blood Sentinel incorrectly blocked an explicit external path.\n{result.output}"
+    )
 
 
 # ---------------------------------------------------------------------------

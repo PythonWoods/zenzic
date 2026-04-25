@@ -6,7 +6,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from zenzic.core.reporter import _read_snippet, _strip_prefix
+from rich.text import Text
+
+from zenzic.core.reporter import _read_snippet, _render_snippet, _strip_prefix
 
 
 # ─── _read_snippet ────────────────────────────────────────────────────────────
@@ -118,3 +120,61 @@ def test_strip_prefix_partial_match_not_stripped() -> None:
     """Prefix must match exactly including the trailing space."""
     result = _strip_prefix("file.md", 5, "file.md:5:no-space-after-colon")
     assert result == "file.md:5:no-space-after-colon"
+
+
+# ─── _render_snippet — caret alignment ───────────────────────────────────────
+
+
+def test_render_snippet_long_line_truncated(tmp_path: Path) -> None:
+    """Very long source lines must be truncated to prevent terminal wrap.
+
+    Regression (D048 Bug 3): carets were rendered based on the original string
+    length, ignoring how ``rich`` wraps long lines visually.  A caret at col 80
+    on a 200-char line appeared on the wrong visual row after wrapping.
+
+    Fix: source line is truncated to (terminal_width - gutter_overhead) chars
+    and the caret is only rendered when col_start falls within that visible range.
+    """
+    long_line = "x" * 200  # well beyond any terminal width
+    p = tmp_path / "file.md"
+    p.write_text(long_line + "\n", encoding="utf-8")
+
+    result = _render_snippet(p, line_no=1, col_start=0, match_text="x" * 5)
+    assert result, "Should produce at least one Text object"
+
+    # Find the error row (the Text object that contains "❱").
+    error_texts = [t for t in result if isinstance(t, Text) and "❱" in t.plain]
+    assert error_texts, "Should have an error row with ❱"
+
+    # The plain content of the error row must be shorter than the raw 200-char line,
+    # proving the source was truncated (prefix "    1  ❱  " + truncated source).
+    error_plain = error_texts[0].plain
+    assert len(error_plain) < 200, (
+        f"Error row plain text is {len(error_plain)} chars — "
+        "long source line was not truncated, carets will misalign after terminal wrap"
+    )
+    # The truncation marker must be present.
+    assert error_plain.endswith("…"), (
+        f"Expected truncation ellipsis '…' at end of error row, got: {error_plain[-5:]!r}"
+    )
+
+
+def test_render_snippet_caret_suppressed_when_beyond_visible(tmp_path: Path) -> None:
+    """Carets must not render when col_start falls in the truncated portion of the line.
+
+    If the match is beyond the visible truncation point, rendering carets would
+    point at an empty space (or the ``…`` ellipsis), which is worse than no caret.
+    """
+    long_line = "a" * 200
+    p = tmp_path / "file.md"
+    p.write_text(long_line + "\n", encoding="utf-8")
+
+    # col_start=190 — deep in the truncated portion for any sane terminal width.
+    result = _render_snippet(p, line_no=1, col_start=190, match_text="aaa")
+
+    assert result, "Should produce at least one Text object (the source row)"
+    # None of the returned Text objects should contain "^" (the caret character).
+    caret_texts = [t for t in result if isinstance(t, Text) and "^" in t.plain]
+    assert not caret_texts, (
+        "Carets must not appear when col_start is beyond the truncated visible region"
+    )

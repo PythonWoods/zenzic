@@ -61,6 +61,10 @@ class StandaloneAdapter:
         """``False`` — StandaloneAdapter is active only when no engine was detected."""
         return False
 
+    def get_metadata_files(self) -> frozenset[str]:
+        """StandaloneAdapter has no engine config file."""
+        return frozenset()
+
     def map_url(self, rel: Path) -> str:  # noqa: ARG002
         """Fallback URL mapping: same clean-URL rule as Zensical."""
         stem = rel.with_suffix("")

@@ -84,7 +84,48 @@ def test_check_snippet_non_python_ignored() -> None:
     assert check_snippet_content(md, "page.md") == []
 
 
-# ─── Pure core: check_asset_references ────────────────────────────────────────
+def test_check_snippet_yaml_multi_doc_no_false_positive() -> None:
+    """YAML snippets with ``---`` document separators must not raise Z503.
+
+    Regression (D048 Bug 4): yaml.safe_load() raised "expected single document"
+    when a snippet contained ``---`` (a valid YAML document separator).  Docusaurus
+    docs frequently show frontmatter examples using ``---`` inside code blocks.
+    """
+    md = """\
+Some text before.
+
+```yaml
+---
+title: My Page
+sidebar_label: My Page
+---
+title: Second Document
+```
+
+Some text after.
+"""
+    errors = check_snippet_content(md, "guide.mdx")
+    assert errors == [], f"Multi-doc YAML snippet raised unexpected errors: {errors}"
+
+
+def test_check_snippet_yaml_absolute_line_no() -> None:
+    """Z503 YAML errors must report absolute file line, not snippet-relative line.
+
+    Regression (D048 Bug 2): line_no was always fence_line + 1, discarding the
+    YAML parser's own problem_mark.line.  A syntax error on snippet line 3 at file
+    line 183 was reported as line 181 (fence + 1) instead of 183 (fence + 3).
+    """
+    # Build a file where the YAML fence is at line 10 and the error is on line 3
+    # of the snippet (absolute line 13 in the file).
+    prefix = "\n" * 9  # 9 blank lines → fence opens at line 10
+    md = prefix + "```yaml\nkey: value\nanother: fine\nbad: :\n```\n"
+    errors = check_snippet_content(md, "reference.mdx")
+    assert errors, "Invalid YAML must produce a SnippetError"
+    # The error is on snippet line 3 (bad: :) → absolute line 10 + 3 = 13
+    assert errors[0].line_no == 13, (
+        f"Expected absolute line 13, got {errors[0].line_no}. "
+        "YAML line mapping is not adding snippet-relative offset correctly."
+    )
 
 
 def test_check_asset_references_markdown_image() -> None:

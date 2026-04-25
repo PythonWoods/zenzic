@@ -483,10 +483,18 @@ def check_assets(
     if not loaded_from_file:
         _shared._print_no_config_hint()
     docs_root = (repo_root / config.docs_dir).resolve()
-    exclusion_mgr = _shared._build_exclusion_manager(config, repo_root, docs_root)
+    from zenzic.core.adapters import get_adapter
+
+    adapter = get_adapter(config.build_context, docs_root, repo_root)
+    adapter_meta = adapter.get_metadata_files()
+    exclusion_mgr = _shared._build_exclusion_manager(
+        config, repo_root, docs_root, adapter_metadata_files=adapter_meta
+    )
 
     t0 = time.monotonic()
-    unused = find_unused_assets(docs_root, exclusion_mgr, config=config)
+    unused = find_unused_assets(
+        docs_root, exclusion_mgr, config=config, adapter_metadata_files=adapter_meta
+    )
     elapsed = time.monotonic() - t0
 
     findings = [
@@ -685,7 +693,11 @@ def _collect_all_results(
             docs_root, exclusion_mgr, config=config, repo_root=repo_root
         ),
         unused_assets=find_unused_assets(
-            docs_root, exclusion_mgr, config=config, repo_root=repo_root
+            docs_root,
+            exclusion_mgr,
+            config=config,
+            repo_root=repo_root,
+            adapter_metadata_files=adapter.get_metadata_files(),
         ),
         nav_contract_errors=check_nav_contract(repo_root, exclusion_mgr),
         reference_reports=ref_reports,
@@ -1004,12 +1016,24 @@ def check_all(
     if offline:
         config.build_context.offline_mode = True
 
+    if not quiet and output_format == "text":
+        from zenzic import __version__
+
+        _shared._ui.print_header(__version__)
+
     _single_file: Path | None = None
     _target_hint: str | None = None
     if path is not None:
         config, _single_file, _, _target_hint = _apply_target(repo_root, config, path)
 
     docs_root = (repo_root / config.docs_dir).resolve()
+    # CEO-043: explicit target may live outside the CWD repo root.
+    # Adopt the target as the sovereign sandbox so Blood Sentinel guards
+    # escapes FROM the target, not the location OF the target.
+    try:
+        docs_root.relative_to(repo_root)
+    except ValueError:
+        repo_root = docs_root
     exclusion_mgr = _shared._build_exclusion_manager(
         config,
         repo_root,
@@ -1089,7 +1113,6 @@ def check_all(
     if quiet:
         errors, warnings = reporter.render_quiet(all_findings)
     else:
-        _shared._ui.print_header(__version__)
         docs_count, assets_count = _shared._count_docs_assets(
             docs_root, repo_root, exclusion_mgr, config
         )

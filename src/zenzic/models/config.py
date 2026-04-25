@@ -104,6 +104,38 @@ SYSTEM_EXCLUDED_DIRS: frozenset[str] = frozenset(
     }
 )
 
+# ── System File Guardrails (L1a) ─────────────────────────────────────────────
+# Files that Zenzic ALWAYS excludes from asset checks — universal development
+# toolchain files that are never documentation content.  Adapters may declare
+# additional files via ``BaseAdapter.get_metadata_files()`` (L1b).
+SYSTEM_EXCLUDED_FILE_NAMES: frozenset[str] = frozenset(
+    {
+        # JavaScript / Node.js
+        "package.json",
+        "package-lock.json",
+        "yarn.lock",
+        "pnpm-lock.yaml",
+        "tsconfig.json",
+        "tsconfig.base.json",
+        # Python
+        "pyproject.toml",
+        "poetry.lock",
+        "uv.lock",
+        "setup.cfg",
+        "setup.py",
+        # Generic toolchain
+        "Makefile",
+        "justfile",
+    }
+)
+
+SYSTEM_EXCLUDED_FILE_PATTERNS: tuple[str, ...] = (
+    "eslint.config.*",
+    ".prettierrc*",
+    ".editorconfig",
+    "*.lock",
+)
+
 
 class ZenzicConfig(BaseModel):
     """Configuration model for Zenzic, typically loaded from zenzic.toml.

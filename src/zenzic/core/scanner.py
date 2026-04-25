@@ -34,7 +34,11 @@ from zenzic.core.reporter import Finding
 from zenzic.core.rules import AdaptiveRuleEngine, BaseRule
 from zenzic.core.shield import SecurityFinding, scan_lines_with_lookback, scan_url_for_secrets
 from zenzic.core.validator import LinkValidator
-from zenzic.models.config import ZenzicConfig
+from zenzic.models.config import (
+    SYSTEM_EXCLUDED_FILE_NAMES,
+    SYSTEM_EXCLUDED_FILE_PATTERNS,
+    ZenzicConfig,
+)
 from zenzic.models.references import IntegrityReport, ReferenceFinding, ReferenceMap
 
 
@@ -175,6 +179,19 @@ _MDX_COMMENT_RE: re.Pattern[str] = re.compile(r"\{/\*.*?\*/\}", re.DOTALL)
 _HTML_COMMENT_RE: re.Pattern[str] = re.compile(r"<!--.*?-->", re.DOTALL)
 
 
+def _first_content_line(text: str) -> int:
+    """Return the 1-based line number of the first content line after YAML frontmatter.
+
+    Uses ``_FRONTMATTER_RE`` to locate the end of the frontmatter block and counts
+    newlines up to that point.  Falls back to line 1 when no frontmatter is present.
+    This ensures Z502 short-content findings point at actual content, not at ``---``.
+    """
+    m = _FRONTMATTER_RE.match(text)
+    if m:
+        return text[: m.end()].count("\n") + 1
+    return 1
+
+
 def _visible_word_count(text: str) -> int:
     """Return the number of prose words in *text*, excluding invisible markup.
 
@@ -215,7 +232,7 @@ def check_placeholder_content(
         findings.append(
             PlaceholderFinding(
                 file_path=path,
-                line_no=1,
+                line_no=_first_content_line(text),
                 issue="short-content",
                 detail=f"Page has only {visible} words (minimum {config.placeholder_max_words}).",
             )
@@ -370,6 +387,7 @@ def find_unused_assets(
     *,
     config: ZenzicConfig,
     repo_root: Path | None = None,
+    adapter_metadata_files: frozenset[str] = frozenset(),
 ) -> list[Path]:
     """Return asset files in docs/ that are not referenced by any markdown file.
 
@@ -381,6 +399,8 @@ def find_unused_assets(
             exposes ``get_locale_source_roots()``, locale translation trees
             are also scanned when collecting asset reference sets
             (Docusaurus i18n support).
+        adapter_metadata_files: Filenames (basename only) that the active adapter
+            consumes as configuration — shielded from Z903 (Level 1b guardrail).
 
     Returns:
         List of Path objects relative to docs_root that are unused.
@@ -394,6 +414,14 @@ def find_unused_assets(
     asset_extra_prune = set(config.excluded_asset_dirs)
     for file_path in walk_files(docs_root, asset_extra_prune, exclusion_manager):
         if file_path.is_dir() or file_path.is_symlink() or file_path.suffix in DOC_SUFFIXES:
+            continue
+        # L1: System file guardrails + adapter metadata (CEO-050)
+        name = file_path.name
+        if (
+            name in SYSTEM_EXCLUDED_FILE_NAMES
+            or any(fnmatch.fnmatch(name, p) for p in SYSTEM_EXCLUDED_FILE_PATTERNS)
+            or name in adapter_metadata_files
+        ):
             continue
         rel_path = file_path.relative_to(docs_root)
         if rel_path.suffix in {".css", ".js", ".yml", ".sarif", ".license", ".j2"}:

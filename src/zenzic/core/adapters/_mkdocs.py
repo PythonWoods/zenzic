@@ -609,6 +609,10 @@ class MkDocsAdapter:
         """
         return self._config_file_found or bool(self._locale_dirs)
 
+    def get_metadata_files(self) -> frozenset[str]:
+        """MkDocs configuration file — shielded from Z903."""
+        return frozenset({"mkdocs.yml"})
+
     # ── VSM integration ────────────────────────────────────────────────────────
 
     def map_url(self, rel: Path) -> str:

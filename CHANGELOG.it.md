@@ -385,6 +385,136 @@ L'extra opzionale `[mkdocs]` non esiste più. `pip install zenzic` è l'installa
 
 ---
 
+### Sprint Integrità Sentinel & Codificazione della Conoscenza (D041–D047 — 2026-04-25)
+
+#### Corretto
+
+- **Falso positivo Blood Sentinel — target esterni espliciti (Direttiva CEO 043 — "The Sentinel's Sanity Pass").**
+  `zenzic check all ../percorso-esterno` lanciava Exit 3 (Blood Sentinel) quando il target
+  esplicito si trovava fuori dalla radice del repository CWD. La guardia `_validate_docs_root`
+  (F4-1) trattava qualsiasi `docs_root` esterna a `repo_root` come un attacco path traversal,
+  indipendentemente dal fatto che l'utente avesse fornito esplicitamente quel percorso come
+  argomento CLI.
+  **Fix (ADR-007 — Sovereign Sandbox):** Dopo la risoluzione di `docs_root`, se
+  `docs_root.relative_to(repo_root)` lancia `ValueError`, si riassegna `repo_root = docs_root`.
+  Il target utente esplicito diventa la sandbox sovrana; il Blood Sentinel sorveglia le fughe
+  _da_ quel target, non la _posizione_ di esso.
+  Test di integrazione `test_check_all_external_docs_root_not_blocked_by_sentinel` aggiunto a
+  `tests/test_cli.py`.
+
+- **Banner Zenzic assente sulle uscite fatali precoci (Direttiva CEO 043).**
+  `_ui.print_header(__version__)` veniva chiamato dentro il blocco di rendering text-format,
+  dopo tutta la validazione. Qualsiasi uscita fatale precedente (config mancante, rifiuto Blood
+  Sentinel, Shield breach) produceva output privo di banner. **Fix:** banner anticipato all'inizio
+  di `check_all`, protetto da `not quiet and output_format == "text"`.
+
+#### Documentazione
+
+- **Integrità frontmatter confermata — audit ZRT-001 (Direttiva CEO 041).**
+  Confermato che `check_shield()` scansiona tramite `enumerate(fh, start=1)` — ogni linea,
+  incluso il frontmatter YAML — prima di qualsiasi passata sul contenuto filtrato. Il fix
+  `_visible_word_count()` (Sprint Parità Codebase) elimina il frontmatter solo per il conteggio
+  parole Z502 e non ha alcun impatto sulla copertura dello Shield. Nessuna modifica al codice
+  richiesta.
+
+- **Obsidian Ledger delle istruzioni agente (Direttive CEO 046–047 — "The Knowledge Refactoring" / "The Knowledge Trinity").**
+  Tutti e tre i file `.github/copilot-instructions.md` dei repository riscritti secondo lo schema
+  Obsidian Ledger: `[MANIFESTO] → [POLICIES] → [ARCHITECTURE] → [ADR] → [CHRONICLES] → [SPRINT LOG]`.
+  Correzioni architetturali applicate: struttura del package `cli/`, `core/ui.py`, `cli/_lab.py`,
+  11 Atti (0–10), Z504 `QUALITY_REGRESSION` documentato per la prima volta. `zenzic-action`
+  riceve il suo primo file di istruzioni agente (directory `.github/` creata da zero).
+
+- **Memory Law codificata (Direttiva CEO 042).**
+  Sezione 9 — "Documenting Evolution (The Memory Law)" — aggiunta a entrambi i file di istruzioni
+  agente `zenzic` e `zenzic-doc`. Gli agenti devono codificare tutte le innovazioni dello sprint
+  prima che una direttiva venga chiusa.
+
+- **Invariante strutturale bilingue codificato (Direttiva CEO 045 — "Codifying the Symmetry").**
+  La Legge del Mirroring Italiano formalmente codificata in entrambi i file di istruzioni agente:
+  qualsiasi `git mv` in `docs/` deve essere accompagnato da un corrispondente `git mv` in
+  `i18n/it/` **nello stesso commit**. Audit di simmetria (comando diff) eseguito e confermato
+  con zero asimmetrie.
+
+---
+
+### Sprint Legge della Memoria Obsidian & Rifinitura di Precisione (D048–D049 — 2026-04-25)
+
+#### Corretto
+
+- **Puntatore Z502 `SHORT_CONTENT` puntava al frontmatter (Direttiva CEO 048 — Bug 1).**
+  `check_placeholder_content` aveva `line_no=1` cablato nel `PlaceholderFinding` short-content,
+  causando il puntamento della freccia diagnostica `❱` sull'apertura `---` del frontmatter YAML
+  — non sulla prima riga di contenuto. **Fix:** `_first_content_line(text)` usa
+  `_FRONTMATTER_RE.match()` per contare le righe nel blocco frontmatter e restituisce il numero
+  della prima riga post-frontmatter. Test: `test_short_content_pointer_skips_frontmatter`.
+
+- **Gli errori Z503 YAML riportano la riga relativa invece di quella assoluta (Direttiva CEO 048 — Bug 2).**
+  Il gestore YAML in `check_snippet_content` usava `line_no=fence_line + 1` incondizionatamente,
+  scartando l'offset `exc.problem_mark.line` del parser YAML. Un errore di sintassi alla riga 3
+  dello snippet (riga 183 del file) veniva segnalato come riga 181 invece che 183.
+  **Fix:** `offset = (mark.line + 1) if mark is not None else 1`.
+  Test: `test_check_snippet_yaml_absolute_line_no`.
+
+- **I cursori `^^^^` si disallineano dopo il wrapping di riga nel terminale (Direttiva CEO 048 — Bug 3).**
+  `_render_snippet` usava una soglia cablata `col_start + caret_len <= 60` senza tenere conto
+  della larghezza del terminale. Le righe sorgente molto lunghe (200+ caratteri) andavano a capo
+  nel terminale, spostando la riga dei cursori sulla riga visiva sbagliata.
+  **Fix:** `shutil.get_terminal_size(fallback=(120, 24)).columns` determina `max_src`. Le righe
+  sorgente vengono troncate a `max_src` con suffisso `…`. I cursori vengono renderizzati solo se
+  `col_start + caret_len <= max_src`.
+
+- **Gli snippet YAML multi-documento generano falso positivo Z503 (Direttiva CEO 048 — Bug 4).**
+  `yaml.safe_load(snippet)` rifiutava gli snippet YAML contenenti separatori di documento `---`
+  con "expected a single document in the stream". La documentazione Docusaurus mostra
+  frequentemente esempi di frontmatter usando `---` all'interno dei blocchi di codice.
+  **Fix:** `list(yaml.safe_load_all(snippet))` — il generatore viene consumato per forzare il
+  parsing completo accettando stream YAML multi-documento.
+
+#### Documentazione
+
+- **`[CLOSING PROTOCOL]` — Legge della Memoria Obsidian codificata (Direttiva CEO 049 — "The Obsidian Memory Law").**
+  Tutti e tre i file di istruzioni agente ricevono una sezione `[CLOSING PROTOCOL]`, posizionata
+  subito dopo `[MANIFESTO]`. Definisce una checklist obbligatoria per repo (aggiornare
+  istruzioni, aggiornare changelog, eseguire audit di obsolescenza, eseguire gate di verifica).
+  Saltare qualsiasi passo è una violazione di Classe 1 (Technical Debt). Risolve il "Paradosso
+  del Custode senza Memoria". La Memory Law in `[POLICIES]` aggiornata a "The Custodian's
+  Contract" con la clausola di violazione Classe 1 e l'invariante esplicito "Definition of Done".
+
+### Sprint del Perimetro Intelligente (D050 — 2026-04-25)
+
+#### Corretto
+
+- **Falsi positivi Z903 su file di configurazione engine e infrastruttura (BUG-009 — Direttiva CEO 050 "The Intelligent Perimeter").**
+  Eseguire `zenzic check all .` dalla root del progetto generava avvisi Z903 (Asset Non Utilizzato)
+  su `docusaurus.config.ts`, `package.json`, `pyproject.toml` e altri file toolchain — gli stessi
+  file che Zenzic legge per operare. La causa: `find_unused_assets()` non aveva guardrail a livello
+  di file; ogni file non-Markdown in `docs_root` non referenziato veniva segnalato.
+
+  **Fix — Sistema di guardrail a due livelli (L1a + L1b):**
+
+  - **L1a — `SYSTEM_EXCLUDED_FILE_NAMES` / `SYSTEM_EXCLUDED_FILE_PATTERNS`** in
+    `src/zenzic/models/config.py`: file toolchain universali (`package.json`, `pyproject.toml`,
+    `yarn.lock`, `tsconfig.json`, `uv.lock`, `eslint.config.*`, `.prettierrc*`, ecc.) sono
+    guardrail di sistema immutabili, non sovrascrivibili da config utente o flag CLI.
+  - **L1b — `BaseAdapter.get_metadata_files() -> frozenset[str]`**: ogni adapter dichiara i file
+    di configurazione engine che consuma (`docusaurus.config.ts` / `sidebars.ts` per Docusaurus;
+    `mkdocs.yml` per MkDocs; `zensical.toml` per Zensical). `LayeredExclusionManager` li memorizza
+    e li applica in `should_exclude_file()`. `find_unused_assets()` applica entrambi i livelli
+    prima di costruire l'insieme degli asset. `_build_exclusion_manager` propaga i metadata
+    dell'adapter al gestore delle esclusioni al momento della costruzione.
+
+  Regola R13 (CEO-050) codificata in `[POLICIES]`: _"Non chiedere mai all'utente di escluderli manualmente."_
+
+#### Test
+
+- `tests/test_exclusion.py::TestSystemFileGuardrails` — 5 nuovi test: esclusione per nome esatto,
+  esclusione per pattern glob (`eslint.config.mjs`), pattern `*.lock`, metadata adapter L1b, e
+  non-esclusione di file doc legittimi.
+- `tests/test_scanner.py::test_find_unused_assets_skips_system_infrastructure_files` — L1a end-to-end.
+- `tests/test_scanner.py::test_find_unused_assets_skips_adapter_metadata_files` — L1b end-to-end.
+
+---
+
 ## [0.6.1] — 2026-04-19 — Obsidian Glass [SUPERSEDED]
 
 > ⚠ **[SUPERSEDED dalla v0.7.0]** — La versione 0.6.1 è deprecata a causa di problemi di allineamento con le specifiche Docusaurus e terminologia legacy. Tutti gli utenti devono aggiornare alla v0.7.0 "Obsidian Maturity".
@@ -395,7 +525,7 @@ L'extra opzionale `[mkdocs]` non esiste più. `pip install zenzic` è l'installa
   keyword `engine = "vanilla"` sono stati rimossi. Tutti i progetti devono migrare a
   `engine = "standalone"`. Qualsiasi `zenzic.toml` che usa ancora `engine = "vanilla"`
   genera una `ConfigurationError [Z000]` all'avvio con un messaggio di migrazione chiaro.
-  *Migrazione:* sostituire `engine = "vanilla"` con `engine = "standalone"` nel proprio
+  _Migrazione:_ sostituire `engine = "vanilla"` con `engine = "standalone"` nel proprio
   `zenzic.toml` o nel blocco `[tool.zenzic]`.
 
 ### Aggiunto
@@ -775,10 +905,10 @@ L'extra opzionale `[mkdocs]` non esiste più. `pip install zenzic` è l'installa
   Un pattern `[[custom_rules]]` come `^(a+)+$` superava il controllo
   `_assert_pickleable()` e veniva distribuito ai worker process senza timeout.
   **Due difese aggiunte:**
-  — *Canary (prevenzione):* `_assert_regex_canary()` stress-testa ogni pattern
+  — _Canary (prevenzione):_ `_assert_regex_canary()` stress-testa ogni pattern
     `CustomRule` sotto un watchdog `signal.SIGALRM` di 100 ms. I pattern ReDoS
     sollevano `PluginContractError` prima della prima scansione.
-  — *Timeout (contenimento):* `ProcessPoolExecutor.map()` sostituito con
+  — _Timeout (contenimento):_ `ProcessPoolExecutor.map()` sostituito con
     `submit()` + `future.result(timeout=30)`.
 
 - **[ZRT-003] Bypass Shield Split-Token — Offuscamento Tabelle Markdown (MEDIO).**

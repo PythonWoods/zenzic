@@ -298,6 +298,36 @@ See LICENSE file.
     )
 
 
+def test_short_content_pointer_skips_frontmatter() -> None:
+    """Z502 short-content finding must point to the first content line, not to frontmatter.
+
+    Regression (D048 Bug 1): line_no was hardcoded to 1, causing the red arrow ``❱``
+    to point at the opening ``---`` of the frontmatter block, misleading users into
+    thinking frontmatter words were being counted as content.
+    """
+    text = """\
+---
+icon: ShieldCheck
+sidebar_label: Licenza
+title: Licenza Apache 2.0
+description: Informazioni sulla licenza.
+---
+
+# Licenza
+
+LICENZA
+"""
+    config = ZenzicConfig(placeholder_max_words=50)
+    findings = check_placeholder_content(text, "community/license.mdx", config)
+    short = [f for f in findings if f.issue == "short-content"]
+    assert short, "Page with 3 visible words must trigger short-content"
+    # The finding must NOT point at line 1 (the opening ``---``).
+    assert short[0].line_no > 1, (
+        f"short-content finding points at line {short[0].line_no} — "
+        "expected a line past the frontmatter block"
+    )
+
+
 def test_find_unused_assets_no_config(tmp_path: Path) -> None:
     docs = tmp_path / "docs"
     docs.mkdir()
@@ -735,3 +765,57 @@ def test_find_unused_assets_symlink_skipped(tmp_path: Path) -> None:
     mgr = make_mgr(config, repo_root=tmp_path)
     unused = find_unused_assets(docs, mgr, config=config)
     assert any(p.name == "img.png" for p in unused)
+
+
+# ─── find_unused_assets — L1 System File Guardrails (CEO-050) ────────────────
+
+
+def test_find_unused_assets_skips_system_infrastructure_files(tmp_path: Path) -> None:
+    """System infrastructure files must never appear as Z903 findings.
+
+    Regression (D050): when docs_root == project root, toolchain files like
+    package.json were included in the asset walk and emitted spurious Z903
+    warnings. The Level 1a guardrail in find_unused_assets must filter them.
+    """
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "index.md").write_text("# Hello\n")
+    # Infra files that must be silently skipped
+    (docs / "package.json").write_text("{}")
+    (docs / "pyproject.toml").write_text("[project]")
+    (docs / "yarn.lock").write_text("")
+    (docs / "eslint.config.mjs").write_text("export default {};")
+
+    config = ZenzicConfig()
+    mgr = make_mgr(config, repo_root=tmp_path)
+    unused = find_unused_assets(docs, mgr, config=config)
+
+    infra_names = {p.name for p in unused}
+    assert "package.json" not in infra_names, "package.json must be shielded (L1a)"
+    assert "pyproject.toml" not in infra_names, "pyproject.toml must be shielded (L1a)"
+    assert "yarn.lock" not in infra_names, "yarn.lock must be shielded (L1a)"
+    assert "eslint.config.mjs" not in infra_names, "eslint.config.mjs must be shielded (L1a)"
+
+
+def test_find_unused_assets_skips_adapter_metadata_files(tmp_path: Path) -> None:
+    """Adapter metadata files must be excluded via the adapter_metadata_files param.
+
+    Regression (D050): docusaurus.config.ts in docs_root triggered Z903 when
+    the Docusaurus adapter's metadata files were not passed to find_unused_assets.
+    """
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "index.md").write_text("# Hello\n")
+    (docs / "docusaurus.config.ts").write_text("export default {};")
+    (docs / "sidebars.ts").write_text("export default {};")
+    (docs / "logo.png").write_bytes(b"\x89PNG")  # unreferenced — should be reported
+
+    config = ZenzicConfig()
+    mgr = make_mgr(config, repo_root=tmp_path)
+    adapter_meta = frozenset({"docusaurus.config.ts", "sidebars.ts"})
+    unused = find_unused_assets(docs, mgr, config=config, adapter_metadata_files=adapter_meta)
+
+    unused_names = {p.name for p in unused}
+    assert "docusaurus.config.ts" not in unused_names, "adapter config must be shielded (L1b)"
+    assert "sidebars.ts" not in unused_names, "adapter sidebar must be shielded (L1b)"
+    assert "logo.png" in unused_names, "genuine unused asset must still be reported"

@@ -192,6 +192,9 @@ class ZensicalLegacyProxy:
     def has_engine_config(self) -> bool:
         return self._adapter.has_engine_config()
 
+    def get_metadata_files(self) -> frozenset[str]:
+        return self._adapter.get_metadata_files()
+
     def map_url(self, rel: Path) -> str:
         return self._adapter.map_url(rel)
 
@@ -318,6 +321,10 @@ class ZensicalAdapter:
     def has_engine_config(self) -> bool:
         """``True`` — ZensicalAdapter is constructed only when zensical.toml exists."""
         return True
+
+    def get_metadata_files(self) -> frozenset[str]:
+        """Zensical configuration file — shielded from Z903."""
+        return frozenset({"zensical.toml"})
 
     # ── VSM integration ────────────────────────────────────────────────────────
 

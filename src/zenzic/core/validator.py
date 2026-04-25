@@ -1270,12 +1270,14 @@ def check_snippet_content(
 
         elif lang in ("yaml", "yml"):
             try:
-                yaml.safe_load(snippet)
+                list(yaml.safe_load_all(snippet))
             except yaml.YAMLError as exc:
+                mark = getattr(exc, "problem_mark", None)
+                offset = (mark.line + 1) if mark is not None else 1
                 errors.append(
                     SnippetError(
                         file_path=path,
-                        line_no=fence_line + 1,
+                        line_no=fence_line + offset,
                         message=f"SyntaxError in YAML snippet — {exc}",
                     )
                 )
