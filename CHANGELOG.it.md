@@ -873,6 +873,62 @@ Z104 nella scansione remota.
 
 ---
 
+### D073 — La Legge della Curation Evolutiva (2026-04-25)
+
+#### Governance
+
+- **Tutti e tre gli Obsidian Ledger refactorizzati da "diari storici" a "manuali operativi".**
+  La sezione [CHRONICLES] (14 post-mortem di bug) rimossa dal ledger core; le lezioni già
+  distillate nelle regole [POLICIES] (R11–R18) e nelle voci ADR rimangono. [SPRINT LOG]
+  sostituito da [ACTIVE SPRINT] (finestra a 2 sprint) in tutti e tre i repo.
+  Legge della Curation Evolutiva codificata in [POLICIES]: questo file è un Contesto di
+  Lavoro, non un archivio storico. Guardrail dimensionale: avviare curation quando il file
+  supera 400 righe.
+
+- **Regola R19 — Nessuna Esclusione a Livello di Dominio (nuova).**
+  `excluded_external_urls` in `zenzic.toml` deve puntare a URL o prefissi specifici, non a
+  interi domini. Un'esclusione di dominio generico (es. `"https://zenzic.dev/"`) crea un
+  angolo buio permanente che sopravvive alle ristrutturazioni dei contenuti. Solo governance;
+  nessuna validazione a runtime. Documentata nel ledger core [POLICIES] e nel riferimento
+  di configurazione di `zenzic-doc`.
+
+- **ADR-006 esteso con il corollario BUG-014 SPDX.**
+  `_first_content_line()` applica lo stesso skip in tre fasi (commenti HTML → frontmatter →
+  righe vuote) stabilito in D072. La lezione è ora catturata permanentemente in ADR-006.
+
+---
+
+### D074+D075 — Iron Gate della Copertura + Testimonianza R19 (2026-04-25)
+
+#### Test — D074
+
+- **Tre unit test mirati per i percorsi di commenti multi-riga di `_first_content_line()`.**
+  L'implementazione del walker in tre fasi di D072 aveva rami di continuazione non coperti.
+  Il test di regressione esistente esercitava solo commenti HTML su singola riga.
+
+  Nuovi test:
+  - `test_short_content_pointer_skips_multiline_html_comment` — `<!-- … -->` su più righe;
+    verifica che il puntatore atterri sulla prosa, non su righe di commento.
+    Copre il percorso di continuazione `in_html=True` (righe 209–213, 221 in scanner.py).
+  - `test_short_content_pointer_skips_multiline_mdx_comment` — `{/* … */}` su più righe;
+    verifica che il puntatore atterri sulla prosa, non su righe di commento.
+    Copre il percorso di continuazione `in_mdx=True` (righe 214–218, 226 in scanner.py).
+  - `test_short_content_pointer_unclosed_frontmatter` — frontmatter senza `---` di chiusura;
+    verifica assenza di crash e `line_no ≥ 1`.
+    Copre il ramo False di `if i < n:` (riga 239 → 243 in scanner.py).
+
+  Copertura test complessiva: **79,82% → 80,00%** (Python 3.11, 3.12, 3.13).
+
+#### Documentazione — D075
+
+- **Admonition `:::warning` Regola R19 aggiunta a `configuration-reference.mdx` (EN + IT).**
+  La sezione `excluded_external_urls` ora porta un avvertimento permanente contro le
+  esclusioni a livello di dominio. Legge della Testimonianza Contemporanea soddisfatta:
+  R19 (codificata in D073) è ora visibile nel punto d'uso nella documentazione di riferimento
+  ufficiale.
+
+---
+
 ## [0.6.1] — 2026-04-19 — Obsidian Glass [SUPERSEDED]
 
 > ⚠ **[SUPERSEDED dalla v0.7.0]** — La versione 0.6.1 è deprecata a causa di problemi di allineamento con le specifiche Docusaurus e terminologia legacy. Tutti gli utenti devono aggiornare alla v0.7.0 "Obsidian Maturity".

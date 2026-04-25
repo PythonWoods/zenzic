@@ -914,6 +914,60 @@ misdiagnosis. CEO-052 fix (already applied) eliminates the false Z104 when scann
 
 ---
 
+### D073 — The Law of Evolutionary Curation (2026-04-25)
+
+#### Governance
+
+- **All three Obsidian Ledgers refactored from "historical diaries" to "operational manuals".**
+  [CHRONICLES] section (14 bug post-mortems) removed from core ledger; lessons already
+  distilled into [POLICIES] rules (R11–R18) and ADR entries remain. [SPRINT LOG] replaced
+  by [ACTIVE SPRINT] (2-sprint rolling window) across all three repos.
+  Law of Evolutionary Curation codified in [POLICIES]: this file is a Working Context, not
+  a historical archive. Size guardrail: trigger curation when file exceeds 400 lines.
+
+- **Rule R19 — No Domain-Level URL Exclusions (new).**
+  `excluded_external_urls` in `zenzic.toml` must target specific URLs or prefixes, not
+  entire domains. A blanket domain exclusion (e.g. `"https://zenzic.dev/"`) creates a
+  permanent blindspot that survives content restructures. Governance only; no runtime
+  validation. Documented in core ledger [POLICIES] and in `zenzic-doc` configuration
+  reference.
+
+- **ADR-006 extended with BUG-014 SPDX corollary.**
+  `_first_content_line()` applies the same three-phase skip (HTML comments → frontmatter →
+  blank lines) established in D072. The lesson is now permanently captured in ADR-006.
+
+---
+
+### D074+D075 — Coverage Iron Gate + R19 Testimony (2026-04-25)
+
+#### Tests — D074
+
+- **Three targeted unit tests for `_first_content_line()` multi-line comment paths.**
+  The D072 three-phase walker implementation had uncovered continuation branches.
+  The existing regression test only exercised single-line HTML comments.
+
+  New tests:
+  - `test_short_content_pointer_skips_multiline_html_comment` — multi-line `<!-- … -->`
+    spanning 3 lines; verifies pointer lands on prose, not on any comment line.
+    Covers the `in_html=True` continuation path (lines 209–213, 221 in scanner.py).
+  - `test_short_content_pointer_skips_multiline_mdx_comment` — multi-line `{/* … */}`
+    spanning 3 lines; verifies pointer lands on prose, not on any comment line.
+    Covers the `in_mdx=True` continuation path (lines 214–218, 226 in scanner.py).
+  - `test_short_content_pointer_unclosed_frontmatter` — frontmatter with no closing `---`;
+    verifies no crash and `line_no ≥ 1`.
+    Covers the `if i < n:` False branch (line 239 → 243 in scanner.py).
+
+  Overall test coverage: **79.82% → 80.00%** (Python 3.11, 3.12, 3.13).
+
+#### Documentation — D075
+
+- **Rule R19 `:::warning` admonition added to `configuration-reference.mdx` (EN + IT).**
+  The `excluded_external_urls` section now carries a permanent governance warning against
+  domain-level exclusions. Law of Contemporary Testimony satisfied: R19 (codified in D073)
+  is now visible at the point of use in the official reference documentation.
+
+---
+
 ## [0.6.1] — 2026-04-19 — Obsidian Glass [SUPERSEDED]
 
 > ⚠ **[SUPERSEDED by v0.7.0]** — Version 0.6.1 is deprecated due to alignment issues with Docusaurus specifications and legacy terminology. All users must upgrade to v0.7.0 "Obsidian Maturity".

@@ -344,24 +344,23 @@ tests/
 
 ## [ACTIVE SPRINT] — Working Context
 
-### D073 — The Law of Evolutionary Curation (Current)
+### D074+D075 — Coverage Iron Gate + R19 Testimony (Current)
 
 **Version:** 0.7.0 · **Date:** 2026-04-25
 
-All three Obsidian Ledgers (core, doc, action) refactored from "historical diaries" to "operational
-manuals". [CHRONICLES] removed — 14 bug post-mortems promoted to [POLICIES] rules (R11–R19)
-or [ADR] entries. [SPRINT LOG] replaced by [ACTIVE SPRINT] (2-sprint window). Law of Evolutionary
-Curation codified in [POLICIES] of all three ledgers. R19 added (domain-level URL exclusion
-prohibition). ADR-006 extended with BUG-012 order invariant and BUG-014 SPDX pointer corollary.
+D074: Three targeted tests for `_first_content_line()` multi-line comment continuation branches
+(in_html=True, in_mdx=True, unclosed frontmatter). Coverage: 79.82% → 80.00% across Python 3.11/3.12/3.13.
+D075: R19 `:::warning` admonition added to `configuration-reference.mdx` (EN + IT) — domain-level
+URL exclusion prohibition now visible at the point of use. All v0.7.0 governance obligations fulfilled.
 
-### Last Closed — D067+D068+D071 — Obsidian Archive + Curation Law + Knowledge Purge
+### Last Closed — D073 — The Law of Evolutionary Curation
 
 **Version:** 0.7.0 · **Date:** 2026-04-25
 
-`CHANGELOG.md` split at v0.6.0a1 — pre-release history moved to `CHANGELOG.archive.md`.
-`RELEASE.md` condensed from 1 079 to 114 lines (Big Three, Security Win, Install CTA).
-Core Obsidian Ledger pruned — D036–D072 sprint history removed; Law of Executive Brevity
-codified; BUG-012/013/014 lessons distilled into R16 and ADR-006.
+All three Obsidian Ledgers refactored from "historical diaries" to "operational manuals".
+[CHRONICLES] removed — 14 bug post-mortems promoted to [POLICIES] rules (R11–R19) or [ADR] entries.
+[SPRINT LOG] replaced by [ACTIVE SPRINT] (2-sprint window). Law of Evolutionary Curation codified.
+R19 added (domain-level URL exclusion prohibition). ADR-006 extended with BUG-014 SPDX corollary.
 
 ---
 

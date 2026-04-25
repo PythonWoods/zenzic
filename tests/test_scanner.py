@@ -372,6 +372,76 @@ def test_short_content_pointer_skips_spdx_comments() -> None:
     )
 
 
+def test_short_content_pointer_skips_multiline_html_comment() -> None:
+    """_first_content_line must traverse a multi-line HTML comment (in_html=True path).
+
+    Covers the ``in_html`` continuation branch — lines 209-213, 221 in scanner.py.
+    When ``<!--`` and ``-->`` appear on different lines the walker must consume
+    every continuation line before recognising prose content.
+    """
+    # REUSE-IgnoreStart
+    text = (
+        "<!--\n"
+        " SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>\n"
+        " SPDX-License-Identifier: Apache-2.0\n"
+        "-->\n"
+        "\n"
+        "Brief.\n"
+    )
+    # REUSE-IgnoreEnd
+    config = ZenzicConfig(placeholder_max_words=50)
+    findings = check_placeholder_content(text, "multi-html.mdx", config)
+    short = [f for f in findings if f.issue == "short-content"]
+    assert short, "Single-word prose must trigger short-content"
+    target_line = text.splitlines()[short[0].line_no - 1]
+    assert target_line.strip() == "Brief.", (
+        f"Pointer at line {short[0].line_no} is {target_line!r}; expected 'Brief.'"
+    )
+
+
+def test_short_content_pointer_skips_multiline_mdx_comment() -> None:
+    """_first_content_line must traverse a multi-line MDX comment (in_mdx=True path).
+
+    Covers the ``in_mdx`` continuation branch — lines 214-218, 226 in scanner.py.
+    When ``{/*`` and ``*/`` appear on different lines the walker must consume
+    every continuation line before recognising prose content.
+    """
+    # REUSE-IgnoreStart
+    text = (
+        "{/*\n"
+        " SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>\n"
+        " SPDX-License-Identifier: Apache-2.0\n"
+        "*/}\n"
+        "\n"
+        "Note.\n"
+    )
+    # REUSE-IgnoreEnd
+    config = ZenzicConfig(placeholder_max_words=50)
+    findings = check_placeholder_content(text, "multi-mdx.mdx", config)
+    short = [f for f in findings if f.issue == "short-content"]
+    assert short, "Single-word prose must trigger short-content"
+    target_line = text.splitlines()[short[0].line_no - 1]
+    assert target_line.strip() == "Note.", (
+        f"Pointer at line {short[0].line_no} is {target_line!r}; expected 'Note.'"
+    )
+
+
+def test_short_content_pointer_unclosed_frontmatter() -> None:
+    """_first_content_line handles frontmatter with no closing ``---`` (EOF branch).
+
+    Covers the ``if i < n:`` False branch at line 239 in scanner.py — when the
+    frontmatter opening ``---`` is found but EOF is reached before the closing ``---``.
+    The function must not raise; it returns the line after the last consumed line.
+    """
+    text = "---\ntitle: Unclosed\nsidebar_label: Unclosed\n"
+    config = ZenzicConfig(placeholder_max_words=50)
+    findings = check_placeholder_content(text, "unclosed-fm.mdx", config)
+    # Unclosed frontmatter is not stripped by _FRONTMATTER_RE → word count > 0 but < 50
+    short = [f for f in findings if f.issue == "short-content"]
+    assert short, "Near-empty file must trigger short-content"
+    assert short[0].line_no >= 1
+
+
 def test_find_unused_assets_no_config(tmp_path: Path) -> None:
     docs = tmp_path / "docs"
     docs.mkdir()
