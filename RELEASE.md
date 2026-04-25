@@ -1001,7 +1001,78 @@ are now included. Acts 11–16 follow with correct expected exit codes (exit 2 f
 
 ---
 
-### 🇮🇹 Engineered with Precision
+### 🎯 The Range Master Protocol (D069, 2026-04-25)
+
+The `zenzic lab` command graduates from a fixed integer argument to a full range-aware
+interface. A user who wants to stress-test the entire Red/Blue Team Matrix no longer needs
+to issue six separate commands.
+
+#### `parse_act_range()` — The Core Primitive
+
+A new pure function `parse_act_range(raw: str) -> list[int]` encapsulates all parsing
+logic with three accepted forms:
+
+```text
+"3"      → [3]           (single act)
+"11-16"  → [11, 12, 13, 14, 15, 16]   (inclusive range)
+"all"    → [0, 1, 2, …, 16]            (all 17 acts)
+```
+
+Invalid input (non-integer bounds, reversed range, out-of-range acts) produces an
+`ObsidianUI.print_exception_alert()` panel — a styled, actionable error rather than a
+raw Python traceback.
+
+#### Sequence Header
+
+When more than one act is selected, the Lab prints a `LAB SEQUENCE: Running Acts N
+through M …` banner before execution, giving the operator a clear scope declaration.
+
+#### `zenzic lab all` — The Full Tour
+
+`zenzic lab all` runs all 17 acts in ascending order and produces the Full Run Summary
+table. Acts 11 and 14 (BREACH expectations) and Acts 0, 2, 9, 10, 12, 13, 15, 16 (FAIL
+expectations) are all verified in a single invocation.
+
+#### Contemporary Testimony
+
+`docs/reference/cli.mdx` (EN + IT) now includes a `## Interactive Lab` section
+documenting act selection syntax, the four thematic sections, outcome labels, and usage
+examples — fulfilling CEO-059.
+
+---
+
+### 🔍 The Ghost Content Fix (D072, 2026-04-25)
+
+#### Root Cause
+
+`_first_content_line()` used a single regex call anchored to `\A` via
+`_FRONTMATTER_RE.match(text)`. Every file following REUSE best practice opens with one or
+more `<!-- SPDX-FileCopyrightText: … -->` lines. Because `<` is not whitespace, the
+anchored frontmatter regex failed to match — and the function fell back to `return 1`,
+pointing the `❱` diagnostic arrow at the licence header rather than the first prose word.
+
+The CEO named this **"The Blind Notary Paradox"**: a sentinel that could count correctly
+but pointed at the bureaucracy instead of the poverty.
+
+#### Fix
+
+`_first_content_line()` is rewritten as a three-phase line-by-line walker:
+
+| Phase | What it skips |
+| :--- | :--- |
+| 1 | Leading HTML (`<!-- … -->`) and MDX (`{/* … */}`) comments, including multi-line |
+| 2 | YAML frontmatter (`--- … ---`) block, if present after comments |
+| 3 | Blank lines between the above and the first prose word |
+
+`_visible_word_count()` was unaffected — comment stripping before frontmatter detection
+was already correct since D055. Only the pointer was broken.
+
+#### The SPDX Trap Test
+
+New regression test: a file with 5 SPDX HTML comment lines + 10-line YAML frontmatter +
+the single word `FINE`. Asserts `line_no` resolves to the line containing `FINE`.
+
+---
 
 Zenzic is developed by **PythonWoods**, based in Italy, and committed to the craft of high-performance, deterministic Python engineering.
 

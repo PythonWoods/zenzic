@@ -215,6 +215,51 @@ _ACTS: list[_Act] = [
 
 # ── Section definitions ───────────────────────────────────────────────────────
 
+_VALID_IDS: frozenset[int] = frozenset(a.id for a in _ACTS)
+
+
+# ── Range parser ──────────────────────────────────────────────────────────────
+
+
+def parse_act_range(raw: str) -> list[int]:
+    """Parse an act range string into an ordered list of valid act IDs.
+
+    Accepted formats:
+
+    - ``"3"``      → ``[3]``
+    - ``"11-16"``  → ``[11, 12, 13, 14, 15, 16]``
+    - ``"all"``    → all act IDs in ascending order
+
+    Raises :exc:`ValueError` for malformed input or empty ranges.
+    """
+    raw = raw.strip()
+    if raw == "all":
+        return sorted(_VALID_IDS)
+    if "-" in raw:
+        parts = raw.split("-", 1)
+        try:
+            lo, hi = int(parts[0]), int(parts[1])
+        except ValueError as exc:
+            raise ValueError(
+                f"Invalid range '{raw}': expected N-M where N and M are integers."
+            ) from exc
+        if lo > hi:
+            raise ValueError(f"Invalid range '{raw}': start ({lo}) must be ≤ end ({hi}).")
+        ids = [i for i in range(lo, hi + 1) if i in _VALID_IDS]
+        if not ids:
+            raise ValueError(f"Range '{raw}' contains no valid act numbers. Valid range: 0–16.")
+        return ids
+    try:
+        n = int(raw)
+    except ValueError as exc:
+        raise ValueError(f"Invalid act '{raw}': expected an integer, N-M range, or 'all'.") from exc
+    if n not in _VALID_IDS:
+        raise ValueError(f"Act {n} does not exist. Valid acts: 0–16.")
+    return [n]
+
+
+# ── Section definitions ───────────────────────────────────────────────────────
+
 _SECTIONS: list[tuple[str, str, range]] = [
     ("OS & Environment Guardrails", "🛡", range(0, 4)),
     ("Structural & SEO Integrity", "🔗", range(4, 7)),
@@ -465,9 +510,9 @@ def _print_act_index() -> None:
 
 
 def lab(
-    act_number: int | None = typer.Argument(
+    act_input: str | None = typer.Argument(
         None,
-        help="Act number to run (0–16). Omit to display the act menu.",
+        help="Act to run: a number (3), a range (11-16), or 'all'. Omit to display the menu.",
         show_default=False,
     ),
     list_acts: bool = typer.Option(
@@ -479,16 +524,14 @@ def lab(
 ) -> None:
     """Zenzic Lab — interactive showcase of bundled documentation examples.
 
-    Run without arguments to display the act menu.  Pass an act number to
-    execute that single act:
+    Run without arguments to display the act menu.  Pass an act number,
+    range, or 'all' to execute the corresponding acts:
 
-        [bold cyan]zenzic lab[/]      — show act menu
-        [bold cyan]zenzic lab 0[/]    — run Act 0 (Linter Demo)
-        [bold cyan]zenzic lab 3[/]    — run Act 3 (The Shield)
+        [bold cyan]zenzic lab[/]        — show act menu
+        [bold cyan]zenzic lab 3[/]      — run Act 3 (The Shield)
+        [bold cyan]zenzic lab 11-16[/]  — run the Red/Blue Team Matrix
+        [bold cyan]zenzic lab all[/]    — run all 17 acts
         [bold cyan]zenzic lab --list[/] — print act index without running
-        [bold cyan]zenzic lab 11[/]   — run Act 11 (Unix Security Probe)
-        [bold cyan]zenzic lab 14[/]   — run Act 14 (Shield Extreme)
-        [bold cyan]zenzic lab 16[/]   — run Act 16 (Quality Gate)
     """
     con = get_console()
     con.print()
@@ -498,18 +541,22 @@ def lab(
         _print_act_index()
         return
 
-    if act_number is None:
+    if act_input is None:
         # No argument: show the menu and instructions, do not run any act.
         _print_act_index()
         con.print(
             "\n[bold]Welcome to the Zenzic Lab.[/] Choose an act to see the Sentinel in action.\n"
-            "  Run [bold cyan]zenzic lab <N>[/] to execute a specific act (e.g. [cyan]zenzic lab 0[/]).\n"
+            "  Run [bold cyan]zenzic lab <N>[/] to execute a specific act (e.g. [cyan]zenzic lab 3[/]).\n"
+            "  Run [bold cyan]zenzic lab 11-16[/] for the Red/Blue matrix"
+            "  or [bold cyan]zenzic lab all[/] for the full tour.\n"
         )
         return
 
-    if not (0 <= act_number <= 16):
-        con.print(f"[bold red]ERROR:[/] Act number must be between 0 and 16, got {act_number}.")
-        raise typer.Exit(1)
+    try:
+        act_ids = parse_act_range(act_input)
+    except ValueError as exc:
+        get_ui().print_exception_alert(str(exc), title="Lab — Invalid Act")
+        raise typer.Exit(1) from exc
 
     try:
         examples_root = _examples_root()
@@ -517,7 +564,17 @@ def lab(
         con.print(f"[bold red]ERROR:[/] {exc}")
         raise typer.Exit(1) from exc
 
-    acts_to_run = [a for a in _ACTS if a.id == act_number]
+    acts_to_run = [a for a in _ACTS if a.id in act_ids]
+    acts_to_run.sort(key=lambda a: act_ids.index(a.id))
+
+    if len(acts_to_run) > 1:
+        lo, hi = acts_to_run[0].id, acts_to_run[-1].id
+        con.print(
+            Text.from_markup(
+                f"\n  [bold {ObsidianPalette.BRAND}]LAB SEQUENCE:[/]"
+                f"  Running Acts {lo} through {hi} …\n"
+            )
+        )
 
     act_results: list[_ActResult] = []
     for act in acts_to_run:

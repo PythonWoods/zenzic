@@ -313,6 +313,14 @@ tests/
 
 ---
 
+### ADR-010: Range-Aware Showroom Commands (D069)
+
+**[DECISION]** Showcase commands (like `zenzic lab`) must accept range syntax (`N-M`) in addition to single integers and named shorthands (`all`), so operators can run thematic groups of acts in one invocation without scripting loops.
+
+- **Implementation:** Argument type changed from `int` to `str`. `parse_act_range(raw: str) -> list[int]` is a pure function (no side effects, no I/O) that handles single integers, inclusive ranges, and `"all"`. It raises `ValueError` for malformed input; the caller catches and renders an `ObsidianUI.print_exception_alert()` panel.
+- **Rule R18 — Range Awareness:** Showroom commands should support range syntax (N-M) to facilitate batch demonstration and testing without requiring shell scripting by the operator.
+- **Why:** The `zenzic lab` menu explicitly mentions `zenzic lab 11–16` in its footer hint. Shipping a command that advertises a capability it doesn't support is a false promise — a violation of the Maturity Contract.
+
 ## [CHRONICLES] — Post-Mortem & Lessons Learned
 
 ### [BUG-001] Sentinel Friendly Fire (D043 — 2026-04-25)
@@ -691,3 +699,21 @@ Forensic grep across all production source (`src/zenzic/`) for `TODO`, `FIXME`, 
 **Version:** 0.7.0 · **Date:** 2026-04-25
 
 Six new example projects added to `examples/os/` and `examples/rules/`: `unix-security` (Z202 PATH_TRAVERSAL + Z201 Shield BREACH, exit 2), `win-integrity` (Z105 ABSOLUTE_LINK on Windows-style paths, exit 1), `z100-link-graph` (circular Z102 + Z104, exit 1), `z200-shield` (base64/percent-encoded/mixed-case obfuscation, Z201 BREACH, exit 2), `z400-seo` (Z401 ×3 + Z402 ×1, exit 1), `z500-quality` (Z501 ×3 + Z503 ×1, exit 1). `zenzic lab` UI refactored: `_print_act_index()` now renders four themed Rich sections (🛡/🔗/🏢/🔴) each as a separate ROUNDED table. Acts 11–16 added to `_ACTS`. Range guard updated to `0 <= act_number <= 16`. `examples/run_demo.sh` updated with section banners and Acts 9–16. Preflight: 1225 tests pass, REUSE 303/303 compliant.
+
+### D070 (CEO) — The Idempotent Sentinel
+
+**Version:** 0.7.0 · **Date:** 2026-04-25
+
+Removed `get_ui().print_header(__version__)` from three locations inside `_lab.py`: the for-act loop in `lab()`, `_print_act_seal()`, and `_print_summary()`. The lab banner is now printed exactly once (at the top of every `zenzic lab` invocation). The OBSIDIAN SEAL footer remains self-identifying without a redundant header.
+
+### D069 (CEO) — The Range Master Protocol
+
+**Version:** 0.7.0 · **Date:** 2026-04-25
+
+`zenzic lab` argument type changed from `int` to `str`. New pure function `parse_act_range(raw: str) -> list[int]` handles single integers (`3`), inclusive ranges (`11-16`), and the `all` shorthand. Invalid input produces `ObsidianUI.print_exception_alert()`. Multi-act runs display a `LAB SEQUENCE: Running Acts N through M …` banner and conclude with `_print_summary()`. ADR-010 + Rule R18 "Range Awareness" codified. `docs/reference/cli.mdx` (EN + IT) updated with `## Interactive Lab` section (Law of Contemporary Testimony, CEO-059).
+
+### D072 (CEO) — The Ghost Content Fix
+
+**Version:** 0.7.0 · **Date:** 2026-04-25
+
+BUG-014 (The Blind Notary Paradox): `_first_content_line()` in `scanner.py` used a single `_FRONTMATTER_RE.match(text)` call anchored to `\A`. Files opening with REUSE-compliant `<!-- SPDX-FileCopyrightText: … -->` HTML comments caused the regex to fall back to `return 1`, pointing the `❱` diagnostic arrow at the licence header instead of the first prose word. Fixed by rewriting as a three-phase line-by-line walker: (1) skip leading HTML/MDX comment blocks (including multi-line), (2) skip YAML frontmatter `--- … ---`, (3) skip trailing blank lines. `_visible_word_count()` was unaffected — comment stripping before frontmatter was correct since D055. New test `test_short_content_pointer_skips_spdx_comments` ("The SPDX Trap"). Preflight: 1226 tests pass, REUSE 303/303 compliant.

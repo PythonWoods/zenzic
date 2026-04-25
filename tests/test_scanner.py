@@ -328,6 +328,50 @@ LICENZA
     )
 
 
+def test_short_content_pointer_skips_spdx_comments() -> None:
+    """Z502 short-content finding must skip leading SPDX HTML comments when computing line_no.
+
+    Regression (D072 — The Ghost Content Fix): ``_first_content_line`` was anchored to
+    ``\\A`` via the frontmatter regex and returned line 1 whenever the file opened with
+    ``<!-- SPDX … -->`` comments, causing the red arrow ``❱`` to point at the licence
+    header instead of the first prose word.
+    """
+    # 5 SPDX comment lines + blank + 10-line frontmatter + blank + single word.
+    # REUSE-IgnoreStart
+    text = (
+        "<!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->\n"
+        "<!-- SPDX-License-Identifier: Apache-2.0 -->\n"
+        "<!-- SPDX-FileCopyrightText: 2024 Contributor A -->\n"
+        "<!-- SPDX-License-Identifier: MIT -->\n"
+        "<!-- Internal audit marker: approved -->\n"
+        "\n"
+        "---\n"
+        "title: SPDX Trap\n"
+        "sidebar_label: Trap\n"
+        "description: Regression test for comment-aware pointer.\n"
+        "icon: lock\n"
+        "draft: true\n"
+        "tags: [test, spdx]\n"
+        "keywords: [regression]\n"
+        "version: 0.7.0\n"
+        "---\n"
+        "\n"
+        "FINE\n"
+    )
+    # REUSE-IgnoreEnd
+    config = ZenzicConfig(placeholder_max_words=50)
+    findings = check_placeholder_content(text, "spdx-trap.md", config)
+    short = [f for f in findings if f.issue == "short-content"]
+    assert short, "File with single word 'FINE' must trigger short-content"
+    assert short[0].detail == "Page has only 1 words (minimum 50)."
+    # The pointer must land on the line containing "FINE", not on any comment or frontmatter.
+    target_line = text.splitlines()[short[0].line_no - 1]
+    assert target_line.strip() == "FINE", (
+        f"short-content pointer at line {short[0].line_no} is {target_line!r}; "
+        "expected the line containing 'FINE'"
+    )
+
+
 def test_find_unused_assets_no_config(tmp_path: Path) -> None:
     docs = tmp_path / "docs"
     docs.mkdir()

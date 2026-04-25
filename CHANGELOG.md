@@ -856,6 +856,62 @@ misdiagnosis. CEO-052 fix (already applied) eliminates the false Z104 when scann
 
 ---
 
+### The Range Master Protocol (D069 — 2026-04-25)
+
+#### Changed
+
+- **`zenzic lab` argument type changed from `int` to `str`.**
+  The `ACT` argument now accepts an integer (`3`), an inclusive range (`11-16`), or the
+  special value `all`. A new pure function `parse_act_range(raw: str) -> list[int]`
+  performs validation and returns an ordered list of act IDs.
+
+#### Added
+
+- **Range execution.** `zenzic lab 11-16` runs all six Red/Blue Team Matrix acts in
+  sequence and produces the multi-act Full Run Summary table via `_print_summary()`.
+  Invalid range syntax (e.g. `1-x`) and out-of-bound act numbers produce an
+  `ObsidianUI.print_exception_alert()` panel with a descriptive message.
+
+- **`zenzic lab all` shorthand.** Runs all 17 acts (0–16) in ascending order.
+
+- **Sequence header.** When more than one act is selected, the Lab prints a
+  `LAB SEQUENCE: Running Acts N through M …` banner before executing.
+
+- **`zenzic lab` section added to `docs/reference/cli.mdx` (EN + IT).**
+  Documents act selection syntax (single, range, `all`), the four thematic sections,
+  outcome label meanings, and usage examples. Satisfies the Law of Contemporary Testimony
+  (CEO-059).
+
+---
+
+### The Ghost Content Fix (D072 — 2026-04-25)
+
+#### Fixed
+
+- **Z502 short-content pointer no longer anchors on SPDX licence headers.**
+  `_first_content_line()` was implemented as a single `_FRONTMATTER_RE.match(text)` call
+  anchored to `\A`. When a file opened with `<!-- SPDX-FileCopyrightText: … -->` HTML
+  comments (standard REUSE practice), the frontmatter regex failed to match — causing
+  `_first_content_line()` to fall back to line 1 and point the `❱` diagnostic arrow at the
+  licence header instead of the first prose word.
+
+  `_first_content_line()` is now a three-phase line-by-line walker:
+  1. Skip leading HTML (`<!-- … -->`) and MDX (`{/* … */}`) comment blocks, including
+     multi-line variants.
+  2. Skip the YAML frontmatter block (`--- … ---`), if present after comments.
+  3. Skip any blank lines between the above and the first prose word.
+
+  The word-count logic in `_visible_word_count()` was already correct (comments stripped
+  before frontmatter per D055); only the pointer was broken.
+
+#### Tests
+
+- **`test_short_content_pointer_skips_spdx_comments`** — "The SPDX Trap": 5 leading SPDX
+  HTML comment lines + 10-line YAML frontmatter + single word `FINE`. Asserts `line_no`
+  resolves to the line containing `FINE`, not to any comment or frontmatter delimiter.
+
+---
+
 ## [0.6.1] — 2026-04-19 — Obsidian Glass [SUPERSEDED]
 
 > ⚠ **[SUPERSEDED by v0.7.0]** — Version 0.6.1 is deprecated due to alignment issues with Docusaurus specifications and legacy terminology. All users must upgrade to v0.7.0 "Obsidian Maturity".

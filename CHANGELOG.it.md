@@ -814,6 +814,63 @@ Z104 nella scansione remota.
 
 ---
 
+### Il Protocollo Range Master (D069 — 2026-04-25)
+
+#### Modificato
+
+- **Tipo argomento `zenzic lab` cambiato da `int` a `str`.**
+  L'argomento `ATTO` accetta ora un intero (`3`), un intervallo inclusivo (`11-16`), o il
+  valore speciale `all`. Una nuova funzione pura `parse_act_range(raw: str) -> list[int]`
+  esegue la validazione e restituisce un elenco ordinato di ID degli atti.
+
+#### Aggiunto
+
+- **Esecuzione a intervalli.** `zenzic lab 11-16` esegue tutti e sei gli atti della
+  Matrice Red/Blue Team in sequenza e produce la tabella riassuntiva di esecuzione
+  multipla tramite `_print_summary()`. Sintassi di intervallo non valida (es. `1-x`) e
+  numeri di atto fuori range producono un pannello `ObsidianUI.print_exception_alert()`
+  con un messaggio descrittivo.
+
+- **Scorciatoia `zenzic lab all`.** Esegue tutti i 17 atti (0–16) in ordine crescente.
+
+- **Intestazione di sequenza.** Quando è selezionato più di un atto, il Lab stampa un
+  banner `LAB SEQUENCE: Running Acts N through M …` prima dell'esecuzione.
+
+- **Sezione `zenzic lab` aggiunta a `docs/reference/cli.mdx` (EN + IT).**
+  Documenta la sintassi di selezione degli atti (singolo, intervallo, `all`), le quattro
+  sezioni tematiche, il significato delle etichette di esito ed esempi d'uso. Soddisfa la
+  Legge della Testimonianza Contemporanea (CEO-059).
+
+---
+
+### Il Fix del Contenuto Fantasma (D072 — 2026-04-25)
+
+#### Corretto
+
+- **Il puntatore Z502 non si ancora più sulle intestazioni di licenza SPDX.**
+  `_first_content_line()` era implementata come un'unica chiamata `_FRONTMATTER_RE.match(text)`
+  ancorata a `\A`. Quando un file apriva con commenti HTML `<!-- SPDX-FileCopyrightText: … -->`
+  (pratica REUSE standard), la regex del frontmatter falliva nel match — causando il fallback a
+  riga 1 e la freccia diagnostica `❱` puntata all'intestazione di licenza invece della prima
+  parola di prosa.
+
+  `_first_content_line()` è ora un walker riga per riga in tre fasi:
+  1. Salta i commenti HTML (`<!-- … -->`) e MDX (`{/* … */}`) iniziali, incluse le varianti
+     multi-riga.
+  2. Salta il blocco frontmatter YAML (`--- … ---`), se presente dopo i commenti.
+  3. Salta le righe vuote tra quanto sopra e la prima parola di prosa.
+
+  La logica di conteggio parole in `_visible_word_count()` era già corretta (commenti rimossi
+  prima del frontmatter per D055); solo il puntatore era guasto.
+
+#### Test
+
+- **`test_short_content_pointer_skips_spdx_comments`** — "La Trappola SPDX": 5 righe di
+  commenti HTML SPDX iniziali + 10 righe di frontmatter YAML + parola singola `FINE`. Verifica
+  che `line_no` risolva alla riga contenente `FINE`, non a commenti o delimitatori di frontmatter.
+
+---
+
 ## [0.6.1] — 2026-04-19 — Obsidian Glass [SUPERSEDED]
 
 > ⚠ **[SUPERSEDED dalla v0.7.0]** — La versione 0.6.1 è deprecata a causa di problemi di allineamento con le specifiche Docusaurus e terminologia legacy. Tutti gli utenti devono aggiornare alla v0.7.0 "Obsidian Maturity".

@@ -184,16 +184,66 @@ _HTML_COMMENT_RE: re.Pattern[str] = re.compile(r"<!--.*?-->", re.DOTALL)
 
 
 def _first_content_line(text: str) -> int:
-    """Return the 1-based line number of the first content line after YAML frontmatter.
+    """Return the 1-based line number of the first prose content line.
 
-    Uses ``_FRONTMATTER_RE`` to locate the end of the frontmatter block and counts
-    newlines up to that point.  Falls back to line 1 when no frontmatter is present.
-    This ensures Z502 short-content findings point at actual content, not at ``---``.
+    Skips, in order:
+
+    1. Leading HTML comments (``<!-- … -->``) — may span multiple lines.
+    2. Leading MDX comments (``{/* … */}``) — may span multiple lines.
+    3. YAML frontmatter (``--- … ---`` block).
+    4. Blank lines interspersed among the above.
+
+    This ensures Z502 short-content findings point at actual prose, not at
+    SPDX licence headers (``<!-- SPDX-FileCopyrightText: … -->``) or at the
+    frontmatter delimiters (``---``).
     """
-    m = _FRONTMATTER_RE.match(text)
-    if m:
-        return text[: m.end()].count("\n") + 1
-    return 1
+    lines = text.splitlines()
+    n = len(lines)
+    i = 0
+
+    # ── Phase 1: skip leading comments and blank lines ────────────────
+    in_html = False
+    in_mdx = False
+    while i < n:
+        stripped = lines[i].strip()
+        if in_html:
+            if "-->" in lines[i]:
+                in_html = False
+            i += 1
+            continue
+        if in_mdx:
+            if "*/" in lines[i]:
+                in_mdx = False
+            i += 1
+            continue
+        if stripped.startswith("<!--"):
+            if "-->" not in lines[i]:
+                in_html = True
+            i += 1
+            continue
+        if stripped.startswith("{/*"):
+            if "*/" not in lines[i]:
+                in_mdx = True
+            i += 1
+            continue
+        if stripped == "":
+            i += 1
+            continue
+        break  # first non-comment, non-blank line
+
+    # ── Phase 2: skip YAML frontmatter block (--- … ---) ─────────────
+    if i < n and lines[i].strip() == "---":
+        i += 1  # skip opening ---
+        while i < n and lines[i].strip() != "---":
+            i += 1
+        if i < n:
+            i += 1  # skip closing ---
+
+    # ── Phase 3: skip blank lines after frontmatter ───────────────────
+    while i < n and lines[i].strip() == "":
+        i += 1
+
+    return i + 1  # 1-based
 
 
 def _visible_word_count(text: str) -> int:
