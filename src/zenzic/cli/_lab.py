@@ -385,8 +385,6 @@ def _print_summary(results: list[_ActResult]) -> None:
         )
 
     con.print()
-    get_ui().print_header(__version__)
-    con.print()
     con.print(
         Group(
             Text.from_markup(
@@ -417,8 +415,6 @@ def _print_act_seal(r: _ActResult) -> None:
         seal_items.append(Text.from_markup(f"[bold {ObsidianPalette.ERROR}]{verdict}[/]"))
 
     con = get_console()
-    con.print()
-    get_ui().print_header(__version__)
     con.print()
     con.print(
         Group(
@@ -525,8 +521,6 @@ def lab(
 
     act_results: list[_ActResult] = []
     for act in acts_to_run:
-        con.print()
-        get_ui().print_header(__version__)
         con.print()
         con.print(
             Group(
