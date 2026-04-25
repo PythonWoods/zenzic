@@ -1,7 +1,7 @@
 # 🛡️ ZENZIC CORE — Obsidian Ledger v0.7.0 "Obsidian Maturity"
 
 > **Single Source of Truth for all agents and contributors.**
-> Schema: [MANIFESTO] → [POLICIES] → [ARCHITECTURE] → [ADR] → [CHRONICLES]
+> Schema: [MANIFESTO] → [POLICIES] → [ARCHITECTURE] → [ADR] → [ACTIVE SPRINT] → [ARCHIVE LINK]
 
 ---
 
@@ -39,7 +39,9 @@ Zenzic builds a **Virtual Site Map (VSM)** — a projection of the final site in
 
 - [ ] New architectural facts? → Update **[ARCHITECTURE]**
 - [ ] New decisions made? → Add an **[ADR]** entry (tagged `[DECISION]`)
-- [ ] Bug found and fixed? → Add a **[CHRONICLES]** entry (tagged `[BUG-xxx]` / `[LESSON]`)
+- [ ] Bug found and fixed? → Promote the lesson to a **[POLICY]** rule or **[ADR]** (permanent invariants only). Update **[ACTIVE SPRINT]**.
+- [ ] Sprint complete? → Update **[ACTIVE SPRINT]**. Purge previous-sprint entry to `CHANGELOG.md`.
+- [ ] **Size Guardrail:** This file exceeds 400 lines? → Trigger a curation task (Law of Evolutionary Curation).
 
 ### Step 2 — Update Changelogs
 
@@ -99,6 +101,7 @@ Zenzic builds a **Virtual Site Map (VSM)** — a projection of the final site in
 - **[RULE R16] Protocol Awareness (CEO-055).** [DECISION] The `pathname:///` protocol is the Docusaurus "Diplomatic Courier" — a Docusaurus-specific static-asset escape hatch. In Docusaurus mode, `pathname:///assets/file.html` parses to `scheme="pathname"`, `path="/assets/file.html"` and the leading `/` is a URI convention artifact — not an absolute-path violation. The Z105 gate is conditioned on `not (parsed.scheme == "pathname" and engine == "docusaurus")`. In all other engines (MkDocs, Zensical, Standalone), `pathname:///` is unrecognized and triggers Z105 normally. Corollary: word-count stripping (Z502) must strip MDX/HTML comments **before** running the frontmatter regex — MDX files often open with a `{/* SPDX … */}` header before the `---` block, which prevents `_FRONTMATTER_RE` (anchored to `\A`) from matching unless the comment is removed first.
 - **[RULE R17] CLI Symmetry (CEO-056).** [DECISION] `zenzic score [PATH]` and `zenzic diff [PATH]` accept an optional positional `PATH` argument — identical sovereign root semantics as `zenzic check all [PATH]`. `find_repo_root(search_from=target)` is called unconditionally when `PATH` is provided: configuration follows the target, not the caller (ADR-009). The banner is printed immediately before analysis, not after. `diff` automatically derives the snapshot path from `repo_root`, not CWD.
 - **[RULE R18] Total CLI Symmetry (CEO-060).** [DECISION] Every filesystem-interacting CLI command (except `lab` and `inspect`) accepts an optional positional `PATH` argument with sovereign root semantics identical to `check all`. `find_repo_root(search_from=target)` is called when PATH is provided; `_apply_target()` recalibrates `docs_root` and loads the target's config. For `init`, PATH is treated as the `repo_root` directly (Genesis Nomad): the directory is created with `mkdir(parents=True, exist_ok=True)` if absent. The active configuration (engine, docs_dir, exclusions) always follows the target repository, never the caller's CWD.
+- **[RULE R19] No Domain-Level URL Exclusions.** `excluded_external_urls` in `zenzic.toml` must target specific URLs, not entire domains (e.g. `"https://zenzic.dev/"`). A domain blanket exclusion creates permanent blindspots that survive content restructures. Use `--exclude-url <url>` at CLI runtime for temporary skips only.
 
 ### The Law of Executive Brevity [MANDATORY] — D068
 
@@ -173,6 +176,13 @@ Registry: `src/zenzic/core/codes.py` — **single source of truth**. Never add a
 - **[INVARIANT] Definition of Done:** A sprint is not closed until CHANGELOG is current, RELEASE.md passes the Executive Filter (≤ 200 lines), and the staleness audit is complete.
 - **[INVARIANT] Proactivity:** Agents must notify the Tech Lead when a code change contradicts or expands current guidelines.
 - **[INVARIANT] Sovereignty:** This file is the single source of truth for agent behavior.
+
+### The Law of Evolutionary Curation [MANDATORY] — D073
+
+- **[INVARIANT] This file is a Working Context, not a historical archive.**
+  - **Policy Conversion:** When a bug's solution becomes a permanent invariant, distill it into a **[POLICY]** rule or **[ADR]** entry. The verbose post-mortem belongs in `CHANGELOG.md`.
+  - **Sprint Purge:** `[ACTIVE SPRINT]` holds only the current sprint and the last closed sprint. Older history is purged to `CHANGELOG.md`.
+  - **Size Guardrail:** If this file exceeds 400 lines, the agent MUST trigger a curation task before closing the sprint.
 
 ---
 
@@ -292,6 +302,8 @@ tests/
 - **Implementation:** `_visible_word_count()` in `scanner.py` strips these blocks locally (pure function, no mutation of the original text).
 - **Why:** Frontmatter is system metadata, not prose. Counting it inflates Z502 word counts dishonestly. But frontmatter can contain real secrets (e.g., `custom_token: ghp_…`), so Shield must see it.
 - **Security invariant:** Shield Pass 1A uses raw `enumerate(fh, start=1)` — no lines are ever skipped (ZRT-001 fix).
+- **Order invariant (BUG-012):** MDX and HTML comments must be stripped **before** running the `_FRONTMATTER_RE` regex (anchored to `\A`). Comment blocks before `---` prevent the regex from matching; stripping them first is load-bearing.
+- **Corollary (BUG-014 — D072):** `_first_content_line()` applies the same three-phase skip (HTML comments → frontmatter → blank lines) so the Z502 `❱` pointer lands on the first prose word, not on a REUSE SPDX licence header.
 
 ### ADR-007: Sovereign Sandbox (D043)
 
@@ -330,140 +342,32 @@ tests/
 - **Rule R18 — Range Awareness:** Showroom commands should support range syntax (N-M) to facilitate batch demonstration and testing without requiring shell scripting by the operator.
 - **Why:** The `zenzic lab` menu explicitly mentions `zenzic lab 11–16` in its footer hint. Shipping a command that advertises a capability it doesn't support is a false promise — a violation of the Maturity Contract.
 
-## [CHRONICLES] — Post-Mortem & Lessons Learned
+## [ACTIVE SPRINT] — Working Context
 
-### [BUG-001] Sentinel Friendly Fire (D043 — 2026-04-25)
+### D073 — The Law of Evolutionary Curation (Current)
 
-- **ID:** BUG-001
-- **Severity:** Showstopper (Exit 3 on legitimate operation)
-- **Symptom:** Running `zenzic check all ../zenzic-doc` from inside `zenzic/` produced Blood Sentinel Exit 3.
-- **Root Cause:** `_validate_docs_root` in `_shared.py` checked that `docs_root` was under `repo_root`. When the user provided `../zenzic-doc`, `_apply_target` set `config.docs_dir` to an absolute path. The guard correctly detected it was outside `repo_root` — but this was a false positive. The function confused the *location of the sandbox* with *escapes from the sandbox*.
-- **[LESSON]** Blood Sentinel's F4-1 guard defends against malicious `docs_dir = "../../etc"` in config files. An explicit CLI `PATH` argument is always user-intentional and must be trusted as the new perimeter.
-- **Permanent Fix:** In `check_all` (`cli/_check.py`), after computing `docs_root`, if it falls outside `repo_root`, reassign `repo_root = docs_root` (Rule R11 / ADR-007).
-- **UI Fix:** Banner `print_header()` moved before path validation with guard `not quiet and output_format == "text"` so the banner always appears, even on fatal early exits.
-- **Test:** `tests/test_cli.py::test_check_all_external_docs_root_not_blocked_by_sentinel`.
+**Version:** 0.7.0 · **Date:** 2026-04-25
 
-### [BUG-002] Blanket URL Exclusion Hiding Dead Links (D079 — 2026-04-22)
+All three Obsidian Ledgers (core, doc, action) refactored from "historical diaries" to "operational
+manuals". [CHRONICLES] removed — 14 bug post-mortems promoted to [POLICIES] rules (R11–R19)
+or [ADR] entries. [SPRINT LOG] replaced by [ACTIVE SPRINT] (2-sprint window). Law of Evolutionary
+Curation codified in [POLICIES] of all three ledgers. R19 added (domain-level URL exclusion
+prohibition). ADR-006 extended with BUG-012 order invariant and BUG-014 SPDX pointer corollary.
 
-- **ID:** BUG-002
-- **Severity:** Silent data corruption (3 broken links invisible to Sentinel)
-- **Symptom:** `zenzic.toml` contained `excluded_external_urls = "https://zenzic.dev/"` — a blanket bypass added when the doc site was undeployed. After the Diátaxis restructure, three links in `README.md` silently rotted behind this curtain.
-- **Dead links hidden:**
-  - `/docs/usage/badges/` → correct: `/docs/how-to/add-badges/`
-  - `/docs/guides/ci-cd/` → correct: `/docs/how-to/configure-ci-cd/`
-  - `/docs/internals/architecture-overview/` → correct: `/docs/explanation/architecture/`
-- **[LESSON]** Never use domain-level URL exclusions. Blanket exclusions create permanent blindspots. Use `--exclude-url <url>` at runtime for temporary skips. The `⚠ PERIMETER INVARIANT` comment in `zenzic.toml` documents that `docs_dir = "."` is a safety invariant keeping README inside the perimeter.
-- **Permanent Fix:** Blanket exclusion removed; three links corrected.
+### Last Closed — D067+D068+D071 — Obsidian Archive + Curation Law + Knowledge Purge
 
-### [BUG-003] Frontmatter Word Count Leak (D041/CEO-041 — 2026-04-24)
+**Version:** 0.7.0 · **Date:** 2026-04-25
 
-- **ID:** BUG-003
-- **Severity:** Integrity failure (Z502 short-content check could be deceived)
-- **Symptom:** A page with 100 lines of YAML frontmatter and the body word "LICENZE" would pass the Z502 minimum-word check, because frontmatter was counted as prose.
-- **Root Cause:** `check_placeholder_content` passed raw text to word-count logic without stripping metadata blocks.
-- **[LESSON]** Frontmatter, MDX comments `{/* */}`, and HTML comments `<!-- -->` are system metadata. They are never rendered to the user and must not inflate Z502 word counts. Separately, they CAN contain real secrets (e.g., `aws_key: AKIA…`), so the Shield must always scan them raw.
-- **Permanent Fix:** `_visible_word_count()` in `scanner.py` strips these blocks locally (pure function, original text unchanged). Shield Pass 1A uses raw `enumerate` — no stripping applied before Shield (ZRT-001).
-
-### [BUG-004] YAML Frontmatter Shield Blind Spot (ZRT-001 — 2026-04-15)
-
-- **ID:** BUG-004
-- **Severity:** CRITICAL (credential in YAML frontmatter invisible to Shield)
-- **Symptom:** A secret in `custom_token: ghp_…` in frontmatter was not detected by the Shield.
-- **Root Cause:** The content parsing loop used `_skip_frontmatter()` filtering before Shield, making frontmatter lines invisible to pattern scanning.
-- **[LESSON]** Shield Pass must operate on raw file enumeration. Content passes (reference parsing, link harvesting) may skip frontmatter — Shield never may.
-- **Permanent Fix:** Dual-stream architecture: Shield Pass 1A uses `enumerate(fh, start=1)` (raw, every line). Content Pass 1B uses `_iter_content_lines()` (filtered). `safe_read_line()` additionally guards every frontmatter line during metadata extraction.
-- **Tests:** `TestShieldFrontmatterCoverage` in `tests/test_redteam_remediation.py`.
-
-### [BUG-005] Z502 Pointer Targeting Frontmatter (D048 — 2026-04-25)
-
-- **ID:** BUG-005
-- **Severity:** UX failure (misleading diagnostic location)
-- **Symptom:** `Z502 SHORT_CONTENT` finding had `line_no=1`, placing the red `❱` arrow at the opening `---` of YAML frontmatter. Users concluded frontmatter was being counted as prose (it was not — the pointer was just wrong).
-- **Root Cause:** `check_placeholder_content` hardcoded `line_no=1` in the short-content `PlaceholderFinding`.
-- **[LESSON]** A finding's line number is a contract with the user. Pointing at metadata noise (frontmatter `---`) erodes trust and causes false debugging sessions. Always point at the first line of actual content.
-- **Permanent Fix:** `_first_content_line(text)` uses `_FRONTMATTER_RE.match()` to count newlines up to the end of the frontmatter block. The short-content finding now uses this as `line_no`.
-- **Test:** `tests/test_scanner.py::test_short_content_pointer_skips_frontmatter`.
-
-### [BUG-006] Z503 YAML Error Reports Relative Instead of Absolute Line (D048 — 2026-04-25)
-
-- **ID:** BUG-006
-- **Severity:** Precision failure (line-mapping error)
-- **Symptom:** A YAML syntax error on line 3 of a snippet at file line 183 was reported as line 181 (fence line + 1) instead of 183 (fence line + 3).
-- **Root Cause:** The YAML handler in `check_snippet_content` used `line_no=fence_line + 1` unconditionally, discarding the `exc.problem_mark.line` offset from the YAML parser. The Python handler correctly used `fence_line + exc.lineno`.
-- **[LESSON]** Parity between language handlers. If Python extracts error line from the exception, YAML must too. Test all four handlers (Python, YAML, JSON, TOML) for absolute-line correctness.
-- **Permanent Fix:** `offset = (mark.line + 1) if mark is not None else 1` where `mark = getattr(exc, "problem_mark", None)`. Line reported as `fence_line + offset`.
-- **Test:** `tests/test_dual_mode.py::test_check_snippet_yaml_absolute_line_no`.
-
-### [BUG-007] Caret `^^^^` Misaligns on Long Lines After Terminal Wrap (D048 — 2026-04-25)
-
-- **ID:** BUG-007
-- **Severity:** UX failure (surgical pointer becomes visual noise)
-- **Symptom:** On Markdown files with very long link lines (200+ chars), the `^^^^` caret row was placed using col offsets from the original string length. Rich/terminal wraps the source line visually, so the carets appeared on the wrong visual row.
-- **Root Cause:** `_render_snippet` used a hardcoded `col_start + caret_len <= 60` threshold — wrong constant, not terminal-aware, no source line truncation.
-- **[LESSON]** Any diagnostic that renders visual pointers must account for terminal wrapping. The only robust approach: truncate the source line so it never wraps, then restrict carets to the visible portion.
-- **Permanent Fix:** `shutil.get_terminal_size(fallback=(120, 24)).columns` determines `max_src`. Source lines longer than `max_src` are truncated with `…`. Carets only render when `col_start + caret_len <= max_src`.
-- **Tests:** `tests/test_reporter.py::test_render_snippet_long_line_truncated`, `test_render_snippet_caret_suppressed_when_beyond_visible`.
-
-### [BUG-008] Z503 YAML Multi-Document Raises False Positive (D048 — 2026-04-25)
-
-- **ID:** BUG-008
-- **Severity:** False positive (valid documentation rejected)
-- **Symptom:** A YAML code block containing `---` (a document separator, common in Docusaurus frontmatter examples) raised "expected a single document in the stream but found another document".
-- **Root Cause:** `yaml.safe_load(snippet)` only parses a single YAML document. Documentation tutorials legitimately show multi-document YAML (e.g., two frontmatter blocks as a comparison).
-- **[LESSON]** Code snippet validators must not be stricter than the language specification. YAML officially supports multi-document streams. Rejecting `---` separators is a Zenzic-invented restriction that serves no security or quality purpose.
-- **Permanent Fix:** `list(yaml.safe_load_all(snippet))` — accepts multi-document YAML. Generator consumed with `list()` to force full parse.
-- **Test:** `tests/test_dual_mode.py::test_check_snippet_yaml_multi_doc_no_false_positive`.
-
-### [BUG-009] Z903 Spurious Warnings on Engine Config Files (D050 — 2026-04-25)
-
-- **ID:** BUG-009
-- **Severity:** False positive (Z903 warning on infrastructure files)
-- **Symptom:** Running `zenzic check all .` from the project root reported Z903 warnings on `docusaurus.config.ts`, `package.json`, and other toolchain files — the very files Zenzic reads to operate.
-- **Root Cause:** `find_unused_assets()` performed no file-level system guardrail check. Any non-Markdown file in `docs_root` that was not referenced by a Markdown page was flagged as unused.
-- **[LESSON]** A tool must never flag its own configuration inputs as quality issues. System guardrails for directories existed (`SYSTEM_EXCLUDED_DIRS`) but there was no equivalent for files. The asset scanner is not immune to the same noise it was designed to eliminate.
-- **Permanent Fix:** Two-layer guardrail system (CEO-050). L1a: `SYSTEM_EXCLUDED_FILE_NAMES`/`SYSTEM_EXCLUDED_FILE_PATTERNS` in `models/config.py` — universal toolchain files. L1b: `BaseAdapter.get_metadata_files()` — adapter declares which engine config files it consumes. `LayeredExclusionManager` stores and applies both layers in `should_exclude_file()`. `find_unused_assets()` applies both layers inline before building the asset set.
-- **Tests:** `tests/test_exclusion.py::TestSystemFileGuardrails`, `tests/test_scanner.py::test_find_unused_assets_skips_system_infrastructure_files`, `tests/test_scanner.py::test_find_unused_assets_skips_adapter_metadata_files`.
-
-### [BUG-010] Context Hijacking via External Path (D052 — 2026-04-25)
-
-- **ID:** BUG-010
-- **Severity:** Incorrect configuration loaded (wrong engine, wrong docs_dir, wrong exclusions)
-- **Symptom:** Running `zenzic check all --strict /path/to/other-repo` from inside repo A caused Zenzic to load A's `zenzic.toml` instead of the target's. Result: wrong engine adapter (standalone instead of docusaurus), wrong `docs_dir`, wrong exclusion rules. Also: when the explicit target equaled the target's repo root, `_apply_target()` overrode `docs_dir` to `"."` — causing the entire project root (including `blog/`, `scripts/`) to be scanned.
-- **Root Cause:** `find_repo_root()` unconditionally searched upward from `Path.cwd()`, ignoring any explicit target path. `_apply_target()` had no guard for the `target == repo_root` case.
-- **Permanent Fix:** (1) `find_repo_root(search_from: Path | None)` — when provided, search begins from `search_from` instead of CWD. `check_all()` derives `search_from` from the resolved target. (2) `_apply_target()` sovereign root guard: when `target == repo_root`, return config with the configured `docs_dir` unchanged. ADR-009 codified.
-- **Tests:** `tests/test_remote_context.py` — 9 tests covering `find_repo_root(search_from=...)`, `_apply_target` sovereign root guard, and config isolation.
-
-### [BUG-011] `excluded_dirs` Default Documented with "assets" — Documentation Error (D054 — 2026-04-25)
-
-- **ID:** BUG-011
-- **Severity:** Documentation error (misleads users; no runtime consequence since code is correct)
-- **Symptom:** `docs/reference/configuration.mdx` (EN + IT) listed `"assets"` in the `excluded_dirs` default: `["includes", "assets", "stylesheets", "overrides", "hooks"]`. The actual code default (`models/config.py` line 152) is `["includes", "stylesheets", "overrides", "hooks"]` — without `"assets"`.
-- **Root Cause:** Documentation drift. The false inclusion of `"assets"` in the documented default is dangerous: users reading the docs would conclude that `docs/assets/` is excluded from all checks, when in fact it is scanned and its files ARE in `known_assets`. Excluding an actively-referenced asset directory breaks Z104 detection — files disappear from the asset index and valid links are flagged as broken.
-- **Permanent Fix:** Updated `configuration.mdx` (EN + IT): removed `"assets"` from the default list; added a tip box explaining why `"assets"` is intentionally absent and when to add it manually.
-- **Lesson:** The Obsidian Testimony (D051) applies to documentation as well as code. A documented default that misrepresents the code is a ghost commit in reverse.
-
-### [BUG-012] Z502 MDX Frontmatter Leak — Comment Stripping Order (D055 — 2026-04-25)
-
-- **ID:** BUG-012
-- **Severity:** False negative (MDX comment words counted as prose, hiding genuine short-content pages)
-- **Symptom:** `docs/community/license.mdx` had a large `{/* … */}` MDX comment before the `---` frontmatter block. `_visible_word_count()` ran `_FRONTMATTER_RE` first (anchored to `\A`), which failed because `{` is not whitespace — leaving the entire YAML block counted as prose words.
-- **Permanent Fix:** Strip MDX and HTML comments **before** running the frontmatter regex. Order is load-bearing.
-- **Lesson:** `\A`-anchored regexes are fragile when preceded by invisible markup. Always strip invisible content first.
-
-### [BUG-013] Z105 `pathname:///` False Positive (D055 — 2026-04-25)
-
-- **ID:** BUG-013
-- **Severity:** False positive (valid Docusaurus links flagged as absolute-path violations)
-- **Symptom:** Docusaurus `pathname:///assets/file.html` links were flagged by Z105 because `parsed.path` starts with `/`.
-- **Permanent Fix:** Z105 gate conditioned on `not (parsed.scheme == "pathname" and engine == "docusaurus")`. All other engines still fire normally.
-- **Lesson:** Protocol awareness (R16) — custom schemes used by specific engines are not violations; they are dialect features.
-
-### [BUG-014] Z502 Pointer Anchored on SPDX Licence Header (D072 — 2026-04-25)
-
-- **ID:** BUG-014 — "The Blind Notary Paradox"
-- **Severity:** Misleading diagnostic (the `❱` arrow pointed at the SPDX licence header instead of the short content)
-- **Symptom:** `_first_content_line()` used a single `_FRONTMATTER_RE.match(text)` call anchored to `\A`. Files following REUSE practice open with `<!-- SPDX … -->` comments — `<` is not whitespace, so the regex fell back to `return 1`, pointing the arrow at the licence header.
-- **Permanent Fix:** Rewrote `_first_content_line()` as a three-phase line-by-line walker: (1) skip leading HTML/MDX comment blocks, (2) skip YAML frontmatter, (3) skip blank lines.
-- **Lesson:** `_visible_word_count()` and `_first_content_line()` must use the same stripping logic — if one strips comments, the other must too.
+`CHANGELOG.md` split at v0.6.0a1 — pre-release history moved to `CHANGELOG.archive.md`.
+`RELEASE.md` condensed from 1 079 to 114 lines (Big Three, Security Win, Install CTA).
+Core Obsidian Ledger pruned — D036–D072 sprint history removed; Law of Executive Brevity
+codified; BUG-012/013/014 lessons distilled into R16 and ADR-006.
 
 ---
+
+## [ARCHIVE LINK]
+
+Complete sprint history, bug post-mortems, and pre-release changelogs:
+
+- **[CHANGELOG.md](CHANGELOG.md)** — current release cycle (v0.7.0)
+- **[CHANGELOG.archive.md](CHANGELOG.archive.md)** — pre-v0.6.0 history
