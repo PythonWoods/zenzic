@@ -30,6 +30,11 @@ Zenzic builds a **Virtual Site Map (VSM)** — a projection of the final site in
 > **[MANDATORY]** A sprint is not closed until every step below is complete.
 > Skipping any step is a **Class 1 violation (Technical Debt)** — the successor agent inherits a ghost, not a project.
 
+### Step 0 — Pre-Task Alignment
+
+- [ ] Read the **[POLICIES]** section of this ledger before starting any work.
+- [ ] The **Law of Contemporary Testimony (CEO-059)** applies unconditionally: code and documentation are a single indivisible unit. No task is complete until both are aligned.
+
 ### Step 1 — Update This File
 
 - [ ] New architectural facts? → Update **[ARCHITECTURE]**
@@ -43,10 +48,18 @@ Zenzic builds a **Virtual Site Map (VSM)** — a projection of the final site in
 - [ ] `CHANGELOG.it.md` — Italian translation of the same section
 - [ ] `RELEASE.md` — marketing prose section for the sprint
 
-### Step 3 — Staleness Audit
+### Step 3 — Staleness & Testimony Audit
 
 - [ ] `README.md` / `README.it.md` — check: version numbers, feature lists, CLI flag examples, Z-code table, architecture descriptions
-- [ ] No `.mdx` audit required here — `zenzic-doc` is responsible for its own documentation
+- [ ] **Contemporary Check (CEO-059):**
+  - Changed a CLI flag or command signature? → Update `reference/cli.mdx` (EN + IT) in zenzic-doc
+  - Changed a default value or config option? → Update `reference/configuration.mdx` (EN + IT) in zenzic-doc
+  - Fixed an architectural bug? → Update `explanation/architecture.mdx` (EN + IT) in zenzic-doc
+  - Changed a finding code, threshold, or message? → Update `reference/finding-codes.mdx` (EN + IT) in zenzic-doc
+  - Adapter discovery or engine config behavior changed? → Update `how-to/configure-adapter.mdx` (EN + IT) in zenzic-doc
+- [ ] **Precedence Table:** New CLI flags are reflected in the Configuration Priority section of `reference/configuration.mdx` (EN + IT).
+- [ ] **Bilingual Mirroring:** Every EN doc update has a matching IT update in the same commit.
+- [ ] Coordinate with zenzic-doc repo for any `.mdx` updates required (see Law of Contemporary Testimony)
 
 ### Step 4 — Verification Gate
 
@@ -57,6 +70,13 @@ Zenzic builds a **Virtual Site Map (VSM)** — a projection of the final site in
 ---
 
 ## [POLICIES] — Immutable Operational Laws
+
+### The Law of Contemporary Testimony [MANDATORY] — CEO-059
+
+- **[INVARIANT] Code and Documentation are a single, indivisible unit of work.**
+  - **No Silent Logic:** Any change in CLI behavior, flags, findings, or configuration priority MUST be reflected in the relevant `.mdx` and `README` files within the SAME sprint/task.
+  - **Verification:** An agent is NOT permitted to signal "Task Complete" if the documentation reflects old behavior.
+  - **Sovereignty:** Before starting ANY task, the agent MUST read this ledger. This file is the only source of truth for current project policies.
 
 ### Core Laws
 
@@ -73,6 +93,20 @@ Zenzic builds a **Virtual Site Map (VSM)** — a projection of the final site in
 - **[RULE R11] Sovereign Sandbox (CEO-043).** [DECISION] The explicit `PATH` argument provided by the user is the sovereign sandbox root. Blood Sentinel guards escapes FROM the target, not the location OF the target. If `docs_root` falls outside `repo_root`, `repo_root` is dynamically reassigned to `docs_root`.
 - **[RULE R12] Symmetry Guardrail (CEO-045).** [DECISION] Every structural change to the documentation hierarchy must be applied symmetrically across all supported locales. Missing translations are potential structural failures. Goal: Zero 404s on the language switcher.
 - **[RULE R13] Intelligent Perimeter (CEO-050).** [DECISION] Metadata files consumed by adapters (e.g. `docusaurus.config.ts`, `mkdocs.yml`, `zensical.toml`) and universal infrastructure files (e.g. `package.json`, `pyproject.toml`) are **Level 1 System Guardrails** — permanently shielded from Z903 and all quality checks. Declare them in `BaseAdapter.get_metadata_files()` (L1b) and `SYSTEM_EXCLUDED_FILE_NAMES`/`SYSTEM_EXCLUDED_FILE_PATTERNS` (L1a). **Never ask the user to exclude them manually.**
+- **[RULE R14] Portability is Execution-Independent (CEO-053).** [DECISION] Absolute links (starting with `/`) are hard errors (Z105) unconditionally — even if the target file exists on disk and is reachable locally. Z105 is a pre-resolution gate: the validator must fire it before any filesystem check. Rationale: an absolute link breaks portability when the site is hosted in a subdirectory. The fact that the file exists on the author's machine is irrelevant.
+- **[RULE R15] Scope Integrity (CEO-054).** [DECISION] A resolved link is valid only if its target is within the engine's permitted perimeter: `docs_root` + adapter-declared static directories. File existence on the host filesystem outside this perimeter is irrelevant — the Shield resolver (PathTraversal Z202) enforces this unconditionally. `find_repo_root(search_from=target)` (CEO-052) ensures the perimeter is anchored to the correct project when invoked remotely. Corollary: `excluded_dirs` must **not** include directory names that contain files actively referenced by Markdown pages (e.g. `assets/`), as excluding them from the walk breaks the asset index and causes Z104 false positives.
+- **[RULE R16] Protocol Awareness (CEO-055).** [DECISION] The `pathname:///` protocol is the Docusaurus "Diplomatic Courier" — a Docusaurus-specific static-asset escape hatch. In Docusaurus mode, `pathname:///assets/file.html` parses to `scheme="pathname"`, `path="/assets/file.html"` and the leading `/` is a URI convention artifact — not an absolute-path violation. The Z105 gate is conditioned on `not (parsed.scheme == "pathname" and engine == "docusaurus")`. In all other engines (MkDocs, Zensical, Standalone), `pathname:///` is unrecognized and triggers Z105 normally. Corollary: word-count stripping (Z502) must strip MDX/HTML comments **before** running the frontmatter regex — MDX files often open with a `{/* SPDX … */}` header before the `---` block, which prevents `_FRONTMATTER_RE` (anchored to `\A`) from matching unless the comment is removed first.
+- **[RULE R17] CLI Symmetry (CEO-056).** [DECISION] `zenzic score [PATH]` and `zenzic diff [PATH]` accept an optional positional `PATH` argument — identical sovereign root semantics as `zenzic check all [PATH]`. `find_repo_root(search_from=target)` is called unconditionally when `PATH` is provided: configuration follows the target, not the caller (ADR-009). The banner is printed immediately before analysis, not after. `diff` automatically derives the snapshot path from `repo_root`, not CWD.
+
+### Documentation Law — The Obsidian Testimony [MANDATORY]
+
+- **[INVARIANT] Every behavioral or structural change to the codebase must be reflected in the corresponding `.mdx` documentation before the sprint is closed.** A code change without a documentation update is a ghost commit — it alters reality without updating the map.
+- **Trigger rules (mandatory — not optional):**
+  - I/O signature, config options, or exclusion logic changed → Update `reference/configuration.mdx` (EN + IT) in zenzic-doc
+  - UI output, CLI flags, or module structure changed → Update `explanation/architecture.mdx` (EN + IT) in zenzic-doc
+  - A `Zxxx` finding changed (threshold, message, line accuracy, or semantic scope) → Update `reference/finding-codes.mdx` (EN + IT) in zenzic-doc
+  - Adapter discovery or engine config handling changed → Update `how-to/configure-adapter.mdx` (EN + IT) in zenzic-doc
+- **Enforcement:** The [CLOSING PROTOCOL] Step 3 (Staleness & Testimony Audit) implements this law. **A sprint without a Testimony check is not closed.**
 
 ### Exit Codes
 
@@ -196,7 +230,7 @@ tests/
     test_i18n_path_integrity.py — i18n path traversal + locale root tests
 ```
 
-**Config priority (3 levels):** `zenzic.toml` > `[tool.zenzic]` in `pyproject.toml` > built-in defaults.
+**Config priority (4 levels):** CLI flags > `zenzic.toml` > `[tool.zenzic]` in `pyproject.toml` > built-in defaults. CLI flags always win.
 
 ---
 
@@ -269,6 +303,12 @@ tests/
        <(find i18n/it/docusaurus-plugin-content-docs/current -name "*.mdx" | \
          sed 's|^i18n/it/docusaurus-plugin-content-docs/current/||' | sort)
   ```
+
+### ADR-009: Path Sovereignty (CEO-052)
+
+**[DECISION]** "The configuration follows the target, not the caller." When an explicit `PATH` argument is provided to `zenzic check all`, `find_repo_root()` must search upward from that path — not from `os.getcwd()`. The active repo configuration (engine, `docs_dir`, exclusions) is always determined by the repository that owns the target, never by the working directory of the invoking shell. This invariant prevents "Context Hijacking": running Zenzic from repo A pointing at repo B must load B's `zenzic.toml` exclusively.
+
+- **Implementation:** `find_repo_root(search_from=target_path)` parameter in `core/scanner.py`. `check_all()` in `cli/_check.py` derives `search_from` from the resolved target before calling `find_repo_root`. `_apply_target()` sovereign root guard: when `target == repo_root`, `docs_dir` is preserved from config rather than overridden to `"."`.
 
 ---
 
@@ -365,6 +405,24 @@ tests/
 - **[LESSON]** A tool must never flag its own configuration inputs as quality issues. System guardrails for directories existed (`SYSTEM_EXCLUDED_DIRS`) but there was no equivalent for files. The asset scanner is not immune to the same noise it was designed to eliminate.
 - **Permanent Fix:** Two-layer guardrail system (CEO-050). L1a: `SYSTEM_EXCLUDED_FILE_NAMES`/`SYSTEM_EXCLUDED_FILE_PATTERNS` in `models/config.py` — universal toolchain files. L1b: `BaseAdapter.get_metadata_files()` — adapter declares which engine config files it consumes. `LayeredExclusionManager` stores and applies both layers in `should_exclude_file()`. `find_unused_assets()` applies both layers inline before building the asset set.
 - **Tests:** `tests/test_exclusion.py::TestSystemFileGuardrails`, `tests/test_scanner.py::test_find_unused_assets_skips_system_infrastructure_files`, `tests/test_scanner.py::test_find_unused_assets_skips_adapter_metadata_files`.
+
+### [BUG-010] Context Hijacking via External Path (D052 — 2026-04-25)
+
+- **ID:** BUG-010
+- **Severity:** Incorrect configuration loaded (wrong engine, wrong docs_dir, wrong exclusions)
+- **Symptom:** Running `zenzic check all --strict /path/to/other-repo` from inside repo A caused Zenzic to load A's `zenzic.toml` instead of the target's. Result: wrong engine adapter (standalone instead of docusaurus), wrong `docs_dir`, wrong exclusion rules. Also: when the explicit target equaled the target's repo root, `_apply_target()` overrode `docs_dir` to `"."` — causing the entire project root (including `blog/`, `scripts/`) to be scanned.
+- **Root Cause:** `find_repo_root()` unconditionally searched upward from `Path.cwd()`, ignoring any explicit target path. `_apply_target()` had no guard for the `target == repo_root` case.
+- **Permanent Fix:** (1) `find_repo_root(search_from: Path | None)` — when provided, search begins from `search_from` instead of CWD. `check_all()` derives `search_from` from the resolved target. (2) `_apply_target()` sovereign root guard: when `target == repo_root`, return config with the configured `docs_dir` unchanged. ADR-009 codified.
+- **Tests:** `tests/test_remote_context.py` — 9 tests covering `find_repo_root(search_from=...)`, `_apply_target` sovereign root guard, and config isolation.
+
+### [BUG-011] `excluded_dirs` Default Documented with "assets" — Documentation Error (D054 — 2026-04-25)
+
+- **ID:** BUG-011
+- **Severity:** Documentation error (misleads users; no runtime consequence since code is correct)
+- **Symptom:** `docs/reference/configuration.mdx` (EN + IT) listed `"assets"` in the `excluded_dirs` default: `["includes", "assets", "stylesheets", "overrides", "hooks"]`. The actual code default (`models/config.py` line 152) is `["includes", "stylesheets", "overrides", "hooks"]` — without `"assets"`.
+- **Root Cause:** Documentation drift. The false inclusion of `"assets"` in the documented default is dangerous: users reading the docs would conclude that `docs/assets/` is excluded from all checks, when in fact it is scanned and its files ARE in `known_assets`. Excluding an actively-referenced asset directory breaks Z104 detection — files disappear from the asset index and valid links are flagged as broken.
+- **Permanent Fix:** Updated `configuration.mdx` (EN + IT): removed `"assets"` from the default list; added a tip box explaining why `"assets"` is intentionally absent and when to add it manually.
+- **Lesson:** The Obsidian Testimony (D051) applies to documentation as well as code. A documented default that misrepresents the code is a ghost commit in reverse.
 
 ---
 
@@ -548,3 +606,57 @@ Four precision bugs fixed. **BUG-005** (Z502 pointer at frontmatter — `line_no
 **Version:** 0.7.0 · **Date:** 2026-04-25
 
 **BUG-009** fixed: Z903 false positives on engine config and infrastructure files. Two-layer guardrail system: L1a (`SYSTEM_EXCLUDED_FILE_NAMES`/`SYSTEM_EXCLUDED_FILE_PATTERNS` in `models/config.py`) shields universal toolchain files; L1b (`BaseAdapter.get_metadata_files()`) lets each adapter declare its own config files. `LayeredExclusionManager` stores and applies both layers. `find_unused_assets()` enforces both inline. Rule R13 codified. 7 regression tests added. 1208 passing.
+
+### D051 (CEO) — Documentation as an Invariant
+
+**Version:** 0.7.0 · **Date:** 2026-04-25
+
+Documentation Law "The Obsidian Testimony" added to `[POLICIES]` in all three Obsidian Ledgers. `[CLOSING PROTOCOL]` Step 3 upgraded to "Staleness & Testimony Audit" with per-repo trigger checklists. Four documentation pages updated in zenzic-doc: `finding-codes.mdx` (Z502 semantic word count, Z503 absolute line number), `configuration.mdx` (System Guardrails section), `configure-adapter.mdx` (L1b tip box). All EN + IT mirrors updated.
+
+### D052 (CEO) — The Sovereign Root Fix
+
+**Version:** 0.7.0 · **Date:** 2026-04-25
+
+**BUG-010** fixed: Context Hijacking — `find_repo_root()` now accepts `search_from` parameter; `check_all()` derives it from the explicit target path. `_apply_target()` sovereign root guard prevents `docs_dir` override when `target == repo_root`. ADR-009 "Path Sovereignty" codified: "The configuration follows the target, not the caller." 9 regression tests in `tests/test_remote_context.py`. 1218 passing.
+
+### D053 (CEO) — The Portability Invariant
+
+**Version:** 0.7.0 · **Date:** 2026-04-25
+
+Confirmed Z105 is already a hard pre-resolution gate in `validator.py` (unconditional `continue` before any disk check). Rule R14 codified: "Absolute links (starting with `/`) are hard errors (Z105) unconditionally — even if the target file exists on disk." Fixed absolute link violations introduced by D051 in `configure-adapter.mdx` (EN + IT): replaced `/docs/reference/configuration#system-guardrails` with `../reference/configuration.mdx#system-guardrails`. CEO-053 regression test added: `tests/test_validator.py::TestAbsolutePathProhibition::test_z105_fires_even_when_target_file_exists_on_disk`. 1218 passing.
+
+### D054 (CEO) — The Strict Perimeter Law
+
+**Version:** 0.7.0 · **Date:** 2026-04-25
+
+**Forensic diagnosis of `../assets/brand/svg/zenzic-badge-shield.svg` Z104 incident:** The link was VALID (file exists at `docs/assets/brand/svg/zenzic-badge-shield.svg`, inside `docs_root`). The Z104 was a CEO-052 artifact — wrong `repo_root` when running externally produced a wrong `known_assets` index. CEO-052 fix (already applied) eliminates it. The CEO's "Permissive Perimeter" theory was a misdiagnosis: the Shield resolver already enforces scope integrity (PathTraversal Z202).
+
+**BUG-011** fixed: `excluded_dirs` documented default wrongly included `"assets"` in `configuration.mdx` (EN + IT). Code default (`models/config.py:152`) has never included `"assets"`. Fixed with tip box explaining why `"assets"` is intentionally absent. Rule R15 "Scope Integrity" codified. `clean assets` command signature aligned with `check all` (PATH, `--engine`, `--exclude-dir`, `--include-dir`, `--quiet`, CEO-052 sovereign root fix). 1218 passing.
+
+### D055 (CEO) — The Precision Calibration
+
+**Version:** 0.7.0 · **Date:** 2026-04-25
+
+Two sensor calibration bugs fixed.
+
+**BUG-012** (Z502 MDX frontmatter leak): `_visible_word_count()` called `_FRONTMATTER_RE` before stripping MDX/HTML comments. MDX files that open with `{/* SPDX … */}` before `---` caused the frontmatter regex (anchored to `\A`) to miss the block, leaking frontmatter key-value pairs into the word count. Fix: strip MDX/HTML comments first, then frontmatter.
+
+**BUG-013** (Z105 `pathname:///` false positive): `urlsplit("pathname:///assets/file.html")` → `scheme="pathname"`, `path="/assets/file.html"`. The leading `/` in the path component is a URI convention artifact, not an absolute server-root reference. Fix: Z105 gate now conditioned on `not parsed.scheme`. Rule R16 "Protocol Awareness" codified. Regression tests in `tests/guardians/test_precision.py`. CONTRIBUTING.md + CONTRIBUTING.it.md: Nox development note added (EN + IT).
+
+### D056 (CEO) — Universal Path Awareness
+
+**Version:** 0.7.0 · **Date:** 2026-04-25
+
+`zenzic score [PATH]` and `zenzic diff [PATH]` now accept an optional positional argument — identical sovereign root semantics as `zenzic check all [PATH]` (ADR-009). `find_repo_root(search_from=target)` called when PATH provided. Banner hoisted to print immediately before analysis. `diff` automatically derives snapshot path from `repo_root`. Rule R17 "CLI Symmetry" codified.
+
+### D058 (CEO) — The Precedence Audit
+
+**Version:** 0.7.0 · **Date:** 2026-04-25
+
+Documentation audit of configuration priority. Three documentation gaps identified and fixed: `README.md` priority chain updated to include CLI flags (was missing). `README.it.md` priority chain updated (Italian mirror). `configuration-reference.mdx` (EN + IT) Config File Priority table upgraded from 3-level to 4-level including CLI flags as Priority 1. `configuration.mdx` (EN + IT) received new "Configuration Priority" section. Closing Protocol checklist item "Precedence Table" added to Step 3 in all three Obsidian Ledgers.
+
+### D059 (CEO) — The Law of Contemporary Testimony
+
+**Version:** 0.7.0 · **Date:** 2026-04-25
+
+Law of Contemporary Testimony codified as mandatory policy in [POLICIES] at top of all three Obsidian Ledgers. Step 0 "Pre-Task Alignment" added to [CLOSING PROTOCOL]. Step 3 enhanced with "Contemporary Check" bullets and "Bilingual Mirroring" + "Precedence Table" items.

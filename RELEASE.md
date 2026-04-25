@@ -599,6 +599,235 @@ focused only on *their* business exclusions — not on the scaffolding of the to
 
 ---
 
+### 📖 Documentation as an Invariant (Direttiva CEO 051)
+
+A behavioral change that is not reflected in the documentation is a ghost commit — it alters
+reality without updating the map. **D051** codifies this as an iron law and then immediately
+applies it to three files whose contents had drifted from the v0.7.0 codebase.
+
+#### The Obsidian Testimony Law
+
+A new **Documentation Law — The Obsidian Testimony** has been added to `[POLICIES]` in all
+three repository Obsidian Ledgers (`zenzic`, `zenzic-doc`, `zenzic-action`). It is not a
+guideline — it is a mandatory trigger system:
+
+| What changed in code | What must be updated |
+|----------------------|----------------------|
+| I/O, config options, or exclusion logic | `reference/configuration.mdx` (EN + IT) |
+| UI output, CLI flags, or module structure | `explanation/architecture.mdx` (EN + IT) |
+| A `Zxxx` finding (threshold, message, line accuracy) | `reference/finding-codes.mdx` (EN + IT) |
+| Adapter discovery or engine config handling | `how-to/configure-adapter.mdx` (EN + IT) |
+
+The `[CLOSING PROTOCOL]` Step 3 has been renamed from "Staleness Audit" to
+**"Staleness & Testimony Audit"** in all three ledgers, with per-repo trigger checklists.
+
+#### Three Documentation Pages Updated (zenzic-doc)
+
+**`reference/finding-codes.mdx` (EN + IT):**
+
+- **Z502 SHORT_CONTENT:** Technical Context now explicitly documents that the word count is
+  purely *semantic* — YAML frontmatter, MDX comments (`{/* */}`), and HTML comments
+  (`<!-- -->`) are excluded. The 50-word threshold applies only to rendered prose.
+- **Z503 SNIPPET_ERROR:** Technical Context now documents that the reported line number is
+  *absolute* — relative to the source file, not to the start of the snippet. This enables
+  immediate `file:line` navigation without mental arithmetic.
+
+**`reference/configuration.mdx` (EN + IT):**
+
+- New **System Guardrails (Level 1 Exclusions)** section documents the full list of files
+  automatically shielded by L1a (universal infrastructure) and L1b (adapter-declared engine
+  configs). Users no longer need to guess what is already protected.
+- The `excluded_assets` section updated: the `**/_category_.json` pattern is no longer
+  required for Docusaurus projects (Level 1b guardrail in `DocusaurusAdapter`). Existing
+  entries remain valid and are silently deduplicated.
+
+**`how-to/configure-adapter.mdx` (EN + IT):**
+
+- New tip box after the adapter discovery table: engine configuration files consumed by each
+  adapter are automatically excluded from Z903. No manual `excluded_assets` entry required.
+
+---
+
+### 🧭 The Sovereign Root Fix (Direttiva CEO 052)
+
+Zenzic is designed to be invoked from anywhere — from CI runners, from editor integrations, from
+scripts that scan multiple repositories in sequence. **D052** seals a long-standing assumption that
+silently broke the tool when you aimed it outside your current working directory.
+
+#### The Bug: Context Hijacking
+
+Running `zenzic check all /path/to/other-repo` from inside repo A would load **A's** `zenzic.toml`
+instead of the target's. The engine adapter, `docs_dir`, strict mode, and exclusion rules all came
+from the wrong project. In the worst case, A's `docs_dir = "docs"` would mismatch B's actual
+documentation directory — producing false positives, missed errors, or both.
+
+A secondary bug compounded the problem: when the explicit path equalled the target's repository root,
+`_apply_target()` would override `docs_dir` to `"."` — scanning the entire project directory
+(including `blog/`, `scripts/`, `node_modules/`) instead of the configured documentation folder.
+
+#### The Fix: ADR-009 Path Sovereignty
+
+> **"The configuration follows the target, not the caller."**
+
+`find_repo_root()` now accepts a `search_from` parameter. When an explicit `PATH` is given to
+`zenzic check all`, the function searches upward from that path — not from `os.getcwd()`. The
+calling directory is irrelevant. The target's `zenzic.toml` is loaded, its engine adapter is
+activated, its `docs_dir` is respected.
+
+The `_apply_target()` sovereign root guard handles the second bug: when the explicit target is the
+project root itself, `docs_dir` is preserved from the loaded configuration rather than overridden.
+
+Nine regression tests in `tests/test_remote_context.py` ("The Stranger" suite) verify that
+configuration isolation holds across all scenarios.
+
+---
+
+### 🔒 The Portability Invariant (Direttiva CEO 053)
+
+D053 is a two-part enforcement action: confirming an existing guarantee and fixing a violation of
+Zenzic's own rules that was introduced in the previous sprint.
+
+#### Z105 is Already a Hard Gate
+
+Investigation of `validator.py` confirmed that Z105 (Absolute Path) fires unconditionally — before
+any filesystem check. The `continue` on line 804 short-circuits the validation pipeline immediately
+when a link starts with `/`, regardless of whether the target file exists on disk. The `@site/`
+Docusaurus alias is handled separately (it starts with `@`, not `/`) and is correctly exempted.
+
+**Rule R14** has been codified in `[POLICIES]` to make this invariant permanent:
+> *Absolute links (starting with `/`) are hard errors (Z105) unconditionally — even if the target
+> file exists on disk and is reachable locally.*
+
+#### D051 Self-Audit: Two Absolute Links Fixed
+
+The D051 documentation sprint introduced two absolute links in `configure-adapter.mdx` (EN and IT):
+
+```text
+[System Guardrails](/docs/reference/configuration#system-guardrails)   ← Z105 violation
+```
+
+These were valid Docusaurus navigation links, but they violate Z105 in Zenzic's own internal scan.
+Both have been replaced with relative MDX paths:
+
+```text
+[System Guardrails](../reference/configuration.mdx#system-guardrails)  ← correct
+```
+
+A dedicated regression test verifies that Z105 fires on an absolute link even when the physical
+target file exists: `test_z105_fires_even_when_target_file_exists_on_disk`.
+
+---
+
+### 🔬 The Strict Perimeter Law (Direttiva CEO 054)
+
+This sprint began with a CEo-level incident report: a Z104 error appeared on a link that was
+passing cleanly during internal scans. The investigation produced a precise forensic record and
+closed two outstanding issues.
+
+#### The Incident: Z104 on a Valid Link
+
+The link `../assets/brand/svg/zenzic-badge-shield.svg` in `docs/community/brand-kit.mdx` was
+flagged as Z104 (file not found) when Zenzic was run from outside the zenzic-doc repository —
+but passed silently when run from inside. This appeared to confirm the CEO's "Permissive
+Perimeter" theory.
+
+**Forensic conclusion:** The link is structurally correct. The file exists at
+`docs/assets/brand/svg/zenzic-badge-shield.svg` — inside `docs_root`. The Shield resolver
+already enforces scope integrity unconditionally (PathTraversal Z202 fires for any link that
+escapes the perimeter). The Z104 was a CEO-052 artifact: running from a sibling directory before
+the sovereign root fix caused the wrong `known_assets` index to be built.
+
+After CEO-052 fix: `find_repo_root(search_from=zenzic-doc)` → correct repo root → correct
+asset index → no Z104. Both internal and external scans now produce identical Obsidian Seal
+output.
+
+#### BUG-011: The Inverted Ghost Commit
+
+The investigation surfaced a second, more subtle issue. The documentation for `excluded_dirs`
+listed `"assets"` as part of the default:
+
+```text
+["includes", "assets", "stylesheets", "overrides", "hooks"]   ← WRONG
+```
+
+The actual code default (unchanged since v0.6.0) is:
+
+```text
+["includes", "stylesheets", "overrides", "hooks"]              ← CORRECT
+```
+
+This is an "inverted ghost commit" — code that is correct, documented incorrectly. Any user
+following the docs and assuming `docs/assets/` is excluded from all checks would be working from
+a false premise. Worse: if they acted on that assumption and removed assets from the exclusion
+list in their own config, they could inadvertently break Z104 detection across their entire docs
+tree. Fixed: `configuration.mdx` (EN + IT) corrected, tip box added.
+
+#### Rule R15 — Scope Integrity
+
+Codified as a named invariant: **a resolved link is valid only if its target is within
+`docs_root` or the adapter's declared static directories.** Filesystem existence outside this
+perimeter is irrelevant. This was always implemented — D054 names and documents it.
+
+#### `clean assets` Signature Alignment
+
+The `clean assets` command now mirrors `check all` exactly: `PATH` argument (CEO-052 sovereign
+root fix), `--engine`, `--exclude-dir`, `--include-dir`, `--quiet`, and full L1b adapter
+metadata guardrail support.
+
+---
+
+### 🔬 Precision Calibration, CLI Symmetry & Governance (D055–D059, 2026-04-25)
+
+A sprint focused on sensor accuracy, command-line symmetry, and engineering governance.
+
+#### The Precision Calibration (D055)
+
+Two subtle sensor calibration bugs surfaced and fixed.
+
+**Z502 MDX Frontmatter Leak.** `_visible_word_count()` ran the frontmatter regex before stripping
+MDX block-comments (`{/* … */}`). MDX files that open with an SPDX/copyright header before the `---`
+block caused the regex (anchored to `\A`) to miss the frontmatter entirely — leaking key-value pairs
+into the word count. A page with a `title`, `description`, and `sidebar_position` in frontmatter plus
+10 prose words was incorrectly reported as "53 words" instead of "10 words", suppressing a legitimate
+Z502 short-content finding. Fix: strip MDX/HTML comments first, then run frontmatter regex. Pure function.
+
+**Z105 `pathname:///` False Positive.** The Docusaurus "Diplomatic Courier" pattern uses
+`pathname:///assets/file.html` to link to static assets without a domain. `urlsplit` parses this as
+`scheme="pathname"`, `path="/assets/file.html"`. The Z105 portability gate was firing on the leading
+`/` of the URI path component — which is a URI convention artifact, not a server-root reference. Fix:
+gate conditioned on `not parsed.scheme`. Any URL with a non-empty scheme is an engine protocol.
+Rule R16 "Protocol Awareness" codified.
+
+#### Universal Path Awareness (D056)
+
+`zenzic score` and `zenzic diff` now accept an optional positional `PATH` argument — completing the
+sovereign root fix (CEO-052) that `check all` received in D052. Running `zenzic score ../project-B`
+from inside `project-A` now correctly loads `project-B`'s configuration and scores it. The banner
+is printed before analysis begins. Rule R17 "CLI Symmetry" codified: all three analysis commands
+accept the same optional PATH argument with identical semantics.
+
+#### The Precedence Audit (D058)
+
+A documentation audit found that the configuration priority hierarchy was incorrectly described in
+three places: `README.md`, `README.it.md`, and the Configuration Reference. All three omitted CLI
+flags from the priority chain. The correct 4-level hierarchy:
+
+```text
+CLI flags > zenzic.toml > [tool.zenzic] in pyproject.toml > built-in defaults
+```
+
+Fixed across all documentation surfaces (EN + IT).
+
+#### The Law of Contemporary Testimony (D059)
+
+A governance sprint codifying the principle that code and documentation are a single, indivisible
+unit of work. All three Obsidian Ledgers updated with the Law of Contemporary Testimony as a
+mandatory policy: no task can be marked complete if the documentation still reflects old behavior.
+[CLOSING PROTOCOL] Step 0 "Pre-Task Alignment" and enhanced Step 3 "Contemporary Check" bullets
+added to prevent documentation drift from accumulating silently.
+
+---
+
 ### 🇮🇹 Engineered with Precision
 
 Zenzic is developed by **PythonWoods**, based in Italy, and committed to the craft of high-performance, deterministic Python engineering.

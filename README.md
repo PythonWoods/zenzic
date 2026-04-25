@@ -176,7 +176,7 @@ See the [Developer Guide][docs-arch] for the adapter API.
 
 ## ⚙️ Configuration
 
-Zero-config by default. Priority: `zenzic.toml` > `[tool.zenzic]` in `pyproject.toml` > built-ins.
+Zero-config by default. Full priority chain: **CLI flags** > `zenzic.toml` > `[tool.zenzic]` in `pyproject.toml` > built-ins. CLI flags always take precedence over configuration files.
 
 ```toml
 # zenzic.toml  (all fields optional)

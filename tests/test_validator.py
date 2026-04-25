@@ -451,6 +451,28 @@ class TestAbsolutePathProhibition:
         assert len(errors) == 1
         assert "absolute path" in errors[0]
 
+    def test_z105_fires_even_when_target_file_exists_on_disk(self, tmp_path: Path) -> None:
+        """CEO-053 regression: Z105 is a hard pre-resolution gate.
+
+        Even when the target file exists on disk, an absolute link must be
+        flagged as ABSOLUTE_PATH (Z105) — the validator must never short-circuit
+        the check because the file happens to be reachable locally.
+
+        This test creates a real file, then links to it via an absolute path.
+        The error_type must be ABSOLUTE_PATH, not FILE_NOT_FOUND.
+        """
+        docs = tmp_path / "docs"
+        (docs / "assets").mkdir(parents=True)
+        # Physical file exists — the link target is reachable on disk
+        (docs / "assets" / "logo.png").write_bytes(b"\x89PNG")
+        (docs / "index.md").write_text("![logo](/assets/logo.png)\n")
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        errors = validate_links_structured(docs_root, mgr, repo_root=tmp_path, config=config)
+        assert len(errors) == 1
+        assert errors[0].error_type == "ABSOLUTE_PATH"
+
 
 # ─── S4-2: known_assets pre-map + excluded_build_artifacts ───────────────────
 

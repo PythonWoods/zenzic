@@ -515,6 +515,182 @@ L'extra opzionale `[mkdocs]` non esiste più. `pip install zenzic` è l'installa
 
 ---
 
+### Sprint Documentazione come Invariante (D051 — 2026-04-25)
+
+#### Modificato
+
+- **`[CLOSING PROTOCOL]` Step 3 rinominato "Staleness & Testimony Audit" in tutti e tre gli Obsidian Ledger.**
+  Aggiunte checklist trigger per-repo: ogni funzione modificata deve essere incrociata con la
+  pagina `.mdx` corrispondente prima della chiusura dello sprint.
+
+- **Legge sulla Documentazione — "The Obsidian Testimony" aggiunta a `[POLICIES]` in tutti e tre gli Obsidian Ledger.**
+  Trigger obbligatori: I/O o logica di esclusione modificata → `configuration.mdx`; struttura
+  UI/CLI/modulo modificata → `architecture.mdx`; finding `Zxxx` modificato → `finding-codes.mdx`;
+  adapter discovery modificata → `configure-adapter.mdx`. Uno sprint senza Testimony check non è chiuso.
+
+- **`docs/reference/finding-codes.mdx` (EN + IT) — aggiornamenti di precisione Z502 e Z503 (zenzic-doc).**
+  Il Contesto Tecnico di Z502 documenta che il conteggio parole è puramente semantico: frontmatter,
+  commenti MDX e HTML vengono esclusi. Il Contesto Tecnico di Z503 documenta che il numero di riga
+  riportato è assoluto (relativo al file sorgente, non allo snippet), abilitando la navigazione immediata.
+
+- **`docs/reference/configuration.mdx` (EN + IT) — Nuova sezione "Protezioni di Sistema (Esclusioni di Livello 1)" (zenzic-doc).**
+  Documenta l'elenco completo delle esclusioni L1a (infrastruttura universale) e L1b (config engine
+  dichiarate dall'adapter). La nota su `_category_.json` in `excluded_assets` è aggiornata: non più
+  necessaria per i progetti Docusaurus (guardrail L1b). Le voci esistenti sono silenziosamente deduplicate.
+
+- **`docs/how-to/configure-adapter.mdx` (EN + IT) — Tip box L1b aggiunto (zenzic-doc).**
+  Dopo la tabella di adapter discovery, un tip box informa gli utenti che i file di configurazione
+  engine sono automaticamente esclusi da Z903. Nessuna voce manuale in `excluded_assets` necessaria.
+
+---
+
+### Correzione della Root Sovrana (D052 — 2026-04-25)
+
+#### Corretto
+
+- **BUG-010: Context Hijacking tramite percorso esterno.**
+  Eseguire `zenzic check all /percorso/altro-repo` dall'interno di un repository diverso causava
+  il caricamento del `zenzic.toml` del chiamante invece di quello del target. Causa: `find_repo_root()`
+  cercava sempre verso l'alto da `Path.cwd()`, ignorando il target esplicito.
+  Correzione: `find_repo_root()` accetta ora il parametro `search_from: Path | None`; `check_all()`
+  lo deriva dal percorso target risolto. "La configurazione segue il target, non il chiamante." — ADR-009.
+
+- **Guardrail root sovrana in `_apply_target()`.**
+  Quando il target esplicito coincideva con la root del progetto, `_apply_target()` sovrascriveva
+  `docs_dir` con `"."` — causando la scansione dell'intera root del progetto (inclusi `blog/`, `scripts/`)
+  invece di rispettare il `docs_dir` configurato. Correzione: quando `target == repo_root`, la
+  configurazione viene restituita con il `docs_dir` preservato.
+
+#### Test Aggiunti
+
+- `tests/test_remote_context.py` — 9 test di regressione: isolamento root con `find_repo_root(search_from=...)`,
+  guardrail root sovrana di `_apply_target`, e isolamento configurazione end-to-end (scenario "The Stranger").
+
+---
+
+### L'Invariante di Portabilità (D053 — 2026-04-25)
+
+#### Corretto
+
+- **Link assoluti in `configure-adapter.mdx` (EN + IT) introdotti da D051.**
+  D051 usava percorsi assoluti in stile Docusaurus (`/docs/reference/configuration#system-guardrails`)
+  che violano la regola Z105 di Zenzic stesso. Corretti in percorsi MDX relativi:
+  `../reference/configuration.mdx#system-guardrails`.
+
+#### Aggiunto
+
+- **Regola R14 — La Portabilità è Indipendente dall'Esecuzione.**
+  Codificata in `[POLICIES]`: i link assoluti (che iniziano con `/`) sono errori bloccanti (Z105)
+  incondizionatamente — anche quando il file target esiste su disco. Z105 è un gate pre-risoluzione
+  che scatta prima di qualsiasi controllo del filesystem. Motivazione: i link assoluti rompono la
+  portabilità quando il sito è ospitato in una sottodirectory.
+
+- **Test di regressione CEO-053.**
+  `tests/test_validator.py::TestAbsolutePathProhibition::test_z105_fires_even_when_target_file_exists_on_disk`
+  — crea un file reale, lo referenzia con un link assoluto, verifica che `error_type == "ABSOLUTE_PATH"`.
+
+---
+
+### La Legge del Perimetro Rigido (D054 — 2026-04-25)
+
+#### Diagnosi
+
+Il CEO ha rilevato Z104 su `../assets/brand/svg/zenzic-badge-shield.svg` scansionando zenzic-doc
+dall'esterno del repository. L'indagine forense ha determinato: il link è valido (il file esiste
+in `docs/assets/brand/svg/zenzic-badge-shield.svg`, dentro `docs_root`), il resolver Shield
+applicava già correttamente la scope integrity (PathTraversal Z202 scatta per link fuori perimetro),
+e il Z104 era interamente un artefatto CEO-052. La fix CEO-052 (già applicata) elimina il falso
+Z104 nella scansione remota.
+
+#### Corretto
+
+- **BUG-011: il default documentato di `excluded_dirs` includeva erroneamente `"assets"` (zenzic-doc).**
+  `docs/reference/configuration.mdx` (EN + IT) riportava il default come
+  `["includes", "assets", "stylesheets", "overrides", "hooks"]`. Il default effettivo nel codice
+  (`models/config.py` riga 152) è `["includes", "stylesheets", "overrides", "hooks"]` — senza
+  `"assets"`. Correzione: default aggiornato + tip box che spiega perché `"assets"` è
+  intenzionalmente assente.
+
+#### Aggiunto
+
+- **Regola R15 — Integrità del Perimetro.** Codificata in `[POLICIES]`: un link risolto è valido
+  solo se il suo target è all'interno del perimetro consentito del motore (`docs_root` + directory
+  statiche dichiarate dall'adapter). L'esistenza del file sul filesystem host al di fuori di questo
+  perimetro è irrilevante — il resolver Shield (PathTraversal Z202) lo applica incondizionatamente.
+
+- **Firma del comando `clean assets` allineata con `check all`.**
+  Aggiunti: argomento `PATH` (fix sovrana CEO-052), `--engine`, `--exclude-dir`, `--include-dir`,
+  `--quiet`. Supporto completo per i file di metadati adapter (guardrail L1b).
+
+---
+
+### La Calibrazione di Precisione (D055 — 2026-04-25)
+
+#### Corretto
+
+- **Z502: il conteggio parole inflazionato dal commento MDX SPDX prima del frontmatter.**
+  `_visible_word_count()` eseguiva `_FRONTMATTER_RE` (ancorato a `\A`) prima di rimuovere i
+  commenti MDX a blocco (`{/* … */}`). I file MDX che si aprono con un'intestazione SPDX/copyright
+  prima del blocco `---` causavano il mancato riconoscimento del frontmatter da parte della regex,
+  perdendo tutte le coppie chiave-valore del frontmatter nel conteggio prosa. Fix: rimuovere prima
+  i commenti MDX e HTML, poi eseguire la regex frontmatter. Funzione pura; testo originale invariato.
+
+- **Z105: falso positivo sui link `pathname:///` (Diplomatic Courier Docusaurus).**
+  `urlsplit("pathname:///assets/file.html")` → `scheme="pathname"`, `path="/assets/file.html"`.
+  Il gate Z105 (`parsed.path.startswith("/")`) scattava sulla `/` iniziale del componente path URI
+  — un artefatto convenzionale, non un riferimento alla radice del server. Fix: gate condizionato
+  su `not parsed.scheme`. Qualsiasi URL con schema non vuoto è un protocollo engine, non un percorso
+  assoluto. Regola R16 "Consapevolezza dei Protocolli" codificata.
+
+#### Aggiunto
+
+- Test di regressione in `tests/guardians/test_precision.py` (5 test).
+- Nota Nox di sviluppo aggiunta a `CONTRIBUTING.md` (EN) e `CONTRIBUTING.it.md` (IT).
+
+---
+
+### Consapevolezza Universale dei Percorsi (D056 — 2026-04-25)
+
+#### Aggiunto
+
+- **`zenzic score [PATH]` — argomento posizionale opzionale.**
+  Quando fornito, `score` applica il fix sovrano CEO-052: `find_repo_root(search_from=target)`
+  deriva la root del repo dal percorso target, non dalla CWD. Banner stampato immediatamente prima
+  dell'analisi. Suggerimento `Scoring: <path>` mostrato per target non-CWD.
+
+- **`zenzic diff [PATH]` — argomento posizionale opzionale.**
+  Stessa semantica sovrana di `score`. Percorso snapshot derivato automaticamente da `repo_root`
+  (non dalla CWD). Suggerimento `Comparing: <path>` mostrato per target non-CWD.
+
+- Regola R17 "Simmetria CLI" codificata: `score` e `diff` accettano lo stesso argomento PATH
+  opzionale di `check all`, con identica semantica sovrana e di sandbox.
+
+---
+
+### L'Audit di Precedenza (D058 — 2026-04-25)
+
+#### Modificato
+
+- **Documentazione della priorità di configurazione aggiornata da 3 a 4 livelli.**
+  `README.md` e `README.it.md` ora elencano esplicitamente i flag CLI come sorgente a massima
+  priorità. La formulazione precedente ometteva completamente i flag CLI. La catena autoritativa:
+  flag CLI > `zenzic.toml` > `[tool.zenzic]` in `pyproject.toml` > valori predefiniti integrati.
+
+---
+
+### La Legge della Testimonianza Contemporanea (D059 — 2026-04-25)
+
+#### Modificato
+
+- **Legge della Testimonianza Contemporanea codificata come politica operativa obbligatoria.**
+  Tutti e tre gli Obsidian Ledger (`.github/copilot-instructions.md` in core, zenzic-doc e
+  zenzic-action) aggiornati con la nuova legge: codice e documentazione sono un'unica unità
+  indivisibile di lavoro. Step 0 "Pre-Task Alignment" aggiunto al [CLOSING PROTOCOL]. Step 3
+  migliorato con bullet "Contemporary Check" che coprono flag CLI, valori predefiniti, bug
+  architetturali, codici di finding e comportamento degli adapter.
+
+---
+
 ## [0.6.1] — 2026-04-19 — Obsidian Glass [SUPERSEDED]
 
 > ⚠ **[SUPERSEDED dalla v0.7.0]** — La versione 0.6.1 è deprecata a causa di problemi di allineamento con le specifiche Docusaurus e terminologia legacy. Tutti gli utenti devono aggiornare alla v0.7.0 "Obsidian Maturity".

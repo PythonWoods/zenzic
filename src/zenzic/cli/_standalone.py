@@ -65,6 +65,11 @@ def _run_all_checks(
 
 
 def score(
+    path: str | None = typer.Argument(
+        None,
+        help="Project root or docs directory to score (default: configured docs_dir).",
+        show_default=False,
+    ),
     strict: bool | None = typer.Option(
         None,
         "--strict",
@@ -78,9 +83,33 @@ def score(
     ),
 ) -> None:
     """Compute a 0–100 documentation quality score across all checks."""
-    repo_root = find_repo_root()
+    # CEO-056 "Universal Path Awareness": derive repo_root from the explicit
+    # target path so that `zenzic score ../project-B` loads project-B's config.
+    _search_from: Path | None = None
+    if path is not None:
+        _pre = Path(path).resolve()
+        _search_from = _pre.parent if _pre.is_file() else _pre
+    repo_root = find_repo_root(search_from=_search_from)
     config, _ = ZenzicConfig.load(repo_root)
     docs_root = (repo_root / config.docs_dir).resolve()
+    # CEO-043: sovereign sandbox — if docs_root escapes repo_root, adopt it as root.
+    try:
+        docs_root.relative_to(repo_root)
+    except ValueError:
+        repo_root = docs_root
+
+    if output_format != "json":
+        from zenzic import __version__
+
+        _shared._ui.print_header(__version__)
+        if path is not None:
+            try:
+                _hint = str(docs_root.relative_to(Path.cwd()))
+            except ValueError:
+                _hint = str(docs_root)
+            _shared.console.print(f"[dim]  Scoring: {_hint}[/]")
+        _shared.console.print()
+
     exclusion_mgr = _shared._build_exclusion_manager(config, repo_root, docs_root)
     effective_strict = strict if strict is not None else config.strict
     report = _run_all_checks(repo_root, docs_root, config, exclusion_mgr, strict=effective_strict)
@@ -95,8 +124,6 @@ def score(
     if output_format == "json":
         print(json.dumps(report.to_dict(), indent=2))
     else:
-        from zenzic import __version__
-
         if report.score >= 80:
             score_style = ObsidianPalette.STYLE_OK
         elif report.score >= 50:
@@ -140,9 +167,6 @@ def score(
                 f"{cat.contribution:.2f}",
             )
 
-        _shared.console.print()
-        _shared._ui.print_header(__version__)
-        _shared.console.print()
         _shared.console.print(score_summary)
         _shared.console.print(table)
 
@@ -157,6 +181,11 @@ def score(
 
 
 def diff(
+    path: str | None = typer.Argument(
+        None,
+        help="Project root or docs directory to compare (default: configured docs_dir).",
+        show_default=False,
+    ),
     strict: bool | None = typer.Option(
         None,
         "--strict",
@@ -175,9 +204,21 @@ def diff(
     Requires a previous snapshot created by ``zenzic score --save``.
     Exits non-zero if the score dropped by more than ``--threshold`` points.
     """
-    repo_root = find_repo_root()
+    # CEO-056 "Universal Path Awareness": derive repo_root from the explicit
+    # target path so that `zenzic diff ../project-B` loads project-B's config
+    # and compares against project-B's snapshot (total sovereignty).
+    _search_from: Path | None = None
+    if path is not None:
+        _pre = Path(path).resolve()
+        _search_from = _pre.parent if _pre.is_file() else _pre
+    repo_root = find_repo_root(search_from=_search_from)
     config, _ = ZenzicConfig.load(repo_root)
     docs_root = (repo_root / config.docs_dir).resolve()
+    # CEO-043: sovereign sandbox
+    try:
+        docs_root.relative_to(repo_root)
+    except ValueError:
+        repo_root = docs_root
     exclusion_mgr = _shared._build_exclusion_manager(config, repo_root, docs_root)
     effective_strict = strict if strict is not None else config.strict
 
@@ -250,6 +291,12 @@ def diff(
         )
         _shared.console.print()
         _shared._ui.print_header(__version__)
+        if path is not None:
+            try:
+                _hint = str(docs_root.relative_to(Path.cwd()))
+            except ValueError:
+                _hint = str(docs_root)
+            _shared.console.print(f"[dim]  Comparing: {_hint}[/]")
         _shared.console.print()
         _shared.console.print(body)
         _shared.console.print(diff_table)

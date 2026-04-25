@@ -933,6 +933,14 @@ def _apply_target(
         hint = str(target) + ("/" if target.is_dir() else "")
 
     if target.is_dir():
+        # CEO-052: if target IS the project root, preserve the configured docs_dir.
+        # The explicit path was used to locate the correct project config —
+        # not to redefine the documentation scope. Overriding docs_dir to "."
+        # would scan the entire project root (including blog/, scripts/, etc.)
+        # instead of respecting the configured docs_dir (e.g. "docs").
+        if target == repo_root:
+            docs_root = (repo_root / config.docs_dir).resolve()
+            return config, None, docs_root, hint
         try:
             new_docs_dir = target.relative_to(repo_root)
         except ValueError:
@@ -1008,7 +1016,14 @@ def check_all(
     directory (e.g. ``README.md``, ``content/``).  Zenzic auto-selects the
     StandaloneAdapter when the target lives outside the configured docs directory.
     """
-    repo_root = find_repo_root()
+    # CEO-052 "The Sovereign Root Fix": when an explicit target PATH is given,
+    # derive repo_root by searching upward FROM that path — not from CWD.
+    # "The configuration follows the target, not the caller."
+    _search_from: Path | None = None
+    if path is not None:
+        _pre = Path(path).resolve()
+        _search_from = _pre.parent if _pre.is_file() else _pre
+    repo_root = find_repo_root(search_from=_search_from)
     config, loaded_from_file = ZenzicConfig.load(repo_root)
     if not loaded_from_file and not quiet:
         _shared._print_no_config_hint()

@@ -83,6 +83,12 @@ Run the full pre-push gate with:
 just verify
 ```
 
+> **Nox — Development Checklist**
+>
+> Zenzic uses Nox to guarantee parity between the local environment and CI. For rapid
+> development, use `nox -s fmt` to format and `nox -s tests-3.12` (substituting your Python
+> version) to run tests only on your current interpreter.
+
 ### Cross-platform compatibility
 
 Zenzic is validated on Ubuntu, Windows, and macOS on every commit. When working with file

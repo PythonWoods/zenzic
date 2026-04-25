@@ -784,7 +784,16 @@ async def validate_links_async(
             # in subdirectories (e.g. site.io/docs/) and engine-agnosticism.
             # Internal links must always be relative. Full URLs (https://...)
             # are handled above as external links and are not affected.
-            if parsed.path.startswith("/"):
+            # Rule R16 (CEO-055): ``pathname:///assets/file.html`` is the
+            # Docusaurus "Diplomatic Courier" — a Docusaurus-specific protocol
+            # for static assets. In Docusaurus mode, the leading "/" in the path
+            # component is a URI convention artifact and must not trigger Z105.
+            # In all other engines, pathname:/// is unrecognized and must be
+            # flagged.
+            _pathname_in_docusaurus = (
+                parsed.scheme == "pathname" and config.build_context.engine == "docusaurus"
+            )
+            if parsed.path.startswith("/") and not _pathname_in_docusaurus:
                 internal_errors.append(
                     LinkError(
                         file_path=md_file,

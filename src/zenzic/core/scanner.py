@@ -72,8 +72,8 @@ _RE_HTML_ALT = re.compile(r'\balt=["\']([^"\']*)["\']', re.IGNORECASE)
 _MARKDOWN_ASSET_LINK_RE = re.compile(r"!\[.*?\]\((.*?)\)|<img.*?src=[\"'](.*?)[\"'].*?>")
 
 
-def find_repo_root(*, fallback_to_cwd: bool = False) -> Path:
-    """Walk upward from CWD until a Zenzic project root marker is found.
+def find_repo_root(*, fallback_to_cwd: bool = False, search_from: Path | None = None) -> Path:
+    """Walk upward from *search_from* (or CWD) until a Zenzic project root marker is found.
 
     Root markers (first match wins, checked in order):
     - ``.git/``  — universal VCS marker.
@@ -87,25 +87,29 @@ def find_repo_root(*, fallback_to_cwd: bool = False) -> Path:
 
     Args:
         fallback_to_cwd: When *True* and no root marker is found, return the
-            current working directory instead of raising.  Use this only for
-            bootstrap commands (``zenzic init``) that are explicitly designed
-            to create a project root from scratch — the "Genesis Fallback".
+            starting path instead of raising.  Use this only for bootstrap
+            commands (``zenzic init``) that are explicitly designed to create a
+            project root from scratch — the "Genesis Fallback".
+        search_from: Optional starting path for the upward search.  When
+            provided, the search begins here instead of ``Path.cwd()``.
+            CEO-052 "The Sovereign Root Fix": pass the explicit target path so
+            the project config follows the target, not the caller.
 
     Raises:
         RuntimeError: if no root marker is found in any ancestor and
             ``fallback_to_cwd`` is *False*.
     """
-    cwd = Path.cwd().resolve()
-    for candidate in [cwd, *cwd.parents]:
+    start = search_from.resolve() if search_from is not None else Path.cwd().resolve()
+    for candidate in [start, *start.parents]:
         if (candidate / ".git").is_dir() or (candidate / "zenzic.toml").is_file():
             return candidate
 
     if fallback_to_cwd:
-        return cwd
+        return start
 
     raise RuntimeError(
         "Could not locate repo root: no .git directory or zenzic.toml found in any "
-        f"ancestor of {cwd}. Run Zenzic from inside the repository."
+        f"ancestor of {start}. Run Zenzic from inside the repository."
     )
 
 
@@ -195,13 +199,19 @@ def _first_content_line(text: str) -> int:
 def _visible_word_count(text: str) -> int:
     """Return the number of prose words in *text*, excluding invisible markup.
 
-    Strips YAML frontmatter, MDX comments ``{/* … */}``, and HTML comments
-    ``<!-- … -->`` before splitting — these are never rendered to the reader
-    and must not inflate the word count.
+    Strips MDX and HTML comments **first**, then YAML frontmatter.  The ordering
+    is load-bearing: MDX files often open with a ``{/* SPDX … */}`` licence
+    header *before* the ``---`` block.  If frontmatter stripping runs first,
+    ``_FRONTMATTER_RE`` (anchored to ``\\A``) fails to match because ``{`` is not
+    whitespace, leaving the entire YAML block counted as prose words.  Stripping
+    comments first guarantees the frontmatter lands at the start of the string
+    where the regex can anchor correctly.
     """
-    text = _FRONTMATTER_RE.sub("", text)
+    # Strip invisible comments first — they may precede YAML frontmatter.
     text = _MDX_COMMENT_RE.sub("", text)
     text = _HTML_COMMENT_RE.sub("", text)
+    # Frontmatter is now at \A — strip it.
+    text = _FRONTMATTER_RE.sub("", text)
     return len(text.split())
 
 

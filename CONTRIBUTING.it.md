@@ -68,6 +68,12 @@ Esegui il controllo pre-PR completo con:
 just verify
 ```
 
+> **Nox — Checklist di Sviluppo**
+>
+> Zenzic usa Nox per garantire la parità tra ambiente locale e CI. Per uno sviluppo rapido,
+> usa `nox -s fmt` per formattare e `nox -s tests-3.12` (sostituendo con la tua versione)
+> per far girare i test solo sul tuo interprete corrente.
+
 ### Compatibilità cross-platform
 
 Zenzic è validato su Ubuntu, Windows e macOS ad ogni commit. Quando si lavora con percorsi
