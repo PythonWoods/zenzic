@@ -923,6 +923,84 @@ CTA updated: `uvx zenzic lab` replaces the old `pip install zenzic; zenzic check
 
 ---
 
+### 🧹 The Obsidian Hygiene (D063, 2026-04-25)
+
+A forensic sweep of all production source in `src/zenzic/` for `TODO`, `FIXME`, and `HACK`
+markers — the prerequisite for a "Stable" release designation. Every match found was
+intentional production logic:
+
+| File | Line | Nature |
+|:-----|:----:|:-------|
+| `core/codes.py:35` | Z501 code description mentioning "TODO content" | Rule definition |
+| `cli/_standalone.py:617,623` | `if "TODO" in line:` | The Z501 detector itself |
+| `cli/_check.py:663` | Docstring: "Detect pages with … TODOs/stubs" | Rule documentation |
+| `models/config.py:317` | "TODO" in example error message string | Documentation string |
+
+**Verdict:** Zero technical debt markers in production source. The v0.7.0 "Stable" codebase is
+clean. No GitHub Issues opened, no code removed.
+
+---
+
+### 🔴 Operation Matrix Laboratory (D064, 2026-04-25)
+
+The `zenzic lab` command graduates from a flat eleven-act showcase to a structured sixteen-act
+matrix organised into four thematic sections. Six new example projects exercise the full
+defence surface of the Sentinel — from Red/Blue team attack scenarios to rule-specific
+stress tests.
+
+#### New Example Projects
+
+**`examples/os/unix-security/`** — the Blood Sentinel gauntlet. Three attack documents
+(Red Team) — `deep-traversal.md` (multi-hop `../` chains), `obfuscated.md` (credentials
+in tables, blockquotes, link titles, URL parameters), and `fenced.md` (credentials inside
+`bash`, `yaml`, and `text` code fences, including a PEM key fragment). The Shield treats
+no line as invisible. `check all` exits 2 — BREACH.
+
+**`examples/os/win-integrity/`** — Windows portability guard. Two documents embedding
+Windows-style filesystem paths (`/C:/`, `/D:/`, `/Z:/`, `/UNC/server/share/`, `file:///`)
+as Markdown link targets. Each is environment-dependent and triggers Z105 (ABSOLUTE_LINK).
+`check links` exits 1.
+
+**`examples/rules/z100-link-graph/`** — adversarial link topology. A five-node graph with
+circular broken anchors (Z102 ×13) and two links to non-existent files (Z104 ×2). Validates
+the scanner's cycle-aware detection and FILE_NOT_FOUND path resolution under load.
+
+**`examples/rules/z200-shield/`** — Shield extreme. Three obfuscation vectors:
+Base64-encoded credentials, single- and double-pass percent-encoded patterns, and mixed-case
+prefix randomisation (`AkIa`, `Sk-`, `GhP_`, `Sk_LiVe_`, `XoXb-`). The Shield normalises
+content before pattern matching — all three techniques are detected. `check references` exits 2.
+
+**`examples/rules/z400-seo/`** — SEO gap mass detection. Three subdirectories each missing
+an `index.md` (Z401 ×3) and one `orphan.md` page with zero inbound links (Z402 ×1).
+A realistic documentation structure with intentional coverage gaps. `check seo` exits 1.
+
+**`examples/rules/z500-quality/`** — quality gate stress. Three stub documents (under-50-word
+`stub-alpha.md`, `TODO`-marked `stub-beta.md`, `FIXME`-marked `stub-gamma.md`) triggering
+Z501 PLACEHOLDER, plus `bad-snippet.md` with an `@include` to a nonexistent snippet
+triggering Z503 SNIPPET_NOT_FOUND. `check quality` exits 1.
+
+#### `zenzic lab` UI: Four Sections
+
+```text
+⬡  ZENZIC LAB  v0.7.0
+
+  🛡  OS & Environment Guardrails         (Acts  0–3)
+  🔗  Structural & SEO Integrity          (Acts  4–6)
+  🏢  Enterprise Adapters & Migration     (Acts  7–10)
+  🔴  Red/Blue Team Matrix                (Acts 11–16)
+```
+
+Each section renders as a separate `ROUNDED` Rich table with its thematic icon header.
+Acts 11 and 14 are BREACH acts. Acts 12, 13, 15, and 16 are FAIL acts.
+
+#### `examples/run_demo.sh`
+
+Section banner comments added for all four thematic sections. Acts 9 and 10 (MkDocs and
+Zensical favicon guards — present in `_lab.py` since D060 but absent from the demo script)
+are now included. Acts 11–16 follow with correct expected exit codes (exit 2 for BREACH).
+
+---
+
 ### 🇮🇹 Engineered with Precision
 
 Zenzic is developed by **PythonWoods**, based in Italy, and committed to the craft of high-performance, deterministic Python engineering.

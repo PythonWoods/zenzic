@@ -165,6 +165,61 @@ _ACTS: list[_Act] = [
         "zensical-z404",
         expected_pass=False,
     ),
+    # ── Red/Blue Team Matrix ──────────────────────────────────────────────────
+    _Act(
+        11,
+        "Unix Security Probe",
+        "PATH_TRAVERSAL + credential exposure: multi-hop ../chains, obfuscated & fenced creds",
+        "os/unix-security",
+        expected_pass=False,
+        expected_breach=True,
+    ),
+    _Act(
+        12,
+        "Windows Path Integrity",
+        "Z105 ABSOLUTE_LINK on /C:/, /D:/, /UNC/ and file:/// link targets",
+        "os/win-integrity",
+        expected_pass=False,
+    ),
+    _Act(
+        13,
+        "Link Graph Stress",
+        "Circular broken anchors (Z102) + FILE_NOT_FOUND (Z104) across 5 nodes",
+        "rules/z100-link-graph",
+        expected_pass=False,
+    ),
+    _Act(
+        14,
+        "Shield Extreme",
+        "Credential obfuscation: base64, percent-encoded, and mixed-case prefixes",
+        "rules/z200-shield",
+        expected_pass=False,
+        expected_breach=True,
+    ),
+    _Act(
+        15,
+        "SEO Coverage",
+        "Z401 MISSING_DIRECTORY_INDEX ×3 + Z402 ORPHAN_PAGE ×1",
+        "rules/z400-seo",
+        expected_pass=False,
+    ),
+    _Act(
+        16,
+        "Quality Gate",
+        "Z501 PLACEHOLDER ×3 (TODO, FIXME, stub) + Z503 SNIPPET_NOT_FOUND ×1",
+        "rules/z500-quality",
+        expected_pass=False,
+    ),
+]
+
+
+# ── Section definitions ───────────────────────────────────────────────────────
+
+_SECTIONS: list[tuple[str, str, range]] = [
+    ("OS & Environment Guardrails", "🛡", range(0, 4)),
+    ("Structural & SEO Integrity", "🔗", range(4, 7)),
+    ("Enterprise Adapters & Migration", "🏢", range(7, 11)),
+    ("Red/Blue Team Matrix", "🔴", range(11, 17)),
 ]
 
 
@@ -374,19 +429,13 @@ def _print_act_seal(r: _ActResult) -> None:
     )
 
 
-def _print_act_index() -> None:
-    table = Table(
-        title=f"[bold {ObsidianPalette.BRAND}]⬡  ZENZIC LAB[/]  [dim]v{__version__}[/]",
-        box=box.ROUNDED,
-        show_header=True,
-        header_style="bold cyan",
-    )
+def _make_section_table(section_acts: list[_Act]) -> Table:
+    table = Table(box=box.ROUNDED, show_header=True, header_style="bold cyan")
     table.add_column("Act", justify="center", style="bold cyan", width=5)
     table.add_column("Title", style="bold", min_width=22)
     table.add_column("Description", style=ObsidianPalette.WARNING)
-    table.add_column("Expects", justify="center", min_width=10)
-
-    for act in _ACTS:
+    table.add_column("Expects", justify="center", min_width=8)
+    for act in section_acts:
         expects = (
             "[red]BREACH[/]"
             if act.expected_breach
@@ -395,8 +444,25 @@ def _print_act_index() -> None:
             else "[yellow]FAIL[/]"
         )
         table.add_row(str(act.id), act.title, act.description, expects)
+    return table
 
-    get_console().print(table)
+
+def _print_act_index() -> None:
+    con = get_console()
+    con.print(
+        Text.from_markup(f"[bold {ObsidianPalette.BRAND}]⬡  ZENZIC LAB[/]  [dim]v{__version__}[/]")
+    )
+    acts_by_id = {a.id: a for a in _ACTS}
+    for title, icon, act_range in _SECTIONS:
+        section_acts = [acts_by_id[i] for i in act_range if i in acts_by_id]
+        if not section_acts:
+            continue
+        con.print(Text.from_markup(f"\n  [bold {ObsidianPalette.BRAND}]{icon}  {title}[/]"))
+        con.print(_make_section_table(section_acts))
+    con.print(
+        f"\n  [dim]zenzic lab <act>   eg. [bold cyan]zenzic lab 3[/]   "
+        f"{emoji('dot')}   [bold cyan]zenzic lab 11–16[/] for Red/Blue matrix[/]\n"
+    )
 
 
 # ── CLI command ───────────────────────────────────────────────────────────────
@@ -405,7 +471,7 @@ def _print_act_index() -> None:
 def lab(
     act_number: int | None = typer.Argument(
         None,
-        help="Act number to run (0–10). Omit to display the act menu.",
+        help="Act number to run (0–16). Omit to display the act menu.",
         show_default=False,
     ),
     list_acts: bool = typer.Option(
@@ -424,8 +490,9 @@ def lab(
         [bold cyan]zenzic lab 0[/]    — run Act 0 (Linter Demo)
         [bold cyan]zenzic lab 3[/]    — run Act 3 (The Shield)
         [bold cyan]zenzic lab --list[/] — print act index without running
-        [bold cyan]zenzic lab 9[/]    — run Act 9 (MkDocs Favicon Guard)
-        [bold cyan]zenzic lab 10[/]   — run Act 10 (Zensical Logo Guard)
+        [bold cyan]zenzic lab 11[/]   — run Act 11 (Unix Security Probe)
+        [bold cyan]zenzic lab 14[/]   — run Act 14 (Shield Extreme)
+        [bold cyan]zenzic lab 16[/]   — run Act 16 (Quality Gate)
     """
     con = get_console()
     con.print()
@@ -444,8 +511,8 @@ def lab(
         )
         return
 
-    if not (0 <= act_number <= 10):
-        con.print(f"[bold red]ERROR:[/] Act number must be between 0 and 10, got {act_number}.")
+    if not (0 <= act_number <= 16):
+        con.print(f"[bold red]ERROR:[/] Act number must be between 0 and 16, got {act_number}.")
         raise typer.Exit(1)
 
     try:

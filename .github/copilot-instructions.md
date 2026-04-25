@@ -679,3 +679,15 @@ Banner & Hint Sync: all 6 `check` sub-commands now print `[dim]  Scanning: <reso
 **Version:** 0.7.0 · **Date:** 2026-04-25
 
 v0.7.0 launch blog article in zenzic-doc revised as a case study in software engineering maturity. No code changes to core — documentation sprint only. Additions (EN + IT simultaneously per CEO-059): "Treating Documentation as Untrusted Input" framing section; "The Precision Sprint" (Z502 BUG-012 + Z105 BUG-013 false positive narrative); "Total CLI Symmetry: The Sovereign Root Protocol" (D060/D062 coverage with terminal output examples); "The Law of Contemporary Testimony" (CEO-059). Capabilities table updated. Test count updated 1195 → 1225. CTA changed to `uvx zenzic lab`.
+
+### D063 (CEO) — The Obsidian Hygiene
+
+**Version:** 0.7.0 · **Date:** 2026-04-25
+
+Forensic grep across all production source (`src/zenzic/`) for `TODO`, `FIXME`, and `HACK` markers. Every match was intentional production logic: the Z501 detector itself, rule docstrings, or example strings in error messages. Zero technical debt markers found. Zero actions taken. The v0.7.0 "Stable" codebase is confirmed debt-free.
+
+### D064 (CEO) — Operation Matrix Laboratory
+
+**Version:** 0.7.0 · **Date:** 2026-04-25
+
+Six new example projects added to `examples/os/` and `examples/rules/`: `unix-security` (Z202 PATH_TRAVERSAL + Z201 Shield BREACH, exit 2), `win-integrity` (Z105 ABSOLUTE_LINK on Windows-style paths, exit 1), `z100-link-graph` (circular Z102 + Z104, exit 1), `z200-shield` (base64/percent-encoded/mixed-case obfuscation, Z201 BREACH, exit 2), `z400-seo` (Z401 ×3 + Z402 ×1, exit 1), `z500-quality` (Z501 ×3 + Z503 ×1, exit 1). `zenzic lab` UI refactored: `_print_act_index()` now renders four themed Rich sections (🛡/🔗/🏢/🔴) each as a separate ROUNDED table. Acts 11–16 added to `_ACTS`. Range guard updated to `0 <= act_number <= 16`. `examples/run_demo.sh` updated with section banners and Acts 9–16. Preflight: 1225 tests pass, REUSE 303/303 compliant.

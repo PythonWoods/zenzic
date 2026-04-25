@@ -794,6 +794,68 @@ misdiagnosis. CEO-052 fix (already applied) eliminates the false Z104 when scann
 
 ---
 
+### The Obsidian Hygiene (D063 — 2026-04-25)
+
+#### Changed
+
+- **Zero technical debt confirmed.** Forensic grep across all production source
+  (`src/zenzic/`) for `TODO`, `FIXME`, and `HACK` markers. Every match was intentional
+  production logic: the Z501 detector (`if "TODO" in line:`), rule docstrings, or example
+  strings in error messages. No markers removed; none existed. The v0.7.0 "Stable" codebase
+  is debt-free.
+
+---
+
+### Operation Matrix Laboratory (D064 — 2026-04-25)
+
+#### Added
+
+- **`examples/os/unix-security/`** — Red/Blue team exercise: multi-hop `../` path traversal
+  targeting `/etc/passwd`, `/root/.ssh/`, `/etc/shadow`, combined with credential exposure
+  across tables, blockquotes, link titles, URL parameters, and fenced code blocks.
+  Exercises Z202 (PATH_TRAVERSAL) + Z201 (Shield credential detection). `check all` exits 2.
+
+- **`examples/os/win-integrity/`** — Windows-style absolute path detection: `/C:/`, `/D:/`,
+  `/Z:/`, `/UNC/server/share/`, and `file:///` link targets. All trigger Z105
+  (ABSOLUTE_LINK) — environment-dependent and non-portable. `check links` exits 1.
+
+- **`examples/rules/z100-link-graph/`** — Link graph stress test: 5-node circular broken-anchor
+  network (Z102 ×13) and two links to non-existent files (Z104 ×2). `check links` exits 1.
+
+- **`examples/rules/z200-shield/`** — Shield extreme obfuscation: Base64-encoded, percent-encoded
+  (single- and double-pass), and mixed-case credential patterns. Shield normalises before
+  matching — all three techniques are detected. `check references` exits 2 (BREACH).
+
+- **`examples/rules/z400-seo/`** — SEO coverage gaps: three subdirectories with content but no
+  `index.md` (Z401 ×3) and one orphan page with no inbound links (Z402 ×1). `check seo`
+  exits 1.
+
+- **`examples/rules/z500-quality/`** — Quality gate stress: three stub pages (under 50 words,
+  `TODO` marker, `FIXME` marker) triggering Z501 and one page with an `@include` to a
+  nonexistent snippet triggering Z503. `check quality` exits 1.
+
+- **Acts 11–16 added to `zenzic lab`.**
+  - Act 11 — Unix Security Probe (`os/unix-security`, `expected_breach=True`)
+  - Act 12 — Windows Path Integrity (`os/win-integrity`, `expected_pass=False`)
+  - Act 13 — Link Graph Stress (`rules/z100-link-graph`, `expected_pass=False`)
+  - Act 14 — Shield Extreme (`rules/z200-shield`, `expected_breach=True`)
+  - Act 15 — SEO Coverage (`rules/z400-seo`, `expected_pass=False`)
+  - Act 16 — Quality Gate (`rules/z500-quality`, `expected_pass=False`)
+
+- **`zenzic lab` UI refactored into four Rich-rendered sections.**
+  `_print_act_index()` now groups acts by thematic section with an icon header:
+  🛡 OS & Environment Guardrails (Acts 0–3),
+  🔗 Structural & SEO Integrity (Acts 4–6),
+  🏢 Enterprise Adapters & Migration (Acts 7–10),
+  🔴 Red/Blue Team Matrix (Acts 11–16).
+  Each section renders as a separate `ROUNDED` Rich table.
+
+- **`examples/run_demo.sh` updated.** Section banner comments (four thematic sections)
+  added. Acts 9 and 10 (previously present in `_lab.py` but absent from the script) added.
+  Acts 11–16 added with correct expected exit codes (exit 2 for BREACH acts).
+
+---
+
 ## [0.6.1] — 2026-04-19 — Obsidian Glass [SUPERSEDED]
 
 > ⚠ **[SUPERSEDED by v0.7.0]** — Version 0.6.1 is deprecated due to alignment issues with Docusaurus specifications and legacy terminology. All users must upgrade to v0.7.0 "Obsidian Maturity".

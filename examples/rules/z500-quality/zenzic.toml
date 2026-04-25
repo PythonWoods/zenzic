@@ -1,0 +1,17 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# zenzic.toml — Quality Gate (Act 16 — Red Team Matrix)
+#
+# Stub pages (< 50 words or TODO/FIXME markers) → Z501 PLACEHOLDER ×3.
+# Malformed snippet reference (@include nonexistent) → Z503 SNIPPET_ERROR ×1.
+#
+# Expected results:
+#   zenzic check placeholders  → EXIT 1  (Z501 ×3)
+#   zenzic check snippets      → EXIT 1  (Z503 ×1)
+#   zenzic check all           → EXIT 1
+
+docs_dir = "docs"
+fail_under = 0
+
+[build_context]
+engine = "standalone"
