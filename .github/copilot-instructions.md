@@ -1,7 +1,7 @@
 # 🛡️ ZENZIC CORE — Obsidian Ledger v0.7.0 "Obsidian Maturity"
 
 > **Single Source of Truth for all agents and contributors.**
-> Schema: [MANIFESTO] → [POLICIES] → [ARCHITECTURE] → [ADR] → [CHRONICLES] → [SPRINT LOG]
+> Schema: [MANIFESTO] → [POLICIES] → [ARCHITECTURE] → [ADR] → [CHRONICLES]
 
 ---
 
@@ -40,13 +40,14 @@ Zenzic builds a **Virtual Site Map (VSM)** — a projection of the final site in
 - [ ] New architectural facts? → Update **[ARCHITECTURE]**
 - [ ] New decisions made? → Add an **[ADR]** entry (tagged `[DECISION]`)
 - [ ] Bug found and fixed? → Add a **[CHRONICLES]** entry (tagged `[BUG-xxx]` / `[LESSON]`)
-- [ ] Sprint complete? → Add entry to **[SPRINT LOG]**
 
 ### Step 2 — Update Changelogs
 
 - [ ] `CHANGELOG.md` — add sprint section under current version heading
 - [ ] `CHANGELOG.it.md` — Italian translation of the same section
-- [ ] `RELEASE.md` — marketing prose section for the sprint
+- [ ] `RELEASE.md` — keep concise and marketing-ready (max 200 lines — Law of Executive Brevity)
+- [ ] **Archive Check:** If `CHANGELOG.md` exceeds 500 lines → move pre-v0.6.0 versions to `CHANGELOG.archive.md` (Obsidian Archive Protocol).
+- [ ] **Executive Filter:** Review `RELEASE.md`. Technical fluff (mutation tables, internal bug IDs, CVE traces) belongs in `CHANGELOG.md` or `explanation/architecture.mdx` — not in the release notes.
 
 ### Step 3 — Staleness & Testimony Audit
 
@@ -98,6 +99,14 @@ Zenzic builds a **Virtual Site Map (VSM)** — a projection of the final site in
 - **[RULE R16] Protocol Awareness (CEO-055).** [DECISION] The `pathname:///` protocol is the Docusaurus "Diplomatic Courier" — a Docusaurus-specific static-asset escape hatch. In Docusaurus mode, `pathname:///assets/file.html` parses to `scheme="pathname"`, `path="/assets/file.html"` and the leading `/` is a URI convention artifact — not an absolute-path violation. The Z105 gate is conditioned on `not (parsed.scheme == "pathname" and engine == "docusaurus")`. In all other engines (MkDocs, Zensical, Standalone), `pathname:///` is unrecognized and triggers Z105 normally. Corollary: word-count stripping (Z502) must strip MDX/HTML comments **before** running the frontmatter regex — MDX files often open with a `{/* SPDX … */}` header before the `---` block, which prevents `_FRONTMATTER_RE` (anchored to `\A`) from matching unless the comment is removed first.
 - **[RULE R17] CLI Symmetry (CEO-056).** [DECISION] `zenzic score [PATH]` and `zenzic diff [PATH]` accept an optional positional `PATH` argument — identical sovereign root semantics as `zenzic check all [PATH]`. `find_repo_root(search_from=target)` is called unconditionally when `PATH` is provided: configuration follows the target, not the caller (ADR-009). The banner is printed immediately before analysis, not after. `diff` automatically derives the snapshot path from `repo_root`, not CWD.
 - **[RULE R18] Total CLI Symmetry (CEO-060).** [DECISION] Every filesystem-interacting CLI command (except `lab` and `inspect`) accepts an optional positional `PATH` argument with sovereign root semantics identical to `check all`. `find_repo_root(search_from=target)` is called when PATH is provided; `_apply_target()` recalibrates `docs_root` and loads the target's config. For `init`, PATH is treated as the `repo_root` directly (Genesis Nomad): the directory is created with `mkdir(parents=True, exist_ok=True)` if absent. The active configuration (engine, docs_dir, exclusions) always follows the target repository, never the caller's CWD.
+
+### The Law of Executive Brevity [MANDATORY] — D068
+
+- **[INVARIANT] Public-facing files (`RELEASE.md`, `README.md`) are for humans and decision makers — not for implementation audit trails.**
+  - **Technical Dump Prohibited:** Mutation testing tables, internal bug IDs, forensic traces, and CVE details do not belong in `RELEASE.md`. They belong in `CHANGELOG.md`, `CHANGELOG.archive.md`, or internal ADRs.
+  - **Archival Trigger:** When `CHANGELOG.md` exceeds 500 lines, move pre-v0.6.0 versions to `CHANGELOG.archive.md` (the **Obsidian Archive Protocol**). Add an archive link in the preamble. The main changelog covers only the current major cycle.
+  - **Summarization:** Every 5 technical sprints are summarized into 1 executive highlight in `RELEASE.md`. Sprint-level granularity lives in `CHANGELOG.md`.
+  - **Line Budget:** `RELEASE.md` ≤ 200 lines. If it exceeds this, apply the Executive Filter (see CLOSING PROTOCOL Step 2).
 
 ### Documentation Law — The Obsidian Testimony [MANDATORY]
 
@@ -161,7 +170,7 @@ Registry: `src/zenzic/core/codes.py` — **single source of truth**. Never add a
 - **[INVARIANT] The [CLOSING PROTOCOL] is a non-negotiable Engineering Contract.**
   An agent that ends a session without completing it commits a Class 1 violation (Technical Debt). The successor inherits a ghost, not a project.
 - **[INVARIANT] This file is the agent's only persistent memory.** Update it before the final commit — not after.
-- **[INVARIANT] Definition of Done:** A sprint is not closed until [SPRINT LOG] is updated, CHANGELOG is current, and the staleness audit is complete.
+- **[INVARIANT] Definition of Done:** A sprint is not closed until CHANGELOG is current, RELEASE.md passes the Executive Filter (≤ 200 lines), and the staleness audit is complete.
 - **[INVARIANT] Proactivity:** Agents must notify the Tech Lead when a code change contradicts or expands current guidelines.
 - **[INVARIANT] Sovereignty:** This file is the single source of truth for agent behavior.
 
@@ -433,287 +442,28 @@ tests/
 - **Permanent Fix:** Updated `configuration.mdx` (EN + IT): removed `"assets"` from the default list; added a tip box explaining why `"assets"` is intentionally absent and when to add it manually.
 - **Lesson:** The Obsidian Testimony (D051) applies to documentation as well as code. A documented default that misrepresents the code is a ghost commit in reverse.
 
+### [BUG-012] Z502 MDX Frontmatter Leak — Comment Stripping Order (D055 — 2026-04-25)
+
+- **ID:** BUG-012
+- **Severity:** False negative (MDX comment words counted as prose, hiding genuine short-content pages)
+- **Symptom:** `docs/community/license.mdx` had a large `{/* … */}` MDX comment before the `---` frontmatter block. `_visible_word_count()` ran `_FRONTMATTER_RE` first (anchored to `\A`), which failed because `{` is not whitespace — leaving the entire YAML block counted as prose words.
+- **Permanent Fix:** Strip MDX and HTML comments **before** running the frontmatter regex. Order is load-bearing.
+- **Lesson:** `\A`-anchored regexes are fragile when preceded by invisible markup. Always strip invisible content first.
+
+### [BUG-013] Z105 `pathname:///` False Positive (D055 — 2026-04-25)
+
+- **ID:** BUG-013
+- **Severity:** False positive (valid Docusaurus links flagged as absolute-path violations)
+- **Symptom:** Docusaurus `pathname:///assets/file.html` links were flagged by Z105 because `parsed.path` starts with `/`.
+- **Permanent Fix:** Z105 gate conditioned on `not (parsed.scheme == "pathname" and engine == "docusaurus")`. All other engines still fire normally.
+- **Lesson:** Protocol awareness (R16) — custom schemes used by specific engines are not violations; they are dialect features.
+
+### [BUG-014] Z502 Pointer Anchored on SPDX Licence Header (D072 — 2026-04-25)
+
+- **ID:** BUG-014 — "The Blind Notary Paradox"
+- **Severity:** Misleading diagnostic (the `❱` arrow pointed at the SPDX licence header instead of the short content)
+- **Symptom:** `_first_content_line()` used a single `_FRONTMATTER_RE.match(text)` call anchored to `\A`. Files following REUSE practice open with `<!-- SPDX … -->` comments — `<` is not whitespace, so the regex fell back to `return 1`, pointing the arrow at the licence header.
+- **Permanent Fix:** Rewrote `_first_content_line()` as a three-phase line-by-line walker: (1) skip leading HTML/MDX comment blocks, (2) skip YAML frontmatter, (3) skip blank lines.
+- **Lesson:** `_visible_word_count()` and `_first_content_line()` must use the same stripping logic — if one strips comments, the other must too.
+
 ---
-
-## [SPRINT LOG] — CEO Directive History
-
-### D036 — Finding Code Mapping
-
-Codified all diagnostics into `Zxxx` scheme. `codes.py` created as single source of truth.
-
-### D037 — Standalone Renaissance
-
-`VanillaAdapter` → `StandaloneAdapter`. Breaking change: `engine = "vanilla"` raises `ConfigurationError [Z000]`.
-
-### D038 — Final Audit Record
-
-CHANGELOG.md, CHANGELOG.it.md, RELEASE.md updated for Breaking Change + Zxxx introduction + Lab menu.
-
-### D039 — The Guardrail Lifecycle
-
-`_factory.py` migration guard annotated, `[Z000]` prefix added. TODO comment later removed in v0.7.0 (D "Codebase Parity" sprint) but guard itself is permanent.
-
-### D040 — Institutional Memory
-
-`.github/copilot-instructions.md` created as canonical agent briefing document.
-
-### D055 (CEO) — Sovereign CLI
-
-`zenzic.integrations.mkdocs` plugin removed. Zenzic becomes pure Sovereign CLI.
-
-### D061-B/D068 (CEO) — Inspect Renaming
-
-`zenzic plugins` command removed. Replaced by `zenzic inspect capabilities`.
-
-### D062-B — Core Law Enforcement
-
-`src/zenzic/ui.py` → `src/zenzic/core/ui.py`. Core must never import upward.
-
-### D063 — Lab Relocation
-
-`src/zenzic/lab.py` → `src/zenzic/cli/_lab.py`. Lab is CLI orchestration, not core logic.
-
-### D064 — SDK Cleansing
-
-`run_rule()` moved to `core/rules.py`. `zenzic.rules` becomes 6-line re-export façade.
-
-### D066 — Physical Purge
-
-`src/zenzic/integrations/` directory deleted entirely. No ghost files remain.
-
-### D076/D077/D078/D079 — Obsidian Integrity Sprint
-
-**Version:** 0.7.0 · **Date:** 2026-04-22
-
-- D076: README Perimeter Invariant (`docs_dir = "."` safety comment).
-- D077: Z104 Proactive Suggestion Engine (`difflib.get_close_matches`, cutoff 0.6).
-- D078: Standalone Truth Audit — Z402 disabled without nav contract explicitly documented.
-- D079: Blanket URL exclusion removed; 3 dead Diátaxis links corrected. See BUG-002.
-
-### D082–D086 — Obsidian Mirror Pass
-
-**Version:** 0.7.0 · **Date:** 2026-04-22
-
-Z404 for Docusaurus. Lab Obsidian Seal. zenzic-doc GitHub release workflow. Favicon/OG meta tag fixes. Lab Acts 0–10 (11 acts).
-
-### D087 (CEO) — The Agnostic Universalism
-
-**Version:** 0.7.0 · **Date:** 2026-04-22
-
-Z404 extended to MkDocs + Zensical. `cli/_check.py` multi-engine dispatch. See ADR-005.
-
-### D092 (CEO) — SARIF 2.1.0 Export
-
-**Version:** 0.7.0
-
-`--format sarif` on all check commands. GitHub Code Scanning native integration.
-
-### D093 (CEO) — Cross-Platform CI Matrix
-
-**Version:** 0.7.0
-
-3×3 matrix: `[ubuntu, windows, macos]` × `[3.11, 3.12, 3.13]`. `fail-fast: false`.
-
-### D094 (CEO) — Official GitHub Action
-
-**Version:** 0.7.0
-
-`PythonWoods/zenzic-action` composite action created. See zenzic-action repo.
-
-### D109–D116 — Typography, Navigation & Layout Polish
-
-**Version:** 0.7.0 · **Date:** 2026-04-22
-
-Visual polish sprint for zenzic-doc: Geist + JetBrains Mono, navigation arrows, responsive layout.
-
-### D117 — `pathname:` Protocol Support
-
-**Version:** 0.7.0 · **Date:** 2026-04-22
-
-`validator.py` recognises `pathname:///` scheme (Docusaurus static assets). No false-positive Z101 for Docusaurus engine.
-
-### D118–D119 — Blog Title Consistency & Sibling Release Protocol
-
-**Version:** 0.7.0 · **Date:** 2026-04-22
-
-Blog `h2 a` colors locked. RELEASE.md rewritten as Sibling Release Protocol. `just bump` recipe + `scripts/bump-version.sh`.
-
-### D122 — Governance Pack
-
-**Version:** 0.7.0 · **Date:** 2026-04-22
-
-`CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `CITATION.cff`, `SECURITY.md` created in zenzic-doc. REUSE compliant.
-
-### D123–D125 — Global Brand Sync
-
-**Version:** 0.7.0 · **Date:** 2026-04-22
-
-`@site/` alias expansion (D123). Multi-root path resolution (D124). Mandatory i18n anchor integrity (D125). READMEs: wordmark-only, no Roadmap, Chronicles added.
-
-### D127 (CEO) — The Sovereign Identity Protocol
-
-**Version:** 0.7.0 · **Date:** 2026-04-22
-
-X.com / Twitter links removed. Italian flag 🇮🇹 restored. Social links: GitHub + Journal only.
-
-### D "Codebase Parity" Sprint — 2026-04-24
-
-- Z000 guard promoted to permanent (TODO comment deleted, guard stays).
-- `case_sensitive_exists()` added for Windows / macOS case-insensitive filesystem parity.
-- `_visible_word_count()` strips MDX + HTML comments + frontmatter. See BUG-003.
-- Documentation parity: 13 `VanillaAdapter` → `StandaloneAdapter` refs, Z000 JSON contract documented.
-- CVE-2026-3219: pip polyglot archive — mitigated; Zenzic uses `uv` only.
-
-### D "Mutation Testing Sprint" — 2026-04-24
-
-29 tests in `test_cache.py`, 12 in `test_reporter.py`. `TestToCanonicalUrlMutantKill` (15 tests), `TestObfuscateSecretMutantKill` (7 tests). Mutmut on `rules.py`, `shield.py`, `reporter.py`. 86.7% mutation score (target 75%).
-
-### D042 (CEO) — The Perpetual Memory Protocol
-
-**Version:** 0.7.0 · **Date:** 2026-04-25
-
-Memory Law (section 9) codified in all `.github/copilot-instructions.md` files. Sprint not closed until knowledge is documented here.
-
-### D043 (CEO) — The Sentinel's Sanity Pass
-
-**Version:** 0.7.0 · **Date:** 2026-04-25
-
-Blood Sentinel false positive fixed (see BUG-001). Rule R11 added. Banner hoisted before validation.
-
-### D045 (CEO) — Codifying the Symmetry
-
-**Version:** 0.7.0 · **Date:** 2026-04-25
-
-Law of Italian Mirroring codified. Rule R12 added. Symmetry audit confirms zero asymmetries.
-
-### D046 (CEO) — The Knowledge Refactoring
-
-**Version:** 0.7.0 · **Date:** 2026-04-25
-
-Obsidian Ledger schema adopted for all three repo agent instructions. Audit of changelogs, code, and docs completed before writing.
-
-### D047 (CEO) — The Knowledge Trinity
-
-**Version:** 0.7.0 · **Date:** 2026-04-25
-
-Confirmed: Riscrittura completa (Option 1 — Obsidian Ledger full rewrite) for all three repos. zenzic-action receives its first `.github/copilot-instructions.md`.
-
-### D049 (CEO) — The Obsidian Memory Law
-
-**Version:** 0.7.0 · **Date:** 2026-04-25
-
-`[CLOSING PROTOCOL]` section added to all three repo agent instruction files immediately after `[MANIFESTO]`. Memory Law in `[POLICIES]` upgraded to "The Custodian's Contract" — Class 1 violation clause, explicit per-repo closure checklists. System resolves the "Paradosso del Custode senza Memoria".
-
-### D048 (CEO) — The Precision Polish
-
-**Version:** 0.7.0 · **Date:** 2026-04-25
-
-Four precision bugs fixed. **BUG-005** (Z502 pointer at frontmatter — `line_no=1` → `_first_content_line()`). **BUG-006** (Z503 YAML relative line — `fence_line+1` → `fence_line+problem_mark.line+1`). **BUG-007** (Z105/Z503 caret misalignment on wrapped lines — terminal-width-aware truncation with `…` suffix). **BUG-008** (Z503 YAML multi-document — `safe_load` → `safe_load_all`). Five regression tests added. 1201 passing.
-
-### D050 (CEO) — The Intelligent Perimeter
-
-**Version:** 0.7.0 · **Date:** 2026-04-25
-
-**BUG-009** fixed: Z903 false positives on engine config and infrastructure files. Two-layer guardrail system: L1a (`SYSTEM_EXCLUDED_FILE_NAMES`/`SYSTEM_EXCLUDED_FILE_PATTERNS` in `models/config.py`) shields universal toolchain files; L1b (`BaseAdapter.get_metadata_files()`) lets each adapter declare its own config files. `LayeredExclusionManager` stores and applies both layers. `find_unused_assets()` enforces both inline. Rule R13 codified. 7 regression tests added. 1208 passing.
-
-### D051 (CEO) — Documentation as an Invariant
-
-**Version:** 0.7.0 · **Date:** 2026-04-25
-
-Documentation Law "The Obsidian Testimony" added to `[POLICIES]` in all three Obsidian Ledgers. `[CLOSING PROTOCOL]` Step 3 upgraded to "Staleness & Testimony Audit" with per-repo trigger checklists. Four documentation pages updated in zenzic-doc: `finding-codes.mdx` (Z502 semantic word count, Z503 absolute line number), `configuration.mdx` (System Guardrails section), `configure-adapter.mdx` (L1b tip box). All EN + IT mirrors updated.
-
-### D052 (CEO) — The Sovereign Root Fix
-
-**Version:** 0.7.0 · **Date:** 2026-04-25
-
-**BUG-010** fixed: Context Hijacking — `find_repo_root()` now accepts `search_from` parameter; `check_all()` derives it from the explicit target path. `_apply_target()` sovereign root guard prevents `docs_dir` override when `target == repo_root`. ADR-009 "Path Sovereignty" codified: "The configuration follows the target, not the caller." 9 regression tests in `tests/test_remote_context.py`. 1218 passing.
-
-### D053 (CEO) — The Portability Invariant
-
-**Version:** 0.7.0 · **Date:** 2026-04-25
-
-Confirmed Z105 is already a hard pre-resolution gate in `validator.py` (unconditional `continue` before any disk check). Rule R14 codified: "Absolute links (starting with `/`) are hard errors (Z105) unconditionally — even if the target file exists on disk." Fixed absolute link violations introduced by D051 in `configure-adapter.mdx` (EN + IT): replaced `/docs/reference/configuration#system-guardrails` with `../reference/configuration.mdx#system-guardrails`. CEO-053 regression test added: `tests/test_validator.py::TestAbsolutePathProhibition::test_z105_fires_even_when_target_file_exists_on_disk`. 1218 passing.
-
-### D054 (CEO) — The Strict Perimeter Law
-
-**Version:** 0.7.0 · **Date:** 2026-04-25
-
-**Forensic diagnosis of `../assets/brand/svg/zenzic-badge-shield.svg` Z104 incident:** The link was VALID (file exists at `docs/assets/brand/svg/zenzic-badge-shield.svg`, inside `docs_root`). The Z104 was a CEO-052 artifact — wrong `repo_root` when running externally produced a wrong `known_assets` index. CEO-052 fix (already applied) eliminates it. The CEO's "Permissive Perimeter" theory was a misdiagnosis: the Shield resolver already enforces scope integrity (PathTraversal Z202).
-
-**BUG-011** fixed: `excluded_dirs` documented default wrongly included `"assets"` in `configuration.mdx` (EN + IT). Code default (`models/config.py:152`) has never included `"assets"`. Fixed with tip box explaining why `"assets"` is intentionally absent. Rule R15 "Scope Integrity" codified. `clean assets` command signature aligned with `check all` (PATH, `--engine`, `--exclude-dir`, `--include-dir`, `--quiet`, CEO-052 sovereign root fix). 1218 passing.
-
-### D055 (CEO) — The Precision Calibration
-
-**Version:** 0.7.0 · **Date:** 2026-04-25
-
-Two sensor calibration bugs fixed.
-
-**BUG-012** (Z502 MDX frontmatter leak): `_visible_word_count()` called `_FRONTMATTER_RE` before stripping MDX/HTML comments. MDX files that open with `{/* SPDX … */}` before `---` caused the frontmatter regex (anchored to `\A`) to miss the block, leaking frontmatter key-value pairs into the word count. Fix: strip MDX/HTML comments first, then frontmatter.
-
-**BUG-013** (Z105 `pathname:///` false positive): `urlsplit("pathname:///assets/file.html")` → `scheme="pathname"`, `path="/assets/file.html"`. The leading `/` in the path component is a URI convention artifact, not an absolute server-root reference. Fix: Z105 gate now conditioned on `not parsed.scheme`. Rule R16 "Protocol Awareness" codified. Regression tests in `tests/guardians/test_precision.py`. CONTRIBUTING.md + CONTRIBUTING.it.md: Nox development note added (EN + IT).
-
-### D056 (CEO) — Universal Path Awareness
-
-**Version:** 0.7.0 · **Date:** 2026-04-25
-
-`zenzic score [PATH]` and `zenzic diff [PATH]` now accept an optional positional argument — identical sovereign root semantics as `zenzic check all [PATH]` (ADR-009). `find_repo_root(search_from=target)` called when PATH provided. Banner hoisted to print immediately before analysis. `diff` automatically derives snapshot path from `repo_root`. Rule R17 "CLI Symmetry" codified.
-
-### D058 (CEO) — The Precedence Audit
-
-**Version:** 0.7.0 · **Date:** 2026-04-25
-
-Documentation audit of configuration priority. Three documentation gaps identified and fixed: `README.md` priority chain updated to include CLI flags (was missing). `README.it.md` priority chain updated (Italian mirror). `configuration-reference.mdx` (EN + IT) Config File Priority table upgraded from 3-level to 4-level including CLI flags as Priority 1. `configuration.mdx` (EN + IT) received new "Configuration Priority" section. Closing Protocol checklist item "Precedence Table" added to Step 3 in all three Obsidian Ledgers.
-
-### D059 (CEO) — The Law of Contemporary Testimony
-
-**Version:** 0.7.0 · **Date:** 2026-04-25
-
-Law of Contemporary Testimony codified as mandatory policy in [POLICIES] at top of all three Obsidian Ledgers. Step 0 "Pre-Task Alignment" added to [CLOSING PROTOCOL]. Step 3 enhanced with "Contemporary Check" bullets and "Bilingual Mirroring" + "Precedence Table" items.
-
-### D060 (CEO) — Total CLI Symmetry
-
-**Version:** 0.7.0 · **Date:** 2026-04-25
-
-PATH argument and sovereign root semantics applied to all remaining filesystem-interacting CLI commands: `check links`, `check orphans`, `check snippets`, `check placeholders`, `check assets`, `check references`, `init`. Each command now accepts an optional positional `PATH` with `find_repo_root(search_from=target)` + `_apply_target()` integration. `init` uses Genesis Nomad mode: when PATH is given, `repo_root = Path(path).resolve()` with `mkdir(parents=True, exist_ok=True)` — the target directory is created if absent. Two regression tests added: `test_init_nomad_writes_to_target_not_cwd`, `test_init_nomad_creates_target_directory`. CLI docs updated (EN + IT): PATH examples for all check sub-commands and init Nomad mode. Rule R18 "Total CLI Symmetry" codified.
-
-### D062 (CEO) — The Genesis Nomad Enforcement
-
-**Version:** 0.7.0 · **Date:** 2026-04-25
-
-Banner & Hint Sync: all 6 `check` sub-commands now print `[dim]  Scanning: <resolved-target>[/]` after the Obsidian header when PATH is provided, giving the operator visual confirmation of the active sovereign root. `init` prints `[dim]  Target: <resolved-path>[/]` in Genesis Nomad mode. Architecture documentation updated: `docs/explanation/architecture.mdx` (EN + IT) — new "Sovereign Root Protocol" section documents the three-step sovereignty protocol (find_repo_root → _apply_target → CEO-043 sandbox guard), the Genesis Nomad invariants table, and the Context Hijacking problem/solution.
-
-### D061 (CEO) — The Maturity Narrative
-
-**Version:** 0.7.0 · **Date:** 2026-04-25
-
-v0.7.0 launch blog article in zenzic-doc revised as a case study in software engineering maturity. No code changes to core — documentation sprint only. Additions (EN + IT simultaneously per CEO-059): "Treating Documentation as Untrusted Input" framing section; "The Precision Sprint" (Z502 BUG-012 + Z105 BUG-013 false positive narrative); "Total CLI Symmetry: The Sovereign Root Protocol" (D060/D062 coverage with terminal output examples); "The Law of Contemporary Testimony" (CEO-059). Capabilities table updated. Test count updated 1195 → 1225. CTA changed to `uvx zenzic lab`.
-
-### D063 (CEO) — The Obsidian Hygiene
-
-**Version:** 0.7.0 · **Date:** 2026-04-25
-
-Forensic grep across all production source (`src/zenzic/`) for `TODO`, `FIXME`, and `HACK` markers. Every match was intentional production logic: the Z501 detector itself, rule docstrings, or example strings in error messages. Zero technical debt markers found. Zero actions taken. The v0.7.0 "Stable" codebase is confirmed debt-free.
-
-### D064 (CEO) — Operation Matrix Laboratory
-
-**Version:** 0.7.0 · **Date:** 2026-04-25
-
-Six new example projects added to `examples/os/` and `examples/rules/`: `unix-security` (Z202 PATH_TRAVERSAL + Z201 Shield BREACH, exit 2), `win-integrity` (Z105 ABSOLUTE_LINK on Windows-style paths, exit 1), `z100-link-graph` (circular Z102 + Z104, exit 1), `z200-shield` (base64/percent-encoded/mixed-case obfuscation, Z201 BREACH, exit 2), `z400-seo` (Z401 ×3 + Z402 ×1, exit 1), `z500-quality` (Z501 ×3 + Z503 ×1, exit 1). `zenzic lab` UI refactored: `_print_act_index()` now renders four themed Rich sections (🛡/🔗/🏢/🔴) each as a separate ROUNDED table. Acts 11–16 added to `_ACTS`. Range guard updated to `0 <= act_number <= 16`. `examples/run_demo.sh` updated with section banners and Acts 9–16. Preflight: 1225 tests pass, REUSE 303/303 compliant.
-
-### D070 (CEO) — The Idempotent Sentinel
-
-**Version:** 0.7.0 · **Date:** 2026-04-25
-
-Removed `get_ui().print_header(__version__)` from three locations inside `_lab.py`: the for-act loop in `lab()`, `_print_act_seal()`, and `_print_summary()`. The lab banner is now printed exactly once (at the top of every `zenzic lab` invocation). The OBSIDIAN SEAL footer remains self-identifying without a redundant header.
-
-### D069 (CEO) — The Range Master Protocol
-
-**Version:** 0.7.0 · **Date:** 2026-04-25
-
-`zenzic lab` argument type changed from `int` to `str`. New pure function `parse_act_range(raw: str) -> list[int]` handles single integers (`3`), inclusive ranges (`11-16`), and the `all` shorthand. Invalid input produces `ObsidianUI.print_exception_alert()`. Multi-act runs display a `LAB SEQUENCE: Running Acts N through M …` banner and conclude with `_print_summary()`. ADR-010 + Rule R18 "Range Awareness" codified. `docs/reference/cli.mdx` (EN + IT) updated with `## Interactive Lab` section (Law of Contemporary Testimony, CEO-059).
-
-### D072 (CEO) — The Ghost Content Fix
-
-**Version:** 0.7.0 · **Date:** 2026-04-25
-
-BUG-014 (The Blind Notary Paradox): `_first_content_line()` in `scanner.py` used a single `_FRONTMATTER_RE.match(text)` call anchored to `\A`. Files opening with REUSE-compliant `<!-- SPDX-FileCopyrightText: … -->` HTML comments caused the regex to fall back to `return 1`, pointing the `❱` diagnostic arrow at the licence header instead of the first prose word. Fixed by rewriting as a three-phase line-by-line walker: (1) skip leading HTML/MDX comment blocks (including multi-line), (2) skip YAML frontmatter `--- … ---`, (3) skip trailing blank lines. `_visible_word_count()` was unaffected — comment stripping before frontmatter was correct since D055. New test `test_short_content_pointer_skips_spdx_comments` ("The SPDX Trap"). Preflight: 1226 tests pass, REUSE 303/303 compliant.
