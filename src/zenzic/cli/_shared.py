@@ -80,8 +80,17 @@ _NO_CONFIG_HINT = Panel(
 )
 
 
-def _print_no_config_hint() -> None:
-    """Print a one-time informational panel when running without zenzic.toml."""
+_MACHINE_FORMATS: frozenset[str] = frozenset({"json", "sarif"})
+
+
+def _print_no_config_hint(output_format: str = "text") -> None:
+    """Print a one-time informational panel when running without zenzic.toml.
+
+    Suppressed for machine-readable formats (json, sarif) — Rule R20 Machine Silence:
+    stdout must remain 100% valid against the target schema; no Rich panels allowed.
+    """
+    if output_format in _MACHINE_FORMATS:
+        return
     console.print(_NO_CONFIG_HINT)
     console.print()
 

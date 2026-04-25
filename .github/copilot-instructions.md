@@ -103,6 +103,8 @@ Zenzic builds a **Virtual Site Map (VSM)** — a projection of the final site in
 - **[RULE R18] Total CLI Symmetry (CEO-060).** [DECISION] Every filesystem-interacting CLI command (except `lab` and `inspect`) accepts an optional positional `PATH` argument with sovereign root semantics identical to `check all`. `find_repo_root(search_from=target)` is called when PATH is provided; `_apply_target()` recalibrates `docs_root` and loads the target's config. For `init`, PATH is treated as the `repo_root` directly (Genesis Nomad): the directory is created with `mkdir(parents=True, exist_ok=True)` if absent. The active configuration (engine, docs_dir, exclusions) always follows the target repository, never the caller's CWD.
 - **[RULE R19] No Domain-Level URL Exclusions.** `excluded_external_urls` in `zenzic.toml` must target specific URLs, not entire domains (e.g. `"https://zenzic.dev/"`). A domain blanket exclusion creates permanent blindspots that survive content restructures. Use `--exclude-url <url>` at CLI runtime for temporary skips only.
 
+- **[RULE R20] Machine Silence (D077).** Any machine-readable output format (`json` or `sarif`) mandates the total suppression of Rich banners, headers, and informational panels on stdout. Machine streams must remain 100% valid against their schema. **Implementation:** `_print_no_config_hint(output_format)` gates internally on `_MACHINE_FORMATS = frozenset({"json", "sarif"})`; `print_header()` is gated at each call site with `if ... and output_format == "text"`. No Rich output may reach stdout when a machine is reading.
+
 ### The Law of Executive Brevity [MANDATORY] — D068
 
 - **[INVARIANT] Public-facing files (`RELEASE.md`, `README.md`) are for humans and decision makers — not for implementation audit trails.**
@@ -344,7 +346,17 @@ tests/
 
 ## [ACTIVE SPRINT] — Working Context
 
-### D074+D075 — Coverage Iron Gate + R19 Testimony (Current)
+### D077 — The Machine-to-Machine Silence (Current)
+
+**Version:** 0.7.0 · **Date:** 2026-04-25
+
+Machine Silence fix: `_print_no_config_hint()` in `_shared.py` now accepts `output_format`
+and suppresses all Rich output for json/sarif (Rule R20). Five call sites in `_check.py`
+updated to pass format. `check all --format sarif` stdout now starts with `{`, not `╭`.
+`zenzic-action`: `upload-sarif@v3` → `@v4`, `setup-uv@v7` → `@v8`, version default
+`latest` → `0.7.0`. Rule R20 codified in [POLICIES].
+
+### Last Closed — D074+D075 — Coverage Iron Gate + R19 Testimony
 
 **Version:** 0.7.0 · **Date:** 2026-04-25
 

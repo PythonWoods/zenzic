@@ -212,7 +212,7 @@ def check_orphans(
     repo_root = find_repo_root(search_from=_search_from)
     config, loaded_from_file = ZenzicConfig.load(repo_root)
     if not loaded_from_file:
-        _shared._print_no_config_hint()
+        _shared._print_no_config_hint(output_format)
     config = _shared._apply_engine_override(config, engine)
     if offline:
         config.build_context.offline_mode = True
@@ -302,7 +302,7 @@ def check_snippets(
     repo_root = find_repo_root(search_from=_search_from)
     config, loaded_from_file = ZenzicConfig.load(repo_root)
     if not loaded_from_file:
-        _shared._print_no_config_hint()
+        _shared._print_no_config_hint(output_format)
     if path is not None:
         config, _, docs_root, _ = _apply_target(repo_root, config, path)
         try:
@@ -429,7 +429,7 @@ def check_references(
     repo_root = find_repo_root(search_from=_search_from)
     config, loaded_from_file = ZenzicConfig.load(repo_root)
     if not loaded_from_file:
-        _shared._print_no_config_hint()
+        _shared._print_no_config_hint(output_format)
     if path is not None:
         config, _, docs_root, _ = _apply_target(repo_root, config, path)
         try:
@@ -578,7 +578,7 @@ def check_assets(
     repo_root = find_repo_root(search_from=_search_from)
     config, loaded_from_file = ZenzicConfig.load(repo_root)
     if not loaded_from_file:
-        _shared._print_no_config_hint()
+        _shared._print_no_config_hint(output_format)
     if path is not None:
         config, _, docs_root, _ = _apply_target(repo_root, config, path)
         try:
@@ -1158,7 +1158,7 @@ def check_all(
     repo_root = find_repo_root(search_from=_search_from)
     config, loaded_from_file = ZenzicConfig.load(repo_root)
     if not loaded_from_file and not quiet:
-        _shared._print_no_config_hint()
+        _shared._print_no_config_hint(output_format)
     config = _shared._apply_engine_override(config, engine)
     if offline:
         config.build_context.offline_mode = True

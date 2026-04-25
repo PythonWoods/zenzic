@@ -929,6 +929,35 @@ Z104 nella scansione remota.
 
 ---
 
+### D077 — Il Silenzio Macchina-Macchina (2026-04-25)
+
+#### Corretto
+
+- **`_print_no_config_hint()` stava contaminando l'output SARIF/JSON su stdout (Regola R20).**
+  Quando `zenzic check all --format sarif` veniva eseguito su un progetto senza `zenzic.toml`,
+  il pannello informativo Rich (il suggerimento "no config") veniva scritto su stdout prima
+  del JSON SARIF, producendo un file che iniziava con `╭` — JSON non valido che causava
+  il crash di GitHub Code Scanning con `Unexpected token '╭'`.
+
+  Fix: `_print_no_config_hint(output_format: str = "text")` in `_shared.py` ora controlla
+  `_MACHINE_FORMATS = frozenset({"json", "sarif"})` — ritornando immediatamente senza
+  alcuna scrittura su stdout per i formati macchina. Cinque call site in `_check.py`
+  aggiornati per passare il formato corrente. L'output stdout di `check all --format sarif`
+  inizia ora con `{`.
+
+  **Regola R20 — Silenzio Macchina** codificata in [POLICIES]: qualsiasi formato
+  machine-readable (json/sarif) impone la soppressione totale di banner e pannelli Rich
+  su stdout.
+
+#### Action (zenzic-action)
+
+- **`github/codeql-action/upload-sarif@v3` → `@v4`** (fix deprecazione).
+- **`astral-sh/setup-uv@v7` → `@v8`** (miglioramenti cache).
+- **Default input `version` modificato da `latest` → `0.7.0`** (default orientato alla stabilità).
+  Chi vuole aggiornamenti continui può impostare esplicitamente `version: latest`.
+
+---
+
 ## [0.6.1] — 2026-04-19 — Obsidian Glass [SUPERSEDED]
 
 > ⚠ **[SUPERSEDED dalla v0.7.0]** — La versione 0.6.1 è deprecata a causa di problemi di allineamento con le specifiche Docusaurus e terminologia legacy. Tutti gli utenti devono aggiornare alla v0.7.0 "Obsidian Maturity".
