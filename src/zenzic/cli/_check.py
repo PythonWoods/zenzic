@@ -61,15 +61,31 @@ def check_links(
     offline: bool = typer.Option(
         False, "--offline", help="Force flat URL resolution for offline builds."
     ),
+    path: str | None = typer.Argument(
+        None,
+        help="Limit to a directory or file. Accepts paths relative to repo root or docs dir.",
+        show_default=False,
+    ),
 ) -> None:
     """Check for broken internal links. Pass --strict to also validate external URLs."""
     from zenzic import __version__
 
-    repo_root = find_repo_root()
+    _search_from: Path | None = None
+    if path is not None:
+        _pre = Path(path).resolve()
+        _search_from = _pre.parent if _pre.is_file() else _pre
+    repo_root = find_repo_root(search_from=_search_from)
     config, _ = ZenzicConfig.load(repo_root)
     if offline:
         config.build_context.offline_mode = True
-    docs_root = (repo_root / config.docs_dir).resolve()
+    if path is not None:
+        config, _, docs_root, _ = _apply_target(repo_root, config, path)
+        try:
+            docs_root.relative_to(repo_root)
+        except ValueError:
+            repo_root = docs_root
+    else:
+        docs_root = (repo_root / config.docs_dir).resolve()
     exclusion_mgr = _shared._build_exclusion_manager(config, repo_root, docs_root)
 
     def _rel(path: Path) -> str:
@@ -174,18 +190,34 @@ def check_orphans(
     offline: bool = typer.Option(
         False, "--offline", help="Force flat URL resolution for offline builds."
     ),
+    path: str | None = typer.Argument(
+        None,
+        help="Limit to a directory or file. Accepts paths relative to repo root or docs dir.",
+        show_default=False,
+    ),
 ) -> None:
     """Detect .md files not listed in the nav."""
     from zenzic import __version__
 
-    repo_root = find_repo_root()
+    _search_from: Path | None = None
+    if path is not None:
+        _pre = Path(path).resolve()
+        _search_from = _pre.parent if _pre.is_file() else _pre
+    repo_root = find_repo_root(search_from=_search_from)
     config, loaded_from_file = ZenzicConfig.load(repo_root)
     if not loaded_from_file:
         _shared._print_no_config_hint()
     config = _shared._apply_engine_override(config, engine)
     if offline:
         config.build_context.offline_mode = True
-    docs_root = (repo_root / config.docs_dir).resolve()
+    if path is not None:
+        config, _, docs_root, _ = _apply_target(repo_root, config, path)
+        try:
+            docs_root.relative_to(repo_root)
+        except ValueError:
+            repo_root = docs_root
+    else:
+        docs_root = (repo_root / config.docs_dir).resolve()
     exclusion_mgr = _shared._build_exclusion_manager(config, repo_root, docs_root)
 
     t0 = time.monotonic()
@@ -242,15 +274,31 @@ def check_snippets(
     show_info: bool = typer.Option(
         False, "--show-info", help="Show info-level findings (e.g. circular links) in the report."
     ),
+    path: str | None = typer.Argument(
+        None,
+        help="Limit to a directory or file. Accepts paths relative to repo root or docs dir.",
+        show_default=False,
+    ),
 ) -> None:
     """Validate Python code blocks in documentation Markdown files."""
     from zenzic import __version__
 
-    repo_root = find_repo_root()
+    _search_from: Path | None = None
+    if path is not None:
+        _pre = Path(path).resolve()
+        _search_from = _pre.parent if _pre.is_file() else _pre
+    repo_root = find_repo_root(search_from=_search_from)
     config, loaded_from_file = ZenzicConfig.load(repo_root)
     if not loaded_from_file:
         _shared._print_no_config_hint()
-    docs_root = (repo_root / config.docs_dir).resolve()
+    if path is not None:
+        config, _, docs_root, _ = _apply_target(repo_root, config, path)
+        try:
+            docs_root.relative_to(repo_root)
+        except ValueError:
+            repo_root = docs_root
+    else:
+        docs_root = (repo_root / config.docs_dir).resolve()
     exclusion_mgr = _shared._build_exclusion_manager(config, repo_root, docs_root)
 
     def _rel(path: Path) -> str:
@@ -334,6 +382,11 @@ def check_references(
     show_info: bool = typer.Option(
         False, "--show-info", help="Show info-level findings (e.g. circular links) in the report."
     ),
+    path: str | None = typer.Argument(
+        None,
+        help="Limit to a directory or file. Accepts paths relative to repo root or docs dir.",
+        show_default=False,
+    ),
 ) -> None:
     """Run the Two-Pass Reference Pipeline: harvest definitions, check integrity, run Shield.
 
@@ -351,11 +404,22 @@ def check_references(
     """
     from zenzic import __version__
 
-    repo_root = find_repo_root()
+    _search_from: Path | None = None
+    if path is not None:
+        _pre = Path(path).resolve()
+        _search_from = _pre.parent if _pre.is_file() else _pre
+    repo_root = find_repo_root(search_from=_search_from)
     config, loaded_from_file = ZenzicConfig.load(repo_root)
     if not loaded_from_file:
         _shared._print_no_config_hint()
-    docs_root = (repo_root / config.docs_dir).resolve()
+    if path is not None:
+        config, _, docs_root, _ = _apply_target(repo_root, config, path)
+        try:
+            docs_root.relative_to(repo_root)
+        except ValueError:
+            repo_root = docs_root
+    else:
+        docs_root = (repo_root / config.docs_dir).resolve()
     exclusion_mgr = _shared._build_exclusion_manager(config, repo_root, docs_root)
 
     def _rel(path: Path) -> str:
@@ -474,15 +538,31 @@ def check_assets(
     show_info: bool = typer.Option(
         False, "--show-info", help="Show info-level findings (e.g. circular links) in the report."
     ),
+    path: str | None = typer.Argument(
+        None,
+        help="Limit to a directory or file. Accepts paths relative to repo root or docs dir.",
+        show_default=False,
+    ),
 ) -> None:
     """Detect unused images and assets in the documentation."""
     from zenzic import __version__
 
-    repo_root = find_repo_root()
+    _search_from: Path | None = None
+    if path is not None:
+        _pre = Path(path).resolve()
+        _search_from = _pre.parent if _pre.is_file() else _pre
+    repo_root = find_repo_root(search_from=_search_from)
     config, loaded_from_file = ZenzicConfig.load(repo_root)
     if not loaded_from_file:
         _shared._print_no_config_hint()
-    docs_root = (repo_root / config.docs_dir).resolve()
+    if path is not None:
+        config, _, docs_root, _ = _apply_target(repo_root, config, path)
+        try:
+            docs_root.relative_to(repo_root)
+        except ValueError:
+            repo_root = docs_root
+    else:
+        docs_root = (repo_root / config.docs_dir).resolve()
     from zenzic.core.adapters import get_adapter
 
     adapter = get_adapter(config.build_context, docs_root, repo_root)
@@ -544,15 +624,31 @@ def check_placeholders(
     show_info: bool = typer.Option(
         False, "--show-info", help="Show info-level findings (e.g. circular links) in the report."
     ),
+    path: str | None = typer.Argument(
+        None,
+        help="Limit to a directory or file. Accepts paths relative to repo root or docs dir.",
+        show_default=False,
+    ),
 ) -> None:
     """Detect pages with < 50 words or containing TODOs/stubs."""
     from zenzic import __version__
 
-    repo_root = find_repo_root()
+    _search_from: Path | None = None
+    if path is not None:
+        _pre = Path(path).resolve()
+        _search_from = _pre.parent if _pre.is_file() else _pre
+    repo_root = find_repo_root(search_from=_search_from)
     config, loaded_from_file = ZenzicConfig.load(repo_root)
     if not loaded_from_file:
         _shared._print_no_config_hint()
-    docs_root = (repo_root / config.docs_dir).resolve()
+    if path is not None:
+        config, _, docs_root, _ = _apply_target(repo_root, config, path)
+        try:
+            docs_root.relative_to(repo_root)
+        except ValueError:
+            repo_root = docs_root
+    else:
+        docs_root = (repo_root / config.docs_dir).resolve()
     exclusion_mgr = _shared._build_exclusion_manager(config, repo_root, docs_root)
 
     t0 = time.monotonic()

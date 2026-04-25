@@ -828,6 +828,41 @@ added to prevent documentation drift from accumulating silently.
 
 ---
 
+### 🌐 Total CLI Symmetry (D060, 2026-04-25)
+
+The final sprint before v0.7.0 ships: **every** filesystem-interacting CLI command in Zenzic now
+accepts an optional `PATH` argument with full sovereign root semantics.
+
+#### Universal PATH coverage
+
+All six `check` sub-commands — `links`, `orphans`, `snippets`, `placeholders`, `assets`,
+`references` — now mirror the path-awareness of `check all`. Run any individual check against
+a remote project without changing directory:
+
+```bash
+zenzic check links   ../other-project       # links in a sibling repo
+zenzic check orphans content/               # orphans in a sub-directory
+zenzic check assets  /abs/path/to/docs      # assets check on an absolute path
+```
+
+Configuration follows the target, not the caller — a team running Zenzic in a CI pipeline
+can now point at any branch checkout, any mounted volume, any workspace path.
+
+#### The Nomad: `init` goes remote
+
+`zenzic init <path>` bootstraps a remote directory. The directory is created if it does not
+exist. Engine auto-detection runs on the target:
+
+```bash
+zenzic init ../new-project                  # scaffold zenzic.toml at target, not CWD
+zenzic init /workspace/brand-new-docs       # absolute paths accepted; directory created
+```
+
+The caller's CWD is never modified. This is the "Nomad" mode — Zenzic follows you wherever
+you work.
+
+---
+
 ### 🇮🇹 Engineered with Precision
 
 Zenzic is developed by **PythonWoods**, based in Italy, and committed to the craft of high-performance, deterministic Python engineering.

@@ -969,6 +969,34 @@ def test_init_in_fresh_directory_no_git(tmp_path: Path, monkeypatch: pytest.Monk
     assert (fresh / "zenzic.toml").is_file()
 
 
+def test_init_nomad_writes_to_target_not_cwd(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """CEO-060 'The Nomad': zenzic init <path> creates zenzic.toml at target, not CWD."""
+    target = tmp_path / "new-docs"
+    target.mkdir()
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    monkeypatch.chdir(workspace)
+
+    result = runner.invoke(app, ["init", str(target)])
+    assert result.exit_code == 0, result.stdout
+    assert (target / "zenzic.toml").is_file(), "zenzic.toml must be at target"
+    assert not (workspace / "zenzic.toml").is_file(), "zenzic.toml must NOT appear in CWD"
+
+
+def test_init_nomad_creates_target_directory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """CEO-060: zenzic init <nonexistent-path> must create the directory and write zenzic.toml."""
+    target = tmp_path / "does" / "not" / "exist"
+    monkeypatch.chdir(tmp_path)
+
+    result = runner.invoke(app, ["init", str(target)])
+    assert result.exit_code == 0, result.stdout
+    assert (target / "zenzic.toml").is_file(), "zenzic.toml must be created at nested target"
+
+
 # ---------------------------------------------------------------------------
 # Signal-to-Noise: --show-info / reporter show_info filter
 # ---------------------------------------------------------------------------

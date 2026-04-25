@@ -332,6 +332,11 @@ def init(
         "--pyproject",
         help="Write configuration into pyproject.toml [tool.zenzic] instead of zenzic.toml.",
     ),
+    path: str | None = typer.Argument(
+        None,
+        help="Directory to initialize (default: current project root or CWD).",
+        show_default=False,
+    ),
 ) -> None:
     """Scaffold a Zenzic configuration in the current project.
 
@@ -339,6 +344,9 @@ def init(
     project root Zenzic will ask whether to embed the configuration there
     as a ``[tool.zenzic]`` table instead.  Use ``--pyproject`` to skip the
     prompt and write directly into ``pyproject.toml``.
+
+    Pass PATH to initialize a remote directory (e.g. ``zenzic init ../new-project``).
+    The directory is created if it does not exist.
 
     Performs engine auto-detection: if ``mkdocs.yml`` is present the generated
     file pre-sets ``engine = "mkdocs"``; if ``zensical.toml`` is present it
@@ -349,7 +357,12 @@ def init(
 
     _shared._ui.print_header(__version__)
     _shared.console.print()
-    repo_root = find_repo_root(fallback_to_cwd=True)
+    # CEO-060: when an explicit target is given, treat it as the repo root.
+    if path is not None:
+        repo_root = Path(path).resolve()
+        repo_root.mkdir(parents=True, exist_ok=True)
+    else:
+        repo_root = find_repo_root(fallback_to_cwd=True)
 
     if plugin is not None:
         _scaffold_plugin(repo_root, plugin, force)

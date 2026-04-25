@@ -97,6 +97,7 @@ Zenzic builds a **Virtual Site Map (VSM)** — a projection of the final site in
 - **[RULE R15] Scope Integrity (CEO-054).** [DECISION] A resolved link is valid only if its target is within the engine's permitted perimeter: `docs_root` + adapter-declared static directories. File existence on the host filesystem outside this perimeter is irrelevant — the Shield resolver (PathTraversal Z202) enforces this unconditionally. `find_repo_root(search_from=target)` (CEO-052) ensures the perimeter is anchored to the correct project when invoked remotely. Corollary: `excluded_dirs` must **not** include directory names that contain files actively referenced by Markdown pages (e.g. `assets/`), as excluding them from the walk breaks the asset index and causes Z104 false positives.
 - **[RULE R16] Protocol Awareness (CEO-055).** [DECISION] The `pathname:///` protocol is the Docusaurus "Diplomatic Courier" — a Docusaurus-specific static-asset escape hatch. In Docusaurus mode, `pathname:///assets/file.html` parses to `scheme="pathname"`, `path="/assets/file.html"` and the leading `/` is a URI convention artifact — not an absolute-path violation. The Z105 gate is conditioned on `not (parsed.scheme == "pathname" and engine == "docusaurus")`. In all other engines (MkDocs, Zensical, Standalone), `pathname:///` is unrecognized and triggers Z105 normally. Corollary: word-count stripping (Z502) must strip MDX/HTML comments **before** running the frontmatter regex — MDX files often open with a `{/* SPDX … */}` header before the `---` block, which prevents `_FRONTMATTER_RE` (anchored to `\A`) from matching unless the comment is removed first.
 - **[RULE R17] CLI Symmetry (CEO-056).** [DECISION] `zenzic score [PATH]` and `zenzic diff [PATH]` accept an optional positional `PATH` argument — identical sovereign root semantics as `zenzic check all [PATH]`. `find_repo_root(search_from=target)` is called unconditionally when `PATH` is provided: configuration follows the target, not the caller (ADR-009). The banner is printed immediately before analysis, not after. `diff` automatically derives the snapshot path from `repo_root`, not CWD.
+- **[RULE R18] Total CLI Symmetry (CEO-060).** [DECISION] Every filesystem-interacting CLI command (except `lab` and `inspect`) accepts an optional positional `PATH` argument with sovereign root semantics identical to `check all`. `find_repo_root(search_from=target)` is called when PATH is provided; `_apply_target()` recalibrates `docs_root` and loads the target's config. For `init`, PATH is treated as the `repo_root` directly (Genesis Nomad): the directory is created with `mkdir(parents=True, exist_ok=True)` if absent. The active configuration (engine, docs_dir, exclusions) always follows the target repository, never the caller's CWD.
 
 ### Documentation Law — The Obsidian Testimony [MANDATORY]
 
@@ -206,7 +207,7 @@ src/zenzic/
     logging.py              — Rich logging handler
     ui.py                   — ObsidianPalette, ObsidianUI, make_banner (moved here in D062-B)
   models/
-    config.py               — ZenzicConfig / BuildContext (Pydantic); 3-level config priority
+    config.py               — ZenzicConfig / BuildContext (Pydantic); 4-level config priority
     vsm.py                  — Virtual Site Map: Route, build_vsm, detect_collisions
     references.py           — Reference integrity: IntegrityReport, ReferenceFinding
 
@@ -660,3 +661,9 @@ Documentation audit of configuration priority. Three documentation gaps identifi
 **Version:** 0.7.0 · **Date:** 2026-04-25
 
 Law of Contemporary Testimony codified as mandatory policy in [POLICIES] at top of all three Obsidian Ledgers. Step 0 "Pre-Task Alignment" added to [CLOSING PROTOCOL]. Step 3 enhanced with "Contemporary Check" bullets and "Bilingual Mirroring" + "Precedence Table" items.
+
+### D060 (CEO) — Total CLI Symmetry
+
+**Version:** 0.7.0 · **Date:** 2026-04-25
+
+PATH argument and sovereign root semantics applied to all remaining filesystem-interacting CLI commands: `check links`, `check orphans`, `check snippets`, `check placeholders`, `check assets`, `check references`, `init`. Each command now accepts an optional positional `PATH` with `find_repo_root(search_from=target)` + `_apply_target()` integration. `init` uses Genesis Nomad mode: when PATH is given, `repo_root = Path(path).resolve()` with `mkdir(parents=True, exist_ok=True)` — the target directory is created if absent. Two regression tests added: `test_init_nomad_writes_to_target_not_cwd`, `test_init_nomad_creates_target_directory`. CLI docs updated (EN + IT): PATH examples for all check sub-commands and init Nomad mode. Rule R18 "Total CLI Symmetry" codified.

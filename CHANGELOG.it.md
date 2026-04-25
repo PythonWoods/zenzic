@@ -691,6 +691,31 @@ Z104 nella scansione remota.
 
 ---
 
+### Simmetria CLI Totale (D060 — 2026-04-25)
+
+#### Aggiunto
+
+- **Argomento PATH su tutti i sotto-comandi `check`.**
+  `check links`, `check orphans`, `check snippets`, `check placeholders`, `check assets` e
+  `check references` accettano ora un argomento posizionale opzionale `PATH` con semantica
+  sovereign root identica a `check all`. Zenzic carica la configurazione dalla destinazione,
+  non dalla CWD del chiamante — abilitando l'uso cross-progetto e monorepo senza cambiare
+  directory.
+
+- **Modalità Nomad per `init`.**
+  `zenzic init <percorso>` tratta il percorso indicato come root del progetto di destinazione.
+  La directory viene creata (`mkdir -p`) se non esiste. La CWD del chiamante non viene
+  modificata. Il rilevamento automatico dell'engine opera sulla directory di destinazione.
+
+#### Test
+
+- `test_init_nomad_writes_to_target_not_cwd` — verifica che `zenzic.toml` sia creato nella
+  destinazione, non nella CWD.
+- `test_init_nomad_creates_target_directory` — verifica che un percorso nidificato non
+  esistente venga creato.
+
+---
+
 ## [0.6.1] — 2026-04-19 — Obsidian Glass [SUPERSEDED]
 
 > ⚠ **[SUPERSEDED dalla v0.7.0]** — La versione 0.6.1 è deprecata a causa di problemi di allineamento con le specifiche Docusaurus e terminologia legacy. Tutti gli utenti devono aggiornare alla v0.7.0 "Obsidian Maturity".

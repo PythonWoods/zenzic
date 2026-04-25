@@ -741,6 +741,29 @@ misdiagnosis. CEO-052 fix (already applied) eliminates the false Z104 when scann
 
 ---
 
+### Total CLI Symmetry (D060 — 2026-04-25)
+
+#### Added
+
+- **PATH argument on all `check` sub-commands.**
+  `check links`, `check orphans`, `check snippets`, `check placeholders`, `check assets`, and
+  `check references` now accept an optional positional `PATH` argument with sovereign root
+  semantics identical to `check all`. Zenzic loads the configuration from the target, not the
+  caller's CWD — enabling cross-project and monorepo usage without changing directory.
+
+- **`init` Genesis Nomad mode.**
+  `zenzic init <path>` treats the given path as the target project root. The directory is
+  created (`mkdir -p`) if it does not exist. The caller's CWD is not affected. Engine
+  auto-detection runs on the target directory.
+
+#### Tests
+
+- `test_init_nomad_writes_to_target_not_cwd` — asserts `zenzic.toml` is created at the
+  target, not the CWD.
+- `test_init_nomad_creates_target_directory` — asserts a non-existent nested path is created.
+
+---
+
 ## [0.6.1] — 2026-04-19 — Obsidian Glass [SUPERSEDED]
 
 > ⚠ **[SUPERSEDED by v0.7.0]** — Version 0.6.1 is deprecated due to alignment issues with Docusaurus specifications and legacy terminology. All users must upgrade to v0.7.0 "Obsidian Maturity".
