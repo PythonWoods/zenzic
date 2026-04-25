@@ -732,6 +732,21 @@ Z104 nella scansione remota.
 
 ---
 
+### La Narrativa della Maturità (D061 — 2026-04-25)
+
+#### Modificato
+
+- **Articolo di lancio del blog** (`blog/2026-04-22-beyond-the-siege-zenzic-v070.mdx`) revisionato
+  come caso studio di maturità ingegneristica (EN + IT simultaneamente).
+  Nuove sezioni: "Trattare la Documentazione come Input Non Fidato" (inquadramento), "Il Sprint
+  di Precisione" (narrativa dei falsi positivi Z502 BUG-012 + Z105 BUG-013), "Simmetria CLI
+  Totale: Il Protocollo Sovereign Root" (copertura D060/D062 con esempi di output terminale),
+  "La Legge della Testimonianza Contemporanea" (CEO-059). Tabella delle funzionalità aggiornata
+  con nuove righe. Conteggio test aggiornato 1.195 → 1.225. CTA modificato da
+  `pip install zenzic; zenzic check all` a `uvx zenzic lab`.
+
+---
+
 ## [0.6.1] — 2026-04-19 — Obsidian Glass [SUPERSEDED]
 
 > ⚠ **[SUPERSEDED dalla v0.7.0]** — La versione 0.6.1 è deprecata a causa di problemi di allineamento con le specifiche Docusaurus e terminologia legacy. Tutti gli utenti devono aggiornare alla v0.7.0 "Obsidian Maturity".

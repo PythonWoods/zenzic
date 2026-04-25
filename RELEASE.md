@@ -895,6 +895,34 @@ a canonical reference for why PATH arguments behave the way they do.
 
 ---
 
+### 📖 The Maturity Narrative (D061, 2026-04-25)
+
+The v0.7.0 launch blog article has been revised as a **case study in software engineering
+maturity** — not a feature announcement. The revision (English + Italian simultaneously,
+per the Law of Contemporary Testimony) adds four new sections:
+
+**"Treating Documentation as Untrusted Input"** — the thesis: documentation is input, and
+should be treated with the same skepticism security engineers apply to user data. The
+discipline transfer from application security to documentation quality is what "Obsidian
+Maturity" actually means.
+
+**"The Precision Sprint"** — narrative of BUG-012 (Z502 MDX frontmatter leak) and BUG-013
+(Z105 `pathname:///` false positive elimination). The section explains why false positives
+are more damaging than false negatives: a scanner that cries wolf trains engineers to
+suppress its output.
+
+**"Total CLI Symmetry: The Sovereign Root Protocol"** — covers D060 and D062 with terminal
+output examples showing the new `Scanning:` banner hint. The sovereign root contract in
+plain language: configuration follows the target, not the caller.
+
+**"The Law of Contemporary Testimony"** — codifies CEO-059 as an engineering principle.
+Code and documentation are a single indivisible unit. Later compounds. The Law makes
+"later" unconstitutional.
+
+CTA updated: `uvx zenzic lab` replaces the old `pip install zenzic; zenzic check all`.
+
+---
+
 ### 🇮🇹 Engineered with Precision
 
 Zenzic is developed by **PythonWoods**, based in Italy, and committed to the craft of high-performance, deterministic Python engineering.

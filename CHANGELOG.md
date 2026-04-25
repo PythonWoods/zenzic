@@ -780,6 +780,20 @@ misdiagnosis. CEO-052 fix (already applied) eliminates the false Z104 when scann
 
 ---
 
+### The Maturity Narrative (D061 — 2026-04-25)
+
+#### Changed
+
+- **Launch blog article** (`blog/2026-04-22-beyond-the-siege-zenzic-v070.mdx`) revised as a
+  case study in software engineering maturity (EN + IT simultaneously).
+  New sections: "Treating Documentation as Untrusted Input" (framing), "The Precision Sprint"
+  (Z502 BUG-012 + Z105 BUG-013 false positive narrative), "Total CLI Symmetry: The Sovereign
+  Root Protocol" (D060/D062 coverage with terminal output examples), "The Law of Contemporary
+  Testimony" (CEO-059). Capabilities table updated with new rows. Test count updated
+  1,195 → 1,225. CTA changed from `pip install zenzic; zenzic check all` to `uvx zenzic lab`.
+
+---
+
 ## [0.6.1] — 2026-04-19 — Obsidian Glass [SUPERSEDED]
 
 > ⚠ **[SUPERSEDED by v0.7.0]** — Version 0.6.1 is deprecated due to alignment issues with Docusaurus specifications and legacy terminology. All users must upgrade to v0.7.0 "Obsidian Maturity".

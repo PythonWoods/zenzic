@@ -673,3 +673,9 @@ PATH argument and sovereign root semantics applied to all remaining filesystem-i
 **Version:** 0.7.0 · **Date:** 2026-04-25
 
 Banner & Hint Sync: all 6 `check` sub-commands now print `[dim]  Scanning: <resolved-target>[/]` after the Obsidian header when PATH is provided, giving the operator visual confirmation of the active sovereign root. `init` prints `[dim]  Target: <resolved-path>[/]` in Genesis Nomad mode. Architecture documentation updated: `docs/explanation/architecture.mdx` (EN + IT) — new "Sovereign Root Protocol" section documents the three-step sovereignty protocol (find_repo_root → _apply_target → CEO-043 sandbox guard), the Genesis Nomad invariants table, and the Context Hijacking problem/solution.
+
+### D061 (CEO) — The Maturity Narrative
+
+**Version:** 0.7.0 · **Date:** 2026-04-25
+
+v0.7.0 launch blog article in zenzic-doc revised as a case study in software engineering maturity. No code changes to core — documentation sprint only. Additions (EN + IT simultaneously per CEO-059): "Treating Documentation as Untrusted Input" framing section; "The Precision Sprint" (Z502 BUG-012 + Z105 BUG-013 false positive narrative); "Total CLI Symmetry: The Sovereign Root Protocol" (D060/D062 coverage with terminal output examples); "The Law of Contemporary Testimony" (CEO-059). Capabilities table updated. Test count updated 1195 → 1225. CTA changed to `uvx zenzic lab`.
