@@ -114,11 +114,6 @@ _REF_SHORTCUT_RE = re.compile(r"(?<![!\]])\[([^\]]+)\](?![\[(:])")
 # URL schemes that are valid syntax but point to non-HTTP targets we skip.
 _SKIP_SCHEMES = ("mailto:", "data:", "ftp:", "tel:", "javascript:", "irc:", "xmpp:")
 
-# Docusaurus-specific escape hatch: pathname:/// links to static/ assets that
-# bypass the React router. Only valid in Docusaurus projects — other engines
-# have no equivalent and should receive a Z101 error.
-_DOCUSAURUS_SKIP_SCHEMES = ("pathname:",)
-
 # Maximum number of simultaneous outbound HTTP connections during external link checks.
 # Prevents exhausting OS file descriptors and avoids triggering rate-limits on target servers.
 _MAX_CONCURRENT_REQUESTS = 20
@@ -619,6 +614,7 @@ async def validate_links_async(
 
     # ── Instantiate the build-engine adapter (locale-aware path resolution) ──
     adapter = get_adapter(config.build_context, docs_root, repo_root)
+    _bypass_schemes = adapter.get_link_scheme_bypasses()
 
     # ── Pass 1: read all .md/.mdx files + map all non-doc assets into memory ──
     md_contents: dict[Path, str] = {}
@@ -720,9 +716,9 @@ async def validate_links_async(
     internal_errors: list[LinkError] = []
     external_entries: list[tuple[str, str, int]] = []  # (url, file_label, lineno)
 
-    # Engine-aware skip schemes: pathname:/// is a Docusaurus-only escape hatch.
-    _engine = (config.build_context.engine or "").lower()
-    _effective_skip = _SKIP_SCHEMES + (_DOCUSAURUS_SKIP_SCHEMES if _engine == "docusaurus" else ())
+    # Engine-aware skip schemes: adapters declare their own bypass schemes via
+    # get_link_scheme_bypasses() — the Core never hardcodes engine names here.
+    _effective_skip = _SKIP_SCHEMES + tuple(f"{s}:" for s in _bypass_schemes)
 
     def _source_line(md_file: Path, lineno: int) -> str:
         """Return the raw source line (1-based) from the pre-split cache."""
@@ -785,15 +781,10 @@ async def validate_links_async(
             # Internal links must always be relative. Full URLs (https://...)
             # are handled above as external links and are not affected.
             # Rule R16 (CEO-055): ``pathname:///assets/file.html`` is the
-            # Docusaurus "Diplomatic Courier" — a Docusaurus-specific protocol
-            # for static assets. In Docusaurus mode, the leading "/" in the path
-            # component is a URI convention artifact and must not trigger Z105.
-            # In all other engines, pathname:/// is unrecognized and must be
-            # flagged.
-            _pathname_in_docusaurus = (
-                parsed.scheme == "pathname" and config.build_context.engine == "docusaurus"
-            )
-            if parsed.path.startswith("/") and not _pathname_in_docusaurus:
+            # Z105: absolute path — engines declare their own bypass schemes via
+            # BaseAdapter.get_link_scheme_bypasses(); URLs using those schemes are
+            # already in _effective_skip and never reach this check.
+            if parsed.path.startswith("/") and parsed.scheme not in _bypass_schemes:
                 internal_errors.append(
                     LinkError(
                         file_path=md_file,

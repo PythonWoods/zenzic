@@ -958,6 +958,50 @@ Z104 nella scansione remota.
 
 ---
 
+### D079+D080 — L'Assedio Agnostico + Sovranità del Protocollo (2026-04-26)
+
+#### Refactoring — D080: Sovranità del Protocollo
+
+- **Core Leak rimosso da `validator.py` — introdotto `BaseAdapter.get_link_scheme_bypasses()`.**
+  `validator.py` conteneva due riferimenti hardcoded a `"docusaurus"` che esponevano
+  l'escape hatch `pathname:` tramite confronto sulla stringa del nome motore.
+  Per la Direttiva CEO 080 (Protocol Sovereignty), il Core deve essere agnostico al motore —
+  conosce il Protocollo, non gli attori.
+
+  **Modifiche:**
+  - Costante `_DOCUSAURUS_SKIP_SCHEMES = ("pathname:",)` rimossa da `validator.py`.
+  - `get_link_scheme_bypasses() -> frozenset[str]` aggiunto al protocollo `BaseAdapter` (`_base.py`).
+  - Tutti i quattro adapter implementano il nuovo metodo:
+    - `DocusaurusAdapter`: restituisce `frozenset({"pathname"})` — preserva l'escape hatch `pathname:///` (Regola R16, CEO-055).
+    - `MkDocsAdapter`, `ZensicalAdapter`, `StandaloneAdapter`, `ZensicalLegacyProxy`: restituiscono `frozenset()`.
+  - `validate_links_async()` deriva `_bypass_schemes` da `adapter.get_link_scheme_bypasses()` subito dopo l'istanziazione dell'adapter. `_effective_skip` è costruito come `_SKIP_SCHEMES + tuple(f"{s}:" for s in _bypass_schemes)`.
+  - Controllo Z105: `if parsed.path.startswith("/") and parsed.scheme not in _bypass_schemes:` — nessun nome di motore nel codice Core.
+
+  **Invariante:** Aggiungere un nuovo adapter domani non richiede **zero modifiche** a `validator.py`.
+
+#### Lab — D079: L'Assedio Agnostico (Matrice di Parità Cross-Engine)
+
+- **Tre demo repo esterni creati in `/dev/PythonSandbox/`:**
+  `zenzic-demo-standalone/`, `zenzic-demo-mkdocs/`, `zenzic-demo-zensical/` — ciascuno
+  con quattro vettori d'attacco deliberatamente costruiti sulla stessa documentazione.
+
+  **Risultati Matrice di Parità (da dir demo + Sovereign Scan dal repo core):**
+
+  | Motore | Z201 | Z105 | Z502 | Z401 |
+  |---|---|---|---|---|
+  | standalone | ✅ exit 2 | ✅ 3× | ✅ 4 file | ✅ 4× info |
+  | mkdocs | ✅ exit 2 | ✅ 3× | ✅ 4 file | ✅ 4× info |
+  | zensical | ✅ exit 2 | ✅ 3× | ✅ 4 file | ✅ 4× info |
+
+  **Verdetto: ZERO asimmetrie.** Tutti e tre i motori producono conteggi e severità
+  di finding identici per la stessa documentazione. Sovereign Root Protocol confermato.
+
+  **Scoperta bonus:** Z501 (testo segnaposto) scatta su `draft: false` nel frontmatter di
+  `architecture.md` — la keyword `draft` corrisponde al pattern segnaposto di default.
+  Coerente su tutti e tre i motori (by design: è una regola di contenuto, non di motore).
+
+---
+
 ## [0.6.1] — 2026-04-19 — Obsidian Glass [SUPERSEDED]
 
 > ⚠ **[SUPERSEDED dalla v0.7.0]** — La versione 0.6.1 è deprecata a causa di problemi di allineamento con le specifiche Docusaurus e terminologia legacy. Tutti gli utenti devono aggiornare alla v0.7.0 "Obsidian Maturity".

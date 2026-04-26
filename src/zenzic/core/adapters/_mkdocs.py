@@ -757,6 +757,10 @@ class MkDocsAdapter:
         """
         return any((directory_path / f).exists() for f in ("index.md", "README.md"))
 
+    def get_link_scheme_bypasses(self) -> frozenset[str]:
+        """MkDocs has no engine-specific link-scheme bypass."""
+        return frozenset()
+
     @classmethod
     def from_repo(
         cls,

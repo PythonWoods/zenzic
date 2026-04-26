@@ -105,6 +105,8 @@ Zenzic builds a **Virtual Site Map (VSM)** — a projection of the final site in
 
 - **[RULE R20] Machine Silence (D077).** Any machine-readable output format (`json` or `sarif`) mandates the total suppression of Rich banners, headers, and informational panels on stdout. Machine streams must remain 100% valid against their schema. **Implementation:** `_print_no_config_hint(output_format)` gates internally on `_MACHINE_FORMATS = frozenset({"json", "sarif"})`; `print_header()` is gated at each call site with `if ... and output_format == "text"`. No Rich output may reach stdout when a machine is reading.
 
+- **[RULE R21] Protocol Sovereignty (D080).** The Core (`validator.py`, `scanner.py`) must never hardcode engine names (`"docusaurus"`, `"mkdocs"`, etc.) as conditions for validation logic. Engine-specific behaviour must be declared in the adapter (`BaseAdapter` protocol method) and queried by the Core. **Implementation:** `BaseAdapter.get_link_scheme_bypasses() -> frozenset[str]` is the canonical pattern. If the Core must behave differently per engine, add a `get_*()` method to the protocol — never add `if engine == "x"` to Core logic.
+
 ### The Law of Executive Brevity [MANDATORY] — D068
 
 - **[INVARIANT] Public-facing files (`RELEASE.md`, `README.md`) are for humans and decision makers — not for implementation audit trails.**
@@ -346,7 +348,23 @@ tests/
 
 ## [ACTIVE SPRINT] — Working Context
 
-### D077 — The Machine-to-Machine Silence (Current)
+### D079+D080 — The Agnostic Siege + Protocol Sovereignty (Current)
+
+**Version:** 0.7.0 · **Date:** 2026-04-26
+
+D080: Core Leak removed from `validator.py` — `_DOCUSAURUS_SKIP_SCHEMES` constant deleted,
+`BaseAdapter.get_link_scheme_bypasses() -> frozenset[str]` added to protocol. `DocusaurusAdapter`
+returns `frozenset({"pathname"})`; all others return `frozenset()`. The Core is now 100% engine-agnostic:
+adding a new adapter requires zero changes to `validator.py`.
+
+D079: Three external demo repos scaffolded (`zenzic-demo-standalone`, `zenzic-demo-mkdocs`,
+`zenzic-demo-zensical`) with four attack vectors each (Z201 Shadow Secret, Z105 Absolute Trap,
+Z502 Short Content Ghost, Z401 Missing Index). Parity matrix: **ZERO asymmetries** — identical
+findings across all three engines. Sovereign Root Protocol confirmed.
+
+Bonus discovery: Z501 fires on `draft: false` frontmatter field — consistent across all engines (by design).
+
+### Last Closed — D077 — The Machine-to-Machine Silence
 
 **Version:** 0.7.0 · **Date:** 2026-04-25
 
@@ -355,24 +373,6 @@ and suppresses all Rich output for json/sarif (Rule R20). Five call sites in `_c
 updated to pass format. `check all --format sarif` stdout now starts with `{`, not `╭`.
 `zenzic-action`: `upload-sarif@v3` → `@v4`, `setup-uv@v7` → `@v8`, version default
 `latest` → `0.7.0`. Rule R20 codified in [POLICIES].
-
-### Last Closed — D074+D075 — Coverage Iron Gate + R19 Testimony
-
-**Version:** 0.7.0 · **Date:** 2026-04-25
-
-D074: Three targeted tests for `_first_content_line()` multi-line comment continuation branches
-(in_html=True, in_mdx=True, unclosed frontmatter). Coverage: 79.82% → 80.00% across Python 3.11/3.12/3.13.
-D075: R19 `:::warning` admonition added to `configuration-reference.mdx` (EN + IT) — domain-level
-URL exclusion prohibition now visible at the point of use. All v0.7.0 governance obligations fulfilled.
-
-### Last Closed — D073 — The Law of Evolutionary Curation
-
-**Version:** 0.7.0 · **Date:** 2026-04-25
-
-All three Obsidian Ledgers refactored from "historical diaries" to "operational manuals".
-[CHRONICLES] removed — 14 bug post-mortems promoted to [POLICIES] rules (R11–R19) or [ADR] entries.
-[SPRINT LOG] replaced by [ACTIVE SPRINT] (2-sprint window). Law of Evolutionary Curation codified.
-R19 added (domain-level URL exclusion prohibition). ADR-006 extended with BUG-014 SPDX corollary.
 
 ---
 

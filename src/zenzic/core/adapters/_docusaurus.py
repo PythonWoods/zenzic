@@ -713,6 +713,16 @@ class DocusaurusAdapter:
                 return True  # conservative: assume it provides an index
         return False
 
+    def get_link_scheme_bypasses(self) -> frozenset[str]:
+        """Return ``{"pathname"}`` — the Docusaurus static-asset routing escape hatch.
+
+        Docusaurus uses ``pathname:///`` links to reference files under ``static/``
+        that bypass the React router.  The leading ``/`` in the path component is a
+        URI convention artifact, not a server-absolute path — suppressing Z105 for
+        these links is correct and intentional (Rule R16, CEO-055).
+        """
+        return frozenset({"pathname"})
+
     # ── Factory hook ───────────────────────────────────────────────────────
 
     @classmethod

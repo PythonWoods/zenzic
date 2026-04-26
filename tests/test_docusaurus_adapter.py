@@ -32,7 +32,7 @@ from zenzic.core.adapters._docusaurus import (
     _strip_js_comments,
     find_docusaurus_config,
 )
-from zenzic.core.validator import _DOCUSAURUS_SKIP_SCHEMES, _SKIP_SCHEMES, validate_links_structured
+from zenzic.core.validator import _SKIP_SCHEMES, validate_links_structured
 from zenzic.models.config import BuildContext, ZenzicConfig
 
 
@@ -673,8 +673,12 @@ class TestPathnameProtocolSupport:
         assert "pathname:" not in _SKIP_SCHEMES
 
     def test_pathname_in_docusaurus_skip_schemes(self) -> None:
-        """pathname: MUST be in the Docusaurus-specific skip list."""
-        assert "pathname:" in _DOCUSAURUS_SKIP_SCHEMES
+        """DocusaurusAdapter.get_link_scheme_bypasses() must include 'pathname'."""
+        from zenzic.core.adapters._docusaurus import DocusaurusAdapter
+
+        adapter = DocusaurusAdapter.__new__(DocusaurusAdapter)
+        assert "pathname" in adapter.get_link_scheme_bypasses()
+        assert "pathname:" not in _SKIP_SCHEMES
 
     def test_pathname_link_not_flagged_in_docusaurus(self, tmp_path: Path) -> None:
         """validate_links_structured must not raise any error for pathname:/// in Docusaurus mode."""

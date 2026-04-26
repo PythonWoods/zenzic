@@ -222,3 +222,25 @@ class BaseAdapter(Protocol):
             URL (e.g. ``/docs/guides/``); ``False`` otherwise.
         """
         ...
+
+    def get_link_scheme_bypasses(self) -> frozenset[str]:
+        """Return URI scheme names this engine uses legitimately that must not be flagged.
+
+        The validator adds a matching ``<scheme>:`` prefix to its skip list for
+        each returned name, suppressing both the unknown-scheme error and the
+        Z105 absolute-path check for URLs that use that scheme.
+
+        The Core never names a specific engine — it queries the active adapter
+        through this method, keeping the validator engine-agnostic.
+
+        Example — Docusaurus ``pathname:///`` static-asset links::
+
+            # DocusaurusAdapter
+            def get_link_scheme_bypasses(self) -> frozenset[str]:
+                return frozenset({"pathname"})
+
+        Returns:
+            A ``frozenset`` of scheme names (without the trailing colon), or
+            ``frozenset()`` when the engine has no special link-scheme bypass.
+        """
+        ...

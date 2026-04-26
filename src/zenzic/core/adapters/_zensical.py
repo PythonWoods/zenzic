@@ -207,6 +207,9 @@ class ZensicalLegacyProxy:
     def provides_index(self, directory_path: Path) -> bool:
         return self._adapter.provides_index(directory_path)
 
+    def get_link_scheme_bypasses(self) -> frozenset[str]:
+        return self._adapter.get_link_scheme_bypasses()
+
 
 class ZensicalAdapter:
     """Adapter for the Zensical build engine — reads ``zensical.toml`` natively.
@@ -438,6 +441,10 @@ class ZensicalAdapter:
             ``True`` if an ``index.md`` exists in the directory.
         """
         return (directory_path / "index.md").exists()
+
+    def get_link_scheme_bypasses(self) -> frozenset[str]:
+        """Zensical has no engine-specific link-scheme bypass."""
+        return frozenset()
 
     @classmethod
     def from_repo(

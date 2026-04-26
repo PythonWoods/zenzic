@@ -995,6 +995,63 @@ misdiagnosis. CEO-052 fix (already applied) eliminates the false Z104 when scann
 
 ---
 
+### D079+D080 — The Agnostic Siege + Protocol Sovereignty (2026-04-26)
+
+#### Refactored — D080: Protocol Sovereignty
+
+- **`validator.py` Core Leak removed — `BaseAdapter.get_link_scheme_bypasses()` introduced.**
+  `validator.py` contained two hardcoded references to `"docusaurus"` (lines 724–725 and 793–796)
+  that exposed the `pathname:` escape hatch via string comparison on the engine name.
+  Per Direttiva CEO 080 (Protocol Sovereignty), the Core must be engine-agnostic — it must know
+  the Protocol, not the actors.
+
+  **Changes:**
+  - `_DOCUSAURUS_SKIP_SCHEMES = ("pathname:",)` constant removed from `validator.py`.
+  - `get_link_scheme_bypasses() -> frozenset[str]` added to `BaseAdapter` protocol (`_base.py`).
+  - All four adapters implement the new method:
+    - `DocusaurusAdapter`: returns `frozenset({"pathname"})` — preserves the `pathname:///` escape hatch (Rule R16, CEO-055).
+    - `MkDocsAdapter`, `ZensicalAdapter`, `StandaloneAdapter`, `ZensicalLegacyProxy`: return `frozenset()`.
+  - `validate_links_async()` now derives `_bypass_schemes` from `adapter.get_link_scheme_bypasses()` immediately after adapter instantiation (line 622). `_effective_skip` is built as `_SKIP_SCHEMES + tuple(f"{s}:" for s in _bypass_schemes)`.
+  - Z105 absolute-path check: `if parsed.path.startswith("/") and parsed.scheme not in _bypass_schemes:` — no engine string in sight.
+  - `test_docusaurus_adapter.py`: `test_pathname_in_docusaurus_skip_schemes` updated to assert
+    `DocusaurusAdapter.get_link_scheme_bypasses()` contains `"pathname"` (constant-free test).
+
+  **Invariant:** Adding a new engine adapter tomorrow requires **zero changes** to `validator.py`.
+
+#### Lab — D079: The Agnostic Siege (Cross-Engine Parity Matrix)
+
+- **Three external demo repos scaffolded in `/dev/PythonSandbox/`:**
+  `zenzic-demo-standalone/`, `zenzic-demo-mkdocs/`, `zenzic-demo-zensical/` — each embedding
+  four deliberately crafted attack vectors against identical documentation content.
+
+  **Attack Vectors:**
+
+  | Vector | Rule | File |
+  |---|---|---|
+  | Shadow Secret | Z201 | `docs/how-to/configure.md` — fake AWS key `AKIAIOSFODNN7EXAMPLE` in YAML frontmatter |
+  | Absolute Trap | Z105 | `docs/reference/api.md`, `docs/how-to/configure.md`, `docs/tutorial/getting-started.md` — `/absolute/path` links |
+  | Short Content Ghost | Z502 | `docs/explanation/architecture.md` — 12 frontmatter lines, 2 prose words |
+  | Missing Index | Z401 | All 4 subdirectories (`tutorial/`, `how-to/`, `reference/`, `explanation/`) — no `index.md` |
+
+  **Parity Matrix Results (from demo dir + Sovereign Scan from core repo):**
+
+  | Engine | Z201 | Z105 | Z502 | Z401 |
+  |---|---|---|---|---|
+  | standalone | ✅ exit 2 | ✅ 3× | ✅ 4 files | ✅ 4× info |
+  | mkdocs | ✅ exit 2 | ✅ 3× | ✅ 4 files | ✅ 4× info |
+  | zensical | ✅ exit 2 | ✅ 3× | ✅ 4 files | ✅ 4× info |
+
+  **Verdict: ZERO asymmetries.** All three engines produce identical finding counts and severities
+  for the same documentation content. Sovereign Root Protocol confirmed: running
+  `uv run zenzic check all ../zenzic-demo-X` from the core repo loads the demo's config,
+  not the core's `zenzic.toml`.
+
+  **Bonus Discovery:** Z501 (placeholder text) fires on `draft: false` in `architecture.md`
+  frontmatter — the `draft` keyword matches the default placeholder pattern. This is consistent
+  across all three engines (by design: it's a content rule, not an engine rule).
+
+---
+
 ## [0.6.1] — 2026-04-19 — Obsidian Glass [SUPERSEDED]
 
 > ⚠ **[SUPERSEDED by v0.7.0]** — Version 0.6.1 is deprecated due to alignment issues with Docusaurus specifications and legacy terminology. All users must upgrade to v0.7.0 "Obsidian Maturity".
