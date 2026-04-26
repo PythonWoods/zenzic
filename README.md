@@ -418,7 +418,9 @@ Zenzic was born from a technical journey through the fragility of modern documen
 ecosystems. Discover the philosophy, the security siege, and the engineering behind the
 Sentinel in the [**Obsidian Engineering Series**](https://dev.to/pythonwoods/series/38629) on Dev.to.
 
-<!-- TODO: HN link — add when blog post /blog/beyond-the-siege-zenzic-v070 is published -->
+The v0.7.0 release story — AI-driven red-team siege, 4 bypass vectors closed, and the
+road to engine-agnostic parity — is documented in
+[**Beyond the Siege: Zenzic v0.7.0**](https://zenzic.dev/blog/beyond-the-siege-zenzic-v070).
 
 ---
 

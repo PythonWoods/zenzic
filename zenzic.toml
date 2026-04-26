@@ -83,6 +83,8 @@ excluded_build_artifacts = [
 excluded_external_urls = [
     "https://github.com/PythonWoods/zenzic",
     "https://github.com/settings/tokens",
+    # Blog post not yet published — remove exclusion when live
+    "https://zenzic.dev/blog/beyond-the-siege-zenzic-v070",
 ]
 
 # Pattern matching disabled: the README and CHANGELOG describe placeholder
