@@ -170,6 +170,23 @@ def score(
         _shared.console.print(score_summary)
         _shared.console.print(table)
 
+        if report.score == 100:
+            from rich.console import Group
+
+            _shared.console.print()
+            _shared.console.print(
+                Group(
+                    Text.from_markup(
+                        f"[bold {ObsidianPalette.BRAND}]{emoji('shield')} OBSIDIAN SEAL[/]"
+                    ),
+                    Text(),
+                    Text.from_markup(
+                        f"[{ObsidianPalette.SUCCESS}]{emoji('check')} Every check passed \u2014 "
+                        f"documentation integrity verified.[/{ObsidianPalette.SUCCESS}]"
+                    ),
+                )
+            )
+
     if effective_threshold > 0 and report.score < effective_threshold:
         _shared.console.print(
             f"\n[red]FAILED:[/] score {report.score} is below threshold {effective_threshold}."

@@ -119,9 +119,65 @@ def _inspect_capabilities() -> None:
             f"[/{ObsidianPalette.DIM}]"
         )
     )
+    _shared.console.print()
+
+    # ── Section C: Engine-specific Link Bypasses ──────────────────────────
+    bypass_table = Table(
+        title=(
+            f"[bold {ObsidianPalette.BRAND}]Engine-specific Link Bypasses[/]  "
+            f"[dim](Rule R21 \u2014 Protocol Sovereignty)[/dim]"
+        ),
+        title_justify="left",
+        box=box.ROUNDED,
+        border_style=ObsidianPalette.DIM,
+        header_style=ObsidianPalette.STYLE_BRAND,
+        pad_edge=True,
+        padding=(0, 1),
+    )
+    bypass_table.add_column("Engine", style="bold cyan", min_width=12, no_wrap=True)
+    bypass_table.add_column("Adapter", style="bold", min_width=20)
+    bypass_table.add_column("Bypass Schemes")
+
+    _BYPASS_ROWS = [
+        (
+            "docusaurus",
+            "DocusaurusAdapter",
+            Text.from_markup(
+                f"[bold]pathname:[/bold]  [{ObsidianPalette.DIM}](static-asset routing escape hatch)[/{ObsidianPalette.DIM}]"
+            ),
+        ),
+        (
+            "mkdocs",
+            "MkDocsAdapter",
+            Text.from_markup(f"[{ObsidianPalette.DIM}](none)[/{ObsidianPalette.DIM}]"),
+        ),
+        (
+            "zensical",
+            "ZensicalAdapter",
+            Text.from_markup(f"[{ObsidianPalette.DIM}](none)[/{ObsidianPalette.DIM}]"),
+        ),
+        (
+            "standalone",
+            "StandaloneAdapter",
+            Text.from_markup(f"[{ObsidianPalette.DIM}](none)[/{ObsidianPalette.DIM}]"),
+        ),
+    ]
+    for _engine, _adapter, _bypasses in _BYPASS_ROWS:
+        bypass_table.add_row(_engine, _adapter, _bypasses)
+
+    _shared.console.print(bypass_table)
+    _shared.console.print()
+    _shared.console.print(
+        Text.from_markup(
+            f"  [{ObsidianPalette.DIM}]R21: engine-specific behaviour is declared in the adapter "
+            f"via get_link_scheme_bypasses() \u2014 validator.py never hardcodes engine names."
+            f"[/{ObsidianPalette.DIM}]"
+        )
+    )
 
 
 # Canonical command
 inspect_app.command(
-    name="capabilities", help="Show all built-in scanners and registered plugin rules."
+    name="capabilities",
+    help="Show all built-in scanners, plugin rules, and engine-specific link bypasses.",
 )(_inspect_capabilities)
