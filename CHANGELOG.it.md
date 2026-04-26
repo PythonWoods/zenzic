@@ -13,6 +13,56 @@ Le versioni seguono il [Semantic Versioning](https://semver.org/).
 
 ## [Non rilasciato]
 
+### D090 — La Legge di Raggiungibilità UX (Raccolta Navigazione Navbar + Footer)
+
+#### Aggiunto
+
+- **Scoperta Navigazione Unificata — Multi-Source Harvester Docusaurus.**
+  `_parse_config_navigation()` aggiunta a `_docusaurus.py`. Legge
+  `docusaurus.config.ts` tramite regex puro Python (Pillar 2 — nessun Node.js) ed
+  estrae i valori `to:` e `docId:` sia da `themeConfig.navbar.items` **sia** da
+  `themeConfig.footer.links`. I valori `to:` vengono risolti rimuovendo i prefissi
+  `baseUrl` e `routeBasePath`, poi verificando l'esistenza del file `.md` / `.mdx`
+  su disco. I link non-doc (blog, URL esterni) non corrispondono mai a nessun file
+  e vengono ignorati silenziosamente.
+
+- **`DocusaurusAdapter.get_nav_paths()` è ora un vero Aggregatore Multi-Sorgente.**
+  Restituisce `sidebar_paths | navbar_paths | footer_paths`. Un file viene
+  classificato `ORPHAN_BUT_EXISTING` solo se assente da tutte e tre le superfici
+  di navigazione UI (sidebar, navbar, footer) — implementando la
+  **Legge di Raggiungibilità UX (R21)**: *un file è REACHABLE se qualsiasi
+  superficie cliccabile dall'utente lo dichiara*.
+
+- **`_navbar_paths: frozenset[str]`** memorizzato preventivamente da `from_repo()`
+  così che `get_nav_paths()` rimanga un aggregatore puro senza I/O.
+
+- **Fixture Atto 7 espansa** (`docusaurus-v3-enterprise`):
+  - `sidebars.ts` — sidebar esplicita (intro + guide/*, senza changelog o about).
+  - `docs/changelog.mdx` — collegato solo dalla navbar → atteso REACHABLE.
+  - `docs/about.mdx` — collegato solo dal footer → atteso REACHABLE.
+  - `docusaurus.config.ts` — aggiornato con `themeConfig.navbar` e `themeConfig.footer`.
+
+- **`engines.mdx`** — nuova sezione "Scoperta Navigazione Unificata" che documenta
+  l'aggregazione a 3 sorgenti, la Legge di Raggiungibilità UX e il contratto
+  `ORPHAN_BUT_EXISTING`. "Plugin sidebar dinamici" generalizzato a "Plugin nav dinamici".
+
+#### Architettura
+
+- **Risultato audit MCP registrato:** In Docusaurus, il routing è guidato dal
+  filesystem — tutti i file in `docs/` ricevono un URL indipendentemente da
+  sidebar/navbar/footer. Le superfici di navigazione sono costrutti di
+  scopribilità UX. Il modello orfani di Zenzic è **basato sulla scopribilità**,
+  non sull'esistenza dell'URL. Gli adapter MkDocs e Zensical confermati
+  architetturalmente completi.
+
+- **Purezza del Core mantenuta:** `validator.py` non contiene riferimenti a
+  "navbar", "sidebar" o "footer". Il Core chiama solo `adapter.get_nav_paths()`.
+
+#### Test
+
+- 14 nuovi test: `TestParseConfigNavigation` (NCF-01..10) + `TestUnifiedNavigation` (NCI-01..04).
+  **1 260 passing · 0 failing.**
+
 ### D085 — Full-Spec Alignment (Parser Sidebar Docusaurus + Chiusura #52)
 
 #### Aggiunto
@@ -425,7 +475,7 @@ L'extra opzionale `[mkdocs]` non esiste più. `pip install zenzic` è l'installa
   **Fix (ADR-007 — Sovereign Sandbox):** Dopo la risoluzione di `docs_root`, se
   `docs_root.relative_to(repo_root)` lancia `ValueError`, si riassegna `repo_root = docs_root`.
   Il target utente esplicito diventa la sandbox sovrana; il Blood Sentinel sorveglia le fughe
-  _da_ quel target, non la _posizione_ di esso.
+  *da* quel target, non la *posizione* di esso.
   Test di integrazione `test_check_all_external_docs_root_not_blocked_by_sentinel` aggiunto a
   `tests/test_cli.py`.
 
@@ -530,7 +580,7 @@ L'extra opzionale `[mkdocs]` non esiste più. `pip install zenzic` è l'installa
     prima di costruire l'insieme degli asset. `_build_exclusion_manager` propaga i metadata
     dell'adapter al gestore delle esclusioni al momento della costruzione.
 
-  Regola R13 (CEO-050) codificata in `[POLICIES]`: _"Non chiedere mai all'utente di escluderli manualmente."_
+  Regola R13 (CEO-050) codificata in `[POLICIES]`: *"Non chiedere mai all'utente di escluderli manualmente."*
 
 #### Test
 
@@ -1162,7 +1212,7 @@ Z104 nella scansione remota.
   keyword `engine = "vanilla"` sono stati rimossi. Tutti i progetti devono migrare a
   `engine = "standalone"`. Qualsiasi `zenzic.toml` che usa ancora `engine = "vanilla"`
   genera una `ConfigurationError [Z000]` all'avvio con un messaggio di migrazione chiaro.
-  _Migrazione:_ sostituire `engine = "vanilla"` con `engine = "standalone"` nel proprio
+  *Migrazione:* sostituire `engine = "vanilla"` con `engine = "standalone"` nel proprio
   `zenzic.toml` o nel blocco `[tool.zenzic]`.
 
 ### Aggiunto

@@ -29,6 +29,7 @@ from zenzic.core.adapters._docusaurus import (
     _extract_frontmatter_slug,
     _extract_route_base_path,
     _is_dynamic_config,
+    _parse_config_navigation,
     _parse_sidebars,
     _strip_js_comments,
     find_docusaurus_config,
@@ -925,3 +926,207 @@ class TestFromRepoSidebar:
         (docs / "secret.md").write_text("# Secret\n", encoding="utf-8")
         nav = adapter.get_nav_paths()
         assert adapter.classify_route(Path("secret.md"), nav) == "ORPHAN_BUT_EXISTING"
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Config navigation parser — _parse_config_navigation (D090)
+# NCF = Config Navigation Function unit tests
+# NCI = Config Navigation Integration tests
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestParseConfigNavigation:
+    """Unit tests for _parse_config_navigation (navbar + footer UX-discoverability)."""
+
+    def _write_config(self, tmp_path: Path, content: str) -> Path:
+        p = tmp_path / "docusaurus.config.ts"
+        p.write_text(content, encoding="utf-8")
+        return p
+
+    def _make_docs(self, tmp_path: Path, *rel_paths: str) -> Path:
+        docs = tmp_path / "docs"
+        docs.mkdir(exist_ok=True)
+        for rel in rel_paths:
+            target = docs / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text("# Doc\n", encoding="utf-8")
+        return docs
+
+    # NCF-01 — to: with routeBasePath prefix extracted correctly
+    def test_to_with_route_base_path(self, tmp_path: Path) -> None:
+        docs = self._make_docs(tmp_path, "changelog.md")
+        cfg = self._write_config(
+            tmp_path,
+            "const c = { themeConfig: { navbar: { items: [{ to: '/docs/changelog' }] } } };",
+        )
+        result = _parse_config_navigation(cfg, docs, "/", "docs")
+        assert result == frozenset({"changelog.md"})
+
+    # NCF-02 — docId: extracted directly (no prefix stripping)
+    def test_doc_id_direct(self, tmp_path: Path) -> None:
+        docs = self._make_docs(tmp_path, "guide/install.md")
+        cfg = self._write_config(
+            tmp_path,
+            "const c = { navbar: { items: [{ type: 'doc', docId: 'guide/install' }] } };",
+        )
+        result = _parse_config_navigation(cfg, docs, "/", "docs")
+        assert result == frozenset({"guide/install.md"})
+
+    # NCF-03 — footer to: also captured (same regex scope)
+    def test_footer_to_captured(self, tmp_path: Path) -> None:
+        docs = self._make_docs(tmp_path, "about.md")
+        cfg = self._write_config(
+            tmp_path,
+            "const c = { themeConfig: { footer: { links: [{ items: [{ to: '/docs/about' }] }] } } };",
+        )
+        result = _parse_config_navigation(cfg, docs, "/", "docs")
+        assert result == frozenset({"about.md"})
+
+    # NCF-04 — non-doc to: (blog, external) filtered by file-existence check
+    def test_non_doc_to_filtered(self, tmp_path: Path) -> None:
+        docs = self._make_docs(tmp_path, "real.md")
+        cfg = self._write_config(
+            tmp_path,
+            "const c = { navbar: { items: [{ to: '/blog' }, { to: '/docs/real' }] } };",
+        )
+        result = _parse_config_navigation(cfg, docs, "/", "docs")
+        assert result == frozenset({"real.md"})
+
+    # NCF-05 — .mdx extension resolved
+    def test_mdx_extension_resolved(self, tmp_path: Path) -> None:
+        docs = self._make_docs(tmp_path, "changelog.mdx")
+        cfg = self._write_config(
+            tmp_path,
+            "const c = { navbar: { items: [{ to: '/docs/changelog' }] } };",
+        )
+        result = _parse_config_navigation(cfg, docs, "/", "docs")
+        assert result == frozenset({"changelog.mdx"})
+
+    # NCF-06 — baseUrl prefix stripped before routeBasePath
+    def test_base_url_stripped(self, tmp_path: Path) -> None:
+        docs = self._make_docs(tmp_path, "intro.md")
+        cfg = self._write_config(
+            tmp_path,
+            "const c = { navbar: { items: [{ to: '/project/docs/intro' }] } };",
+        )
+        result = _parse_config_navigation(cfg, docs, "/project/", "docs")
+        assert result == frozenset({"intro.md"})
+
+    # NCF-07 — unreadable config → empty frozenset (no crash)
+    def test_unreadable_config_returns_empty(self, tmp_path: Path) -> None:
+        docs = self._make_docs(tmp_path)
+        missing = tmp_path / "docusaurus.config.ts"  # does not exist
+        result = _parse_config_navigation(missing, docs, "/", "docs")
+        assert result == frozenset()
+
+    # NCF-08 — JS comments in config stripped before parsing
+    def test_js_comments_stripped(self, tmp_path: Path) -> None:
+        docs = self._make_docs(tmp_path, "intro.md")
+        cfg = self._write_config(
+            tmp_path,
+            """\
+const c = {
+  // to: '/docs/commented-out-should-not-match',
+  navbar: { items: [{ to: '/docs/intro' }] },
+};
+""",
+        )
+        result = _parse_config_navigation(cfg, docs, "/", "docs")
+        assert "commented-out-should-not-match.md" not in result
+        assert "intro.md" in result
+
+    # NCF-09 — empty routeBasePath (docs at site root)
+    def test_empty_route_base_path(self, tmp_path: Path) -> None:
+        docs = self._make_docs(tmp_path, "intro.md")
+        cfg = self._write_config(
+            tmp_path,
+            "const c = { navbar: { items: [{ to: '/intro' }] } };",
+        )
+        result = _parse_config_navigation(cfg, docs, "/", "")
+        assert result == frozenset({"intro.md"})
+
+    # NCF-10 — directory ID in navbar resolves to index.md
+    def test_directory_id_resolves_to_index(self, tmp_path: Path) -> None:
+        docs = self._make_docs(tmp_path, "guide/index.md")
+        cfg = self._write_config(
+            tmp_path,
+            "const c = { navbar: { items: [{ to: '/docs/guide' }] } };",
+        )
+        result = _parse_config_navigation(cfg, docs, "/", "docs")
+        assert result == frozenset({"guide/index.md"})
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Unified Navigation Integration — D090 "UX-Discoverability Law"
+# NCI = Config Navigation Integration tests
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestUnifiedNavigation:
+    """Integration tests: sidebar + navbar + footer all contribute to REACHABLE."""
+
+    def _setup(self, tmp_path: Path, sidebar: str, config: str) -> tuple[Path, DocusaurusAdapter]:
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        (docs / "intro.md").write_text("# Intro\n", encoding="utf-8")
+        (docs / "changelog.md").write_text("# Changelog\n", encoding="utf-8")
+        (docs / "about.md").write_text("# About\n", encoding="utf-8")
+        (docs / "secret.md").write_text("# Secret\n", encoding="utf-8")
+        (tmp_path / "sidebars.ts").write_text(sidebar, encoding="utf-8")
+        (tmp_path / "docusaurus.config.ts").write_text(config, encoding="utf-8")
+        ctx = BuildContext(engine="docusaurus")
+        adapter = DocusaurusAdapter.from_repo(ctx, docs, tmp_path)
+        return docs, adapter
+
+    # NCI-01 — navbar-only file is REACHABLE (not in sidebar)
+    def test_navbar_only_file_reachable(self, tmp_path: Path) -> None:
+        _, adapter = self._setup(
+            tmp_path,
+            sidebar="export default { main: ['intro'] };",
+            config="const c = { baseUrl: '/', themeConfig: { navbar: { items: [{ to: '/docs/changelog' }] } } };",
+        )
+        nav = adapter.get_nav_paths()
+        assert "changelog.md" in nav
+        assert adapter.classify_route(Path("changelog.md"), nav) == "REACHABLE"
+
+    # NCI-02 — footer-only file is REACHABLE (not in sidebar or navbar)
+    def test_footer_only_file_reachable(self, tmp_path: Path) -> None:
+        _, adapter = self._setup(
+            tmp_path,
+            sidebar="export default { main: ['intro'] };",
+            config="const c = { baseUrl: '/', themeConfig: { footer: { links: [{ items: [{ to: '/docs/about' }] }] } } };",
+        )
+        nav = adapter.get_nav_paths()
+        assert "about.md" in nav
+        assert adapter.classify_route(Path("about.md"), nav) == "REACHABLE"
+
+    # NCI-03 — file absent from sidebar, navbar, and footer is ORPHAN_BUT_EXISTING
+    def test_unlisted_everywhere_is_orphan(self, tmp_path: Path) -> None:
+        _, adapter = self._setup(
+            tmp_path,
+            sidebar="export default { main: ['intro'] };",
+            config="const c = { baseUrl: '/', themeConfig: { navbar: { items: [{ to: '/docs/changelog' }] } } };",
+        )
+        nav = adapter.get_nav_paths()
+        assert adapter.classify_route(Path("secret.md"), nav) == "ORPHAN_BUT_EXISTING"
+
+    # NCI-04 — sidebar + navbar + footer all merged into single nav set
+    def test_all_sources_merged(self, tmp_path: Path) -> None:
+        _, adapter = self._setup(
+            tmp_path,
+            sidebar="export default { main: ['intro'] };",
+            config="""\
+const c = {
+  baseUrl: '/',
+  themeConfig: {
+    navbar: { items: [{ to: '/docs/changelog' }] },
+    footer: { links: [{ items: [{ to: '/docs/about' }] }] },
+  },
+};
+""",
+        )
+        nav = adapter.get_nav_paths()
+        assert "intro.md" in nav
+        assert "changelog.md" in nav
+        assert "about.md" in nav
+        assert "secret.md" not in nav
