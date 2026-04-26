@@ -418,6 +418,8 @@ Zenzic was born from a technical journey through the fragility of modern documen
 ecosystems. Discover the philosophy, the security siege, and the engineering behind the
 Sentinel in the [**Obsidian Engineering Series**](https://dev.to/pythonwoods/series/38629) on Dev.to.
 
+<!-- TODO: HN link — add when blog post /blog/beyond-the-siege-zenzic-v070 is published -->
+
 ---
 
 <div align="center">

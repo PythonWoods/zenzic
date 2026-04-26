@@ -421,6 +421,8 @@ Zenzic è nato da un percorso tecnico attraverso la fragilità dei moderni ecosi
 documentazione. Scopri la filosofia, l'assedio della sicurezza e l'ingegneria dietro il
 Sentinel nella [**Obsidian Engineering Series**](https://dev.to/pythonwoods/series/38629) su Dev.to.
 
+<!-- TODO: HN link — aggiungere quando il post /blog/beyond-the-siege-zenzic-v070 è pubblicato -->
+
 ---
 
 <div align="center">

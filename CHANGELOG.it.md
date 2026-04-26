@@ -13,7 +13,7 @@ Le versioni seguono il [Semantic Versioning](https://semver.org/).
 
 ## [Non rilasciato]
 
-## [0.7.0] — 2026-04-22 — Obsidian Maturity (Stable)
+## [0.7.0] — 2026-04-26 — Obsidian Maturity (Stable) — D084 Audit di Neutralità Obsidian
 
 > ⚓ Zenzic v0.7.0 segna il consolidamento dell'architettura core e il pieno allineamento con le specifiche ufficiali. Sostituisce v0.6.1.
 
@@ -955,6 +955,131 @@ Z104 nella scansione remota.
 - **`astral-sh/setup-uv@v7` → `@v8`** (miglioramenti cache).
 - **Default input `version` modificato da `latest` → `0.7.0`** (default orientato alla stabilità).
   Chi vuole aggiornamenti continui può impostare esplicitamente `version: latest`.
+
+---
+
+### D084 — Audit di Neutralità Obsidian (2026-04-26)
+
+#### Modificato — `docs/reference/engines.mdx` (EN + mirror IT)
+
+- **Sottosezione MkDocs `### Risoluzione degli URL di route` aggiunta.** Documenta che Zenzic
+  valida i link relativi a livello sorgente, rendendo la correttezza dei link immune alla
+  modalità `use_directory_urls`. I link assoluti (`/percorso/`) restano sempre segnalati come
+  `Z105 ABSOLUTE_PATH`.
+
+- **Sezione Proxy Trasparente Zensical riscritta ed elevata.**
+  - `:::warning[Regola del Custode Strutturale]` sostituito con `:::tip[Strategia di migrazione]`
+    — inquadramento corretto da "rete di sicurezza" a "feature distintiva di migrazione".
+  - Aggiunto anchor `{#zensical-transparent-proxy}` per deep-linking.
+  - Tabella di mappatura del ponte: 4 campi di `mkdocs.yml` → utilizzo da parte di
+    `ZensicalAdapter` (`docs_dir`, `nav`, `plugins.i18n.languages`, `theme.favicon`/`theme.logo`).
+
+- **Sottosezione Zensical `### Limitazioni` aggiunta.** Copre nav generata da plugin,
+  analisi TOML statica e scope di rilevamento di `zensical.toml`.
+
+- **Sezione Standalone espansa da stub 17 righe a sezione completa (~43 righe).** Quattro
+  sottosezioni: `### Quando usare Standalone` (3 casi d'uso), `### Configurazione minimale`
+  (blocco TOML), `### Capacità` (controlli a piena potenza elencati), `### Limitazioni`
+  (controllo orphan disabilitato, pattern di soppressione locale).
+
+#### Aggiunto
+
+- **`README.md`: HN Hook.** Link diretto a `https://zenzic.dev/blog/beyond-the-siege-zenzic-v070`
+  aggiunto nella sezione "The Obsidian Chronicles".
+
+---
+
+### D083 — Iron Gate & Automazione dei Satelliti (2026-04-26)
+
+#### Aggiunto — Porta di Ferro della Copertura
+
+- **3 test CLI mirati in `tests/test_cli.py`** che portano la copertura totale all'**80.07%** (1232 test):
+  - `test_inspect_capabilities_shows_bypass_table` — verifica che la Sezione C della tabella bypass
+    sia renderizzata con `"Engine-specific Link Bypasses"`, `"pathname:"`, `"docusaurus"` e `"R21"`.
+  - `test_score_perfect_shows_obsidian_seal` — simula score=100; verifica `"OBSIDIAN SEAL"` e
+    `"Every check passed"` nell'output.
+  - `test_score_low_uses_error_style` — simula score=30; copre la linea 132 (ramo `STYLE_ERR`);
+    verifica che l'Obsidian Seal NON appaia.
+
+#### Aggiunto — Automazione dei Satelliti
+
+- **`zenzic-doc/noxfile.py`** — 5 sessioni nox: `lint` (TypeScript + Markdown), `typecheck`,
+  `build` (build Docusaurus produzione), `reuse` (REUSE/SPDX), `preflight` (pipeline completa).
+  Fornisce un punto d'ingresso unificato `nox -s preflight` che rispecchia il repo Core.
+
+- **`zenzic-action/noxfile.py`** — 3 sessioni nox: `reuse`, `check` (auto-audit Zenzic),
+  `preflight`. Dà all'Action la stessa disciplina di automazione del Core.
+
+- **`zenzic-action/justfile`** — 5 comandi: `bump`, `reuse`, `check`, `preflight`, `clean`.
+
+- **`zenzic-action/scripts/bump-version.sh`** — Script Bash per sincronizzare la versione
+  Zenzic predefinita in `action.yml` con un singolo comando (`just bump 0.7.1`). Valida il
+  formato della versione; idempotente; produce un riepilogo chiaro delle modifiche.
+
+#### Risolto — Conformità REUSE di `zenzic-action`
+
+- Aggiunti `LICENSES/Apache-2.0.txt`, `.reuse/dep5` (copre `package.json` e asset SVG),
+  e intestazione SPDX su `.github/copilot-instructions.md`. Ora 12/12 file conformi.
+
+---
+
+### D082 — La Finitura Obsidian Finale (2026-04-26)
+
+#### Aggiunto
+
+- **`zenzic inspect capabilities`: Sezione C "Bypass di Schemi Link per Engine".**
+  Nuova terza tabella che mostra quale engine dichiara quali bypass URI via
+  `get_link_scheme_bypasses()`. Righe: `docusaurus` → `pathname:` (escape hatch per asset statici),
+  `mkdocs` / `zensical` / `standalone` → `(nessuno)`. Nota footer Regola R21 aggiunta.
+  Help del comando aggiornato per includere i bypass engine-specifici.
+
+- **`zenzic score`: Pannello Obsidian Seal a 100/100.**
+  Quando `report.score == 100`, il comando score visualizza lo stesso pannello celebrativo
+  dell'Atto Lab 0 — `Group` con intestazione scudo `ObsidianPalette.BRAND` e riga di successo
+  che conferma l'integrità della documentazione. Pannello soppresso in modalità `--format json`.
+
+#### Verificato Completo
+
+- **`docs/how-to/add-badges.mdx` (EN) righe 73-111** già documentano il flusso completo del badge
+  dinamico: `zenzic score --save` → `.zenzic-score.json` → GitHub Actions con
+  `dynamic-badges-action` → endpoint Shields.io. Nessuna modifica necessaria.
+
+---
+
+### D081 — La War Room (2026-04-26)
+
+#### Aggiunto — Matrice di Validazione Cross-Engine
+
+- **`examples/matrix/red-team/` — tre fixture con vettori d'attacco (standalone, mkdocs, zensical).**
+  Ogni fixture contiene vettori d'attacco identici: Z201 (Shadow Secret — `aws_access_key_id` nel
+  frontmatter YAML), Z105 (Absolute Trap — tre link con percorso assoluto), Z502 (Short Content Ghost
+  — quattro file sotto le 50 parole), Z501 (Ghost File — `draft: false`), Z401 (Missing Index —
+  quattro sottodirectory senza `index.md`). Tutti e tre producono findings identici.
+  **Exit code: 2 (SECURITY BREACH).**
+
+- **`examples/matrix/blue-team/` — tre fixture di documentazione pulita (standalone, mkdocs, zensical).**
+  Versioni corrette: link relativi, prosa ≥50 parole, `index.md` in ogni sottodirectory, nessuna
+  credenziale, campo `draft:` rimosso. Tutti e tre ottengono l'Obsidian Seal.
+  **Exit code: 0 (Obsidian Seal ✨).** Parità confermata: zero asimmetrie tra engine.
+
+#### Documentazione (zenzic-doc)
+
+- **`architecture.mdx` (EN+IT): sottosezioni "Sovranità del Protocollo" e "Parità di Validazione Cross-Engine"**
+  aggiunte dopo la tabella Adapter Built-in. Documenta `get_link_scheme_bypasses()`, la Regola R21,
+  e la garanzia di parità D079 con tabella per-adapter. Riferimento a `examples/matrix/` come prova vivente.
+
+- **`implement-adapter.mdx` (EN+IT): Step 6 "Dichiarare i Bypass per gli Schemi Link" aggiunto;**
+  elemento 11 del Contratto Adapter per `get_link_scheme_bypasses()` aggiunto.
+
+- **`first-audit.mdx` (EN+IT): Step 2 ristrutturato in "L'Assedio e lo Scudo".**
+  Mostra prima `uvx zenzic lab 2` (banner Security Breach), poi `uvx zenzic lab 0` (Obsidian Seal).
+  Implementa la Regola R22 (Fall-before-Redemption): il contrasto emotivo è la lezione.
+
+#### Governance
+
+- **Regola R22 (Fall-before-Redemption) codificata in [POLICIES]:** il contenuto tutorial deve
+  mostrare prima lo stato compromesso (L'Assedio), spiegare la correzione, poi mostrare lo stato
+  corretto (L'Obsidian Seal).
 
 ---
 

@@ -107,6 +107,8 @@ Zenzic builds a **Virtual Site Map (VSM)** — a projection of the final site in
 
 - **[RULE R21] Protocol Sovereignty (D080).** The Core (`validator.py`, `scanner.py`) must never hardcode engine names (`"docusaurus"`, `"mkdocs"`, etc.) as conditions for validation logic. Engine-specific behaviour must be declared in the adapter (`BaseAdapter` protocol method) and queried by the Core. **Implementation:** `BaseAdapter.get_link_scheme_bypasses() -> frozenset[str]` is the canonical pattern. If the Core must behave differently per engine, add a `get_*()` method to the protocol — never add `if engine == "x"` to Core logic.
 
+- **[RULE R22] Fall-before-Redemption (D081).** Tutorial and onboarding content must show the broken state first (The Siege), explain the fix, then show the passing state (The Obsidian Seal). The emotional contrast is the lesson — a green exit means nothing without the memory of the breach. **Implementation:** `first-audit.mdx` Step 2 uses `uvx zenzic lab 2` (leaked credential) as the Siege, then `uvx zenzic lab 0` as the Shield. The `examples/matrix/red-team/` fixtures are the canonical broken state; `examples/matrix/blue-team/` is the canonical fixed state.
+
 ### The Law of Executive Brevity [MANDATORY] — D068
 
 - **[INVARIANT] Public-facing files (`RELEASE.md`, `README.md`) are for humans and decision makers — not for implementation audit trails.**
@@ -348,31 +350,37 @@ tests/
 
 ## [ACTIVE SPRINT] — Working Context
 
-### D079+D080 — The Agnostic Siege + Protocol Sovereignty (Current)
+### D084 — The Obsidian Neutrality Audit (Current)
 
 **Version:** 0.7.0 · **Date:** 2026-04-26
 
-D080: Core Leak removed from `validator.py` — `_DOCUSAURUS_SKIP_SCHEMES` constant deleted,
-`BaseAdapter.get_link_scheme_bypasses() -> frozenset[str]` added to protocol. `DocusaurusAdapter`
-returns `frozenset({"pathname"})`; all others return `frozenset()`. The Core is now 100% engine-agnostic:
-adding a new adapter requires zero changes to `validator.py`.
+`docs/reference/engines.mdx` (EN + IT mirror) — 4 surgical changes:
 
-D079: Three external demo repos scaffolded (`zenzic-demo-standalone`, `zenzic-demo-mkdocs`,
-`zenzic-demo-zensical`) with four attack vectors each (Z201 Shadow Secret, Z105 Absolute Trap,
-Z502 Short Content Ghost, Z401 Missing Index). Parity matrix: **ZERO asymmetries** — identical
-findings across all three engines. Sovereign Root Protocol confirmed.
+- **Change A (MkDocs):** `### Route URL resolution` subsection added — explains `use_directory_urls`
+  is irrelevant to Zenzic's source-level link validation; absolute links always flagged as Z105.
+- **Change B (Zensical):** Transparent Proxy section expanded and reframed — `:::warning` → `:::tip`,
+  anchor `{#zensical-transparent-proxy}`, bridge mapping table (4 `mkdocs.yml` fields → ZensicalAdapter uses).
+- **Change C (Zensical):** `### Limitations` subsection added — plugin-generated nav, dynamic content,
+  discovery scope.
+- **Change D (Standalone):** 17-line stub → full section with `### When to use Standalone`,
+  `### Minimal configuration`, `### Capabilities`, `### Limitations`.
 
-Bonus discovery: Z501 fires on `draft: false` frontmatter field — consistent across all engines (by design).
+`README.md`: HN Hook — direct link to `https://zenzic.dev/blog/beyond-the-siege-zenzic-v070`
+added under "The Obsidian Chronicles".
 
-### Last Closed — D077 — The Machine-to-Machine Silence
+### Last Closed — D083 — The Iron Gate & Sibling Automation
 
-**Version:** 0.7.0 · **Date:** 2026-04-25
+**Version:** 0.7.0 · **Date:** 2026-04-26
 
-Machine Silence fix: `_print_no_config_hint()` in `_shared.py` now accepts `output_format`
-and suppresses all Rich output for json/sarif (Rule R20). Five call sites in `_check.py`
-updated to pass format. `check all --format sarif` stdout now starts with `{`, not `╭`.
-`zenzic-action`: `upload-sarif@v3` → `@v4`, `setup-uv@v7` → `@v8`, version default
-`latest` → `0.7.0`. Rule R20 codified in [POLICIES].
+Coverage Iron Gate: **80.07%** (1232 passing). 3 targeted tests added to `test_cli.py`:
+`test_inspect_capabilities_shows_bypass_table`, `test_score_perfect_shows_obsidian_seal`,
+`test_score_low_uses_error_style`. Line 132 (`score_style = STYLE_ERR`) now covered.
+
+Sibling Automation: `noxfile.py` created for `zenzic-doc` (5 sessions: lint, typecheck,
+build, reuse, preflight) and `zenzic-action` (3 sessions: reuse, check, preflight).
+`justfile` + `scripts/bump-version.sh` created for `zenzic-action` — single command to
+sync the Zenzic version default in `action.yml`. REUSE compliance fixed: `zenzic-action`
+now 12/12 (`LICENSES/Apache-2.0.txt` + `.reuse/dep5` + SPDX header on copilot-instructions.md).
 
 ---
 
