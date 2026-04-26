@@ -1,0 +1,10 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+
+# Red-team fixture: attack vectors for zensical engine.
+# Expected: exit 2 (SECURITY BREACH).
+
+docs_dir = "docs"
+
+[build_context]
+engine = "zensical"

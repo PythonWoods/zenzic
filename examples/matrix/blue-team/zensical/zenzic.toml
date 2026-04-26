@@ -1,0 +1,10 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+
+# Blue-team fixture: clean documentation for zensical engine.
+# Expected: exit 0 (Obsidian Seal ✨).
+
+docs_dir = "docs"
+
+[build_context]
+engine = "zensical"

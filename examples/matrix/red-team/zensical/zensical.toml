@@ -1,0 +1,14 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+
+[project]
+site_name = "Red-Team Zensical War Room"
+docs_dir  = "docs"
+
+nav = [
+    "index.md",
+    "tutorial/getting-started.md",
+    "how-to/configure.md",
+    "reference/api.md",
+    "explanation/architecture.md",
+]
