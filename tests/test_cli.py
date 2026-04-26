@@ -1078,3 +1078,70 @@ class TestShowInfoFilter:
         """--show-info flag must be accepted by check all without crashing."""
         result = runner.invoke(app, ["check", "all", "--show-info"])
         assert result.exit_code == 0, result.stdout
+
+
+# ---------------------------------------------------------------------------
+# inspect capabilities — D083 Iron Gate
+# ---------------------------------------------------------------------------
+
+
+def test_inspect_capabilities_shows_bypass_table() -> None:
+    """inspect capabilities must render Section C with engine-specific bypass schemes."""
+    result = runner.invoke(app, ["inspect", "capabilities"])
+    assert result.exit_code == 0
+    assert "Engine-specific Link Bypasses" in result.stdout
+    assert "pathname:" in result.stdout
+    assert "docusaurus" in result.stdout
+    assert "R21" in result.stdout
+
+
+# ---------------------------------------------------------------------------
+# score — D083 Iron Gate
+# ---------------------------------------------------------------------------
+
+
+@patch("zenzic.cli._standalone.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._standalone.ZenzicConfig.load", return_value=(_CFG, False))
+@patch("zenzic.cli._standalone._run_all_checks")
+def test_score_perfect_shows_obsidian_seal(_run: object, _cfg: object, _root: object) -> None:
+    """score at 100/100 must display the Obsidian Seal celebratory panel."""
+    from zenzic.core.scorer import CategoryScore, ScoreReport
+
+    _run.return_value = ScoreReport(  # type: ignore[attr-defined]
+        score=100,
+        categories=[
+            CategoryScore("links", 0.35, 0, 1.0, 0.35),
+            CategoryScore("orphans", 0.20, 0, 1.0, 0.20),
+            CategoryScore("snippets", 0.20, 0, 1.0, 0.20),
+            CategoryScore("placeholders", 0.15, 0, 1.0, 0.15),
+            CategoryScore("assets", 0.10, 0, 1.0, 0.10),
+        ],
+    )
+    result = runner.invoke(app, ["score"])
+    assert result.exit_code == 0
+    assert "100/100" in result.stdout
+    assert "OBSIDIAN SEAL" in result.stdout
+    assert "Every check passed" in result.stdout
+
+
+@patch("zenzic.cli._standalone.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._standalone.ZenzicConfig.load", return_value=(_CFG, False))
+@patch("zenzic.cli._standalone._run_all_checks")
+def test_score_low_uses_error_style(_run: object, _cfg: object, _root: object) -> None:
+    """score below 50 must use red error styling and must NOT show Obsidian Seal."""
+    from zenzic.core.scorer import CategoryScore, ScoreReport
+
+    _run.return_value = ScoreReport(  # type: ignore[attr-defined]
+        score=30,
+        categories=[
+            CategoryScore("links", 0.35, 5, 0.0, 0.0),
+            CategoryScore("orphans", 0.20, 3, 0.40, 0.08),
+            CategoryScore("snippets", 0.20, 0, 1.0, 0.20),
+            CategoryScore("placeholders", 0.15, 1, 0.80, 0.12),
+            CategoryScore("assets", 0.10, 0, 1.0, 0.10),
+        ],
+    )
+    result = runner.invoke(app, ["score"])
+    assert result.exit_code == 0
+    assert "30/100" in result.stdout
+    assert "OBSIDIAN SEAL" not in result.stdout
