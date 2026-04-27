@@ -147,7 +147,7 @@ Registry: `src/zenzic/core/codes.py` — **single source of truth**. Never add a
 | Z3xx | Reference Integrity | Z301 DANGLING_REF, Z302 DEAD_DEF, Z303 CIRCULAR_LINK |
 | Z4xx | Structure | Z401 MISSING_DIRECTORY_INDEX, Z402 ORPHAN_PAGE, Z403 SNIPPET_UNREACHABLE, Z404 CONFIG_ASSET_MISSING |
 | Z5xx | Content Quality | Z501 PLACEHOLDER, Z502 SHORT_CONTENT, Z503 SNIPPET_ERROR, Z504 QUALITY_REGRESSION |
-| Z9xx | Engine / System | Z901 RULE_ERROR, Z902 RULE_TIMEOUT, Z903 CONFIG_ERROR, Z904 DISCOVERY_ERROR |
+| Z9xx | Engine / System | Z901 RULE_ERROR, Z902 RULE_TIMEOUT, Z903 UNUSED_ASSET, Z904 DISCOVERY_ERROR |
 
 ### Adapter Identity Rules
 
@@ -387,14 +387,6 @@ updated to "Dynamic nav plugins".
 `ORPHAN_BUT_EXISTING` detection. `from_repo()` auto-detects `sidebars.ts`/`.js`.
 Issue #47 closed. Issue #52 (SARIF) confirmed already implemented in D081/D082.
 14 tests (SBP-01..10 + SBI-01..04). 1 246 passing.
-
-### Last Last Closed — D084 — The Obsidian Neutrality Audit
-
-**Version:** 0.7.0 · **Date:** 2026-04-26
-
-`engines.mdx` (EN + IT mirror) — 4 changes: MkDocs Route URL note, Zensical
-Transparent Proxy tip, Zensical Limitations, Standalone full section expansion.
-README.md: HN Hook (blog link excluded in `zenzic.toml` until published).
 
 ---
 
