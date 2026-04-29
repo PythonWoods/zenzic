@@ -78,7 +78,7 @@ SPDX-License-Identifier = "Apache-2.0"
 # ── Project root — prose ──────────────────────────────────────────────────────
 
 [[annotations]]
-path = ["README.md", "README.it.md", "CHANGELOG.md", "CHANGELOG.it.md", "CONTRIBUTING.md", "CONTRIBUTING.it.md", "ROADMAP.md", "SECURITY.md", "CODE_OF_CONDUCT.md", "NOTICE", "LICENSE"]
+path = ["README.md", "README.it.md", "CHANGELOG.md", "CHANGELOG.it.md", "CONTRIBUTING.md", "CONTRIBUTING.it.md", "ROADMAP.md", "SECURITY.md", "CODE_OF_CONDUCT.md", "NOTICE", "LICENSE", "ZENZIC_BRAIN.md"]
 SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
 SPDX-License-Identifier = "Apache-2.0"
 

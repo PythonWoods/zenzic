@@ -14,7 +14,8 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).parent.parent
 SRC_ROOT = REPO_ROOT / "src" / "zenzic"
-LEDGER = REPO_ROOT / ".github" / "copilot-instructions.md"
+LEDGER = REPO_ROOT / "ZENZIC_BRAIN.md"
+SHADOW = REPO_ROOT / ".github" / "copilot-instructions.md"
 
 MAP_START = "<!-- MAP_START -->"
 MAP_END = "<!-- MAP_END -->"
@@ -147,7 +148,7 @@ def extract_module_info(path: Path) -> dict:
 def build_code_map() -> str:
     """Builds the Markdown [CODE MAP] block."""
     lines = [
-        "## [CODE MAP] — Indice Rapido Moduli",
+        "### Mappa Moduli",
         "",
         "> Auto-generato da `scripts/map_project.py` via AST (CEO-083 — Sentinel Mapper Protocol).",
         "> Aggiornare con `just map-update` dopo ogni modifica a `src/`.",
@@ -214,7 +215,7 @@ def update_ledger(code_map: str) -> None:
     if start_idx == -1 or end_idx == -1:
         print(
             f"[ERROR] Tags {MAP_START!r} or {MAP_END!r} not found in {LEDGER}.\n"
-            "Add the tags to copilot-instructions.md before running map-update.",
+            "Add the tags to ZENZIC_BRAIN.md before running map-update.",
             file=sys.stderr,
         )
         sys.exit(1)
@@ -222,7 +223,15 @@ def update_ledger(code_map: str) -> None:
     new_block = f"{MAP_START}\n{code_map}\n{MAP_END}"
     new_text = text[:start_idx] + new_block + text[end_idx + len(MAP_END) :]
     LEDGER.write_text(new_text, encoding="utf-8")
-    print(f"[CODE MAP] updated in {LEDGER.relative_to(REPO_ROOT)}")
+    print(f"[CODE MAP] updated in {LEDGER.name}")
+
+
+def shadow_sync() -> None:
+    """Copies ZENZIC_BRAIN.md → .github/copilot-instructions.md for IDE compatibility."""
+    content = LEDGER.read_text(encoding="utf-8")
+    SHADOW.parent.mkdir(parents=True, exist_ok=True)
+    SHADOW.write_text(content, encoding="utf-8")
+    print(f"[SHADOW] {SHADOW.relative_to(REPO_ROOT)} synced from {LEDGER.name}")
 
 
 def main() -> None:
@@ -232,6 +241,7 @@ def main() -> None:
 
     code_map, violations = build_code_map()
     update_ledger(code_map)
+    shadow_sync()
 
     n = code_map.count("\n| `")
     print(f"[OK] {n} modules mapped.")
