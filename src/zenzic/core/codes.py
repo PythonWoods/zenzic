@@ -35,7 +35,7 @@ Z5xx — Content Quality
     Z501  PLACEHOLDER          — page contains stub / TODO content
     Z502  SHORT_CONTENT        — page word count below minimum threshold
     Z503  SNIPPET_ERROR        — fenced code block fails syntax validation
-    Z504  QUALITY_REGRESSION   — Obsidian Scorer detected score drop vs saved baseline
+    Z504  QUALITY_REGRESSION   — Sentinel Scorer detected score drop vs saved baseline
 
 Z9xx — Engine / System
     Z901  RULE_ENGINE_ERROR    — plugin rule raised an unexpected exception

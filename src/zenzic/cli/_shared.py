@@ -20,7 +20,7 @@ from rich.panel import Panel
 from zenzic.core.adapters import list_adapter_engines
 from zenzic.core.exclusion import LayeredExclusionManager
 from zenzic.core.reporter import Finding
-from zenzic.core.ui import ObsidianPalette, ObsidianUI, emoji
+from zenzic.core.ui import SentinelPalette, SentinelUI, emoji
 from zenzic.models.config import ZenzicConfig
 
 
@@ -34,7 +34,7 @@ console = Console(
     else None,
 )
 
-_ui = ObsidianUI(console)
+_ui = SentinelUI(console)
 
 
 def configure_console(*, no_color: bool = False, force_color: bool = False) -> None:
@@ -51,11 +51,11 @@ def configure_console(*, no_color: bool = False, force_color: bool = False) -> N
         console = Console(highlight=False, force_terminal=True)
     # else: keep existing console — no_color=False + force_color=False means "auto",
     # which is already set correctly in the module-level Console (force_terminal=None).
-    _ui = ObsidianUI(console)
+    _ui = SentinelUI(console)
 
 
-def get_ui() -> ObsidianUI:
-    """Return the current centralized :class:`~zenzic.ui.ObsidianUI` instance.
+def get_ui() -> SentinelUI:
+    """Return the current centralized :class:`~zenzic.ui.SentinelUI` instance.
 
     Always performs a live lookup so callers outside this module always receive
     the instance that is current *after* any ``configure_console()`` call.
@@ -360,7 +360,7 @@ def _validate_docs_root(repo_root: Path, docs_root: Path) -> None:
         resolved_docs.relative_to(resolved_repo)
     except ValueError:
         console.print(
-            f"[bold {ObsidianPalette.FATAL}]BLOOD SENTINEL:[/] docs_dir resolves to "
+            f"[bold {SentinelPalette.FATAL}]BLOOD SENTINEL:[/] docs_dir resolves to "
             f"[bold]{resolved_docs}[/] which is outside the repository root "
             f"[bold]{resolved_repo}[/]. Path traversal blocked."
         )

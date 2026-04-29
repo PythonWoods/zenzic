@@ -24,7 +24,7 @@ from zenzic.core.scanner import (
     find_unused_assets,
     scan_docs_references,
 )
-from zenzic.core.ui import ObsidianPalette
+from zenzic.core.ui import SentinelPalette
 from zenzic.core.validator import (
     LinkError,
     SnippetError,
@@ -40,7 +40,7 @@ from . import _shared
 
 check_app = typer.Typer(
     name="check",
-    help=f"[bold {ObsidianPalette.BRAND}]Check[/] — Run documentation quality checks.",
+    help=f"[bold {SentinelPalette.BRAND}]Check[/] — Run documentation quality checks.",
     no_args_is_help=True,
     rich_markup_mode="rich",
 )

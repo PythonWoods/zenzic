@@ -15,7 +15,7 @@ from rich.panel import Panel
 from rich.rule import Rule
 from rich.text import Text
 
-from zenzic.core.ui import ObsidianPalette, ObsidianUI, emoji
+from zenzic.core.ui import SentinelPalette, SentinelUI, emoji
 
 
 @dataclass(slots=True)
@@ -33,11 +33,11 @@ class Finding:
 
 
 _SEVERITY_STYLE: dict[str, str] = {
-    "error": ObsidianPalette.STYLE_ERR,
-    "warning": ObsidianPalette.STYLE_WARN,
-    "info": ObsidianPalette.STYLE_BRAND,
-    "security_breach": f"bold white on {ObsidianPalette.ERROR}",
-    "security_incident": f"bold white on {ObsidianPalette.FATAL}",
+    "error": SentinelPalette.STYLE_ERR,
+    "warning": SentinelPalette.STYLE_WARN,
+    "info": SentinelPalette.STYLE_BRAND,
+    "security_breach": f"bold white on {SentinelPalette.ERROR}",
+    "security_incident": f"bold white on {SentinelPalette.FATAL}",
 }
 
 
@@ -119,15 +119,15 @@ def _render_snippet(
         max_src = max(20, term_cols - 9 - gutter_w)
 
         t = Text()
-        t.append(f"    {num}  ", style=ObsidianPalette.DIM)
+        t.append(f"    {num}  ", style=SentinelPalette.DIM)
         if is_err:
-            t.append("❱  ", style=ObsidianPalette.STYLE_ERR)
+            t.append("❱  ", style=SentinelPalette.STYLE_ERR)
             if len(src) > max_src:
                 t.append(src[: max_src - 1] + "…")
             else:
                 t.append(src)
         else:
-            t.append("│  ", style=ObsidianPalette.DIM)
+            t.append("│  ", style=SentinelPalette.DIM)
             if len(src) > max_src:
                 t.append(src[: max_src - 1] + "…", style="dim")
             else:
@@ -140,9 +140,9 @@ def _render_snippet(
             caret_len = len(match_text)
             if col_start + caret_len <= max_src:
                 ct = Text()
-                ct.append(f"    {' ' * gutter_w}  ", style=ObsidianPalette.DIM)
-                ct.append("│  ", style=ObsidianPalette.DIM)
-                ct.append(" " * col_start + "^" * caret_len, style=ObsidianPalette.STYLE_ERR)
+                ct.append(f"    {' ' * gutter_w}  ", style=SentinelPalette.DIM)
+                ct.append("│  ", style=SentinelPalette.DIM)
+                ct.append(" " * col_start + "^" * caret_len, style=SentinelPalette.STYLE_ERR)
                 result.append(ct)
 
     return result
@@ -222,16 +222,16 @@ class SentinelReporter:
         if target is not None:
             parts.append(target)
         if total:
-            breakdown = f"([{ObsidianPalette.BRAND}]{docs_count}[/] docs, [{ObsidianPalette.BRAND}]{assets_count}[/] assets)"
+            breakdown = f"([{SentinelPalette.BRAND}]{docs_count}[/] docs, [{SentinelPalette.BRAND}]{assets_count}[/] assets)"
             parts.append(
-                f"[{ObsidianPalette.BRAND}]{total}[/] file{'s' if total != 1 else ''} {breakdown}"
+                f"[{SentinelPalette.BRAND}]{total}[/] file{'s' if total != 1 else ''} {breakdown}"
             )
         if elapsed:
-            parts.append(f"[{ObsidianPalette.BRAND}]{elapsed:.1f}[/]s")
+            parts.append(f"[{SentinelPalette.BRAND}]{elapsed:.1f}[/]s")
             if total:
                 throughput = total / elapsed
-                parts.append(f"[{ObsidianPalette.BRAND}]{throughput:.0f}[/] files/s")
-        telemetry = Text.from_markup(f"[{ObsidianPalette.DIM}]{f' {dot} '.join(parts)}[/]")
+                parts.append(f"[{SentinelPalette.BRAND}]{throughput:.0f}[/] files/s")
+        telemetry = Text.from_markup(f"[{SentinelPalette.DIM}]{f' {dot} '.join(parts)}[/]")
 
         # ── Security breach panels (rendered BEFORE main panel) ───────────────
         if breach_findings:
@@ -257,9 +257,9 @@ class SentinelReporter:
                 self._con.print(
                     Panel(
                         breach_body,
-                        title=f"[bold white on {ObsidianPalette.ERROR}]  SECURITY BREACH DETECTED  ",
+                        title=f"[bold white on {SentinelPalette.ERROR}]  SECURITY BREACH DETECTED  ",
                         title_align="center",
-                        border_style=ObsidianPalette.STYLE_ERR,
+                        border_style=SentinelPalette.STYLE_ERR,
                         padding=(1, 2),
                         expand=True,
                     )
@@ -268,30 +268,30 @@ class SentinelReporter:
         if not normal_findings and not breach_findings:
             # ── All-clear panel ───────────────────────────────────────────────
             _ok = ok_message or (
-                f"[bold {ObsidianPalette.SUCCESS}]Obsidian Seal:[/bold {ObsidianPalette.SUCCESS}]"
-                f" [{ObsidianPalette.SUCCESS}]All statically-detectable links, credentials,"
-                f" and references verified.[/{ObsidianPalette.SUCCESS}]"
+                f"[bold {SentinelPalette.SUCCESS}]Sentinel Seal:[/bold {SentinelPalette.SUCCESS}]"
+                f" [{SentinelPalette.SUCCESS}]All statically-detectable links, credentials,"
+                f" and references verified.[/{SentinelPalette.SUCCESS}]"
             )
             _ok_items: list[RenderableType] = [
                 telemetry,
                 Text(),
-                Rule(style=ObsidianPalette.DIM),
+                Rule(style=SentinelPalette.DIM),
                 Text(),
                 Text.from_markup(f"{emoji('sparkles')} {_ok}")
                 if not ok_message
-                else Text.from_markup(f"[{ObsidianPalette.SUCCESS}]{emoji('check')} {_ok}[/]"),
+                else Text.from_markup(f"[{SentinelPalette.SUCCESS}]{emoji('check')} {_ok}[/]"),
             ]
             if info_count:
                 _ok_items.append(Text())
                 _ok_items.append(
                     Text.from_markup(
-                        f"  [{ObsidianPalette.DIM}]{emoji('info')} {info_count} info finding"
+                        f"  [{SentinelPalette.DIM}]{emoji('info')} {info_count} info finding"
                         f"{'s' if info_count != 1 else ''} suppressed"
                         f" — use --show-info for details.[/]"
                     )
                 )
             self._con.print()
-            self._con.print(ObsidianUI.make_panel(Group(*_ok_items)))
+            self._con.print(SentinelUI.make_panel(Group(*_ok_items)))
             return 0, 0
 
         # ── Grouped findings (non-breach only) ───────────────────────────────
@@ -303,7 +303,7 @@ class SentinelReporter:
         for rel_path in sorted(grouped):
             abs_path = self._docs_root / rel_path
             # File separator — Rule with full project-relative path
-            renderables.append(Rule(self._full_rel(rel_path), style=ObsidianPalette.DIM))
+            renderables.append(Rule(self._full_rel(rel_path), style=SentinelPalette.DIM))
             renderables.append(Text())  # breathing after Rule
 
             for idx, f in enumerate(sorted(grouped[rel_path], key=lambda x: (x.line_no, x.code))):
@@ -341,35 +341,35 @@ class SentinelReporter:
                         gutter_w = len(str(f.line_no))
                         t = Text()
                         t.append(
-                            f"    {str(f.line_no).rjust(gutter_w)}  ", style=ObsidianPalette.DIM
+                            f"    {str(f.line_no).rjust(gutter_w)}  ", style=SentinelPalette.DIM
                         )
-                        t.append("❱  ", style=ObsidianPalette.STYLE_ERR)
+                        t.append("❱  ", style=SentinelPalette.STYLE_ERR)
                         t.append(f.source_line)
                         renderables.append(t)
 
             renderables.append(Text())  # spacing after file group
 
         # ── Summary (inside the panel) ────────────────────────────────────────
-        renderables.append(Rule(style=ObsidianPalette.DIM))
+        renderables.append(Rule(style=SentinelPalette.DIM))
         renderables.append(Text())  # breathing after Rule
         summary_parts: list[str] = []
         incidents_count = sum(1 for f in normal_findings if f.severity == "security_incident")
         if incidents_count:
             summary_parts.append(
-                f"[bold white on {ObsidianPalette.FATAL}]{emoji('cross')} {incidents_count}"
+                f"[bold white on {SentinelPalette.FATAL}]{emoji('cross')} {incidents_count}"
                 f" security incident{'s' if incidents_count != 1 else ''}[/]"
             )
         if errors:
             summary_parts.append(
-                f"[{ObsidianPalette.ERROR}]{emoji('cross')} {errors} error{'s' if errors != 1 else ''}[/]"
+                f"[{SentinelPalette.ERROR}]{emoji('cross')} {errors} error{'s' if errors != 1 else ''}[/]"
             )
         if warnings:
             summary_parts.append(
-                f"[{ObsidianPalette.WARNING}]{emoji('warn')} {warnings} warning{'s' if warnings != 1 else ''}[/]"
+                f"[{SentinelPalette.WARNING}]{emoji('warn')} {warnings} warning{'s' if warnings != 1 else ''}[/]"
             )
         n_files = len(grouped)
         summary_parts.append(
-            f"[{ObsidianPalette.DIM}]{emoji('dot')} {n_files} file{'s' if n_files != 1 else ''} with findings[/]"
+            f"[{SentinelPalette.DIM}]{emoji('dot')} {n_files} file{'s' if n_files != 1 else ''} with findings[/]"
         )
         renderables.append(Text.from_markup("  ".join(summary_parts)))
 
@@ -379,26 +379,26 @@ class SentinelReporter:
         if has_failures:
             renderables.append(
                 Text.from_markup(
-                    f"[bold {ObsidianPalette.ERROR}]FAILED:[/] One or more checks failed."
+                    f"[bold {SentinelPalette.ERROR}]FAILED:[/] One or more checks failed."
                 )
             )
         else:
             _ok = ok_message or (
-                f"[bold {ObsidianPalette.SUCCESS}]Obsidian Seal:[/bold {ObsidianPalette.SUCCESS}]"
-                f" [{ObsidianPalette.SUCCESS}]All statically-detectable links, credentials,"
-                f" and references verified.[/{ObsidianPalette.SUCCESS}]"
+                f"[bold {SentinelPalette.SUCCESS}]Sentinel Seal:[/bold {SentinelPalette.SUCCESS}]"
+                f" [{SentinelPalette.SUCCESS}]All statically-detectable links, credentials,"
+                f" and references verified.[/{SentinelPalette.SUCCESS}]"
             )
             renderables.append(
                 Text.from_markup(f"{emoji('sparkles')} {_ok}")
                 if not ok_message
-                else Text.from_markup(f"[{ObsidianPalette.SUCCESS}]{emoji('check')} {_ok}[/]")
+                else Text.from_markup(f"[{SentinelPalette.SUCCESS}]{emoji('check')} {_ok}[/]")
             )
 
         if info_count:
             renderables.append(Text())
             renderables.append(
                 Text.from_markup(
-                    f"  [{ObsidianPalette.DIM}]{emoji('info')} {info_count} info finding"
+                    f"  [{SentinelPalette.DIM}]{emoji('info')} {info_count} info finding"
                     f"{'s' if info_count != 1 else ''} suppressed"
                     f" — use --show-info for details.[/]"
                 )
@@ -406,10 +406,10 @@ class SentinelReporter:
 
         # ── Single unified panel ──────────────────────────────────────────────
         self._con.print()
-        self._con.print(ObsidianUI.make_panel(Group(telemetry, Text(), *renderables)))
+        self._con.print(SentinelUI.make_panel(Group(telemetry, Text(), *renderables)))
         # ── Usage hint (outside the audit box) ───────────────────────────────
         self._con.print(
-            Text.from_markup(f"[{ObsidianPalette.DIM}]Try 'zenzic check --help' for options.[/]")
+            Text.from_markup(f"[{SentinelPalette.DIM}]Try 'zenzic check --help' for options.[/]")
         )
         return errors, warnings
 

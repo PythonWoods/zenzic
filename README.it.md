@@ -117,7 +117,7 @@ zenzic check all  # Analizza la cartella corrente
 
 **Correzione automatica:** `zenzic clean assets [-y] [--dry-run]` elimina gli asset inutilizzati.
 
-> 🚀 **v0.7.0 "Obsidian Integrity" (Stabile)** — Suggerimenti proattivi Z104, audit di verità
+> 🚀 **v0.7.0 "Quartz Maturity" (Stabile)** — Suggerimenti proattivi Z104, audit di verità
 > Standalone Mode e hardening dell'Engineering Ledger. Vedi [CHANGELOG.md](CHANGELOG.md).
 
 ---
@@ -422,7 +422,7 @@ Apache-2.0 — vedi [LICENSE][license].
 
 Zenzic è nato da un percorso tecnico attraverso la fragilità dei moderni ecosistemi di
 documentazione. Scopri la filosofia, l'assedio della sicurezza e l'ingegneria dietro il
-Sentinel nella [**Obsidian Engineering Series**](https://dev.to/pythonwoods/series/38629) su Dev.to.
+Sentinel nella [**Zenzic Engineering Series**](https://dev.to/pythonwoods/series/38629) su Dev.to.
 
 La storia della release v0.7.0 — l'assedio red-team guidato dall'IA, 4 vettori di bypass
 chiusi, e la strada verso la parità engine-agnostica — è documentata in

@@ -21,7 +21,7 @@ from zenzic.core.scanner import (
     find_unused_assets,
 )
 from zenzic.core.scorer import ScoreReport, compute_score, load_snapshot, save_snapshot
-from zenzic.core.ui import ObsidianPalette, emoji
+from zenzic.core.ui import SentinelPalette, emoji
 from zenzic.core.validator import validate_links, validate_snippets
 from zenzic.models.config import ZenzicConfig
 
@@ -125,23 +125,23 @@ def score(
         print(json.dumps(report.to_dict(), indent=2))
     else:
         if report.score >= 80:
-            score_style = ObsidianPalette.STYLE_OK
+            score_style = SentinelPalette.STYLE_OK
         elif report.score >= 50:
             score_style = "bold yellow"
         else:
-            score_style = ObsidianPalette.STYLE_ERR
+            score_style = SentinelPalette.STYLE_ERR
 
         score_summary = Text.from_markup(
             f"{emoji('sparkles')} "
-            f"[bold {ObsidianPalette.SUCCESS}]Quality Score:[/bold {ObsidianPalette.SUCCESS}]"
+            f"[bold {SentinelPalette.SUCCESS}]Quality Score:[/bold {SentinelPalette.SUCCESS}]"
             f" [{score_style}]{report.score}/100[/{score_style}]\n"
         )
 
         table = Table(
             box=box.ROUNDED,
             title="[bold]Quality Breakdown[/]",
-            title_style=ObsidianPalette.DIM,
-            border_style=ObsidianPalette.DIM,
+            title_style=SentinelPalette.DIM,
+            border_style=SentinelPalette.DIM,
             show_lines=False,
             pad_edge=True,
             padding=(0, 1),
@@ -177,12 +177,12 @@ def score(
             _shared.console.print(
                 Group(
                     Text.from_markup(
-                        f"[bold {ObsidianPalette.BRAND}]{emoji('shield')} OBSIDIAN SEAL[/]"
+                        f"[bold {SentinelPalette.BRAND}]{emoji('shield')} OBSIDIAN SEAL[/]"
                     ),
                     Text(),
                     Text.from_markup(
-                        f"[{ObsidianPalette.SUCCESS}]{emoji('check')} Every check passed \u2014 "
-                        f"documentation integrity verified.[/{ObsidianPalette.SUCCESS}]"
+                        f"[{SentinelPalette.SUCCESS}]{emoji('check')} Every check passed \u2014 "
+                        f"documentation integrity verified.[/{SentinelPalette.SUCCESS}]"
                     ),
                 )
             )
@@ -279,9 +279,9 @@ def diff(
         sign = "+" if delta >= 0 else ""
         diff_table = Table(
             box=box.ROUNDED,
-            border_style=ObsidianPalette.DIM,
+            border_style=SentinelPalette.DIM,
             show_header=True,
-            header_style=ObsidianPalette.STYLE_BRAND,
+            header_style=SentinelPalette.STYLE_BRAND,
             pad_edge=True,
             padding=(0, 1),
         )

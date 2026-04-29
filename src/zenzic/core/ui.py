@@ -1,11 +1,11 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
-"""Sentinel Visual Identity — ObsidianPalette, terminal detection, and UI helpers.
+"""Sentinel Visual Identity — SentinelPalette, terminal detection, and UI helpers.
 
-``ObsidianPalette`` is the **sole source of truth** for every colour used in the
+``SentinelPalette`` is the **sole source of truth** for every colour used in the
 Zenzic terminal output.  Raw hex values live inside the class and **nowhere else**
-in the codebase.  Every other module must import ``ObsidianPalette`` and address
-its semantic attributes (e.g. ``ObsidianPalette.BRAND``) — never a raw hex string.
+in the codebase.  Every other module must import ``SentinelPalette`` and address
+its semantic attributes (e.g. ``SentinelPalette.BRAND``) — never a raw hex string.
 """
 
 from __future__ import annotations
@@ -19,10 +19,10 @@ from rich.console import RenderableType
 from rich.panel import Panel
 
 
-# ── Obsidian Visual Identity System ──────────────────────────────────────────
+# ── Sentinel Visual Identity System ──────────────────────────────────────────
 
 
-class ObsidianPalette:
+class SentinelPalette:
     """Zenzic brand colour system — the only place where hex values are permitted.
 
     Internal (private) attributes store raw hex values.  External code must always
@@ -130,8 +130,8 @@ def make_banner(version: str) -> str:
     """
     shield = emoji("shield")
     lines = [
-        f"[bold white]{shield}  ZENZIC SENTINEL[/]  [{ObsidianPalette.DIM}]v{version}[/]",
-        f"[{ObsidianPalette.DIM}]Engine-agnostic Markdown integrity & security shield[/]",
+        f"[bold white]{shield}  ZENZIC SENTINEL[/]  [{SentinelPalette.DIM}]v{version}[/]",
+        f"[{SentinelPalette.DIM}]Engine-agnostic Markdown integrity & security shield[/]",
     ]
     return "\n".join(lines)
 
@@ -166,26 +166,26 @@ def make_sentinel_header(
         parts.append(target)
     if total:
         breakdown = (
-            f"([{ObsidianPalette.BRAND}]{docs_count}[/] docs, "
-            f"[{ObsidianPalette.BRAND}]{assets_count}[/] assets)"
+            f"([{SentinelPalette.BRAND}]{docs_count}[/] docs, "
+            f"[{SentinelPalette.BRAND}]{assets_count}[/] assets)"
         )
         parts.append(
-            f"[{ObsidianPalette.BRAND}]{total}[/] file{'s' if total != 1 else ''} {breakdown}"
+            f"[{SentinelPalette.BRAND}]{total}[/] file{'s' if total != 1 else ''} {breakdown}"
         )
     if elapsed:
-        parts.append(f"[{ObsidianPalette.BRAND}]{elapsed:.1f}[/]s")
+        parts.append(f"[{SentinelPalette.BRAND}]{elapsed:.1f}[/]s")
     meta = f" {dot} ".join(parts)
     return (
-        f"[{ObsidianPalette.STYLE_BRAND}]{shield}  ZENZIC SENTINEL[/]  "
-        f"[{ObsidianPalette.DIM}]v{version}[/]\n"
-        f"[{ObsidianPalette.DIM}]{meta}[/]"
+        f"[{SentinelPalette.STYLE_BRAND}]{shield}  ZENZIC SENTINEL[/]  "
+        f"[{SentinelPalette.DIM}]v{version}[/]\n"
+        f"[{SentinelPalette.DIM}]{meta}[/]"
     )
 
 
-# ── ObsidianUI: Centralized UI Bridge ────────────────────────────────────────
+# ── SentinelUI: Centralized UI Bridge ───────────────────────────────────────
 
 
-class ObsidianUI:
+class SentinelUI:
     """Central UI bridge for all Zenzic CLI output.
 
     All header, seal, telemetry, and alert panels must go through this interface.
@@ -211,11 +211,11 @@ class ObsidianUI:
         """
         return Panel(
             content,
-            title=f"[{ObsidianPalette.STYLE_BRAND}]{title}[/]",
+            title=f"[{SentinelPalette.STYLE_BRAND}]{title}[/]",
             title_align="left",
             subtitle=f"[dim]{subtitle}[/]",
             subtitle_align="right",
-            border_style=border_style if border_style is not None else ObsidianPalette.BRAND,
+            border_style=border_style if border_style is not None else SentinelPalette.BRAND,
             box=_rich_box.ROUNDED,
             padding=(1, 2),
         )
@@ -239,10 +239,10 @@ class ObsidianUI:
         """Render a styled Sentinel Alert panel for an exception.
 
         Replaces ad-hoc ``Panel()`` calls in error handlers with a branded,
-        consistent layout.  The *border_style* defaults to :data:`ObsidianPalette.ERROR`
-        (error); pass ``ObsidianPalette.STYLE_BRAND`` for plugin-contract violations.
+        consistent layout.  The *border_style* defaults to :data:`SentinelPalette.ERROR`
+        (error); pass ``SentinelPalette.STYLE_BRAND`` for plugin-contract violations.
         """
-        effective_style = border_style if border_style is not None else ObsidianPalette.ERROR
+        effective_style = border_style if border_style is not None else SentinelPalette.ERROR
         lines = [message]
         if context:
             lines.append("")
@@ -259,8 +259,8 @@ class ObsidianUI:
 
 
 __all__ = [
-    "ObsidianPalette",
-    "ObsidianUI",
+    "SentinelPalette",
+    "SentinelUI",
     "make_banner",
     "make_sentinel_header",
     "emoji",

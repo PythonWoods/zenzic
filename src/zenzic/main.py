@@ -26,7 +26,7 @@ from zenzic.cli import (
 )
 from zenzic.core.exceptions import PluginContractError, ZenzicError
 from zenzic.core.logging import setup_cli_logging
-from zenzic.core.ui import ObsidianPalette, ObsidianUI
+from zenzic.core.ui import SentinelPalette, SentinelUI
 
 
 def _version_callback(value: bool) -> None:
@@ -38,7 +38,7 @@ def _version_callback(value: bool) -> None:
 app = typer.Typer(
     name="zenzic",
     help=(
-        f"[bold {ObsidianPalette.BRAND}]Zenzic[/] — Engine-agnostic linter and security shield "
+        f"[bold {SentinelPalette.BRAND}]Zenzic[/] — Engine-agnostic linter and security shield "
         "for Markdown documentation.\n\n"
         "Run [bold cyan]zenzic check all[/] for a full audit, or pick individual "
         "checks below."
@@ -46,7 +46,7 @@ app = typer.Typer(
     rich_markup_mode="rich",
     no_args_is_help=True,
     rich_help_panel="Core",
-    epilog=f"[bold {ObsidianPalette.BRAND}]PythonWoods[/]  [dim]·  Apache-2.0  ·  https://zenzic.dev[/]",
+    epilog=f"[bold {SentinelPalette.BRAND}]PythonWoods[/]  [dim]·  Apache-2.0  ·  https://zenzic.dev[/]",
 )
 
 
@@ -99,7 +99,7 @@ _err_console = Console(
     else None,
 )
 
-_err_ui = ObsidianUI(_err_console)
+_err_ui = SentinelUI(_err_console)
 
 
 def _sentinel_alert(exc: ZenzicError, *, border_style: str, title: str) -> None:
@@ -143,14 +143,14 @@ def cli_main() -> None:
     except PluginContractError as exc:
         _sentinel_alert(
             exc,
-            border_style=ObsidianPalette.STYLE_BRAND,
+            border_style=SentinelPalette.STYLE_BRAND,
             title="Zenzic Plugin Contract Violation",
         )
         sys.exit(1)
     except ZenzicError as exc:
         _sentinel_alert(
             exc,
-            border_style=ObsidianPalette.STYLE_ERR,
+            border_style=SentinelPalette.STYLE_ERR,
             title="Zenzic Error",
         )
         sys.exit(1)

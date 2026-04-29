@@ -1,6 +1,6 @@
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
-# 🛡️ Zenzic v0.7.0 — Obsidian Maturity
+# 🛡️ Zenzic v0.7.0 — Quartz Maturity
 
 ## "Engine-Agnostic. Integrity-Complete. The True Safe Harbor."
 
@@ -65,7 +65,7 @@ The Core is now 100% engine-agnostic. `validator.py` no longer hardcodes engine 
 engine-specific link-scheme bypasses are declared via `BaseAdapter.get_link_scheme_bypasses()`
 and queried at runtime (Rule R21). The `examples/matrix/` directory ships the living proof:
 identical red-team attack vectors (Z201, Z105, Z502, Z401) produce identical findings across
-standalone, mkdocs, and zensical engines. The blue-team fixtures earn the Obsidian Seal on
+standalone, mkdocs, and zensical engines. The blue-team fixtures earn the Sentinel Seal on
 all three. Zero asymmetries.
 
 ---
@@ -98,7 +98,7 @@ authorised root.
   point at the first actual prose word.
 - **1 260 passing tests · 80.07%+ coverage.** REUSE 3.3 compliant. mypy strict. Zero untyped definitions.
 - **`zenzic inspect capabilities`** now shows a third section: Engine-specific Link Bypasses — which engine uses which URI scheme bypass via `get_link_scheme_bypasses()` (Rule R21).
-- **`zenzic score` at 100/100** displays the Obsidian Seal celebratory panel — the same panel as Lab Act 0.
+- **`zenzic score` at 100/100** displays the Sentinel Seal celebratory panel — the same panel as Lab Act 0.
 - **Sibling Automation:** `noxfile.py` + `justfile` for `zenzic-doc` and `zenzic-action`; single-command version bump for the Action (`just bump 0.7.x`).
 - **Engine Guide Parity:** `engines.mdx` (EN+IT) — Zensical Transparent Proxy elevated to first-class migration feature with bridge mapping table; Standalone expanded to full section with use-case guide and limitations; MkDocs route URL resolution documented.
 - **Docusaurus Full-Spec — UX-Discoverability Law:** `DocusaurusAdapter.get_nav_paths()` is now

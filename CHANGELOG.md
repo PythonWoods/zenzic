@@ -86,7 +86,7 @@ Versions follow [Semantic Versioning](https://semver.org/).
 - 14 new tests: `TestParseSidebars` (SBP-01..10) + `TestFromRepoSidebar` (SBI-01..04).
   **1 246 passing · 0 failing.**
 
-## [0.7.0] — 2026-04-26 — Obsidian Maturity (Stable) — D085 Full-Spec Alignment
+## [0.7.0] — 2026-04-26 — Quartz Maturity (Stable) — D085 Full-Spec Alignment
 
 > ⚓ Zenzic v0.7.0 marks the consolidation of our core architecture and the full alignment with official specifications. Supersedes v0.6.1.
 >
@@ -202,7 +202,7 @@ The `[mkdocs]` optional extra no longer exists. `pip install zenzic` is the comp
 
 ---
 
-### The Obsidian Mirror Pass: Lab, Shield & Docs Alignment (Direttive 082–086)
+### The Quartz Mirror Pass: Lab, Shield & Docs Alignment (Direttive 082–086)
 
 #### Added
 
@@ -212,10 +212,10 @@ The `[mkdocs]` optional extra no longer exists. `pip install zenzic` is the comp
   `check_config_assets()` in `_docusaurus.py` — pure regex, zero subprocess. Code
   registered in `codes.py`; wired via `_AllCheckResults.config_asset_issues` in
   `cli.py`. Severity: `warning` (promote to Exit 1 via `--strict`).
-- **Lab Obsidian Seal (Direttiva 086).** Every `zenzic lab <N>` run now closes with
-  a dedicated **Obsidian Seal** panel (indigo border, Sentinel Palette colours) showing
+- **Lab Sentinel Seal (Direttiva 086).** Every `zenzic lab <N>` run now closes with
+  a dedicated **Sentinel Seal** panel (indigo border, Sentinel Palette colours) showing
   file count, elapsed time, throughput in files/s, and a per-act pass/fail verdict.
-  Full-run summaries (`zenzic lab` with all acts) render an aggregate Obsidian Seal
+  Full-run summaries (`zenzic lab` with all acts) render an aggregate Sentinel Seal
   with total throughput across acts.
 - **Lab throughput fields (Direttiva 086).** `_ActResult` gains `docs_count`,
   `assets_count`, `total_files`, and `throughput` properties. The full-run summary
@@ -265,7 +265,7 @@ The `[mkdocs]` optional extra no longer exists. `pip install zenzic` is the comp
 
 ---
 
-### Obsidian Maturity Pass: UX Hardening & Truth Audit (Direttive 076–079)
+### Quartz Maturity Pass: UX Hardening & Truth Audit (Direttive 076–079)
 
 #### Added
 
@@ -534,8 +534,8 @@ The `[mkdocs]` optional extra no longer exists. `pip install zenzic` is the comp
   Sprint) strips frontmatter for Z502 word-count only and has zero impact on Shield coverage.
   No code change required.
 
-- **Agent Instruction Obsidian Ledger (Direttive CEO 046–047 — "The Knowledge Refactoring" / "The Knowledge Trinity").**
-  All three repository `.github/copilot-instructions.md` files rewritten into the Obsidian Ledger
+- **Agent Instruction Zenzic Ledger (Direttive CEO 046–047 — "The Knowledge Refactoring" / "The Knowledge Trinity").**
+  All three repository `.github/copilot-instructions.md` files rewritten into the Zenzic Ledger
   schema: `[MANIFESTO] → [POLICIES] → [ARCHITECTURE] → [ADR] → [CHRONICLES] → [SPRINT LOG]`.
   Architectural corrections applied: `cli/` package structure, `core/ui.py`, `cli/_lab.py`,
   11 Acts (0–10), Z504 `QUALITY_REGRESSION` documented for the first time. `zenzic-action`
@@ -552,7 +552,7 @@ The `[mkdocs]` optional extra no longer exists. `pip install zenzic` is the comp
 
 ---
 
-### Obsidian Memory Law & Precision Polish Sprint (D048–D049 — 2026-04-25)
+### Quartz Memory Law & Precision Polish Sprint (D048–D049 — 2026-04-25)
 
 #### Fixed
 
@@ -590,7 +590,7 @@ The `[mkdocs]` optional extra no longer exists. `pip install zenzic` is the comp
 
 #### Documentation
 
-- **`[CLOSING PROTOCOL]` — Obsidian Memory Law codified (Direttiva CEO 049 — "The Obsidian Memory Law").**
+- **`[CLOSING PROTOCOL]` — Quartz Memory Law codified (Direttiva CEO 049 — "The Quartz Memory Law").**
   All three repository agent instruction files receive a `[CLOSING PROTOCOL]` section, placed
   immediately after `[MANIFESTO]`. Defines a mandatory per-repo checklist (update instructions,
   update changelogs, run staleness audit, run verification gate). Skipping any step is a Class 1
@@ -638,11 +638,11 @@ The `[mkdocs]` optional extra no longer exists. `pip install zenzic` is the comp
 
 #### Changed
 
-- **`[CLOSING PROTOCOL]` Step 3 renamed to "Staleness & Testimony Audit" in all three Obsidian Ledgers.**
+- **`[CLOSING PROTOCOL]` Step 3 renamed to "Staleness & Testimony Audit" in all three Zenzic Ledgers.**
   Per-repo trigger checklists added: every changed function must be cross-referenced against the
   corresponding `.mdx` page before a sprint is closed.
 
-- **Documentation Law — "The Obsidian Testimony" added to `[POLICIES]` in all three Obsidian Ledgers.**
+- **Documentation Law — "The Quartz Testimony" added to `[POLICIES]` in all three Zenzic Ledgers.**
   Mandatory trigger rules: I/O or exclusion logic changed → `configuration.mdx`; UI/CLI/module
   structure changed → `architecture.mdx`; `Zxxx` finding changed → `finding-codes.mdx`; adapter
   discovery changed → `configure-adapter.mdx`. A sprint without a Testimony check is not closed.
@@ -808,7 +808,7 @@ misdiagnosis. CEO-052 fix (already applied) eliminates the false Z104 when scann
 #### Changed
 
 - **Law of Contemporary Testimony codified as mandatory operational policy.**
-  All three Obsidian Ledgers (`.github/copilot-instructions.md` in core, zenzic-doc, and
+  All three Zenzic Ledgers (`.github/copilot-instructions.md` in core, zenzic-doc, and
   zenzic-action) updated with the new law: code and documentation are a single, indivisible
   unit of work. Step 0 "Pre-Task Alignment" added to [CLOSING PROTOCOL]. Step 3 enhanced with
   "Contemporary Check" bullets covering CLI flags, default values, architectural bugs, finding
@@ -844,7 +844,7 @@ misdiagnosis. CEO-052 fix (already applied) eliminates the false Z104 when scann
 #### Added
 
 - **Banner & Hint Sync.** All 6 `check` sub-commands print
-  `Scanning: <resolved-target>` after the Obsidian header when `PATH` is provided.
+  `Scanning: <resolved-target>` after the Sentinel header when `PATH` is provided.
   `init` prints `Target: <resolved-path>` in Genesis Nomad mode. Operators now have
   visual confirmation of the active sovereign root before results are displayed.
 
@@ -869,7 +869,7 @@ misdiagnosis. CEO-052 fix (already applied) eliminates the false Z104 when scann
 
 ---
 
-### The Obsidian Hygiene (D063 — 2026-04-25)
+### The Quartz Hygiene (D063 — 2026-04-25)
 
 #### Changed
 
@@ -991,7 +991,7 @@ misdiagnosis. CEO-052 fix (already applied) eliminates the false Z104 when scann
 
 #### Governance
 
-- **All three Obsidian Ledgers refactored from "historical diaries" to "operational manuals".**
+- **All three Zenzic Ledgers refactored from "historical diaries" to "operational manuals".**
   [CHRONICLES] section (14 bug post-mortems) removed from core ledger; lessons already
   distilled into [POLICIES] rules (R11–R18) and ADR entries remain. [SPRINT LOG] replaced
   by [ACTIVE SPRINT] (2-sprint rolling window) across all three repos.
@@ -1068,7 +1068,7 @@ misdiagnosis. CEO-052 fix (already applied) eliminates the false Z104 when scann
 
 ---
 
-### D084 — The Obsidian Neutrality Audit (2026-04-26)
+### D084 — The Quartz Neutrality Audit (2026-04-26)
 
 #### Changed — `docs/reference/engines.mdx` (EN + IT mirror)
 
@@ -1094,7 +1094,7 @@ misdiagnosis. CEO-052 fix (already applied) eliminates the false Z104 when scann
 #### Added
 
 - **`README.md`: HN Hook.** Direct link to `https://zenzic.dev/blog/beyond-the-siege-zenzic-v070`
-  added under "The Obsidian Chronicles" section.
+  added under "The Zenzic Chronicles" section.
 
 ---
 
@@ -1108,7 +1108,7 @@ misdiagnosis. CEO-052 fix (already applied) eliminates the false Z104 when scann
   - `test_score_perfect_shows_obsidian_seal` — mocks `_run_all_checks` returning score=100;
     asserts `"OBSIDIAN SEAL"` and `"Every check passed"` appear in output.
   - `test_score_low_uses_error_style` — mocks score=30; covers line 132 (`STYLE_ERR` branch);
-    asserts Obsidian Seal does NOT appear.
+    asserts Sentinel Seal does NOT appear.
 
 #### Added — Sibling Automation
 
@@ -1132,7 +1132,7 @@ misdiagnosis. CEO-052 fix (already applied) eliminates the false Z104 when scann
 
 ---
 
-### D082 — The Final Obsidian Polish (2026-04-26)
+### D082 — The Final Quartz Polish (2026-04-26)
 
 #### Added
 
@@ -1143,8 +1143,8 @@ misdiagnosis. CEO-052 fix (already applied) eliminates the false Z104 when scann
   Command help string updated from "built-in scanners and registered plugin rules" to include
   "engine-specific link bypasses".
 
-- **`zenzic score`: Obsidian Seal panel at 100/100.**
-  When `report.score == 100`, the score command now displays the same celebratory Obsidian Seal
+- **`zenzic score`: Sentinel Seal panel at 100/100.**
+  When `report.score == 100`, the score command now displays the same celebratory Sentinel Seal
   panel as Lab Act 0 — `Group` with `ObsidianPalette.BRAND` shield header and a success line
   confirming documentation integrity. Panel is suppressed in `--format json` mode.
 
@@ -1168,7 +1168,7 @@ misdiagnosis. CEO-052 fix (already applied) eliminates the false Z104 when scann
 
 - **`examples/matrix/blue-team/` — three clean documentation fixtures (standalone, mkdocs, zensical).**
   Fixed versions: relative links, ≥50-word prose, `index.md` in every subdirectory, no credentials,
-  `draft:` field removed. All three earn the Obsidian Seal. **Exit code: 0 (Obsidian Seal ✨).**
+  `draft:` field removed. All three earn the Sentinel Seal. **Exit code: 0 (Sentinel Seal ✨).**
   Parity confirmed: zero asymmetries across engines.
 
 #### Documentation (zenzic-doc)
@@ -1181,13 +1181,13 @@ misdiagnosis. CEO-052 fix (already applied) eliminates the false Z104 when scann
   Adapter Contract Guarantee item 11 for `get_link_scheme_bypasses()` added.
 
 - **`first-audit.mdx` (EN+IT): Step 2 restructured to "The Siege & The Shield".**
-  Shows `uvx zenzic lab 2` (Security Breach banner) first, then `uvx zenzic lab 0` (Obsidian Seal).
+  Shows `uvx zenzic lab 2` (Security Breach banner) first, then `uvx zenzic lab 0` (Sentinel Seal).
   Implements Rule R22 (Fall-before-Redemption): emotional contrast is the lesson.
 
 #### Governance
 
 - **Rule R22 (Fall-before-Redemption) codified in [POLICIES]:** tutorial content must show the
-  broken state first (The Siege), explain the fix, then show the passing state (The Obsidian Seal).
+  broken state first (The Siege), explain the fix, then show the passing state (The Sentinel Seal).
 
 ---
 
@@ -1246,9 +1246,7 @@ misdiagnosis. CEO-052 fix (already applied) eliminates the false Z104 when scann
   frontmatter — the `draft` keyword matches the default placeholder pattern. This is consistent
   across all three engines (by design: it's a content rule, not an engine rule).
 
----
-
-## [0.6.1] — 2026-04-19 — Obsidian Glass [SUPERSEDED]
+---## [0.6.1] — 2026-04-19 — Obsidian Glass [SUPERSEDED]
 
 > ⚠ **[SUPERSEDED by v0.7.0]** — Version 0.6.1 is deprecated due to alignment issues with Docusaurus specifications and legacy terminology. All users must upgrade to v0.7.0 "Obsidian Maturity".
 

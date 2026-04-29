@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Layered Exclusion system: VCS-aware file exclusion with 4-level hierarchy.
 
-This module implements the core exclusion logic for the Obsidian Bastion
+This module implements the core exclusion logic for the Sentinel Perimeter
 architecture.  All functions are **pure** — no I/O after construction except
 for the ``VCSIgnoreParser.from_file()`` factory.
 

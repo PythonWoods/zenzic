@@ -47,6 +47,13 @@ preflight:
 # Pillar 1: Zenzic guards the source BEFORE the build renders it.
 verify: check preflight
 
+# ─── Code Map (CEO-083 — Obsidian Mapper Protocol) ────────────────────────
+
+# Aggiorna la sezione [CODE MAP] in copilot-instructions.md via AST (zero LLM).
+# Eseguire dopo ogni modifica a src/.
+map-update:
+    uv run scripts/map_project.py
+
 # ─── Cleanup ──────────────────────────────────────────────────────────────
 
 # Remove generated artefacts (.nox is kept — reuse avoids reinstalling deps)

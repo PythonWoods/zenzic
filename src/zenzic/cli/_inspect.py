@@ -10,14 +10,14 @@ from rich.table import Table
 from rich.text import Text
 
 from zenzic.core.codes import CORE_SCANNERS
-from zenzic.core.ui import ObsidianPalette
+from zenzic.core.ui import SentinelPalette
 
 from . import _shared
 
 
 inspect_app = typer.Typer(
     name="inspect",
-    help=f"[bold {ObsidianPalette.BRAND}]Inspect[/] — Introspect the Zenzic scanner arsenal and plugin registry.",
+    help=f"[bold {SentinelPalette.BRAND}]Inspect[/] — Introspect the Zenzic scanner arsenal and plugin registry.",
     no_args_is_help=True,
     rich_markup_mode="rich",
 )
@@ -41,11 +41,11 @@ def _inspect_capabilities() -> None:
 
     # ── Section A: Core Scanners ──────────────────────────────────────────
     core_table = Table(
-        title=f"[bold {ObsidianPalette.BRAND}]Core Scanners[/]  [dim](built-in)[/dim]",
+        title=f"[bold {SentinelPalette.BRAND}]Core Scanners[/]  [dim](built-in)[/dim]",
         title_justify="left",
         box=box.ROUNDED,
-        border_style=ObsidianPalette.DIM,
-        header_style=ObsidianPalette.STYLE_BRAND,
+        border_style=SentinelPalette.DIM,
+        header_style=SentinelPalette.STYLE_BRAND,
         pad_edge=True,
         padding=(0, 1),
     )
@@ -65,8 +65,8 @@ def _inspect_capabilities() -> None:
     _shared.console.print()
     _shared.console.print(
         Text.from_markup(
-            f"  [{ObsidianPalette.DIM}]\u26a0  Exit 2 and Exit 3 are non-suppressible \u2014 "
-            f"--exit-zero has no effect on Shield or Blood Sentinel.[/{ObsidianPalette.DIM}]"
+            f"  [{SentinelPalette.DIM}]\u26a0  Exit 2 and Exit 3 are non-suppressible \u2014 "
+            f"--exit-zero has no effect on Shield or Blood Sentinel.[/{SentinelPalette.DIM}]"
         )
     )
     _shared.console.print()
@@ -76,13 +76,13 @@ def _inspect_capabilities() -> None:
 
     rules_table = Table(
         title=(
-            f"[bold {ObsidianPalette.BRAND}]Extensible Rules[/]  "
+            f"[bold {SentinelPalette.BRAND}]Extensible Rules[/]  "
             f"[dim](plugin system \u2014 zenzic.rules entry-point group)[/dim]"
         ),
         title_justify="left",
         box=box.ROUNDED,
-        border_style=ObsidianPalette.DIM,
-        header_style=ObsidianPalette.STYLE_BRAND,
+        border_style=SentinelPalette.DIM,
+        header_style=SentinelPalette.STYLE_BRAND,
         pad_edge=True,
         padding=(0, 1),
     )
@@ -103,8 +103,8 @@ def _inspect_capabilities() -> None:
             "[dim]\u2014[/dim]",
             "[dim]\u2014[/dim]",
             (
-                f"[{ObsidianPalette.DIM}]No third-party plugins installed. "
-                f"Register rules via the zenzic.rules entry-point group.[/{ObsidianPalette.DIM}]"
+                f"[{SentinelPalette.DIM}]No third-party plugins installed. "
+                f"Register rules via the zenzic.rules entry-point group.[/{SentinelPalette.DIM}]"
             ),
         )
 
@@ -114,9 +114,9 @@ def _inspect_capabilities() -> None:
     rule_count = len(rules)
     _shared.console.print(
         Text.from_markup(
-            f"  [{ObsidianPalette.DIM}]{len(CORE_SCANNERS)} built-in scanners \u00b7 "
+            f"  [{SentinelPalette.DIM}]{len(CORE_SCANNERS)} built-in scanners \u00b7 "
             f"{rule_count} extensible rule{'s' if rule_count != 1 else ''} registered"
-            f"[/{ObsidianPalette.DIM}]"
+            f"[/{SentinelPalette.DIM}]"
         )
     )
     _shared.console.print()
@@ -124,13 +124,13 @@ def _inspect_capabilities() -> None:
     # ── Section C: Engine-specific Link Bypasses ──────────────────────────
     bypass_table = Table(
         title=(
-            f"[bold {ObsidianPalette.BRAND}]Engine-specific Link Bypasses[/]  "
+            f"[bold {SentinelPalette.BRAND}]Engine-specific Link Bypasses[/]  "
             f"[dim](Rule R21 \u2014 Protocol Sovereignty)[/dim]"
         ),
         title_justify="left",
         box=box.ROUNDED,
-        border_style=ObsidianPalette.DIM,
-        header_style=ObsidianPalette.STYLE_BRAND,
+        border_style=SentinelPalette.DIM,
+        header_style=SentinelPalette.STYLE_BRAND,
         pad_edge=True,
         padding=(0, 1),
     )
@@ -143,23 +143,23 @@ def _inspect_capabilities() -> None:
             "docusaurus",
             "DocusaurusAdapter",
             Text.from_markup(
-                f"[bold]pathname:[/bold]  [{ObsidianPalette.DIM}](static-asset routing escape hatch)[/{ObsidianPalette.DIM}]"
+                f"[bold]pathname:[/bold]  [{SentinelPalette.DIM}](static-asset routing escape hatch)[/{SentinelPalette.DIM}]"
             ),
         ),
         (
             "mkdocs",
             "MkDocsAdapter",
-            Text.from_markup(f"[{ObsidianPalette.DIM}](none)[/{ObsidianPalette.DIM}]"),
+            Text.from_markup(f"[{SentinelPalette.DIM}](none)[/{SentinelPalette.DIM}]"),
         ),
         (
             "zensical",
             "ZensicalAdapter",
-            Text.from_markup(f"[{ObsidianPalette.DIM}](none)[/{ObsidianPalette.DIM}]"),
+            Text.from_markup(f"[{SentinelPalette.DIM}](none)[/{SentinelPalette.DIM}]"),
         ),
         (
             "standalone",
             "StandaloneAdapter",
-            Text.from_markup(f"[{ObsidianPalette.DIM}](none)[/{ObsidianPalette.DIM}]"),
+            Text.from_markup(f"[{SentinelPalette.DIM}](none)[/{SentinelPalette.DIM}]"),
         ),
     ]
     for _engine, _adapter, _bypasses in _BYPASS_ROWS:
@@ -169,9 +169,9 @@ def _inspect_capabilities() -> None:
     _shared.console.print()
     _shared.console.print(
         Text.from_markup(
-            f"  [{ObsidianPalette.DIM}]R21: engine-specific behaviour is declared in the adapter "
+            f"  [{SentinelPalette.DIM}]R21: engine-specific behaviour is declared in the adapter "
             f"via get_link_scheme_bypasses() \u2014 validator.py never hardcodes engine names."
-            f"[/{ObsidianPalette.DIM}]"
+            f"[/{SentinelPalette.DIM}]"
         )
     )
 

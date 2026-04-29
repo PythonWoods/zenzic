@@ -88,7 +88,7 @@ Le versioni seguono il [Semantic Versioning](https://semver.org/).
 - 14 nuovi test: `TestParseSidebars` (SBP-01..10) + `TestFromRepoSidebar` (SBI-01..04).
   **1 246 passing · 0 failing.**
 
-## [0.7.0] — 2026-04-26 — Obsidian Maturity (Stable) — D085 Full-Spec Alignment
+## [0.7.0] — 2026-04-26 — Quartz Maturity (Stable) — D085 Full-Spec Alignment
 
 > ⚓ Zenzic v0.7.0 segna il consolidamento dell'architettura core e il pieno allineamento con le specifiche ufficiali. Sostituisce v0.6.1.
 
@@ -200,7 +200,7 @@ L'extra opzionale `[mkdocs]` non esiste più. `pip install zenzic` è l'installa
 
 ---
 
-### Il Passaggio Obsidian Mirror: Lab, Shield & Allineamento Docs (Direttive 082–086)
+### Il Passaggio Quartz Mirror: Lab, Shield & Allineamento Docs (Direttive 082–086)
 
 #### Aggiunto
 
@@ -210,10 +210,10 @@ L'extra opzionale `[mkdocs]` non esiste più. `pip install zenzic` è l'installa
   `check_config_assets()` in `_docusaurus.py` — puro regex, zero subprocess. Codice
   registrato in `codes.py`; collegato tramite `_AllCheckResults.config_asset_issues` in
   `cli.py`. Severità: `warning` (promuovibile a Exit 1 via `--strict`).
-- **Lab Obsidian Seal (Direttiva 086).** Ogni esecuzione `zenzic lab <N>` si chiude
-  ora con un pannello **Obsidian Seal** dedicato (bordo indigo, colori Sentinel Palette)
+- **Lab Sentinel Seal (Direttiva 086).** Ogni esecuzione `zenzic lab <N>` si chiude
+  ora con un pannello **Sentinel Seal** dedicato (bordo indigo, colori Sentinel Palette)
   che mostra il conteggio file, tempo trascorso, throughput in file/s e un verdetto
-  pass/fail per atto. I sommari di esecuzione completa mostrano un Obsidian Seal
+  pass/fail per atto. I sommari di esecuzione completa mostrano un Sentinel Seal
   aggregato con throughput totale tra tutti gli atti.
 - **Campi di throughput nel Lab (Direttiva 086).** `_ActResult` aggiunge le proprietà
   `docs_count`, `assets_count`, `total_files` e `throughput`. La tabella di sommario
@@ -264,7 +264,7 @@ L'extra opzionale `[mkdocs]` non esiste più. `pip install zenzic` è l'installa
 
 ---
 
-### Passaggio Obsidian Integrity: Hardening UX e Audit della Verità (Direttive 076–079)
+### Passaggio Quartz Integrity: Hardening UX e Audit della Verità (Direttive 076–079)
 
 #### Aggiunto
 
@@ -494,9 +494,9 @@ L'extra opzionale `[mkdocs]` non esiste più. `pip install zenzic` è l'installa
   parole Z502 e non ha alcun impatto sulla copertura dello Shield. Nessuna modifica al codice
   richiesta.
 
-- **Obsidian Ledger delle istruzioni agente (Direttive CEO 046–047 — "The Knowledge Refactoring" / "The Knowledge Trinity").**
+- **Zenzic Ledger delle istruzioni agente (Direttive CEO 046–047 — "The Knowledge Refactoring" / "The Knowledge Trinity").**
   Tutti e tre i file `.github/copilot-instructions.md` dei repository riscritti secondo lo schema
-  Obsidian Ledger: `[MANIFESTO] → [POLICIES] → [ARCHITECTURE] → [ADR] → [CHRONICLES] → [SPRINT LOG]`.
+  Zenzic Ledger: `[MANIFESTO] → [POLICIES] → [ARCHITECTURE] → [ADR] → [CHRONICLES] → [SPRINT LOG]`.
   Correzioni architetturali applicate: struttura del package `cli/`, `core/ui.py`, `cli/_lab.py`,
   11 Atti (0–10), Z504 `QUALITY_REGRESSION` documentato per la prima volta. `zenzic-action`
   riceve il suo primo file di istruzioni agente (directory `.github/` creata da zero).
@@ -514,7 +514,7 @@ L'extra opzionale `[mkdocs]` non esiste più. `pip install zenzic` è l'installa
 
 ---
 
-### Sprint Legge della Memoria Obsidian & Rifinitura di Precisione (D048–D049 — 2026-04-25)
+### Sprint Legge della Memoria Quartz & Rifinitura di Precisione (D048–D049 — 2026-04-25)
 
 #### Corretto
 
@@ -549,7 +549,7 @@ L'extra opzionale `[mkdocs]` non esiste più. `pip install zenzic` è l'installa
 
 #### Documentazione
 
-- **`[CLOSING PROTOCOL]` — Legge della Memoria Obsidian codificata (Direttiva CEO 049 — "The Obsidian Memory Law").**
+- **`[CLOSING PROTOCOL]` — Legge della Memoria Quartz codificata (Direttiva CEO 049 — "The Quartz Memory Law").**
   Tutti e tre i file di istruzioni agente ricevono una sezione `[CLOSING PROTOCOL]`, posizionata
   subito dopo `[MANIFESTO]`. Definisce una checklist obbligatoria per repo (aggiornare
   istruzioni, aggiornare changelog, eseguire audit di obsolescenza, eseguire gate di verifica).
@@ -596,11 +596,11 @@ L'extra opzionale `[mkdocs]` non esiste più. `pip install zenzic` è l'installa
 
 #### Modificato
 
-- **`[CLOSING PROTOCOL]` Step 3 rinominato "Staleness & Testimony Audit" in tutti e tre gli Obsidian Ledger.**
+- **`[CLOSING PROTOCOL]` Step 3 rinominato "Staleness & Testimony Audit" in tutti e tre gli Zenzic Ledger.**
   Aggiunte checklist trigger per-repo: ogni funzione modificata deve essere incrociata con la
   pagina `.mdx` corrispondente prima della chiusura dello sprint.
 
-- **Legge sulla Documentazione — "The Obsidian Testimony" aggiunta a `[POLICIES]` in tutti e tre gli Obsidian Ledger.**
+- **Legge sulla Documentazione — "The Quartz Testimony" aggiunta a `[POLICIES]` in tutti e tre gli Zenzic Ledger.**
   Trigger obbligatori: I/O o logica di esclusione modificata → `configuration.mdx`; struttura
   UI/CLI/modulo modificata → `architecture.mdx`; finding `Zxxx` modificato → `finding-codes.mdx`;
   adapter discovery modificata → `configure-adapter.mdx`. Uno sprint senza Testimony check non è chiuso.
@@ -760,7 +760,7 @@ Z104 nella scansione remota.
 #### Modificato
 
 - **Legge della Testimonianza Contemporanea codificata come politica operativa obbligatoria.**
-  Tutti e tre gli Obsidian Ledger (`.github/copilot-instructions.md` in core, zenzic-doc e
+  Tutti e tre gli Zenzic Ledger (`.github/copilot-instructions.md` in core, zenzic-doc e
   zenzic-action) aggiornati con la nuova legge: codice e documentazione sono un'unica unità
   indivisibile di lavoro. Step 0 "Pre-Task Alignment" aggiunto al [CLOSING PROTOCOL]. Step 3
   migliorato con bullet "Contemporary Check" che coprono flag CLI, valori predefiniti, bug
@@ -798,7 +798,7 @@ Z104 nella scansione remota.
 #### Aggiunto
 
 - **Banner & Hint Sync.** Tutti e 6 i sotto-comandi `check` stampano
-  `Scanning: <target-risolto>` dopo l'intestazione Obsidian quando `PATH` viene fornito.
+  `Scanning: <target-risolto>` dopo l'intestazione Sentinel quando `PATH` viene fornito.
   `init` stampa `Target: <percorso-risolto>` in modalità Genesis Nomad. Gli operatori hanno
   ora conferma visiva della sovereign root attiva prima che i risultati vengano visualizzati.
 
@@ -952,7 +952,7 @@ Z104 nella scansione remota.
 
 #### Governance
 
-- **Tutti e tre gli Obsidian Ledger refactorizzati da "diari storici" a "manuali operativi".**
+- **Tutti e tre gli Zenzic Ledger refactorizzati da "diari storici" a "manuali operativi".**
   La sezione [CHRONICLES] (14 post-mortem di bug) rimossa dal ledger core; le lezioni già
   distillate nelle regole [POLICIES] (R11–R18) e nelle voci ADR rimangono. [SPRINT LOG]
   sostituito da [ACTIVE SPRINT] (finestra a 2 sprint) in tutti e tre i repo.
@@ -1033,7 +1033,7 @@ Z104 nella scansione remota.
 
 ---
 
-### D084 — Audit di Neutralità Obsidian (2026-04-26)
+### D084 — Audit di Neutralità Quartz (2026-04-26)
 
 #### Modificato — `docs/reference/engines.mdx` (EN + mirror IT)
 
@@ -1060,7 +1060,7 @@ Z104 nella scansione remota.
 #### Aggiunto
 
 - **`README.md`: HN Hook.** Link diretto a `https://zenzic.dev/blog/beyond-the-siege-zenzic-v070`
-  aggiunto nella sezione "The Obsidian Chronicles".
+  aggiunto nella sezione "The Zenzic Chronicles".
 
 ---
 
@@ -1074,7 +1074,7 @@ Z104 nella scansione remota.
   - `test_score_perfect_shows_obsidian_seal` — simula score=100; verifica `"OBSIDIAN SEAL"` e
     `"Every check passed"` nell'output.
   - `test_score_low_uses_error_style` — simula score=30; copre la linea 132 (ramo `STYLE_ERR`);
-    verifica che l'Obsidian Seal NON appaia.
+    verifica che l'Sentinel Seal NON appaia.
 
 #### Aggiunto — Automazione dei Satelliti
 
@@ -1098,7 +1098,7 @@ Z104 nella scansione remota.
 
 ---
 
-### D082 — La Finitura Obsidian Finale (2026-04-26)
+### D082 — La Finitura Quartz Finale (2026-04-26)
 
 #### Aggiunto
 
@@ -1108,7 +1108,7 @@ Z104 nella scansione remota.
   `mkdocs` / `zensical` / `standalone` → `(nessuno)`. Nota footer Regola R21 aggiunta.
   Help del comando aggiornato per includere i bypass engine-specifici.
 
-- **`zenzic score`: Pannello Obsidian Seal a 100/100.**
+- **`zenzic score`: Pannello Sentinel Seal a 100/100.**
   Quando `report.score == 100`, il comando score visualizza lo stesso pannello celebrativo
   dell'Atto Lab 0 — `Group` con intestazione scudo `ObsidianPalette.BRAND` e riga di successo
   che conferma l'integrità della documentazione. Pannello soppresso in modalità `--format json`.
@@ -1134,8 +1134,8 @@ Z104 nella scansione remota.
 
 - **`examples/matrix/blue-team/` — tre fixture di documentazione pulita (standalone, mkdocs, zensical).**
   Versioni corrette: link relativi, prosa ≥50 parole, `index.md` in ogni sottodirectory, nessuna
-  credenziale, campo `draft:` rimosso. Tutti e tre ottengono l'Obsidian Seal.
-  **Exit code: 0 (Obsidian Seal ✨).** Parità confermata: zero asimmetrie tra engine.
+  credenziale, campo `draft:` rimosso. Tutti e tre ottengono l'Sentinel Seal.
+  **Exit code: 0 (Sentinel Seal ✨).** Parità confermata: zero asimmetrie tra engine.
 
 #### Documentazione (zenzic-doc)
 
@@ -1147,14 +1147,14 @@ Z104 nella scansione remota.
   elemento 11 del Contratto Adapter per `get_link_scheme_bypasses()` aggiunto.
 
 - **`first-audit.mdx` (EN+IT): Step 2 ristrutturato in "L'Assedio e lo Scudo".**
-  Mostra prima `uvx zenzic lab 2` (banner Security Breach), poi `uvx zenzic lab 0` (Obsidian Seal).
+  Mostra prima `uvx zenzic lab 2` (banner Security Breach), poi `uvx zenzic lab 0` (Sentinel Seal).
   Implementa la Regola R22 (Fall-before-Redemption): il contrasto emotivo è la lezione.
 
 #### Governance
 
 - **Regola R22 (Fall-before-Redemption) codificata in [POLICIES]:** il contenuto tutorial deve
   mostrare prima lo stato compromesso (L'Assedio), spiegare la correzione, poi mostrare lo stato
-  corretto (L'Obsidian Seal).
+  corretto (L'Sentinel Seal).
 
 ---
 
@@ -1200,9 +1200,7 @@ Z104 nella scansione remota.
   `architecture.md` — la keyword `draft` corrisponde al pattern segnaposto di default.
   Coerente su tutti e tre i motori (by design: è una regola di contenuto, non di motore).
 
----
-
-## [0.6.1] — 2026-04-19 — Obsidian Glass [SUPERSEDED]
+---## [0.6.1] — 2026-04-19 — Obsidian Glass [SUPERSEDED]
 
 > ⚠ **[SUPERSEDED dalla v0.7.0]** — La versione 0.6.1 è deprecata a causa di problemi di allineamento con le specifiche Docusaurus e terminologia legacy. Tutti gli utenti devono aggiornare alla v0.7.0 "Obsidian Maturity".
 

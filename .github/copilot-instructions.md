@@ -1,4 +1,4 @@
-# 🛡️ ZENZIC CORE — Obsidian Ledger v0.7.0 "Obsidian Maturity"
+# 🛡️ ZENZIC CORE — Zenzic Ledger v0.7.0 "Quartz Maturity"
 
 > **Single Source of Truth for all agents and contributors.**
 > Schema: [MANIFESTO] → [POLICIES] → [ARCHITECTURE] → [ADR] → [ACTIVE SPRINT] → [ARCHIVE LINK]
@@ -48,7 +48,7 @@ Zenzic builds a **Virtual Site Map (VSM)** — a projection of the final site in
 - [ ] `CHANGELOG.md` — add sprint section under current version heading
 - [ ] `CHANGELOG.it.md` — Italian translation of the same section
 - [ ] `RELEASE.md` — keep concise and marketing-ready (max 200 lines — Law of Executive Brevity)
-- [ ] **Archive Check:** If `CHANGELOG.md` exceeds 500 lines → move pre-v0.6.0 versions to `CHANGELOG.archive.md` (Obsidian Archive Protocol).
+- [ ] **Archive Check:** If `CHANGELOG.md` exceeds 500 lines → move pre-v0.6.0 versions to `CHANGELOG.archive.md` (Sentinel Archive Protocol).
 - [ ] **Executive Filter:** Review `RELEASE.md`. Technical fluff (mutation tables, internal bug IDs, CVE traces) belongs in `CHANGELOG.md` or `explanation/architecture.mdx` — not in the release notes.
 
 ### Step 3 — Staleness & Testimony Audit
@@ -107,17 +107,17 @@ Zenzic builds a **Virtual Site Map (VSM)** — a projection of the final site in
 
 - **[RULE R21] Protocol Sovereignty (D080).** The Core (`validator.py`, `scanner.py`) must never hardcode engine names (`"docusaurus"`, `"mkdocs"`, etc.) as conditions for validation logic. Engine-specific behaviour must be declared in the adapter (`BaseAdapter` protocol method) and queried by the Core. **Implementation:** `BaseAdapter.get_link_scheme_bypasses() -> frozenset[str]` is the canonical pattern. If the Core must behave differently per engine, add a `get_*()` method to the protocol — never add `if engine == "x"` to Core logic.
 
-- **[RULE R22] Fall-before-Redemption (D081).** Tutorial and onboarding content must show the broken state first (The Siege), explain the fix, then show the passing state (The Obsidian Seal). The emotional contrast is the lesson — a green exit means nothing without the memory of the breach. **Implementation:** `first-audit.mdx` Step 2 uses `uvx zenzic lab 2` (leaked credential) as the Siege, then `uvx zenzic lab 0` as the Shield. The `examples/matrix/red-team/` fixtures are the canonical broken state; `examples/matrix/blue-team/` is the canonical fixed state.
+- **[RULE R22] Fall-before-Redemption (D081).** Tutorial and onboarding content must show the broken state first (The Siege), explain the fix, then show the passing state (The Sentinel Seal). The emotional contrast is the lesson — a green exit means nothing without the memory of the breach. **Implementation:** `first-audit.mdx` Step 2 uses `uvx zenzic lab 2` (leaked credential) as the Siege, then `uvx zenzic lab 0` as the Shield. The `examples/matrix/red-team/` fixtures are the canonical broken state; `examples/matrix/blue-team/` is the canonical fixed state.
 
 ### The Law of Executive Brevity [MANDATORY] — D068
 
 - **[INVARIANT] Public-facing files (`RELEASE.md`, `README.md`) are for humans and decision makers — not for implementation audit trails.**
   - **Technical Dump Prohibited:** Mutation testing tables, internal bug IDs, forensic traces, and CVE details do not belong in `RELEASE.md`. They belong in `CHANGELOG.md`, `CHANGELOG.archive.md`, or internal ADRs.
-  - **Archival Trigger:** When `CHANGELOG.md` exceeds 500 lines, move pre-v0.6.0 versions to `CHANGELOG.archive.md` (the **Obsidian Archive Protocol**). Add an archive link in the preamble. The main changelog covers only the current major cycle.
+  - **Archival Trigger:** When `CHANGELOG.md` exceeds 500 lines, move pre-v0.6.0 versions to `CHANGELOG.archive.md` (the **Sentinel Archive Protocol**). Add an archive link in the preamble. The main changelog covers only the current major cycle.
   - **Summarization:** Every 5 technical sprints are summarized into 1 executive highlight in `RELEASE.md`. Sprint-level granularity lives in `CHANGELOG.md`.
   - **Line Budget:** `RELEASE.md` ≤ 200 lines. If it exceeds this, apply the Executive Filter (see CLOSING PROTOCOL Step 2).
 
-### Documentation Law — The Obsidian Testimony [MANDATORY]
+### Documentation Law — The Quartz Testimony [MANDATORY]
 
 - **[INVARIANT] Every behavioral or structural change to the codebase must be reflected in the corresponding `.mdx` documentation before the sprint is closed.** A code change without a documentation update is a ghost commit — it alters reality without updating the map.
 - **Trigger rules (mandatory — not optional):**
@@ -172,7 +172,7 @@ Registry: `src/zenzic/core/codes.py` — **single source of truth**. Never add a
 5. **Branding:** Keep "Shield", "Blood Sentinel", "VSM", "Ghost Routes" as-is (Proper Nouns).
 6. **Footer:** Must include `in Italy 🇮🇹` (EN) / `in Italia 🇮🇹` (IT). No X.com / Twitter.
 7. **No title heading:** Opens with the wordmark SVG. No Roadmap section.
-8. **Chronicles position:** Obsidian Chronicles section always precedes the footer.
+8. **Chronicles position:** Zenzic Chronicles section always precedes the footer.
 
 ### Memory Law — The Custodian's Contract
 
@@ -230,7 +230,7 @@ src/zenzic/
     cache.py                — Content-addressable CacheManager
     exceptions.py           — ConfigurationError, PluginContractError, ShieldViolation
     logging.py              — Rich logging handler
-    ui.py                   — ObsidianPalette, ObsidianUI, make_banner (moved here in D062-B)
+    ui.py                   — SentinelPalette, SentinelUI, make_banner (moved here in D062-B)
   models/
     config.py               — ZenzicConfig / BuildContext (Pydantic); 4-level config priority
     vsm.py                  — Virtual Site Map: Route, build_vsm, detect_collisions
@@ -257,6 +257,74 @@ tests/
 ```
 
 **Config priority (4 levels):** CLI flags > `zenzic.toml` > `[tool.zenzic]` in `pyproject.toml` > built-in defaults. CLI flags always win.
+
+---
+
+## [CODE MAP] — Indice Rapido Moduli
+
+> Auto-generato da `scripts/map_project.py` via AST (CEO-083 — Sentinel Mapper Protocol).
+> Aggiornare con `just map-update` dopo ogni modifica a `src/`.
+
+<!-- MAP_START -->
+## [CODE MAP] — Indice Rapido Moduli
+
+> Auto-generato da `scripts/map_project.py` via AST (CEO-083 — Sentinel Mapper Protocol).
+> Aggiornare con `just map-update` dopo ogni modifica a `src/`.
+
+| File | Classi | Funzioni pubbliche | Note |
+|------|--------|--------------------|------|
+| `cli/_check.py` | — | `check_links`, `check_orphans`, `check_snippets`, `check_references`, `check_assets`, `check_placeholders`, `check_all` | Check sub-commands: links, orphans, snippets, references, assets, placeholders, all. |
+| `cli/_clean.py` | — | `clean_assets` | Clean sub-commands: safely remove unused documentation files. |
+| `cli/_inspect.py` | — | — | Inspect sub-commands: introspect the Zenzic scanner arsenal and plugin registry. |
+| `cli/_lab.py` | — | `parse_act_range`, `lab` | ``zenzic lab`` — interactive showcase of bundled documentation examples. |
+| `cli/_shared.py` | — | `configure_console`, `get_ui`, `get_console` | Shared CLI infrastructure: console singleton, _ui gateway, and cross-command utilities. |
+| `cli/_standalone.py` | — | `score`, `diff`, `init` | Standalone commands: score, diff, init — and their private helpers. |
+| `core/adapter.py` | — | — | Backwards-compatible alias for ``zenzic.core.adapters``. |
+| `core/adapters/_base.py` | `RouteMetadata`, `BaseAdapter` | — | BaseAdapter Protocol — the engine-agnostic contract every adapter must satisfy. |
+| `core/adapters/_docusaurus.py` | `DocusaurusAdapter` | `find_docusaurus_config`, `check_config_assets` | DocusaurusAdapter — adapter for Docusaurus v3 with native i18n support. |
+| `core/adapters/_factory.py` | — | `list_adapter_engines`, `clear_adapter_cache`, `get_adapter` | Adapter factory — dynamic entry-point discovery with StandaloneAdapter fallback. |
+| `core/adapters/_mkdocs.py` | `MkDocsAdapter` | `find_config_file`, `check_config_assets` | MkDocsAdapter — adapter for MkDocs folder-mode and suffix-mode i18n. |
+| `core/adapters/_standalone.py` | `StandaloneAdapter` | — | StandaloneAdapter — no-op adapter for projects with no recognised build engine. |
+| `core/adapters/_utils.py` | `FileMetadata` | `case_sensitive_exists`, `remap_to_default_locale`, `extract_frontmatter_slug`, `extract_frontmatter_draft`, `extract_frontmatter_unlisted`, `extract_frontmatter_tags`, `build_metadata_cache` | Shared utilities for Zenzic adapters. |
+| `core/adapters/_zensical.py` | `ZensicalLegacyProxy`, `ZensicalAdapter` | `find_zensical_config`, `check_config_assets` | ZensicalAdapter — native adapter for the Zensical build engine. |
+| `core/cache.py` | `CacheManager` | `make_content_hash`, `make_config_hash`, `make_vsm_snapshot_hash`, `make_file_key` | Content-addressable cache for Zenzic rule results. |
+| `core/codes.py` | `CoreScanner` | `normalize`, `label` | Zenzic Finding Code Registry. |
+| `core/discovery.py` | — | `walk_files`, `iter_locale_markdown_sources`, `iter_markdown_sources` | Centralised file-discovery utilities for the Zenzic Core. |
+| `core/exceptions.py` | `ZenzicError`, `ConfigurationError`, `EngineError`, `CheckError`, `NetworkError`, `PluginContractError` | — | Core exception hierarchy for Zenzic. |
+| `core/exclusion.py` | `VCSIgnoreParser`, `LayeredExclusionManager` | — | Layered Exclusion system: VCS-aware file exclusion with 4-level hierarchy. |
+| `core/logging.py` | — | `get_logger`, `setup_cli_logging` | Logging configuration for Zenzic. |
+| `core/models.py` | — | — | Re-export shim — canonical location is ``zenzic.models.references``. |
+| `core/reporter.py` | `Finding`, `SentinelReporter` | — | Sentinel Report Engine — Ruff-inspired CLI output for Zenzic. |
+| `core/resolver.py` | `PathTraversal`, `FileNotFound`, `AnchorMissing`, `Resolved`, `InMemoryPathResolver` | — | Pure in-memory path resolver for Markdown documentation link validation. |
+| `core/rules.py` | `ResolutionContext`, `RuleFinding`, `Violation`, `BaseRule`, `CustomRule`, `AdaptiveRuleEngine`, `VSMBrokenLinkRule`, `PluginRuleInfo`, `PluginRegistry` | `list_plugin_rules`, `run_rule` | Zenzic Rule Engine — pluggable, pure-function linting rules. |
+| `core/scanner.py` | `PlaceholderFinding`, `ReferenceScanner` | `find_repo_root`, `calculate_orphans`, `check_placeholder_content`, `check_asset_references`, `calculate_unused_assets`, `find_orphans`, `find_placeholders`, `find_unused_assets`, `find_missing_directory_indices`, `check_image_alt_text`, `scan_docs_references` | Filesystem scanning utilities: repo root discovery, orphan page detection, |
+| `core/scorer.py` | `CategoryScore`, `ScoreReport` | `compute_score`, `save_snapshot`, `load_snapshot` | Documentation quality scoring engine. |
+| `core/shield.py` | `SecurityFinding`, `ShieldViolation` | `scan_url_for_secrets`, `scan_line_for_secrets`, `scan_lines_with_lookback`, `safe_read_line` | Zenzic Shield: secret-detection engine integrated into the Pass 1 harvesting phase. |
+| `core/ui.py` | `SentinelPalette`, `SentinelUI` | `emoji`, `make_banner`, `make_sentinel_header` | Sentinel Visual Identity — SentinelPalette, terminal detection, and UI helpers. |
+| `core/validator.py` | `LinkInfo`, `SnippetError`, `LinkError`, `LinkValidator` | `extract_links`, `slug_heading`, `anchors_in_file`, `extract_ref_links`, `validate_links_async`, `generate_virtual_site_map`, `check_nav_contract`, `validate_links`, `validate_links_structured`, `check_snippet_content`, `validate_snippets` | Validation logic: native link checking (internal + external) and snippet checks. |
+| `main.py` | — | `cli_main` | Entry point for the zenzic CLI application. |
+| `models/config.py` | `CustomRuleConfig`, `BuildContext`, `ZenzicConfig` | — | Zenzic configuration models and generator detection. |
+| `models/references.py` | `ReferenceMap`, `ReferenceFinding`, `IntegrityReport` | — | Data models for the Two-Pass Reference Pipeline. |
+| `models/vsm.py` | `Route` | `build_vsm` | Virtual Site Map (VSM) data model. |
+| `rules.py` | — | — | Public Plugin SDK — import from here in your plugin code. |
+
+### Mappa Concetti → File
+
+| Concetto | File |
+|----------|------|
+| Shield / credential scan | `src/zenzic/core/shield.py` |
+| Link validation | `src/zenzic/core/validator.py` |
+| Exit codes (Zxxx) | `src/zenzic/core/codes.py` |
+| CLI entry point | `src/zenzic/main.py` |
+| Adapter factory (Z000 guard) | `src/zenzic/core/adapters/_factory.py` |
+| Exclusion layers (4-level) | `src/zenzic/core/exclusion.py` |
+| Virtual Site Map (VSM) | `src/zenzic/models/vsm.py` |
+| Quality score | `src/zenzic/core/scorer.py` |
+| Config priority (Pydantic) | `src/zenzic/models/config.py` |
+| File discovery | `src/zenzic/core/discovery.py` |
+| Rich UI / banners | `src/zenzic/core/ui.py` |
+| SARIF / text reporter | `src/zenzic/core/reporter.py` |
+<!-- MAP_END -->
 
 ---
 
@@ -344,7 +412,7 @@ tests/
 
 **[DECISION]** Showcase commands (like `zenzic lab`) must accept range syntax (`N-M`) in addition to single integers and named shorthands (`all`), so operators can run thematic groups of acts in one invocation without scripting loops.
 
-- **Implementation:** Argument type changed from `int` to `str`. `parse_act_range(raw: str) -> list[int]` is a pure function (no side effects, no I/O) that handles single integers, inclusive ranges, and `"all"`. It raises `ValueError` for malformed input; the caller catches and renders an `ObsidianUI.print_exception_alert()` panel.
+- **Implementation:** Argument type changed from `int` to `str`. `parse_act_range(raw: str) -> list[int]` is a pure function (no side effects, no I/O) that handles single integers, inclusive ranges, and `"all"`. It raises `ValueError` for malformed input; the caller catches and renders an `SentinelUI.print_exception_alert()` panel.
 - **Rule R18 — Range Awareness:** Showroom commands should support range syntax (N-M) to facilitate batch demonstration and testing without requiring shell scripting by the operator.
 - **Why:** The `zenzic lab` menu explicitly mentions `zenzic lab 11–16` in its footer hint. Shipping a command that advertises a capability it doesn't support is a false promise — a violation of the Maturity Contract.
 
