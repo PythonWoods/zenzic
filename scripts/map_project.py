@@ -131,7 +131,7 @@ def extract_module_info(path: Path) -> dict:
     for node in ast.iter_child_nodes(tree):
         if isinstance(node, ast.ClassDef) and not node.name.startswith("_"):
             classes.append(node.name)
-        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
             if not node.name.startswith("_"):
                 functions.append(node.name)
 

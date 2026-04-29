@@ -266,7 +266,7 @@ tests/
 > Aggiornare con `just map-update` dopo ogni modifica a `src/`.
 
 <!-- MAP_START -->
-## [CODE MAP] — Indice Rapido Moduli
+### Mappa Moduli
 
 > Auto-generato da `scripts/map_project.py` via AST (CEO-083 — Sentinel Mapper Protocol).
 > Aggiornare con `just map-update` dopo ogni modifica a `src/`.
