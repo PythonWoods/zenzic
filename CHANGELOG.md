@@ -95,6 +95,29 @@ Versions follow [Semantic Versioning](https://semver.org/).
 > [v0.6.1 GitHub Release](https://github.com/PythonWoods/zenzic/releases/tag/v0.6.1).
 > The v0.7.0 documentation at [zenzic.dev](https://zenzic.dev) is the authoritative source.
 
+### Quartz Maturity — Sovereignty & Documentation (Direttive CEO-102/103-B)
+
+#### Added
+
+- **Sovereign Memory Architecture — `ZENZIC_BRAIN.md` (CEO-103-B).** Agent instructions
+  migrated from `.github/copilot-instructions.md` to a root-level `ZENZIC_BRAIN.md` master
+  file across all three repositories (core, doc, action). A `shadow_sync()` function in
+  each map script (`scripts/map_project.py`, `map_docs.py`, `map_action.py`) automatically
+  propagates the master to `.github/copilot-instructions.md` after every `just map-update`
+  invocation. IDE compatibility is preserved while sovereignty is established.
+
+- **Mineral Path Release Philosophy — `docs/explanation/mineral-path.mdx` (CEO-102).** New
+  Explanation page (EN + IT) documenting the geological release naming philosophy:
+  Obsidian → Quartz → Basalt → Graphite → Diamond. Establishes the long-term roadmap
+  narrative and the principles behind each milestone codename.
+
+- **Quartz Clarity Rebrand (CEO-090).** Global replacement of "Obsidian" brand with
+  "Quartz/Sentinel" across all production-visible surfaces in core, doc, and action repos.
+  Historical references (blog slugs, tag keys, CHANGELOG pre-v0.7.0 entries) preserved as
+  permanent invariants.
+
+---
+
 ### ⚠️ BREAKING CHANGE — MkDocs Plugin Removed (Direttiva CEO 055)
 
 > **DEPRECATION & REMOVAL:** The internal MkDocs plugin (`zenzic.integrations.mkdocs`) has been
