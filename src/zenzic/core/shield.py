@@ -26,6 +26,8 @@ The Shield itself returns findings; callers are responsible for the exit.
 
 from __future__ import annotations
 
+import base64
+import binascii
 import html
 import re
 import unicodedata
@@ -104,6 +106,35 @@ _SECRETS: list[tuple[str, re.Pattern[str]]] = [
 #: are silently truncated before regex matching to prevent ReDoS or
 #: excessive memory consumption from pathological input (F2-1 hardening).
 _MAX_LINE_LENGTH: int = 1_048_576  # 1 MiB
+
+
+# ─── Base64 speculative decoder (CEO-194 / D095) ─────────────────────────────
+# Matches properly-padded Base64 tokens.  Length threshold (≥ 20 chars)
+# ensures we skip strings too short to encode any known credential type.
+_BASE64_CANDIDATE_RE: re.Pattern[str] = re.compile(
+    r"(?:[A-Za-z0-9+/]{4})+(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{4})"
+)
+
+
+def _try_decode_base64(token: str) -> str | None:
+    """Attempt to base64-decode a candidate token.
+
+    Uses ``validate=True`` to reject tokens that contain non-Base64 characters
+    before decoding.  The decoded bytes are interpreted as UTF-8 so that text
+    secrets (API keys, tokens) are recoverable even from binary-looking blobs.
+
+    Args:
+        token: A candidate string consisting only of Base64 alphabet characters.
+
+    Returns:
+        The decoded string when the token is valid Base64 and the result is
+        non-empty; ``None`` otherwise.
+    """
+    try:
+        decoded = base64.b64decode(token, validate=True)
+        return decoded.decode("utf-8", errors="ignore") or None
+    except (binascii.Error, ValueError):
+        return None
 
 
 # ─── Data classes ─────────────────────────────────────────────────────────────
@@ -226,6 +257,33 @@ def scan_line_for_secrets(
                     url=line.strip(),  # always report the raw line for context
                     col_start=raw_m.start() if raw_m else 0,
                     match_text=match_text,
+                )
+
+    # ── Phase 3: Base64 speculative decoding (CEO-194) ────────────────────────
+    # Extract candidate tokens from the normalised line, decode each, then
+    # re-scan the decoded text through _SECRETS.  Catches credentials that
+    # have been Base64-encoded to bypass the raw-text scan (e.g. a frontmatter
+    # field containing base64(ghp_...) or base64(AKIA...)).
+    for _b64_match in _BASE64_CANDIDATE_RE.finditer(normalized):
+        _candidate = _b64_match.group(0)
+        if len(_candidate) < 20:
+            continue
+        _decoded = _try_decode_base64(_candidate)
+        if _decoded is None:
+            continue
+        for secret_type, pattern in _SECRETS:
+            if secret_type in seen:
+                continue
+            m = pattern.search(_decoded)
+            if m:
+                seen.add(secret_type)
+                yield SecurityFinding(
+                    file_path=path,
+                    line_no=line_no,
+                    secret_type=secret_type,
+                    url=line.strip(),
+                    col_start=0,  # position in decoded text is meaningless in raw line
+                    match_text=m.group(0),
                 )
 
 

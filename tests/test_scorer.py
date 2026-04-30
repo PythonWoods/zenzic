@@ -10,6 +10,7 @@ from unittest.mock import patch
 
 from typer.testing import CliRunner
 
+from zenzic.core.exceptions import ConfigurationError
 from zenzic.core.scorer import (
     ScoreReport,
     compute_score,
@@ -26,74 +27,159 @@ runner = CliRunner()
 _CFG = ZenzicConfig()
 
 
-# ─── compute_score — pure unit tests ──────────────────────────────────────────
+# ─── compute_score — pure unit tests (Quartz Penalty API, CEO-163) ─────────────
 
 
 def test_perfect_score() -> None:
-    report = compute_score(
-        link_errors=0, orphans=0, snippet_errors=0, placeholders=0, unused_assets=0
-    )
+    report = compute_score({})
     assert report.score == 100
 
 
 def test_score_drops_with_issues() -> None:
-    report = compute_score(
-        link_errors=5, orphans=0, snippet_errors=0, placeholders=0, unused_assets=0
-    )
+    # 5 broken links: 5 × 8.0 = 40 pts from structural cap (40) → structural=0; total=60
+    report = compute_score({"Z101": 5})
     assert report.score < 100
 
 
 def test_score_is_zero_with_many_issues() -> None:
-    report = compute_score(
-        link_errors=10, orphans=10, snippet_errors=10, placeholders=10, unused_assets=10
-    )
+    report = compute_score({"Z101": 10, "Z402": 10, "Z503": 10, "Z903": 10})
     assert report.score == 0
 
 
 def test_score_is_bounded_0_to_100() -> None:
-    report = compute_score(
-        link_errors=100, orphans=100, snippet_errors=100, placeholders=100, unused_assets=100
-    )
+    report = compute_score({"Z101": 100, "Z402": 100, "Z503": 100, "Z903": 100})
     assert 0 <= report.score <= 100
 
 
-def test_score_five_categories() -> None:
-    report = compute_score(
-        link_errors=0, orphans=0, snippet_errors=0, placeholders=0, unused_assets=0
-    )
+def test_score_four_categories() -> None:
+    report = compute_score({})
     names = {c.name for c in report.categories}
-    assert names == {"links", "orphans", "snippets", "placeholders", "assets"}
+    assert names == {"structural", "content", "navigation", "brand"}
 
 
 def test_weights_sum_to_one() -> None:
-    report = compute_score(
-        link_errors=0, orphans=0, snippet_errors=0, placeholders=0, unused_assets=0
-    )
+    report = compute_score({})
     total_weight = sum(c.weight for c in report.categories)
     assert abs(total_weight - 1.0) < 1e-9
 
 
-def test_single_link_error_drops_links_category() -> None:
-    report = compute_score(
-        link_errors=1, orphans=0, snippet_errors=0, placeholders=0, unused_assets=0
-    )
-    links_cat = next(c for c in report.categories if c.name == "links")
-    assert links_cat.category_score < 1.0
-    assert links_cat.issues == 1
+def test_single_link_error_drops_structural_category() -> None:
+    report = compute_score({"Z101": 1})
+    structural_cat = next(c for c in report.categories if c.name == "structural")
+    assert structural_cat.category_score < 1.0
+    assert structural_cat.issues == 1
+
+
+def test_circular_anchors_counted_in_structural() -> None:
+    report = compute_score({"Z107": 2})
+    structural_cat = next(c for c in report.categories if c.name == "structural")
+    assert structural_cat.issues == 2
+    assert structural_cat.category_score < 1.0
+
+
+def test_untagged_blocks_counted_in_content() -> None:
+    report = compute_score({"Z505": 3})
+    content_cat = next(c for c in report.categories if c.name == "content")
+    assert content_cat.issues == 3
+
+
+def test_brand_violations_counted_in_brand() -> None:
+    report = compute_score({"Z905": 2})
+    brand_cat = next(c for c in report.categories if c.name == "brand")
+    assert brand_cat.issues == 2
+    assert brand_cat.category_score < 1.0
+
+
+def test_nav_contract_errors_counted_in_brand() -> None:
+    report = compute_score({"Z904": 1, "Z905": 1})
+    brand_cat = next(c for c in report.categories if c.name == "brand")
+    assert brand_cat.issues == 2
+
+
+def test_security_override_collapses_score_to_zero() -> None:
+    """Security violations override all other checks: score must be 0."""
+    report = compute_score({"Z201": 1})
+    assert report.score == 0
+    assert report.security_override is True
+
+
+def test_security_override_ignores_perfect_checks() -> None:
+    """Even a perfectly clean project scores 0 when a credential is detected."""
+    report = compute_score({"Z201": 1})
+    assert report.score == 0
+    assert report.security_override is True
+
+
+def test_security_override_multiple_violations() -> None:
+    report = compute_score({"Z201": 3})
+    assert report.score == 0
+    assert report.security_override is True
+
+
+def test_no_security_override_when_zero_violations() -> None:
+    report = compute_score({})
+    assert report.security_override is False
+
+
+# ─── Quartz Penalty Table invariants (CEO-163) ────────────────────────────────
+
+
+def test_z505_category_cap_invariant() -> None:
+    """CEO-163 invariant: 1000 Z505 caps content; structural+nav+brand intact → 70."""
+    report = compute_score({"Z505": 1000})
+    assert report.score == 70
+    content_cat = next(c for c in report.categories if c.name == "content")
+    assert content_cat.category_score == 0.0
+
+
+def test_z503_single_snippet_error() -> None:
+    """One snippet error = 10pt deduction from content cap (30 → 20)."""
+    report = compute_score({"Z503": 1})
+    assert report.score == 90
+    content_cat = next(c for c in report.categories if c.name == "content")
+    assert abs(content_cat.category_score - (20 / 30)) < 1e-3
+
+
+def test_z101_penalty_five_broken_links() -> None:
+    """5 broken links: 5 × 8 = 40 → structural zeroed, total = 60."""
+    report = compute_score({"Z101": 5})
+    assert report.score == 60
+    structural_cat = next(c for c in report.categories if c.name == "structural")
+    assert structural_cat.category_score == 0.0
+
+
+def test_z501_z502_split_penalty() -> None:
+    """Z501 (2.0pt) and Z502 (1.0pt) have distinct weights (CEO-171)."""
+    r_z501 = compute_score({"Z501": 1})
+    r_z502 = compute_score({"Z502": 1})
+    assert r_z501.score < r_z502.score
+
+
+def test_z402_orphan_navigation_penalty() -> None:
+    """Z402 deducts from navigation (cap=20). 5 orphans × 4.0 = 20 → nav zeroed."""
+    report = compute_score({"Z402": 5})
+    nav_cat = next(c for c in report.categories if c.name == "navigation")
+    assert nav_cat.category_score == 0.0
+    assert report.score == 80  # structural(40) + content(30) + brand(10) = 80
+
+
+def test_unknown_code_contributes_zero_deduction() -> None:
+    """Unknown Zxxx codes are silently ignored (no deduction)."""
+    report = compute_score({"Z999": 100})
+    assert report.score == 100
 
 
 def test_to_dict_structure() -> None:
-    report = compute_score(
-        link_errors=1, orphans=0, snippet_errors=2, placeholders=0, unused_assets=1
-    )
+    # Z101:1 → struct 32; Z503:2 → content 10; Z903:1 → brand 7; nav 20 → total 69
+    report = compute_score({"Z101": 1, "Z503": 2, "Z903": 1})
     d = report.to_dict()
     assert d["project"] == "zenzic"
     assert "score" in d
     assert "threshold" in d
-    assert d["status"] in ("success", "failing")
+    assert d["status"] in ("success", "failing", "security_breach")
     assert "timestamp" in d
     assert "categories" in d
-    assert len(d["categories"]) == 5
+    assert len(d["categories"]) == 4
     for cat in d["categories"]:
         assert "name" in cat
         assert "issues" in cat
@@ -102,13 +188,19 @@ def test_to_dict_structure() -> None:
         assert "contribution" in cat
 
 
+def test_to_dict_security_override_status() -> None:
+    report = compute_score({"Z201": 1})
+    d = report.to_dict()
+    assert d["status"] == "security_breach"
+    assert d["security_override"] is True
+    assert d["score"] == 0
+
+
 # ─── Snapshot persistence ─────────────────────────────────────────────────────
 
 
 def test_save_and_load_snapshot(tmp_path: Path) -> None:
-    report = compute_score(
-        link_errors=0, orphans=1, snippet_errors=0, placeholders=2, unused_assets=0
-    )
+    report = compute_score({"Z402": 1, "Z501": 2})
     saved_path = save_snapshot(tmp_path, report)
     assert saved_path.exists()
 
@@ -127,10 +219,30 @@ def test_load_snapshot_returns_none_on_corrupt_file(tmp_path: Path) -> None:
     assert load_snapshot(tmp_path) is None
 
 
+def test_load_snapshot_raises_on_legacy_schema(tmp_path: Path) -> None:
+    """A v0.6.x snapshot (schema_version absent → 1) must raise ConfigurationError.
+
+    Protects against silently loading an incompatible decay-model baseline and
+    producing a meaningless diff result.
+    """
+    legacy = {"score": 85, "threshold": 70, "categories": [], "status": "success"}
+    (tmp_path / ".zenzic-score.json").write_text(json.dumps(legacy), encoding="utf-8")
+    import pytest
+
+    with pytest.raises(ConfigurationError, match="Incompatible baseline"):
+        load_snapshot(tmp_path)
+
+
+def test_save_snapshot_writes_schema_version(tmp_path: Path) -> None:
+    """save_snapshot must stamp schema_version=2 so future guards can detect mismatches."""
+    report = compute_score({"Z101": 1})
+    save_snapshot(tmp_path, report)
+    data = json.loads((tmp_path / ".zenzic-score.json").read_text(encoding="utf-8"))
+    assert data.get("schema_version") == 2
+
+
 def test_snapshot_roundtrip_preserves_categories(tmp_path: Path) -> None:
-    report = compute_score(
-        link_errors=2, orphans=1, snippet_errors=0, placeholders=3, unused_assets=1
-    )
+    report = compute_score({"Z101": 2, "Z402": 1, "Z501": 3, "Z903": 1})
     save_snapshot(tmp_path, report)
     loaded = load_snapshot(tmp_path)
     assert loaded is not None
@@ -149,9 +261,7 @@ def _mock_all_checks_empty(
     exclusion_mgr: object,
     strict: bool,
 ) -> ScoreReport:
-    return compute_score(
-        link_errors=0, orphans=0, snippet_errors=0, placeholders=0, unused_assets=0
-    )
+    return compute_score({})
 
 
 def _mock_all_checks_with_issues(
@@ -161,9 +271,8 @@ def _mock_all_checks_with_issues(
     exclusion_mgr: object,
     strict: bool,
 ) -> ScoreReport:
-    return compute_score(
-        link_errors=2, orphans=1, snippet_errors=1, placeholders=3, unused_assets=1
-    )
+    # structural: 2×8=16 → 24pts; content: 1×10+3×2=16 → 14pts; nav: 1×4=4 → 16pts; brand: 1×3=3 → 7pts → score=61
+    return compute_score({"Z101": 2, "Z402": 1, "Z503": 1, "Z501": 3, "Z903": 1})
 
 
 @patch("zenzic.cli._standalone.find_repo_root")
@@ -190,7 +299,7 @@ def test_score_json_output(mock_run, mock_load, mock_root, tmp_path: Path) -> No
     assert data["project"] == "zenzic"
     assert data["status"] == "success"
     assert "timestamp" in data
-    assert len(data["categories"]) == 5
+    assert len(data["categories"]) == 4
 
 
 @patch("zenzic.cli._standalone.find_repo_root")
@@ -244,9 +353,7 @@ def test_diff_no_regression(mock_run, mock_load, mock_root, tmp_path: Path) -> N
     mock_root.return_value = tmp_path
     mock_load.return_value = (_CFG, True)
     # Save a baseline identical to what _run_all_checks returns
-    baseline = compute_score(
-        link_errors=0, orphans=0, snippet_errors=0, placeholders=0, unused_assets=0
-    )
+    baseline = compute_score({})
     save_snapshot(tmp_path, baseline)
 
     result = runner.invoke(app, ["diff"])
@@ -261,9 +368,7 @@ def test_diff_regression_detected(mock_run, mock_load, mock_root, tmp_path: Path
     mock_root.return_value = tmp_path
     mock_load.return_value = (_CFG, True)
     # Baseline is perfect, current has issues → regression
-    baseline = compute_score(
-        link_errors=0, orphans=0, snippet_errors=0, placeholders=0, unused_assets=0
-    )
+    baseline = compute_score({})
     save_snapshot(tmp_path, baseline)
 
     result = runner.invoke(app, ["diff"])
@@ -277,9 +382,7 @@ def test_diff_regression_detected(mock_run, mock_load, mock_root, tmp_path: Path
 def test_diff_threshold_suppresses_exit(mock_run, mock_load, mock_root, tmp_path: Path) -> None:
     mock_root.return_value = tmp_path
     mock_load.return_value = (_CFG, True)
-    baseline = compute_score(
-        link_errors=0, orphans=0, snippet_errors=0, placeholders=0, unused_assets=0
-    )
+    baseline = compute_score({})
     save_snapshot(tmp_path, baseline)
 
     # With a very high threshold, no regression is flagged
@@ -293,9 +396,7 @@ def test_diff_threshold_suppresses_exit(mock_run, mock_load, mock_root, tmp_path
 def test_diff_json_output(mock_run, mock_load, mock_root, tmp_path: Path) -> None:
     mock_root.return_value = tmp_path
     mock_load.return_value = (_CFG, True)
-    baseline = compute_score(
-        link_errors=0, orphans=0, snippet_errors=0, placeholders=0, unused_assets=0
-    )
+    baseline = compute_score({})
     save_snapshot(tmp_path, baseline)
 
     result = runner.invoke(app, ["diff", "--format", "json", "--threshold", "100"])
@@ -310,6 +411,7 @@ def test_diff_json_output(mock_run, mock_load, mock_root, tmp_path: Path) -> Non
 # ─── CLI: check all --exit-zero ───────────────────────────────────────────────
 
 
+@patch("zenzic.cli._shared._count_docs_assets", return_value=(5, 0))
 @patch("zenzic.cli._check.find_repo_root")
 @patch("zenzic.cli._check.ZenzicConfig.load")
 @patch(
@@ -332,6 +434,7 @@ def test_check_all_exit_zero_with_failures(
     mock_links,
     mock_load,
     mock_root,
+    _count,
     tmp_path: Path,
 ) -> None:
     mock_root.return_value = tmp_path

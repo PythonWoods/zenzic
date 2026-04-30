@@ -83,8 +83,11 @@ excluded_build_artifacts = [
 excluded_external_urls = [
     "https://github.com/PythonWoods/zenzic",
     "https://github.com/settings/tokens",
-    # Blog post not yet published — remove exclusion when live
+    # Release Bridge: blog post slug updated — remove exclusion 5 min after v0.7.0 GA deploy
+    "https://zenzic.dev/blog/beyond-the-siege-v070-quartz",
     "https://zenzic.dev/blog/beyond-the-siege-zenzic-v070",
+    # Release Bridge: audit report page — pre-deployment forward reference; remove after v0.7.0 GA deploy
+    "https://zenzic.dev/docs/explanation/audit-v070-quartz-siege",
 ]
 
 # Pattern matching disabled: the README and CHANGELOG describe placeholder
@@ -110,3 +113,11 @@ id       = "ZZ-NOCLICKHERE"
 pattern  = "(?i)\\bclick here\\b|\\bclicca qui\\b"
 message  = "Avoid generic link text. Use a meaningful description for accessibility."
 severity = "error"
+
+# ── Brand integrity ──────────────────────────────────────────────────────────
+# Detect deprecated brand terms in documentation source (Z905).
+# CHANGELOG*.md is excluded by default (historical prose allowed).
+# Use [HISTORICAL] inline to suppress intentional references in other files.
+[project_metadata]
+release_name = "Quartz"
+obsolete_names = ["Obsidian", "Ossidiana"]

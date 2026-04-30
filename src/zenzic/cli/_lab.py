@@ -132,9 +132,9 @@ _ACTS: list[_Act] = [
     _Act(
         6,
         "Transparent Proxy",
-        "SENTINEL banner — Zensical bridge with mkdocs.yml only",
+        "SENTINEL banner — Zensical bridge with mkdocs.yml only. Z905 brand ref to 'Obsidian' detected",
         "zensical-bridge",
-        expected_pass=True,
+        expected_pass=False,
     ),
     _Act(
         7,
@@ -146,9 +146,9 @@ _ACTS: list[_Act] = [
     _Act(
         8,
         "Standalone Excellence",
-        "The ONLY engine for config-free folders: full link + Shield + Z401 checks, zero nav contract required",
+        "Config-free folder: link + Shield + Z401 checks. Z505 untagged block demonstrated",
         "standalone-markdown",
-        expected_pass=True,
+        expected_pass=False,
         show_info=True,
     ),
     _Act(
@@ -210,6 +210,30 @@ _ACTS: list[_Act] = [
         "rules/z500-quality",
         expected_pass=False,
     ),
+    # \u2500\u2500 Scoring Scenarios (Quartz Penalty Table, CEO-163) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+    _Act(
+        17,
+        "Score 0/100 — Security Override",
+        "Fake AWS credential \u2192 Z201 SHIELD_SECRET \u2192 score collapses to 0 regardless of other quality",
+        "scoring/security-breach",
+        expected_pass=False,
+        expected_breach=True,
+    ),
+    _Act(
+        18,
+        "Score 70/100 — Category Cap",
+        "100 × Z505 UNTAGGED_CODE_BLOCK: content zeroed (30 pts) but total floors at 70/100",
+        "scoring/content-spam",
+        expected_pass=False,
+    ),
+    _Act(
+        19,
+        "The Base64 Shadow",
+        "GitHub PAT offuscata in Base64 nel frontmatter — Shield vede attraverso l'encoding (CEO-194)",
+        "scoring/security-base64",
+        expected_pass=False,
+        expected_breach=True,
+    ),
 ]
 
 
@@ -247,14 +271,14 @@ def parse_act_range(raw: str) -> list[int]:
             raise ValueError(f"Invalid range '{raw}': start ({lo}) must be ≤ end ({hi}).")
         ids = [i for i in range(lo, hi + 1) if i in _VALID_IDS]
         if not ids:
-            raise ValueError(f"Range '{raw}' contains no valid act numbers. Valid range: 0–16.")
+            raise ValueError(f"Range '{raw}' contains no valid act numbers. Valid range: 0–19.")
         return ids
     try:
         n = int(raw)
     except ValueError as exc:
         raise ValueError(f"Invalid act '{raw}': expected an integer, N-M range, or 'all'.") from exc
     if n not in _VALID_IDS:
-        raise ValueError(f"Act {n} does not exist. Valid acts: 0–16.")
+        raise ValueError(f"Act {n} does not exist. Valid acts: 0–19.")
     return [n]
 
 
@@ -265,6 +289,7 @@ _SECTIONS: list[tuple[str, str, range]] = [
     ("Structural & SEO Integrity", "🔗", range(4, 7)),
     ("Enterprise Adapters & Migration", "🏢", range(7, 11)),
     ("Red/Blue Team Matrix", "🔴", range(11, 17)),
+    ("Scoring Scenarios", "📊", range(17, 20)),
 ]
 
 
@@ -502,7 +527,8 @@ def _print_act_index() -> None:
         con.print(_make_section_table(section_acts))
     con.print(
         f"\n  [dim]zenzic lab <act>   eg. [bold cyan]zenzic lab 3[/]   "
-        f"{emoji('dot')}   [bold cyan]zenzic lab 11–16[/] for Red/Blue matrix[/]\n"
+        f"{emoji('dot')}   [bold cyan]zenzic lab 11–16[/] Red/Blue   "
+        f"{emoji('dot')}   [bold cyan]zenzic lab 17-18[/] Scoring[/]\n"
     )
 
 

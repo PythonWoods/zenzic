@@ -430,6 +430,78 @@ class TestCircularLinks:
 # ─── Performance baseline ─────────────────────────────────────────────────────
 
 
+# ─── Normcase portability fix (KL-002 / CEO-203) ─────────────────────────────
+
+
+class TestNormcasePortability:
+    """os.path.normcase is applied to boundary checks only.
+
+    On Linux, normcase is identity — all tests below behave identically on all
+    platforms.  The suite verifies that:
+      1. A legitimate link whose case matches the *filesystem* (but whose path
+         happens to start with an uppercase directory segment) resolves cleanly.
+      2. A real path-traversal with mixed case is still blocked (the `..`
+         collapse happens before normcase, so normcase cannot open a gap).
+    """
+
+    def test_legitimate_link_with_uppercase_root_resolves(self) -> None:
+        """Root that starts with an uppercase letter must not produce PathTraversal.
+
+        Simulates a project whose docs root is e.g. /Docs (mixed case on APFS).
+        Before the normcase fix, the Shield comparison could fail on Linux if
+        the os.path.normcase of target != os.path.normcase of root, but on
+        Linux normcase is identity so this test also passes there.
+        """
+        root = Path("/Docs")
+        page = root / "guide" / "install.md"
+        r = InMemoryPathResolver(
+            root_dir=root,
+            md_contents={
+                root / "index.md": "# Home\n",
+                page: "# Install\n",
+            },
+            anchors_cache={},
+        )
+        outcome = r.resolve(root / "index.md", "guide/install.md")
+        assert isinstance(outcome, Resolved)
+        assert outcome.target == page
+
+    def test_traversal_with_mixed_case_is_still_blocked(self) -> None:
+        """A path-traversal attack with mixed-case segments must still be caught.
+
+        ``..`` collapse is applied by normpath() before normcase, so normcase
+        cannot un-block a traversal.  E.g. ``dOCs/../etc/passwd`` becomes
+        ``/etc/passwd`` after normpath — well outside any allowed root.
+        """
+        root = Path("/docs")
+        r = InMemoryPathResolver(
+            root_dir=root,
+            md_contents={root / "index.md": "# Home\n"},
+            anchors_cache={},
+        )
+        outcome = r.resolve(root / "index.md", "../../../../etc/passwd")
+        assert isinstance(outcome, PathTraversal)
+
+    def test_normcase_does_not_open_gap_via_empty_allowed_roots(self) -> None:
+        """A resolver with extra allowed roots still blocks traversal."""
+        root = Path("/docs")
+        locale = Path("/docs/i18n/it")
+        r = InMemoryPathResolver(
+            root_dir=root,
+            md_contents={
+                root / "index.md": "# Home\n",
+                locale / "index.md": "# Home IT\n",
+            },
+            anchors_cache={},
+            allowed_roots=[locale],
+        )
+        outcome = r.resolve(root / "index.md", "../../etc/shadow")
+        assert isinstance(outcome, PathTraversal)
+
+
+# ─── Performance baseline ─────────────────────────────────────────────────────
+
+
 class TestPerformanceBaseline:
     """5 000 mixed resolutions must complete in under 200 ms.
 

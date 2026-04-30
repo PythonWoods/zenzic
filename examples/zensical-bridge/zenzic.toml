@@ -19,6 +19,13 @@
 docs_dir = "docs"
 fail_under = 90
 
+# Quartz Brand Integrity (Z905) — detect obsolete release codename "Obsidian"
+# in the documentation. This fixture intentionally contains one reference in
+# docs/index.md to demonstrate the Z905 finding in ruff-style flat output.
+[project_metadata]
+release_name = "Quartz"
+obsolete_names = ["Obsidian"]
+
 # Zenzic Shield — built-in credential scanner (always active, no config required).
 # Detected pattern families: openai-api-key, github-token, aws-access-key,
 #   stripe-live-key, slack-token, google-api-key, private-key,

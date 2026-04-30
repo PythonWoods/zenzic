@@ -10,19 +10,23 @@ from pathlib import Path
 
 import typer
 from rich import box
+from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
+from zenzic.core.codes import normalize as _normalize_code
+from zenzic.core.exceptions import ConfigurationError
 from zenzic.core.exclusion import LayeredExclusionManager
 from zenzic.core.scanner import (
     find_orphans,
     find_placeholders,
     find_repo_root,
     find_unused_assets,
+    scan_docs_references,
 )
 from zenzic.core.scorer import ScoreReport, compute_score, load_snapshot, save_snapshot
 from zenzic.core.ui import SentinelPalette, emoji
-from zenzic.core.validator import validate_links, validate_snippets
+from zenzic.core.validator import check_nav_contract, validate_links, validate_snippets
 from zenzic.models.config import ZenzicConfig
 
 from . import _shared
@@ -38,7 +42,18 @@ def _run_all_checks(
     exclusion_mgr: LayeredExclusionManager,
     strict: bool,
 ) -> ScoreReport:
-    """Run all five checks and return a ScoreReport. Used by score and diff."""
+    """Run all checks and return a ScoreReport. Used by score and diff.
+
+    Builds a ``findings_counts`` dict (Zxxx → count) from all check results
+    and passes it to the Quartz Penalty Scorer (CEO-163).
+    """
+    from zenzic.core.adapters import get_adapter
+
+    adapter = get_adapter(config.build_context, docs_root, repo_root)
+    locale_roots: list[tuple[Path, str]] | None = None
+    if hasattr(adapter, "get_locale_source_roots"):
+        _roots = adapter.get_locale_source_roots(repo_root)
+        locale_roots = _roots if _roots else None
 
     link_errors = validate_links(
         docs_root,
@@ -52,13 +67,47 @@ def _run_all_checks(
     placeholders = find_placeholders(docs_root, exclusion_mgr, config=config)
     unused_assets = find_unused_assets(docs_root, exclusion_mgr, config=config)
 
-    return compute_score(
-        link_errors=len(link_errors),
-        orphans=len(orphans),
-        snippet_errors=len(snippet_errors),
-        placeholders=len(placeholders),
-        unused_assets=len(unused_assets),
+    # Collect rule findings (Z107, Z505, Z905) and security violations (Z201–Z203)
+    # via the Two-Pass Reference Engine.
+    ref_reports, _ = scan_docs_references(
+        docs_root,
+        exclusion_mgr,
+        config=config,
+        validate_links=False,
+        locale_roots=locale_roots,
     )
+    nav_errors = check_nav_contract(repo_root, exclusion_mgr)
+
+    # ── Build findings_counts dict (Quartz Penalty Scorer, CEO-163) ───────────────
+    findings_counts: dict[str, int] = {}
+
+    # Link errors — split by Zxxx code derived from error_type
+    for err in link_errors:
+        code = _normalize_code(err.error_type)  # type: ignore[attr-defined]
+        findings_counts[code] = findings_counts.get(code, 0) + 1
+
+    # Core check aggregates
+    findings_counts["Z402"] = findings_counts.get("Z402", 0) + len(orphans)
+    findings_counts["Z503"] = findings_counts.get("Z503", 0) + len(snippet_errors)
+    findings_counts["Z903"] = findings_counts.get("Z903", 0) + len(unused_assets)
+    findings_counts["Z904"] = findings_counts.get("Z904", 0) + len(nav_errors)
+
+    # Placeholder findings — Z501 (pattern) vs Z502 (short-content) split (CEO-171)
+    for pf in placeholders:
+        pcode = "Z502" if pf.issue == "short-content" else "Z501"
+        findings_counts[pcode] = findings_counts.get(pcode, 0) + 1
+
+    # Rule-engine findings: Z107, Z505, Z905 (rule_id already a Zxxx code)
+    for r in ref_reports:
+        for rule_f in r.rule_findings:
+            findings_counts[rule_f.rule_id] = findings_counts.get(rule_f.rule_id, 0) + 1
+
+    # Security violations (Z2xx) — any breach triggers score override
+    security_violations = sum(len(r.security_findings) for r in ref_reports)
+    if security_violations > 0:
+        findings_counts["Z201"] = findings_counts.get("Z201", 0) + security_violations
+
+    return compute_score(findings_counts)
 
 
 # ── score command ─────────────────────────────────────────────────────────────
@@ -177,7 +226,7 @@ def score(
             _shared.console.print(
                 Group(
                     Text.from_markup(
-                        f"[bold {SentinelPalette.BRAND}]{emoji('shield')} OBSIDIAN SEAL[/]"
+                        f"[bold {SentinelPalette.BRAND}]{emoji('shield')} SENTINEL SEAL[/]"
                     ),
                     Text(),
                     Text.from_markup(
@@ -239,7 +288,11 @@ def diff(
     exclusion_mgr = _shared._build_exclusion_manager(config, repo_root, docs_root)
     effective_strict = strict if strict is not None else config.strict
 
-    baseline = load_snapshot(repo_root)
+    try:
+        baseline = load_snapshot(repo_root)
+    except ConfigurationError as exc:
+        _shared.get_ui().print_exception_alert(str(exc))
+        raise typer.Exit(1) from exc
     if baseline is None:
         _shared.console.print(
             "[yellow]WARNING:[/] no snapshot found. "
@@ -405,27 +458,18 @@ def init(
         _init_standalone(repo_root, force)
 
 
-def _detect_init_engine(repo_root: Path) -> str | None:
-    """Auto-detect the documentation engine from config files at *repo_root*."""
-    if (repo_root / "docusaurus.config.ts").is_file() or (
-        repo_root / "docusaurus.config.js"
-    ).is_file():
-        return "docusaurus"
-    if (repo_root / "mkdocs.yml").is_file():
-        return "mkdocs"
-    if (repo_root / "zensical.toml").is_file():
-        return "zensical"
-    return None
+def _detect_init_engine(repo_root: Path) -> str:
+    """Auto-detect the documentation engine from config files at *repo_root*.
 
+    Delegates to :func:`~zenzic.core.adapters._factory.discover_engine` so
+    the detection priority is identical to the runtime engine resolution
+    (CEO-221: single source of truth for engine detection).
+    Always returns a concrete engine name — ``"standalone"`` when no engine
+    config file is found.
+    """
+    from zenzic.core.adapters._factory import discover_engine
 
-def _engine_feedback(detected_engine: str | None) -> str:
-    """Return a Rich-formatted engine status line for init output."""
-    if detected_engine == "docusaurus":
-        return "  Engine pre-set to [bold cyan]docusaurus[/] (detected from docusaurus.config.ts/js).\n"
-    if detected_engine:
-        source = "mkdocs.yml" if detected_engine == "mkdocs" else "zensical.toml"
-        return f"  Engine pre-set to [bold cyan]{detected_engine}[/] (detected from {source}).\n"
-    return "  No engine config file found — using standalone (engine-agnostic) defaults.\n"
+    return discover_engine(repo_root)
 
 
 def _init_standalone(repo_root: Path, force: bool) -> None:
@@ -442,56 +486,54 @@ def _init_standalone(repo_root: Path, force: bool) -> None:
 
     detected_engine = _detect_init_engine(repo_root)
 
-    i18n_note = (
-        '# locales = ["it"]  # list non-default locale directories\n'
-        "# Zenzic v0.7.0+ automatically authorizes these as safe roots.\n"
-    )
-
-    if detected_engine == "docusaurus":
-        build_context_block = (
-            "\n[build_context]\n"
-            'engine = "docusaurus"\n'
-            + i18n_note
-            + "# Note: @site/ alias is resolved automatically for Docusaurus.\n"
-        )
-    elif detected_engine:
-        build_context_block = f'\n[build_context]\nengine = "{detected_engine}"\n' + i18n_note
-    else:
-        build_context_block = ""
-
     toml_content = (
-        "# zenzic.toml — project configuration for Zenzic\n"
+        "# zenzic.toml — The Zenzic Safe Harbor Configuration\n"
         "# See https://zenzic.dev/docs/reference/configuration/ for full reference.\n"
-        "# See https://zenzic.dev/docs/reference/finding-codes/ for all ZXXX diagnostic codes.\n"
         "\n"
-        '# docs_dir = "docs"   # default: docs\n'
+        "# --- CORE SETTINGS ---\n"
+        'docs_dir = "docs"\n'
+        "fail_under = 100  # Strict gate: fail if quality score < 100%\n"
+        "strict = true     # Promote all warnings to blocking errors\n"
         "\n"
-        "# Directories to skip during checks (relative to docs_dir).\n"
-        "# excluded_check_dirs = []\n"
+        "# --- QUALITY THRESHOLDS ---\n"
+        "# placeholder_max_words = 50       # Threshold for Z502 (Short Content)\n"
         "\n"
-        "# Minimum quality score required to pass (0 = disabled).\n"
-        "# fail_under = 0\n" + build_context_block + "\n"
-        "# Zenzic Shield — built-in credential scanner (always active, no config required).\n"
-        "# Detected pattern families: openai-api-key, github-token, aws-access-key,\n"
-        "#   stripe-live-key, slack-token, google-api-key, private-key,\n"
-        "#   hex-encoded-payload (3+ consecutive \\xNN sequences), gitlab-pat.\n"
-        "# All lines including fenced code blocks are scanned. Exit code 2 on detection.\n"
+        "# --- EXCLUSIONS ---\n"
+        "# respect_vcs_ignore = true\n"
+        '# excluded_dirs = ["temp", "drafts", "node_modules"]\n'
+        "# excluded_external_urls = []\n"
         "\n"
-        "# Declare project-specific lint rules (no Python required):\n"
+        "# --- PROJECT IDENTITY ---\n"
+        "[project_metadata]\n"
+        'release_name = "MyProject"\n'
+        '# obsolete_names = ["OldBrand", "LegacyName"]\n'
+        "\n"
+        "# --- ENGINE CONTEXT ---\n"
+        "[build_context]\n"
+        f'engine = "{detected_engine}"   # Pre-aligned via Quartz Auto-Discovery\n'
+        'base_url = "/"\n'
+        'default_locale = "en"\n'
+        "\n"
+        "# --- CUSTOM RULES ---\n"
         "# [[custom_rules]]\n"
-        '# id       = "ZZ-NODRAFT"\n'
-        '# pattern  = "(?i)\\\\bDRAFT\\\\b"\n'
-        '# message  = "Remove DRAFT marker before publishing."\n'
+        '# id = "ZZ-001"\n'
+        '# pattern = "TODO:"\n'
+        '# message = "Incomplete content detected."\n'
         '# severity = "warning"\n'
     )
 
     config_path.write_text(toml_content, encoding="utf-8")
 
     _shared.console.print(
-        f"\n[green]Created[/] [bold]{config_path.relative_to(repo_root)}[/]\n"
-        + _engine_feedback(detected_engine)
-        + "\nEdit the file to enable rules, adjust directories, or set a quality threshold.\n"
-        "Run [bold cyan]zenzic check all[/] to validate your documentation."
+        Panel(
+            f"[green]✔[/] [bold]Sentinel Seal:[/] zenzic.toml created.\n"
+            f"[yellow]💡[/] [bold]Auto-discovery:[/] Engine pre-set to "
+            f"[bold cyan]{detected_engine}[/].\n\n"
+            "Edit the file, adjust directories, then run "
+            "[bold cyan]zenzic check all[/].",
+            title="[bold]Zenzic Init[/]",
+            border_style="green",
+        )
     )
 
 
@@ -517,32 +559,20 @@ def _init_pyproject(repo_root: Path, pyproject_path: Path, force: bool) -> None:
 
     detected_engine = _detect_init_engine(repo_root)
 
-    i18n_note = (
-        '# locales = ["it"]  # list non-default locale directories\n'
-        "# Zenzic v0.7.0+ automatically authorizes these as safe roots.\n"
+    engine_section = (
+        "\n[tool.zenzic.build_context]\n"
+        f'engine = "{detected_engine}"   # Pre-aligned via Quartz Auto-Discovery\n'
+        'base_url = "/"\n'
+        'default_locale = "en"\n'
     )
-
-    if detected_engine == "docusaurus":
-        engine_section = (
-            "\n[tool.zenzic.build_context]\n"
-            'engine = "docusaurus"\n'
-            + i18n_note
-            + "# Note: @site/ alias is resolved automatically for Docusaurus.\n"
-        )
-    elif detected_engine:
-        engine_section = (
-            f'\n[tool.zenzic.build_context]\nengine = "{detected_engine}"\n' + i18n_note
-        )
-    else:
-        engine_section = '\n# [tool.zenzic.build_context]\n# engine = "standalone"\n'
 
     section = (
         "\n[tool.zenzic]\n"
         "# See https://zenzic.dev/docs/reference/configuration/ for full reference.\n"
-        "# See https://zenzic.dev/docs/reference/finding-codes/ for all ZXXX diagnostic codes.\n"
-        '# docs_dir = "docs"\n'
-        "# excluded_check_dirs = []\n"
-        "# fail_under = 0\n"
+        'docs_dir = "docs"\n'
+        "fail_under = 100  # Strict gate: fail if quality score < 100%\n"
+        "strict = true     # Promote all warnings to blocking errors\n"
+        "# excluded_dirs = []\n"
     ) + engine_section
 
     if force and "[tool.zenzic]" in existing:
@@ -555,10 +585,16 @@ def _init_pyproject(repo_root: Path, pyproject_path: Path, force: bool) -> None:
     pyproject_path.write_text(existing.rstrip("\n") + "\n" + section, encoding="utf-8")
 
     _shared.console.print(
-        f"\n[green]Added[/] [bold][tool.zenzic][/] to [bold]{pyproject_path.relative_to(repo_root)}[/]\n"
-        + _engine_feedback(detected_engine)
-        + "\nEdit the section to enable rules, adjust directories, or set a quality threshold.\n"
-        "Run [bold cyan]zenzic check all[/] to validate your documentation."
+        Panel(
+            f"[green]✔[/] [bold]Sentinel Seal:[/] [tool.zenzic] added to "
+            f"{pyproject_path.relative_to(repo_root)}.\n"
+            f"[yellow]💡[/] [bold]Auto-discovery:[/] Engine pre-set to "
+            f"[bold cyan]{detected_engine}[/].\n\n"
+            "Edit the section, adjust directories, then run "
+            "[bold cyan]zenzic check all[/].",
+            title="[bold]Zenzic Init[/]",
+            border_style="green",
+        )
     )
 
 

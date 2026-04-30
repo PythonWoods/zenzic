@@ -1006,21 +1006,33 @@ def _build_rule_engine(config: ZenzicConfig) -> AdaptiveRuleEngine | None:
 
     Load order is deterministic:
 
-    1. Core rules registered by Zenzic itself (always enabled).
-    2. Regex rules from ``[[custom_rules]]``.
-    3. External plugin rules explicitly listed in ``plugins = [...]``.
+    1. Built-in always-active rules (Z107, Z505).
+    2. Z905 BRAND_OBSOLESCENCE — activated only when ``obsolete_names`` is set.
+    3. Core rules registered via the ``zenzic.rules`` entry-point group.
+    4. Regex rules from ``[[custom_rules]]``.
+    5. External plugin rules explicitly listed in ``plugins = [...]``.
 
     Returns ``None`` when no rules are available.
     """
-    from zenzic.core.rules import CustomRule, PluginRegistry  # deferred to keep import graph clean
+    from zenzic.core.rules import (  # deferred to keep import graph clean
+        BrandObsolescenceRule,
+        CircularAnchorRule,
+        CustomRule,
+        PluginRegistry,
+        UntaggedCodeBlockRule,
+    )
 
-    # In this per-file pipeline, core VSM-only rules are no-op. Avoid building
-    # an engine (and avoid extra read_text calls) when no effective rules exist.
-    if not config.custom_rules and not config.plugins:
-        return None
+    # Built-in rules are always active (no config gate required).
+    built_in: list[BaseRule] = [
+        CircularAnchorRule(),
+        UntaggedCodeBlockRule(),
+    ]
+    if config.project_metadata.obsolete_names:
+        built_in.append(BrandObsolescenceRule(config.project_metadata))
 
     registry = PluginRegistry()
-    rules = registry.load_core_rules()
+    rules: list[BaseRule] = list(built_in)
+    rules.extend(registry.load_core_rules())
     rules.extend(
         CustomRule(
             id=cr.id,

@@ -142,10 +142,13 @@ class InMemoryPathResolver:
         "_root_prefix",
         "_repo_root_str",
         "_repo_root_prefix",
+        "_repo_root_nc_str",
+        "_repo_root_nc_prefix",
         "_md_contents",
         "_anchors_cache",
         "_lookup_map",
         "_allowed_root_pairs",
+        "_allowed_root_pairs_nc",
     )
 
     def __init__(
@@ -178,12 +181,22 @@ class InMemoryPathResolver:
                 _seen.add(_s)
                 _pairs.append((_s, _s + os.sep))
         self._allowed_root_pairs: tuple[tuple[str, str], ...] = tuple(_pairs)
+        # Normcase variants for the portability fix (KL-002 / CEO-203):
+        # os.path.normcase maps paths to the filesystem's canonical case form
+        # (lowercase on NTFS/APFS, identity on Linux).  Used only in the
+        # Shield boundary check so that mixed-case legitimate paths on
+        # case-insensitive filesystems are not mis-classified as traversals.
+        self._allowed_root_pairs_nc: tuple[tuple[str, str], ...] = tuple(
+            (os.path.normcase(s), os.path.normcase(p)) for s, p in self._allowed_root_pairs
+        )
 
         # repo_root is the project root for @site/ alias resolution.
         # Defaults to root_dir when not provided (no @site/ links expected).
         _repo = self._coerce_path(repo_root) if repo_root is not None else self._root_dir
         self._repo_root_str: str = str(_repo)
         self._repo_root_prefix: str = self._repo_root_str + os.sep
+        self._repo_root_nc_str: str = os.path.normcase(self._repo_root_str)
+        self._repo_root_nc_prefix: str = os.path.normcase(self._repo_root_prefix)
 
         # Store coerced maps for anchor validation (Path keys needed there).
         self._md_contents: dict[Path, str] = {
@@ -241,21 +254,26 @@ class InMemoryPathResolver:
         # _build_target returns a str — no Path allocation in the hot path.
         target_str = self._build_target(source_file, path_part)
 
-        # ── Shield: O(1) string prefix check ─────────────────────────────────
+        # ── Shield: O(1) normcase string prefix check ──────────────────────────
         # @site/ links resolve relative to repo_root; all other links must stay
         # within an authorised root.  For @site/ we keep the single repo_root
         # boundary; for regular links we check all allowed_roots (docs_root +
         # any i18n locale directories) so that cross-locale relative links are
         # not mis-classified as path traversals.
+        # os.path.normcase is applied to the target ONLY for the boundary
+        # comparison — case-insensitive filesystems (APFS/NTFS) otherwise
+        # produce false-positive PathTraversal for legitimately-capitalised
+        # path segments.  The original target_str is preserved for file lookup.
+        _target_nc = os.path.normcase(target_str)
         is_site_alias = path_part.startswith("@site/")
         if is_site_alias:
-            shield_ok = target_str == self._repo_root_str or target_str.startswith(
-                self._repo_root_prefix
+            shield_ok = _target_nc == self._repo_root_nc_str or _target_nc.startswith(
+                self._repo_root_nc_prefix
             )
         else:
             shield_ok = any(
-                target_str == root_str or target_str.startswith(root_prefix)
-                for root_str, root_prefix in self._allowed_root_pairs
+                _target_nc == nc_str or _target_nc.startswith(nc_prefix)
+                for nc_str, nc_prefix in self._allowed_root_pairs_nc
             )
         if not shield_ok:
             return PathTraversal(raw_href=href)

@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import json
+import os
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -859,7 +860,7 @@ def _to_findings(results: _AllCheckResults, docs_root: Path) -> list[Finding]:
                 code=_normalize_code(err.error_type),
                 severity=(
                     "security_incident"
-                    if err.error_type == "PATH_TRAVERSAL_SUSPICIOUS"
+                    if err.error_type in ("PATH_TRAVERSAL_SUSPICIOUS", "PATH_TRAVERSAL")
                     else "info"
                     if err.error_type == "CIRCULAR_LINK"
                     else "error"
@@ -1060,9 +1061,18 @@ def _apply_target(
 
     try:
         rel = target.relative_to(repo_root)
-        hint = f"./{rel}" + ("/" if target.is_dir() else "")
+        if rel == Path("."):
+            # Target IS repo_root itself — use relpath from CWD for clean display.
+            # This avoids the "././" balbettio caused by f"./{Path('.')}".
+            hint = os.path.relpath(target) + ("/" if target.is_dir() else "")
+        else:
+            hint = f"./{rel}" + ("/" if target.is_dir() else "")
     except ValueError:
-        hint = str(target) + ("/" if target.is_dir() else "")
+        # Target is outside repo_root (cross-repo scan) — use relpath from CWD.
+        try:
+            hint = os.path.relpath(target) + ("/" if target.is_dir() else "")
+        except ValueError:
+            hint = str(target) + ("/" if target.is_dir() else "")
 
     if target.is_dir():
         # CEO-052: if target IS the project root, preserve the configured docs_dir.
@@ -1265,6 +1275,18 @@ def check_all(
         )
         if _single_file is not None:
             docs_count, assets_count = 1, 0
+
+        # Z906 guardrail: if the target contains zero Markdown sources, inform
+        # the user with an amber warning and exit cleanly (not a system error).
+        if docs_count == 0 and _single_file is None:
+            _target_display = _target_hint or "./"
+            _shared.console.print(
+                f"[bold yellow]\u26a0 Z906 NO_FILES_FOUND[/bold yellow] — "
+                f"No Markdown sources found in [cyan]{_target_display}[/cyan]. "
+                "Audit skipped."
+            )
+            return
+
         errors, warnings = reporter.render(
             all_findings,
             version=__version__,

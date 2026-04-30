@@ -311,6 +311,7 @@ def test_check_all_json_with_errors(
 # ---------------------------------------------------------------------------
 
 
+@patch("zenzic.cli._shared._count_docs_assets", return_value=(5, 0))
 @patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
 @patch("zenzic.cli._check.validate_links_structured", return_value=[])
@@ -320,12 +321,15 @@ def test_check_all_json_with_errors(
 @patch("zenzic.cli._check.find_unused_assets", return_value=[])
 @patch("zenzic.cli._check.check_nav_contract", return_value=[])
 @patch("zenzic.cli._check.scan_docs_references", return_value=([], []))
-def test_check_all_text_ok(_refs, _nav, _assets, _ph, _snip, _orphans, _links, _cfg, _root) -> None:
+def test_check_all_text_ok(
+    _refs, _nav, _assets, _ph, _snip, _orphans, _links, _cfg, _root, _count
+) -> None:
     result = runner.invoke(app, ["check", "all"])
     assert result.exit_code == 0
-    assert "Obsidian Seal" in result.stdout or "SUCCESS" in result.stdout
+    assert "Sentinel Seal" in result.stdout or "SUCCESS" in result.stdout
 
 
+@patch("zenzic.cli._shared._count_docs_assets", return_value=(5, 2))
 @patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
 @patch(
@@ -353,7 +357,7 @@ def test_check_all_text_ok(_refs, _nav, _assets, _ph, _snip, _orphans, _links, _
 @patch("zenzic.cli._check.check_nav_contract", return_value=[])
 @patch("zenzic.cli._check.scan_docs_references", return_value=([], []))
 def test_check_all_text_with_all_errors(
-    _refs, _nav, _assets, _ph, _snip, _orphans, _links, _cfg, _root
+    _refs, _nav, _assets, _ph, _snip, _orphans, _links, _cfg, _root, _count
 ) -> None:
     result = runner.invoke(app, ["check", "all"])
     assert result.exit_code == 1
@@ -418,6 +422,7 @@ def test_check_all_quiet_with_errors(
 # ---------------------------------------------------------------------------
 
 
+@patch("zenzic.cli._shared._count_docs_assets", return_value=(5, 0))
 @patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
 @patch("zenzic.cli._check.validate_links_structured", return_value=[])
@@ -428,7 +433,7 @@ def test_check_all_quiet_with_errors(
 @patch("zenzic.cli._check.check_nav_contract", return_value=[])
 @patch("zenzic.cli._check.scan_docs_references")
 def test_check_all_strict_fails_on_warnings_only(
-    mock_refs, _nav, _assets, _ph, _snip, _orphans, _links, _cfg, _root
+    mock_refs, _nav, _assets, _ph, _snip, _orphans, _links, _cfg, _root, _count
 ) -> None:
     """--strict must exit 1 even when only warnings (no hard errors) exist."""
     from zenzic.models.references import IntegrityReport, ReferenceFinding
@@ -596,7 +601,7 @@ class TestSentinelReporter:
         assert warnings == 0
         output = buf.getvalue()
         assert "auto" in output  # telemetry engine field
-        assert "Obsidian Seal" in output
+        assert "Sentinel Seal" in output
 
     def test_render_grouped_findings(self) -> None:
         from io import StringIO
@@ -1063,6 +1068,7 @@ class TestShowInfoFilter:
         assert errors == 0
         assert warnings == 0
 
+    @patch("zenzic.cli._shared._count_docs_assets", return_value=(5, 0))
     @patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
     @patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
     @patch("zenzic.cli._check.validate_links_structured", return_value=[])
@@ -1073,7 +1079,7 @@ class TestShowInfoFilter:
     @patch("zenzic.cli._check.check_nav_contract", return_value=[])
     @patch("zenzic.cli._check.scan_docs_references", return_value=([], []))
     def test_check_all_show_info_flag_accepted(
-        self, _refs, _nav, _assets, _ph, _snip, _orphans, _links, _cfg, _root
+        self, _refs, _nav, _assets, _ph, _snip, _orphans, _links, _cfg, _root, _count
     ) -> None:
         """--show-info flag must be accepted by check all without crashing."""
         result = runner.invoke(app, ["check", "all", "--show-info"])
@@ -1103,8 +1109,8 @@ def test_inspect_capabilities_shows_bypass_table() -> None:
 @patch("zenzic.cli._standalone.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._standalone.ZenzicConfig.load", return_value=(_CFG, False))
 @patch("zenzic.cli._standalone._run_all_checks")
-def test_score_perfect_shows_obsidian_seal(_run: object, _cfg: object, _root: object) -> None:
-    """score at 100/100 must display the Obsidian Seal celebratory panel."""
+def test_score_perfect_shows_sentinel_seal(_run: object, _cfg: object, _root: object) -> None:
+    """score at 100/100 must display the Sentinel Seal celebratory panel."""
     from zenzic.core.scorer import CategoryScore, ScoreReport
 
     _run.return_value = ScoreReport(  # type: ignore[attr-defined]
@@ -1120,7 +1126,7 @@ def test_score_perfect_shows_obsidian_seal(_run: object, _cfg: object, _root: ob
     result = runner.invoke(app, ["score"])
     assert result.exit_code == 0
     assert "100/100" in result.stdout
-    assert "OBSIDIAN SEAL" in result.stdout
+    assert "SENTINEL SEAL" in result.stdout
     assert "Every check passed" in result.stdout
 
 
@@ -1128,7 +1134,7 @@ def test_score_perfect_shows_obsidian_seal(_run: object, _cfg: object, _root: ob
 @patch("zenzic.cli._standalone.ZenzicConfig.load", return_value=(_CFG, False))
 @patch("zenzic.cli._standalone._run_all_checks")
 def test_score_low_uses_error_style(_run: object, _cfg: object, _root: object) -> None:
-    """score below 50 must use red error styling and must NOT show Obsidian Seal."""
+    """score below 50 must use red error styling and must NOT show Sentinel Seal."""
     from zenzic.core.scorer import CategoryScore, ScoreReport
 
     _run.return_value = ScoreReport(  # type: ignore[attr-defined]
@@ -1144,4 +1150,4 @@ def test_score_low_uses_error_style(_run: object, _cfg: object, _root: object) -
     result = runner.invoke(app, ["score"])
     assert result.exit_code == 0
     assert "30/100" in result.stdout
-    assert "OBSIDIAN SEAL" not in result.stdout
+    assert "SENTINEL SEAL" not in result.stdout

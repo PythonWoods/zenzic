@@ -482,29 +482,66 @@ class TestLookbackBuffer:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# ZRT-007: Base64 bypass assessment
+# ZRT-007: Base64 speculative decoder — attack vector S2 sealed (CEO-194 / D095)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
 class TestBase64Bypass:
-    """Assess whether Base64-encoded secrets evade the Shield (known limitation)."""
+    """Base64 speculative decoder: CEO-194 closes the S2 Red Team attack vector.
 
-    def test_base64_aws_key_not_detected(self) -> None:
-        """Base64-encoded AWS key is a known limitation — should NOT be detected.
+    Canonical test vector (CEO-201, locked):
+        Z2hwXzEyMzQ1Njc4OTBhYmNkZWZnaGlqa2xtbm9wcXJzdHV2d3h5eg==
+        decodes to: ghp_1234567890abcdefghijklmnopqrstuvwxyz (GitHub PAT, 40 chars).
+    """
 
-        This test documents the limitation. If we add Base64 decoding later,
-        this test should be updated to expect detection.
+    # Locked canonical test vector (CEO-201).
+    _B64_GITHUB_PAT = "Z2hwXzEyMzQ1Njc4OTBhYmNkZWZnaGlqa2xtbm9wcXJzdHV2d3h5eg=="
+    # Decoded form for reference: ghp_1234567890abcdefghijklmnopqrstuvwxyz
+
+    def test_base64_github_pat_detected(self) -> None:
+        """A Base64-encoded GitHub PAT in a frontmatter field must be flagged.
+
+        Simulates the S2 Red Team attack vector: attacker places the encoded
+        token in a YAML frontmatter field to evade the raw-text scan.
         """
+        line = f"token: {self._B64_GITHUB_PAT}"
+        findings = list(scan_line_for_secrets(line, Path("secret.md"), 5))
+        gh_findings = [f for f in findings if f.secret_type == "github-token"]
+        assert len(gh_findings) == 1, (
+            f"Expected 1 github-token finding for Base64-encoded PAT; got {len(gh_findings)}"
+        )
+        assert gh_findings[0].line_no == 5
+        assert gh_findings[0].file_path == Path("secret.md")
+
+    def test_base64_aws_key_detected(self) -> None:
+        """A Base64-encoded AWS access key must also be flagged."""
         import base64
 
         encoded = base64.b64encode(_FAKE_AWS_KEY.encode()).decode()
         line = f"key = {encoded}"
         findings = list(scan_line_for_secrets(line, Path("test.md"), 1))
-        # Document current behavior: NOT detected (known limitation)
         aws = [f for f in findings if f.secret_type == "aws-access-key"]
-        assert len(aws) == 0, (
-            "Base64 AWS key unexpectedly detected — if intentional, update this test"
+        assert len(aws) == 1, (
+            f"Expected 1 aws-access-key finding for Base64-encoded AWS key; got {len(aws)}"
         )
+
+    def test_base64_short_string_no_false_positive(self) -> None:
+        """A short Base64 string (< 20 chars) must not generate false positives."""
+        # 'dGVzdA==' decodes to 'test' — too short to match any credential pattern
+        line = "note: dGVzdA=="
+        findings = list(scan_line_for_secrets(line, Path("test.md"), 1))
+        assert findings == [], f"Expected no findings for short Base64 string; got {findings}"
+
+    def test_base64_innocent_prose_no_false_positive(self) -> None:
+        """Long Base64 that decodes to innocent text must not produce a finding."""
+        import base64
+
+        # Encode a long innocent string that is definitely not a credential
+        innocent = "This is just some harmless documentation prose with no secrets here."
+        encoded = base64.b64encode(innocent.encode()).decode()
+        line = f"content: {encoded}"
+        findings = list(scan_line_for_secrets(line, Path("test.md"), 1))
+        assert findings == [], f"Expected no findings for innocent Base64 content; got {findings}"
 
 
 # ─── Mutant-Killing Tests: _normalize_line_for_shield ────────────────────────

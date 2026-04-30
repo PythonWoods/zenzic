@@ -56,6 +56,30 @@ _BUILTIN_ADAPTERS: dict[str, type[Any]] = {
 }
 
 
+def discover_engine(repo_root: Path) -> str:
+    """Probe *repo_root* for known engine config files and return the canonical engine name.
+
+    Priority order (Quartz Discovery Logic):
+
+    1. ``zensical.toml``      → ``"zensical"``
+    2. ``docusaurus.config.ts`` or ``docusaurus.config.js`` → ``"docusaurus"``
+    3. ``mkdocs.yml``         → ``"mkdocs"``
+    4. No marker found        → ``"standalone"`` (universal Safe Harbor)
+
+    This function is called when ``BuildContext.engine == "auto"`` (the default),
+    replacing the previous implicit assumption that the engine was MkDocs.
+    """
+    if (repo_root / "zensical.toml").is_file():
+        return "zensical"
+    if (repo_root / "docusaurus.config.ts").is_file() or (
+        repo_root / "docusaurus.config.js"
+    ).is_file():
+        return "docusaurus"
+    if (repo_root / "mkdocs.yml").is_file():
+        return "mkdocs"
+    return "standalone"
+
+
 def _load_adapter_class(engine: str) -> type[Any] | None:
     """Return the adapter class registered for *engine*, or ``None``.
 
@@ -148,6 +172,13 @@ def get_adapter(
             discovered adapter's ``from_repo`` raises one (e.g.
             ``ZensicalAdapter`` raises when ``zensical.toml`` is absent).
     """
+    # Quartz Discovery: resolve "auto" to a concrete engine name by probing
+    # repo_root for known engine config files.  Mutating context.engine here
+    # propagates to the reporter (telemetry line) and _collect_all_results
+    # (Z404 config-asset checks) without any additional wiring.
+    if context.engine == "auto":
+        context.engine = discover_engine(repo_root)
+
     key = (context.engine, docs_root.resolve(), repo_root.resolve())
     # Fast path: read without lock (dict reads are atomic under the GIL).
     if key in _adapter_cache:

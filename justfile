@@ -39,20 +39,25 @@ test *args:
 test-full *args:
     HYPOTHESIS_PROFILE=ci {{ nox_runner }} tests {{ args }}
 
+# ─── Sovereign Cartography (CEO-242/243 — Sovereign Cartographer) ────────────
+
+# Update [CODE MAP] in ZENZIC_BRAIN.md via AST, run Zone B audit, and sync shadow.
+# Requires editable install (uv sync). Only available in dev mode (CEO-246).
+brain-map:
+    {{ runner }} zenzic brain map .
+
+# Legacy alias — kept for backwards compatibility (was: uv run scripts/map_project.py)
+map-update: brain-map
+
+# ─── Quality Gates ────────────────────────────────────────────────────────────
+
 # Run the full quality pipeline (lint, typecheck, tests, reuse, security)
-preflight:
+preflight: brain-map
     {{ nox_runner }} preflight
 
-# Full local verification: CI-equivalent gate (single pipeline)
+# Full local verification: brain-map first, then CI-equivalent gate (single pipeline)
 # Pillar 1: Zenzic guards the source BEFORE the build renders it.
-verify: check preflight
-
-# ─── Code Map (CEO-083 — Obsidian Mapper Protocol) ────────────────────────
-
-# Aggiorna la sezione [CODE MAP] in copilot-instructions.md via AST (zero LLM).
-# Eseguire dopo ogni modifica a src/.
-map-update:
-    uv run scripts/map_project.py
+verify: brain-map check preflight
 
 # ─── Cleanup ──────────────────────────────────────────────────────────────
 

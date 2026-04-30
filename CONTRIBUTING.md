@@ -116,6 +116,25 @@ paths in any contribution, use `pathlib.Path` throughout — never string concat
 
 ---
 
+## The Zenzic Memory Contract
+
+Zenzic uses a **Sovereign Memory Architecture (SMA)**. The `ZENZIC_BRAIN.md` file is part of the codebase — not a sidebar document.
+
+**Every Pull Request MUST satisfy:**
+
+1. **Update the Sprint Log (Zone B):** Add an entry to `[ACTIVE SPRINT]` in `ZENZIC_BRAIN.md`.
+2. **Run the Cartographer:** Execute `just brain-map` before committing (legacy alias: `just map-update`).
+3. **Pillar Check:** Ensure no conflict with [POLICIES] (Zone A).
+
+> **Unlock Sovereign Cartography:** The `zenzic brain` developer commands are only available in
+> editable installs. Run `pip install -e .` or `uv sync` to activate them (CEO-246 Identity Gate).
+
+**Zone A (Constitutional — Immutable):** Manifesto, Policies, ADRs. Only Core Maintainers may modify. Changes require opening an Issue for ADR discussion first.
+
+**Zone B (Operational — Volatile):** `[ACTIVE SPRINT]`. Bounded by a 400-line guardrail (`[Z907] MEMORY_OVERFLOW`). Contributors add sprint entries here.
+
+---
+
 ## Core Laws (non-negotiable)
 
 These rules protect the performance and determinism guarantees of `src/zenzic/core/`.
@@ -683,7 +702,7 @@ When adding a new check:
    See [Core Laws — Zero I/O in the hot path](#zero-io-in-the-hot-path) above.
 3. If the check involves file paths, test it in all three i18n configurations.
    See [Core Laws — i18n determinism](#i18n-determinism) above.
-4. Add a corresponding command (or sub-command) in the `cli/` package — see [CLI Architecture](#cli-architecture) below.
+4. Add a corresponding command (or sub-command) in the `cli/` package — see [the CLI Architecture section](#cli-architecture) below.
 5. Write tests in `tests/` covering both passing and failing cases, including a performance
    baseline (5 000 links resolved in < 100 ms against a mock in-memory corpus).
 6. Update the examples in `examples/` to exercise the new check — Zenzic validates its own

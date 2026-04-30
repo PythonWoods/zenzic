@@ -14,6 +14,7 @@ Z1xx — Link Integrity
     Z104  FILE_NOT_FOUND       — link target file missing from the filesystem
     Z105  ABSOLUTE_PATH        — link uses an absolute path (not portable)
     Z106  CIRCULAR_LINK        — link is part of a circular reference cycle
+    Z107  CIRCULAR_ANCHOR      — anchor link whose text slugifies to its own fragment
 
 Z2xx — Security (Shield)
     Z201  SHIELD_SECRET        — credential / secret detected (Exit 2)
@@ -36,17 +37,48 @@ Z5xx — Content Quality
     Z502  SHORT_CONTENT        — page word count below minimum threshold
     Z503  SNIPPET_ERROR        — fenced code block fails syntax validation
     Z504  QUALITY_REGRESSION   — Sentinel Scorer detected score drop vs saved baseline
+    Z505  UNTAGGED_CODE_BLOCK  — fenced code block has no language specifier
 
 Z9xx — Engine / System
     Z901  RULE_ENGINE_ERROR    — plugin rule raised an unexpected exception
     Z902  RULE_TIMEOUT         — plugin rule exceeded the per-file time limit (ReDoS guard)
     Z903  UNUSED_ASSET         — asset file not referenced by any documentation page
     Z904  NAV_CONTRACT         — navigation contract violation
+    Z905  BRAND_OBSOLESCENCE   — deprecated brand term found in documentation source
+    Z906  NO_FILES_FOUND       — target directory contains no Markdown sources (audit skipped)
 """
 
 from __future__ import annotations
 
 from typing import NamedTuple
+
+
+# ── Exit Code Contract ────────────────────────────────────────────────────────
+
+
+class ZenzicExitCode:
+    """Centralised exit code constants for the Zenzic CLI.
+
+    These values implement the Exit Code Contract documented in the ZENZIC_BRAIN:
+
+    * ``SUCCESS`` (0) — all checks passed; documentation is clean.
+    * ``QUALITY`` (1) — quality findings (broken links, orphans, …);
+      suppressible by ``--exit-zero``.
+    * ``SHIELD`` (2) — Shield security breach — credential detected (Z201);
+      **never** suppressible.
+    * ``SENTINEL`` (3) — Blood Sentinel — system path traversal / fatal
+      (Z202/Z203); **never** suppressible.
+
+    Usage in CLI layer::
+
+        from zenzic.core.codes import ZenzicExitCode
+        raise typer.Exit(ZenzicExitCode.SHIELD)
+    """
+
+    SUCCESS: int = 0
+    QUALITY: int = 1
+    SHIELD: int = 2
+    SENTINEL: int = 3
 
 
 # ── Canonical code map ────────────────────────────────────────────────────────
@@ -99,6 +131,7 @@ CODE_NAMES: dict[str, str] = {
     "Z104": "FILE_NOT_FOUND",
     "Z105": "ABSOLUTE_PATH",
     "Z106": "CIRCULAR_LINK",
+    "Z107": "CIRCULAR_ANCHOR",
     "Z201": "SHIELD_SECRET",
     "Z202": "PATH_TRAVERSAL",
     "Z203": "PATH_TRAVERSAL_FATAL",
@@ -113,11 +146,111 @@ CODE_NAMES: dict[str, str] = {
     "Z502": "SHORT_CONTENT",
     "Z503": "SNIPPET_ERROR",
     "Z504": "QUALITY_REGRESSION",
+    "Z505": "UNTAGGED_CODE_BLOCK",
     "Z901": "RULE_ENGINE_ERROR",
     "Z902": "RULE_TIMEOUT",
     "Z903": "UNUSED_ASSET",
     "Z904": "NAV_CONTRACT",
+    "Z905": "BRAND_OBSOLESCENCE",
+    "Z906": "NO_FILES_FOUND",
 }
+
+#: Short description of each code for SARIF ``shortDescription`` and human display.
+#: Single source of truth — never duplicate these strings in other modules.
+CODE_DESCRIPTIONS: dict[str, str] = {
+    # Z1xx — Link Integrity
+    "Z101": "Link target not found in the Virtual Site Map",
+    "Z102": "Fragment anchor (#anchor) not defined on the target page",
+    "Z103": "Link target exists but is not reachable via site navigation",
+    "Z104": "Link target file missing from the filesystem",
+    "Z105": "Absolute path detected — use a relative path for portability",
+    "Z106": "Circular link chain detected between documentation pages",
+    "Z107": "Self-referential anchor link — slug(text) resolves to the same fragment",
+    # Z2xx — Security
+    "Z201": "Potential credential or secret detected in documentation content",
+    "Z202": "Link escapes the documentation root boundary (path traversal)",
+    "Z203": "Path traversal targeting OS system directories — fatal security breach",
+    # Z3xx — Reference Integrity
+    "Z301": "Reference-style link uses an undefined identifier",
+    "Z302": "Link definition declared but never referenced",
+    "Z303": "Reference identifier defined more than once",
+    # Z4xx — Structure
+    "Z401": "Directory lacks a required index page",
+    "Z402": "Markdown file not listed in the site navigation",
+    "Z403": "Image element has no alt text",
+    "Z404": "Asset referenced in engine config not found on disk",
+    # Z5xx — Content Quality
+    "Z501": "Page contains placeholder or stub content",
+    "Z502": "Page word count is below the minimum threshold",
+    "Z503": "Fenced code block contains a syntax error",
+    "Z504": "Documentation quality score regressed below the saved baseline",
+    "Z505": "Fenced code block has no language specifier",
+    # Z9xx — Engine / System
+    "Z901": "Plugin rule raised an unexpected exception",
+    "Z902": "Plugin rule exceeded the per-file time limit (ReDoS guard)",
+    "Z903": "Asset file not referenced by any documentation page",
+    "Z904": "Navigation contract violation detected",
+    "Z905": "Deprecated brand term found in documentation source",
+    "Z906": "Target directory contains no Markdown sources — audit skipped",
+}
+
+#: Default SARIF ``defaultConfiguration.level`` for each code.
+#: Z1xx/Z2xx → "error" | Z3xx–Z9xx quality → "warning" | Z906 informational → "note"
+#: Individual Finding severity always takes precedence at result level.
+CODE_SARIF_LEVELS: dict[str, str] = {
+    # Z1xx — Link Integrity: errors (broken links block the user experience)
+    "Z101": "error",
+    "Z102": "error",
+    "Z103": "error",
+    "Z104": "error",
+    "Z105": "error",
+    "Z106": "error",
+    "Z107": "error",
+    # Z2xx — Security: always errors
+    "Z201": "error",
+    "Z202": "error",
+    "Z203": "error",
+    # Z3xx — Reference Integrity: warnings (quality signal, not blocking)
+    "Z301": "warning",
+    "Z302": "warning",
+    "Z303": "warning",
+    # Z4xx — Structure: warnings
+    "Z401": "warning",
+    "Z402": "warning",
+    "Z403": "warning",
+    "Z404": "warning",
+    # Z5xx — Content Quality: warnings
+    "Z501": "warning",
+    "Z502": "warning",
+    "Z503": "warning",
+    "Z504": "warning",
+    "Z505": "warning",
+    # Z9xx — Engine / System: warnings (except Z906 which is informational)
+    "Z901": "warning",
+    "Z902": "warning",
+    "Z903": "warning",
+    "Z904": "warning",
+    "Z905": "warning",
+    "Z906": "note",
+}
+
+
+def get_sarif_name(code: str) -> str:
+    """Convert a Zxxx code to its SARIF-canonical CamelCase rule name.
+
+    Derives the name deterministically from :data:`CODE_NAMES`:
+    ``"LINK_BROKEN"`` → ``"LinkBroken"``.  Falls back to the raw code
+    string for unknown codes so the SARIF remains valid even for
+    dynamically emitted plugin codes.
+
+    Args:
+        code: A canonical Zxxx code string, e.g. ``"Z101"``.
+
+    Returns:
+        CamelCase rule name suitable for the SARIF ``rules[].name`` field.
+    """
+    name = CODE_NAMES.get(code, code)
+    return "".join(word.capitalize() for word in name.split("_"))
 
 
 # ── Core Scanner Registry ─────────────────────────────────────────────────────
@@ -205,6 +338,33 @@ CORE_SCANNERS: list[CoreScanner] = [
         codes="Z903",
         name="Asset Sentry",
         capability="Unused images and media files not referenced anywhere in the docs tree",
+        primary_exit=1,
+        non_suppressible=False,
+    ),
+    CoreScanner(
+        codes="Z107",
+        name="Circular Anchor Guard",
+        capability=(
+            "Self-referential anchor links \u2014 detects [text](#fragment) "
+            "where slug(text) == fragment"
+        ),
+        primary_exit=1,
+        non_suppressible=False,
+    ),
+    CoreScanner(
+        codes="Z505",
+        name="Code Block Sentinel",
+        capability="Fenced code blocks without a language specifier (``` or ~~~)",
+        primary_exit=1,
+        non_suppressible=False,
+    ),
+    CoreScanner(
+        codes="Z905",
+        name="Brand Integrity Guard",
+        capability=(
+            "Deprecated brand term detection \u2014 configurable via [project_metadata], "
+            "suppressed per-line with <!-- zenzic:ignore Z905 --> (Markdown) or {/* zenzic:ignore Z905 */} (MDX)"
+        ),
         primary_exit=1,
         non_suppressible=False,
     ),

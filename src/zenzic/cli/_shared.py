@@ -18,6 +18,7 @@ from rich.console import Console
 from rich.panel import Panel
 
 from zenzic.core.adapters import list_adapter_engines
+from zenzic.core.codes import CODE_DESCRIPTIONS, CODE_NAMES, CODE_SARIF_LEVELS, get_sarif_name
 from zenzic.core.exclusion import LayeredExclusionManager
 from zenzic.core.reporter import Finding
 from zenzic.core.ui import SentinelPalette, SentinelUI, emoji
@@ -152,67 +153,11 @@ def _output_json_findings(findings: list[Finding], elapsed: float) -> None:
 
 
 # ── SARIF output ──────────────────────────────────────────────────────────────
+# Rule metadata (names, descriptions, levels, helpUri) is derived dynamically
+# from zenzic.core.codes — the single source of truth.  Do NOT add hardcoded
+# rule dicts here; update codes.py instead.
 
 _SARIF_SCHEMA = "https://json.schemastore.org/sarif-2.1.0.json"
-
-_SARIF_RULE_NAMES: dict[str, str] = {
-    "Z101": "ConfigurationAssetMissing",
-    "Z105": "AbsolutePathViolation",
-    "Z201": "CredentialExposure",
-    "Z301": "BrokenInternalLink",
-    "Z302": "BrokenExternalLink",
-    "Z303": "CircularLink",
-    "Z304": "PathTraversal",
-    "Z402": "OrphanPage",
-    "Z503": "InvalidSnippet",
-    "Z601": "DanglingReference",
-    "Z602": "DeadDefinition",
-    "Z603": "DuplicateDefinition",
-    "Z604": "MissingAltText",
-    "Z701": "PlaceholderStub",
-    "Z702": "ShortPage",
-    "Z903": "UnusedAsset",
-}
-
-_SARIF_RULE_DESCRIPTIONS: dict[str, str] = {
-    "Z101": "Configuration asset path not found on disk",
-    "Z105": "Absolute URL path detected; use a relative or base-relative path",
-    "Z201": "Potential credential or secret detected in documentation content",
-    "Z301": "Broken internal link — target file or anchor not found",
-    "Z302": "Broken external URL — HTTP request returned an error",
-    "Z303": "Circular link chain detected between documentation pages",
-    "Z304": "Path traversal attempt — link escapes the documentation root",
-    "Z402": "Orphan page — file exists but is not listed in the site navigation",
-    "Z503": "Invalid code snippet — syntax error in a fenced code block",
-    "Z601": "Dangling reference — reference-style link has no matching definition",
-    "Z602": "Dead definition — link definition is declared but never used",
-    "Z603": "Duplicate link definition — same reference ID defined more than once",
-    "Z604": "Missing alt text on image element",
-    "Z701": "Placeholder stub — page content is too short or contains forbidden patterns",
-    "Z702": "Short page — word count is below the minimum threshold",
-    "Z903": "Unreferenced asset — file is not referenced by any documentation page",
-}
-
-# Default SARIF level per rule, aligned with how each finding is emitted.
-# Individual result.level always takes precedence; this is the rule-catalogue default.
-_SARIF_RULE_DEFAULT_LEVEL: dict[str, str] = {
-    "Z101": "warning",
-    "Z105": "error",
-    "Z201": "error",
-    "Z301": "error",
-    "Z302": "error",
-    "Z303": "note",
-    "Z304": "error",
-    "Z402": "warning",
-    "Z503": "error",
-    "Z601": "error",
-    "Z602": "warning",
-    "Z603": "warning",
-    "Z604": "warning",
-    "Z701": "warning",
-    "Z702": "warning",
-    "Z903": "warning",
-}
 
 _SARIF_SECURITY_SEVERITY: dict[str, str] = {
     "security_breach": "9.5",
@@ -259,13 +204,12 @@ def _output_sarif_findings(findings: list[Finding], version: str) -> None:
     rules = [
         {
             "id": rule_id,
-            "name": _SARIF_RULE_NAMES.get(rule_id, rule_id),
+            "name": get_sarif_name(rule_id),
             "shortDescription": {
-                "text": _SARIF_RULE_DESCRIPTIONS.get(
-                    rule_id, _SARIF_RULE_NAMES.get(rule_id, rule_id)
-                )
+                "text": CODE_DESCRIPTIONS.get(rule_id, CODE_NAMES.get(rule_id, rule_id))
             },
-            "defaultConfiguration": {"level": _SARIF_RULE_DEFAULT_LEVEL.get(rule_id, "warning")},
+            "defaultConfiguration": {"level": CODE_SARIF_LEVELS.get(rule_id, "warning")},
+            "helpUri": f"https://zenzic.dev/docs/reference/finding-codes#{rule_id.lower()}",
         }
         for rule_id in sorted(seen_rule_ids)
     ]

@@ -104,11 +104,14 @@ zenzic check all  # Analizza la cartella corrente
 | Funzionalità | Comando | Rileva | Exit |
 | :--- | :--- | :--- | :---: |
 | Integrità dei link | `check links` | Link rotti, ancore morte | 1 |
+| Ancore circolari | `check all` | Link ancora auto-referenziali (`Z107`) | 1 |
 | Rilevamento orfani | `check orphans` | File assenti dalla `nav` — invisibili dopo la build | 1 |
 | Snippet di codice | `check snippets` | Errori di sintassi in blocchi Python / YAML / JSON / TOML | 1 |
+| Blocchi codice non etichettati | `check all` | Blocchi recinzati senza specificatore di linguaggio (`Z505`) | 1 |
 | Contenuto placeholder | `check placeholders` | Pagine stub e pattern di testo vietati | 1 |
 | Asset inutilizzati | `check assets` | Immagini e file non referenziati | 1 |
 | Integrità asset di config | `check all` | Percorsi di favicon e OG image dichiarati nella config del motore verificati su disco (`Z404`) | 1 |
+| Integrità del brand | `check all` | Codename di release obsoleti (`Z905`) — configurabile via `[project_metadata]` | 1 |
 | **Scansione credenziali** | `check references` | **9 famiglie di credenziali** — testo, URL, blocchi di codice | **2** |
 | **Path traversal** | `check links` | Tentativi di fuga verso path di sistema | **3** |
 | **Report enterprise** | `check all --format sarif` | Output SARIF 2.1.0 per GitHub Code Scanning — annotazioni inline nella PR | 1/2/3 |
@@ -130,6 +133,7 @@ Due livelli di sicurezza sono permanentemente attivi — nessuno è sopprimibile
 credenziali. La normalizzazione Unicode sconfigge l'offuscamento (entità HTML, interposizione
 di commenti, lookback multi-riga). Famiglie rilevate: AWS, GitHub, GitLab PAT, Stripe, Slack, OpenAI,
 Google, intestazioni PEM, payload esadecimali.
+La decodifica speculativa Base64 rileva credenziali offuscate nel frontmatter e nei blocchi di codice.
 **→ Exit 2. Ruota e verifica immediatamente.**
 
 **Blood Sentinel** normalizza ogni link risolto con `os.path.normpath` e rifiuta qualsiasi
@@ -441,7 +445,7 @@ chiusi, e la strada verso la parità engine-agnostica — è documentata in
   <p>
     <a href="https://zenzic.dev/it/"><strong>Documentazione</strong></a> &middot;
     <a href="https://github.com/PythonWoods"><strong>GitHub</strong></a> &middot;
-    <a href="https://zenzic.dev/it/blog"><strong>Journal</strong></a>
+    <a href="https://zenzic.dev/it/blog"><strong>Blog</strong></a>
   </p>
 </div>
 

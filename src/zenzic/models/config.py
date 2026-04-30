@@ -41,6 +41,46 @@ class CustomRuleConfig(BaseModel):
     )
 
 
+class ProjectMetadata(BaseModel):
+    """Optional brand-integrity metadata declared in ``[project_metadata]``.
+
+    When ``obsolete_names`` is non-empty, Zenzic activates the Z905
+    BRAND_OBSOLESCENCE rule, which warns on every occurrence of a deprecated
+    brand term found in documentation source files.  Lines carrying a
+    ``zenzic:ignore`` comment are silently skipped so intentional historical
+    references (e.g. in CHANGELOG files or ADR entries) are not flagged.
+    Use ``<!-- zenzic:ignore Z905 -->`` in ``.md`` files and
+    ``{/* zenzic:ignore Z905 */}`` in ``.mdx`` files.
+
+    TOML example::
+
+        [project_metadata]
+        release_name = "Quartz"
+        obsolete_names = ["Obsidian"]
+        # ADR files contain intentional historical references
+        obsolete_names_exclude_patterns = [
+            "CHANGELOG*.md",
+            "community/developers/explanation/adr-*.mdx",
+        ]
+    """
+
+    release_name: str = Field(
+        default="",
+        description="Current canonical brand/release name shown in Z905 remediation hints.",
+    )
+    obsolete_names: list[str] = Field(
+        default=[],
+        description="Deprecated brand terms that trigger Z905 when found in docs.",
+    )
+    obsolete_names_exclude_patterns: list[str] = Field(
+        default=["CHANGELOG*.md", "CHANGELOG*.archive.md"],
+        description=(
+            "Glob patterns (relative to docs_dir) for files excluded from Z905. "
+            "CHANGELOG*.md is excluded by default to allow historical prose."
+        ),
+    )
+
+
 class BuildContext(BaseModel):
     """Build engine context declared in ``[build_context]`` of ``zenzic.toml``.
 
@@ -49,7 +89,13 @@ class BuildContext(BaseModel):
     asset and page paths correctly across locale boundaries.
     """
 
-    engine: str = Field(default="mkdocs", description="Build engine: 'mkdocs' or 'zensical'.")
+    engine: str = Field(
+        default="auto",
+        description=(
+            "Build engine: 'auto' (file-driven discovery), 'mkdocs', 'zensical', "
+            "'docusaurus', or 'standalone'."
+        ),
+    )
     default_locale: str = Field(default="en", description="ISO 639-1 code of the default locale.")
     locales: list[str] = Field(
         default=[],
@@ -318,6 +364,13 @@ class ZenzicConfig(BaseModel):
             "message='Remove before publish.'  severity='warning'"
         ),
     )
+    project_metadata: ProjectMetadata = Field(
+        default_factory=ProjectMetadata,
+        description=(
+            "Optional brand-integrity metadata. When obsolete_names is non-empty, "
+            "activates the Z905 BRAND_OBSOLESCENCE rule."
+        ),
+    )
     plugins: list[str] = Field(
         default_factory=list,
         description=(
@@ -359,7 +412,7 @@ class ZenzicConfig(BaseModel):
         # The most common pitfall: writing root-level settings AFTER a [section]
         # header (e.g. `[project]`) causes TOML to nest them under that table,
         # which is then silently dropped because `project` is not a known field.
-        _HANDLED_SECTIONS = frozenset({"build_context", "custom_rules"})
+        _HANDLED_SECTIONS = frozenset({"build_context", "custom_rules", "project_metadata"})
         for key in data:
             if key not in known_fields and key not in _HANDLED_SECTIONS:
                 if isinstance(data[key], dict):
@@ -388,6 +441,14 @@ class ZenzicConfig(BaseModel):
                 for r in data["custom_rules"]
                 if isinstance(r, dict)
             ]
+        if "project_metadata" in data and isinstance(data["project_metadata"], dict):
+            filtered_data["project_metadata"] = ProjectMetadata(
+                **{
+                    k: v
+                    for k, v in data["project_metadata"].items()
+                    if k in ProjectMetadata.model_fields
+                }
+            )
         return cls(**filtered_data)
 
     @classmethod

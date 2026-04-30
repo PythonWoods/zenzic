@@ -34,7 +34,7 @@ import os
 import re
 import tomllib
 from collections.abc import Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, NamedTuple
 from urllib.parse import urlsplit
@@ -131,6 +131,10 @@ class SnippetError:
     file_path: Path
     line_no: int
     message: str
+    code: str = field(init=False, default="Z503")
+
+    def __post_init__(self) -> None:
+        self.code = "Z503"
 
 
 @dataclass(slots=True)
@@ -155,6 +159,12 @@ class LinkError:
     error_type: str = "LINK_ERROR"
     col_start: int = 0
     match_text: str = ""
+    code: str = field(init=False, default="Z101")
+
+    def __post_init__(self) -> None:
+        from zenzic.core.codes import normalize as _normalize_code
+
+        self.code = _normalize_code(self.error_type)
 
     def __str__(self) -> str:
         """Flat string form — backwards-compatible with the old list[str] API."""

@@ -119,11 +119,14 @@ zenzic check all  # Audit the current directory
 | Capability | Command | Detects | Exit |
 | :--- | :--- | :--- | :---: |
 | Link integrity | `check links` | Broken links, dead anchors | 1 |
+| Circular anchors | `check all` | Self-referential anchor links (`Z107`) | 1 |
 | Orphan detection | `check orphans` | Files absent from `nav` — invisible after build | 1 |
 | Code snippets | `check snippets` | Syntax errors in Python / YAML / JSON / TOML blocks | 1 |
+| Untagged code blocks | `check all` | Fenced blocks with no language specifier (`Z505`) | 1 |
 | Placeholder content | `check placeholders` | Stub pages and forbidden text patterns | 1 |
 | Unused assets | `check assets` | Images and files not referenced anywhere | 1 |
 | Config asset integrity | `check all` | Favicon and OG image paths declared in engine config confirmed on disk (`Z404`) | 1 |
+| Brand integrity | `check all` | Obsolete release codenames (`Z905`) — configurable via `[project_metadata]` | 1 |
 | **Credential scanning** | `check references` | **9 credential families** — text, URLs, code blocks | **2** |
 | **Path traversal** | `check links` | System-path escape attempts | **3** |
 | **Enterprise reporting** | `check all --format sarif` | SARIF 2.1.0 output for GitHub Code Scanning — inline PR annotations | 1/2/3 |
@@ -144,6 +147,7 @@ Two security layers are permanently active — neither is suppressible by `--exi
 **The Shield** scans every line — including fenced code blocks — for credentials. Unicode
 normalization defeats obfuscation (HTML entities, comment interleaving, cross-line lookback).
 Detected families: AWS, GitHub, GitLab PAT, Stripe, Slack, OpenAI, Google, PEM headers, hex payloads.
+Base64 speculative decoding catches obfuscated credentials in frontmatter and code blocks.
 **→ Exit 2. Rotate and audit immediately.**
 
 **Blood Sentinel** normalizes every resolved link with `os.path.normpath` and rejects any path
@@ -305,7 +309,7 @@ zenzic lab [--act N] [--list]
 ## 📟 Visual Tour
 
 <p align="center">
-  <img src="assets/brand/svg/zenzic-terminal-obsidian.svg" alt="Zenzic Sentinel Report — All checks passed, score 100/100" width="720">
+  <img src="assets/brand/svg/zenzic-terminal-obsidian.svg" alt="Zenzic Sentinel Report — All checks passed, score 100/100" width="720"><!-- zenzic:ignore Z905 -->
 </p>
 
 Visit the [documentation portal][docs-home] for interactive screenshots and rich examples.
@@ -438,7 +442,7 @@ road to engine-agnostic parity — is documented in
   <p>
     <a href="https://zenzic.dev"><strong>Documentation</strong></a> &middot;
     <a href="https://github.com/PythonWoods"><strong>GitHub</strong></a> &middot;
-    <a href="https://zenzic.dev/blog"><strong>Journal</strong></a>
+    <a href="https://zenzic.dev/blog"><strong>Blog</strong></a>
   </p>
 </div>
 

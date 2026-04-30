@@ -73,6 +73,7 @@ from typing import TYPE_CHECKING, Literal
 if TYPE_CHECKING:
     from importlib.metadata import EntryPoint
 
+    from zenzic.models.config import ProjectMetadata
     from zenzic.models.vsm import VSM, Route
 
 
@@ -579,6 +580,279 @@ class AdaptiveRuleEngine:
                         severity="error",
                     )
                 )
+        return findings
+
+
+# ─── Built-in core rules (Z107, Z505, Z905) ──────────────────────────────────
+
+#: Matches a same-page anchor link: [text](#fragment) — not cross-file.
+_ANCHOR_LINK_RE = re.compile(r"\[([^\[\]]+)\]\(#([^)]+)\)")
+
+#: Fenced code block line: captures the fence chars and the full info string.
+#: CEO-138: info string may contain language + metadata (e.g. ``python title="x"``
+#: showLineNumbers). CEO-140: closing fence detection requires empty info string
+#: (CommonMark invariant — a closing fence never has an info string).
+_FENCE_OPEN_RE = re.compile(r"^(?P<fence>[`~]{3,})(?P<info>.*)$")
+
+#: CEO-142/143 — Silent Sentinel Protocol (Polymorphic Suppression).
+#: Matches BOTH Markdown HTML comments AND MDX/JSX comments in one pass.
+#:
+#:   Markdown (.md) syntax:  ``<!-- zenzic:ignore Z905 -->``
+#:   MDX (.mdx) syntax:      ``{/* zenzic:ignore Z905 */}``
+#:
+#: The regex is intentionally format-agnostic so a single helper works for
+#: every file format Zenzic audits.
+_SUPPRESS_RE = re.compile(r"(?:<!--|\{/\*)\s*zenzic:ignore\s+(?P<code>Z\d{3})\s*(?:-->|\*/\})")
+
+#: CEO-152 — The Suppression Manifesto: Inviolability Law.
+#: Security findings are facts, not suggestions.  These codes are permanently
+#: non-suppressible via per-line ``zenzic:ignore`` comments.  The Shield and
+#: Blood Sentinel scanners operate independently of the rule engine and never
+#: consult this function, but this guard future-proofs the contract: even if a
+#: Z2xx finding were ever routed through the rule engine it could not be silenced.
+_INVIOLABLE_CODES: frozenset[str] = frozenset({"Z201", "Z202", "Z203"})
+
+
+def _is_suppressed(line: str, code: str) -> bool:
+    """Return ``True`` if *line* carries a ``zenzic:ignore`` comment for *code*.
+
+    **Format-aware suppression (CEO-143 — Polymorphic Suppression Protocol):**
+
+    In ``.md`` files use an HTML comment (invisible in rendered Markdown)::
+
+        Obsidian was the v0.6.x codename. <!-- zenzic:ignore Z905 -->
+
+    In ``.mdx`` files use a JSX comment (invisible in rendered MDX and safe
+    for the Docusaurus/React parser)::
+
+        Obsidian was the v0.6.x codename. {/* zenzic:ignore Z905 */}
+
+    Each suppression comment silences **only** the specified diagnostic code
+    on the tagged line.  To suppress multiple codes, add multiple comments.
+
+    **CEO-152 — Inviolability Law:** Security findings (Z201, Z202, Z203)
+    always return ``False`` unconditionally.  Security findings are facts,
+    not suggestions — a credential leak cannot be declared a false positive.
+    """
+    if code in _INVIOLABLE_CODES:
+        return False
+    m = _SUPPRESS_RE.search(line)
+    return m is not None and m.group("code") == code
+
+
+def _slugify(text: str) -> str:
+    """Return the GitHub-Markdown slug for heading *text*.
+
+    Lowercases, strips leading/trailing whitespace, replaces internal spaces
+    with hyphens. Does NOT strip punctuation — matches the minimal slug that
+    Docusaurus and most renderers produce for same-page anchor links.
+    """
+    return text.lower().strip().replace(" ", "-")
+
+
+class CircularAnchorRule(BaseRule):
+    """Z107 — Detect self-referential anchor links.
+
+    Flags any ``[text](#fragment)`` where ``slug(text) == fragment``.  Such
+    links appear to reference a heading further down the page but actually
+    reference the element the reader is already reading — a no-op that
+    indicates a mis-copied heading.
+
+    Cross-file links (``[text](other.md#fragment)``) and external URLs are
+    never flagged.
+    """
+
+    @property
+    def rule_id(self) -> str:
+        return "Z107"
+
+    def check(self, file_path: Path, text: str) -> list[RuleFinding]:
+        findings: list[RuleFinding] = []
+        for line_no, line in enumerate(text.splitlines(), start=1):
+            if _is_suppressed(line, self.rule_id):
+                continue
+            for m in _ANCHOR_LINK_RE.finditer(line):
+                link_text = m.group(1)
+                fragment = m.group(2)
+                if _slugify(link_text) == fragment.lower():
+                    findings.append(
+                        RuleFinding(
+                            file_path=file_path,
+                            line_no=line_no,
+                            rule_id=self.rule_id,
+                            message=(
+                                f"Self-referential anchor link: "
+                                f"'[{link_text}](#{fragment})' slugifies to its own fragment. "
+                                "Replace with a meaningful target or remove the link."
+                            ),
+                            severity="warning",
+                            matched_line=line,
+                            col_start=m.start(),
+                            match_text=m.group(0),
+                        )
+                    )
+        return findings
+
+
+class UntaggedCodeBlockRule(BaseRule):
+    """Z505 — Detect fenced code blocks without a language specifier.
+
+    A fence opened with `` ``` `` or ``~~~`` followed by nothing (or only
+    whitespace) is untagged.  Untagged blocks prevent syntax highlighting,
+    skip snippet validation, and reduce readability.
+
+    Only the **opening** fence is flagged; closing fences are never reported.
+    """
+
+    @property
+    def rule_id(self) -> str:
+        return "Z505"
+
+    def check(self, file_path: Path, text: str) -> list[RuleFinding]:
+        findings: list[RuleFinding] = []
+        inside: bool = False
+        open_char: str = ""
+        open_count: int = 0
+
+        for line_no, line in enumerate(text.splitlines(), start=1):
+            m = _FENCE_OPEN_RE.match(line)
+            if not inside:
+                if m:
+                    fence = m.group("fence")
+                    info = m.group("info").strip()
+                    # CEO-138: tag present iff info string has any non-whitespace
+                    # char. Supports Docusaurus metadata:
+                    # ```python title="x" showLineNumbers
+                    has_tag = bool(info)
+                    inside = True
+                    open_char = fence[0]
+                    open_count = len(fence)
+                    if not has_tag and not _is_suppressed(line, self.rule_id):
+                        findings.append(
+                            RuleFinding(
+                                file_path=file_path,
+                                line_no=line_no,
+                                rule_id=self.rule_id,
+                                message=(
+                                    "Fenced code block has no language specifier. "
+                                    "Add a language tag (e.g. ```python, ```bash, ```toml) "
+                                    "to enable syntax highlighting and snippet validation."
+                                ),
+                                severity="warning",
+                                matched_line=line,
+                                col_start=0,
+                                match_text=line.rstrip(),
+                            )
+                        )
+            else:
+                if m:
+                    fence = m.group("fence")
+                    info = m.group("info").strip()
+                    # CEO-139/140: closing fence must use same char, equal or more
+                    # length, and have NO info string (CommonMark spec invariant —
+                    # a fence with an info string is always an opening fence).
+                    if fence[0] == open_char and len(fence) >= open_count and not info:
+                        inside = False
+                        open_char = ""
+                        open_count = 0
+        return findings
+
+
+if TYPE_CHECKING:
+    from zenzic.models.config import ProjectMetadata
+
+
+class BrandObsolescenceRule(BaseRule):
+    """Z905 — Detect deprecated brand terms in documentation source.
+
+    Activated only when ``[project_metadata] obsolete_names`` is non-empty in
+    ``zenzic.toml``.  Emits a warning for each occurrence of an obsolete name
+    found in documentation source files.
+
+    **Suppression (CEO-142 — Silent Sentinel Protocol):** Add an HTML comment
+    to the end of any line to silence Z905 for that specific occurrence::
+
+        Obsidian was the v0.6.x codename. <!-- zenzic:ignore Z905 -->
+
+    The comment is invisible in rendered Markdown and MDX output.  The
+    deprecated token ``[HISTORICAL]`` is no longer recognised — it is visible
+    in rendered output and is therefore a documentation defect, not a solution.
+
+    **Path exclusion:** Files matching any pattern in
+    ``obsolete_names_exclude_patterns`` (relative to ``docs_dir``) are skipped
+    entirely.  Default patterns exclude ``CHANGELOG*.md`` and
+    ``CHANGELOG*.archive.md``.
+    """
+
+    def __init__(self, project_metadata: ProjectMetadata) -> None:
+        import re as _re
+
+        self._release_name = project_metadata.release_name
+        self._patterns: list[re.Pattern[str]] = [
+            _re.compile(rf"\b{_re.escape(name)}\b", _re.IGNORECASE)
+            for name in project_metadata.obsolete_names
+            if name.strip()
+        ]
+        self._exclude_globs: list[str] = list(project_metadata.obsolete_names_exclude_patterns)
+
+    @property
+    def rule_id(self) -> str:
+        return "Z905"
+
+    def check(self, file_path: Path, text: str) -> list[RuleFinding]:
+        if not self._patterns:
+            return []
+        import fnmatch as _fnmatch
+
+        # Path-level exclusion: check against each glob pattern using the file name.
+        file_name = file_path.name
+        for glob in self._exclude_globs:
+            if _fnmatch.fnmatch(file_name, glob):
+                return []
+
+        findings: list[RuleFinding] = []
+        hint = f" use '{self._release_name}' instead." if self._release_name else ""
+        # Fence-tracking state — body lines inside code blocks are not brand
+        # claims and must not trigger Z905 (CEO-152).
+        inside_fence: bool = False
+        open_char: str = ""
+        open_count: int = 0
+        for line_no, line in enumerate(text.splitlines(), start=1):
+            fm = _FENCE_OPEN_RE.match(line)
+            if not inside_fence:
+                if fm:
+                    fence = fm.group("fence")
+                    inside_fence = True
+                    open_char = fence[0]
+                    open_count = len(fence)
+            else:
+                if fm:
+                    fence = fm.group("fence")
+                    info = fm.group("info").strip()
+                    if fence[0] == open_char and len(fence) >= open_count and not info:
+                        inside_fence = False
+                        open_char = ""
+                        open_count = 0
+                continue  # skip all body lines inside the fence block
+            if _is_suppressed(line, "Z905"):
+                continue
+            for pat in self._patterns:
+                for m in pat.finditer(line):
+                    findings.append(
+                        RuleFinding(
+                            file_path=file_path,
+                            line_no=line_no,
+                            rule_id=self.rule_id,
+                            message=(
+                                f"Obsolete brand term '{m.group(0)}':{hint} "
+                                "Add <!-- zenzic:ignore Z905 --> to the line to suppress intentional references."
+                            ),
+                            severity="warning",
+                            matched_line=line,
+                            col_start=m.start(),
+                            match_text=m.group(0),
+                        )
+                    )
         return findings
 
 

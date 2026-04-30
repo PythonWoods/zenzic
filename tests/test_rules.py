@@ -15,14 +15,17 @@ from zenzic.core.exceptions import PluginContractError
 from zenzic.core.rules import (
     AdaptiveRuleEngine,
     BaseRule,
+    BrandObsolescenceRule,
+    CircularAnchorRule,
     CustomRule,
     PluginRegistry,
     RuleFinding,
+    UntaggedCodeBlockRule,
     Violation,
     VSMBrokenLinkRule,
     _extract_inline_links_with_lines,
 )
-from zenzic.models.config import CustomRuleConfig, ZenzicConfig
+from zenzic.models.config import CustomRuleConfig, ProjectMetadata, ZenzicConfig
 from zenzic.models.vsm import Route
 
 
@@ -237,12 +240,16 @@ def test_scan_docs_with_custom_rules_from_config(tmp_path: Path) -> None:
     assert reports[0].rule_findings[0].rule_id == "ZZ-DRAFT"
 
 
-def test_build_rule_engine_none_without_custom_or_plugins() -> None:
-    """Without custom_rules/plugins, scanner avoids building a no-op engine."""
+def test_build_rule_engine_always_built() -> None:
+    """Engine is always built: Z107 and Z505 are always-active built-in rules."""
     from zenzic.core.scanner import _build_rule_engine
 
     config = ZenzicConfig()
-    assert _build_rule_engine(config) is None
+    engine = _build_rule_engine(config)
+    assert engine is not None
+    rule_ids = {r.rule_id for r in engine._rules}  # type: ignore[attr-defined]
+    assert "Z107" in rule_ids
+    assert "Z505" in rule_ids
 
 
 def test_scan_docs_with_enabled_plugins_from_config(tmp_path: Path) -> None:
@@ -1600,3 +1607,230 @@ class TestToCanonicalUrlMutantKill:
         result = self._url("../sub/../", source_dir=source_dir, docs_root=docs_root)
         # This resolves to docs_root itself → rel='.' → path='' → return '/'
         assert result == "/"
+
+
+# ─── CircularAnchorRule (Z107) ────────────────────────────────────────────────
+
+
+_ANCHOR_FILE = Path("docs/guide.md")
+
+
+class TestCircularAnchorRule:
+    """18-test suite for built-in Z107, Z505, Z905 rules (D091)."""
+
+    def _rule(self) -> CircularAnchorRule:
+        return CircularAnchorRule()
+
+    def test_z107_matches_simple_anchor(self) -> None:
+        """[Foo](#foo) → slug('Foo') == 'foo' → Z107."""
+        rule = self._rule()
+        findings = rule.check(_ANCHOR_FILE, "[Foo](#foo)\n")
+        assert len(findings) == 1
+        assert findings[0].rule_id == "Z107"
+        assert findings[0].line_no == 1
+        assert findings[0].severity == "warning"
+
+    def test_z107_matches_multi_word_anchor(self) -> None:
+        """[Foo Bar](#foo-bar) → slug('Foo Bar') == 'foo-bar' → Z107."""
+        rule = self._rule()
+        findings = rule.check(_ANCHOR_FILE, "[Foo Bar](#foo-bar)\n")
+        assert len(findings) == 1
+        assert findings[0].rule_id == "Z107"
+
+    def test_z107_no_match_different_target(self) -> None:
+        """[Docs](#introduction) — slug('Docs')='docs' != 'introduction' → no finding."""
+        rule = self._rule()
+        findings = rule.check(_ANCHOR_FILE, "[Docs](#introduction)\n")
+        assert findings == []
+
+    def test_z107_ignores_cross_file_link(self) -> None:
+        """[text](other.md#foo) is a cross-file link, not a same-page anchor → no finding."""
+        rule = self._rule()
+        findings = rule.check(_ANCHOR_FILE, "[text](other.md#foo)\n")
+        assert findings == []
+
+    def test_z107_ignores_external_url(self) -> None:
+        """External URLs are never flagged by Z107."""
+        rule = self._rule()
+        findings = rule.check(_ANCHOR_FILE, "[Zenzic](https://zenzic.dev)\n")
+        assert findings == []
+
+    def test_z107_col_start_correct(self) -> None:
+        """col_start points to the opening '[' of the anchor link."""
+        rule = self._rule()
+        text = "See [Foo](#foo) for details.\n"
+        findings = rule.check(_ANCHOR_FILE, text)
+        assert len(findings) == 1
+        assert findings[0].col_start == text.index("[Foo]")
+
+
+# ─── UntaggedCodeBlockRule (Z505) ─────────────────────────────────────────────
+
+
+class TestUntaggedCodeBlockRule:
+    def _rule(self) -> UntaggedCodeBlockRule:
+        return UntaggedCodeBlockRule()
+
+    def test_z505_untagged_fence_detected(self) -> None:
+        """Opening ``` with no language tag → one Z505 finding."""
+        rule = self._rule()
+        text = "```\nsome code\n```\n"
+        findings = rule.check(_ANCHOR_FILE, text)
+        assert len(findings) == 1
+        assert findings[0].rule_id == "Z505"
+        assert findings[0].line_no == 1
+        assert findings[0].severity == "warning"
+
+    def test_z505_tagged_fence_no_finding(self) -> None:
+        """Opening ```python has a tag → no finding."""
+        rule = self._rule()
+        text = "```python\nx = 1\n```\n"
+        findings = rule.check(_ANCHOR_FILE, text)
+        assert findings == []
+
+    def test_z505_closing_fence_not_flagged(self) -> None:
+        """Closing ``` of a tagged block is never flagged."""
+        rule = self._rule()
+        text = "```toml\nkey = 'val'\n```\n"
+        findings = rule.check(_ANCHOR_FILE, text)
+        assert findings == []
+
+    def test_z505_tilde_fence_untagged(self) -> None:
+        """~~~ without a language tag → Z505 (tilde fences supported)."""
+        rule = self._rule()
+        text = "~~~\ncode\n~~~\n"
+        findings = rule.check(_ANCHOR_FILE, text)
+        assert len(findings) == 1
+        assert findings[0].rule_id == "Z505"
+
+    def test_z505_multiple_untagged_blocks(self) -> None:
+        """Two untagged fences in the same file → two Z505 findings."""
+        rule = self._rule()
+        text = "```\nblock1\n```\nText.\n```\nblock2\n```\n"
+        findings = rule.check(_ANCHOR_FILE, text)
+        assert len(findings) == 2
+
+    def test_z505_content_inside_not_flagged(self) -> None:
+        """Lines inside a fence block are not inspected for the fence pattern."""
+        rule = self._rule()
+        # Inner ``` looks like a fence but is inside the block → ignored
+        text = "```markdown\n```\ninner content\n```\n```\n"
+        findings = rule.check(_ANCHOR_FILE, text)
+        # CEO-140: ``` closes the markdown block (no info string, same char, same
+        # length). Then the third ``` re-opens an untagged block → Z505.
+        # Structure: open(md) → close → open(untagged) → close
+        # So: 0 from tagged, 1 from second untagged open
+        assert len(findings) == 1
+
+    def test_z505_info_string_with_title_not_flagged(self) -> None:
+        """```python title="test.py" has a language tag → no finding (CEO-138)."""
+        rule = self._rule()
+        text = '```python title="test.py"\nx = 1\n```\n'
+        findings = rule.check(_ANCHOR_FILE, text)
+        assert findings == []
+
+    def test_z505_info_string_with_metadata_not_flagged(self) -> None:
+        """```bash showLineNumbers {1-3} has a language tag → no finding (CEO-138)."""
+        rule = self._rule()
+        text = "```bash showLineNumbers {1-3}\necho hi\n```\n"
+        findings = rule.check(_ANCHOR_FILE, text)
+        assert findings == []
+
+    def test_z505_closing_fence_with_info_does_not_close(self) -> None:
+        """A closing fence with info string is an opener, not a closer (CEO-140)."""
+        rule = self._rule()
+        # ````text opens, ```mermaid does NOT close (has info), ``` closes.
+        text = "````text\n```mermaid\nflowchart\n```\n````\n"
+        findings = rule.check(_ANCHOR_FILE, text)
+        # ````text is tagged → no Z505
+        assert findings == []
+
+
+# ─── BrandObsolescenceRule (Z905) ─────────────────────────────────────────────
+
+
+def _meta(
+    obsolete: list[str] | None = None,
+    release: str = "Quartz",
+    exclude: list[str] | None = None,
+) -> ProjectMetadata:
+    kwargs: dict = {"release_name": release, "obsolete_names": obsolete or []}
+    if exclude is not None:
+        kwargs["obsolete_names_exclude_patterns"] = exclude
+    return ProjectMetadata(**kwargs)
+
+
+class TestBrandObsolescenceRule:
+    def _rule(self, meta: ProjectMetadata) -> BrandObsolescenceRule:
+        return BrandObsolescenceRule(meta)
+
+    def test_z905_empty_obsolete_no_findings(self) -> None:
+        """When obsolete_names is empty, rule always returns []."""
+        rule = self._rule(_meta(obsolete=[]))
+        findings = rule.check(_ANCHOR_FILE, "Obsidian was the old name.\n")
+        assert findings == []
+
+    def test_z905_match_emits_warning(self) -> None:
+        """Obsolete term found → one Z905 warning with remediation hint."""
+        rule = self._rule(_meta(obsolete=["Obsidian"]))
+        findings = rule.check(_ANCHOR_FILE, "Obsidian is documented here.\n")
+        assert len(findings) == 1
+        assert findings[0].rule_id == "Z905"
+        assert findings[0].severity == "warning"
+        assert "Obsidian" in findings[0].message
+        assert "Quartz" in findings[0].message
+
+    def test_z905_suppress_md_html_comment(self) -> None:
+        """CEO-143: HTML comment suppression (Markdown .md syntax)."""
+        rule = self._rule(_meta(obsolete=["Obsidian"]))
+        text = "Obsidian was the old name. <!-- zenzic:ignore Z905 -->\n"
+        findings = rule.check(_ANCHOR_FILE, text)
+        assert findings == []
+
+    def test_z905_suppress_mdx_jsx_comment(self) -> None:
+        """CEO-143: JSX comment suppression (MDX .mdx syntax)."""
+        rule = self._rule(_meta(obsolete=["Obsidian"]))
+        mdx_file = Path("docs/explanation/mineral-path.mdx")
+        text = "The Obsidian era defined Zenzic's foundations. {/* zenzic:ignore Z905 */}\n"
+        findings = rule.check(mdx_file, text)
+        assert findings == []
+
+    def test_z905_suppress_only_correct_code(self) -> None:
+        """CEO-143: A suppression comment for a different code does NOT suppress Z905."""
+        rule = self._rule(_meta(obsolete=["Obsidian"]))
+        text = "Obsidian was the old name. <!-- zenzic:ignore Z107 -->\n"
+        findings = rule.check(_ANCHOR_FILE, text)
+        assert len(findings) == 1
+        assert findings[0].rule_id == "Z905"
+
+    def test_z905_historical_tag_no_longer_suppresses(self) -> None:
+        """CEO-143: The deprecated [HISTORICAL] token is no longer a suppression mechanism."""
+        rule = self._rule(_meta(obsolete=["Obsidian"]))
+        text = "Obsidian was the old name. [HISTORICAL]\n"
+        findings = rule.check(_ANCHOR_FILE, text)
+        # [HISTORICAL] is plain text — does not suppress Z905
+        assert len(findings) == 1
+        assert findings[0].rule_id == "Z905"
+
+    def test_z905_path_in_exclude_patterns_skipped(self) -> None:
+        """File matching an exclusion glob is skipped entirely."""
+        rule = self._rule(_meta(obsolete=["Obsidian"], exclude=["CHANGELOG*.md"]))
+        cl_file = Path("CHANGELOG.md")
+        findings = rule.check(cl_file, "Obsidian was the old name.\n")
+        assert findings == []
+
+    def test_z905_case_insensitive(self) -> None:
+        """Z905 is case-insensitive: 'obsidian' also triggers."""
+        rule = self._rule(_meta(obsolete=["Obsidian"]))
+        findings = rule.check(_ANCHOR_FILE, "obsidian is no longer used.\n")
+        assert len(findings) == 1
+        assert findings[0].match_text.lower() == "obsidian"
+
+    def test_z905_multiple_names_multiple_findings(self) -> None:
+        """Each unique obsolete term on a line → its own finding."""
+        rule = self._rule(_meta(obsolete=["Obsidian", "Legacy"]))
+        text = "Obsidian and Legacy are both deprecated.\n"
+        findings = rule.check(_ANCHOR_FILE, text)
+        assert len(findings) == 2
+        codes = {f.rule_id for f in findings}
+        assert codes == {"Z905"}

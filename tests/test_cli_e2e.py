@@ -203,7 +203,7 @@ class TestExitZeroContractE2E:
         assert result.exit_code == 0, (
             f"Expected exit 0 (clean), got {result.exit_code}.\nOutput:\n{result.stdout}"
         )
-        assert "Obsidian Seal" in result.stdout
+        assert "Sentinel Seal" in result.stdout
 
 
 # ── Priority: Exit 3 wins over Exit 2 ───────────────────────────────────────
