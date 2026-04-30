@@ -11,7 +11,155 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 > **Older versions (v0.1.0 – v0.5.x):** See the [Changelog Archive](CHANGELOG.archive.md).
 
+## [0.7.0] — target release date 2026-05-05 — Quartz Maturity (Stable)
+
+Zenzic v0.7.0 marks the transition to a **Sovereign Knowledge System**. After the Obsidian
+Siege and the Quartz Tribunal, this release establishes the **Quartz standard** for precision,
+security, and documentation integrity. The codebase achieves structural maturity: 1,342 tests,
+80%+ coverage, dynamic SARIF sovereignty, engine auto-discovery, and a hardened Shield with
+speculative Base64 decoding. Supersedes v0.6.1.
+
+> **Legacy Documentation:** Versions prior to v0.7.0 are officially deprecated and do not follow
+> the current Diátaxis architecture. For historical reference, see the
+> [v0.6.1 GitHub Release](https://github.com/PythonWoods/zenzic/releases/tag/v0.6.1).
+> The authoritative source is [zenzic.dev](https://zenzic.dev).
+
 ## [Unreleased]
+
+### D096 — Quartz Discovery, SARIF Sovereignty & Brain Curation (2026-04-30)
+
+#### Added
+
+- **`discover_engine(repo_root) -> str`** in `core/adapters/_factory.py`. `get_adapter()` resolves
+  `engine="auto"` via `discover_engine()` before cache key lookup. Priority: `zensical.toml` →
+  `docusaurus.config.ts/js` → `mkdocs.yml` → `"standalone"`.
+- **`engine` default changed** from `"mkdocs"` to `"auto"` in `models/config.py`.
+- **Z906 NO_FILES_FOUND** registered in `codes.py`. Note level, exit 0, text-only (Rule R20).
+- **SARIF rules generated dynamically** from `codes.py` in `cli/_shared.py`. Ghost codes
+  Z301/Z601/Z701 eliminated. `helpUri` per rule: `https://zenzic.dev/docs/reference/finding-codes#{code.lower()}`.
+- **`ZenzicExitCode` class** in `codes.py`: `SUCCESS=0`, `QUALITY=1`, `SHIELD=2`, `SENTINEL=3`.
+- **`zenzic init` Quartz Template**: `_detect_init_engine()` delegates to `discover_engine()`.
+  Generated `zenzic.toml` sets `fail_under = 100` and `strict = true` as active defaults.
+- **Trinity Mesh Awareness** in `scripts/map_project.py`: Zone B auditor (`<!-- ZONE_B_START -->`
+  / `<!-- ZONE_B_END -->` markers, 400-line guardrail, `[Z907] MEMORY_OVERFLOW` warning) +
+  sibling repo detection (`[MESH STATUS]` block).
+- **Zone A/B restructure** applied to all 3 public `ZENZIC_BRAIN.md` files (core, doc, action).
+  Zone A = Constitutional (Manifesto, Policies, ADRs). Zone B = Operational ([ACTIVE SPRINT]).
+- **"The Zenzic Memory Contract"** section added to `CONTRIBUTING.md` (CEO-237).
+- **Contemporary Testimony** (zenzic-doc): Z906 in `finding-codes.mdx` EN+IT; engine `"auto"`
+  in `configuration-reference.mdx` EN+IT; blog updated to 20 Acts + Act 19 row.
+- **ADR-015** (SARIF Sovereign Automation) and **ADR-016** (Quartz Auto-Discovery) added to
+  `ZENZIC_BRAIN.md`.
+
+#### Tests
+
+- **1,342 passed · 80.28% coverage** (Python 3.11 / 3.12 / 3.13). No regressions.
+
+---
+
+### D095 — The Base64 Sentinel Decoder & Universal Path Invariant
+
+#### Added
+
+- **Base64 speculative decoder in `shield.py` (CEO-194).** `_BASE64_CANDIDATE_RE` extracts
+  candidate tokens from every normalised line; `_try_decode_base64()` decodes each as UTF-8;
+  the decoded text is re-scanned through the full `_SECRETS` pattern table. This seals attack
+  vector S2 from the Quartz Tribunal: a GitHub PAT encoded as Base64 in YAML frontmatter now
+  triggers Z201 and exits 2. False-positive guard: minimum token length 20 chars before decoding.
+  New imports: `base64`, `binascii`.
+
+- **`os.path.normcase` portability fix in `resolver.py` (CEO-203 / KL-002).** The Shield
+  boundary comparison now applies `os.path.normcase` to both the target path and the
+  precomputed `_allowed_root_pairs_nc` / `_repo_root_nc_*` slots. On Linux, `normcase` is
+  identity — no behaviour change. On macOS (APFS) and Windows (NTFS), mixed-case legitimate
+  paths no longer produce false-positive PathTraversal outcomes. The original `target_str`
+  is preserved for file lookup. Three new `__slots__` added.
+
+- **Act 19 "The Base64 Shadow" in `zenzic lab`.** Demonstrates the S2 attack vector sealed
+  by CEO-194. `expected_breach=True`. Scoring Scenarios section extended to `range(17, 20)`.
+  Error strings in `parse_act_range` updated from `0–18` → `0–19`.
+
+- **Fixture `examples/scoring/security-base64/`** (2 files): `zenzic.toml` + `secret.md`
+  with a Base64-encoded GitHub PAT in YAML frontmatter. Used by Act 19.
+
+- **`docs/explanation/audit-v070-quartz-siege.mdx`** (EN + IT) published in zenzic-doc.
+  Diátaxis Explanation page — "The Quartz Tribunal" Libro Bianco documenting the AI-driven
+  security audit: 3 attack vectors, 7 bugs sealed, certification metrics.
+
+#### Fixed
+
+- **README EN+IT:** Shield paragraph updated — Base64 speculative decoding sentence added.
+
+- **`finding-codes.mdx` Z201 EN+IT:** Technical Context rewritten to describe the multi-phase
+  scan (raw + normalised + Base64 speculative decoding).
+
+#### Tests
+
+- `test_shield_obfuscation.py::TestBase64Bypass` — **replaced** (was a known-limitation
+  placeholder). 4 new tests: `test_base64_github_pat_detected` (canonical CEO-201 vector),
+  `test_base64_aws_key_detected`, `test_base64_short_string_no_false_positive`,
+  `test_base64_innocent_prose_no_false_positive`.
+
+- `test_resolver.py::TestNormcasePortability` — 3 new tests verifying the KL-002 portability
+  fix: legitimate uppercase-root resolves cleanly; traversal with mixed case still blocked;
+  normcase does not open a gap via extra allowed roots.
+
+- **1,307 passing · 0 failing · 80.28% coverage** (Python 3.11 / 3.12 / 3.13).
+
+---
+
+### D091 — Quartz Brand Integrity (Z107 · Z505 · Z905)
+
+#### Added
+
+- **`CircularAnchorRule` (Z107 CIRCULAR_ANCHOR).** New `BaseRule` subclass detecting
+  self-referential anchor links (`[text](#heading)` where `heading` resolves to the
+  same page). Slugifies all headings via the same `_slugify()` helper and matches
+  against local anchor links. Exit 1, suppressible.
+
+- **`UntaggedCodeBlockRule` (Z505 UNTAGGED_CODE_BLOCK).** New `BaseRule` subclass
+  detecting fenced code blocks with no language specifier. Implements the CommonMark
+  fence invariant: a closing fence must have an empty info string. Any non-whitespace
+  in the info string is treated as an opener — Docusaurus metadata
+  (e.g. `` ```python title="file.py" showLineNumbers ``) is correctly handled.
+  Exit 1, suppressible.
+
+- **`BrandObsolescenceRule` (Z905 BRAND_OBSOLESCENCE).** New `BaseRule` subclass
+  scanning for obsolete release identifiers. Configured via `[project_metadata]` in
+  `zenzic.toml`. Lines containing the token `[HISTORICAL]` are silently skipped.
+  File patterns in `obsolete_names_exclude_patterns` (default: `CHANGELOG*.md`) are
+  fully exempt. Exit 1, suppressible. Pickle-safe (module-level class; no module stored
+  as instance attribute).
+
+- **`ProjectMetadata` Pydantic model** in `src/zenzic/models/config.py`.
+  Fields: `release_name: str`, `obsolete_names: list[str]`,
+  `obsolete_names_exclude_patterns: list[str]` (default: `["CHANGELOG*.md", "CHANGELOG*.archive.md"]`).
+  Integrated into `ZenzicConfig` and `_HANDLED_SECTIONS`.
+
+- **Z107, Z505, Z905 registered** in `src/zenzic/core/codes.py`. All three:
+  `primary_exit=1, non_suppressible=False`.
+
+- **`_build_rule_engine()` in `scanner.py`** always adds `CircularAnchorRule` and
+  `UntaggedCodeBlockRule`; conditionally appends `BrandObsolescenceRule` when
+  `obsolete_names` is non-empty.
+
+- **`zenzic init`** TOML template includes a commented `[project_metadata]` block.
+
+- **CEO-138 info string semantics.** `has_tag = bool(info.strip())` — any non-whitespace
+  character in the fence info string marks a block as tagged.
+
+- **CEO-140 CommonMark closing fence invariant.** Closing fence requires: same character
+  as opener, length ≥ opener, **empty info string** (`not info`). This eliminated 10
+  false Z505 positives in architecture.mdx — a fence line with any non-whitespace info
+  is always an opener, never a closer.
+
+#### Tests
+
+- 18 new tests across `TestCircularAnchorRule`, `TestUntaggedCodeBlockRule`,
+  `TestBrandObsolescenceRule` (including 3 CEO-138/140 edge cases).
+  **1 281 passing · 0 failing · 80.81% coverage.**
+
+---
 
 ### D090 — The UX-Discoverability Law (Navbar + Footer Navigation Harvesting)
 
@@ -62,6 +210,8 @@ Versions follow [Semantic Versioning](https://semver.org/).
 - 14 new tests: `TestParseConfigNavigation` (NCF-01..10) + `TestUnifiedNavigation` (NCI-01..04).
   **1 260 passing · 0 failing.**
 
+---
+
 ### D085 — Full-Spec Alignment (Docusaurus Sidebar Parser + Close #52)
 
 #### Added
@@ -86,14 +236,7 @@ Versions follow [Semantic Versioning](https://semver.org/).
 - 14 new tests: `TestParseSidebars` (SBP-01..10) + `TestFromRepoSidebar` (SBI-01..04).
   **1 246 passing · 0 failing.**
 
-## [0.7.0] — 2026-04-26 — Quartz Maturity (Stable) — D085 Full-Spec Alignment
-
-> ⚓ Zenzic v0.7.0 marks the consolidation of our core architecture and the full alignment with official specifications. Supersedes v0.6.1.
->
-> **Legacy Documentation:** Versions prior to v0.7.0 are officially deprecated and do not follow
-> the current Diátaxis architecture. For historical reference, see the
-> [v0.6.1 GitHub Release](https://github.com/PythonWoods/zenzic/releases/tag/v0.6.1).
-> The v0.7.0 documentation at [zenzic.dev](https://zenzic.dev) is the authoritative source.
+---
 
 ### Quartz Maturity — Sovereignty & Documentation (Direttive CEO-102/103-B)
 
@@ -620,6 +763,8 @@ The `[mkdocs]` optional extra no longer exists. `pip install zenzic` is the comp
   violation (Technical Debt). Resolves the "Paradosso del Custode senza Memoria".
   Memory Law in `[POLICIES]` upgraded to "The Custodian's Contract" with the Class 1 violation
   clause and explicit "Definition of Done" invariant.
+
+---
 
 ### The Intelligent Perimeter Sprint (D050 — 2026-04-25)
 
@@ -1273,6 +1418,8 @@ misdiagnosis. CEO-052 fix (already applied) eliminates the false Z104 when scann
 
 > ⚠ **[SUPERSEDED by v0.7.0]** — Version 0.6.1 is deprecated due to alignment issues with Docusaurus specifications and legacy terminology. All users must upgrade to v0.7.0 "Obsidian Maturity".
 
+---
+
 ### Breaking Changes
 
 - **Standalone Engine replaces Vanilla (Direttiva 037).** The `VanillaAdapter` and the
@@ -1281,6 +1428,8 @@ misdiagnosis. CEO-052 fix (already applied) eliminates the false Z104 when scann
   raise a `ConfigurationError [Z000]` at startup with a clear migration message.
   *Migration:* replace `engine = "vanilla"` with `engine = "standalone"` in your
   `zenzic.toml` or `[tool.zenzic]` block.
+
+---
 
 ### Added
 
@@ -1314,6 +1463,8 @@ misdiagnosis. CEO-052 fix (already applied) eliminates the false Z104 when scann
 - **Sentinel Banner Notifications.** New status messages for **Offline Mode** and
   **Proxy Mode** activation.
 
+---
+
 ### Fixed
 
 - **Guardians Audit: Official Specs Alignment.**
@@ -1340,6 +1491,8 @@ misdiagnosis. CEO-052 fix (already applied) eliminates the false Z104 when scann
 
 ## [0.6.1rc2] — 2026-04-16 — Obsidian Bastion (Hardened)
 
+---
+
 ### SECURITY: Operation Obsidian Stress Findings
 
 - **Shield: Unicode format character bypass (ZRT-006).** Zero-width Unicode
@@ -1357,6 +1510,8 @@ misdiagnosis. CEO-052 fix (already applied) eliminates the false Z104 when scann
   across two consecutive lines (e.g. YAML folded scalars). Suppresses duplicates
   via previous-line seen set.
 
+---
+
 ### Added
 
 - **`--format json` on individual check commands.** `check links`, `check orphans`,
@@ -1367,6 +1522,8 @@ misdiagnosis. CEO-052 fix (already applied) eliminates the false Z104 when scann
   detects `glpat-` tokens (9 credential families total).
   ([#57](https://github.com/PythonWoods/zenzic/pull/57) — contributed by [@gtanb4l](https://github.com/gtanb4l))
 
+---
+
 ### Fixed
 
 - **JSON exit-code asymmetry in `check orphans` and `check assets`.** Both commands
@@ -1375,6 +1532,8 @@ misdiagnosis. CEO-052 fix (already applied) eliminates the false Z104 when scann
   warnings) triggered Exit 1 in JSON mode.
 
 ## [0.6.1rc1] — 2026-04-15 — Obsidian Bastion
+
+---
 
 ### Breaking Changes
 
@@ -1387,6 +1546,8 @@ misdiagnosis. CEO-052 fix (already applied) eliminates the false Z104 when scann
   `zenzic.plugin`. Update your MkDocs `mkdocs.yml` to reinstall the package;
   the plugin is now auto-discovered via the `mkdocs.plugins` entry point.
   Requires `pip install "zenzic[mkdocs]"`.
+
+---
 
 ### Added
 
@@ -1411,6 +1572,8 @@ misdiagnosis. CEO-052 fix (already applied) eliminates the false Z104 when scann
   `mkdocs.plugins` entry point. Core is now free of any engine-specific
   imports. Install the extra: `pip install "zenzic[mkdocs]"`.
 
+---
+
 ### Changed
 
 - **BREAKING (Alpha):** `exclusion_manager` parameter is now mandatory on
@@ -1419,6 +1582,8 @@ misdiagnosis. CEO-052 fix (already applied) eliminates the false Z104 when scann
   `None` default.
 
 ## [0.6.0a2] — 2026-04-13 — Obsidian Glass (Alpha 2)
+
+---
 
 ### Added
 
@@ -1453,6 +1618,8 @@ misdiagnosis. CEO-052 fix (already applied) eliminates the false Z104 when scann
   with extreme paths, pickle safety, frontmatter extraction, Shield middleware,
   and VanillaAdapter warning-free operation.
 
+---
+
 ### Changed
 
 - **BREAKING: `excluded_assets` uses fnmatch** — All entries are now
@@ -1460,6 +1627,8 @@ misdiagnosis. CEO-052 fix (already applied) eliminates the false Z104 when scann
   valid patterns), but patterns like `**/_category_.json` or `assets/brand/*`
   are now supported natively.  The previous set-subtraction implementation
   has been removed.
+
+---
 
 ### Fixed
 
@@ -1473,6 +1642,8 @@ misdiagnosis. CEO-052 fix (already applied) eliminates the false Z104 when scann
 > an **Analyser of Documentation Platforms**. This release introduces the
 > Docusaurus v3 engine adapter — the first non-MkDocs/Zensical adapter — and
 > marks the beginning of the Obsidian Bridge migration strategy.
+
+---
 
 ### Added
 
@@ -1502,6 +1673,8 @@ misdiagnosis. CEO-052 fix (already applied) eliminates the false Z104 when scann
   `baseUrl` and `routeBasePath`.
 - **Improved i18n Topology**: Native mapping for Docusaurus `i18n/` directory
   structure and locale-specific route resolution.
+
+---
 
 ### Testing
 

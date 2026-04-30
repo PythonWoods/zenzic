@@ -11,7 +11,155 @@ Le versioni seguono il [Semantic Versioning](https://semver.org/).
 
 > **Versioni precedenti (v0.1.0 – v0.5.x):** Consultare l'[Archivio Changelog](CHANGELOG.it.archive.md).
 
+## [0.7.0] — data prevista di rilascio 2026-05-05 — Quartz Maturity (Stable)
+
+Zenzic v0.7.0 segna la transizione a un **Sovereign Knowledge System**. Dopo l'Assedio
+Ossidianico e il Tribunale Quartz, questa release stabilisce lo **standard Quartz** per
+precisione, sicurezza e integrità della documentazione. Il codebase raggiunge la maturità
+strutturale: 1.342 test, copertura >80%, SARIF sovereignty dinamica, auto-discovery del motore
+e Shield hardened con decodifica Base64 speculativa. Sostituisce v0.6.1.
+
+> **Documentazione precedente:** Le versioni precedenti a v0.7.0 sono ufficialmente deprecate
+> e non seguono l'attuale architettura Diátaxis. Per riferimento storico, vedere la
+> [Release v0.6.1 su GitHub](https://github.com/PythonWoods/zenzic/releases/tag/v0.6.1).
+> La fonte autorevole è [zenzic.dev](https://zenzic.dev).
+
 ## [Non rilasciato]
+
+### D096 — Quartz Discovery, SARIF Sovereignty & Brain Curation (2026-04-30)
+
+#### Aggiunto
+
+- **`discover_engine(repo_root) -> str`** in `core/adapters/_factory.py`. `get_adapter()` risolve
+  `engine="auto"` tramite `discover_engine()` prima della cache key. Priorità: `zensical.toml` →
+  `docusaurus.config.ts/js` → `mkdocs.yml` → `"standalone"`.
+- **Default `engine` cambiato** da `"mkdocs"` a `"auto"` in `models/config.py`.
+- **Z906 NO_FILES_FOUND** registrato in `codes.py`. Livello note, exit 0, solo testo (Regola R20).
+- **Regole SARIF generate dinamicamente** da `codes.py` in `cli/_shared.py`. Codici fantasma
+  Z301/Z601/Z701 eliminati. `helpUri` per regola: `https://zenzic.dev/docs/reference/finding-codes#{codice.lower()}`.
+- **Classe `ZenzicExitCode`** in `codes.py`: `SUCCESS=0`, `QUALITY=1`, `SHIELD=2`, `SENTINEL=3`.
+- **`zenzic init` Template Quartz**: `_detect_init_engine()` delega a `discover_engine()`.
+  Il `zenzic.toml` generato imposta `fail_under = 100` e `strict = true` come default attivi.
+- **Trinity Mesh Awareness** in `scripts/map_project.py`: auditore Zone B (marcatori
+  `<!-- ZONE_B_START -->` / `<!-- ZONE_B_END -->`, guardrail 400 righe, warning `[Z907] MEMORY_OVERFLOW`)
+  - rilevamento repo sibling (blocco `[MESH STATUS]`).
+- **Ristrutturazione Zone A/B** applicata a tutti e 3 i file pubblici `ZENZIC_BRAIN.md`
+  (core, doc, action). Zone A = Costituzionale (Manifesto, Policy, ADR). Zone B = Operativa ([ACTIVE SPRINT]).
+- **"The Zenzic Memory Contract"** aggiunto a `CONTRIBUTING.md` (CEO-237).
+- **Testimonianza Contemporanea** (zenzic-doc): Z906 in `finding-codes.mdx` EN+IT; engine `"auto"`
+  in `configuration-reference.mdx` EN+IT; blog aggiornato a 20 Acts + riga Atto 19.
+- **ADR-015** (SARIF Sovereign Automation) e **ADR-016** (Quartz Auto-Discovery) aggiunti a
+  `ZENZIC_BRAIN.md`.
+
+#### Test
+
+- **1.342 superati · 80,28% copertura** (Python 3.11 / 3.12 / 3.13). Nessuna regressione.
+
+---
+
+### D095 — Il Decoder Sentinella Base64 & Invariante Universale dei Percorsi
+
+#### Aggiunto
+
+- **Decoder Base64 speculativo in `shield.py` (CEO-194).** `_BASE64_CANDIDATE_RE` estrae
+  token candidati da ogni riga normalizzata; `_try_decode_base64()` decodifica ciascuno
+  come UTF-8; il testo decodificato viene ri-scansionato attraverso la tabella completa
+  dei pattern `_SECRETS`. Questo sigilla il vettore di attacco S2 del Tribunale Quartz:
+  un GitHub PAT codificato in Base64 nel frontmatter YAML ora attiva Z201 ed esce con 2.
+  Guardia contro falsi positivi: lunghezza minima token 20 caratteri prima della decodifica.
+  Nuovi import: `base64`, `binascii`.
+
+- **Fix di portabilità `os.path.normcase` in `resolver.py` (CEO-203 / KL-002).** Il
+  confronto del perimetro Shield ora applica `os.path.normcase` sia al percorso target che
+  agli slot precomputati `_allowed_root_pairs_nc` / `_repo_root_nc_*`. Su Linux,
+  `normcase` è l'identità — nessun cambio di comportamento. Su macOS (APFS) e Windows
+  (NTFS), percorsi legittimi con case misto non producono più falsi positivi PathTraversal.
+  Il `target_str` originale è preservato per la ricerca dei file. Tre nuovi `__slots__` aggiunti.
+
+- **Atto 19 "The Base64 Shadow" in `zenzic lab`.** Dimostra il vettore di attacco S2
+  sigillato da CEO-194. `expected_breach=True`. Sezione Scenari di Scoring estesa a
+  `range(17, 20)`. Stringhe di errore in `parse_act_range` aggiornate da `0–18` → `0–19`.
+
+- **Fixture `examples/scoring/security-base64/`** (2 file): `zenzic.toml` + `secret.md`
+  con un GitHub PAT codificato in Base64 nel frontmatter YAML. Utilizzata dall'Atto 19.
+
+- **`docs/explanation/audit-v070-quartz-siege.mdx`** (EN + IT) pubblicato in zenzic-doc.
+  Pagina Explanation Diátaxis — "Il Tribunale Quartz" Libro Bianco che documenta l'audit
+  di sicurezza AI-driven: 3 vettori di attacco, 7 bug sigillati, metriche di certificazione.
+
+#### Corretto
+
+- **README EN+IT:** Paragrafo Shield aggiornato — aggiunta frase sulla decodifica speculativa
+  Base64.
+
+- **`finding-codes.mdx` Z201 EN+IT:** Contesto Tecnico riscritto per descrivere la scansione
+  multi-fase (grezza + normalizzata + decodifica Base64 speculativa).
+
+#### Test
+
+- `test_shield_obfuscation.py::TestBase64Bypass` — **sostituito** (era un placeholder per
+  limitazione nota). 4 nuovi test: `test_base64_github_pat_detected` (vettore canonico
+  CEO-201), `test_base64_aws_key_detected`, `test_base64_short_string_no_false_positive`,
+  `test_base64_innocent_prose_no_false_positive`.
+
+- `test_resolver.py::TestNormcasePortability` — 3 nuovi test che verificano il fix di
+  portabilità KL-002: root con lettere maiuscole risolve correttamente; traversal con case
+  misto ancora bloccato; normcase non apre gap tramite allowed roots extra.
+
+- **1.307 superati · 0 falliti · 80,28% copertura** (Python 3.11 / 3.12 / 3.13).
+
+---
+
+### D091 — Integrità del Brand Quartz (Z107 · Z505 · Z905)
+
+#### Aggiunto
+
+- **`CircularAnchorRule` (Z107 CIRCULAR_ANCHOR).** Nuova sottoclasse `BaseRule` che rileva
+  link ancora auto-referenziali (`[testo](#heading)` dove `heading` risolve alla stessa
+  pagina). Calcola lo slug di tutti i heading e li confronta con i link ancora locali.
+  Uscita 1, sopprimibile.
+
+- **`UntaggedCodeBlockRule` (Z505 UNTAGGED_CODE_BLOCK).** Nuova sottoclasse `BaseRule`
+  che rileva blocchi di codice recinzati privi di specificatore di linguaggio.
+  Implementa l'invariante CommonMark: un fence di chiusura deve avere una info string
+  vuota. Qualsiasi carattere non-spazio nella info string è trattato come apertura —
+  i metadati Docusaurus (es. `` ```python title="file.py" showLineNumbers ``) sono
+  gestiti correttamente. Uscita 1, sopprimibile.
+
+- **`BrandObsolescenceRule` (Z905 BRAND_OBSOLESCENCE).** Nuova sottoclasse `BaseRule`
+  che scansiona identificatori di release obsoleti. Configurata via `[project_metadata]`
+  in `zenzic.toml`. Le righe con il token `[HISTORICAL]` vengono silenziosamente saltate.
+  I pattern di file in `obsolete_names_exclude_patterns` (default: `CHANGELOG*.md`) sono
+  completamente esenti. Uscita 1, sopprimibile. Pickle-safe.
+
+- **Modello Pydantic `ProjectMetadata`** in `src/zenzic/models/config.py`.
+  Campi: `release_name: str`, `obsolete_names: list[str]`,
+  `obsolete_names_exclude_patterns: list[str]` (default: `["CHANGELOG*.md", "CHANGELOG*.archive.md"]`).
+  Integrato in `ZenzicConfig` e `_HANDLED_SECTIONS`.
+
+- **Z107, Z505, Z905 registrati** in `src/zenzic/core/codes.py`. Tutti e tre:
+  `primary_exit=1, non_suppressible=False`.
+
+- **`_build_rule_engine()` in `scanner.py`** aggiunge sempre `CircularAnchorRule` e
+  `UntaggedCodeBlockRule`; aggiunge condizionalmente `BrandObsolescenceRule` quando
+  `obsolete_names` è non vuoto.
+
+- **`zenzic init`** — il template TOML include un blocco `[project_metadata]` commentato.
+
+- **CEO-138 semantica info string.** `has_tag = bool(info.strip())` — qualsiasi carattere
+  non-spazio nella info string del fence marca un blocco come etichettato.
+
+- **CEO-140 invariante CommonMark fence di chiusura.** Un fence di chiusura richiede:
+  stesso carattere dell'apertura, lunghezza ≥ apertura, **info string vuota** (`not info`).
+  Questo ha eliminato 10 falsi positivi Z505 in architecture.mdx.
+
+#### Test
+
+- 18 nuovi test tra `TestCircularAnchorRule`, `TestUntaggedCodeBlockRule`,
+  `TestBrandObsolescenceRule` (inclusi 3 casi limite CEO-138/140).
+  **1 281 passati · 0 falliti · 80,81% di copertura.**
+
+---
 
 ### D090 — La Legge di Raggiungibilità UX (Raccolta Navigazione Navbar + Footer)
 
@@ -63,6 +211,8 @@ Le versioni seguono il [Semantic Versioning](https://semver.org/).
 - 14 nuovi test: `TestParseConfigNavigation` (NCF-01..10) + `TestUnifiedNavigation` (NCI-01..04).
   **1 260 passing · 0 failing.**
 
+---
+
 ### D085 — Full-Spec Alignment (Parser Sidebar Docusaurus + Chiusura #52)
 
 #### Aggiunto
@@ -88,9 +238,7 @@ Le versioni seguono il [Semantic Versioning](https://semver.org/).
 - 14 nuovi test: `TestParseSidebars` (SBP-01..10) + `TestFromRepoSidebar` (SBI-01..04).
   **1 246 passing · 0 failing.**
 
-## [0.7.0] — 2026-04-26 — Quartz Maturity (Stable) — D085 Full-Spec Alignment
-
-> ⚓ Zenzic v0.7.0 segna il consolidamento dell'architettura core e il pieno allineamento con le specifiche ufficiali. Sostituisce v0.6.1.
+---
 
 ### ⚠️ BREAKING CHANGE — Plugin MkDocs Rimosso (Direttiva CEO 055)
 
@@ -556,6 +704,8 @@ L'extra opzionale `[mkdocs]` non esiste più. `pip install zenzic` è l'installa
   Saltare qualsiasi passo è una violazione di Classe 1 (Technical Debt). Risolve il "Paradosso
   del Custode senza Memoria". La Memory Law in `[POLICIES]` aggiornata a "The Custodian's
   Contract" con la clausola di violazione Classe 1 e l'invariante esplicito "Definition of Done".
+
+---
 
 ### Sprint del Perimetro Intelligente (D050 — 2026-04-25)
 
@@ -1204,6 +1354,8 @@ Z104 nella scansione remota.
 
 > ⚠ **[SUPERSEDED dalla v0.7.0]** — La versione 0.6.1 è deprecata a causa di problemi di allineamento con le specifiche Docusaurus e terminologia legacy. Tutti gli utenti devono aggiornare alla v0.7.0 "Obsidian Maturity".
 
+---
+
 ### Modifiche che rompono la compatibilità
 
 - **Standalone Engine sostituisce Vanilla (Direttiva 037).** `VanillaAdapter` e la
@@ -1212,6 +1364,8 @@ Z104 nella scansione remota.
   genera una `ConfigurationError [Z000]` all'avvio con un messaggio di migrazione chiaro.
   *Migrazione:* sostituire `engine = "vanilla"` con `engine = "standalone"` nel proprio
   `zenzic.toml` o nel blocco `[tool.zenzic]`.
+
+---
 
 ### Aggiunto
 
@@ -1247,6 +1401,8 @@ Z104 nella scansione remota.
 - **Notifiche nel Banner Sentinel.** Nuovi messaggi di stato per l'attivazione della
   **Modalità Offline** e della **Modalità Proxy**.
 
+---
+
 ### Corretto
 
 - **Audit dei Guardiani: Allineamento Specifiche Ufficiali.**
@@ -1274,6 +1430,8 @@ Z104 nella scansione remota.
 
 ## [0.6.1rc2] — 2026-04-16 — Obsidian Bastion (Hardened)
 
+---
+
 ### SICUREZZA: Risultati Operation Obsidian Stress
 
 - **Shield: bypass tramite caratteri Unicode di formato (ZRT-006).** Caratteri
@@ -1293,6 +1451,8 @@ Z104 nella scansione remota.
   suddivisi su due righe consecutive (es. scalari YAML folded). I duplicati sono
   soppressi tramite il set di tipi già rilevati sulla riga precedente.
 
+---
+
 ### Aggiunto
 
 - **`--format json` sui comandi di controllo singoli.** `check links`, `check orphans`,
@@ -1304,6 +1464,8 @@ Z104 nella scansione remota.
   rileva ora i token `glpat-` (9 famiglie di credenziali in totale).
   ([#57](https://github.com/PythonWoods/zenzic/pull/57) — contributo di [@gtanb4l](https://github.com/gtanb4l))
 
+---
+
 ### Corretto
 
 - **Asimmetria exit-code JSON in `check orphans` e `check assets`.** Entrambi i comandi
@@ -1312,6 +1474,8 @@ Z104 nella scansione remota.
   finding (inclusi i warning) attivava Exit 1 in modalità JSON.
 
 ## [0.6.1rc1] — 2026-04-15 — Obsidian Bastion
+
+---
 
 ### Breaking Changes
 
@@ -1325,6 +1489,8 @@ Z104 nella scansione remota.
   `zenzic.plugin`. Aggiornare `mkdocs.yml` e reinstallare il pacchetto;
   il plugin viene ora auto-scoperto tramite l'entry point `mkdocs.plugins`.
   Richiede `pip install "zenzic[mkdocs]"`.
+
+---
 
 ### Aggiunto
 
@@ -1351,6 +1517,8 @@ Z104 nella scansione remota.
   `mkdocs.plugins`. Il core è ora privo di import specifici per engine.
   Installa l'extra: `pip install "zenzic[mkdocs]"`.
 
+---
+
 ### Modificato
 
 - **BREAKING (Alpha):** il parametro `exclusion_manager` è ora obbligatorio su
@@ -1359,6 +1527,8 @@ Z104 nella scansione remota.
   `None` retrocompatibile.
 
 ## [0.6.0a2] — 2026-04-13 — Obsidian Glass (Alpha 2)
+
+---
 
 ### Aggiunto
 
@@ -1396,6 +1566,8 @@ Z104 nella scansione remota.
   estrazione frontmatter, middleware Shield, e operazione senza warning di
   VanillaAdapter.
 
+---
+
 ### Modificato
 
 - **BREAKING: `excluded_assets` usa fnmatch** — Tutte le voci sono ora
@@ -1403,6 +1575,8 @@ Z104 nella scansione remota.
   funzionare (sono pattern validi), ma pattern come `**/_category_.json` o
   `assets/brand/*` sono ora supportati nativamente.  L'implementazione
   precedente basata sulla sottrazione di insiemi è stata rimossa.
+
+---
 
 ### Corretto
 
@@ -1416,6 +1590,8 @@ Z104 nella scansione remota.
 > **Analizzatore di Piattaforme Documentali**. Questo rilascio introduce
 > l'adapter per il motore Docusaurus v3 — il primo adapter non-MkDocs/Zensical —
 > e segna l'inizio della strategia di migrazione Obsidian Bridge.
+
+---
 
 ### Aggiunto
 
@@ -1449,6 +1625,8 @@ Z104 nella scansione remota.
 - **Topologia i18n Migliorata**: Mappatura nativa per la struttura delle
   directory `i18n/` di Docusaurus e risoluzione delle rotte specifiche per
   locale.
+
+---
 
 ### Test
 

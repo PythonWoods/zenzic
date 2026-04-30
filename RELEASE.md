@@ -34,7 +34,7 @@ accepts an optional `PATH` argument with sovereign semantics.
 **Why it matters:** Monorepos, CI pipelines, and Genesis Nomad workflows (`zenzic init
 /path/to/new-project`) all work correctly without shell gymnastics.
 
-### 2. Matrix Laboratory — 17-Act Interactive Showroom
+### 2. Matrix Laboratory — 20-Act Interactive Showroom
 
 ```bash
 uvx zenzic lab          # interactive menu
@@ -43,7 +43,7 @@ uvx zenzic lab 11-16    # Red/Blue Team Matrix
 uvx zenzic lab all      # full tour
 ```
 
-The Lab ships 17 documented acts across four thematic sections:
+The Lab ships **20** documented acts across five thematic sections:
 
 | Section | Acts | Focus |
 | :--- | :---: | :--- |
@@ -51,6 +51,7 @@ The Lab ships 17 documented acts across four thematic sections:
 | 🔗 Structural & SEO Integrity | 4–6 | Single-file, custom dir, proxy |
 | 🏢 Enterprise Adapters & Migration | 7–10 | MkDocs, Docusaurus, Zensical, Z404 |
 | 🔴 Red/Blue Team Matrix | 11–16 | Attack/defense, obfuscated credentials, stress tests |
+| 📊 Scoring Scenarios | 17–19 | Security override, category caps, Base64 shadow |
 
 ### 3. Agnostic Universalism — Z404 Infrastructure Guard
 
@@ -72,13 +73,22 @@ all three. Zero asymmetries.
 
 ## 🛡️ Security
 
-**Closed 4 critical bypass vectors discovered during an AI-driven red-team siege.**
+**Sealed 5 critical bypass vectors — including the S2 Red Team attack vector (Base64) — during AI-driven red-team audit.**
 
 The Red/Blue Team Matrix (Acts 11–16) revealed and verified defences against:
 deep `../` path traversal chains targeting OS system directories (Blood Sentinel — exit 3),
 credential obfuscation via Base64 encoding, percent-encoding, and mixed-case normalization
 (Shield — exit 2), Windows absolute path injection (`C:\`, UNC shares), and cross-line
 credential splitting via the ZRT-007 lookback buffer.
+
+**Base64 Speculative Decoder (v0.7.0 D095):** The Shield now decodes candidate Base64 tokens
+and re-scans the decoded text. A GitHub PAT encoded as `Z2hwXzEyMzQ...` in frontmatter
+triggers Z201 and exits 2. Attack vector S2 sealed.
+
+**KL-002 portability fix:** `os.path.normcase` applied to the Blood Sentinel boundary check
+so that mixed-case paths on APFS/NTFS no longer produce false-positive traversal findings.
+
+Full audit report: [Quartz Tribunal Audit](https://zenzic.dev/docs/explanation/audit-v070-quartz-siege)
 
 **Multi-Root Shield:** Cross-locale relative links no longer trigger false-positive
 `PATH_TRAVERSAL_SUSPICIOUS` while preserving detection of links that escape every
@@ -96,7 +106,7 @@ authorised root.
 - **`--quiet` flag** — single-line summary for pre-commit and CI silent builders.
 - **Z502 pointer precision** — `❱` arrow skips SPDX licence headers and frontmatter to
   point at the first actual prose word.
-- **1 260 passing tests · 80.07%+ coverage.** REUSE 3.3 compliant. mypy strict. Zero untyped definitions.
+- **1,307 passing tests · 80.28%+ coverage.** REUSE 3.3 compliant. mypy strict. Zero untyped definitions.
 - **`zenzic inspect capabilities`** now shows a third section: Engine-specific Link Bypasses — which engine uses which URI scheme bypass via `get_link_scheme_bypasses()` (Rule R21).
 - **`zenzic score` at 100/100** displays the Sentinel Seal celebratory panel — the same panel as Lab Act 0.
 - **Sibling Automation:** `noxfile.py` + `justfile` for `zenzic-doc` and `zenzic-action`; single-command version bump for the Action (`just bump 0.7.x`).
@@ -108,6 +118,15 @@ authorised root.
   UI navigation surfaces. MCP audit confirmed: in Docusaurus, routing is file-system driven;
   navigation surfaces are UX-discoverability constructs. Core purity preserved — `validator.py`
   never references "navbar", "sidebar", or "footer". 1 260 passing tests.
+- **Brand Integrity — Z905 BRAND_OBSOLESCENCE:** New `BrandObsolescenceRule` detects obsolete
+  release codenames in documentation sources. Configured via `[project_metadata]` in `zenzic.toml`
+  (`release_name`, `obsolete_names`, `obsolete_names_exclude_patterns`). `[HISTORICAL]` token
+  suppresses intentional historical references at the line level.
+- **Z107 CIRCULAR_ANCHOR:** Detects self-referential anchor links (`[text](#heading)` on the same page).
+- **Z505 UNTAGGED_CODE_BLOCK:** Detects fenced code blocks with no language specifier.
+  Implements the CommonMark closing-fence invariant — Docusaurus metadata info strings
+  (e.g. `` ```python title="file.py" ``) are fully supported and never flagged.
+- **1,307 passing tests · 80.28% coverage.**
 
 ---
 
