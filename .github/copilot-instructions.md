@@ -108,9 +108,11 @@ Zenzic builds a **Virtual Site Map (VSM)** — a projection of the final site in
 
 - **[RULE R21] Protocol Sovereignty (D080).** The Core (`validator.py`, `scanner.py`) must never hardcode engine names (`"docusaurus"`, `"mkdocs"`, etc.) as conditions for validation logic. Engine-specific behaviour must be declared in the adapter (`BaseAdapter` protocol method) and queried by the Core. **Implementation:** `BaseAdapter.get_link_scheme_bypasses() -> frozenset[str]` is the canonical pattern. If the Core must behave differently per engine, add a `get_*()` method to the protocol — never add `if engine == "x"` to Core logic.
 
-- **[RULE R22] Fall-before-Redemption (D081).** Tutorial and onboarding content must show the broken state first (The Siege), explain the fix, then show the passing state (The Sentinel Seal). The emotional contrast is the lesson — a green exit means nothing without the memory of the breach. **Implementation:** `first-audit.mdx` Step 2 uses `uvx zenzic lab 2` (leaked credential) as the Siege, then `uvx zenzic lab 0` as the Shield. The `examples/matrix/red-team/` fixtures are the canonical broken state; `examples/matrix/blue-team/` is the canonical fixed state.
+- **[RULE R22] Fall-before-Redemption (D081).** Tutorial and onboarding content must show the broken state first (The Siege), explain the fix, then show the passing state (the Sigillo della Sentinella). The emotional contrast is the lesson — a green exit means nothing without the memory of the breach. **Implementation:** `first-audit.mdx` Step 2 uses `uvx zenzic lab 2` (leaked credential) as the Siege, then `uvx zenzic lab 0` as the Shield. The `examples/matrix/red-team/` fixtures are the canonical broken state; `examples/matrix/blue-team/` is the canonical fixed state.
 
-### The Law of Executive Brevity [MANDATORY] — D068
+- **[RULE R23] The Sentinel's Filter (CEO-137).** A rule ships in the Quartz Core if and only if it defends one of three dimensions: **(1) Structural Integrity** — prevents a broken user experience (broken links, orphan pages, missing indices); **(2) Hardened Security** — protects infrastructure or secrets (Shield Z201, Blood Sentinel Z202/Z203); **(3) Technical Accessibility** — ensures third-party tools can consume the source (Z505 Untagged Code Blocks, Z503 Snippet Errors, Z403 Alt Text, Z106 Circular Link). Rules that address prose aesthetics — line length, list style, spelling, terminology consistency — are permanently out of scope. This is not a limitation; it is a mandate. The Sentinel enforces structure. Everything else is editorial sovereignty. **Documentation:** `docs/explanation/structural-integrity.mdx` (EN + IT).
+
+- **[RULE R24] Zero-Amnesia Law (CEO-243).** No commit shall be merged into `main` if the `[CODE MAP]` does not perfectly reflect the current AST of the source code. **Enforcement:** `just verify` is the only authorised local gate and enforces automatic memory synchronisation via `just brain-map` → `uv run zenzic brain map .` before every preflight run. **Implementation:** `src/zenzic/core/cartography.py` (pure AST scanner) + `src/zenzic/cli/_brain.py` (orchestration + Zone B audit + Trinity Mesh + Master-Shadow Sync). **Note on numbering:** CEO-243 requested "Rule 17" — R17 was already occupied (CLI Symmetry CEO-056). This was surfaced per the Sovereign Memory Law (CEO-183) and the CEO ratified R24 as the correct slot.
 
 - **[INVARIANT] Public-facing files (`RELEASE.md`, `README.md`) are for humans and decision makers — not for implementation audit trails.**
   - **Technical Dump Prohibited:** Mutation testing tables, internal bug IDs, forensic traces, and CVE details do not belong in `RELEASE.md`. They belong in `CHANGELOG.md`, `CHANGELOG.archive.md`, or internal ADRs.
@@ -143,17 +145,18 @@ Registry: `src/zenzic/core/codes.py` — **single source of truth**. Never add a
 
 | Range | Category | Known Codes |
 |-------|----------|-------------|
-| Z1xx | Link Integrity | Z101 LINK_BROKEN, Z102 ANCHOR_MISSING, Z103 UNREACHABLE_LINK, Z104 FILE_NOT_FOUND, Z105 ABSOLUTE_PATH, Z106 ALT_TEXT_MISSING |
+| Z1xx | Link Integrity | Z101 LINK_BROKEN, Z102 ANCHOR_MISSING, Z103 UNREACHABLE_LINK, Z104 FILE_NOT_FOUND, Z105 ABSOLUTE_PATH, Z106 ALT_TEXT_MISSING, Z107 CIRCULAR_ANCHOR |
 | Z2xx | Security | Z201 SHIELD_SECRET, Z202 PATH_TRAVERSAL, Z203 PATH_TRAVERSAL_SUSPICIOUS |
 | Z3xx | Reference Integrity | Z301 DANGLING_REF, Z302 DEAD_DEF, Z303 CIRCULAR_LINK |
 | Z4xx | Structure | Z401 MISSING_DIRECTORY_INDEX, Z402 ORPHAN_PAGE, Z403 SNIPPET_UNREACHABLE, Z404 CONFIG_ASSET_MISSING |
-| Z5xx | Content Quality | Z501 PLACEHOLDER, Z502 SHORT_CONTENT, Z503 SNIPPET_ERROR, Z504 QUALITY_REGRESSION |
-| Z9xx | Engine / System | Z901 RULE_ERROR, Z902 RULE_TIMEOUT, Z903 UNUSED_ASSET, Z904 DISCOVERY_ERROR |
+| Z5xx | Content Quality | Z501 PLACEHOLDER, Z502 SHORT_CONTENT, Z503 SNIPPET_ERROR, Z504 QUALITY_REGRESSION, Z505 UNTAGGED_CODE_BLOCK |
+| Z9xx | Engine / System | Z901 RULE_ERROR, Z902 RULE_TIMEOUT, Z903 UNUSED_ASSET, Z904 DISCOVERY_ERROR, Z905 BRAND_OBSOLESCENCE, Z906 NO_FILES_FOUND |
 
 ### Adapter Identity Rules
 
 - `"standalone"` — canonical name for projects with no build config. Uses `StandaloneAdapter`. In Standalone Mode, orphan detection (Z402) is disabled (no navigation contract).
 - `"vanilla"` — **permanently removed** in v0.6.1. Any usage raises `ConfigurationError [Z000]`.
+- `"auto"` — default engine value in `ZenzicConfig`. Resolved at runtime by `discover_engine(repo_root)` in `_factory.py`. Priority: zensical.toml → docusaurus.config.ts/js → mkdocs.yml → `"standalone"`. Never stored as a cache key — resolved before lookup.
 - `pyproject.toml` entry-point: `standalone = "zenzic.core.adapters:StandaloneAdapter"`.
 - When `zenzic init` finds no engine config, it writes `engine = "standalone"`.
 
@@ -184,6 +187,19 @@ Registry: `src/zenzic/core/codes.py` — **single source of truth**. Never add a
 - **[INVARIANT] Proactivity:** Agents must notify the Tech Lead when a code change contradicts or expands current guidelines.
 - **[INVARIANT] Sovereignty:** This file is the single source of truth for agent behavior.
 
+### The Sovereign Memory Law [MANDATORY] — CEO-183
+
+- **[INVARIANT] This ledger is the project's external cortex.** Agents must use it to challenge human directives that conflict with established invariants before executing them.
+- **Mechanism:** Before executing any directive touching established architecture, the agent checks the ledger for invariant conflicts. If found, the conflict is surfaced to the human before proceeding. The human decides. The ledger records the outcome.
+- **Historical record:** Sprint D091 — the CEO issued a directive to reuse engine name `"vanilla"`. ADR-002 (permanent Z000 guard) was in the ledger. The agent declined. The CEO's earlier self corrected the CEO's current self. The ledger worked.
+
+### The Law of Proactive Execution [MANDATORY] — CEO-175
+
+- **[INVARIANT] Agents proceed on unambiguous tasks without waiting for step-by-step confirmation.** When the task is clear and reversible, implement first, report after.
+- **[INVARIANT] When a design decision has ambiguities, propose a concrete solution and state the assumption explicitly. Implement, then document the choice.**
+- **[RULE]** Raise questions BEFORE starting work only when a wrong design decision would require significant rework that cannot be easily undone.
+- **Corollary — Score vs. Gate Separation (CEO-175):** The Score (computed metric) and the `fail_under` threshold (enforcement policy) are independent but synchronized. Category caps bound the metric to prevent noise from masking signal; they do not weaken the gate. A score of 70/100 with `fail_under = 80` still exits 1.
+
 ### The Law of Evolutionary Curation [MANDATORY] — D073
 
 - **[INVARIANT] This file is a Working Context, not a historical archive.**
@@ -204,9 +220,10 @@ src/zenzic/
     _check.py               — check sub-app: links, orphans, snippets, references, assets, all
     _inspect.py             — inspect sub-app: capabilities
     _clean.py               — clean sub-app
-    _lab.py                 — lab command: 11 Acts (0–10), interactive showcase
+    _lab.py                 — lab command: 20 Acts (0–19), interactive showcase
     _standalone.py          — standalone commands: diff, init, score
     _shared.py              — shared helpers: _build_exclusion_manager, _validate_docs_root, _ui, console
+    _brain.py               — brain sub-app: map command + Zone B audit + Trinity Mesh + shadow sync (dev-only, CEO-242)
   core/
     adapter.py              — Public re-exports: StandaloneAdapter, MkDocsAdapter, DocusaurusAdapter, …
     adapters/
@@ -218,6 +235,7 @@ src/zenzic/
       _factory.py           — get_adapter() factory; Z000 guard PERMANENT (vanilla removed)
       _utils.py             — Frontmatter extraction, build_metadata_cache, case_sensitive_exists
       __init__.py           — Adapter registry
+    cartography.py          — Sovereign Cartographer: pure AST scanner (CEO-242); scan_python_sources, render_markdown_table, update_ledger
     codes.py                — Zxxx finding code registry (SINGLE SOURCE OF TRUTH)
     reporter.py             — SentinelReporter; renders Finding objects to Rich output
     scanner.py              — File discovery, _visible_word_count, check_placeholder_content
@@ -267,13 +285,14 @@ tests/
 > Aggiornare con `just map-update` dopo ogni modifica a `src/`.
 
 <!-- MAP_START -->
-### Mappa Moduli
+### Module Quick Index
 
-> Auto-generato da `scripts/map_project.py` via AST (CEO-083 — Sentinel Mapper Protocol).
-> Aggiornare con `just map-update` dopo ogni modifica a `src/`.
+> Auto-generated by `zenzic brain map` via AST (CEO-242 — Sovereign Cartographer).
+> Update with `just brain-map` after any change to `src/`.
 
-| File | Classi | Funzioni pubbliche | Note |
-|------|--------|--------------------|------|
+| File | Classes | Public Functions | Note |
+|------|---------|-----------------|------|
+| `cli/_brain.py` | — | `brain_map` | brain sub-commands — Developer Sovereign Cartography tools. |
 | `cli/_check.py` | — | `check_links`, `check_orphans`, `check_snippets`, `check_references`, `check_assets`, `check_placeholders`, `check_all` | Check sub-commands: links, orphans, snippets, references, assets, placeholders, all. |
 | `cli/_clean.py` | — | `clean_assets` | Clean sub-commands: safely remove unused documentation files. |
 | `cli/_inspect.py` | — | — | Inspect sub-commands: introspect the Zenzic scanner arsenal and plugin registry. |
@@ -283,13 +302,14 @@ tests/
 | `core/adapter.py` | — | — | Backwards-compatible alias for ``zenzic.core.adapters``. |
 | `core/adapters/_base.py` | `RouteMetadata`, `BaseAdapter` | — | BaseAdapter Protocol — the engine-agnostic contract every adapter must satisfy. |
 | `core/adapters/_docusaurus.py` | `DocusaurusAdapter` | `find_docusaurus_config`, `check_config_assets` | DocusaurusAdapter — adapter for Docusaurus v3 with native i18n support. |
-| `core/adapters/_factory.py` | — | `list_adapter_engines`, `clear_adapter_cache`, `get_adapter` | Adapter factory — dynamic entry-point discovery with StandaloneAdapter fallback. |
+| `core/adapters/_factory.py` | — | `discover_engine`, `list_adapter_engines`, `clear_adapter_cache`, `get_adapter` | Adapter factory — dynamic entry-point discovery with StandaloneAdapter fallback. |
 | `core/adapters/_mkdocs.py` | `MkDocsAdapter` | `find_config_file`, `check_config_assets` | MkDocsAdapter — adapter for MkDocs folder-mode and suffix-mode i18n. |
 | `core/adapters/_standalone.py` | `StandaloneAdapter` | — | StandaloneAdapter — no-op adapter for projects with no recognised build engine. |
 | `core/adapters/_utils.py` | `FileMetadata` | `case_sensitive_exists`, `remap_to_default_locale`, `extract_frontmatter_slug`, `extract_frontmatter_draft`, `extract_frontmatter_unlisted`, `extract_frontmatter_tags`, `build_metadata_cache` | Shared utilities for Zenzic adapters. |
 | `core/adapters/_zensical.py` | `ZensicalLegacyProxy`, `ZensicalAdapter` | `find_zensical_config`, `check_config_assets` | ZensicalAdapter — native adapter for the Zensical build engine. |
 | `core/cache.py` | `CacheManager` | `make_content_hash`, `make_config_hash`, `make_vsm_snapshot_hash`, `make_file_key` | Content-addressable cache for Zenzic rule results. |
-| `core/codes.py` | `CoreScanner` | `normalize`, `label` | Zenzic Finding Code Registry. |
+| `core/cartography.py` | `ModuleInfo` | `scan_python_sources`, `render_markdown_table`, `update_ledger` | Sovereign Cartographer — AST-based module mapper for AI context generation. |
+| `core/codes.py` | `ZenzicExitCode`, `CoreScanner` | `get_sarif_name`, `normalize`, `label` | Zenzic Finding Code Registry. |
 | `core/discovery.py` | — | `walk_files`, `iter_locale_markdown_sources`, `iter_markdown_sources` | Centralised file-discovery utilities for the Zenzic Core. |
 | `core/exceptions.py` | `ZenzicError`, `ConfigurationError`, `EngineError`, `CheckError`, `NetworkError`, `PluginContractError` | — | Core exception hierarchy for Zenzic. |
 | `core/exclusion.py` | `VCSIgnoreParser`, `LayeredExclusionManager` | — | Layered Exclusion system: VCS-aware file exclusion with 4-level hierarchy. |
@@ -297,34 +317,17 @@ tests/
 | `core/models.py` | — | — | Re-export shim — canonical location is ``zenzic.models.references``. |
 | `core/reporter.py` | `Finding`, `SentinelReporter` | — | Sentinel Report Engine — Ruff-inspired CLI output for Zenzic. |
 | `core/resolver.py` | `PathTraversal`, `FileNotFound`, `AnchorMissing`, `Resolved`, `InMemoryPathResolver` | — | Pure in-memory path resolver for Markdown documentation link validation. |
-| `core/rules.py` | `ResolutionContext`, `RuleFinding`, `Violation`, `BaseRule`, `CustomRule`, `AdaptiveRuleEngine`, `VSMBrokenLinkRule`, `PluginRuleInfo`, `PluginRegistry` | `list_plugin_rules`, `run_rule` | Zenzic Rule Engine — pluggable, pure-function linting rules. |
+| `core/rules.py` | `ResolutionContext`, `RuleFinding`, `Violation`, `BaseRule`, `CustomRule`, `AdaptiveRuleEngine`, `CircularAnchorRule`, `UntaggedCodeBlockRule`, `BrandObsolescenceRule`, `VSMBrokenLinkRule`, `PluginRuleInfo`, `PluginRegistry` | `list_plugin_rules`, `run_rule` | Zenzic Rule Engine — pluggable, pure-function linting rules. |
 | `core/scanner.py` | `PlaceholderFinding`, `ReferenceScanner` | `find_repo_root`, `calculate_orphans`, `check_placeholder_content`, `check_asset_references`, `calculate_unused_assets`, `find_orphans`, `find_placeholders`, `find_unused_assets`, `find_missing_directory_indices`, `check_image_alt_text`, `scan_docs_references` | Filesystem scanning utilities: repo root discovery, orphan page detection, |
 | `core/scorer.py` | `CategoryScore`, `ScoreReport` | `compute_score`, `save_snapshot`, `load_snapshot` | Documentation quality scoring engine. |
 | `core/shield.py` | `SecurityFinding`, `ShieldViolation` | `scan_url_for_secrets`, `scan_line_for_secrets`, `scan_lines_with_lookback`, `safe_read_line` | Zenzic Shield: secret-detection engine integrated into the Pass 1 harvesting phase. |
 | `core/ui.py` | `SentinelPalette`, `SentinelUI` | `emoji`, `make_banner`, `make_sentinel_header` | Sentinel Visual Identity — SentinelPalette, terminal detection, and UI helpers. |
 | `core/validator.py` | `LinkInfo`, `SnippetError`, `LinkError`, `LinkValidator` | `extract_links`, `slug_heading`, `anchors_in_file`, `extract_ref_links`, `validate_links_async`, `generate_virtual_site_map`, `check_nav_contract`, `validate_links`, `validate_links_structured`, `check_snippet_content`, `validate_snippets` | Validation logic: native link checking (internal + external) and snippet checks. |
 | `main.py` | — | `cli_main` | Entry point for the zenzic CLI application. |
-| `models/config.py` | `CustomRuleConfig`, `BuildContext`, `ZenzicConfig` | — | Zenzic configuration models and generator detection. |
+| `models/config.py` | `CustomRuleConfig`, `ProjectMetadata`, `BuildContext`, `ZenzicConfig` | — | Zenzic configuration models and generator detection. |
 | `models/references.py` | `ReferenceMap`, `ReferenceFinding`, `IntegrityReport` | — | Data models for the Two-Pass Reference Pipeline. |
 | `models/vsm.py` | `Route` | `build_vsm` | Virtual Site Map (VSM) data model. |
 | `rules.py` | — | — | Public Plugin SDK — import from here in your plugin code. |
-
-### Mappa Concetti → File
-
-| Concetto | File |
-|----------|------|
-| Shield / credential scan | `src/zenzic/core/shield.py` |
-| Link validation | `src/zenzic/core/validator.py` |
-| Exit codes (Zxxx) | `src/zenzic/core/codes.py` |
-| CLI entry point | `src/zenzic/main.py` |
-| Adapter factory (Z000 guard) | `src/zenzic/core/adapters/_factory.py` |
-| Exclusion layers (4-level) | `src/zenzic/core/exclusion.py` |
-| Virtual Site Map (VSM) | `src/zenzic/models/vsm.py` |
-| Quality score | `src/zenzic/core/scorer.py` |
-| Config priority (Pydantic) | `src/zenzic/models/config.py` |
-| File discovery | `src/zenzic/core/discovery.py` |
-| Rich UI / banners | `src/zenzic/core/ui.py` |
-| SARIF / text reporter | `src/zenzic/core/reporter.py` |
 <!-- MAP_END -->
 
 ---
@@ -417,47 +420,106 @@ tests/
 - **Rule R18 — Range Awareness:** Showroom commands should support range syntax (N-M) to facilitate batch demonstration and testing without requiring shell scripting by the operator.
 - **Why:** The `zenzic lab` menu explicitly mentions `zenzic lab 11–16` in its footer hint. Shipping a command that advertises a capability it doesn't support is a false promise — a violation of the Maturity Contract.
 
+### ADR-011: Quartz Weight Matrix — 4-Category Scoring (CEO-149)
+
+**[DECISION]** `compute_score()` refactored from 5 implicit categories to 4 named, weighted categories with security override.
+
+- **Categories:** `structural` (40%) = Z101/Z102/Z104/Z105/Z107; `content` (30%) = Z501/Z502/Z503/Z505; `navigation` (20%) = Z402; `brand` (10%) = Z903/Z904/Z905.
+- **Security override:** If `security_violations > 0` (any Z2xx), `ScoreReport.score = 0` and `security_override = True` unconditionally. A leaking credential cannot receive a score.
+- **Z904 scored:** Nav contract errors now contribute to the `brand` category instead of being non-suppressible-but-unscored. Z904 is a quality signal, not a security breach.
+- **Why:** The old 5-category model (Link Integrity 35%, Orphan Detection 20%, Snippet Validation 20%, Content Quality 15%, Asset Integrity 10%) left Z107, Z505, Z904, Z905 unscored. A 100/100 score that tolerated circular anchors and brand obsolescence was not a true Safe Harbor Guarantee.
+
+### ADR-012: STRICT MODE Transparency (CEO-146)
+
+**[DECISION]** When `--strict` is active, `SentinelReporter.render()` appends a footer line: `STRICT MODE: Warnings have been promoted to errors.`
+
+- **Why:** `--strict` changes the exit code, not what findings are displayed. Without a visible signal, a CI log shows the same output regardless of whether the gate failed due to warnings-as-errors or genuine hard errors. The footer line makes the semantics unambiguous for any engineer reading the log.
+- **Invariant:** The footer line is rendered inside the report Panel, after the Sentinel Seal / FAILED verdict, before the info-count summary. It is suppressed in machine formats (`json`, `sarif`) per RULE R20.
+
+### ADR-013: The Suppression Manifesto (CEO-152)
+
+**[DECISION]** Suppression of Z2xx Security findings is architecturally forbidden. `_INVIOLABLE_CODES = frozenset({"Z201", "Z202", "Z203"})` added to `core/rules.py`. `_is_suppressed()` returns `False` immediately for any inviolable code — even if a `zenzic:ignore` comment is present on the same line.
+
+- **Why:** Shield and Blood Sentinel never called `_is_suppressed()` directly, so the gap was safe in practice. But the architectural contract was implicit. Making it explicit guards against future refactors that might accidentally route Z2xx findings through the rule engine.
+- **Also:** `BrandObsolescenceRule.check()` gained fence-tracking (`_FENCE_OPEN_RE`) — code block bodies are skipped before Z905 pattern matching. Eliminated false positives in `ecosystem.mdx` (TOML config blocks containing obsolete names in string values).
+- **Canonical reference:** `docs/reference/suppression-policy.mdx` (EN+IT) — per-line syntax, inviolable table, `--strict` interaction matrix, Trailing Position Standard (CEO-160).
+- **Trailing Position Law (CEO-160):** `zenzic:ignore` comments must appear at the end of the line. In tables: last cell before closing pipe. In prose: absolute end of line. This mirrors `# noqa` / `// eslint-disable-line` convention.
+
+### ADR-014: Quartz Penalty Scorer — Per-Code Deductions with Category Caps (CEO-163/170)
+
+**[DECISION]** `compute_score()` refactored from aggregate decay model to per-code penalty table with category caps.
+
+- **Old model:** `_DECAY_RATE = 0.20` — 5 issues in any category zeroed it regardless of severity (punitive, uniform).
+- **New model:** `compute_score(findings_counts: dict[str, int])` with `_CODE_PENALTY` table. Per-code deductions accumulate within each category; the category contribution is clamped to ≥ 0 before weighting.
+- **Category Cap Invariant (CEO-175):** 1000 × Z505 (1.0 pt each) hits the Content cap → total = **70/100** (not 0). The cap prevents a single noisy violation type from masking the true structural health signal.
+- **Score vs. Gate Separation (CEO-175):** The score is a quality measurement. The `fail_under` threshold is an enforcement policy. They are independent: a score of 70/100 with `fail_under = 80` exits 1. Caps do not weaken the gate.
+- **Security override:** Any Z2xx → `score = 0`, `security_override = True`, unconditionally. A leaking credential cannot receive a score.
+- **API break:** Old keyword-argument signature (`link_errors=…, orphans=…, …`) removed. `test_scorer.py` fully rewritten.
+- **Z501/Z502 split:** `PlaceholderFinding.issue == "short-content"` → Z502 (1.0 pt); else → Z501 (2.0 pt). Reflects severity difference.
+- **Ruff-style flat UI (CEO-169):** `SentinelReporter.render()` output is flat — no outer Panel. Bold-cyan `path:line:col` prefix per finding. Security breach Panel preserved.
+- **Source-to-Score Integrity (CEO-167):** `LinkError.code` and `SnippetError.code` are computed via `codes.normalize()` in `__post_init__` — findings carry their Zxxx code natively.
+
+### ADR-015: SARIF Sovereign Automation (CEO-221/222)
+
+**[DECISION]** SARIF rule definitions in `cli/_shared.py` are generated dynamically from `codes.py` at runtime.
+
+- **Implementation:** `CODE_DESCRIPTIONS`, `CODE_NAMES`, `CODE_SARIF_LEVELS`, `get_sarif_name()` in `codes.py`. `_shared.py` builds `sarif_rules` via dict comprehension. `helpUri` per rule: `https://zenzic.dev/docs/reference/finding-codes#{code.lower()}`. Ghost codes Z301/Z601/Z701 eliminated. `ZenzicExitCode` class: `SUCCESS=0`, `QUALITY=1`, `SHIELD=2`, `SENTINEL=3`.
+- **Why:** Hardcoded SARIF rule lists drifted from `codes.py`. Dynamic generation guarantees perpetual parity — adding a new `Zxxx` code automatically propagates to SARIF output.
+
+### ADR-016: Quartz Auto-Discovery — engine="auto" (CEO-217/218)
+
+**[DECISION]** `engine` field in `ZenzicConfig` defaults to `"auto"`. At runtime, `get_adapter()` resolves `"auto"` via `discover_engine(repo_root)` before cache lookup.
+
+- **Implementation:** `discover_engine()` in `_factory.py`: probes zensical.toml → docusaurus.config.ts/js → mkdocs.yml → `"standalone"`. Z906 NO_FILES_FOUND: note level, exit 0, text-only (RULE R20). `zenzic init`: `_detect_init_engine()` delegates entirely to `discover_engine()`. Generated config sets `fail_under = 100`, `strict = true`.
+- **Why:** Old default `"mkdocs"` caused misleading behavior on first run for Docusaurus/Zensical/Standalone projects. `"auto"` makes the out-of-box experience correct without user configuration.
+
+### ADR-017: Sovereign Cartography & Identity Gate (CEO-242/243/244/245/246)
+
+**[DECISION]** `zenzic brain map [PATH]` is the canonical [CODE MAP] update mechanism, replacing the standalone `scripts/map_project.py` for core mapping.
+
+- **Implementation:** `src/zenzic/core/cartography.py` — pure AST scanner (`scan_python_sources`, `render_markdown_table`, `update_ledger`). `src/zenzic/cli/_brain.py` — Typer `brain_app` with `map` command; orchestrates Zone B audit, Trinity Mesh probe, and Master-Shadow Sync (CEO 103-B). `_is_dev_mode()` in `main.py` — PEP 610 `direct_url.json` gate (CEO-246 Identity Gate).
+- **Identity Gate (CEO-246):** Detection uses `importlib.metadata.distribution("zenzic").read_text("direct_url.json")` + JSON parse for `dir_info.editable == True`. Zero subprocesses (Pillar 2). Zero filesystem heuristics. Standard PEP 610. False for `pip install zenzic`; True for `pip install -e .`.
+- **Dev-mode gating:** When `_is_dev_mode()` is False, `brain_app` is never registered in Typer — the command group is structurally absent, not merely hidden. End-users cannot discover it by guessing.
+- **R17 correction (CEO-183 Sovereign Memory Law):** CEO-243 requested "Rule 17 Zero-Amnesia Law". R17 was already occupied (CLI Symmetry CEO-056). The agent surfaced the conflict per CEO-183. The CEO ratified R24 as the correct slot.
+
+<!-- ZONE_B_START -->
 ## [ACTIVE SPRINT] — Working Context
 
-### D090 — The UX-Discoverability Law (Current)
+### D096 — Quartz Discovery, SARIF Sovereignty & Brain Curation (Current)
 
-**Version:** 0.7.0 · **Date:** 2026-04-26
+**Version:** 0.7.0 · **Sprint:** 2026-04-30
 
-**Multi-Source Navigation Harvesting — D087/D088/D089/D090:**
-`_parse_config_navigation()` added to `_docusaurus.py`. Reads `docusaurus.config.ts`
-via pure-Python regex — extracts `to:` URL paths and `docId:` attributes from **both**
-`themeConfig.navbar.items` **and** `themeConfig.footer.links`. Prefixes stripped
-(`baseUrl` + `routeBasePath`) to recover doc IDs; probed on disk for `.md` / `.mdx`.
+**CEO-217 "Quartz Auto-Discovery":** `discover_engine(repo_root) -> str` in `_factory.py`. `engine` default → `"auto"`. Z906 NO_FILES_FOUND (note, exit 0, text-only per R20).
 
-**Architectural finding (MCP audit):** In Docusaurus, routing is file-system driven
-(all files in `docs/` get URLs). Sidebar/navbar/footer are UX discoverability surfaces
-only. Zenzic's orphan model is discoverability-based, not URL-existence-based.
-MkDocs and Zensical adapters confirmed complete — `nav:` IS the routing source.
+**CEO-221/222 "SARIF Sovereignty":** Dynamic SARIF rules from `codes.py`. `ZenzicExitCode` class. Ghost codes eliminated. `helpUri` per rule at `zenzic.dev`.
 
-**`get_nav_paths()` unified:** merges `_parse_sidebars()` | `_parse_config_navigation()`.
-A file is `ORPHAN_BUT_EXISTING` only if absent from sidebar AND navbar AND footer.
+**CEO-223 "Shield Invariant Ratified":** `_MAX_LINE_LENGTH` permanently non-configurable. CEO directive blocked by agent; CEO ratified the invariant.
 
-**Act 7 fixture expanded:** `docusaurus-v3-enterprise` now has `sidebars.ts` (explicit,
-lists intro + guide/*), `docs/changelog.mdx` (navbar-only), `docs/about.mdx`
-(footer-only). Both non-sidebar files must be REACHABLE.
+**CEO-224–230 "zenzic init Quartz Template":** `_detect_init_engine()` → `discover_engine()`. Generated `zenzic.toml` sets `fail_under = 100`, `strict = true`.
 
-**engines.mdx:** New "Unified Navigation Discovery" section documenting the 3-source
-aggregation and the UX-Discoverability Law (R21). "Dynamic sidebar plugins" wording
-updated to "Dynamic nav plugins".
+**CEO-218/219 "Contemporary Testimony":** Z906 in `finding-codes.mdx` EN+IT. Engine `"auto"` in `configuration-reference.mdx` EN+IT. Blog: 20 Acts + Act 19 row.
 
-14 new tests (NCF-01..10 + NCI-01..04). **1 260 passing.**
+**CEO-231–237 "Evolutionary Curation":** `CONTRIBUTING.md`: Zenzic Memory Contract. Zone A/B in all 3 public BRAINs. `map_project.py`: Zone B auditor + Trinity Mesh. ADR-015/016.
 
-### Last Closed — D085 — Full-Spec Alignment
+**CEO-242–246 "Sovereign Cartography & Identity Gate":** `src/zenzic/core/cartography.py` (pure AST scanner). `src/zenzic/cli/_brain.py` (brain sub-app: map, Zone B audit, Trinity Mesh, Master-Shadow Sync). `_is_dev_mode()` in `main.py` (PEP 610 Identity Gate). `just brain-map` wired into `verify`/`preflight`. R24 Zero-Amnesia Law. ADR-017. `tests/test_brain.py` (19 tests). CEO-243 R17 conflict resolved to R24 per Sovereign Memory Law (CEO-183).
 
-**Version:** 0.7.0 · **Date:** 2026-04-26
+**Tests:** 1,371 passed · coverage ≥80% (3.11/3.12/3.13).
 
-`_parse_sidebars()` added to `_docusaurus.py`. Autogenerated sidebar → `frozenset()`
-(all REACHABLE). Explicit sidebar → resolves doc IDs to file paths, enabling
-`ORPHAN_BUT_EXISTING` detection. `from_repo()` auto-detects `sidebars.ts`/`.js`.
-Issue #47 closed. Issue #52 (SARIF) confirmed already implemented in D081/D082.
-14 tests (SBP-01..10 + SBI-01..04). 1 246 passing.
+### Last Closed — D095 — The Base64 Sentinel Decoder & Universal Path Invariant
 
----
+**Version:** 0.7.0 · **Sprint:** 2026-04-30
+
+**CEO-194/197/198:** `_BASE64_CANDIDATE_RE` + `_try_decode_base64()` in `shield.py`. B64-encoded PAT → Z201 → Exit 2. KL-001 CLOSED.
+
+**CEO-203 "KL-002 normcase":** `os.path.normcase` in `resolver.py`. 3 new `__slots__`. KL-002 RESOLVED.
+
+**Act 19:** `zenzic lab` 20 total acts (0–19). Fixture `examples/scoring/security-base64/`. Tests: 1,307 passing.
+
+### Last Closed — D094 — Quartz Tribunal Security Audit
+
+Three-team audit (Red/Blue/Purple). BUG-CEO189-01 (CRITICAL) — Z202 exit 1 → exit 3. BUG-CEO189-02..05 — Z106/Z403 label corrections across 7 files. 1,301 tests post-fix. KL-001 + KL-002 documented; both sealed in D095.
+
+<!-- ZONE_B_END -->
 
 ## [ARCHIVE LINK]
 
