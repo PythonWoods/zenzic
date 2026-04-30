@@ -63,8 +63,8 @@ repos:
         pass_filenames: false
 
       - id: pytest
-        name: Run Tests (pytest)
-        entry: uv run pytest -q -x
+        name: Run Tests (pytest + coverage ≥80%)
+        entry: uv run pytest -q -x --cov=src/zenzic --cov-fail-under=80 --no-cov-on-fail
         language: system
         types: [python]
         pass_filenames: false
