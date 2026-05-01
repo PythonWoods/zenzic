@@ -446,11 +446,15 @@ class TestCheckPerimeter:
 
     def test_is_case_insensitive_lower_pattern(self) -> None:
         # Pattern lowercase, text mixed-case
-        assert check_perimeter("Contains Zenzic-Brain here", ["zenzic-brain"]) == ["zenzic-brain"]
+        assert check_perimeter("Contains Forbidden-Alpha here", ["forbidden-alpha"]) == [
+            "forbidden-alpha"
+        ]
 
     def test_is_case_insensitive_upper_pattern(self) -> None:
         # Pattern mixed-case, text lowercase
-        assert check_perimeter("contains zenzic-brain here", ["Zenzic-Brain"]) == ["Zenzic-Brain"]
+        assert check_perimeter("contains forbidden-alpha here", ["Forbidden-Alpha"]) == [
+            "Forbidden-Alpha"
+        ]
 
     def test_returns_original_case_of_pattern(self) -> None:
         result = check_perimeter("found CORP-INTERNAL string", ["CORP-INTERNAL"])
@@ -481,23 +485,27 @@ class TestCheckSourcesPerimeter:
 
     def test_catches_hash_comment(self, tmp_path: Path) -> None:
         self._write_py(
-            tmp_path / "mod.py", "# TODO: remove zenzic-brain reference\ndef run(): pass\n"
+            tmp_path / "mod.py",
+            "# TODO: remove internal-secret-identifier reference\ndef run(): pass\n",
         )
-        result = check_sources_perimeter(tmp_path, ["zenzic-brain"])
-        assert any("zenzic-brain" in pat for _rel, pat in result)
+        result = check_sources_perimeter(tmp_path, ["internal-secret-identifier"])
+        assert any("internal-secret-identifier" in pat for _rel, pat in result)
 
     def test_catches_docstring_content(self, tmp_path: Path) -> None:
         self._write_py(
-            tmp_path / "mod.py", '"""Module for zenzic-brain integration."""\ndef run(): pass\n'
+            tmp_path / "mod.py",
+            '"""Module for internal-secret-identifier integration."""\ndef run(): pass\n',
         )
-        result = check_sources_perimeter(tmp_path, ["zenzic-brain"])
+        result = check_sources_perimeter(tmp_path, ["internal-secret-identifier"])
         assert len(result) == 1
-        assert result[0][1] == "zenzic-brain"
+        assert result[0][1] == "internal-secret-identifier"
 
     def test_is_case_insensitive(self, tmp_path: Path) -> None:
         # Pattern lowercase, content mixed-case
-        self._write_py(tmp_path / "mod.py", "# Zenzic-Brain reference here\ndef run(): pass\n")
-        result = check_sources_perimeter(tmp_path, ["zenzic-brain"])
+        self._write_py(
+            tmp_path / "mod.py", "# Internal-Secret-Identifier reference here\ndef run(): pass\n"
+        )
+        result = check_sources_perimeter(tmp_path, ["internal-secret-identifier"])
         assert len(result) == 1
 
     def test_returns_rel_path_not_absolute(self, tmp_path: Path) -> None:

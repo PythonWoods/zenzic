@@ -65,7 +65,7 @@ ZONE_B_START = "<!-- ZONE_B_START -->"
 ZONE_B_END = "<!-- ZONE_B_END -->"
 
 # Trinity Mesh: sibling repositories to probe for BRAIN sync status.
-# INVARIANT: zenzic-brain is NEVER listed here (Silent Mind Protocol — CEO 236).
+# INVARIANT: the private cortex is NEVER listed here (Silent Mind Protocol — CEO 236).
 MESH_REPOS = {
     "zenzic": REPO_ROOT.parent / "zenzic",
     "zenzic-doc": REPO_ROOT.parent / "zenzic-doc",
