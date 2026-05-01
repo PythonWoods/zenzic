@@ -125,6 +125,11 @@ Zenzic uses a **Sovereign Memory Architecture (SMA)**. The `ZENZIC_BRAIN.md` fil
 1. **Update the Sprint Log (Zone B):** Add an entry to `[ACTIVE SPRINT]` in `ZENZIC_BRAIN.md`.
 2. **Run the Cartographer:** Execute `just brain-map` before committing (legacy alias: `just map-update`).
 3. **Pillar Check:** Ensure no conflict with [POLICIES] (Zone A).
+4. **Update `CHANGELOG.md`** (and `CHANGELOG.it.md`) **in the same commit** as the code change.
+   A commit that introduces behaviour without a CHANGELOG entry is a **Class 1 violation
+   (Technical Debt)**. "I'll update it before the release" is not acceptable — the next sprint
+   may not find the context. The CLOSING PROTOCOL in `ZENZIC_BRAIN.md` is the enforcement
+   checklist; Step 2 is non-negotiable.
 
 > **Unlock Sovereign Cartography:** The `zenzic brain` developer commands are only available in
 > editable installs. Install with the `[dev]` extra to activate them (CEO-246/268 Identity Gate):

@@ -63,25 +63,41 @@ def _extract_info(path: Path, src_root: Path) -> ModuleInfo:
 
 
 def scan_python_sources(target_dir: Path) -> list[ModuleInfo]:
-    """Scan all .py files under target_dir via AST.
+    """Scan all .py files under *target_dir* via AST.
 
     Returns a sorted list of ModuleInfo (pure function — reads files, but
     performs no writes or network calls in the scan loop).
 
+    File discovery uses :func:`~zenzic.core.discovery.walk_files` with a
+    :class:`~zenzic.core.exclusion.LayeredExclusionManager` so that
+    ``SYSTEM_EXCLUDED_DIRS`` (build artefacts, VCS, virtual-envs, caches)
+    are pruned at the directory level — never entered at all.  This is
+    identical to the view the Sentinel linter has during ``check all``
+    (CEO-283 Unified Vision Sweep).
+
     Excludes:
-      - ``__init__.py`` (no public API surface to document)
-      - Files inside directories named ``tests`` or ``test``
-      - ``__pycache__`` directories
+      - ``__init__.py`` — no public API surface to document
+      - ``tests/`` and ``test/`` directories — excluded via the manager
+      - All ``SYSTEM_EXCLUDED_DIRS`` — pruned by :func:`walk_files`
     """
-    all_py = sorted(target_dir.rglob("*.py"))
-    filtered = [
-        p
-        for p in all_py
-        if p.name != "__init__.py"
-        and "tests" not in p.parts
-        and "test" not in p.parts
-        and "__pycache__" not in str(p)
-    ]
+    # Lazy imports — keep module importable without the full Zenzic stack.
+    from zenzic.core.discovery import walk_files
+    from zenzic.core.exclusion import LayeredExclusionManager
+    from zenzic.models.config import ZenzicConfig
+
+    config = ZenzicConfig()
+    manager = LayeredExclusionManager(
+        config,
+        repo_root=target_dir,
+        # Prune test directories at walk level — they are not part of the
+        # public module surface that brain map documents.
+        cli_exclude=["tests", "test"],
+    )
+    filtered = sorted(
+        f
+        for f in walk_files(target_dir, frozenset(), manager)
+        if f.suffix == ".py" and f.name != "__init__.py"
+    )
     return [_extract_info(p, target_dir) for p in filtered]
 
 
@@ -206,30 +222,73 @@ def render_json(modules: list[ModuleInfo]) -> str:
     return json.dumps([dataclasses.asdict(m) for m in modules], indent=2)
 
 
-def check_sources_perimeter(scan_root: Path, forbidden: list[str]) -> list[tuple[str, str]]:
-    """Scan **raw text** of every ``.py`` file under *scan_root* for forbidden patterns.
+#: File extensions scanned by D002 Phase B (CEO-269/281).
+#: Discovery is VCS-aware via LayeredExclusionManager (CEO-281 Universal Discovery Enforcement).
+_D002_EXTENSIONS: frozenset[str] = frozenset({".py", ".md", ".mdx", ".toml", ".yml"})
 
-    Unlike the output-audit path (which checks the generated Markdown/JSON
-    string), this function reads each source file byte-by-byte so that
-    ``#`` comments, inline annotations, and any other raw content are visible.
-    This is the Phase-B (Source Audit) component of the D002 dual-spectrum
-    gate (CEO-267).
 
-    Returns a list of ``(rel_path, pattern)`` tuples — one entry per
-    (file × violated-pattern) pair.  The list is sorted by rel_path then
-    pattern for deterministic output.
+def check_sources_perimeter(
+    scan_root: Path,
+    forbidden: list[str],
+    *,
+    exclude: frozenset[Path] | None = None,
+) -> list[tuple[str, str]]:
+    """Scan **raw text** of every tracked source file under *scan_root*.
 
-    Pure except for file reads.  Does not raise — unreadable files are
-    silently skipped (OSError).
+    Uses :func:`~zenzic.core.discovery.walk_files` together with a
+    :class:`~zenzic.core.exclusion.LayeredExclusionManager` so that file
+    enumeration is **VCS-aware** and respects ``SYSTEM_EXCLUDED_DIRS``
+    (CEO-281 Universal Discovery Enforcement).  ``glob`` and ``rglob`` are
+    explicitly forbidden — all discovery goes through the official pipeline.
+
+    File types scanned: ``.py``, ``.md``, ``.mdx``, ``.toml``, ``.yml``
+    (CEO-269 Absolute Perimeter).
+
+    Parameters
+    ----------
+    scan_root:
+        Root directory to scan recursively (typically ``repo_root``).
+    forbidden:
+        List of literal strings (case-insensitive) to detect.
+    exclude:
+        Optional set of **resolved** ``Path`` objects permanently immune from
+        the scan.  CEO-278 Sovereign Immunity: ``.zenzic.dev.toml`` must
+        always be passed here by ``brain_map`` — the config file contains the
+        forbidden patterns themselves and must never arrest itself.
+
+    Returns a sorted list of ``(rel_path, pattern)`` tuples — one entry per
+    (file × violated-pattern) pair.  Pure except for file reads.  Does not
+    raise — unreadable files are silently skipped (OSError).
     """
+    # Lazy imports keep cartography.py light for callers that only use AST
+    # scanning, while satisfying Rule R02 (Mandatory ExclusionManager).
+    from zenzic.core.discovery import walk_files
+    from zenzic.core.exclusion import LayeredExclusionManager
+    from zenzic.models.config import ZenzicConfig
+
+    _exclude = exclude or frozenset()
+    # Minimal config: SYSTEM_EXCLUDED_DIRS are active by default via
+    # model_post_init.  No project-specific exclusions — D002 must scan
+    # the full repo surface, not a documentation subset.
+    config = ZenzicConfig()
+    manager = LayeredExclusionManager(config, repo_root=scan_root)
+
     violations: list[tuple[str, str]] = []
-    for py_file in sorted(scan_root.rglob("*.py")):
+    for f in walk_files(scan_root, frozenset(), manager):
+        if f.suffix not in _D002_EXTENSIONS:
+            continue
+        # CEO-278: Sovereign Immunity — skip the gate config file itself.
+        if f.resolve() in _exclude:
+            continue
         try:
-            raw = py_file.read_text(encoding="utf-8", errors="replace")
+            raw = f.read_text(encoding="utf-8", errors="replace")
         except OSError:
             continue
         hits = check_perimeter(raw, forbidden)
-        rel = str(py_file.relative_to(scan_root))
+        try:
+            rel = str(f.relative_to(scan_root))
+        except ValueError:
+            continue
         for p in hits:
             violations.append((rel, p))
-    return violations
+    return sorted(violations)

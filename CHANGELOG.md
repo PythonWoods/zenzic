@@ -26,6 +26,30 @@ speculative Base64 decoding. Supersedes v0.6.1.
 
 ## [Unreleased]
 
+### D097 — CLOSING PROTOCOL Enforcement (2026-05-01)
+
+#### Added
+
+- **CHANGELOG ordering invariant (CEO-293)** codified in `ZENZIC_BRAIN.md` [CLOSING PROTOCOL]
+  Step 2. Newest sprint always inserted at TOP of `[Unreleased]`; each sprint is a `### Dxxx`
+  heading; CEO groups are `#### CEO-nnn` sub-headings; `#### Tests` with count is mandatory
+  and always the LAST sub-section of the sprint block.
+- **`CONTRIBUTING.md` point 4:** CHANGELOG update mandatory in the same commit as the code
+  change — not deferred to release day. Closes the structural gap that caused D096 to land
+  incomplete across multiple commits.
+
+#### Fixed
+
+- **CHANGELOG.md / CHANGELOG.it.md D096 structure:** duplicate `#### Tests` section removed;
+  `### D095` heading restored with correct `---` separator. Root cause: insertion used the
+  `#### Tests` + `---` + heading as `oldString` context and consumed the separator.
+
+#### Tests
+
+- **1,452 passed · ≥83% coverage** (Python 3.11 / 3.12 / 3.13). No regressions.
+
+---
+
 ### D096 — Quartz Discovery, SARIF Sovereignty & Brain Curation (2026-04-30)
 
 #### Added
@@ -51,9 +75,54 @@ speculative Base64 decoding. Supersedes v0.6.1.
 - **ADR-015** (SARIF Sovereign Automation) and **ADR-016** (Quartz Auto-Discovery) added to
   `ZENZIC_BRAIN.md`.
 
+#### Sovereign Cartography & Identity Gate (CEO-242–249)
+
+- **`src/zenzic/core/cartography.py`** — pure AST scanner: `scan_python_sources`,
+  `render_markdown_table`, `update_ledger`. Zero subprocesses (Pillar 2).
+- **`src/zenzic/cli/_brain.py`** — `brain` sub-app (`map` command): Zone B auditor,
+  Trinity Mesh probe, Master-Shadow Sync. Gated by PEP 610 Identity Gate (`_is_dev_mode()`).
+  End-users cannot discover the command group.
+- **`just brain-map`** wired into `verify` / `preflight`. R24 Zero-Amnesia Law.
+- **ADR-017** (Sovereign Cartography & Identity Gate) added to `ZENZIC_BRAIN.md`.
+- **CEO-249 Canary Hardening:** `_CANARY_STRINGS` lengths n=30→50 / n=25→40 / n=20→32,
+  guaranteeing O(2^50) backtracking paths. `_CANARY_TIMEOUT_S` 0.1→0.05.
+  Test pattern `(a|aa)+` → `(a+)+` — ADR-018 documents the SIGALRM rationale.
+
+#### Quartz Audit Gate (CEO-257–258)
+
+- **`zenzic brain map --check`** — read-only audit mode. Exits 1 with `D001 MEMORY_STALE`
+  if [CODE MAP] is out of sync with `src/`. Pre-commit hook `brain-map-check` added.
+
+#### Developer Integrity Seal + Environmental Privacy Gate (CEO-259–283)
+
+- **`cartography.py`** extended: `load_dev_gate()`, `check_perimeter()` (literal, no regex,
+  ReDoS-safe), `check_sources_perimeter()`, `redact_perimeter()` (Sovereign Redactor),
+  `render_json()` (machine-readable AST). ADR-019.
+- **D002 dual-spectrum gate:** Phase A = Sovereign Redactor (silent `[REDACTED_BY_SENTINEL]`).
+  Phase B = VCS-Aware source audit (`walk_files + LayeredExclusionManager`, `.py/.md/.mdx/.toml/.yml`).
+  Sovereign Immunity: `.zenzic.dev.toml` always immune via `exclude=frozenset({dev_toml.resolve()})`.
+- **Synthetic Test Protocol (CEO-279):** forbidden token never on disk — assembled at runtime
+  from `_PART_A` / `_PART_B` fragments. Zero D002 Phase B self-violation.
+- **Lean Perimeter Standard (CEO-280):** `forbidden_patterns` trimmed to 1 entry across all repos.
+- **Unified Vision Sweep (CEO-283):** `scan_python_sources` migrated from `rglob` to
+  `walk_files + LayeredExclusionManager`. Zero `rglob` in any production module.
+
+#### Environmental Sovereignty (CEO-252)
+
+- **`--no-external`** flag added to `check links` and `check all` (CEO-056 CLI Symmetry).
+  Skips Pass 3 (HTTP HEAD requests) independently of `--strict`. Shield (Z201/Z202/Z203) always
+  fires — it operates on raw file content, not network. INFO transparency message in text mode
+  (Rule R20 compliant). Pre-commit dev hook updated to `--strict --no-external` for offline gate.
+- **`check_external: bool = True`** param propagated through `validate_links_async()`,
+  `validate_links()`, `validate_links_structured()`, `_collect_all_results()`.
+- **R27 Environmental Sovereignty** codified in `ZENZIC_BRAIN.md` [POLICIES].
+- **`cli.mdx` EN+IT** updated: `--no-external` flag tables (zenzic-doc).
+
 #### Tests
 
-- **1,342 passed · 80.28% coverage** (Python 3.11 / 3.12 / 3.13). No regressions.
+- **1,452 passed · ≥83% coverage** (Python 3.11 / 3.12 / 3.13). No regressions.
+  `test_brain.py`: 84 tests. `test_validator.py::TestCheckExternalFlag`: 3 new tests.
+  `test_cli.py`: existing signature test updated for `check_external=True`.
 
 ---
 

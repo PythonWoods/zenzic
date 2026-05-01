@@ -268,14 +268,14 @@ funzionano con qualsiasi percorso di hosting. Gli URL esterni `https://` non son
 
 ```bash
 # Controlli
-zenzic check links [--strict]
+zenzic check links [--strict] [--no-external]
 zenzic check orphans
 zenzic check snippets
 zenzic check placeholders
 zenzic check assets
 zenzic check references [--strict] [--links]
 zenzic check all [--strict] [--exit-zero] [--format json] [--engine ENGINE]
-zenzic check all [--exclude-dir DIR] [--include-dir DIR]
+zenzic check all [--exclude-dir DIR] [--include-dir DIR] [--no-external]
 
 # Punteggio e diff
 zenzic score [--save] [--fail-under N]

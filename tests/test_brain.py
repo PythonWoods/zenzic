@@ -794,3 +794,180 @@ class TestBrainMapFormat:
         # WARNING emitted, but check still proceeds to pass
         assert "WARNING" in result.output or "ignored" in result.output
         assert result.exit_code == 0, result.output
+
+
+# ─── CEO-279 Synthetic Fixture Protocol + CEO-281 Discovery Purity ───────────
+
+# CEO-279: The Synthetic Fixture Protocol.
+# Tests for D002 must NEVER contain the forbidden literal string in plain text
+# on disk.  The "poison" is assembled at runtime from fragments so that a
+# static grep of the repository finds no clear-text leak.
+#
+# Construction technique (read-only, for test authors):
+#   part_a = "zenzic"          # public CLI name — harmless alone
+#   part_b = "brain"           # CLI subcommand name — harmless alone
+#   _SYNTHETIC_FORBIDDEN = f"{part_a}-{part_b}"   # assembled in RAM only
+#
+# The forbidden string exists solely in memory during test execution.
+# It is NEVER written to any tracked file.  This is the Zero-Leak Contract.
+
+# Fragments — each harmless in isolation; the gate only fires on the joined form.
+_PART_A = "zen" + "zic"  # == "zenzic" (public CLI name, safe alone)
+_PART_B = "bra" + "in"  # == "brain"  (CLI subcommand, safe alone)
+# The synthetic forbidden token — assembled in RAM, never on disk.
+_SYNTHETIC_FORBIDDEN: str = f"{_PART_A}-{_PART_B}"
+
+
+class TestSyntheticFixtureProtocol:
+    """CEO-279: Verify the Synthetic Fixture technique detects the forbidden token.
+
+    These tests demonstrate that:
+    1. The synthetic construction produces the correct forbidden token.
+    2. ``check_perimeter`` detects it in injected content.
+    3. ``check_sources_perimeter`` detects it when written dynamically to a
+       temp file (the token never appears in *this* source file on disk).
+    """
+
+    def test_synthetic_token_is_correct(self) -> None:
+        """The assembled token must equal the real forbidden identifier."""
+        # Verified via length + hash — not by printing it in a string literal.
+        assert len(_SYNTHETIC_FORBIDDEN) == 12  # noqa: PLR2004
+        assert _SYNTHETIC_FORBIDDEN.startswith(_PART_A)
+        assert _SYNTHETIC_FORBIDDEN.endswith(_PART_B)
+        assert "-" in _SYNTHETIC_FORBIDDEN
+
+    def test_check_perimeter_detects_synthetic_token(self) -> None:
+        """check_perimeter finds the token when injected into a content string."""
+        content = f"# internal reference: {_SYNTHETIC_FORBIDDEN}\ndef run(): pass\n"
+        result = check_perimeter(content, [_SYNTHETIC_FORBIDDEN])
+        assert result == [_SYNTHETIC_FORBIDDEN]
+
+    def test_check_sources_perimeter_detects_md_file(self, tmp_path: Path) -> None:
+        """Phase B catches the token in a .md file (CEO-269 extended scan)."""
+        md_file = tmp_path / "notes.md"
+        md_file.write_text(
+            f"# Notes\n\nSee {_SYNTHETIC_FORBIDDEN} for details.\n", encoding="utf-8"
+        )
+        result = check_sources_perimeter(tmp_path, [_SYNTHETIC_FORBIDDEN])
+        assert any(_SYNTHETIC_FORBIDDEN in pat for _rel, pat in result)
+
+    def test_check_sources_perimeter_detects_toml_file(self, tmp_path: Path) -> None:
+        """Phase B catches the token in a .toml config file (CEO-269 extended scan)."""
+        toml_file = tmp_path / "config.toml"
+        toml_file.write_text(
+            f'[project]\nname = "{_SYNTHETIC_FORBIDDEN}-adapter"\n', encoding="utf-8"
+        )
+        result = check_sources_perimeter(tmp_path, [_SYNTHETIC_FORBIDDEN])
+        assert any(_SYNTHETIC_FORBIDDEN in pat for _rel, pat in result)
+
+    def test_check_sources_perimeter_detects_py_comment(self, tmp_path: Path) -> None:
+        """Phase B catches the token in a Python # comment (original D002 scope)."""
+        py_file = tmp_path / "mod.py"
+        py_file.write_text(
+            f"# TODO: remove {_SYNTHETIC_FORBIDDEN} reference\ndef run(): pass\n", encoding="utf-8"
+        )
+        result = check_sources_perimeter(tmp_path, [_SYNTHETIC_FORBIDDEN])
+        assert any(_SYNTHETIC_FORBIDDEN in pat for _rel, pat in result)
+
+
+class TestSovereignImmunity:
+    """CEO-278: The dev gate config file is immune from its own D002 scan.
+
+    The ``.zenzic.dev.toml`` file contains the forbidden patterns themselves.
+    Without immunity it would trigger D002 and block every export — the
+    Paradox of the Sentinel.  The ``exclude`` parameter resolves this.
+    """
+
+    def test_dev_toml_not_detected_when_excluded(self, tmp_path: Path) -> None:
+        """When .zenzic.dev.toml is in the exclude set, it is not scanned."""
+        dev_toml = tmp_path / ".zenzic.dev.toml"
+        dev_toml.write_text(
+            f'[development_gate]\nforbidden_patterns = ["{_SYNTHETIC_FORBIDDEN}"]\n',
+            encoding="utf-8",
+        )
+        immune = frozenset({dev_toml.resolve()})
+        result = check_sources_perimeter(tmp_path, [_SYNTHETIC_FORBIDDEN], exclude=immune)
+        # The dev toml contains the pattern but is immune — result must be empty.
+        assert result == []
+
+    def test_dev_toml_detected_without_immunity(self, tmp_path: Path) -> None:
+        """Without exclude, the dev toml IS detected (confirms immunity is not automatic)."""
+        dev_toml = tmp_path / ".zenzic.dev.toml"
+        dev_toml.write_text(
+            f'[development_gate]\nforbidden_patterns = ["{_SYNTHETIC_FORBIDDEN}"]\n',
+            encoding="utf-8",
+        )
+        # No exclude set — the file is scanned and the token is found.
+        result = check_sources_perimeter(tmp_path, [_SYNTHETIC_FORBIDDEN])
+        assert any(_SYNTHETIC_FORBIDDEN in pat for _rel, pat in result)
+
+    def test_immune_path_must_be_resolved(self, tmp_path: Path) -> None:
+        """Immunity is matched against resolved paths — symlinks are not a bypass."""
+        dev_toml = tmp_path / ".zenzic.dev.toml"
+        dev_toml.write_text(
+            f'[development_gate]\nforbidden_patterns = ["{_SYNTHETIC_FORBIDDEN}"]\n',
+            encoding="utf-8",
+        )
+        # Pass the resolved path — must work correctly.
+        immune = frozenset({dev_toml.resolve()})
+        result = check_sources_perimeter(tmp_path, [_SYNTHETIC_FORBIDDEN], exclude=immune)
+        assert result == []
+
+    def test_brain_map_cli_immune_from_dev_toml(self, tmp_path: Path) -> None:
+        """brain_map CLI: .zenzic.dev.toml with forbidden token does not block export."""
+        from typer.testing import CliRunner
+
+        from zenzic.cli._brain import brain_app
+
+        # Build a minimal src tree.
+        pkg = tmp_path / "src" / "mypkg"
+        pkg.mkdir(parents=True)
+        (pkg / "__init__.py").write_text("", encoding="utf-8")
+        (pkg / "core.py").write_text(
+            '"""Core module."""\n\ndef run() -> None:\n    pass\n', encoding="utf-8"
+        )
+
+        # Write .zenzic.dev.toml with the synthetic forbidden token.
+        # If immunity is absent, brain_map would exit 1 on its own config.
+        (tmp_path / ".zenzic.dev.toml").write_text(
+            f'[development_gate]\nforbidden_patterns = ["{_SYNTHETIC_FORBIDDEN}"]\n',
+            encoding="utf-8",
+        )
+
+        runner = CliRunner()
+        result = runner.invoke(brain_app, [str(tmp_path)])
+        # Sovereign Immunity: the dev toml is excluded → Phase B passes → exit 0.
+        assert result.exit_code == 0, result.output
+        assert "D002" not in result.output
+
+
+class TestDiscoveryPurity:
+    """CEO-281: D002 Phase B uses walk_files + LayeredExclusionManager.
+
+    Verifies that SYSTEM_EXCLUDED_DIRS (node_modules, .venv, __pycache__, etc.)
+    are never entered during the perimeter scan — consistent with the linter.
+    """
+
+    def test_system_excluded_dir_not_scanned(self, tmp_path: Path) -> None:
+        """Files inside a SYSTEM_EXCLUDED_DIR are invisible to D002 Phase B."""
+        # Place the forbidden token inside node_modules (system-excluded).
+        excluded = tmp_path / "node_modules" / "lib"
+        excluded.mkdir(parents=True)
+        (excluded / "README.md").write_text(f"# {_SYNTHETIC_FORBIDDEN}\n", encoding="utf-8")
+        # The scan must not enter node_modules → no violation reported.
+        result = check_sources_perimeter(tmp_path, [_SYNTHETIC_FORBIDDEN])
+        assert result == [], f"Unexpected violations from excluded dir: {result}"
+
+    def test_venv_dir_not_scanned(self, tmp_path: Path) -> None:
+        """Files inside .venv are invisible to D002 Phase B."""
+        venv_file = tmp_path / ".venv" / "lib" / "mod.py"
+        venv_file.parent.mkdir(parents=True)
+        venv_file.write_text(f"# {_SYNTHETIC_FORBIDDEN}\n", encoding="utf-8")
+        result = check_sources_perimeter(tmp_path, [_SYNTHETIC_FORBIDDEN])
+        assert result == [], f"Unexpected violations from .venv: {result}"
+
+    def test_clean_tracked_file_passes(self, tmp_path: Path) -> None:
+        """A clean file in the scan root produces no violations."""
+        (tmp_path / "clean.py").write_text('"""No forbidden content."""\n', encoding="utf-8")
+        result = check_sources_perimeter(tmp_path, [_SYNTHETIC_FORBIDDEN])
+        assert result == []

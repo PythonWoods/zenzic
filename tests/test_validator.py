@@ -1320,3 +1320,104 @@ class TestCircularLinkIntegration:
         errors = validate_links_structured(docs_root, mgr, repo_root=tmp_path, config=config)
         circular = [e for e in errors if e.error_type == "CIRCULAR_LINK"]
         assert len(circular) == 2
+
+
+# ── CEO-252: check_external=False skips Pass 3 (Environmental Sovereignty) ───
+
+
+class TestCheckExternalFlag:
+    """CEO-252 — --no-external / check_external=False skips HTTP HEAD only."""
+
+    def test_no_external_skips_http_pass(self, tmp_path: Path) -> None:
+        """validate_links_async Pass 3 (_check_external_links) is never called
+        when check_external=False, even when strict=True.
+        """
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        (docs / "index.md").write_text("[External](https://example.com)\n")
+        config = ZenzicConfig()
+        mgr = make_mgr(config, repo_root=tmp_path)
+
+        with patch(
+            "zenzic.core.validator._check_external_links",
+            new_callable=AsyncMock,
+        ) as mock_pass3:
+            errors = validate_links_structured(
+                docs,
+                mgr,
+                repo_root=tmp_path,
+                config=config,
+                strict=True,  # Pass 3 would normally run
+                check_external=False,  # R27: skip Pass 3
+            )
+
+        mock_pass3.assert_not_called()
+        assert errors == []
+
+    def test_check_external_true_allows_pass3(self, tmp_path: Path) -> None:
+        """When check_external=True (default) and strict=True, Pass 3 is called."""
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        (docs / "index.md").write_text("[External](https://example.com)\n")
+        config = ZenzicConfig()
+        mgr = make_mgr(config, repo_root=tmp_path)
+
+        with patch(
+            "zenzic.core.validator._check_external_links",
+            new_callable=AsyncMock,
+            return_value=[],
+        ) as mock_pass3:
+            validate_links_structured(
+                docs,
+                mgr,
+                repo_root=tmp_path,
+                config=config,
+                strict=True,
+                check_external=True,
+            )
+
+        mock_pass3.assert_called_once()
+
+    def test_shield_fires_with_check_external_false(self, tmp_path: Path) -> None:
+        """Shield (Pass 1 via scan_lines_with_lookback) is independent of check_external.
+
+        The Shield operates on raw file content and has no concept of check_external.
+        This test verifies that (a) validate_links_structured still succeeds when
+        check_external=False, and (b) the Shield module independently detects the
+        credential — confirming they are orthogonal systems.
+        """
+        from zenzic.core.shield import scan_lines_with_lookback
+
+        # Construct a fake PAT (Synthetic Test Protocol — D002)
+        _prefix = "ghp_"
+        _body = "A" * 36
+        fake_pat = _prefix + _body
+
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        file_content = f"[Click here](https://example.com?token={fake_pat})\n"
+        md_file = docs / "secret.md"
+        md_file.write_text(file_content)
+        (tmp_path / "zenzic.toml").write_text("[project]\n")
+        config = ZenzicConfig()
+        mgr = make_mgr(config, repo_root=tmp_path)
+
+        # validate_links_structured with check_external=False must complete without error
+        errors = validate_links_structured(
+            docs,
+            mgr,
+            repo_root=tmp_path,
+            config=config,
+            strict=False,
+            check_external=False,
+        )
+        # No link errors — the PAT is in an external URL, not a broken internal link
+        link_errors = [e for e in errors if e.error_type not in ("SHIELD_SECRET", "Z201")]
+        assert link_errors == []
+
+        # Independently: the Shield detects the credential in raw content
+        numbered_lines = enumerate(file_content.splitlines(keepends=True), start=1)
+        shield_findings = list(scan_lines_with_lookback(numbered_lines, file_path=md_file))
+        assert len(shield_findings) >= 1, (
+            "Shield must detect the credential independently of check_external"
+        )

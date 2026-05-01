@@ -94,6 +94,7 @@ def test_check_links_strict_passes_flag(mock_links, _cfg, _root) -> None:
         config=_CFG,
         strict=True,
         locale_roots=None,
+        check_external=True,
     )
 
 

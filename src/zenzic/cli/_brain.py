@@ -225,14 +225,25 @@ def brain_map(
         # Phase A: redact forbidden patterns in the generated Markdown/JSON output
         output_text = redact_perimeter(output_text, forbidden)
 
-        # Phase B: Source Audit — check raw text of every .py file (catches #-comments)
-        source_violations = check_sources_perimeter(scan_root, forbidden)
+        # Phase B: Source Audit — .py, .md, .mdx, .toml, .yml (CEO-269/281).
+        # Discovery via walk_files + LayeredExclusionManager (CEO-281).
+        # CEO-278: Sovereign Immunity — the dev gate config file is permanently
+        # immune from its own scan.  It IS the source of forbidden patterns.
+        dev_toml = repo_root / ".zenzic.dev.toml"
+        immune: frozenset[Path] = (
+            frozenset({dev_toml.resolve()}) if dev_toml.exists() else frozenset()
+        )
+        source_violations = check_sources_perimeter(
+            repo_root,
+            forbidden,
+            exclude=immune,
+        )
 
         if source_violations:
             lines = [
-                "\n✘ D002 PERIMETER_LEAK: Forbidden literal strings detected in source files.\n"
+                "\n✘ D002 PERIMETER_LEAK: Forbidden literal strings detected in source and documentation files.\n"
             ]
-            lines.append("  [Phase B — Source files]")
+            lines.append("  [Phase B — Source and documentation files]")
             lines.extend(f"    · {rel}: {pat}" for rel, pat in source_violations)
             lines.append("  Action required: remove the sensitive content before exporting.")
             typer.echo("\n".join(lines), err=True)

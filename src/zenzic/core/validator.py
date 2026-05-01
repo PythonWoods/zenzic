@@ -601,6 +601,7 @@ async def validate_links_async(
     strict: bool = False,
     structured: bool = False,
     locale_roots: list[tuple[Path, str]] | None = None,
+    check_external: bool = True,
 ) -> list[str] | list[LinkError]:
     """Native link validator — no subprocesses, no MkDocs dependency.
 
@@ -615,6 +616,9 @@ async def validate_links_async(
             adapter's ``get_locale_source_roots()`` — when provided, i18n
             translation files are included in both the anchor index and link
             validation pass so that broken anchors in translated pages are caught.
+        check_external: When False, skip Pass 3 (HTTP HEAD requests) even if
+            ``strict`` is True. Designed for air-gapped / offline environments.
+            Shield (Z201) is never affected — it operates on raw file content.
 
     Returns:
         list[str] or list[LinkError]; empty when all links pass.
@@ -963,12 +967,12 @@ async def validate_links_async(
 
     internal_errors.sort(key=lambda e: e.message)
 
-    if not strict:
+    if not strict or not check_external:
         if structured:
             return internal_errors
         return [e.message for e in internal_errors]
 
-    # ── Pass 3 (strict only): validate external links ─────────────────────────
+    # ── Pass 3 (strict only, check_external=True): validate external links ─────
     excluded = config.excluded_external_urls
     if excluded:
         external_entries = [
@@ -1115,6 +1119,7 @@ def validate_links(
     repo_root: Path,
     config: ZenzicConfig,
     strict: bool = False,
+    check_external: bool = True,
 ) -> list[str]:
     """Synchronous wrapper around :func:`validate_links_async`.
 
@@ -1124,6 +1129,7 @@ def validate_links(
         repo_root: Repository root directory.
         config: Zenzic configuration model.
         strict: Include external HTTP/HTTPS link checks.
+        check_external: When False, skip Pass 3 HTTP HEAD requests (CEO-252).
 
     Returns:
         Sorted list of human-readable error strings.
@@ -1136,6 +1142,7 @@ def validate_links(
             config=config,
             strict=strict,
             structured=False,
+            check_external=check_external,
         )
     )
     assert isinstance(result, list)
@@ -1150,6 +1157,7 @@ def validate_links_structured(
     config: ZenzicConfig,
     strict: bool = False,
     locale_roots: list[tuple[Path, str]] | None = None,
+    check_external: bool = True,
 ) -> list[LinkError]:
     """Synchronous wrapper that returns rich :class:`LinkError` objects.
 
@@ -1161,6 +1169,7 @@ def validate_links_structured(
         strict: Include external HTTP/HTTPS link checks.
         locale_roots: Optional list of (locale_root, locale_name) pairs — when
             provided, i18n translation files are included in link validation.
+        check_external: When False, skip Pass 3 HTTP HEAD requests (CEO-252).
 
     Returns:
         Sorted list of LinkError objects; empty when all links pass.
@@ -1174,6 +1183,7 @@ def validate_links_structured(
             strict=strict,
             structured=True,
             locale_roots=locale_roots,
+            check_external=check_external,
         )
     )
     assert isinstance(result, list)

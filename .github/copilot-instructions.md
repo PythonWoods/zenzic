@@ -118,6 +118,10 @@ Zenzic builds a **Virtual Site Map (VSM)** — a projection of the final site in
 
 - **[RULE R26] Conditional Scaffolding (CEO-275).** `zenzic init` creates `.zenzic.dev.toml` automatically **only** when running in an editable install (`_is_editable_install()` via PEP 610 returns True) **or** when the `--dev` flag is explicitly passed. End-users installing from PyPI receive no dev scaffold by default. The generated template documents that `forbidden_patterns` must be literal strings (no regex). The file is idempotent (skipped if already exists) and the user is reminded to add it to `.gitignore`.
 
+- **[RULE R27] Environmental Sovereignty (CEO-252).** `--no-external` is an operational scope control for air-gapped and offline environments. It skips **Pass 3 only** (HTTP HEAD requests via `_check_external_links`). Shield (Z201/Z202/Z203) always fires regardless of this flag — it operates on raw file content, never on network reachability. The recommended permanent mechanism for URL exclusions remains `excluded_external_urls` in `zenzic.toml`. Never add `--no-external` to unattended CI pipelines — it silences reachability failures.
+
+  **Transparency invariant:** When `--no-external` is active, the text-format report MUST append: `💡 External link validation skipped (--no-external). Shield (Z201) remains active.`
+
   - **Technical Dump Prohibited:** Mutation testing tables, internal bug IDs, forensic traces, and CVE details do not belong in `RELEASE.md`. They belong in `CHANGELOG.md`, `CHANGELOG.archive.md`, or internal ADRs.
   - **Archival Trigger:** When `CHANGELOG.md` exceeds 500 lines, move pre-v0.6.0 versions to `CHANGELOG.archive.md` (the **Sentinel Archive Protocol**). Add an archive link in the preamble. The main changelog covers only the current major cycle.
   - **Summarization:** Every 5 technical sprints are summarized into 1 executive highlight in `RELEASE.md`. Sprint-level granularity lives in `CHANGELOG.md`.
@@ -203,7 +207,7 @@ Two complementary systems coexist:
 - **[INVARIANT] Proactivity:** Agents must notify the Tech Lead when a code change contradicts or expands current guidelines.
 - **[INVARIANT] Sovereignty:** This file is the single source of truth for agent behavior.
 - **[INVARIANT — D001 MEMORY_STALE]** Any change to `src/` that is not reflected in the `[CODE MAP]` of this file is a **Memory Staleness** violation. **Enforcement:** `zenzic brain map --check` (CEO-257) exits 1 with `D001 MEMORY_STALE` if the sovereign map is out of sync. The pre-commit `brain-map-check` hook blocks the commit. **Fix:** run `just brain-map` and stage `ZENZIC_BRAIN.md` before committing.
-- **[INVARIANT — D002 PERIMETER_LEAK]** Any `brain map` export (markdown, JSON, `--output` file) is gated by the **dual-spectrum** Environmental Privacy Gate (CEO-267/276). **Phase A (Sovereign Redactor — CEO-276):** forbidden **literal strings** (case-insensitive, `re.escape`-safe) are silently redacted from generated output with `[REDACTED_BY_SENTINEL]` — the export continues. **Phase B (Source Audit):** the raw text of every `.py` file under `src/` is scanned for forbidden literal strings; any match blocks the export with `D002 PERIMETER_LEAK`. `--check` mode skips D002 entirely (CEO-271 Audit-Sovereignty Fix — read-only audit has no output risk). `.zenzic.dev.toml` `forbidden_patterns` must be **literal strings** — regular expressions are not supported (CEO-276 Literal Certainty / ReDoS safety). Absent file = silently disabled.
+- **[INVARIANT — D002 PERIMETER_LEAK]** Any `brain map` export (markdown, JSON, `--output` file) is gated by the **dual-spectrum** Environmental Privacy Gate (CEO-267/276). **Phase A (Sovereign Redactor — CEO-276):** forbidden **literal strings** (case-insensitive, `re.escape`-safe) are silently redacted from generated output with `[REDACTED_BY_SENTINEL]` — the export continues. **Phase B (VCS-Aware Source Audit — CEO-269/278/281/283):** `walk_files` + `LayeredExclusionManager(ZenzicConfig())` discovers every file visible to Git (pruning `SYSTEM_EXCLUDED_DIRS` and `.gitignore` entries); for each file with extension `.py`, `.md`, `.mdx`, `.toml`, or `.yml`, the raw text is scanned for forbidden literal strings; any match blocks the export with `D002 PERIMETER_LEAK`. `.zenzic.dev.toml` is permanently immune via `exclude=frozenset({dev_toml.resolve()})` (CEO-278 Sovereign Immunity — Paradox of the Sentinel). `--check` mode skips D002 entirely (CEO-271 Audit-Sovereignty Fix — read-only audit has no output risk). `forbidden_patterns` must be **literal strings** — regular expressions are not supported (CEO-276 Literal Certainty / ReDoS safety). Lean Perimeter Standard (CEO-280): keep `forbidden_patterns` minimal — only identifiers whose presence in a public export constitutes a real leak. Absent file = silently disabled. **Synthetic Test Protocol (CEO-279):** test files must never contain the forbidden literal in plain text on disk; tests construct it at runtime from fragments (`f"{part_a}-{part_b}"`), so `check_perimeter` (raw text scan) finds no match in the test source.
 
 ### The Sovereign Memory Law [MANDATORY] — CEO-183
 
@@ -291,6 +295,7 @@ tests/
   test_protocol_evolution.py — Adapter protocol compliance + Hypothesis stress tests
   guardians/
     test_i18n_path_integrity.py — i18n path traversal + locale root tests
+
 ```
 
 **Config priority (4 levels):** CLI flags > `zenzic.toml` > `[tool.zenzic]` in `pyproject.toml` > built-in defaults. CLI flags always win.
@@ -510,6 +515,25 @@ tests/
 - **Test pattern (CEO-249):** `r"^(a|aa)+$"` replaced by `r"^(a+)+$"` — the former has $O(\text{fib}(n))$ paths (borderline on Apple Silicon at n=30); the latter has $O(2^n)$ paths (deterministic on any hardware at n=50).
 - **Canary strings:** `"a"*50+"b"` (nested quantifier), `"A"*40+"!"` (uppercase), `"1"*32+"x"` (numeric) — three poison classes per the Diversity principle surfaced in D254.
 
+### ADR-019: Absolute Perimeter Maturity — VCS-Aware Discovery + Sovereign Immunity + Synthetic Test Protocol (CEO-278/279/280/281/283)
+
+**[DECISION]** D002 Phase B evolved from a naive `rglob("*.py")` scan of `src/` to a full VCS-Aware + Raw Total Scan architecture. Three sub-decisions are bundled here.
+
+**CEO-281/283 — Universal Discovery Enforcement (Unified Vision Sweep):**
+`check_sources_perimeter` and `scan_python_sources` both use `walk_files` + `LayeredExclusionManager(ZenzicConfig())`. The Cartographer and the Sentinel now share exactly the same view of the filesystem — the same files are visible, the same directory branches are pruned at `os.walk` level (never entered). This eliminates the "Ghost Architecture" risk: `brain map` can no longer include modules from `build/`, `dist/`, or `.venv/` that the linter ignores.
+
+- **Why `rglob` was rejected:** `rglob("*.py")` enters every directory on the filesystem, including `SYSTEM_EXCLUDED_DIRS` and `.gitignore`-excluded paths. Files there cannot reach GitHub — scanning them generates false positives without improving security. It also violated Rule R02.
+- **CEO-269 extension:** Phase B now scans `.py`, `.md`, `.mdx`, `.toml`, `.yml` — not just Python. Any of these file types can carry a forbidden identifier in prose, config, or comments.
+
+**CEO-278 — Sovereign Immunity (Paradox of the Sentinel):**
+`.zenzic.dev.toml` contains the `forbidden_patterns` themselves. Without immunity it would trigger D002 Phase B on every `brain map` invocation — a self-defeating gate. The `exclude: frozenset[Path] | None = None` parameter in `check_sources_perimeter` resolves this. In `_brain.py`, the dev toml path is always passed as `exclude=frozenset({dev_toml.resolve()})`. The resolved absolute path is matched exactly — symlink traversal cannot bypass immunity.
+
+**CEO-279 — Synthetic Test Protocol (Zero-Leak Contract):**
+Tests for D002 must never contain the forbidden literal in plain text on disk. If a test file contains the literal, it is itself a D002 Phase B violation. Solution: fragments assembled at runtime (`f"{part_a}-{part_b}"`). The source file on disk contains only the harmless parts; `check_perimeter` (raw text scan of the file) finds no match. The combined token exists solely in RAM during test execution. Module-level constants `_PART_A`, `_PART_B` hold the fragments — `_SYNTHETIC_FORBIDDEN` is the joined result, never written to disk in plain text.
+
+**CEO-280 — Lean Perimeter Standard:**
+Remove false-positive patterns from `forbidden_patterns` fleet-wide. Only identifiers whose presence in a public export constitutes a real leak belong in the gate. SPDX author names (appear in every header — not a leak), `.gitignore`-duplicated paths (already excluded by VCS), and internal IPs (not a structural secret) were removed from all 4 repos. Result: one entry per repo.
+
 <!-- ZONE_B_START -->
 ## [ACTIVE SPRINT] — Working Context
 
@@ -547,7 +571,21 @@ tests/
 
 **CEO-274 "Sovereign Documentation of Privacy":** `configure-dev-perimeters.mdx` (EN+IT) in `zenzic-doc` — community/developers/how-to/ quadrant.
 
-**Tests:** 1,449 passed · coverage ≥83% (3.11/3.12/3.13).
+**CEO-277 "Absolute Anonymization":** All forbidden literal references purged from every tracked file in `zenzic/`. D002 Phase B clean on full repo. Committed `05d931d`, pushed.
+
+**CEO-278 "Sovereign Immunity":** `exclude: frozenset[Path] | None = None` parameter added to `check_sources_perimeter`. `.zenzic.dev.toml` is always passed as immune in `_brain.py` Phase B block. ADR-019 sub-decision 2.
+
+**CEO-269/281 "Absolute Perimeter + Universal Discovery":** `_D002_EXTENSIONS = frozenset({".py", ".md", ".mdx", ".toml", ".yml"})`. `check_sources_perimeter` rewritten: `rglob` → `walk_files + LayeredExclusionManager(ZenzicConfig())`. Phase B error message updated to "source and documentation files". ADR-019 sub-decision 1.
+
+**CEO-279 "Synthetic Test Protocol":** `tests/test_brain.py` extended with `TestSyntheticFixtureProtocol`, `TestSovereignImmunity`, `TestDiscoveryPurity`. Module-level `_PART_A`/`_PART_B` fragments — forbidden token assembled in RAM only. Zero literal on disk. ADR-019 sub-decision 3.
+
+**CEO-280 "Lean Perimeter Standard":** `forbidden_patterns` trimmed to single entry across all 4 repos (fleet sync). `engineering-ledger.mdx` EN+IT: TOML example updated to `FORBIDDEN-WORD` placeholder, Phase A/B rewritten to document VCS-Aware + Raw Total Scan, Sovereign Immunity section added. `configure-dev-perimeters.mdx` EN+IT: Phase B row updated, VCS-Aware Discovery + Raw Total Scan section added, Sovereign Immunity documented. ADR-019 sub-decision 4. CEO-270: blank line before closing code fence in ZENZIC_BRAIN.md (Z270 whitespace fix).
+
+**CEO-283 "Unified Vision Sweep":** `scan_python_sources` in `cartography.py` migrated from `rglob("*.py")` to `walk_files + LayeredExclusionManager` with `cli_exclude=["tests", "test"]`. Zero `rglob` calls remain in any `src/zenzic/` production module. Audit confirmed: only docstring reference in `discovery.py` (non-executable). ADR-019 sub-decision 1 extended.
+
+**CEO-252 "Environmental Sovereignty":** `--no-external` flag added to `check links` and `check all`. Skips Pass 3 (HTTP HEAD requests) without affecting Shield or Blood Sentinel. `check_external: bool = True` param propagated through `validate_links_async()`, `validate_links()`, `validate_links_structured()`, `_collect_all_results()`. INFO transparency message printed in text mode. `.pre-commit-config.yaml` hook updated to `--strict --no-external` for offline dev environments. R27 codified in [POLICIES].
+
+**Tests:** 84 passed (`test_brain.py`) · 1,449+ total · coverage ≥83%.
 
 ### Last Closed — D095 — The Base64 Sentinel Decoder & Universal Path Invariant
 

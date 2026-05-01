@@ -62,6 +62,15 @@ def check_links(
     offline: bool = typer.Option(
         False, "--offline", help="Force flat URL resolution for offline builds."
     ),
+    no_external: bool = typer.Option(
+        False,
+        "--no-external",
+        help=(
+            "Skip HTTP validation of external URLs (Pass 3). "
+            "For air-gapped / offline environments. "
+            "Shield (Z201) always active regardless of this flag."
+        ),
+    ),
     path: str | None = typer.Argument(
         None,
         help="Limit to a directory or file. Accepts paths relative to repo root or docs dir.",
@@ -111,6 +120,7 @@ def check_links(
         config=config,
         strict=strict,
         locale_roots=locale_roots,
+        check_external=not no_external,
     )
     elapsed = time.monotonic() - t0
 
@@ -172,6 +182,11 @@ def check_links(
         ok_message="No broken links found.",
         show_info=show_info,
     )
+    if no_external and output_format == "text":
+        _shared.console.print(
+            "[dim]\u1f4a1 External link validation skipped (--no-external). "
+            "Shield (Z201) remains active.[/dim]"
+        )
     incidents = sum(1 for f in findings if f.severity == "security_incident")
     if incidents:
         raise typer.Exit(3)
@@ -772,6 +787,7 @@ def _collect_all_results(
     config: ZenzicConfig,
     exclusion_mgr: LayeredExclusionManager,
     strict: bool,
+    check_external: bool = True,
 ) -> _AllCheckResults:
     """Run all seven checks and return results as a typed container."""
     from zenzic.core.adapters import get_adapter
@@ -819,6 +835,7 @@ def _collect_all_results(
             config=config,
             strict=strict,
             locale_roots=locale_roots,
+            check_external=check_external,
         ),
         orphans=find_orphans(docs_root, exclusion_mgr, repo_root=repo_root, config=config),
         snippet_errors=validate_snippets(docs_root, exclusion_mgr, config=config),
@@ -1151,6 +1168,15 @@ def check_all(
     offline: bool = typer.Option(
         False, "--offline", help="Force flat URL resolution for offline builds."
     ),
+    no_external: bool = typer.Option(
+        False,
+        "--no-external",
+        help=(
+            "Skip HTTP validation of external URLs (Pass 3). "
+            "For air-gapped / offline environments. "
+            "Shield (Z201) always active regardless of this flag."
+        ),
+    ),
 ) -> None:
     """Run all checks: links, orphans, snippets, placeholders, assets, references.
 
@@ -1209,6 +1235,7 @@ def check_all(
         config,
         exclusion_mgr,
         strict=effective_strict,
+        check_external=not no_external,
     )
     elapsed = time.monotonic() - t0
 
@@ -1297,6 +1324,12 @@ def check_all(
             target=_target_hint,
             strict=effective_strict,
             show_info=show_info,
+        )
+
+    if no_external and output_format == "text" and not quiet:
+        _shared.console.print(
+            "[dim]💡 External link validation skipped (--no-external). "
+            "Shield (Z201) remains active.[/dim]"
         )
 
     incidents = sum(1 for f in all_findings if f.severity == "security_incident")

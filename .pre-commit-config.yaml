@@ -71,7 +71,8 @@ repos:
 
       - id: zenzic
         name: Zenzic self-check
-        entry: uv run zenzic check all --strict
+        # --no-external: dev machine may be offline; CI pipelines omit this flag for full validation
+        entry: uv run zenzic check all --strict --no-external
         language: system
         types_or: [python, markdown, yaml]
         pass_filenames: false
