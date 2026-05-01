@@ -88,6 +88,11 @@ triggers Z201 and exits 2. Attack vector S2 sealed.
 **KL-002 portability fix:** `os.path.normcase` applied to the Blood Sentinel boundary check
 so that mixed-case paths on APFS/NTFS no longer produce false-positive traversal findings.
 
+**Known limitations:** The ReDoS canary (`_CANARY_STRINGS` / `_assert_regex_canary`) uses
+`SIGALRM` and is a **no-op on Windows** — the 50 ms interrupt is not available on that
+platform. Plugin authors on Windows operate without startup ReDoS validation in v0.7.0.
+Deterministic enforcement via a process-based watchdog is planned for v0.8.0 "Basalt".
+
 Full audit report: [Quartz Tribunal Audit](https://zenzic.dev/docs/explanation/audit-v070-quartz-siege)
 
 **Multi-Root Shield:** Cross-locale relative links no longer trigger false-positive
@@ -104,6 +109,8 @@ authorised root.
 - **`--no-color` / `--force-color`** and `NO_COLOR`/`FORCE_COLOR` environment variables.
 - **`--offline` mode** — flat URL resolution for USB/intranet deployments.
 - **`--quiet` flag** — single-line summary for pre-commit and CI silent builders.
+- **`--no-external` flag** — skips Pass 3 HTTP HEAD requests for air-gapped / offline environments.
+  Shield (Z201) and Blood Sentinel (Z202/Z203) remain fully active regardless of this flag.
 - **Z502 pointer precision** — `❱` arrow skips SPDX licence headers and frontmatter to
   point at the first actual prose word.
 - **1,307 passing tests · 80.28%+ coverage.** REUSE 3.3 compliant. mypy strict. Zero untyped definitions.
