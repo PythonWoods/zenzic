@@ -23,9 +23,9 @@ import typer
 from zenzic.core.cartography import (
     MAP_END,
     MAP_START,
-    check_perimeter,
     check_sources_perimeter,
     load_dev_gate,
+    redact_perimeter,
     render_json,
     render_markdown_table,
     scan_python_sources,
@@ -215,24 +215,25 @@ def brain_map(
     else:
         output_text = map_block
 
-    # ── D002 — Environmental Privacy Gate — Dual-Spectrum (CEO-260/267) ────────
+    # ── D002 — Environmental Privacy Gate — Dual-Spectrum (CEO-260/267/276) ──────
     # D002 guards *exports* only — skip in --check mode (read-only audit, no output).
+    # Phase A: Sovereign Redactor — silently redact forbidden literal strings from
+    #   the generated output before writing.  Does NOT block the export (CEO-276).
+    # Phase B: Source Audit — block if forbidden literals appear in raw .py files.
     forbidden = load_dev_gate(repo_root)
     if forbidden and not check:
-        # Phase A: Output Audit — check the generated Markdown/JSON string
-        output_violations = check_perimeter(output_text, forbidden)
+        # Phase A: redact forbidden patterns in the generated Markdown/JSON output
+        output_text = redact_perimeter(output_text, forbidden)
 
         # Phase B: Source Audit — check raw text of every .py file (catches #-comments)
         source_violations = check_sources_perimeter(scan_root, forbidden)
 
-        if output_violations or source_violations:
-            lines = ["\n✘ D002 PERIMETER_LEAK: Private patterns detected in the perimeter.\n"]
-            if output_violations:
-                lines.append("  [Phase A — Generated output]")
-                lines.extend(f"    · {v}" for v in output_violations)
-            if source_violations:
-                lines.append("  [Phase B — Source files]")
-                lines.extend(f"    · {rel}: {pat}" for rel, pat in source_violations)
+        if source_violations:
+            lines = [
+                "\n✘ D002 PERIMETER_LEAK: Forbidden literal strings detected in source files.\n"
+            ]
+            lines.append("  [Phase B — Source files]")
+            lines.extend(f"    · {rel}: {pat}" for rel, pat in source_violations)
             lines.append("  Action required: remove the sensitive content before exporting.")
             typer.echo("\n".join(lines), err=True)
             raise typer.Exit(1)

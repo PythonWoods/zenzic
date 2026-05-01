@@ -524,6 +524,56 @@ class TestCheckSourcesPerimeter:
 # ─── render_json ──────────────────────────────────────────────────────────────
 
 
+class TestRedactPerimeter:
+    """Tests for ``redact_perimeter`` — Phase A Sovereign Redactor (CEO-276)."""
+
+    def test_replaces_forbidden_literal(self) -> None:
+        from zenzic.core.cartography import redact_perimeter
+
+        result = redact_perimeter("contains secret-corp here", ["secret-corp"])
+        assert "secret-corp" not in result
+        assert "[REDACTED_BY_SENTINEL]" in result
+
+    def test_is_case_insensitive(self) -> None:
+        from zenzic.core.cartography import redact_perimeter
+
+        result = redact_perimeter("Contains SECRET-CORP Here", ["secret-corp"])
+        assert "SECRET-CORP" not in result
+        assert "[REDACTED_BY_SENTINEL]" in result
+
+    def test_multiple_patterns(self) -> None:
+        from zenzic.core.cartography import redact_perimeter
+
+        text = "alpha and beta are both private"
+        result = redact_perimeter(text, ["alpha", "beta"])
+        assert "alpha" not in result
+        assert "beta" not in result
+        assert result.count("[REDACTED_BY_SENTINEL]") == 2
+
+    def test_empty_forbidden_returns_unchanged(self) -> None:
+        from zenzic.core.cartography import redact_perimeter
+
+        original = "no patterns here"
+        assert redact_perimeter(original, []) == original
+
+    def test_special_chars_in_pattern_treated_literally(self) -> None:
+        from zenzic.core.cartography import redact_perimeter
+
+        # Dot in path pattern must not act as regex wildcard
+        result = redact_perimeter("/home/user/docs", ["/home/user/docs"])
+        assert "/home/user/docs" not in result
+        assert "[REDACTED_BY_SENTINEL]" in result
+
+    def test_no_match_returns_unchanged(self) -> None:
+        from zenzic.core.cartography import redact_perimeter
+
+        original = "nothing matches here"
+        assert redact_perimeter(original, ["absent-pattern"]) == original
+
+
+# ─── render_json ──────────────────────────────────────────────────────────────
+
+
 class TestRenderJson:
     """Tests for ``render_json`` — machine-readable AST export."""
 
@@ -614,24 +664,31 @@ class TestBrainMapD002:
         assert "D002" in result.output or "D002" in (result.stderr or "")
         assert "Phase B" in result.output or "Phase B" in (result.stderr or "")
 
-    def test_d002_phase_a_catches_docstring(self, tmp_path: Path) -> None:
+    def test_d002_phase_a_redacts_output(self, tmp_path: Path) -> None:
         from typer.testing import CliRunner
 
         from zenzic.cli._brain import brain_app
 
-        # Pattern only in docstring (appears in AST → generated map)
+        # Phase A catches patterns that appear in the GENERATED TABLE (e.g. file paths)
+        # but NOT in raw file content — so Phase B stays silent.
+        # Here: file named 'corp_internal.py' → rel_path appears in Markdown table.
+        # File content does NOT contain 'corp_internal' → Phase B passes.
         pkg = tmp_path / "src" / "mypkg"
         pkg.mkdir(parents=True)
         (pkg / "__init__.py").write_text("", encoding="utf-8")
-        (pkg / "core.py").write_text(
-            '"""secret-corp integration module."""\n\ndef run() -> None:\n    pass\n',
+        # File name contains the forbidden pattern; content does not.
+        (pkg / "corp_internal.py").write_text(
+            '"""Utility module."""\n\ndef run() -> None:\n    pass\n',
             encoding="utf-8",
         )
-        self._write_dev_toml(tmp_path, ["secret-corp"])
+        self._write_dev_toml(tmp_path, ["corp_internal"])
         runner = CliRunner()
         result = runner.invoke(brain_app, [str(tmp_path)])
-        assert result.exit_code == 1
-        assert "D002" in result.output or "D002" in (result.stderr or "")
+        # Phase A: export succeeds (exit 0), file-path pattern is silently redacted
+        assert result.exit_code == 0, result.output
+        assert "D002" not in result.output
+        assert "corp_internal" not in result.output
+        assert "[REDACTED_BY_SENTINEL]" in result.output
 
 
 # ─── brain_map --format / --output (CEO-262) ──────────────────────────────────

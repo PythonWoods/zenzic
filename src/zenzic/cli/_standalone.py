@@ -402,6 +402,14 @@ def init(
         "--pyproject",
         help="Write configuration into pyproject.toml [tool.zenzic] instead of zenzic.toml.",
     ),
+    dev: bool = typer.Option(
+        False,
+        "--dev",
+        help=(
+            "Also scaffold .zenzic.dev.toml (D002 Environmental Privacy Gate). "
+            "Auto-enabled in editable installs (CEO-275)."
+        ),
+    ),
     path: str | None = typer.Argument(
         None,
         help="Directory to initialize (default: current project root or CWD).",
@@ -422,6 +430,10 @@ def init(
     file pre-sets ``engine = "mkdocs"``; if ``zensical.toml`` is present it
     pre-sets ``engine = "zensical"``.  Otherwise the ``[build_context]`` block
     is omitted and the standalone (engine-agnostic) defaults apply.
+
+    Use ``--dev`` to also create ``.zenzic.dev.toml`` (D002 Environmental Privacy
+    Gate).  In editable installs the dev scaffold is created automatically
+    (CEO-275 Conditional Scaffolding).
     """
     from zenzic import __version__
 
@@ -456,6 +468,75 @@ def init(
         _init_pyproject(repo_root, pyproject_path, force)
     else:
         _init_standalone(repo_root, force)
+
+    # CEO-275: Conditional Scaffolding — create .zenzic.dev.toml when:
+    #   (a) --dev flag is explicitly passed, or
+    #   (b) running in an editable (developer) install (auto-detection)
+    if dev or _is_editable_install():
+        _scaffold_dev_toml(repo_root)
+
+
+def _is_editable_install() -> bool:
+    """Detect editable (development) install via PEP 610 direct_url.json.
+
+    Mirrors the logic of ``_is_dev_mode()`` in ``main.py`` as a local helper
+    to avoid circular imports between ``_standalone`` and ``main`` (CEO-275).
+    Returns True only when Zenzic is installed with ``pip install -e .`` or
+    ``uv sync`` in development mode.
+    """
+    import importlib.metadata
+    import json
+
+    try:
+        dist = importlib.metadata.distribution("zenzic")
+        direct_url_content = dist.read_text("direct_url.json")
+        if not direct_url_content:
+            return False
+        data = json.loads(direct_url_content)
+        return "dir_info" in data and data["dir_info"].get("editable", False)
+    except Exception:
+        return False
+
+
+def _scaffold_dev_toml(repo_root: Path) -> None:
+    """Create a ``.zenzic.dev.toml`` template for the D002 Environmental Privacy Gate.
+
+    Idempotent — skips creation silently if the file already exists.
+    The generated file is annotated with the literal-string constraint
+    (CEO-276 Literal Certainty Standard) and must be git-ignored.
+    """
+    from rich.panel import Panel
+
+    dev_toml = repo_root / ".zenzic.dev.toml"
+    if dev_toml.exists():
+        _shared.console.print("[dim]  .zenzic.dev.toml already exists — skipped.[/]")
+        return
+
+    content = (
+        "# .zenzic.dev.toml — Local Development Gate (git-ignored)\n"
+        "# This file is local to your machine. DO NOT commit it to version control.\n"
+        "# Use it to protect private context from being exported by 'zenzic brain map'.\n"
+        "#\n"
+        "# Documentation: https://zenzic.dev/docs/community/developers/how-to/configure-dev-perimeters\n"
+        "\n"
+        "[development_gate]\n"
+        "# List of literal strings (case-insensitive) to be redacted from exports.\n"
+        "# Regular expressions are NOT supported — patterns are matched verbatim.\n"
+        '# forbidden_patterns = ["internal-project-name", "/home/user/private/path"]\n'
+        "forbidden_patterns = []\n"
+    )
+    dev_toml.write_text(content, encoding="utf-8")
+
+    _shared.console.print(
+        Panel(
+            "[green]✔[/] [bold].zenzic.dev.toml[/] created (D002 Privacy Gate).\n"
+            "[yellow]⚠[/]  Add this file to [bold].gitignore[/] — it is local only.\n\n"
+            "Edit [bold cyan]forbidden_patterns[/] with literal strings to protect "
+            "from exports.",
+            title="[bold]Dev Perimeter Gate[/]",
+            border_style="cyan",
+        )
+    )
 
 
 def _detect_init_engine(repo_root: Path) -> str:

@@ -17,6 +17,7 @@ from __future__ import annotations
 import ast
 import dataclasses
 import json
+import re
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -158,17 +159,40 @@ def load_dev_gate(repo_root: Path) -> list[str]:
 
 
 def check_perimeter(text: str, forbidden: list[str]) -> list[str]:
-    """Check *text* for any of the *forbidden* patterns.
+    """Check *text* for any of the *forbidden* **literal** strings.
 
-    Comparison is **case-insensitive** (CEO-265): both *text* and each
-    pattern are normalised to lower-case before matching — patterns and
-    text are both lowered before the ``in`` check.
+    Matching is **case-insensitive** (CEO-265): both *text* and each
+    pattern are normalised to lower-case before the ``in`` check.
+    Patterns are matched verbatim — regular expressions are not
+    supported (CEO-276 Literal Certainty Standard).
 
     Returns the list of violated patterns in their original case as declared
     in ``.zenzic.dev.toml``.  Pure function — no I/O, no side effects.
     """
     normalised = text.lower()
     return [p for p in forbidden if p.lower() in normalised]
+
+
+def redact_perimeter(text: str, forbidden: list[str]) -> str:
+    """Replace all occurrences of *forbidden* **literal** strings with
+    ``[REDACTED_BY_SENTINEL]`` in *text*.
+
+    Matching is **case-insensitive** (CEO-265).  Uses ``re.escape`` so
+    that path separators, dots, and other special characters in patterns
+    are treated as literal text — no regex interpretation risk (CEO-276
+    Literal Certainty Standard / ReDoS safety).
+
+    Pure function — no I/O, no side effects.
+    """
+    result = text
+    for pattern in forbidden:
+        result = re.sub(
+            re.escape(pattern),
+            "[REDACTED_BY_SENTINEL]",
+            result,
+            flags=re.IGNORECASE,
+        )
+    return result
 
 
 def render_json(modules: list[ModuleInfo]) -> str:
