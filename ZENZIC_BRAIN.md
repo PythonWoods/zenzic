@@ -186,6 +186,7 @@ Registry: `src/zenzic/core/codes.py` — **single source of truth**. Never add a
 - **[INVARIANT] Definition of Done:** A sprint is not closed until CHANGELOG is current, RELEASE.md passes the Executive Filter (≤ 200 lines), and the staleness audit is complete.
 - **[INVARIANT] Proactivity:** Agents must notify the Tech Lead when a code change contradicts or expands current guidelines.
 - **[INVARIANT] Sovereignty:** This file is the single source of truth for agent behavior.
+- **[INVARIANT — D001 MEMORY_STALE]** Any change to `src/` that is not reflected in the `[CODE MAP]` of this file is a **Memory Staleness** violation. **Enforcement:** `zenzic brain map --check` (CEO-257) exits 1 with `D001 MEMORY_STALE` if the sovereign map is out of sync. The pre-commit `brain-map-check` hook blocks the commit. **Fix:** run `just brain-map` and stage `ZENZIC_BRAIN.md` before committing.
 
 ### The Sovereign Memory Law [MANDATORY] — CEO-183
 
@@ -517,7 +518,9 @@ tests/
 
 **CEO-249 "Deterministic Canary Hardening":** `_CANARY_STRINGS` lengths increased (n=30→50, n=25→40, n=20→32). `_CANARY_TIMEOUT_S` 0.1→0.05. Test pattern `(a|aa)+` → `(a+)+` (O(2^n) guaranteed). Passive `perf_counter` approach evaluated and rejected (CEO-249/252/253/254/255) — see ADR-018. ADR-018 added.
 
-**Tests:** 1,438 passed · coverage 83% (3.11/3.12/3.13).
+**CEO-257/258 "Quartz Audit Gate":** `zenzic brain map --check` — read-only audit mode. Exits 1 with `D001 MEMORY_STALE` if the sovereign [CODE MAP] is out of sync with `src/`. No write, no Zone B audit, no shadow sync. Pre-commit hook `brain-map-check` added to `.pre-commit-config.yaml` — runs only on `src/` changes; Identity Gate wrapper makes it a no-op on non-editable installs (CI safe). D001 invariant added to [POLICIES] Memory Law. `tests/test_brain.py`: 5 new `TestBrainMapCheck` tests.
+
+**Tests:** 1,443 passed · coverage 83% (3.11/3.12/3.13).
 
 ### Last Closed — D095 — The Base64 Sentinel Decoder & Universal Path Invariant
 

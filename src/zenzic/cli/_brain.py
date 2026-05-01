@@ -148,11 +148,26 @@ def brain_map(
             show_default=True,
         ),
     ] = Path("."),
+    check: Annotated[
+        bool,
+        typer.Option(
+            "--check",
+            help=(
+                "Audit mode: compare the generated [CODE MAP] against "
+                "ZENZIC_BRAIN.md without writing. "
+                "Exits 1 (D001 MEMORY_STALE) if stale. "
+                "Used by the pre-commit Quartz Audit Gate (CEO-257)."
+            ),
+        ),
+    ] = False,
 ) -> None:
     """Scan Python sources via AST and update ZENZIC_BRAIN.md [CODE MAP].
 
     Performs Zone B audit, Trinity Mesh status check, and Master-Shadow Sync
     to ``.github/copilot-instructions.md`` as final steps.
+
+    With ``--check``: read-only audit mode. Does not write; exits 1 (D001) if
+    [CODE MAP] is stale. Designed for the pre-commit Quartz Audit Gate.
     """
     repo_root = path.resolve()
     if not repo_root.is_dir():
@@ -171,6 +186,13 @@ def brain_map(
 
     ledger = _find_ledger(repo_root)
     if ledger is None:
+        if check:
+            typer.echo(
+                "\n✘ D001 MEMORY_STALE: No ZENZIC_BRAIN.md found upstream.\n"
+                "  Action required: run 'just brain-map' to initialise the ledger.",
+                err=True,
+            )
+            raise typer.Exit(1)
         # No ZENZIC_BRAIN.md — print for manual insertion
         typer.echo(f"\n{MAP_START}")
         typer.echo(map_block)
@@ -179,6 +201,30 @@ def brain_map(
             "\n[brain map] No ZENZIC_BRAIN.md found upstream. Output printed for manual insertion.",
             err=True,
         )
+        return
+
+    # ── Quartz Audit Gate (--check mode, CEO-257) ──────────────────────────────
+    if check:
+        text = ledger.read_text(encoding="utf-8")
+        start_idx = text.find(MAP_START)
+        end_idx = text.find(MAP_END)
+        if start_idx == -1 or end_idx == -1:
+            typer.echo(
+                "\n✘ D001 MEMORY_STALE: MAP_START/MAP_END markers missing in ZENZIC_BRAIN.md.\n"
+                "  Action required: run 'just brain-map' to regenerate the ledger.",
+                err=True,
+            )
+            raise typer.Exit(1)
+        expected_block = f"{MAP_START}\n{map_block}\n{MAP_END}"
+        current_block = text[start_idx : end_idx + len(MAP_END)]
+        if current_block != expected_block:
+            typer.echo(
+                "\n✘ D001 MEMORY_STALE: The sovereign [CODE MAP] is out of sync with src/.\n"
+                "  Action required: run 'just brain-map' and stage the changes to ZENZIC_BRAIN.md.",
+                err=True,
+            )
+            raise typer.Exit(1)
+        typer.echo(f"[brain map] ✔ {ledger.name} [CODE MAP] is in sync with src/ — memory intact.")
         return
 
     try:

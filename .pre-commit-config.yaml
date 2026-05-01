@@ -75,3 +75,10 @@ repos:
         language: system
         types_or: [python, markdown, yaml]
         pass_filenames: false
+
+      - id: brain-map-check
+        name: "🛡️ Zenzic Memory Audit (D001 Staleness Check)"
+        entry: uv run python -c "from zenzic.main import _is_dev_mode; import sys, subprocess; sys.exit(subprocess.run(['uv', 'run', 'zenzic', 'brain', 'map', '--check', '.']).returncode if _is_dev_mode() else 0)"
+        language: system
+        files: ^src/
+        pass_filenames: false

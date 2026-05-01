@@ -296,3 +296,101 @@ class TestIsDevMode:
 
         monkeypatch.setattr(importlib.metadata, "distribution", lambda _: FakeDist())
         assert _is_dev_mode() is False
+
+
+# ─── brain_map --check (CEO-257 Quartz Audit Gate) ───────────────────────────
+
+
+class TestBrainMapCheck:
+    """Typer CLI tests for ``zenzic brain map --check`` (D001 MEMORY_STALE)."""
+
+    def _make_src(self, base: Path) -> None:
+        """Create a minimal src/<pkg>/ layout so scan_python_sources finds files."""
+        pkg = base / "src" / "mypkg"
+        pkg.mkdir(parents=True)
+        (pkg / "__init__.py").write_text("", encoding="utf-8")
+        (pkg / "core.py").write_text(
+            '"""Core module."""\n\ndef run() -> None:\n    pass\n', encoding="utf-8"
+        )
+
+    def _make_ledger(self, base: Path, map_content: str) -> Path:
+        ledger = base / "ZENZIC_BRAIN.md"
+        ledger.write_text(
+            f"# Header\n\n{MAP_START}\n{map_content}\n{MAP_END}\n\nFooter\n",
+            encoding="utf-8",
+        )
+        return ledger
+
+    def test_check_exits_0_when_map_in_sync(self, tmp_path: Path) -> None:
+        from typer.testing import CliRunner
+
+        from zenzic.cli._brain import brain_app
+        from zenzic.core.cartography import render_markdown_table, scan_python_sources
+
+        self._make_src(tmp_path)
+        src_root = tmp_path / "src" / "mypkg"
+        modules = scan_python_sources(src_root)
+        current_map = render_markdown_table(modules)
+        self._make_ledger(tmp_path, current_map)
+
+        runner = CliRunner()
+        result = runner.invoke(brain_app, [str(tmp_path), "--check"])
+        assert result.exit_code == 0, result.output
+        assert "memory intact" in result.output
+
+    def test_check_exits_1_when_map_stale(self, tmp_path: Path) -> None:
+        from typer.testing import CliRunner
+
+        from zenzic.cli._brain import brain_app
+
+        self._make_src(tmp_path)
+        # Deliberately wrong map content
+        self._make_ledger(tmp_path, "| `stale/module.py` | OldClass | old_fn | Outdated. |")
+
+        runner = CliRunner()
+        result = runner.invoke(brain_app, [str(tmp_path), "--check"])
+        assert result.exit_code == 1
+        assert "D001" in result.output or "D001" in (result.stderr or "")
+
+    def test_check_exits_1_when_markers_missing(self, tmp_path: Path) -> None:
+        from typer.testing import CliRunner
+
+        from zenzic.cli._brain import brain_app
+
+        self._make_src(tmp_path)
+        ledger = tmp_path / "ZENZIC_BRAIN.md"
+        ledger.write_text("# No markers here\n", encoding="utf-8")
+
+        runner = CliRunner()
+        result = runner.invoke(brain_app, [str(tmp_path), "--check"])
+        assert result.exit_code == 1
+        assert "D001" in result.output or "D001" in (result.stderr or "")
+
+    def test_check_exits_1_when_no_ledger(self, tmp_path: Path) -> None:
+        from typer.testing import CliRunner
+
+        from zenzic.cli._brain import brain_app
+
+        self._make_src(tmp_path)
+        # No ZENZIC_BRAIN.md created
+
+        runner = CliRunner()
+        result = runner.invoke(brain_app, [str(tmp_path), "--check"])
+        assert result.exit_code == 1
+        assert "D001" in result.output or "D001" in (result.stderr or "")
+
+    def test_check_does_not_write_ledger(self, tmp_path: Path) -> None:
+        from typer.testing import CliRunner
+
+        from zenzic.cli._brain import brain_app
+
+        self._make_src(tmp_path)
+        self._make_ledger(tmp_path, "stale content")
+        ledger = tmp_path / "ZENZIC_BRAIN.md"
+        original_text = ledger.read_text(encoding="utf-8")
+
+        runner = CliRunner()
+        runner.invoke(brain_app, [str(tmp_path), "--check"])
+
+        # File must not have been modified
+        assert ledger.read_text(encoding="utf-8") == original_text
