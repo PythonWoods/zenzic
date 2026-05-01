@@ -401,14 +401,15 @@ def _assert_pickleable(rule: BaseRule) -> None:
 
 
 # Canary strings that trigger catastrophic backtracking in ReDoS-vulnerable
-# patterns.  A safe regex at n=30 takes microseconds; a ReDoS pattern at n=30
-# takes seconds or longer.
+# patterns.  A safe regex at n=50 takes microseconds; a ReDoS pattern at n=50
+# triggers 2^50 backtracking steps — guaranteed to exceed the timeout on any
+# hardware, from the slowest CI Linux runner to the fastest Apple M-series.
 _CANARY_STRINGS: tuple[str, ...] = (
-    "a" * 30 + "b",  # classic (a+)+  /  (a*)* style
-    "A" * 25 + "!",  # uppercase variant
-    "1" * 20 + "x",  # numeric variant
+    "a" * 50 + "b",  # classic (a+)+  /  (a*)* style
+    "A" * 40 + "!",  # uppercase variant
+    "1" * 32 + "x",  # numeric variant
 )
-_CANARY_TIMEOUT_S: float = 0.1  # 100 ms
+_CANARY_TIMEOUT_S: float = 0.05  # 50 ms — hardware-independent gate
 
 
 def _assert_regex_canary(rule: BaseRule) -> None:

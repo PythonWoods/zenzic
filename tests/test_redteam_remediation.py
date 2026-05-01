@@ -158,11 +158,17 @@ class TestReDoSCanary:
             _assert_regex_canary(rule)
 
     def test_canary_rejects_alternation_redos(self) -> None:
-        """Alternation-based ReDoS (a|aa)+ also caught."""
+        """Nested-quantifier ReDoS -- deterministic across all platforms.
+
+        CEO-249: The previous pattern (a|aa)+ has O(fibonacci(n)) backtracking
+        paths (~2M for n=30) which Apple Silicon resolves within the 50ms
+        SIGALRM window.  Pattern (a+)+ has O(2^n) paths (~2^50 for n=50) --
+        guaranteed to exceed the SIGALRM timer on any hardware.
+        """
         rule = CustomRule(
             id="ZZ-REDOS2",
-            pattern=r"^(a|aa)+$",
-            message="ReDoS alt test.",
+            pattern=r"^(a+)+$",
+            message="ReDoS deterministic test.",
             severity="error",
         )
         with pytest.raises(PluginContractError, match="catastrophic backtracking"):

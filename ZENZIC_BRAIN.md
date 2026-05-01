@@ -482,6 +482,16 @@ tests/
 - **Dev-mode gating:** When `_is_dev_mode()` is False, `brain_app` is never registered in Typer — the command group is structurally absent, not merely hidden. End-users cannot discover it by guessing.
 - **R17 correction (CEO-183 Sovereign Memory Law):** CEO-243 requested "Rule 17 Zero-Amnesia Law". R17 was already occupied (CLI Symmetry CEO-056). The agent surfaced the conflict per CEO-183. The CEO ratified R24 as the correct slot.
 
+### ADR-018: Hardware-Independent ReDoS Enforcement (CEO-249/255)
+
+**[DECISION]** `_assert_regex_canary()` uses `SIGALRM` + `setitimer` (POSIX) with n=50 canary strings and a 50ms timeout. Passive `time.perf_counter()` measurement was evaluated and rejected.
+
+- **Why `perf_counter` was rejected (CEO-249/252/253/254):** A fixed-time threshold on a single input length is hardware-dependent. `perf_counter` measures time *after* `re.match()` returns — it cannot interrupt a blocked call. Exponential backtracking at n=28 resolves in ~0.03s on Apple M3 (below the 50ms gate) yet deadlocks a slow CI runner for 3s. A ratio-based differential approach (D254) was also rejected: sub-millisecond timing noise at the denominator produces unreliable ratios, and Python `threading.Thread.join(timeout)` cannot terminate threads blocked in C-level regex calls.
+- **Why `SIGALRM` is correct:** It interrupts the Python interpreter at the OS level exactly at 50ms regardless of CPU speed or cache state. With n=50, `(a+)+$` generates $2^{50}$ backtracking paths — guaranteed to not complete within 50ms on any known hardware.
+- **Windows:** Canary is documented as no-op (`platform.system() == "Windows"` guard). Windows CustomRule users operate without startup validation; this is an accepted trade-off for v0.7.0. Process-based watchdog (the only valid Windows enforcement mechanism) is deferred to v0.8.0 "Basalt".
+- **Test pattern (CEO-249):** `r"^(a|aa)+$"` replaced by `r"^(a+)+$"` — the former has $O(\text{fib}(n))$ paths (borderline on Apple Silicon at n=30); the latter has $O(2^n)$ paths (deterministic on any hardware at n=50).
+- **Canary strings:** `"a"*50+"b"` (nested quantifier), `"A"*40+"!"` (uppercase), `"1"*32+"x"` (numeric) — three poison classes per the Diversity principle surfaced in D254.
+
 <!-- ZONE_B_START -->
 ## [ACTIVE SPRINT] — Working Context
 
@@ -503,7 +513,11 @@ tests/
 
 **CEO-242–246 "Sovereign Cartography & Identity Gate":** `src/zenzic/core/cartography.py` (pure AST scanner). `src/zenzic/cli/_brain.py` (brain sub-app: map, Zone B audit, Trinity Mesh, Master-Shadow Sync). `_is_dev_mode()` in `main.py` (PEP 610 Identity Gate). `just brain-map` wired into `verify`/`preflight`. R24 Zero-Amnesia Law. ADR-017. `tests/test_brain.py` (19 tests). CEO-243 R17 conflict resolved to R24 per Sovereign Memory Law (CEO-183).
 
-**Tests:** 1,371 passed · coverage ≥80% (3.11/3.12/3.13).
+**CEO-248 "Quartz Coverage Gate":** `tests/test_coverage_boost.py` (67 targeted tests for `_brain.py`, `_clean.py`, `_shared.py`, `core/ui.py`, `core/logging.py`, `core/models.py`). Pre-commit hook hardened with `--cov-fail-under=80`. Coverage: 79.46% → 83%. 1,438 tests.
+
+**CEO-249 "Deterministic Canary Hardening":** `_CANARY_STRINGS` lengths increased (n=30→50, n=25→40, n=20→32). `_CANARY_TIMEOUT_S` 0.1→0.05. Test pattern `(a|aa)+` → `(a+)+` (O(2^n) guaranteed). Passive `perf_counter` approach evaluated and rejected (CEO-249/252/253/254/255) — see ADR-018. ADR-018 added.
+
+**Tests:** 1,438 passed · coverage 83% (3.11/3.12/3.13).
 
 ### Last Closed — D095 — The Base64 Sentinel Decoder & Universal Path Invariant
 
