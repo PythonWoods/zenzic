@@ -127,7 +127,13 @@ Zenzic uses a **Sovereign Memory Architecture (SMA)**. The `ZENZIC_BRAIN.md` fil
 3. **Pillar Check:** Ensure no conflict with [POLICIES] (Zone A).
 
 > **Unlock Sovereign Cartography:** The `zenzic brain` developer commands are only available in
-> editable installs. Run `pip install -e .` or `uv sync` to activate them (CEO-246 Identity Gate).
+> editable installs. Install with the `[dev]` extra to activate them (CEO-246/268 Identity Gate):
+>
+> ```bash
+> uv pip install -e ".[dev]"
+> # or, using uv-native dependency groups (recommended for local dev):
+> just sync   # uv sync --all-groups
+> ```
 
 **Zone A (Constitutional — Immutable):** Manifesto, Policies, ADRs. Only Core Maintainers may modify. Changes require opening an Issue for ADR discussion first.
 

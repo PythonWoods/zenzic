@@ -23,6 +23,10 @@ import typer
 from zenzic.core.cartography import (
     MAP_END,
     MAP_START,
+    check_perimeter,
+    check_sources_perimeter,
+    load_dev_gate,
+    render_json,
     render_markdown_table,
     scan_python_sources,
     update_ledger,
@@ -46,7 +50,7 @@ _ZONE_B_END = "<!-- ZONE_B_END -->"
 _ZONE_B_LIMIT = 400
 
 # Trinity Mesh sibling repositories (CEO-236 Silent Mind Protocol).
-# INVARIANT: zenzic-brain is NEVER listed here.
+# INVARIANT: The fourth repository is never listed here (Silent Mind).
 _MESH_REPOS = ("zenzic", "zenzic-doc", "zenzic-action")
 
 
@@ -121,7 +125,7 @@ def _detect_mesh_status(repo_root: Path) -> str:
     """Probe sibling repositories for ZENZIC_BRAIN.md presence.
 
     Returns a human-readable mesh status string.
-    INVARIANT: zenzic-brain is never probed (Silent Mind Protocol — CEO-236).
+    INVARIANT: The Silent Mind repository is never probed (CEO-236).
     """
     parts = []
     for name in _MESH_REPOS:
@@ -160,6 +164,21 @@ def brain_map(
             ),
         ),
     ] = False,
+    output_format: Annotated[
+        str,
+        typer.Option(
+            "--format",
+            help="Output format: 'markdown' (default, updates the Ledger) or 'json' (machine-readable).",
+        ),
+    ] = "markdown",
+    output: Annotated[
+        Path | None,
+        typer.Option(
+            "--output",
+            "-o",
+            help="Write output to this file instead of updating the Ledger (or stdout if no Ledger).",
+        ),
+    ] = None,
 ) -> None:
     """Scan Python sources via AST and update ZENZIC_BRAIN.md [CODE MAP].
 
@@ -168,6 +187,12 @@ def brain_map(
 
     With ``--check``: read-only audit mode. Does not write; exits 1 (D001) if
     [CODE MAP] is stale. Designed for the pre-commit Quartz Audit Gate.
+
+    With ``--format json``: outputs a machine-readable JSON array to stdout
+    (or to ``--output`` file) instead of updating the Ledger.
+
+    With ``--output PATH``: writes the generated output to a file; does not
+    update the Ledger or perform Zone B / Trinity / Shadow steps.
     """
     repo_root = path.resolve()
     if not repo_root.is_dir():
@@ -184,27 +209,50 @@ def brain_map(
 
     map_block = render_markdown_table(modules)
 
+    # Generate output_text for the requested format
+    if output_format == "json":
+        output_text = render_json(modules)
+    else:
+        output_text = map_block
+
+    # ── D002 — Environmental Privacy Gate — Dual-Spectrum (CEO-260/267) ────────
+    # D002 guards *exports* only — skip in --check mode (read-only audit, no output).
+    forbidden = load_dev_gate(repo_root)
+    if forbidden and not check:
+        # Phase A: Output Audit — check the generated Markdown/JSON string
+        output_violations = check_perimeter(output_text, forbidden)
+
+        # Phase B: Source Audit — check raw text of every .py file (catches #-comments)
+        source_violations = check_sources_perimeter(scan_root, forbidden)
+
+        if output_violations or source_violations:
+            lines = ["\n✘ D002 PERIMETER_LEAK: Private patterns detected in the perimeter.\n"]
+            if output_violations:
+                lines.append("  [Phase A — Generated output]")
+                lines.extend(f"    · {v}" for v in output_violations)
+            if source_violations:
+                lines.append("  [Phase B — Source files]")
+                lines.extend(f"    · {rel}: {pat}" for rel, pat in source_violations)
+            lines.append("  Action required: remove the sensitive content before exporting.")
+            typer.echo("\n".join(lines), err=True)
+            raise typer.Exit(1)
+
     ledger = _find_ledger(repo_root)
-    if ledger is None:
-        if check:
+
+    # ── Quartz Audit Gate (--check mode, CEO-257) ──────────────────────────────
+    if check:
+        if output_format != "markdown":
+            typer.echo(
+                "[yellow]WARNING:[/] --format is ignored in --check mode "
+                "(audit is always performed against Markdown ledger)."
+            )
+        if ledger is None:
             typer.echo(
                 "\n✘ D001 MEMORY_STALE: No ZENZIC_BRAIN.md found upstream.\n"
                 "  Action required: run 'just brain-map' to initialise the ledger.",
                 err=True,
             )
             raise typer.Exit(1)
-        # No ZENZIC_BRAIN.md — print for manual insertion
-        typer.echo(f"\n{MAP_START}")
-        typer.echo(map_block)
-        typer.echo(f"{MAP_END}")
-        typer.echo(
-            "\n[brain map] No ZENZIC_BRAIN.md found upstream. Output printed for manual insertion.",
-            err=True,
-        )
-        return
-
-    # ── Quartz Audit Gate (--check mode, CEO-257) ──────────────────────────────
-    if check:
         text = ledger.read_text(encoding="utf-8")
         start_idx = text.find(MAP_START)
         end_idx = text.find(MAP_END)
@@ -227,6 +275,31 @@ def brain_map(
         typer.echo(f"[brain map] ✔ {ledger.name} [CODE MAP] is in sync with src/ — memory intact.")
         return
 
+    # ── Export to file (--output) ──────────────────────────────────────────────
+    if output is not None:
+        output.write_text(output_text, encoding="utf-8")
+        typer.echo(f"[brain map] ✔ Output written to {output} ({output_format} format).")
+        return
+
+    # ── No ledger found — print to stdout ─────────────────────────────────────
+    if ledger is None:
+        if output_format != "json":
+            typer.echo(f"\n{MAP_START}")
+        typer.echo(output_text)
+        if output_format != "json":
+            typer.echo(f"{MAP_END}")
+        typer.echo(
+            "\n[brain map] No ZENZIC_BRAIN.md found upstream. Output printed for manual insertion.",
+            err=True,
+        )
+        return
+
+    # ── JSON format without --output: print to stdout and return ──────────────
+    if output_format == "json":
+        typer.echo(output_text)
+        return
+
+    # ── Ledger update (markdown format, no --output) ──────────────────────────
     try:
         updated = update_ledger(ledger, map_block)
     except ValueError as exc:

@@ -160,6 +160,19 @@ Registry: `src/zenzic/core/codes.py` — **single source of truth**. Never add a
 - `pyproject.toml` entry-point: `standalone = "zenzic.core.adapters:StandaloneAdapter"`.
 - When `zenzic init` finds no engine config, it writes `engine = "standalone"`.
 
+### Dependency Model
+
+Two complementary systems coexist:
+
+| System | Standard | Command | Scope |
+|--------|----------|---------|-------|
+| `[dependency-groups]` | PEP 735 | `uv sync --all-groups` / `just sync` | uv-native; primary source of truth for local dev |
+| `[project.optional-dependencies]` | PEP 508 | `uv pip install -e ".[dev]"` | pip/pipx compat; activates Identity Gate (CEO-246/268) |
+
+**`[project.optional-dependencies].dev`** (CEO-268): `nox`, `pytest`, `pytest-cov`, `mypy`, `ruff`, `reuse`, `types-toml`. This is the canonical "developer marker" that makes editable-install metadata machine-readable by the Identity Gate (`_is_dev_mode()` via PEP 610 `direct_url.json`).
+
+**Identity Gate invariant (ADR-017):** `_is_dev_mode()` detects editable installs via PEP 610 — not by checking extras. The `[dev]` extra's value is contributor ergonomics + formal metadata completeness, not the mechanism itself.
+
 ### Quality Gate
 
 - **Coverage:** ≥ 80% mandatory.
@@ -187,6 +200,7 @@ Registry: `src/zenzic/core/codes.py` — **single source of truth**. Never add a
 - **[INVARIANT] Proactivity:** Agents must notify the Tech Lead when a code change contradicts or expands current guidelines.
 - **[INVARIANT] Sovereignty:** This file is the single source of truth for agent behavior.
 - **[INVARIANT — D001 MEMORY_STALE]** Any change to `src/` that is not reflected in the `[CODE MAP]` of this file is a **Memory Staleness** violation. **Enforcement:** `zenzic brain map --check` (CEO-257) exits 1 with `D001 MEMORY_STALE` if the sovereign map is out of sync. The pre-commit `brain-map-check` hook blocks the commit. **Fix:** run `just brain-map` and stage `ZENZIC_BRAIN.md` before committing.
+- **[INVARIANT — D002 PERIMETER_LEAK]** Any `brain map` export (markdown, JSON, `--output` file) is gated by the **dual-spectrum** Environmental Privacy Gate (CEO-267). **Phase A (Output Audit):** the generated Markdown/JSON string is scanned before any write. **Phase B (Source Audit):** the raw text of every `.py` file under `src/` is scanned, making `#` comments, SPDX headers, and all raw content visible. Both phases run before any output is written or printed. If `.zenzic.dev.toml` declares `[development_gate].forbidden_patterns`, any match in either phase exits 1 with `D002 PERIMETER_LEAK`. Gate is **case-insensitive** (CEO-265). Absent file = silently disabled. Not configurable, not suppressible.
 
 ### The Sovereign Memory Law [MANDATORY] — CEO-183
 
@@ -309,7 +323,7 @@ tests/
 | `core/adapters/_utils.py` | `FileMetadata` | `case_sensitive_exists`, `remap_to_default_locale`, `extract_frontmatter_slug`, `extract_frontmatter_draft`, `extract_frontmatter_unlisted`, `extract_frontmatter_tags`, `build_metadata_cache` | Shared utilities for Zenzic adapters. |
 | `core/adapters/_zensical.py` | `ZensicalLegacyProxy`, `ZensicalAdapter` | `find_zensical_config`, `check_config_assets` | ZensicalAdapter — native adapter for the Zensical build engine. |
 | `core/cache.py` | `CacheManager` | `make_content_hash`, `make_config_hash`, `make_vsm_snapshot_hash`, `make_file_key` | Content-addressable cache for Zenzic rule results. |
-| `core/cartography.py` | `ModuleInfo` | `scan_python_sources`, `render_markdown_table`, `update_ledger` | Sovereign Cartographer — AST-based module mapper for AI context generation. |
+| `core/cartography.py` | `ModuleInfo` | `scan_python_sources`, `render_markdown_table`, `update_ledger`, `load_dev_gate`, `check_perimeter`, `render_json`, `check_sources_perimeter` | Sovereign Cartographer — AST-based module mapper for AI context generation. |
 | `core/codes.py` | `ZenzicExitCode`, `CoreScanner` | `get_sarif_name`, `normalize`, `label` | Zenzic Finding Code Registry. |
 | `core/discovery.py` | — | `walk_files`, `iter_locale_markdown_sources`, `iter_markdown_sources` | Centralised file-discovery utilities for the Zenzic Core. |
 | `core/exceptions.py` | `ZenzicError`, `ConfigurationError`, `EngineError`, `CheckError`, `NetworkError`, `PluginContractError` | — | Core exception hierarchy for Zenzic. |
@@ -519,6 +533,10 @@ tests/
 **CEO-249 "Deterministic Canary Hardening":** `_CANARY_STRINGS` lengths increased (n=30→50, n=25→40, n=20→32). `_CANARY_TIMEOUT_S` 0.1→0.05. Test pattern `(a|aa)+` → `(a+)+` (O(2^n) guaranteed). Passive `perf_counter` approach evaluated and rejected (CEO-249/252/253/254/255) — see ADR-018. ADR-018 added.
 
 **CEO-257/258 "Quartz Audit Gate":** `zenzic brain map --check` — read-only audit mode. Exits 1 with `D001 MEMORY_STALE` if the sovereign [CODE MAP] is out of sync with `src/`. No write, no Zone B audit, no shadow sync. Pre-commit hook `brain-map-check` added to `.pre-commit-config.yaml` — runs only on `src/` changes; Identity Gate wrapper makes it a no-op on non-editable installs (CI safe). D001 invariant added to [POLICIES] Memory Law. `tests/test_brain.py`: 5 new `TestBrainMapCheck` tests.
+
+**CEO-259–266 "Developer Integrity Seal + Environmental Privacy Gate":** `cartography.py`: 3 new pure functions — `load_dev_gate()` (reads `.zenzic.dev.toml` via `tomllib`), `check_perimeter()` (case-insensitive, CEO-265), `render_json()` (machine-readable AST export). `_brain.py`: `brain_map` extended with `--format markdown|json` and `--output PATH` flags; D002 gate runs before all output paths (before D001 audit in `--check` mode). `engineering-ledger.mdx` (EN+IT): "Developer Invariant Codes" section (D001/D002 table + subsections); "Exporting the Cortex" section (domain table, export modes, JSON schema); "Configuring the Environmental Gate" canonical TOML schema (CEO-266). `.zenzic.dev.toml` created in all 4 repos (local-only, git-ignored). `.gitignore` updated: Trinity (CEO-260) + `zenzic-brain`. D002 invariant added to [POLICIES] Memory Law. **Leak simulation:** `shield.py` module docstring probed with `[zenzic-brain]` — D002 fired, Exit 1 confirmed, probe removed. `tests/test_brain.py`: ~20 new tests pending (Fase 7).
+
+**CEO-267 "Full-Spectrum Perimeter Audit":** D002 evolved from single-scan to **dual-spectrum** gate. `cartography.py`: `check_sources_perimeter(scan_root, forbidden) -> list[tuple[str, str]]` — reads raw text of every `.py` file, catches `#` comments, SPDX headers, and all non-AST content. `_brain.py`: D002 block split into Phase A (output audit, unchanged) + Phase B (source audit via `check_sources_perimeter`). Output now distinguishes `[Phase A — Generated output]` from `[Phase B — Source files]`. D002 invariant in [POLICIES] updated to dual-spectrum. `engineering-ledger.mdx` (EN+IT): D002 Behaviour section updated with Phase A/B explanation. **Dual-spectrum verification:** `shield.py` probed with `#` comment containing `zenzic-brain` — Phase B fired, Exit 1, probe removed.
 
 **Tests:** 1,443 passed · coverage 83% (3.11/3.12/3.13).
 

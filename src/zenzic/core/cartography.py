@@ -15,6 +15,9 @@ Pillars:
 from __future__ import annotations
 
 import ast
+import dataclasses
+import json
+import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -131,3 +134,78 @@ def update_ledger(ledger_path: Path, map_block: str) -> bool:
 
     ledger_path.write_text(new_text, encoding="utf-8")
     return True
+
+
+def load_dev_gate(repo_root: Path) -> list[str]:
+    """Load forbidden patterns from ``.zenzic.dev.toml`` in *repo_root*.
+
+    Returns the list of strings declared under
+    ``[development_gate].forbidden_patterns``.  If the file is absent, the
+    section is missing, or the key is missing, returns an empty list — the
+    gate is silently disabled (zero-noise default).
+
+    Pure at the decision layer — all I/O is isolated in this function.
+    """
+    dev_toml = repo_root / ".zenzic.dev.toml"
+    if not dev_toml.exists():
+        return []
+    try:
+        data = tomllib.loads(dev_toml.read_text(encoding="utf-8"))
+    except (tomllib.TOMLDecodeError, OSError):
+        return []
+    raw = data.get("development_gate", {}).get("forbidden_patterns", [])
+    return [str(p) for p in raw] if isinstance(raw, list) else []
+
+
+def check_perimeter(text: str, forbidden: list[str]) -> list[str]:
+    """Check *text* for any of the *forbidden* patterns.
+
+    Comparison is **case-insensitive** (CEO-265): both *text* and each
+    pattern are normalised to lower-case before matching — patterns and
+    text are both lowered before the ``in`` check.
+
+    Returns the list of violated patterns in their original case as declared
+    in ``.zenzic.dev.toml``.  Pure function — no I/O, no side effects.
+    """
+    normalised = text.lower()
+    return [p for p in forbidden if p.lower() in normalised]
+
+
+def render_json(modules: list[ModuleInfo]) -> str:
+    """Render *modules* as a machine-readable JSON string.
+
+    The output is a JSON array where each element corresponds to one
+    ``ModuleInfo`` with keys ``rel_path``, ``classes``, ``public_functions``,
+    and ``docstring``.  Sorted deterministically — the input list is already
+    sorted by ``scan_python_sources``.  Pure function — no I/O.
+    """
+    return json.dumps([dataclasses.asdict(m) for m in modules], indent=2)
+
+
+def check_sources_perimeter(scan_root: Path, forbidden: list[str]) -> list[tuple[str, str]]:
+    """Scan **raw text** of every ``.py`` file under *scan_root* for forbidden patterns.
+
+    Unlike the output-audit path (which checks the generated Markdown/JSON
+    string), this function reads each source file byte-by-byte so that
+    ``#`` comments, inline annotations, and any other raw content are visible.
+    This is the Phase-B (Source Audit) component of the D002 dual-spectrum
+    gate (CEO-267).
+
+    Returns a list of ``(rel_path, pattern)`` tuples — one entry per
+    (file × violated-pattern) pair.  The list is sorted by rel_path then
+    pattern for deterministic output.
+
+    Pure except for file reads.  Does not raise — unreadable files are
+    silently skipped (OSError).
+    """
+    violations: list[tuple[str, str]] = []
+    for py_file in sorted(scan_root.rglob("*.py")):
+        try:
+            raw = py_file.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        hits = check_perimeter(raw, forbidden)
+        rel = str(py_file.relative_to(scan_root))
+        for p in hits:
+            violations.append((rel, p))
+    return violations

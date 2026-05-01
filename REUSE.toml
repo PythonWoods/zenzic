@@ -85,7 +85,7 @@ SPDX-License-Identifier = "Apache-2.0"
 # ── Project root — configuration ──────────────────────────────────────────────
 
 [[annotations]]
-path = ["pyproject.toml", "mkdocs.yml", "zenzic.toml", "zensical.toml", "uv.lock", "justfile"]
+path = ["pyproject.toml", "mkdocs.yml", "zenzic.toml", "zensical.toml", "uv.lock", "justfile", ".zenzic.dev.toml"]
 SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
 SPDX-License-Identifier = "Apache-2.0"
 

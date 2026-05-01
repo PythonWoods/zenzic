@@ -56,6 +56,22 @@ Repository    = "https://github.com/PythonWoods/zenzic"
 Changelog     = "https://github.com/PythonWoods/zenzic/blob/main/CHANGELOG.md"
 Issues        = "https://github.com/PythonWoods/zenzic/issues"
 
+# ─── Optional extras (PEP 508 — pip / pipx compat) ───────────────────────────
+# Use:  uv pip install -e ".[dev]"   (activates Identity Gate, CEO-246/268)
+# Note: uv-native dependency groups (PEP 735) remain the primary source of
+#       truth for local dev; this extra exists for pip/pipx/CI compatibility.
+
+[project.optional-dependencies]
+dev = [
+    "nox>=2024.10.11",
+    "pytest>=8.0.0",
+    "pytest-cov>=5.0.0",
+    "mypy>=1.10.0",
+    "ruff>=0.4.0",
+    "reuse>=3.0.0",
+    "types-toml",
+]
+
 # ─── Build ────────────────────────────────────────────────────────────────────
 
 [tool.hatch.build.targets.wheel]
