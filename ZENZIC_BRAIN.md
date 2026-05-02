@@ -578,7 +578,9 @@ Remove false-positive patterns from `forbidden_patterns` fleet-wide. Only identi
 
 **CEO-298 "Parallel Fail-Fast":** `scan_docs_references()` coordinator replaced with `concurrent.futures.wait(FIRST_COMPLETED)` + local `_abort` flag. On first `SecurityFinding` in a worker result, all still-queued (`PENDING`) futures are cancelled; `RUNNING` workers complete silently (results discarded). ZRT-002 deadlock guard preserved (`not done:` → Z009). `_worker()` and `_scan_single_file()` unchanged (Pillar 3). D001 MEMORY_STALE healed: `AdaptiveRuleEngine` description corrected in [ARCHITECTURE] and `scanner.py` comment. ADR-020 added. `tests/test_integration_finale.py`: 3 new CEO-298 regression tests.
 
-**Tests:** 1,452 passed · ≥83% coverage · branch: release/v0.7.0
+**CEO-DX "CLI DX Refactoring — `brain map`":** `_brain.py` refactored to eliminate 5 UX debt items. Short flags: `-c` (alias `--check`), `-f` (alias `--format`). Smart Format Inference: `output_format` changed to `str | None`; when `None`, format inferred from `--output` file extension (`.json` → `json`, `.md` → `markdown`; unknown extension → Exit 2 graceful). Conflict detection: `--format md` + `-o out.json` → Exit 2 with clear message (Fail Fast and Loud invariant). Directory auto-creation: `output.parent.mkdir(parents=True, exist_ok=True)` before `write_text`. `tests/test_brain.py`: 7 new `TestBrainMapDX` tests (91 total in module).
+
+**Tests:** 1,509 passed · ≥83% coverage · branch: release/v0.7.0
 
 ### Last Closed — D096 — Quartz Discovery, SARIF Sovereignty & Brain Curation
 

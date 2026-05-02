@@ -156,6 +156,7 @@ def brain_map(
         bool,
         typer.Option(
             "--check",
+            "-c",
             help=(
                 "Audit mode: compare the generated [CODE MAP] against "
                 "ZENZIC_BRAIN.md without writing. "
@@ -165,12 +166,17 @@ def brain_map(
         ),
     ] = False,
     output_format: Annotated[
-        str,
+        str | None,
         typer.Option(
             "--format",
-            help="Output format: 'markdown' (default, updates the Ledger) or 'json' (machine-readable).",
+            "-f",
+            help=(
+                "Output format: 'markdown' (default, updates the Ledger) or "
+                "'json' (machine-readable). "
+                "Inferred from --output file extension if omitted."
+            ),
         ),
-    ] = "markdown",
+    ] = None,
     output: Annotated[
         Path | None,
         typer.Option(
@@ -208,6 +214,42 @@ def brain_map(
         raise typer.Exit(1)
 
     map_block = render_markdown_table(modules)
+
+    # ── Smart Format Inference ─────────────────────────────────────────────────
+    # If --format was not passed explicitly (output_format is None), infer from
+    # the --output file extension.  If -o is absent too, default to "markdown".
+    _SUPPORTED_EXTENSIONS: dict[str, str] = {".json": "json", ".md": "markdown"}
+    if output_format is None:
+        if output is not None:
+            inferred = _SUPPORTED_EXTENSIONS.get(output.suffix.lower())
+            if inferred:
+                output_format = inferred
+            else:
+                supported = ", ".join(f"'{ext}'" for ext in _SUPPORTED_EXTENSIONS)
+                typer.echo(
+                    f"ERROR: Cannot infer output format from extension "
+                    f"'{output.suffix or '(none)'}'. "
+                    f"Use --format to specify explicitly. "
+                    f"Supported extensions: {supported}.",
+                    err=True,
+                )
+                raise typer.Exit(2)
+        else:
+            output_format = "markdown"
+    else:
+        # --format was explicit — check for conflicts with the -o extension.
+        if output is not None:
+            inferred = _SUPPORTED_EXTENSIONS.get(output.suffix.lower())
+            if inferred and inferred != output_format:
+                typer.echo(
+                    f"ERROR: Conflicting format specification.\n"
+                    f"  --format '{output_format}' conflicts with output extension "
+                    f"'{output.suffix}'.\n"
+                    f"  Fix: omit --format to infer from the extension, "
+                    f"or change the file extension.",
+                    err=True,
+                )
+                raise typer.Exit(2)
 
     # Generate output_text for the requested format
     if output_format == "json":
@@ -289,6 +331,7 @@ def brain_map(
 
     # ── Export to file (--output) ──────────────────────────────────────────────
     if output is not None:
+        output.parent.mkdir(parents=True, exist_ok=True)
         output.write_text(output_text, encoding="utf-8")
         typer.echo(f"[brain map] ✔ Output written to {output} ({output_format} format).")
         return

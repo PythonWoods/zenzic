@@ -971,3 +971,162 @@ class TestDiscoveryPurity:
         (tmp_path / "clean.py").write_text('"""No forbidden content."""\n', encoding="utf-8")
         result = check_sources_perimeter(tmp_path, [_SYNTHETIC_FORBIDDEN])
         assert result == []
+
+
+# ─── CLI DX Refactoring (CEO-DX) ──────────────────────────────────────────────
+
+
+class TestBrainMapDX:
+    """CLI Developer Experience tests for ``zenzic brain map`` (CEO-DX).
+
+    Covers: short flags, format inference, conflict detection, directory
+    auto-creation.
+    """
+
+    def _make_src(self, base: Path) -> None:
+        """Create a minimal src/mypkg/ layout with one Python module."""
+        pkg = base / "src" / "mypkg"
+        pkg.mkdir(parents=True)
+        (pkg / "__init__.py").write_text("", encoding="utf-8")
+        (pkg / "core.py").write_text(
+            '"""Core module."""\n\ndef run() -> None:\n    pass\n', encoding="utf-8"
+        )
+
+    def _make_ledger(self, base: Path) -> Path:
+        """Create a ZENZIC_BRAIN.md with valid MAP markers (empty map body)."""
+        from zenzic.core.cartography import (
+            MAP_END,
+            MAP_START,
+            render_markdown_table,
+            scan_python_sources,
+        )
+
+        src_root = base / "src" / "mypkg"
+        modules = scan_python_sources(src_root)
+        map_block = render_markdown_table(modules)
+        ledger = base / "ZENZIC_BRAIN.md"
+        ledger.write_text(
+            f"# Header\n\n{MAP_START}\n{map_block}\n{MAP_END}\n\nFooter\n",
+            encoding="utf-8",
+        )
+        return ledger
+
+    # ── Short Flags ─────────────────────────────────────────────────────────
+
+    def test_short_flag_c_check_passes_in_sync(self, tmp_path: Path) -> None:
+        """-c behaves identically to --check (exit 0 when ledger is in sync)."""
+        from typer.testing import CliRunner
+
+        from zenzic.cli._brain import brain_app
+
+        self._make_src(tmp_path)
+        self._make_ledger(tmp_path)
+
+        runner = CliRunner()
+        result = runner.invoke(brain_app, [str(tmp_path), "-c"])
+        assert result.exit_code == 0, result.output
+        assert "memory intact" in result.output
+
+    def test_short_flag_f_json_outputs_json(self, tmp_path: Path) -> None:
+        """-f json behaves identically to --format json (stdout is valid JSON)."""
+        from typer.testing import CliRunner
+
+        from zenzic.cli._brain import brain_app
+
+        self._make_src(tmp_path)
+
+        runner = CliRunner()
+        result = runner.invoke(brain_app, [str(tmp_path), "-f", "json"])
+        assert result.exit_code == 0, result.output
+        # stdout has a "[brain map]" progress line before the JSON array.
+        # Use raw_decode starting from the "[\n" that opens the JSON array.
+        json_start = result.output.index("[\n")
+        parsed, _ = json.JSONDecoder().raw_decode(result.output, json_start)
+        assert isinstance(parsed, list)
+
+    # ── Directory Auto-Creation ──────────────────────────────────────────────
+
+    def test_output_creates_parent_dirs(self, tmp_path: Path) -> None:
+        """-o with non-existent parent dirs creates them automatically."""
+        from typer.testing import CliRunner
+
+        from zenzic.cli._brain import brain_app
+
+        self._make_src(tmp_path)
+        deep_output = tmp_path / "a" / "b" / "c" / "out.md"
+
+        runner = CliRunner()
+        result = runner.invoke(brain_app, [str(tmp_path), "-o", str(deep_output)])
+        assert result.exit_code == 0, result.output
+        assert deep_output.exists(), "Output file was not created"
+
+    # ── Smart Format Inference ───────────────────────────────────────────────
+
+    def test_infer_json_format_from_dot_json_extension(self, tmp_path: Path) -> None:
+        """-o out.json without --format produces a valid JSON file."""
+        from typer.testing import CliRunner
+
+        from zenzic.cli._brain import brain_app
+
+        self._make_src(tmp_path)
+        out_file = tmp_path / "report.json"
+
+        runner = CliRunner()
+        result = runner.invoke(brain_app, [str(tmp_path), "-o", str(out_file)])
+        assert result.exit_code == 0, result.output
+        assert out_file.exists()
+        content = out_file.read_text(encoding="utf-8")
+        parsed = json.loads(content)  # must be valid JSON, not Markdown
+        assert isinstance(parsed, list)
+
+    def test_infer_markdown_format_from_dot_md_extension(self, tmp_path: Path) -> None:
+        """-o out.md without --format produces a Markdown file (not JSON)."""
+        from typer.testing import CliRunner
+
+        from zenzic.cli._brain import brain_app
+
+        self._make_src(tmp_path)
+        out_file = tmp_path / "report.md"
+
+        runner = CliRunner()
+        result = runner.invoke(brain_app, [str(tmp_path), "-o", str(out_file)])
+        assert result.exit_code == 0, result.output
+        assert out_file.exists()
+        content = out_file.read_text(encoding="utf-8")
+        # Markdown output contains the table header — not a JSON array
+        assert content.startswith("#") or "| File |" in content
+        # Must NOT be valid JSON
+        with pytest.raises((json.JSONDecodeError, ValueError)):
+            json.loads(content)
+
+    # ── Conflict & Error Cases ───────────────────────────────────────────────
+
+    def test_conflict_format_vs_extension_exits_2(self, tmp_path: Path) -> None:
+        """-o out.json --format markdown exits 2 with a clear error message."""
+        from typer.testing import CliRunner
+
+        from zenzic.cli._brain import brain_app
+
+        self._make_src(tmp_path)
+        out_file = tmp_path / "report.json"
+
+        runner = CliRunner()
+        result = runner.invoke(
+            brain_app, [str(tmp_path), "-o", str(out_file), "--format", "markdown"]
+        )
+        assert result.exit_code == 2, result.output
+        assert "conflict" in result.output.lower() or "format" in result.output.lower()
+
+    def test_unknown_extension_without_format_exits_2(self, tmp_path: Path) -> None:
+        """-o out.xyz without --format exits 2 listing supported extensions."""
+        from typer.testing import CliRunner
+
+        from zenzic.cli._brain import brain_app
+
+        self._make_src(tmp_path)
+        out_file = tmp_path / "report.xyz"
+
+        runner = CliRunner()
+        result = runner.invoke(brain_app, [str(tmp_path), "-o", str(out_file)])
+        assert result.exit_code == 2, result.output
+        assert ".json" in result.output or "supported" in result.output.lower()
