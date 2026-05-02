@@ -41,16 +41,37 @@ Zenzic builds a **Virtual Site Map (VSM)** — a projection of the final site in
 - [ ] New architectural facts? → Update **[ARCHITECTURE]**
 - [ ] New decisions made? → Add an **[ADR]** entry (tagged `[DECISION]`)
 - [ ] Bug found and fixed? → Promote the lesson to a **[POLICY]** rule or **[ADR]** (permanent invariants only). Update **[ACTIVE SPRINT]**.
-- [ ] Sprint complete? → Update **[ACTIVE SPRINT]**. Purge previous-sprint entry to `CHANGELOG.md`.
+- [ ] Sprint complete? → Update **[ACTIVE SPRINT]**: set the current sprint heading to `### Dxxx — Title (Current)` where `Dxxx` is the **same sprint number** used in `CHANGELOG.md`. Promote the previous current sprint to `### Last Closed — Dxxx-1`. Purge older entries to `CHANGELOG.md`.
 - [ ] **Size Guardrail:** This file exceeds 400 lines? → Trigger a curation task (Law of Evolutionary Curation).
 
 ### Step 2 — Update Changelogs
 
-- [ ] `CHANGELOG.md` — add sprint section under current version heading
-- [ ] `CHANGELOG.it.md` — Italian translation of the same section
+- [ ] `CHANGELOG.md` — insert new sprint at the **TOP** of `## [Unreleased]` (newest first)
+- [ ] `CHANGELOG.it.md` — Italian mirror of the same section, same position
 - [ ] `RELEASE.md` — keep concise and marketing-ready (max 200 lines — Law of Executive Brevity)
 - [ ] **Archive Check:** If `CHANGELOG.md` exceeds 500 lines → move pre-v0.6.0 versions to `CHANGELOG.archive.md` (Sentinel Archive Protocol).
 - [ ] **Executive Filter:** Review `RELEASE.md`. Technical fluff (mutation tables, internal bug IDs, CVE traces) belongs in `CHANGELOG.md` or `explanation/architecture.mdx` — not in the release notes.
+
+**[INVARIANT] CHANGELOG Ordering & Structure (CEO-293):**
+
+```text
+## [Unreleased]           ← always the first heading after the preamble
+                          ← newest sprint FIRST; older sprints below
+### Dxxx — Title (YYYY-MM-DD)   ← one heading per sprint
+#### Added / #### Fixed / #### CEO-nnn — SubTitle   ← CEO groups as sub-headings
+#### Tests                ← MANDATORY, always LAST in the sprint block
+- **N,NNN passed · ≥NN% coverage** (Python 3.11/3.12/3.13). No regressions.
+---                       ← separator between sprints
+### Dxxx-1 — Older Sprint (YYYY-MM-DD)
+...
+## [X.Y.Z] — YYYY-MM-DD — Codename   ← previous release below [Unreleased]
+```
+
+**Release cycle mechanics:**
+
+- At release: rename `## [Unreleased]` → `## [X.Y.Z] — date — Codename`; add a fresh `## [Unreleased]` above it.
+- The new `## [Unreleased]` starts empty (no sprint entries) until the next commit adds one.
+- CHANGELOG.it.md follows the same structure exactly (Italian content, identical hierarchy).
 
 ### Step 3 — Staleness & Testimony Audit
 
@@ -537,7 +558,17 @@ Remove false-positive patterns from `forbidden_patterns` fleet-wide. Only identi
 <!-- ZONE_B_START -->
 ## [ACTIVE SPRINT] — Working Context
 
-### D096 — Quartz Discovery, SARIF Sovereignty & Brain Curation (Current)
+### D097 — CLOSING PROTOCOL Enforcement (Current)
+
+**Version:** 0.7.0 · **Sprint:** 2026-05-01
+
+**CEO-293 "CHANGELOG Ordering Invariant":** Step 2 of CLOSING PROTOCOL extended with explicit ordering rules: newest sprint TOP of `[Unreleased]`, each sprint a `### Dxxx` heading, CEO groups as `#### CEO-nnn` sub-headings, `#### Tests` count mandatory and LAST. CHANGELOG.md + CHANGELOG.it.md D097 entry added. CONTRIBUTING.md point 4 (CHANGELOG same-commit law) added.
+
+**CLOSING PROTOCOL completion for D096:** CHANGELOG.md and CHANGELOG.it.md updated with all CEO-242..283 + CEO-252 entries. README.md + README.it.md CLI synopsis updated (`--no-external`). Structural fix: duplicate `#### Tests` removed; `### D095` heading restored.
+
+**Tests:** 1,452 passed · ≥83% coverage · branch: release/v0.7.0
+
+### Last Closed — D096 — Quartz Discovery, SARIF Sovereignty & Brain Curation
 
 **Version:** 0.7.0 · **Sprint:** 2026-04-30
 

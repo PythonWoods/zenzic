@@ -249,3 +249,138 @@ def test_telemetry_sequential_no_speedup_line(tmp_path: Path) -> None:
         scan_docs_references(docs_root, mgr, config=config, verbose=True)
 
     assert "speedup" not in captured.getvalue().lower()
+
+
+# ─── CEO-298 Parallel Fail-Fast ───────────────────────────────────────────────
+
+
+def test_parallel_fail_fast_aborts_pending_on_breach(tmp_path: Path) -> None:
+    """CEO-298: a security breach in one worker causes pending futures to be cancelled.
+
+    We replace ProcessPoolExecutor with ThreadPoolExecutor so that the _worker
+    mock (which must live in the same process to be patchable) is visible to the
+    coordinator. The wait(FIRST_COMPLETED) + _abort logic is executor-agnostic.
+    """
+    import concurrent.futures
+
+    from zenzic.core.shield import SecurityFinding
+    from zenzic.models.references import IntegrityReport
+
+    n = ADAPTIVE_PARALLEL_THRESHOLD
+    repo = _make_docs(tmp_path, n_files=n)
+    config = ZenzicConfig()
+    docs_root = repo / config.docs_dir
+    md_files = sorted(docs_root.glob("*.md"))
+    assert len(md_files) == n
+
+    breach_file = md_files[0]
+    breach_finding = SecurityFinding(
+        file_path=breach_file,
+        line_no=1,
+        secret_type="test-secret",
+        url="ghp_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    )
+
+    def _mock_worker(args):  # noqa: ANN001
+        md_file, _cfg, _eng = args
+        if md_file == breach_file:
+            return IntegrityReport(
+                file_path=md_file,
+                score=0.0,
+                security_findings=[breach_finding],
+            )
+        return IntegrityReport(file_path=md_file, score=100.0)
+
+    # Replace ProcessPoolExecutor with ThreadPoolExecutor so the mock is
+    # visible inside the executor (same process, shared address space).
+    with patch("concurrent.futures.ProcessPoolExecutor", concurrent.futures.ThreadPoolExecutor):
+        with patch("zenzic.core.scanner._worker", side_effect=_mock_worker):
+            mgr = make_mgr(config, repo_root=repo)
+            reports, _ = scan_docs_references(docs_root, mgr, config=config, workers=2)
+
+    # At least the breach report must be present.
+    breached = [r for r in reports if r.security_findings]
+    assert len(breached) >= 1, "Expected at least one security breach report"
+
+    # CEO-298 invariant: final list is sorted by file_path.
+    paths = [r.file_path for r in reports]
+    assert paths == sorted(paths), "Results must be sorted by file_path"
+
+
+def test_parallel_zrt002_deadlock_guard_emits_z009(tmp_path: Path) -> None:
+    """ZRT-002 preserved: when no worker completes within _WORKER_TIMEOUT_S, Z009 is emitted."""
+    import concurrent.futures
+    import threading
+
+    import zenzic.core.scanner as scanner_mod
+    from zenzic.models.references import IntegrityReport
+
+    n = ADAPTIVE_PARALLEL_THRESHOLD
+    repo = _make_docs(tmp_path, n_files=n)
+    config = ZenzicConfig()
+    docs_root = repo / config.docs_dir
+
+    _hang_event = threading.Event()
+
+    def _hanging_worker(args):  # noqa: ANN001
+        _hang_event.wait(timeout=60)  # block until released by test cleanup
+        md_file, _, _ = args
+        return IntegrityReport(file_path=md_file, score=100.0)
+
+    original_timeout = scanner_mod._WORKER_TIMEOUT_S
+    try:
+        scanner_mod._WORKER_TIMEOUT_S = 1  # shorten for test speed
+        with patch("concurrent.futures.ProcessPoolExecutor", concurrent.futures.ThreadPoolExecutor):
+            with patch("zenzic.core.scanner._worker", side_effect=_hanging_worker):
+                mgr = make_mgr(config, repo_root=repo)
+                reports, _ = scan_docs_references(docs_root, mgr, config=config, workers=2)
+    finally:
+        scanner_mod._WORKER_TIMEOUT_S = original_timeout
+        _hang_event.set()  # unblock any lingering threads
+
+    # ZRT-002: every stalled file must produce a Z009 finding.
+    z009_reports = [r for r in reports if any(f.rule_id == "Z009" for f in r.rule_findings)]
+    assert len(z009_reports) >= 1, "Expected at least one Z009 timeout finding"
+
+
+def test_parallel_results_sorted_after_fail_fast(tmp_path: Path) -> None:
+    """CEO-298: the final reports list is sorted by file_path even with partial scan."""
+    import concurrent.futures
+
+    from zenzic.core.shield import SecurityFinding
+    from zenzic.models.references import IntegrityReport
+
+    n = ADAPTIVE_PARALLEL_THRESHOLD
+    repo = _make_docs(tmp_path, n_files=n)
+    config = ZenzicConfig()
+    docs_root = repo / config.docs_dir
+    md_files = sorted(docs_root.glob("*.md"))
+
+    # Breach on the last file alphabetically — many workers complete before it.
+    breach_file = md_files[-1]
+    breach_finding = SecurityFinding(
+        file_path=breach_file,
+        line_no=1,
+        secret_type="test-secret",
+        url="ghp_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    )
+
+    def _mock_worker(args):  # noqa: ANN001
+        md_file, _cfg, _eng = args
+        if md_file == breach_file:
+            return IntegrityReport(
+                file_path=md_file,
+                score=0.0,
+                security_findings=[breach_finding],
+            )
+        return IntegrityReport(file_path=md_file, score=100.0)
+
+    with patch("concurrent.futures.ProcessPoolExecutor", concurrent.futures.ThreadPoolExecutor):
+        with patch("zenzic.core.scanner._worker", side_effect=_mock_worker):
+            mgr = make_mgr(config, repo_root=repo)
+            reports, _ = scan_docs_references(docs_root, mgr, config=config, workers=2)
+
+    paths = [r.file_path for r in reports]
+    assert paths == sorted(paths), (
+        "Results must be sorted by file_path regardless of completion order"
+    )

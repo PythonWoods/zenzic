@@ -1207,18 +1207,46 @@ def scan_docs_references(
         # GA-1 fix: use actual_workers for the executor (not the raw `workers`
         # sentinel) so max_workers always matches what telemetry reports.
         with concurrent.futures.ProcessPoolExecutor(max_workers=actual_workers) as executor:
-            # ZRT-002 fix: use submit() + future.result(timeout=...) instead of
-            # executor.map().  This prevents a deadlocked worker (e.g. from a
-            # ReDoS pattern in [[custom_rules]]) from blocking the entire scan.
+            # CEO-298 fail-fast + ZRT-002: use wait(FIRST_COMPLETED) to process
+            # results in completion order and cancel queued tasks immediately on
+            # the first security breach (Z201–Z203).
+            # ZRT-002 preserved: if no future completes within _WORKER_TIMEOUT_S,
+            # all remaining workers are emitted as Z009 (deadlock guard).
             futures_map = {executor.submit(_worker, item): item[0] for item in work_items}
             raw: list[IntegrityReport] = []
-            for fut, md_file in futures_map.items():
-                try:
-                    raw.append(fut.result(timeout=_WORKER_TIMEOUT_S))
-                except concurrent.futures.TimeoutError:
-                    raw.append(_make_timeout_report(md_file))
-                except Exception as exc:  # noqa: BLE001
-                    raw.append(_make_error_report(md_file, exc))
+            _abort = False
+            _pending: set[concurrent.futures.Future[IntegrityReport]] = set(futures_map)
+            while _pending:
+                done, _pending = concurrent.futures.wait(
+                    _pending,
+                    timeout=_WORKER_TIMEOUT_S,
+                    return_when=concurrent.futures.FIRST_COMPLETED,
+                )
+                if not done:
+                    # ZRT-002 deadlock guard: no worker completed within the
+                    # timeout window — treat all stalled workers as Z009.
+                    for fut in _pending:
+                        raw.append(_make_timeout_report(futures_map[fut]))
+                        fut.cancel()
+                    break
+                for fut in done:
+                    md_file = futures_map[fut]
+                    if _abort:
+                        continue  # discard results after a security breach
+                    try:
+                        report = fut.result()
+                        raw.append(report)
+                        if report.security_findings:
+                            # CEO-298: cancel all still-queued (PENDING) tasks.
+                            # RUNNING workers cannot be interrupted — they
+                            # complete and their results are discarded above.
+                            _abort = True
+                            for pending_fut in _pending:
+                                pending_fut.cancel()
+                    except concurrent.futures.CancelledError:
+                        pass  # intentional abort — no report emitted
+                    except Exception as exc:  # noqa: BLE001
+                        raw.append(_make_error_report(md_file, exc))
 
         reports: list[IntegrityReport] = sorted(raw, key=lambda r: r.file_path)
 
@@ -1297,7 +1325,7 @@ def scan_docs_references(
 # ─── Adaptive parallel worker ─────────────────────────────────────────────────
 
 #: Files below this threshold are scanned sequentially (zero process-spawn
-#: overhead).  Above it, the AdaptiveRuleEngine switches to a
+#: overhead).  Above it, scan_docs_references() switches to a
 #: ProcessPoolExecutor automatically.  Exposed as a module constant so tests
 #: can override it without patching private internals.
 ADAPTIVE_PARALLEL_THRESHOLD: int = 50

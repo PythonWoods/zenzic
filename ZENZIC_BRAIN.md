@@ -283,7 +283,7 @@ src/zenzic/
     reporter.py             — SentinelReporter; renders Finding objects to Rich output
     scanner.py              — File discovery, _visible_word_count, check_placeholder_content
     validator.py            — Link/anchor/path-traversal validation; Z104 Did-you-mean hints
-    rules.py                — AdaptiveRuleEngine (auto parallel/sequential at 50-file threshold)
+    rules.py                — AdaptiveRuleEngine; sequential rule runner (ReDoS canary in __init__; parallelism owned by scan_docs_references() in scanner.py)
     shield.py               — Credential scanner; scan_lines_with_lookback; safe_read_line
     scorer.py               — Quality score engine
     discovery.py            — Universal discovery: walk_files, iter_markdown_sources
@@ -555,6 +555,16 @@ Tests for D002 must never contain the forbidden literal in plain text on disk. I
 **CEO-280 — Lean Perimeter Standard:**
 Remove false-positive patterns from `forbidden_patterns` fleet-wide. Only identifiers whose presence in a public export constitutes a real leak belong in the gate. SPDX author names (appear in every header — not a leak), `.gitignore`-duplicated paths (already excluded by VCS), and internal IPs (not a structural secret) were removed from all 4 repos. Result: one entry per repo.
 
+### ADR-020: Parallel Audit Completeness vs. Fail-Fast (CEO-298)
+
+**[DECISION]** From v0.7.0, the parallel coordinator in `scan_docs_references()` uses `concurrent.futures.wait(return_when=FIRST_COMPLETED)` to process results in completion order, with immediate cancellation of queued tasks on the first security breach (Z201/Z202/Z203). ZRT-002 deadlock protection is preserved.
+
+- **Why `Manager().Event()` was rejected:** Passing a manager event to `_worker()` makes it stateful — its output would depend on external shared state, violating Pillar 3 (Pure Functions). `_worker()` and `_scan_single_file()` are unchanged.
+- **Why `as_completed()` was replaced by `wait()`:** `as_completed()` provides no per-batch timeout. A deadlocked final worker blocks the generator indefinitely. `wait(timeout=_WORKER_TIMEOUT_S, FIRST_COMPLETED)` triggers the ZRT-002 deadlock guard (empty `done` set) unconditionally.
+- **Cancellation semantics:** `future.cancel()` operates only on `PENDING` (unstarted) tasks. `RUNNING` workers complete and their results are silently discarded. Fail-fast is a best-effort CI optimisation, not an execution guarantee.
+- **Determinism invariant:** Results are always sorted by `file_path` post-collection regardless of completion order.
+- **Full ADR:** `docs/community/developers/explanation/adr-parallel-early-termination.mdx` (EN+IT) in zenzic-doc.
+
 <!-- ZONE_B_START -->
 ## [ACTIVE SPRINT] — Working Context
 
@@ -565,6 +575,8 @@ Remove false-positive patterns from `forbidden_patterns` fleet-wide. Only identi
 **CEO-293 "CHANGELOG Ordering Invariant":** Step 2 of CLOSING PROTOCOL extended with explicit ordering rules: newest sprint TOP of `[Unreleased]`, each sprint a `### Dxxx` heading, CEO groups as `#### CEO-nnn` sub-headings, `#### Tests` count mandatory and LAST. CHANGELOG.md + CHANGELOG.it.md D097 entry added. CONTRIBUTING.md point 4 (CHANGELOG same-commit law) added.
 
 **CLOSING PROTOCOL completion for D096:** CHANGELOG.md and CHANGELOG.it.md updated with all CEO-242..283 + CEO-252 entries. README.md + README.it.md CLI synopsis updated (`--no-external`). Structural fix: duplicate `#### Tests` removed; `### D095` heading restored.
+
+**CEO-298 "Parallel Fail-Fast":** `scan_docs_references()` coordinator replaced with `concurrent.futures.wait(FIRST_COMPLETED)` + local `_abort` flag. On first `SecurityFinding` in a worker result, all still-queued (`PENDING`) futures are cancelled; `RUNNING` workers complete silently (results discarded). ZRT-002 deadlock guard preserved (`not done:` → Z009). `_worker()` and `_scan_single_file()` unchanged (Pillar 3). D001 MEMORY_STALE healed: `AdaptiveRuleEngine` description corrected in [ARCHITECTURE] and `scanner.py` comment. ADR-020 added. `tests/test_integration_finale.py`: 3 new CEO-298 regression tests.
 
 **Tests:** 1,452 passed · ≥83% coverage · branch: release/v0.7.0
 
