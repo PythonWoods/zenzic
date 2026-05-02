@@ -44,9 +44,46 @@ speculative Base64 decoding. Supersedes v0.6.1.
   `### D095` heading restored with correct `---` separator. Root cause: insertion used the
   `#### Tests` + `---` + heading as `oldString` context and consumed the separator.
 
+#### CEO-298 — Parallel Fail-Fast
+
+- **`scan_docs_references()` coordinator** replaced with `concurrent.futures.wait(FIRST_COMPLETED)` +
+  local `_abort` flag. First `SecurityFinding` in any worker result cancels all still-queued
+  (`PENDING`) futures; `RUNNING` workers complete and their results are silently discarded.
+- **ZRT-002 deadlock guard** preserved: empty `done` set → Z009. `_worker()` and
+  `_scan_single_file()` unchanged (Pillar 3).
+- **ADR-020** added: Parallel Audit Completeness vs. Fail-Fast.
+- **`tests/test_integration_finale.py`:** 3 new CEO-298 regression tests (fail-fast abort,
+  ZRT-002 Z009 guard, sorted output invariant).
+
+#### CEO-DX — CLI DX Refactoring (`brain map`)
+
+- **Short flags:** `-c` alias for `--check`, `-f` alias for `--format`.
+- **Smart Format Inference:** `output_format` changed to `str | None`; inferred from `--output`
+  file extension when not provided (`.json` → `json`, `.md` → `markdown`; unknown extension →
+  Exit 2 graceful).
+- **Conflict detection:** `--format md` + `-o out.json` → Exit 2 with clear message
+  (Fail Fast and Loud invariant).
+- **Directory auto-creation:** `output.parent.mkdir(parents=True, exist_ok=True)` before
+  `write_text` — no more `FileNotFoundError` on deep paths.
+- **`tests/test_brain.py`:** 7 new `TestBrainMapDX` tests (91 total in module).
+
+#### CEO-DX-Global — Global CLI DX Standardization
+
+- **GAP-00:** `brain_map` path argument made required (`no_args_is_help=True` now effective;
+  no silent CWD fallback).
+- **GAP-01:** `-f` short alias added to `--format` in 8 commands (`check links`, `check orphans`,
+  `check snippets`, `check references`, `check assets`, `check all`, `score`, `diff`).
+- **GAP-02:** `init --plugin` conflict detection — `--plugin + --dev` or `--plugin + --pyproject`
+  exits 2.
+- **GAP-04:** `check all --strict + --exit-zero` mutual-exclusion guard (Exit 2).
+- **GAP-06:** `RuntimeError`/`ConfigurationError` hardening in `check all`, `score`, `diff` —
+  user-friendly Exit 1 with ERROR message.
+- **~18 new regression tests** across `test_brain.py` (`TestBrainMapGAP00`) and `test_cli.py`
+  (GAP-01 through GAP-06).
+
 #### Tests
 
-- **1,452 passed · ≥83% coverage** (Python 3.11 / 3.12 / 3.13). No regressions.
+- **1,519 passed · ≥83% coverage** (Python 3.11 / 3.12 / 3.13). No regressions.
 
 ---
 

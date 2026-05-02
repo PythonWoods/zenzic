@@ -582,6 +582,8 @@ Remove false-positive patterns from `forbidden_patterns` fleet-wide. Only identi
 
 **CEO-DX-Global "Global CLI DX Standardization":** GAP-00: `brain_map` path argument made required (no silent CWD fallback; `no_args_is_help=True` now effective). GAP-01: `-f` short alias added to `--format` in 8 commands (`check links`, `check orphans`, `check snippets`, `check references`, `check assets`, `check all`, `score`, `diff`). GAP-02: `init --plugin` conflict detection — `--plugin + --dev` or `--plugin + --pyproject` exits 2. GAP-04: `check all --strict + --exit-zero` mutual-exclusion guard (Exit 2). GAP-06: `RuntimeError`/`ConfigurationError` hardening in `check all`, `score`, `diff` — user-friendly Exit 1 with ERROR message. ~18 new regression tests across `test_brain.py` (`TestBrainMapGAP00`) and `test_cli.py` (GAP-01 through GAP-06).
 
+**Phase 0 "MESH STATUS Enrichment":** `_brain.py`: `_read_version(sibling)` (reads `pyproject.toml` via `tomllib`, fallback `package.json` via `json`, returns `"?"` on error) and `_read_branch(sibling)` (reads `.git/HEAD`, parses `ref: refs/heads/<name>` or returns 8-char SHA) added as pure helpers. `_detect_mesh_status()` enriched: live nodes now emit `{name} 🟢 v{version}@{branch}` instead of bare `🟢`. CHANGELOG.md D097 gap filled with CEO-298 + CEO-DX + CEO-DX-Global sections (count updated 1,452 → 1,519). README.md tagline updated to `High-performance, parallel Markdown linter & security shield. Built in Python. Agnostic by design.`
+
 **Tests:** 1,519 passed · ≥83% coverage · branch: release/v0.7.0
 
 ### Last Closed — D096 — Quartz Discovery, SARIF Sovereignty & Brain Curation

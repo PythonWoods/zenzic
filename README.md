@@ -40,8 +40,8 @@ SPDX-License-Identifier: Apache-2.0
 </p>
 
 <p align="center">
-  <strong>The Safe Harbor for your Markdown documentation.</strong><br>
-  <em>Engine-agnostic static analysis — standalone, security-hardened, zero configuration needed.</em>
+  <strong>High-performance, parallel Markdown linter &amp; security shield.</strong><br>
+  <em>Built in Python. Agnostic by design.</em>
 </p>
 
 ---

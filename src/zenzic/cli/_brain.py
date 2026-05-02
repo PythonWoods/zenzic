@@ -15,6 +15,8 @@ Only available in editable (dev) installs — see ``_is_dev_mode()`` in
 
 from __future__ import annotations
 
+import json
+import tomllib
 from pathlib import Path
 from typing import Annotated
 
@@ -121,17 +123,57 @@ def _audit_zone_b(ledger: Path) -> tuple[int, int]:
     return count, _ZONE_B_LIMIT
 
 
+def _read_version(sibling: Path) -> str:
+    """Read the version string from *sibling* repo's pyproject.toml or package.json.
+
+    Returns ``"?"`` on any error.
+    """
+    try:
+        pyproject = sibling / "pyproject.toml"
+        if pyproject.exists():
+            with pyproject.open("rb") as fh:
+                data = tomllib.load(fh)
+            return str(data["project"]["version"])
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        pkg = sibling / "package.json"
+        if pkg.exists():
+            data = json.loads(pkg.read_text(encoding="utf-8"))
+            return str(data["version"])
+    except Exception:  # noqa: BLE001
+        pass
+    return "?"
+
+
+def _read_branch(sibling: Path) -> str:
+    """Read the current git branch (or short SHA) from *sibling* repo.
+
+    Returns ``"?"`` on any error.
+    """
+    try:
+        head = (sibling / ".git" / "HEAD").read_text(encoding="utf-8").strip()
+        if head.startswith("ref: refs/heads/"):
+            return head[len("ref: refs/heads/") :]
+        return head[:8]  # detached HEAD — return short SHA
+    except OSError:
+        return "?"
+
+
 def _detect_mesh_status(repo_root: Path) -> str:
     """Probe sibling repositories for ZENZIC_BRAIN.md presence.
 
-    Returns a human-readable mesh status string.
+    Returns a human-readable mesh status string with version and branch
+    for live nodes.
     INVARIANT: The Silent Mind repository is never probed (CEO-236).
     """
     parts = []
     for name in _MESH_REPOS:
         sibling = repo_root.parent / name
         if sibling.exists() and (sibling / "ZENZIC_BRAIN.md").exists():
-            parts.append(f"{name} 🟢")
+            version = _read_version(sibling)
+            branch = _read_branch(sibling)
+            parts.append(f"{name} 🟢 v{version}@{branch}")
         else:
             parts.append(f"{name} 🔴")
     return "[MESH STATUS] " + " | ".join(parts)
