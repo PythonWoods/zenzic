@@ -1152,3 +1152,130 @@ def test_score_low_uses_error_style(_run: object, _cfg: object, _root: object) -
     assert result.exit_code == 0
     assert "30/100" in result.stdout
     assert "SENTINEL SEAL" not in result.stdout
+
+
+# ---------------------------------------------------------------------------
+# GAP-01: -f short alias for --format (Global CLI DX Standardization)
+# ---------------------------------------------------------------------------
+
+
+@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, False))
+@patch("zenzic.cli._check.validate_links_structured", return_value=[])
+def test_check_links_short_format_alias(_links, _cfg, _root) -> None:
+    """-f json must be accepted as alias for --format json in check links."""
+    result = runner.invoke(app, ["check", "links", "-f", "json"])
+    assert result.exit_code == 0
+    data = json.loads(result.stdout)
+    assert "findings" in data or isinstance(data, list | dict)
+
+
+@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, False))
+@patch("zenzic.cli._check.find_orphans", return_value=[])
+def test_check_orphans_short_format_alias(_orphans, _cfg, _root) -> None:
+    """-f json must be accepted as alias for --format json in check orphans."""
+    result = runner.invoke(app, ["check", "orphans", "-f", "json"])
+    assert result.exit_code == 0
+    data = json.loads(result.stdout)
+    assert "findings" in data or isinstance(data, list | dict)
+
+
+@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, False))
+@patch("zenzic.cli._check.validate_links_structured", return_value=[])
+@patch("zenzic.cli._check.find_orphans", return_value=[])
+@patch("zenzic.cli._check.validate_snippets", return_value=[])
+@patch("zenzic.cli._check.find_placeholders", return_value=[])
+@patch("zenzic.cli._check.find_unused_assets", return_value=[])
+@patch("zenzic.cli._check.check_nav_contract", return_value=[])
+@patch("zenzic.cli._check.scan_docs_references", return_value=([], []))
+def test_check_all_short_format_alias(
+    _refs, _nav, _assets, _ph, _snip, _orphans, _links, _cfg, _root
+) -> None:
+    """-f json must be accepted as alias for --format json in check all."""
+    result = runner.invoke(app, ["check", "all", "-f", "json"])
+    assert result.exit_code == 0
+    data = json.loads(result.stdout)
+    assert "findings" in data or isinstance(data, list | dict)
+
+
+# ---------------------------------------------------------------------------
+# GAP-02: init --plugin conflict validation
+# ---------------------------------------------------------------------------
+
+
+def test_init_plugin_dev_conflict_exits_2(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """--plugin combined with --dev must exit 2 with an informative error."""
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(app, ["init", "--plugin", "myrule", "--dev"])
+    assert result.exit_code == 2, result.output
+    assert "--plugin" in result.output or "cannot be combined" in result.output.lower()
+
+
+def test_init_plugin_pyproject_conflict_exits_2(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """--plugin combined with --pyproject must exit 2 with an informative error."""
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(app, ["init", "--plugin", "myrule", "--pyproject"])
+    assert result.exit_code == 2, result.output
+    assert "--plugin" in result.output or "cannot be combined" in result.output.lower()
+
+
+def test_init_plugin_alone_does_not_conflict(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """--plugin without conflicting flags must not exit 2 (scaffold runs)."""
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(app, ["init", "--plugin", "myrule"])
+    # Exit 0 = scaffold created. Any non-2 exit is fine here.
+    assert result.exit_code != 2, result.output
+
+
+# ---------------------------------------------------------------------------
+# GAP-04: check all --strict + --exit-zero are mutually exclusive
+# ---------------------------------------------------------------------------
+
+
+def test_check_all_strict_exit_zero_conflict_exits_2() -> None:
+    """--strict and --exit-zero together must exit 2 with mutual-exclusion message."""
+    result = runner.invoke(app, ["check", "all", "--strict", "--exit-zero"])
+    assert result.exit_code == 2, result.output
+    assert "mutually exclusive" in result.output.lower() or "exclusive" in result.output.lower()
+
+
+def test_check_all_strict_alone_does_not_conflict() -> None:
+    """--strict alone must NOT trigger the conflict guard (flag is parsed without error)."""
+    # We just need the flag to be accepted — repo-root failure is expected on empty env.
+    result = runner.invoke(app, ["check", "all", "--strict"])
+    assert result.exit_code != 2 or "mutually exclusive" not in result.output.lower()
+
+
+# ---------------------------------------------------------------------------
+# GAP-06: exception hardening — RuntimeError from find_repo_root → Exit 1
+# ---------------------------------------------------------------------------
+
+
+@patch("zenzic.cli._check.find_repo_root", side_effect=RuntimeError("no .git found"))
+def test_check_all_runtime_error_exits_1(_root) -> None:
+    """RuntimeError from find_repo_root in check all must produce Exit 1 + ERROR message."""
+    result = runner.invoke(app, ["check", "all"])
+    assert result.exit_code == 1, result.output
+    assert "ERROR" in result.output or "error" in result.output.lower()
+
+
+@patch("zenzic.cli._standalone.find_repo_root", side_effect=RuntimeError("no .git found"))
+def test_score_runtime_error_exits_1(_root) -> None:
+    """RuntimeError from find_repo_root in score must produce Exit 1 + ERROR message."""
+    result = runner.invoke(app, ["score"])
+    assert result.exit_code == 1, result.output
+    assert "ERROR" in result.output or "error" in result.output.lower()
+
+
+@patch("zenzic.cli._standalone.find_repo_root", side_effect=RuntimeError("no .git found"))
+def test_diff_runtime_error_exits_1(_root) -> None:
+    """RuntimeError from find_repo_root in diff must produce Exit 1 + ERROR message."""
+    result = runner.invoke(app, ["diff"])
+    assert result.exit_code == 1, result.output
+    assert "ERROR" in result.output or "error" in result.output.lower()

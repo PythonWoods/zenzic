@@ -145,13 +145,9 @@ def brain_map(
     path: Annotated[
         Path,
         typer.Argument(
-            help=(
-                "Repo root to scan (defaults to current directory). "
-                "The command auto-detects ``src/<package>/`` as the source root."
-            ),
-            show_default=True,
+            help="Repo root to scan. The command auto-detects ``src/<package>/`` as the source root.",
         ),
-    ] = Path("."),
+    ],
     check: Annotated[
         bool,
         typer.Option(

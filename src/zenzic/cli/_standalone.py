@@ -125,7 +125,9 @@ def score(
         "-s",
         help="Also validate external HTTP/HTTPS links (slower; requires network).",
     ),
-    output_format: str = typer.Option("text", "--format", help="Output format: text or json."),
+    output_format: str = typer.Option(
+        "text", "--format", "-f", help="Output format: text or json."
+    ),
     save: bool = typer.Option(False, "--save", help="Save score snapshot to .zenzic-score.json."),
     fail_under: int = typer.Option(
         0, "--fail-under", help="Exit non-zero if score is below this threshold (0 = disabled)."
@@ -138,8 +140,12 @@ def score(
     if path is not None:
         _pre = Path(path).resolve()
         _search_from = _pre.parent if _pre.is_file() else _pre
-    repo_root = find_repo_root(search_from=_search_from)
-    config, _ = ZenzicConfig.load(repo_root)
+    try:
+        repo_root = find_repo_root(search_from=_search_from)
+        config, _ = ZenzicConfig.load(repo_root)
+    except (RuntimeError, ConfigurationError) as exc:
+        typer.echo(f"ERROR: {exc}", err=True)
+        raise typer.Exit(1) from exc
     docs_root = (repo_root / config.docs_dir).resolve()
     # CEO-043: sovereign sandbox — if docs_root escapes repo_root, adopt it as root.
     try:
@@ -258,7 +264,9 @@ def diff(
         "-s",
         help="Also validate external HTTP/HTTPS links (slower; requires network).",
     ),
-    output_format: str = typer.Option("text", "--format", help="Output format: text or json."),
+    output_format: str = typer.Option(
+        "text", "--format", "-f", help="Output format: text or json."
+    ),
     threshold: int = typer.Option(
         0,
         "--threshold",
@@ -277,8 +285,12 @@ def diff(
     if path is not None:
         _pre = Path(path).resolve()
         _search_from = _pre.parent if _pre.is_file() else _pre
-    repo_root = find_repo_root(search_from=_search_from)
-    config, _ = ZenzicConfig.load(repo_root)
+    try:
+        repo_root = find_repo_root(search_from=_search_from)
+        config, _ = ZenzicConfig.load(repo_root)
+    except (RuntimeError, ConfigurationError) as exc:
+        typer.echo(f"ERROR: {exc}", err=True)
+        raise typer.Exit(1) from exc
     docs_root = (repo_root / config.docs_dir).resolve()
     # CEO-043: sovereign sandbox
     try:
@@ -452,6 +464,14 @@ def init(
         repo_root = find_repo_root(fallback_to_cwd=True)
 
     if plugin is not None:
+        conflicting = [flag for flag, val in [("--dev", dev), ("--pyproject", pyproject)] if val]
+        if conflicting:
+            typer.echo(
+                f"ERROR: --plugin cannot be combined with {', '.join(conflicting)}. "
+                "These flags target different init modes.",
+                err=True,
+            )
+            raise typer.Exit(2)
         _scaffold_plugin(repo_root, plugin, force)
         return
 

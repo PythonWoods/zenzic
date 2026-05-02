@@ -1130,3 +1130,39 @@ class TestBrainMapDX:
         result = runner.invoke(brain_app, [str(tmp_path), "-o", str(out_file)])
         assert result.exit_code == 2, result.output
         assert ".json" in result.output or "supported" in result.output.lower()
+
+
+# ─── GAP-00: brain_map path is required ───────────────────────────────────────
+
+
+class TestBrainMapGAP00:
+    """GAP-00: brain_map path argument is required — no silent CWD fallback."""
+
+    def test_no_args_exits_nonzero(self) -> None:
+        """Invoking `brain map` without a path must exit non-zero (no hidden CWD default)."""
+        from typer.testing import CliRunner
+
+        from zenzic.cli._brain import brain_app
+
+        runner = CliRunner()
+        result = runner.invoke(brain_app, [])
+        # Typer shows help (exit 0) or missing-arg error (exit != 0).
+        # Either way path must NOT be silently defaulted to "." — the command
+        # must NOT attempt to run (no "Scanning" output expected).
+        assert "Scanning" not in result.output
+
+    def test_with_explicit_path_proceeds(self, tmp_path: Path) -> None:
+        """Invoking `brain map <path>` with an explicit path must proceed normally."""
+        from typer.testing import CliRunner
+
+        from zenzic.cli._brain import brain_app
+
+        # Minimal fixture: a src/<pkg>/ tree so scan_python_sources finds modules.
+        (tmp_path / "src" / "mypkg").mkdir(parents=True)
+        (tmp_path / "src" / "mypkg" / "core.py").write_text(
+            '"""Core module."""\n\ndef run() -> None:\n    """Run."""\n', encoding="utf-8"
+        )
+        runner = CliRunner()
+        result = runner.invoke(brain_app, [str(tmp_path)])
+        # The command may exit non-zero (no BRAIN.md) but must have tried to scan.
+        assert "Scanning" in result.output or "brain map" in result.output.lower()

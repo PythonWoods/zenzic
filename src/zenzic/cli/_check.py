@@ -54,7 +54,7 @@ check_app = typer.Typer(
 def check_links(
     strict: bool = typer.Option(False, "--strict", "-s", help="Exit non-zero on any warning."),
     output_format: str = typer.Option(
-        "text", "--format", help="Output format: text, json, or sarif."
+        "text", "--format", "-f", help="Output format: text, json, or sarif."
     ),
     show_info: bool = typer.Option(
         False, "--show-info", help="Show info-level findings (e.g. circular links) in the report."
@@ -204,7 +204,7 @@ def check_orphans(
         metavar="ENGINE",
     ),
     output_format: str = typer.Option(
-        "text", "--format", help="Output format: text, json, or sarif."
+        "text", "--format", "-f", help="Output format: text, json, or sarif."
     ),
     show_info: bool = typer.Option(
         False, "--show-info", help="Show info-level findings (e.g. circular links) in the report."
@@ -297,7 +297,7 @@ def check_orphans(
 @check_app.command(name="snippets")
 def check_snippets(
     output_format: str = typer.Option(
-        "text", "--format", help="Output format: text, json, or sarif."
+        "text", "--format", "-f", help="Output format: text, json, or sarif."
     ),
     show_info: bool = typer.Option(
         False, "--show-info", help="Show info-level findings (e.g. circular links) in the report."
@@ -411,7 +411,7 @@ def check_references(
         help="Also validate external HTTP/HTTPS reference URLs via async HEAD requests.",
     ),
     output_format: str = typer.Option(
-        "text", "--format", help="Output format: text, json, or sarif."
+        "text", "--format", "-f", help="Output format: text, json, or sarif."
     ),
     show_info: bool = typer.Option(
         False, "--show-info", help="Show info-level findings (e.g. circular links) in the report."
@@ -573,7 +573,7 @@ def check_references(
 @check_app.command(name="assets")
 def check_assets(
     output_format: str = typer.Option(
-        "text", "--format", help="Output format: text, json, or sarif."
+        "text", "--format", "-f", help="Output format: text, json, or sarif."
     ),
     show_info: bool = typer.Option(
         False, "--show-info", help="Show info-level findings (e.g. circular links) in the report."
@@ -1122,7 +1122,7 @@ def check_all(
         None, "--strict", "-s", help="Treat warnings as errors (exit non-zero on any warning)."
     ),
     output_format: str = typer.Option(
-        "text", "--format", help="Output format: text, json, or sarif."
+        "text", "--format", "-f", help="Output format: text, json, or sarif."
     ),
     exit_zero: bool | None = typer.Option(
         None, "--exit-zero", help="Always exit 0; report issues without failing."
@@ -1184,6 +1184,14 @@ def check_all(
     directory (e.g. ``README.md``, ``content/``).  Zenzic auto-selects the
     StandaloneAdapter when the target lives outside the configured docs directory.
     """
+    # GAP-04: Conflict validation — --strict and --exit-zero are mutually exclusive.
+    if strict and exit_zero:
+        typer.echo(
+            "ERROR: --strict and --exit-zero are mutually exclusive. "
+            "--strict promotes warnings to errors; --exit-zero suppresses all exit codes.",
+            err=True,
+        )
+        raise typer.Exit(2)
     # CEO-052 "The Sovereign Root Fix": when an explicit target PATH is given,
     # derive repo_root by searching upward FROM that path — not from CWD.
     # "The configuration follows the target, not the caller."
@@ -1191,8 +1199,12 @@ def check_all(
     if path is not None:
         _pre = Path(path).resolve()
         _search_from = _pre.parent if _pre.is_file() else _pre
-    repo_root = find_repo_root(search_from=_search_from)
-    config, loaded_from_file = ZenzicConfig.load(repo_root)
+    try:
+        repo_root = find_repo_root(search_from=_search_from)
+        config, loaded_from_file = ZenzicConfig.load(repo_root)
+    except RuntimeError as exc:
+        typer.echo(f"ERROR: {exc}", err=True)
+        raise typer.Exit(1) from exc
     if not loaded_from_file and not quiet:
         _shared._print_no_config_hint(output_format)
     config = _shared._apply_engine_override(config, engine)
