@@ -19,6 +19,86 @@ it is a new standard of precision.
 | MkDocs plugin (`zenzic.integrations.mkdocs`) removed | Remove `plugins: - zenzic` from `mkdocs.yml`; add `zenzic check all` as a CI step |
 | `engine = "vanilla"` removed | Replace with `engine = "standalone"` in `zenzic.toml` |
 | `zenzic plugins` command removed | Use `zenzic inspect capabilities` |
+| `just preflight` recipe removed; pipeline collapsed into `just verify` | Run `uvx pre-commit install -t pre-push` after `just sync` to install the new Final Guard |
+| `nox -s preflight` session removed (duplicated `just verify`) | Run `just verify` locally; CI invokes the same command |
+| `just test` no longer produces coverage by default (now `pytest -n auto`) | Use `just test-cov` for the audit run with `coverage.xml` |
+
+---
+
+## 🛡️ EPOCH 4 — The Safe Port (4-Gates Standard)
+
+v0.7.0 introduces the **atomic single entry-point** for quality:
+
+```bash
+just verify    # locale ≡ remote — same command in pre-push hook AND GitHub Actions
+```
+
+The 4 Gates: pre-commit hooks → `pytest` with coverage (`fail_under=80`) →
+`zenzic check all --strict` → exit-code parity (Shield Z201 → exit 2,
+Sentinel Z202/Z203 → exit 3, non-suppressible).
+
+### Daily flow
+
+| Stage | Command | Speed |
+|:------|:--------|:------|
+| TDD inner loop | `just test` (parallel, no cov) | ⚡ instant |
+| Commit | `git commit` (light hooks) | < 5 s |
+| Push | `git push` → pre-push hook → `just verify` | < 60 s |
+| CI | GitHub Actions runs `just verify` | identical |
+
+### Break-Glass Protocol (D7)
+
+`--no-verify` is **not forbidden**, but every bypass is a public event:
+label `gate-bypass` + blameless post-mortem issue within 24h
+(`.github/ISSUE_TEMPLATE/gate-bypass-postmortem.md`). An undocumented
+("ghost") bypass is **critical technical debt** reviewed at sprint
+retrospective. Transparent radically: a declared bypass is a chance to
+harden the gate; a silent one is a betrayal of the Safe Port.
+
+---
+
+## 🌍 EPOCH 5 — Z907 I18N_PARITY (Cross-Language Integrity)
+
+v0.7.0 closes the last gap in the documentation integrity story:
+**translation drift**. A new core scanner — `Z907 I18N_PARITY` — verifies
+that every base-language documentation file has a mirror in each
+configured target language root, and that key frontmatter fields
+(`title`, `description`, …) are present in every translation.
+
+```toml
+# zenzic.toml — language-agnostic, opt-in
+[i18n]
+enabled = true
+base_lang = "en"
+base_source = "docs"
+strict_parity = true
+require_frontmatter_parity = ["title", "description"]
+
+[i18n.targets]
+it = "i18n/it/docusaurus-plugin-content-docs/current"
+es = "i18n/es/docusaurus-plugin-content-docs/current"
+
+# Multi-instance: a second Docusaurus plugin (e.g. /developers) can
+# declare its own base/targets pair without code changes.
+[[i18n.extra_sources]]
+base_source = "developers"
+[i18n.extra_sources.targets]
+it = "i18n/it/docusaurus-plugin-content-docs-developers/current"
+```
+
+### Highlights
+
+- **Language-agnostic by construction.** `base_lang` and `targets[]` are
+  declared in config; adding ES, FR, JA is a YAML edit, not a code change.
+- **`i18n-ignore: true` frontmatter escape hatch** — drafts and
+  language-specific guides opt out per-file.
+- **Adaptive parallelism** — fan-outs through `ThreadPoolExecutor`
+  above 50 base files (matches the existing scanner threshold).
+- **Hypothesis-stressed.** Property-based tests cover deep directory
+  nesting and Latin Extended unicode segments before any mass migration.
+
+The check integrates seamlessly into `zenzic check all` and respects
+`strict_parity` for the error/warning severity choice.
 
 ---
 

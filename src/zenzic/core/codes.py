@@ -46,6 +46,7 @@ Z9xx — Engine / System
     Z904  NAV_CONTRACT         — navigation contract violation
     Z905  BRAND_OBSOLESCENCE   — deprecated brand term found in documentation source
     Z906  NO_FILES_FOUND       — target directory contains no Markdown sources (audit skipped)
+    Z907  I18N_PARITY          — base-language doc lacks mirror in a target language, or frontmatter parity mismatch
 """
 
 from __future__ import annotations
@@ -153,6 +154,7 @@ CODE_NAMES: dict[str, str] = {
     "Z904": "NAV_CONTRACT",
     "Z905": "BRAND_OBSOLESCENCE",
     "Z906": "NO_FILES_FOUND",
+    "Z907": "I18N_PARITY",
 }
 
 #: Short description of each code for SARIF ``shortDescription`` and human display.
@@ -192,6 +194,7 @@ CODE_DESCRIPTIONS: dict[str, str] = {
     "Z904": "Navigation contract violation detected",
     "Z905": "Deprecated brand term found in documentation source",
     "Z906": "Target directory contains no Markdown sources — audit skipped",
+    "Z907": "Translation mirror missing or frontmatter parity violation",
 }
 
 #: Default SARIF ``defaultConfiguration.level`` for each code.
@@ -232,6 +235,7 @@ CODE_SARIF_LEVELS: dict[str, str] = {
     "Z904": "warning",
     "Z905": "warning",
     "Z906": "note",
+    "Z907": "warning",
 }
 
 
@@ -364,6 +368,17 @@ CORE_SCANNERS: list[CoreScanner] = [
         capability=(
             "Deprecated brand term detection \u2014 configurable via [project_metadata], "
             "suppressed per-line with <!-- zenzic:ignore Z905 --> (Markdown) or {/* zenzic:ignore Z905 */} (MDX)"
+        ),
+        primary_exit=1,
+        non_suppressible=False,
+    ),
+    CoreScanner(
+        codes="Z907",
+        name="I18N Parity Guard",
+        capability=(
+            "Cross-language mirror integrity \u2014 every base-language doc must "
+            "have a translation in each configured target root, with matching "
+            "frontmatter keys (opt-in via [i18n] section, language-agnostic)"
         ),
         primary_exit=1,
         non_suppressible=False,

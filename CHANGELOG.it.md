@@ -26,6 +26,77 @@ e Shield hardened con decodifica Base64 speculativa. Sostituisce v0.6.1.
 
 ## [Non rilasciato]
 
+### EPOCH 5 — Z907 I18N_PARITY + Restructure Diátaxis Documentazione (2026-05-03)
+
+#### Aggiunto
+
+- **Z907 `I18N_PARITY`** — nuovo scanner core che verifica che ogni file
+  di documentazione nella lingua base abbia un mirror in ciascuna root
+  di lingua target configurata, più la parità opzionale delle chiavi di
+  frontmatter (es. `title`, `description`). Language-agnostic: `base_lang`
+  e `targets[]` sono dichiarati in config, nessun codice locale è
+  cablato nel codice.
+- **Sezione di configurazione `[i18n]`** in `zenzic.toml` (e l'equivalente
+  `[tool.zenzic.i18n]` in `pyproject.toml`). Modelli: `I18nConfig`,
+  `I18nSource`. Supporta `extra_sources` per repository con più root di
+  documentazione (es. user-facing docs + developer docs).
+- **Escape hatch `i18n-ignore: true` nel frontmatter** — file che non
+  devono imporre la parità (bozze, guide lang-specific) si auto-escludono
+  per-file.
+- **Parallelismo adattivo** — quando la popolazione base supera
+  `ADAPTIVE_PARALLEL_THRESHOLD` (50 file), Z907 distribuisce il lavoro
+  per-file su un `ThreadPoolExecutor`, replicando il pattern del resto
+  della pipeline scanner. Contratto pure-function preservato (Pillar 3).
+- **Stress test Hypothesis** per Z907 — generatore property-based che
+  copre nesting di directory profondo e segmenti unicode Latin Extended
+  (es. `café/résumé`), così gli edge case vengono catturati prima di
+  qualunque migrazione documentale big-bang.
+
+### EPOCH 4 — Pipeline Qualità Unificata 4-Gates (2026-05-03)
+
+#### Modificato (BREAKING per i contributor)
+
+- **`just verify` è ora l'unico punto d'ingresso atomico** della pipeline
+  qualità. Stesso comando in locale (via hook pre-push) e in GitHub
+  Actions: locale ≡ remoto, niente drift.
+- **`just test` riscritto** come inner loop TDD veloce: `pytest -n auto`
+  senza coverage. Il Pillar 3 (Pure Functions) garantisce l'isolamento
+  dei worker pytest-xdist.
+- **`just test-cov` introdotto** per il run di audit: pytest seriale con
+  coverage XML (allineato alla matrice CI). `just verify` invoca
+  `test-cov` così la soglia `fail_under = 80` viene applicata prima di
+  ogni push.
+- **Nox declassato a "gestore di ambienti isolati"** — solo matrice
+  multi-versione (3.11/3.12/3.13). Sessione `preflight` rimossa
+  (logica duplicata con `just verify`).
+- **`nox -s dev` ora installa entrambi gli hook pre-commit E pre-push**
+  così la Final Guard (`just verify`) parte automaticamente su `git push`.
+
+#### Aggiunto
+
+- **`pytest-xdist>=3.6`** aggiunto al gruppo dipendenze `test`.
+- **Stage pre-push in `.pre-commit-config.yaml`** — nuovo hook locale
+  `just-verify` (id `just-verify`, stages `[pre-push]`) chiude il gap
+  storico in cui `pre-commit install -t pre-push` installava un hook
+  vuoto.
+- **`.github/ISSUE_TEMPLATE/gate-bypass-postmortem.md`** — template
+  protocollo Break-Glass (D7). Post-mortem blameless obbligatorio entro
+  24h per ogni bypass `--no-verify` documentato.
+- **Sezione "The 4-Gates Standard" in CONTRIBUTING.md** che documenta il
+  flusso TDD → commit → push → CI + policy Emergency / Break-Glass.
+
+#### Migrazione
+
+I contributor devono rieseguire il bootstrap dopo il pull di questa modifica:
+
+```bash
+just sync
+uvx pre-commit install              # stage commit (hook leggeri)
+uvx pre-commit install -t pre-push  # 🛡️ Final Guard (just verify)
+```
+
+Ricetta `just preflight` rimossa; usare `just verify`.
+
 ### D097 — Applicazione CLOSING PROTOCOL (2026-05-01)
 
 #### Aggiunto

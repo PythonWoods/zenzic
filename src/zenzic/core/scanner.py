@@ -398,6 +398,227 @@ def find_orphans(
     return orphans
 
 
+# ─── Z907 I18N_PARITY ─────────────────────────────────────────────────────────
+
+
+@dataclass(slots=True, frozen=True)
+class I18nParityIssue:
+    """A single Z907 finding: missing mirror or frontmatter parity violation.
+
+    Attributes:
+        file_path: The base-language file (for missing-mirror) or the target
+            file with the missing/divergent frontmatter (for fm-mismatch).
+        target_lang: ISO 639-1 code of the offending target language.
+        issue_type: ``"missing_mirror"`` or ``"missing_frontmatter"``.
+        missing_key: For ``missing_frontmatter``, the frontmatter key that
+            is absent or empty in the translation; empty string otherwise.
+        message: Human-readable message ready for Finding emission.
+    """
+
+    file_path: Path
+    target_lang: str
+    issue_type: str
+    missing_key: str
+    message: str
+
+
+_I18N_IGNORE_RE: re.Pattern[str] = re.compile(
+    r"^\s*i18n-ignore\s*:\s*(true|yes|1)\s*$",
+    re.IGNORECASE | re.MULTILINE,
+)
+_FM_KV_RE: re.Pattern[str] = re.compile(
+    r"^\s*([A-Za-z_][\w-]*)\s*:\s*(.*?)\s*$",
+    re.MULTILINE,
+)
+
+
+def _read_frontmatter_block(path: Path) -> str:
+    """Return the raw YAML frontmatter block of *path* (without delimiters).
+
+    Returns an empty string when the file has no frontmatter or cannot be read.
+    Pure read-only; safe on missing / unreadable files.
+    """
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return ""
+    match = _FRONTMATTER_RE.match(text)
+    if match is None:
+        return ""
+    block = match.group(0)
+    # Drop the leading and trailing '---' delimiter lines.
+    lines = block.splitlines()
+    inner = [ln for ln in lines if ln.strip() != "---"]
+    return "\n".join(inner)
+
+
+def _parse_frontmatter_lite(block: str) -> dict[str, str]:
+    """Best-effort, dependency-free YAML key/value extraction.
+
+    Only the top-level scalar keys are returned (sufficient for parity checks
+    on ``title`` / ``description`` / ``i18n-ignore``).  Nested mappings and
+    sequences are ignored.  An empty string value means the key is present
+    but blank — treated as "missing" by the parity logic.
+    """
+    out: dict[str, str] = {}
+    for m in _FM_KV_RE.finditer(block):
+        key, value = m.group(1), m.group(2).strip().strip("\"'")
+        out[key] = value
+    return out
+
+
+def _is_i18n_ignored(path: Path) -> bool:
+    """Return True when *path*'s frontmatter contains ``i18n-ignore: true``."""
+    block = _read_frontmatter_block(path)
+    return bool(block) and bool(_I18N_IGNORE_RE.search(block))
+
+
+def _i18n_files(root: Path) -> list[Path]:
+    """Return every ``.md`` / ``.mdx`` file under *root* not marked i18n-ignore."""
+    if not root.exists() or not root.is_dir():
+        return []
+    out: list[Path] = []
+    for suffix in DOC_SUFFIXES:
+        for f in root.rglob(f"*{suffix}"):
+            if f.is_file() and not _is_i18n_ignored(f):
+                out.append(f)
+    return out
+
+
+def _check_one_base_file(
+    src: Path,
+    base_root: Path,
+    target_roots: dict[str, Path],
+    require_keys: tuple[str, ...],
+    strict: bool,
+) -> list[I18nParityIssue]:
+    """Verify a single base-language file against every target root.
+
+    Pure function (no shared state) — safe to invoke from a thread pool when
+    the base-file count exceeds :data:`ADAPTIVE_PARALLEL_THRESHOLD`.
+    """
+    rel = src.relative_to(base_root)
+    out: list[I18nParityIssue] = []
+    src_fm = _parse_frontmatter_lite(_read_frontmatter_block(src)) if require_keys else {}
+    for lang, target_root in target_roots.items():
+        target = target_root / rel
+        if not target.exists():
+            out.append(
+                I18nParityIssue(
+                    file_path=src,
+                    target_lang=lang,
+                    issue_type="missing_mirror",
+                    missing_key="",
+                    message=(
+                        f"Missing {lang.upper()} translation: expected mirror "
+                        f"at {target} (relative to base {rel.as_posix()})"
+                    ),
+                )
+            )
+            continue
+        if not require_keys:
+            continue
+        tgt_fm = _parse_frontmatter_lite(_read_frontmatter_block(target))
+        for key in require_keys:
+            if src_fm.get(key) and not tgt_fm.get(key):
+                out.append(
+                    I18nParityIssue(
+                        file_path=target,
+                        target_lang=lang,
+                        issue_type="missing_frontmatter",
+                        missing_key=key,
+                        message=(
+                            f"Missing translated '{key}' frontmatter in "
+                            f"{lang.upper()} mirror of {rel.as_posix()}"
+                        ),
+                    )
+                )
+    # ``strict`` is passed through so the caller can downgrade severities; the
+    # check itself reports issues uniformly.
+    _ = strict
+    return out
+
+
+def find_i18n_parity(
+    repo_root: Path,
+    *,
+    config: ZenzicConfig,
+) -> list[I18nParityIssue]:
+    """Z907 — verify cross-language documentation parity.
+
+    Returns the empty list when ``config.i18n.enabled`` is False or no targets
+    are configured.  Aggregates findings across the primary source and every
+    entry in :attr:`I18nConfig.extra_sources`.
+
+    Parallelises per-file work via :class:`ThreadPoolExecutor` when the base
+    population exceeds :data:`ADAPTIVE_PARALLEL_THRESHOLD` — mirrors the
+    pattern used by the rest of the scanner pipeline (Pillar 3 compliant:
+    ``_check_one_base_file`` is a pure function over its arguments).
+
+    Args:
+        repo_root: Repository root.  All relative paths in
+            :class:`I18nConfig` are resolved against this directory.
+        config: Loaded :class:`ZenzicConfig`.
+
+    Returns:
+        List of :class:`I18nParityIssue` — empty when parity holds.
+    """
+    cfg = config.i18n
+    if not cfg.enabled:
+        return []
+
+    sources: list[tuple[Path, dict[str, Path]]] = []
+    if cfg.targets:
+        sources.append(
+            (
+                (repo_root / cfg.base_source).resolve(),
+                {lang: (repo_root / p).resolve() for lang, p in cfg.targets.items()},
+            )
+        )
+    for extra in cfg.extra_sources:
+        if not extra.targets:
+            continue
+        sources.append(
+            (
+                (repo_root / extra.base_source).resolve(),
+                {lang: (repo_root / p).resolve() for lang, p in extra.targets.items()},
+            )
+        )
+    if not sources:
+        return []
+
+    require_keys = tuple(cfg.require_frontmatter_parity)
+    issues: list[I18nParityIssue] = []
+    for base_root, target_roots in sources:
+        base_files = _i18n_files(base_root)
+        if not base_files:
+            continue
+        if len(base_files) > ADAPTIVE_PARALLEL_THRESHOLD:
+            from concurrent.futures import ThreadPoolExecutor
+
+            def _worker(
+                src: Path,
+                _base: Path = base_root,
+                _targets: dict[str, Path] = target_roots,
+                _keys: tuple[str, ...] = require_keys,
+                _strict: bool = cfg.strict_parity,
+            ) -> list[I18nParityIssue]:
+                return _check_one_base_file(src, _base, _targets, _keys, _strict)
+
+            with ThreadPoolExecutor() as ex:
+                chunks = list(ex.map(_worker, base_files))
+            for chunk in chunks:
+                issues.extend(chunk)
+        else:
+            for src in base_files:
+                issues.extend(
+                    _check_one_base_file(
+                        src, base_root, target_roots, require_keys, cfg.strict_parity
+                    )
+                )
+    return issues
+
+
 def find_placeholders(
     docs_root: Path,
     exclusion_manager: LayeredExclusionManager,

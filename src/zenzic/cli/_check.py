@@ -16,8 +16,10 @@ from zenzic.core.codes import normalize as _normalize_code
 from zenzic.core.exclusion import LayeredExclusionManager
 from zenzic.core.reporter import Finding, SentinelReporter
 from zenzic.core.scanner import (
+    I18nParityIssue,
     PlaceholderFinding,
     _map_shield_to_finding,
+    find_i18n_parity,
     find_missing_directory_indices,
     find_orphans,
     find_placeholders,
@@ -765,6 +767,8 @@ class _AllCheckResults:
     security_events: int
     directory_index_issues: list[Path]
     config_asset_issues: list[tuple[str, str]] = field(default_factory=list)
+    i18n_parity_issues: list[I18nParityIssue] = field(default_factory=list)
+    i18n_strict: bool = True
 
     @property
     def failed(self) -> bool:
@@ -778,6 +782,7 @@ class _AllCheckResults:
             or self.nav_contract_errors
             or ref_errors
             or self.security_events
+            or self.i18n_parity_issues
         )
 
 
@@ -856,6 +861,8 @@ def _collect_all_results(
             docs_root, exclusion_mgr, repo_root=repo_root, config=config
         ),
         config_asset_issues=config_asset_issues,
+        i18n_parity_issues=find_i18n_parity(repo_root, config=config),
+        i18n_strict=config.i18n.strict_parity,
     )
 
 
@@ -963,6 +970,18 @@ def _to_findings(results: _AllCheckResults, docs_root: Path) -> list[Finding]:
                 code="Z904",
                 severity="error",
                 message=msg,
+            )
+        )
+
+    _i18n_strict = results.i18n_strict
+    for issue in results.i18n_parity_issues:
+        findings.append(
+            Finding(
+                rel_path=_rel(issue.file_path),
+                line_no=0,
+                code="Z907",
+                severity="error" if _i18n_strict else "warning",
+                message=issue.message,
             )
         )
 
