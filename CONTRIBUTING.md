@@ -113,36 +113,7 @@ paths in any contribution, use `pathlib.Path` throughout — never string concat
 - No placeholder text, `TODO`, or stub comments in committed code.
 - Tests must pass with ≥ 80% branch coverage.
 - All PRs must target `main`; direct commits are blocked by pre-commit.
-
----
-
-## The Zenzic Memory Contract
-
-Zenzic uses a **Sovereign Memory Architecture (SMA)**. The `ZENZIC_BRAIN.md` file is part of the codebase — not a sidebar document.
-
-**Every Pull Request MUST satisfy:**
-
-1. **Update the Sprint Log (Zone B):** Add an entry to `[ACTIVE SPRINT]` in `ZENZIC_BRAIN.md`.
-2. **Run the Cartographer:** Execute `just brain-map` before committing (legacy alias: `just map-update`).
-3. **Pillar Check:** Ensure no conflict with [POLICIES] (Zone A).
-4. **Update `CHANGELOG.md`** (and `CHANGELOG.it.md`) **in the same commit** as the code change.
-   A commit that introduces behaviour without a CHANGELOG entry is a **Class 1 violation
-   (Technical Debt)**. "I'll update it before the release" is not acceptable — the next sprint
-   may not find the context. The CLOSING PROTOCOL in `ZENZIC_BRAIN.md` is the enforcement
-   checklist; Step 2 is non-negotiable.
-
-> **Unlock Sovereign Cartography:** The `zenzic brain` developer commands are only available in
-> editable installs. Install with the `[dev]` extra to activate them (CEO-246/268 Identity Gate):
->
-> ```bash
-> uv pip install -e ".[dev]"
-> # or, using uv-native dependency groups (recommended for local dev):
-> just sync   # uv sync --all-groups
-> ```
-
-**Zone A (Constitutional — Immutable):** Manifesto, Policies, ADRs. Only Core Maintainers may modify. Changes require opening an Issue for ADR discussion first.
-
-**Zone B (Operational — Volatile):** `[ACTIVE SPRINT]`. Bounded by a 400-line guardrail (`[Z907] MEMORY_OVERFLOW`). Contributors add sprint entries here.
+- Update `CHANGELOG.md` (and `CHANGELOG.it.md`) in the same commit as the code change.
 
 ---
 

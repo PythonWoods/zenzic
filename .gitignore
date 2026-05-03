@@ -41,6 +41,7 @@ dist/
 *.egg-info/
 
 # Zenzic: Drafts
+.draft
 drafts/
 Draft/
 *.egg
@@ -190,3 +191,6 @@ Desktop.ini
 # ============================================================================
 # End of .gitignore
 # ============================================================================
+
+# EPOCH 4 — draft vault (git-ignored, local reference only)
+.draft/

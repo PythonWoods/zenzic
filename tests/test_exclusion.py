@@ -431,6 +431,42 @@ class TestLayeredExclusionManagerVCS:
         mgr = LayeredExclusionManager(config, repo_root=tmp_path, docs_root=docs)
         assert not mgr.should_exclude_file(target, docs)
 
+    def test_vcs_enabled_by_default(self, tmp_path: Path) -> None:
+        """Default ZenzicConfig() activates VCS integration (new default=True).
+
+        A file matching a .gitignore pattern must be excluded automatically
+        when repo_root is provided — no explicit respect_vcs_ignore required.
+
+        Note: dir-only patterns (trailing /) exclude directories during walk via
+        should_exclude_dir(). Here we test file-level exclusion using a pattern
+        without a trailing slash (matches both files and directories).
+        """
+        from zenzic.core.exclusion import LayeredExclusionManager
+
+        gitignore = tmp_path / ".gitignore"
+        gitignore.write_text(".draft\n")  # no trailing slash — matches files and dirs
+        docs = tmp_path
+        draft_dir = tmp_path / ".draft"
+        draft_dir.mkdir()
+        target = draft_dir / "backup.md"
+        target.touch()
+        mgr = LayeredExclusionManager(ZenzicConfig(), repo_root=tmp_path, docs_root=docs)
+        # With default=True and a matching .gitignore rule, the file must be excluded
+        assert mgr.should_exclude_file(target, docs)
+
+    def test_vcs_dir_excluded_by_default_during_walk(self, tmp_path: Path) -> None:
+        """Dir-only .gitignore patterns (trailing /) are excluded via should_exclude_dir.
+
+        This is the production path: walk_files calls should_exclude_dir for each
+        directory, so files inside a git-ignored directory are never visited.
+        """
+        from zenzic.core.exclusion import LayeredExclusionManager
+
+        gitignore = tmp_path / ".gitignore"
+        gitignore.write_text(".draft/\n")
+        mgr = LayeredExclusionManager(ZenzicConfig(), repo_root=tmp_path, docs_root=tmp_path)
+        assert mgr.should_exclude_dir(".draft", rel_path=".draft")
+
     def test_forced_inclusion_overrides_vcs(self, tmp_path: Path) -> None:
         from zenzic.core.exclusion import LayeredExclusionManager
 

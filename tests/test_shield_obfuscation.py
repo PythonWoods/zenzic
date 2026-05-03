@@ -1,3 +1,4 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
 """TEAM RED — Operation Obsidian Stress: security audit tests for v0.6.1rc2.
 

@@ -600,7 +600,7 @@ def _init_standalone(repo_root: Path, force: bool) -> None:
         "# placeholder_max_words = 50       # Threshold for Z502 (Short Content)\n"
         "\n"
         "# --- EXCLUSIONS ---\n"
-        "# respect_vcs_ignore = true\n"
+        "# respect_vcs_ignore = false  # uncomment to disable .gitignore integration\n"
         '# excluded_dirs = ["temp", "drafts", "node_modules"]\n'
         "# excluded_external_urls = []\n"
         "\n"

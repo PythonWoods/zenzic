@@ -15,6 +15,7 @@
 #   just test-full   — run test suite with thorough Hypothesis profile (ci)
 #   just preflight   — full CI-equivalent pipeline (delegates to nox)
 #   just verify      — preflight + check (pre-push gate)
+#   just brain-map   — (removed — moved to zenzic-brain)
 #   just clean       — remove generated artefacts
 
 runner     := "uv run --active"
@@ -39,25 +40,15 @@ test *args:
 test-full *args:
     HYPOTHESIS_PROFILE=ci {{ nox_runner }} tests {{ args }}
 
-# ─── Sovereign Cartography (CEO-242/243 — Sovereign Cartographer) ────────────
-
-# Update [CODE MAP] in ZENZIC_BRAIN.md via AST, run Zone B audit, and sync shadow.
-# Requires editable install (uv sync). Only available in dev mode (CEO-246).
-brain-map:
-    {{ runner }} zenzic brain map .
-
-# Legacy alias — kept for backwards compatibility (was: uv run scripts/map_project.py)
-map-update: brain-map
-
 # ─── Quality Gates ────────────────────────────────────────────────────────────
 
 # Run the full quality pipeline (lint, typecheck, tests, reuse, security)
-preflight: brain-map
+preflight:
     {{ nox_runner }} preflight
 
-# Full local verification: brain-map first, then CI-equivalent gate (single pipeline)
+# Full local verification: CI-equivalent gate then self-lint.
 # Pillar 1: Zenzic guards the source BEFORE the build renders it.
-verify: brain-map check preflight
+verify: check preflight
 
 # ─── Cleanup ──────────────────────────────────────────────────────────────
 

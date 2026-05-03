@@ -279,13 +279,16 @@ class ZenzicConfig(BaseModel):
         ),
     )
     respect_vcs_ignore: bool = Field(
-        default=False,
+        default=True,
         description=(
-            "When True, Zenzic reads .gitignore files from the repository root "
-            "and docs directory and excludes matching files from all checks. "
-            "Disabled by default to preserve Zero-Config surprise principle. "
-            "Forced inclusions (included_dirs, included_file_patterns) override "
-            "VCS exclusions, but System Guardrails are always enforced."
+            "When True (default), Zenzic reads .gitignore files from the "
+            "repository root and docs directory and excludes matching paths "
+            "from all checks. This aligns with industry-grade linter standards "
+            "(Ruff, Ripgrep, Black, Prettier) where VCS-ignored paths are "
+            "transparently excluded. Set to False only to override this "
+            "behaviour explicitly. Forced inclusions (included_dirs, "
+            "included_file_patterns) override VCS exclusions, but System "
+            "Guardrails are always enforced."
         ),
     )
     included_dirs: list[str] = Field(

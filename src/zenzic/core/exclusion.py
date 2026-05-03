@@ -13,7 +13,7 @@ Exclusion Hierarchy (processed top-to-bottom, first match wins):
    from config — overrides VCS and Config exclusions (but NOT L1).
 3. **CLI Overrides (L4):** ``--exclude-dir`` / ``--include-dir`` flags.
 4. **VCS Discovery (L2-VCS):** ``.gitignore`` patterns when
-   ``respect_vcs_ignore = true``.
+   ``respect_vcs_ignore = true`` (default).
 5. **Config Overrides (L3):** ``excluded_dirs`` / ``excluded_file_patterns``
    from ``zenzic.toml``.
 6. **Default:** Included.

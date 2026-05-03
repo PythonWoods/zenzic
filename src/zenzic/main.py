@@ -91,36 +91,6 @@ app.command(name="diff", rich_help_panel="Quality")(diff)
 app.command(name="init", rich_help_panel="SDK & Plugins")(init)
 
 
-def _is_dev_mode() -> bool:
-    """Detect editable (development) install via PEP 610 direct_url.json metadata.
-
-    Uses ``importlib.metadata`` — zero subprocesses, zero filesystem heuristics
-    (CEO-246 Identity Gate).  Returns True only when Zenzic is installed with
-    ``pip install -e .`` / ``uv sync``, ensuring ``brain`` commands are
-    invisible to end-users regardless of their working directory.
-    """
-    import importlib.metadata
-    import json
-
-    try:
-        dist = importlib.metadata.distribution("zenzic")
-        direct_url_content = dist.read_text("direct_url.json")
-        if not direct_url_content:
-            return False
-        data = json.loads(direct_url_content)
-        # PEP 610: 'dir_info' key is present only for local-directory installs.
-        # The 'editable' flag confirms active development mode (pip install -e .).
-        return "dir_info" in data and data["dir_info"].get("editable", False)
-    except (importlib.metadata.PackageNotFoundError, json.JSONDecodeError, KeyError):
-        return False
-
-
-if _is_dev_mode():  # pragma: no cover — excluded from standard install test suite
-    from zenzic.cli._brain import brain_app
-
-    app.add_typer(brain_app, name="brain", rich_help_panel="Developer Tools")
-
-
 _err_console = Console(
     stderr=True,
     highlight=False,
