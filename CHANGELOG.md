@@ -26,6 +26,11 @@ speculative Base64 decoding. Supersedes v0.6.1.
 
 ## [Unreleased]
 
+### Changed
+
+- Default for `validate_same_page_anchors` is now `True` for out-of-the-box
+  intra-page validation.
+
 ### D097 — CLOSING PROTOCOL Enforcement (2026-05-01)
 
 #### Added
