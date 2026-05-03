@@ -309,7 +309,7 @@ class ZenzicConfig(BaseModel):
         ),
     )
     validate_same_page_anchors: bool = Field(
-        default=False,
+        default=True,
         description=(
             "When True, same-page anchor links (#section) are validated against the "
             "headings present in the source file. A link like [text](#missing) is "
