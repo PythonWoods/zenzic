@@ -7,16 +7,18 @@
 #
 #   repos:
 #     - repo: https://github.com/PythonWoods/zenzic
-#       rev: v0.5.0a3
+#       rev: v0.7.0  # Era della Chiarezza
 #       hooks:
-#         - id: zenzic-check-all
+#         - id: zenzic-verify    # gate Sentinel — corrisponde a `just verify` lato zenzic
 #
-# See https://zenzic.pythonwoods.dev/ci-cd/ for full integration guide.
+# See https://zenzic.dev/ci-cd/ for full integration guide.
 
-- id: zenzic-check-all
-  name: zenzic check all
-  description: Run all Zenzic documentation quality checks (links, orphans, snippets, placeholders, assets, references).
-  entry: zenzic check all --quiet
+- id: zenzic-verify
+  name: zenzic verify (Sentinel gate)
+  description: >-
+    Sentinel gate equivalent of `just verify` (Zenzic portion only — does not
+    invoke pytest). Runs all documentation quality checks in --strict posture.
+  entry: zenzic check all --strict --quiet
   language: python
   types: [markdown]
   pass_filenames: false

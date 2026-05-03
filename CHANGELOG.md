@@ -26,6 +26,48 @@ speculative Base64 decoding. Supersedes v0.6.1.
 
 ## [Unreleased]
 
+### Quartz Polish — Brand Purity & Hook Parity (2026-05-03)
+
+#### Added
+
+- **`📜 Log: v0.7.0 — Quartz Maturity`** patch-notes article published on
+  the official blog (mirrors `RELEASE.md` in 30s-readable format).
+- **Determinism Invariant** banner in `pyproject.toml` — formal contract
+  that Zenzic ships zero AI/ML inference dependencies.
+- **Zero-Brain Policy** `forbidden_patterns` extended in
+  `.zenzic.dev.toml`: `ZENZIC_BRAIN.md`, `zenzic brain map`,
+  `brain-map-check`, `Sovereign Memory`, `Mnemonic` — regression-proof
+  firewall preventing reintroduction of decoupled brand strings.
+
+#### Changed — Breaking
+
+- **`.pre-commit-hooks.yaml`** — hook id `zenzic-check-all` removed (no
+  compat alias, industry-grade only) and replaced by `zenzic-verify`
+  (Sentinel gate, equivalent to the Zenzic portion of `just verify`).
+  Example `rev:` bumped from `v0.5.0a3` to `v0.7.0`. Entry now uses
+  `--strict --quiet` (4-Gates posture). Migration for downstream
+  consumers:
+
+  ```diff
+  -      - id: zenzic-check-all
+  +      - id: zenzic-verify
+  ```
+
+- **README.md / README.it.md** — "Zenzic Engineering Series" link on
+  Dev.to replaced with sovereign canonical
+  `/blog/tags/engineering-chronicles`. The blog narrative is now
+  auto-canonical.
+
+#### Removed
+
+- `scripts/map_project.py` — superseded; no remaining callers in CI or
+  `justfile`.
+- `coverage.json` untracked from version control (effimero artefact;
+  added to `.gitignore` to prevent re-introduction).
+- Residual `ZENZIC_BRAIN` mentions in `src/zenzic/core/codes.py` and
+  `src/zenzic/cli/_standalone.py` (cosmetic scrub — the CLI itself was
+  already deleted in commit `41eaafc`).
+
 ### EPOCH 6 — Cross-Instance Trust Sovereignty (2026-05-03)
 
 #### Added

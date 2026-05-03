@@ -535,7 +535,7 @@ def _scaffold_dev_toml(repo_root: Path) -> None:
     content = (
         "# .zenzic.dev.toml — Local Development Gate (git-ignored)\n"
         "# This file is local to your machine. DO NOT commit it to version control.\n"
-        "# Use it to protect private context from being exported by 'zenzic brain map'.\n"
+        "# Use it to protect private context from being exported by Zenzic tooling.\n"
         "#\n"
         "# Documentation: https://zenzic.dev/docs/community/developers/how-to/configure-dev-perimeters\n"
         "\n"

@@ -60,7 +60,7 @@ from typing import NamedTuple
 class ZenzicExitCode:
     """Centralised exit code constants for the Zenzic CLI.
 
-    These values implement the Exit Code Contract documented in the ZENZIC_BRAIN:
+    These values implement the Exit Code Contract:
 
     * ``SUCCESS`` (0) — all checks passed; documentation is clean.
     * ``QUALITY`` (1) — quality findings (broken links, orphans, …);

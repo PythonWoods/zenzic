@@ -85,6 +85,7 @@ coverage/
 coverage.xml
 coverage-*.xml
 coverage-*.json
+coverage.json
 .tox/
 .nox/
 mutmut*

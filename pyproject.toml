@@ -1,6 +1,13 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
 
+# ─── Zenzic Determinism Invariant ──────────────────────────────────────
+# Zenzic ships zero AI/ML inference dependencies. Pure Python + AST + regex.
+# Adversarial AI testing happens externally; no runtime LLM call exists in
+# any code path. Reintroducing such a dependency violates the v0.7.0
+# "Quartz Maturity" purity contract.
+# ───────────────────────────────────────────────────────────────────────
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

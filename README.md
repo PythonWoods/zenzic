@@ -458,7 +458,7 @@ Apache-2.0 — see [LICENSE][license].
 
 Zenzic was born from a technical journey through the fragility of modern documentation
 ecosystems. Discover the philosophy, the security siege, and the engineering behind the
-Sentinel in the [**Zenzic Engineering Series**](https://dev.to/pythonwoods/series/38629) on Dev.to.
+Sentinel in the [**Engineering Chronicles**](https://zenzic.dev/blog/tags/engineering-chronicles) on the official blog.
 
 The v0.7.0 release story — AI-driven red-team siege, 4 bypass vectors closed, and the
 road to engine-agnostic parity — is documented in
