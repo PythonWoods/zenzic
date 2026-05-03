@@ -31,13 +31,15 @@ permissions:
   contents: read
 
 jobs:
-  # ── Static analysis (pinned to Python 3.11, Linux only — runs once) ──────────
-  lint:
-    name: Lint & Type Check
+  verify:
+    name: Verify
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v6
+
+      - name: Install just
+        uses: taiki-e/install-action@just
 
       - name: Install uv
         uses: astral-sh/setup-uv@v8.1.0
@@ -47,77 +49,8 @@ jobs:
       - name: Set up Python 3.11
         run: uv python install 3.11
 
-      - name: Run lint, format, typecheck
-        run: uvx nox -s lint format typecheck
+      - name: Sync dependencies
+        run: uv sync --all-groups
 
-  # ── Test suite ────────────────────────────────────────────────────────────────
-  # Lean mode (PR): ubuntu-latest × 3.13 only — fast feedback, covers 90% of bugs.
-  # Exhaustive mode (push to main / release/**): full 3 OS × 3 Python matrix.
-  tests:
-    name: Tests / ${{ matrix.os }} / py${{ matrix.python-version }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: ${{ fromJSON(github.event_name == 'pull_request' && '["ubuntu-latest"]' || '["ubuntu-latest","windows-latest","macos-latest"]') }}
-        python-version: ${{ fromJSON(github.event_name == 'pull_request' && '["3.13"]' || '["3.11","3.12","3.13"]') }}
-
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v8.1.0
-        with:
-          enable-cache: true
-
-      - name: Set up Python ${{ matrix.python-version }}
-        run: uv python install ${{ matrix.python-version }}
-
-      - name: Cache .nox
-        uses: actions/cache@v5
-        with:
-          path: .nox/
-          key: ${{ matrix.os }}-nox-${{ matrix.python-version }}-${{ hashFiles('uv.lock') }}
-          restore-keys: |
-            ${{ matrix.os }}-nox-${{ matrix.python-version }}-
-
-      - name: Run tests
-        run: uvx nox -s tests --python ${{ matrix.python-version }}
-
-      - name: Set up Node.js
-        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.13'
-        uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-
-      - name: Upload coverage
-        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.13'
-        uses: codecov/codecov-action@v6
-        with:
-          files: ./coverage.xml
-          fail_ci_if_error: false
-
-  # ── Security audit ────────────────────────────────────────────────────────────
-  security:
-    name: Security
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v8.1.0
-        with:
-          enable-cache: true
-
-      - name: Run pip-audit
-        run: uvx nox -s security
-
-  # ── REUSE compliance ──────────────────────────────────────────────────────────
-  reuse:
-    name: REUSE Compliance
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: REUSE Compliance Check
-        uses: fsfe/reuse-action@v6
+      - name: Run unified verification
+        run: just verify

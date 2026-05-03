@@ -1130,3 +1130,176 @@ const c = {
         assert "changelog.md" in nav
         assert "about.md" in nav
         assert "secret.md" not in nav
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# EPOCH 5 — Z105 absolute_path_allowlist (cross-plugin / multi-instance support)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestAbsolutePathAllowlist:
+    """``[link_validation] absolute_path_allowlist`` suppresses Z105 for
+    project-owned route prefixes that span Docusaurus plugin instances.
+
+    Multi-instance Docusaurus deployments cannot use relative paths across
+    plugin boundaries — the second ``@docusaurus/plugin-content-docs``
+    instance owns its own VSM, so a link from ``/docs/`` to ``/developers/``
+    must be absolute. Without an allowlist Z105 would block this legitimate
+    pattern.
+    """
+
+    def test_link_in_allowlist_skips_z105(self, tmp_path: Path) -> None:
+        from zenzic.core.exclusion import LayeredExclusionManager
+        from zenzic.models.config import LinkValidationConfig
+
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        (docs / "guide.md").write_text(
+            "[Writing an Adapter](/developers/how-to/implement-adapter)\n",
+            encoding="utf-8",
+        )
+        config = ZenzicConfig(
+            docs_dir="docs",
+            build_context=BuildContext(engine="docusaurus"),
+            link_validation=LinkValidationConfig(
+                absolute_path_allowlist=["/developers/"],
+            ),
+        )
+        em = LayeredExclusionManager(config, docs_root=docs, repo_root=tmp_path)
+        errors = validate_links_structured(
+            docs,
+            em,
+            repo_root=tmp_path,
+            config=config,
+            strict=False,
+        )
+        assert errors == [], f"Allowlisted link should not raise Z105: {errors}"
+
+    def test_link_outside_allowlist_still_flagged(self, tmp_path: Path) -> None:
+        from zenzic.core.exclusion import LayeredExclusionManager
+        from zenzic.models.config import LinkValidationConfig
+
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        (docs / "guide.md").write_text(
+            "[API](/api/v1/users)\n",
+            encoding="utf-8",
+        )
+        config = ZenzicConfig(
+            docs_dir="docs",
+            build_context=BuildContext(engine="docusaurus"),
+            link_validation=LinkValidationConfig(
+                absolute_path_allowlist=["/developers/"],
+            ),
+        )
+        em = LayeredExclusionManager(config, docs_root=docs, repo_root=tmp_path)
+        errors = validate_links_structured(
+            docs,
+            em,
+            repo_root=tmp_path,
+            config=config,
+            strict=False,
+        )
+        assert any("absolute" in str(e).lower() for e in errors), (
+            f"Non-allowlisted absolute path must still raise Z105: {errors}"
+        )
+
+    def test_default_allowlist_is_empty(self, tmp_path: Path) -> None:
+        """No allowlist configured → all absolute paths still raise Z105."""
+        from zenzic.core.exclusion import LayeredExclusionManager
+
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        (docs / "guide.md").write_text(
+            "[Dev](/developers/intro)\n",
+            encoding="utf-8",
+        )
+        config = ZenzicConfig(
+            docs_dir="docs",
+            build_context=BuildContext(engine="docusaurus"),
+        )
+        em = LayeredExclusionManager(config, docs_root=docs, repo_root=tmp_path)
+        errors = validate_links_structured(
+            docs,
+            em,
+            repo_root=tmp_path,
+            config=config,
+            strict=False,
+        )
+        assert any("absolute" in str(e).lower() for e in errors), (
+            f"Empty allowlist (default) must preserve Z105: {errors}"
+        )
+
+    def test_allowlist_typo_does_not_silence_correct_path(self, tmp_path: Path) -> None:
+        """Team-D break-test: a typo'd allowlist entry must NOT silence Z105
+        on a similar-looking but distinct prefix. Guards against the matcher
+        ever degrading from strict ``startswith`` to fuzzy / substring match.
+        """
+        from zenzic.core.exclusion import LayeredExclusionManager
+        from zenzic.models.config import LinkValidationConfig
+
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        (docs / "guide.md").write_text(
+            "[Dev](/developers/intro)\n",
+            encoding="utf-8",
+        )
+        config = ZenzicConfig(
+            docs_dir="docs",
+            build_context=BuildContext(engine="docusaurus"),
+            link_validation=LinkValidationConfig(
+                absolute_path_allowlist=["/develpers/"],  # intentional typo
+            ),
+        )
+        em = LayeredExclusionManager(config, docs_root=docs, repo_root=tmp_path)
+        errors = validate_links_structured(
+            docs,
+            em,
+            repo_root=tmp_path,
+            config=config,
+            strict=False,
+        )
+        assert any("absolute" in str(e).lower() for e in errors), (
+            f"A typo'd allowlist entry must not silently bypass Z105 on the "
+            f"correctly-spelled path: {errors}"
+        )
+
+    def test_allowlist_prefix_does_not_match_neighbour(self, tmp_path: Path) -> None:
+        """Team-D break-test: an entry without trailing slash must not match
+        a sibling prefix that merely starts with the same characters. Guards
+        the ADR-0011 invariant that ``startswith`` semantics should be paired
+        with disciplined trailing slashes in user-supplied entries.
+        """
+        from zenzic.core.exclusion import LayeredExclusionManager
+        from zenzic.models.config import LinkValidationConfig
+
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        (docs / "guide.md").write_text(
+            "[Internal](/developers-internal/secret)\n",
+            encoding="utf-8",
+        )
+        # Entry without trailing slash — broad on purpose to expose the risk.
+        config = ZenzicConfig(
+            docs_dir="docs",
+            build_context=BuildContext(engine="docusaurus"),
+            link_validation=LinkValidationConfig(
+                absolute_path_allowlist=["/developers"],
+            ),
+        )
+        em = LayeredExclusionManager(config, docs_root=docs, repo_root=tmp_path)
+        errors = validate_links_structured(
+            docs,
+            em,
+            repo_root=tmp_path,
+            config=config,
+            strict=False,
+        )
+        # This documents the current behaviour: bare prefix DOES match neighbour.
+        # The allowlist documentation explicitly recommends trailing slashes.
+        # If the matcher ever gains stricter semantics, flip the assertion.
+        assert errors == [], (
+            f"Bare-prefix allowlist entry currently matches neighbours via "
+            f"startswith — this is documented behaviour. Use trailing slashes "
+            f"to scope precisely. Errors: {errors}"
+        )

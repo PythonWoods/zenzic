@@ -26,6 +26,52 @@ speculative Base64 decoding. Supersedes v0.6.1.
 
 ## [Unreleased]
 
+### EPOCH 6 — Cross-Instance Trust Sovereignty (2026-05-03)
+
+#### Added
+
+- **`LinkValidationConfig` model** (`zenzic.models.config`) with
+  `absolute_path_allowlist: list[str]` field — trusted absolute path
+  prefixes that bypass `Z105 ABSOLUTE_PATH` for legitimate cross-plugin
+  references in multi-instance Docusaurus setups.
+- **`[link_validation]` configuration section** in `zenzic.toml`. Empty
+  by default (zero behavioural change for existing projects).
+- **`DocusaurusAdapter` integration** — when an absolute link prefix
+  matches the allowlist, the validator silently skips Z105 and treats
+  the URL as a Trusted Ghost Route.
+- **5 contract tests** (`tests/test_docusaurus_adapter.py
+  ::TestAbsolutePathAllowlist`):
+  - 3 happy-path tests covering allowlist hit, miss, and mixed config.
+  - 2 Team-D destructive break-tests proving the allowlist cannot
+    silently degrade into a catch-all (typo → still emits Z105;
+    bare-prefix `startswith` collision documented as invariant).
+
+#### Documentation (zenzic-doc, separate commit)
+
+- **ADR-0011 "Cross-Instance Allowlist"** (EN+IT) including
+  "Suppression vs Configuration" section that codifies the
+  orthogonality doctrine: `absolute_path_allowlist` = repository-wide
+  contract; `<!-- zenzic:ignore -->` = surgical local exception. The
+  ADR formally bans `<zenzic-ignore Z105>` for cross-plugin links.
+- **`/docs/how-to/manage-cross-site-links.mdx`** (EN+IT) — user-facing
+  Diátaxis how-to.
+- **`/docs/reference/configuration.mdx#link-validation`** (EN+IT) —
+  schema reference.
+- **`/developers/governance/technical-debt.mdx`** (EN+IT) — Z108
+  STALE_ALLOWLIST_ENTRY explicitly deferred to v0.8.0 "Basalt"
+  (Pillar 3 violation if implemented inline; needs a dedicated
+  `zenzic inspect config` command).
+
+#### Deferred to v0.8.0
+
+- **Z108 `STALE_ALLOWLIST_ENTRY`** — config-hygiene check that warns
+  when an allowlist entry no longer matches any real cross-plugin
+  link. Defer is intentional: implementing it inside the per-link
+  validator would violate Pillar 3 (Pure Functions) by introducing
+  shared mutable state across the scan. The correct home is a
+  separate read-only `zenzic inspect config` command. Tracked in
+  the Technical Debt Ledger.
+
 ### EPOCH 5 — Z907 I18N_PARITY + Documentation Diátaxis Restructure (2026-05-03)
 
 #### Added

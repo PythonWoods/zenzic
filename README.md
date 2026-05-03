@@ -33,6 +33,12 @@ SPDX-License-Identifier: Apache-2.0
   <a href="https://zenzic.dev/docs/community/governance/adversarial-ai">
     <img src="https://img.shields.io/badge/AI--Adversarial-Human--Governed-4f46e5?style=flat-square" alt="AI Governance">
   </a>
+  <a href="https://zenzic.dev/developers/explanation/adr-vault">
+    <img src="https://img.shields.io/badge/4--Gates-Sentinel%20Seal-10b981?style=flat-square" alt="4-Gates: Sentinel Seal">
+  </a>
+  <a href="https://reuse.software/">
+    <img src="https://img.shields.io/badge/REUSE-3.x%20compliant-0d9488?style=flat-square" alt="REUSE 3.x compliant">
+  </a>
 </p>
 
 <p align="center">
@@ -316,6 +322,35 @@ Visit the [documentation portal][docs-home] for interactive screenshots and rich
 
 ---
 
+## 📖 Documentation Map — Quartz Promise
+
+Zenzic's docs ship as **two separate Docusaurus instances** under the same domain.
+Each has its own sidebar, search, and audience — never mixed.
+
+```text
+zenzic.dev/
+├── docs/           → User Area    — install, configure, CI/CD, finding codes
+├── developers/     → Dev Area     — plugins, adapters, ADRs, tech debt ledger
+├── blog/           → Release notes & engineering post-mortems
+└── community/      → Brand kit, FAQs, governance
+```
+
+**The Quartz Promise.** Two instances, one Sentinel. The split is enforced by
+[ADR 011: Cross-Instance Allowlist][docs-adr-011] — every cross-boundary link
+is a documented contract, never a silent suppression. Hidden debt corrupts
+trust; declared debt is engineering. See the [Technical Debt Ledger][docs-tech-debt]
+for what we deferred and why.
+
+**Entry points:**
+
+| You are a... | Start here |
+| :--- | :--- |
+| 👤 User integrating Zenzic | `uvx zenzic lab` · [User Guide][docs-home] |
+| 🔧 Contributor / plugin author | [Developer Portal][docs-developers] · [ADR Vault][docs-adr-vault] |
+| 🛡️ Security reviewer | [Engineering Ledger][docs-eng-ledger] · [SECURITY.md][security] |
+
+---
+
 ## 🧱 Engineering Ledger
 
 Zenzic is governed by three non-negotiable operational contracts — each
@@ -455,7 +490,12 @@ road to engine-agnostic parity — is documented in
 [docs-home]:         https://zenzic.dev/docs/
 [docs-badges]:       https://zenzic.dev/docs/how-to/add-badges/
 [docs-cicd]:         https://zenzic.dev/docs/how-to/configure-ci-cd/
-[docs-arch]:         https://zenzic.dev/docs/explanation/architecture/
+[docs-arch]:         https://zenzic.dev/developers/explanation/
+[docs-developers]:   https://zenzic.dev/developers/
+[docs-adr-vault]:    https://zenzic.dev/developers/explanation/adr-vault
+[docs-adr-011]:      https://zenzic.dev/developers/explanation/adr-cross-instance-allowlist
+[docs-tech-debt]:    https://zenzic.dev/developers/governance/technical-debt
+[docs-eng-ledger]:   https://zenzic.dev/developers/explanation/engineering-ledger
 [ci-workflow]:       .github/workflows/ci.yml
 [contributing]:      CONTRIBUTING.md
 [license]:           LICENSE

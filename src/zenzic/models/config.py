@@ -234,6 +234,38 @@ SYSTEM_EXCLUDED_FILE_PATTERNS: tuple[str, ...] = (
 )
 
 
+class LinkValidationConfig(BaseModel):
+    """Link-resolution overrides declared under ``[link_validation]``.
+
+    ``absolute_path_allowlist`` declares URL prefixes (must start with ``/``)
+    that Zenzic should treat as **valid** when encountered as absolute-path
+    links, suppressing Z105 ABSOLUTE_PATH for those targets only.
+
+    The intended use case is multi-instance Docusaurus deployments where a
+    second ``@docusaurus/plugin-content-docs`` plugin owns its own route
+    namespace (e.g. ``/developers/``). Cross-plugin links cannot be relative
+    — Docusaurus requires absolute URLs across plugin boundaries — but the
+    target is still owned by the project, not an external host.
+
+    Match semantics: simple ``startswith`` (no globbing). The check runs
+    against the URL path component **after** percent-decoding.
+
+    TOML example::
+
+        [link_validation]
+        absolute_path_allowlist = ["/developers/", "/api/"]
+    """
+
+    absolute_path_allowlist: list[str] = Field(
+        default_factory=list,
+        description=(
+            "URL path prefixes (must start with '/') treated as valid "
+            "absolute links, suppressing Z105 for those targets. Used for "
+            "cross-plugin links in multi-instance Docusaurus setups."
+        ),
+    )
+
+
 class ZenzicConfig(BaseModel):
     """Configuration model for Zenzic, typically loaded from zenzic.toml.
 
@@ -440,6 +472,14 @@ class ZenzicConfig(BaseModel):
             "file must have a mirror in each target language root."
         ),
     )
+    link_validation: LinkValidationConfig = Field(
+        default_factory=LinkValidationConfig,
+        description=(
+            "Link-resolution overrides. ``absolute_path_allowlist`` declares "
+            "URL prefixes that suppress Z105 for cross-plugin / multi-instance "
+            "Docusaurus targets owned by the project."
+        ),
+    )
     # Pre-compiled regex patterns for placeholder detection.
     # Populated automatically from placeholder_patterns in model_post_init.
     # Excluded from serialisation — never written to or read from TOML.
@@ -473,7 +513,9 @@ class ZenzicConfig(BaseModel):
         # The most common pitfall: writing root-level settings AFTER a [section]
         # header (e.g. `[project]`) causes TOML to nest them under that table,
         # which is then silently dropped because `project` is not a known field.
-        _HANDLED_SECTIONS = frozenset({"build_context", "custom_rules", "project_metadata", "i18n"})
+        _HANDLED_SECTIONS = frozenset(
+            {"build_context", "custom_rules", "project_metadata", "i18n", "link_validation"}
+        )
         for key in data:
             if key not in known_fields and key not in _HANDLED_SECTIONS:
                 if isinstance(data[key], dict):
@@ -524,6 +566,14 @@ class ZenzicConfig(BaseModel):
                 if k in I18nConfig.model_fields and k != "extra_sources"
             }
             filtered_data["i18n"] = I18nConfig(extra_sources=extra, **i18n_filtered)
+        if "link_validation" in data and isinstance(data["link_validation"], dict):
+            filtered_data["link_validation"] = LinkValidationConfig(
+                **{
+                    k: v
+                    for k, v in data["link_validation"].items()
+                    if k in LinkValidationConfig.model_fields
+                }
+            )
         return cls(**filtered_data)
 
     @classmethod

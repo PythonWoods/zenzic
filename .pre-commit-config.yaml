@@ -63,8 +63,8 @@ repos:
         pass_filenames: false
 
       - id: pytest
-        name: Run Tests (pytest + coverage ≥80%)
-        entry: uv run pytest -q -x --cov=src/zenzic --cov-fail-under=80 --no-cov-on-fail
+        name: Run Tests (pytest quick gate)
+        entry: uv run pytest -q -x
         language: system
         types: [python]
         pass_filenames: false
@@ -76,3 +76,16 @@ repos:
         language: system
         types_or: [python, markdown, yaml]
         pass_filenames: false
+
+  # 7. Pre-push Final Guard (4-Gates Standard, EPOCH 4 / v0.7.0)
+  # Single entry-point: locale ≡ remote. Same `just verify` runs in GHA.
+  # Install with: uvx pre-commit install -t pre-push
+  - repo: local
+    hooks:
+      - id: just-verify
+        name: 🛡️ Zenzic Final Guard (just verify)
+        entry: just verify
+        language: system
+        stages: [pre-push]
+        pass_filenames: false
+        always_run: true

@@ -57,6 +57,47 @@ just sync
 
 `just sync` installs all dependency groups via `uv sync --all-groups`.
 
+Install BOTH pre-commit hook stages immediately after sync (mandatory):
+
+```bash
+uvx pre-commit install              # commit-stage: light hooks (ruff, format, hygiene)
+uvx pre-commit install -t pre-push  # pre-push: 🛡️ Final Guard runs `just verify`
+```
+
+The pre-push hook is the atomic gate of EPOCH 4 / v0.7.0: a single
+entry-point (`just verify`) runs both locally and in GitHub Actions —
+**locale ≡ remote, no drift**. Pushes are blocked when any of the
+4 Gates (pre-commit hooks, coverage, tests, `zenzic check all`) fails.
+
+---
+
+## The 4-Gates Standard
+
+Zenzic enforces a deterministic quality pipeline with one atomic
+entry-point. The same `just verify` runs in three places:
+
+| Stage | Trigger | What runs | Speed |
+|:------|:--------|:----------|:------|
+| **TDD inner loop** | `just test` | `pytest -n auto` (no coverage, parallel) | ⚡ instant |
+| **Commit** | `git commit` | Light hooks (ruff, format, file hygiene) | < 5 s |
+| **Push (Final Guard)** | `git push` (pre-push hook) | `just verify` = pre-commit + `test-cov` + `zenzic check all` | < 60 s |
+| **CI** | GitHub Actions | `just verify` (identical) | matches local |
+
+### Emergency & Break-Glass Protocol
+
+`--no-verify` bypass is permitted **only** during genuine outages
+(production hotfix, CI infra down, broken upstream dependency) when the
+gate cannot be fixed in time. Every bypass requires:
+
+1. Label `gate-bypass` on the PR.
+2. Issue from `.github/ISSUE_TEMPLATE/gate-bypass-postmortem.md`
+   opened within 24h (blameless: data, not blame).
+3. Explicit mention in the sprint CHANGELOG.
+
+Silent bypasses ("ghost pushes") violate project integrity and are
+escalated at sprint retrospective. A documented bypass is an
+opportunity to harden the gate; a hidden one is technical debt.
+
 ---
 
 ## Running tasks
@@ -69,11 +110,11 @@ the exact same environment as CI.
 |:-----|:---------------|:-----------------|:------------|
 | Bootstrap | `just sync` | — | Install / update all dependency groups |
 | **Self-lint** | **`just check`** | — | **Run Zenzic on its own examples (strict)** |
-| Test suite | `just test` | `nox -s tests` | pytest + branch coverage (Hypothesis **dev** profile) |
-| Test suite (thorough) | `just test-full` | — | pytest with Hypothesis **ci** profile (500 examples) |
+| Test (fast) | `just test` | — | pytest `-n auto`, no coverage (TDD inner loop) |
+| Test (audit) | `just test-cov` | `nox -s tests` | pytest serial + branch coverage XML (matches CI) |
+| Test (thorough) | `just test-full` | — | pytest with Hypothesis **ci** profile (500 examples) |
 | Mutation testing | — | `nox -s mutation` | mutmut on `rules.py`, `shield.py`, `reporter.py` |
-| Full pipeline | `just preflight` | `nox -s preflight` | lint, typecheck, tests, reuse, security |
-| **Pre-push gate** | **`just verify`** | — | **preflight + self-lint — run before every push** |
+| **Final Guard** | **`just verify`** | — | **pre-commit + test-cov + check — runs automatically on `git push`** |
 | Clean | `just clean` | — | Remove `dist/`, `.hypothesis/`, caches |
 | Version bump | — | `nox -s bump -- patch` | bump version + commit + tag |
 

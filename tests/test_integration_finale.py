@@ -307,6 +307,7 @@ def test_parallel_fail_fast_aborts_pending_on_breach(tmp_path: Path) -> None:
     assert paths == sorted(paths), "Results must be sorted by file_path"
 
 
+@pytest.mark.slow
 def test_parallel_zrt002_deadlock_guard_emits_z009(tmp_path: Path) -> None:
     """ZRT-002 preserved: when no worker completes within _WORKER_TIMEOUT_S, Z009 is emitted."""
     import concurrent.futures

@@ -33,6 +33,12 @@ SPDX-License-Identifier: Apache-2.0
   <a href="https://zenzic.dev/docs/community/governance/adversarial-ai">
     <img src="https://img.shields.io/badge/AI--Adversarial-Human--Governed-4f46e5?style=flat-square" alt="AI Governance">
   </a>
+  <a href="https://zenzic.dev/it/developers/explanation/adr-vault">
+    <img src="https://img.shields.io/badge/4--Gates-Sentinel%20Seal-10b981?style=flat-square" alt="4-Gates: Sentinel Seal">
+  </a>
+  <a href="https://reuse.software/">
+    <img src="https://img.shields.io/badge/REUSE-3.x%20compliant-0d9488?style=flat-square" alt="REUSE 3.x compliant">
+  </a>
 </p>
 
 <p align="center">
@@ -317,6 +323,37 @@ Visita il [portale di documentazione][docs-it-home] per screenshot interattivi e
 
 ---
 
+## 📖 Mappa della Documentazione — La Promessa di Quarzo
+
+I docs di Zenzic sono pubblicati come **due istanze Docusaurus separate** sotto lo
+stesso dominio. Ciascuna ha la propria sidebar, la propria ricerca e il proprio
+pubblico — mai mescolati.
+
+```text
+zenzic.dev/
+├── docs/           → Area Utente   — install, configurazione, CI/CD, codici di finding
+├── developers/     → Area Dev      — plugin, adapter, ADR, registro debito tecnico
+├── blog/           → Note di rilascio & post-mortem ingegneristici
+└── community/      → Brand kit, FAQ, governance
+```
+
+**La Promessa di Quarzo.** Due istanze, un solo Sentinel. La separazione è
+applicata da [ADR 011: Allowlist Cross-Istanza][docs-it-adr-011] — ogni link
+cross-confine è un contratto documentato, mai una soppressione silenziosa. Il
+debito nascosto corrompe la fiducia; il debito dichiarato è ingegneria. Vedi il
+[Registro del Debito Tecnico][docs-it-tech-debt] per cosa abbiamo rinviato e
+perché.
+
+**Punti di ingresso:**
+
+| Sei un... | Inizia da |
+| :--- | :--- |
+| 👤 Utente che integra Zenzic | `uvx zenzic lab` · [Guida Utente][docs-it-home] |
+| 🔧 Contributor / autore di plugin | [Portale Sviluppatori][docs-it-developers] · [ADR Vault][docs-it-adr-vault] |
+| 🛡️ Revisore di sicurezza | [Engineering Ledger][docs-it-eng-ledger] · [SECURITY.md][security] |
+
+---
+
 ## 🧱 Registro Ingegneristico
 
 Zenzic è governato da tre contratti operativi non negoziabili — ciascuno
@@ -458,7 +495,12 @@ chiusi, e la strada verso la parità engine-agnostica — è documentata in
 [docs-it-home]:      https://zenzic.dev/it/docs/
 [docs-it-badges]:    https://zenzic.dev/it/docs/how-to/add-badges/
 [docs-it-cicd]:      https://zenzic.dev/it/docs/how-to/configure-ci-cd/
-[docs-it-arch]:      https://zenzic.dev/it/docs/explanation/architecture/
+[docs-it-arch]:      https://zenzic.dev/it/developers/explanation/
+[docs-it-developers]: https://zenzic.dev/it/developers/
+[docs-it-adr-vault]: https://zenzic.dev/it/developers/explanation/adr-vault
+[docs-it-adr-011]:   https://zenzic.dev/it/developers/explanation/adr-cross-instance-allowlist
+[docs-it-tech-debt]: https://zenzic.dev/it/developers/governance/technical-debt
+[docs-it-eng-ledger]: https://zenzic.dev/it/developers/explanation/engineering-ledger
 [ci-workflow]:       .github/workflows/ci.yml
 [contributing]:      CONTRIBUTING.it.md
 [license]:           LICENSE

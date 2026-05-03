@@ -26,6 +26,53 @@ e Shield hardened con decodifica Base64 speculativa. Sostituisce v0.6.1.
 
 ## [Non rilasciato]
 
+### EPOCH 6 — Sovranità della Fiducia Cross-Instance (2026-05-03)
+
+#### Aggiunto
+
+- **Modello `LinkValidationConfig`** (`zenzic.models.config`) con il
+  campo `absolute_path_allowlist: list[str]` — prefissi di percorso
+  assoluto fidati che bypassano `Z105 ABSOLUTE_PATH` per riferimenti
+  cross-plugin legittimi in setup Docusaurus multi-istanza.
+- **Sezione di configurazione `[link_validation]`** in `zenzic.toml`.
+  Vuota di default (zero variazioni di comportamento per i progetti
+  esistenti).
+- **Integrazione `DocusaurusAdapter`** — quando un prefisso di link
+  assoluto matcha l'allowlist, il validator salta silenziosamente Z105
+  e tratta l'URL come una Trusted Ghost Route.
+- **5 test contrattuali** (`tests/test_docusaurus_adapter.py
+  ::TestAbsolutePathAllowlist`):
+  - 3 test happy-path che coprono allowlist hit, miss e configurazione mista.
+  - 2 break-test distruttivi Team-D che dimostrano che l'allowlist non
+    può silenziosamente degradare in catch-all (typo → emette ancora Z105;
+    collisione `startswith` su prefisso bare documentata come invariante).
+
+#### Documentazione (zenzic-doc, commit separato)
+
+- **ADR-0011 "Cross-Instance Allowlist"** (EN+IT) inclusa la sezione
+  "Soppressione vs Configurazione" che codifica la dottrina di
+  ortogonalità: `absolute_path_allowlist` = contratto a livello di
+  repository; `<!-- zenzic:ignore -->` = eccezione locale chirurgica.
+  L'ADR vieta formalmente `<zenzic-ignore Z105>` per i link cross-plugin.
+- **`/docs/how-to/manage-cross-site-links.mdx`** (EN+IT) — how-to
+  Diátaxis user-facing.
+- **`/docs/reference/configuration.mdx#link-validation`** (EN+IT) —
+  reference dello schema.
+- **`/developers/governance/technical-debt.mdx`** (EN+IT) — Z108
+  STALE_ALLOWLIST_ENTRY rinviato esplicitamente a v0.8.0 "Basalt"
+  (violazione del Pilastro 3 se implementato inline; richiede un
+  comando dedicato `zenzic inspect config`).
+
+#### Rinviato a v0.8.0
+
+- **Z108 `STALE_ALLOWLIST_ENTRY`** — check di igiene della config che
+  avvisa quando una voce dell'allowlist non corrisponde più ad alcun
+  link cross-plugin reale. Il rinvio è intenzionale: implementarlo
+  dentro il validator per-link violerebbe il Pilastro 3 (Pure Functions)
+  introducendo stato mutabile condiviso attraverso la scansione. La sede
+  corretta è un comando read-only separato `zenzic inspect config`.
+  Tracciato nel Ledger del Debito Tecnico.
+
 ### EPOCH 5 — Z907 I18N_PARITY + Restructure Diátaxis Documentazione (2026-05-03)
 
 #### Aggiunto

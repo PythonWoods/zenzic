@@ -798,7 +798,18 @@ async def validate_links_async(
             # Z105: absolute path — engines declare their own bypass schemes via
             # BaseAdapter.get_link_scheme_bypasses(); URLs using those schemes are
             # already in _effective_skip and never reach this check.
+            #
+            # Project-owned route prefixes declared in
+            # ``[link_validation] absolute_path_allowlist`` are also bypassed:
+            # multi-instance Docusaurus deployments cross plugin boundaries
+            # with absolute URLs (e.g. ``/developers/intro``) that the local
+            # VSM cannot resolve but are valid project-internal targets.
             if parsed.path.startswith("/") and parsed.scheme not in _bypass_schemes:
+                if any(
+                    parsed.path.startswith(prefix)
+                    for prefix in config.link_validation.absolute_path_allowlist
+                ):
+                    continue
                 internal_errors.append(
                     LinkError(
                         file_path=md_file,

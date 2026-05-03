@@ -102,6 +102,60 @@ The check integrates seamlessly into `zenzic check all` and respects
 
 ---
 
+## 🔗 EPOCH 6 — Cross-Instance Trust Sovereignty
+
+Multi-instance Docusaurus setups (e.g. `/docs/*` user area + `/developers/*`
+contributor area) need legitimate cross-plugin links — but those links
+look absolute (`/developers/foo`) and would normally trip `Z105 ABSOLUTE_PATH`.
+v0.7.0 introduces a **declarative trust contract**:
+
+```toml
+# zenzic.toml — opt-in, empty by default
+[link_validation]
+absolute_path_allowlist = [
+    "/docs/",
+    "/developers/",
+]
+```
+
+When an absolute link begins with an allowlisted prefix, the
+`DocusaurusAdapter` treats it as a **Trusted Ghost Route** and the
+validator silently bypasses Z105.
+
+### Why this is configuration, not suppression
+
+The orthogonality is doctrinal — codified in **ADR-0011 "Cross-Instance
+Allowlist"**, section *Suppression vs Configuration*:
+
+| Primitive | Scope | Form |
+| :--- | :--- | :--- |
+| `absolute_path_allowlist` | Repository-wide contract | Declarative config |
+| `<!-- zenzic:ignore Z105 -->` | One specific line | Surgical local exception |
+
+Using `<zenzic:ignore Z105>` for cross-plugin links is a **declared
+anti-pattern**: it scatters routing knowledge across the corpus and
+hides the contract.
+
+### Hardened by Team-D destructive tests
+
+Five contract tests guard the allowlist behaviour. Two of them are
+adversarial: they prove the allowlist cannot silently degrade into a
+catch-all when a contributor commits a typo, and document the
+`startswith` semantics so neighbour-collisions (`/developers` matching
+`/developers-internal/secret`) cannot sneak in unnoticed.
+
+### Z108 deferred to v0.8.0 — by design
+
+The natural follow-up — **Z108 `STALE_ALLOWLIST_ENTRY`**, which would
+warn when an entry no longer matches any real link — is **explicitly
+deferred** to v0.8.0 "Basalt". Implementing it inside the per-link
+validator would violate Pillar 3 (Pure Functions) by introducing
+shared mutable state across the scan. Its correct home is a separate
+read-only `zenzic inspect config` command. Documented in the
+[Technical Debt Ledger](https://zenzic.dev/developers/governance/technical-debt).
+
+---
+
 ## 🚀 The Big Three
 
 ### 1. Sovereign Root Protocol

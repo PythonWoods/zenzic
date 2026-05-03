@@ -1,21 +1,21 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
 #
-# just — interactive developer workflow.
+# just — interactive developer workflow (4-Gates Standard, EPOCH 4 / v0.7.0).
 #
-# Scope: commands that require an active environment or are not suitable for
-# nox isolation (bootstrapping, live servers, release builds with env vars).
-# Quality-assurance pipelines (lint, typecheck, tests, reuse, security) belong
-# to noxfile.py and are invoked here only via `nox -s <session>`.
+# Single source of truth for the quality pipeline. `just verify` is the
+# atomic entry-point invoked by the pre-push hook AND by GitHub Actions:
+# locale ≡ remote, no drift.
+#
+# Nox is reserved for isolated environments (multi-version compat).
 #
 # Quick reference:
 #   just sync        — install / update all dependency groups
 #   just check       — self-lint: run Zenzic on its own documentation
-#   just test        — run test suite (delegates to nox)
-#   just test-full   — run test suite with thorough Hypothesis profile (ci)
-#   just preflight   — full CI-equivalent pipeline (delegates to nox)
-#   just verify      — preflight + check (pre-push gate)
-#   just brain-map   — (removed — moved to zenzic-brain)
+#   just test        — fast inner loop (pytest -n auto, NO coverage)
+#   just test-cov    — audit run (serial pytest with coverage XML)
+#   just test-full   — thorough Hypothesis profile (ci, multi-version via nox)
+#   just verify      — Final Guard (pre-commit + test-cov + check)
 #   just clean       — remove generated artefacts
 
 runner     := "uv run --active"
@@ -32,23 +32,33 @@ sync:
 check:
     {{ runner }} zenzic check all --strict
 
-# Run the test suite (delegates to nox for reproducible isolation)
+# Inner loop: ultra-fast, parallel, no coverage (TDD feedback).
+# Pillar 3 (Pure Functions) guarantees pytest-xdist worker isolation.
+# Excludes `slow` markers (e.g. ZRT-002 60s deadlock guard) — opt-in via `just test-slow`.
 test *args:
-    {{ nox_runner }} tests {{ args }}
+    {{ runner }} pytest -n auto -m "not slow" {{ args }}
+
+# Opt-in: run slow tests (deadlock guards, long Hypothesis runs, etc.)
+test-slow *args:
+    {{ runner }} pytest -m "slow" {{ args }}
+
+# Audit: serial, deterministic, with coverage XML (pre-push gate + CI)
+# Coverage threshold (fail_under=80) enforced via pyproject.toml.
+test-cov *args:
+    {{ runner }} pytest --cov=src/zenzic --cov-report=term-missing --cov-report=xml:coverage.xml {{ args }}
 
 # Run the test suite with the thorough Hypothesis profile (ci — 500 examples)
 test-full *args:
     HYPOTHESIS_PROFILE=ci {{ nox_runner }} tests {{ args }}
 
-# ─── Quality Gates ────────────────────────────────────────────────────────────
+# ─── Quality Gates (4-Gates Standard) ─────────────────────────────────────────
 
-# Run the full quality pipeline (lint, typecheck, tests, reuse, security)
-preflight:
-    {{ nox_runner }} preflight
-
-# Full local verification: CI-equivalent gate then self-lint.
-# Pillar 1: Zenzic guards the source BEFORE the build renders it.
-verify: check preflight
+# Final Guard: atomic verification invoked by pre-push hook + GHA.
+# Sequence: pre-commit (all hooks) → test-cov (with coverage gate) → zenzic self-check.
+verify:
+    uvx pre-commit run --all-files
+    just test-cov
+    just check
 
 # ─── Cleanup ──────────────────────────────────────────────────────────────
 
