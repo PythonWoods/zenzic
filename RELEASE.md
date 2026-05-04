@@ -260,9 +260,9 @@ ever saying `where`.
 
 ---
 
-## 🌿 EPOCH 7b — Zero-Config Sovereignty (`absolute_path_allowlist` Purged)
+## 🌿 EPOCH 7a.1 — Zero-Config Sovereignty (`absolute_path_allowlist` Purged)
 
-EPOCH 7b extends the Zero-Config invariant to one of v0.7.0's last residues of
+EPOCH 7a.1 extends the Zero-Config invariant to one of v0.7.0's last residues of
 user-side coupling: the `[link_validation].absolute_path_allowlist` block.
 Multi-instance Docusaurus sites (one `@docusaurus/plugin-content-docs`
 instance per top-level URL prefix — e.g. `/docs/` for the user manual and

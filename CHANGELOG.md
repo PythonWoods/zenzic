@@ -26,7 +26,7 @@ deterministic maturity and formal integrity. The codebase achieves structural ma
 
 #### Added
 
-- **EPOCH 7b — Zero-Config Sovereignty (`absolute_path_allowlist` purged)**: The
+- **EPOCH 7a.1 — Zero-Config Sovereignty (`absolute_path_allowlist` purged)**: The
   `[link_validation]` TOML schema and its `absolute_path_allowlist` field are
   removed. Multi-instance Docusaurus plugin URL prefixes (`/docs/`, `/developers/`,
   every additional `@docusaurus/plugin-content-docs` instance) are now auto-detected
@@ -106,7 +106,7 @@ deterministic maturity and formal integrity. The codebase achieves structural ma
 
 #### Removed
 
-- **`[link_validation]` TOML schema (EPOCH 7b)**: The `LinkValidationConfig`
+- **`[link_validation]` TOML schema (EPOCH 7a.1)**: The `LinkValidationConfig`
   Pydantic model and its `absolute_path_allowlist: list[str]` field are removed
   from `zenzic.models.config`. Configurations that still declare
   `[link_validation]` raise a TOML validation error. **Migration:** delete the
