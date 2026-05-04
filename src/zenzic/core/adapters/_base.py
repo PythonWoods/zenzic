@@ -29,6 +29,47 @@ if TYPE_CHECKING:
 # ── RouteMetadata ─────────────────────────────────────────────────────────────
 
 
+@dataclass(frozen=True, slots=True)
+class ContentRoot:
+    """A documentation content root scanned in addition to ``docs_dir``.
+
+    Introduced in EPOCH 7a (Multi-Root Discovery) to fix the *VSM Blindness*
+    bug: prior to v0.7.1, the VSM only ingested files under ``docs_dir``,
+    so plugin-managed content trees living elsewhere — e.g. Docusaurus's
+    ``blog/`` directory — were silently excluded from validation.  The
+    Docusaurus build then surfaced broken links that ``zenzic check all``
+    had missed.
+
+    Adapters expose extra content roots through the optional method
+    ``get_extra_content_roots(repo_root) -> list[ContentRoot]``.  The Core
+    discovers the method via ``hasattr()`` (matching the pre-existing
+    :meth:`BaseAdapter.get_locale_source_roots` convention) so that
+    third-party adapters opt in only when ready — no breaking change for
+    adapters built against the v0.7.0 Protocol.
+
+    The Core then loads every Markdown file under each root and feeds them
+    to the VSM with the declared ``url_prefix`` injected at the front of
+    the relative path — so ``blog/2026-04-12-foo.mdx`` becomes
+    ``Path('blog/2026-04-12-foo.mdx')`` when the prefix is ``'blog'`` and
+    the root is the repo's ``blog/`` directory.
+
+    Attributes:
+        path:       Absolute path to the content root (e.g. ``<repo>/blog``).
+        url_prefix: URL prefix the engine prepends when routing files under
+                    this root (e.g. ``'blog'`` for Docusaurus default).  Empty
+                    string means files are served at the site root.  The
+                    prefix is also injected as the first ``rel`` segment when
+                    the file is dispatched to ``get_route_info()`` so the
+                    adapter can disambiguate.
+        label:      Human-readable identifier for diagnostics
+                    (e.g. ``'docusaurus-blog'``, ``'mkdocs-material-blog'``).
+    """
+
+    path: Path
+    url_prefix: str
+    label: str
+
+
 @dataclass(slots=True)
 class RouteMetadata:
     """Unified routing metadata for a single source file.

@@ -121,6 +121,7 @@ def build_vsm(
     md_contents: dict[Path, str],
     *,
     anchors_cache: dict[Path, set[str]] | None = None,
+    extra_content_roots: list[tuple[Path, str]] | None = None,
 ) -> VSM:
     """Build the Virtual Site Map from a pre-loaded file map.
 
@@ -138,6 +139,15 @@ def build_vsm(
        the builder falls back to calling ``map_url()`` + ``classify_route()``
        separately (backward-compatible with third-party adapters).
 
+    Multi-Root resolution (EPOCH 7a):
+
+    Files under ``docs_root`` are routed using ``rel = path.relative_to(docs_root)``.
+    Files under any of the *extra_content_roots* are routed with the declared
+    ``url_prefix`` injected as the first ``rel`` segment, so the active adapter
+    can disambiguate (e.g. Docusaurus blog posts) without a separate dispatch.
+    Files outside both sets (locale translations) carry no canonical URL and
+    are skipped — they are validated for link integrity only.
+
     Workflow:
 
     1. Iterate over every ``.md`` file in ``md_contents``.
@@ -146,19 +156,25 @@ def build_vsm(
     4. Build and return the ``VSM`` dict.
 
     Args:
-        adapter:       Build-engine adapter.  Must implement either
-                       ``get_route_info(rel)`` or the legacy
-                       ``map_url(rel)`` + ``classify_route(rel, nav_paths)``
-                       + ``get_nav_paths()``.
-        docs_root:     Resolved absolute path to the ``docs/`` directory.
-        md_contents:   Pre-loaded mapping of absolute ``Path`` → raw Markdown.
-        anchors_cache: Pre-computed ``Path`` → anchor slug set.  When
-                       ``None``, anchors are left as empty sets.
+        adapter:             Build-engine adapter.  Must implement either
+                             ``get_route_info(rel)`` or the legacy
+                             ``map_url(rel)`` + ``classify_route(rel, nav_paths)``
+                             + ``get_nav_paths()``.
+        docs_root:           Resolved absolute path to the ``docs/`` directory.
+        md_contents:         Pre-loaded mapping of absolute ``Path`` → raw Markdown.
+        anchors_cache:       Pre-computed ``Path`` → anchor slug set.  When
+                             ``None``, anchors are left as empty sets.
+        extra_content_roots: Optional list of ``(root_path, url_prefix)`` pairs
+                             from the adapter's ``get_extra_content_roots()``.
+                             Files under these roots are admitted to the VSM
+                             with the prefix injected at the front of their
+                             relative path.
 
     Returns:
         ``VSM`` mapping canonical URL → ``Route`` (IGNORED entries omitted).
     """
     ac = anchors_cache or {}
+    extra_roots: list[tuple[Path, str]] = list(extra_content_roots or [])
 
     # Detect which routing API the adapter supports.
     use_metadata_api = hasattr(adapter, "get_route_info") and callable(
@@ -172,12 +188,24 @@ def build_vsm(
 
     routes: list[Route] = []
     for abs_path, _content in md_contents.items():
-        # Locale files (i18n/<locale>/…) live outside docs_root and carry no
-        # canonical URL in the VSM — they are validated for link integrity but
-        # excluded from URL routing and orphan detection.
-        if not abs_path.is_relative_to(docs_root):
-            continue
-        rel = abs_path.relative_to(docs_root)
+        # ── Resolve the logical rel and source label ────────────────────────
+        # Files under docs_root use their ordinary relative path.  Files under
+        # an extra content root carry the URL prefix as their first segment so
+        # the adapter can disambiguate.  Anything else (locale translations)
+        # carries no canonical URL — skipped here, validated elsewhere.
+        if abs_path.is_relative_to(docs_root):
+            rel = abs_path.relative_to(docs_root)
+        else:
+            matched_root: tuple[Path, str] | None = None
+            for root, prefix in extra_roots:
+                if abs_path.is_relative_to(root):
+                    matched_root = (root, prefix)
+                    break
+            if matched_root is None:
+                continue
+            root, prefix = matched_root
+            inner = abs_path.relative_to(root)
+            rel = (Path(prefix) / inner) if prefix else inner
         rel_posix = rel.as_posix()
 
         if use_metadata_api:

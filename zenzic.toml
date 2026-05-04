@@ -58,6 +58,7 @@ excluded_assets = [
     "NOTICE",
     ".gitignore",
     ".coverage",
+    "*.code-workspace",
 ]
 
 # Historical changelogs contain example secrets and deprecated syntax

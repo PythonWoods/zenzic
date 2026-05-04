@@ -169,6 +169,97 @@ read-only `zenzic inspect config` command. Documented in the
 
 ---
 
+## 🌳 EPOCH 7a — Multi-Root Discovery (VSM Blindness Sealed)
+
+For every release before v0.7.0 the VSM ingested **only** files under `docs_dir`.
+Modern static-site generators routinely manage content trees that live outside `docs/` —
+the textbook case is the Docusaurus `blog/` directory, materialised as live URLs at build
+time. A pre-EPOCH-7a `zenzic check all --strict` would never see those files: broken
+links inside (or pointing to) blog posts slipped past validation and only surfaced when
+`docusaurus build` failed downstream. We call this failure mode **VSM Blindness**.
+
+EPOCH 7a cures the blindness without compromising the three Pillars:
+
+```python
+# zenzic.core.adapters._base
+@dataclass(frozen=True, slots=True)
+class ContentRoot:
+    path: Path        # absolute, e.g. <repo>/blog
+    url_prefix: str   # e.g. 'blog' (or '' for root-served content)
+    label: str        # diagnostic, e.g. 'docusaurus-blog'
+```
+
+Adapters opt in by implementing the optional
+`get_extra_content_roots(repo_root) -> list[ContentRoot]` method. The Core discovers it
+via `hasattr()` — the same convention already used by `get_locale_source_roots` — so
+adapters that have nothing to declare need no stub. **The addition is non-breaking** for
+third-party adapters built against the v0.7.0 Protocol.
+
+### Four pipeline stages cooperate
+
+1. **Discovery** — `iter_extra_content_markdown_sources` walks each root with
+   `walk_files` (same `os.walk` engine, same `LayeredExclusionManager`) and yields
+   `(abs_path, logical_rel)` pairs where `logical_rel` carries the URL prefix as its
+   first segment.
+2. **VSM** — `build_vsm` resolves every file's logical `rel` from `docs_root` *or* a
+   matched extra root, then dispatches to the adapter's `get_route_info(rel)`.
+3. **Validator** — the link checker loads extra-root files into `md_contents`, extends
+   `_allowed_roots` so cross-tree relative links resolve under the Shield, and feeds
+   the prefixed `rel` into "Did you mean?" suggestions.
+4. **Scanner** — `find_unused_assets` (Z903) and `find_placeholders` iterate extra roots
+   when collecting reference sets, so an asset cited only from a blog post is no longer
+   reported as unused.
+
+### Auto-discovery without `subprocess`
+
+The Docusaurus adapter detects the blog plugin in two passes, both pure parsing:
+
+1. Static regex parse of `docusaurus.config.{ts,js,mjs,cjs}` for a
+   `blog: { path, routeBasePath }` block (or a sentinel `blog: false` to opt out).
+2. Convention fallback: when the config does not pin the blog plugin and `<repo>/blog`
+   exists on disk, assume the default plugin layout (`path = 'blog'`,
+   `routeBasePath = 'blog'`).
+
+**No Node.js process is ever spawned** — the config is read as data, not executed as
+code. Pillar 2 (Engine Sovereignty) is preserved.
+
+### Traceability invariant
+
+A new contract test (`tests/test_docusaurus_blog_vsm.py::TestEpoch7aReverseMapping`)
+asserts that every blog `Route.source` resolves back to a real file on disk:
+
+```python
+for route in blog_routes:
+    assert route.source.startswith("blog/")
+    assert (repo_root / route.source).is_file()
+```
+
+This locks the contract that EPOCH 7b virtual routes (tags, pagination, authors) will
+inherit: a route with no physical origin would be a validator screaming `error` without
+ever saying `where`.
+
+### Engine support matrix
+
+| Engine            | Implements `get_extra_content_roots` | Status                                                                |
+|-------------------|--------------------------------------|------------------------------------------------------------------------|
+| Docusaurus        | Yes                                  | Auto-discovers `blog/` from config or convention.                      |
+| MkDocs (Material) | No                                   | Opt-in deferred until `material/blog` plugin enters the v0.7 scope.    |
+| Zensical          | No                                   | Architecture is identical — enabled when an out-of-tree plugin ships.  |
+| Standalone        | No                                   | No plugins; `docs_root` is the entire content surface.                 |
+
+### Industry-grade compliance
+
+- **Zero `rglob`**: every walk uses `walk_files` (deterministic `os.walk` with
+  in-place exclusion pruning). The Determinism Invariant from the Quartz Era is
+  preserved across the new content surface.
+- **Zero subprocess**: no Node.js execution; the Docusaurus config is parsed as data.
+- **Non-breaking**: the `hasattr()` opt-in pattern means existing adapters need no
+  changes.
+- **Seven new regression tests** lock the four invariants (discovery, VSM ingestion,
+  reverse-mapping traceability, validator catches broken links) and ship green.
+
+---
+
 ## 🚀 The Big Three
 
 ### 1. Sovereign Root Protocol

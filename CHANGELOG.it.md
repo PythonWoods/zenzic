@@ -26,12 +26,29 @@ maturità deterministica e integrità formale. Il codebase raggiunge la maturit�
 
 #### Aggiunto
 
+- **EPOCH 7a — Multi-Root Discovery (VSM Blindness sigillata)**: Il VSM non è
+  più vincolato a `docs_dir`. Gli adapter possono dichiarare radici di contenuto
+  aggiuntive tramite l'hook opzionale `get_extra_content_roots(repo_root) -> list[ContentRoot]`
+  (rilevato con `hasattr()`, replicando la convenzione di `get_locale_source_roots` —
+  non-breaking per gli adapter di terze parti). L'adapter Docusaurus auto-rileva il
+  plugin `blog/` in due passaggi puramente di parsing (regex statico su
+  `docusaurus.config.{ts,js,mjs,cjs}` con fallback per convenzione) — l'invariante Zero
+  Subprocess è preservato. Quattro stadi della pipeline (Discovery, VSM, Validator,
+  Scanner Z903/Z104) cooperano affinché i post del blog siano contenuto di prima classe:
+  link rotti dentro `blog/` e link cross-tree da `docs/` verso `blog/` sono ora
+  intercettati da `zenzic check all --strict` invece di sfuggire a `docusaurus build`.
+  Un test di invariante Reverse-Mapping
+  (`tests/test_docusaurus_blog_vsm.py::TestEpoch7aReverseMapping`) verifica che ogni
+  `Route.source` di blog risalga a un file fisico, bloccando il contratto che le rotte
+  virtuali di EPOCH 7b (tag, paginazione, autori) erediteranno. La Discovery usa
+  `walk_files` (lo stesso motore `os.walk` esistente), non `rglob` — il determinismo è
+  preservato.
 - **Sentinel Seal**: Sistema di validazione rigorosa a 4 stadi (`just verify`) integrato in
   ogni repository — pre-commit, test-cov e self-check eseguiti identicamente in locale e in CI.
-- **Cross-Repo Governance**: Regola della Parità dei Branch per la sincronizzazione Core/Doc
+- **Cross-Repo Governance**: Branch Parity Rule per la sincronizzazione Core/Doc
   con fallback automatico su `main`. Configurazione VS Code Multi-Root Workspace per lo
   sviluppo unificato.
-- **Z907 Parità I18N**: Scanner di parità traduzione language-agnostic con parallelismo
+- **Z907 I18N_PARITY**: Scanner di parità traduzione language-agnostic con parallelismo
   adattivo, imposizione chiavi frontmatter e supporto Docusaurus multi-istanza.
 - **Esportazione SARIF 2.1.0**: Tutti i comandi `check` supportano `--format sarif` per
   l'integrazione nativa con GitHub Code Scanning e annotazioni inline nelle PR.
@@ -39,7 +56,7 @@ maturità deterministica e integrità formale. Il codebase raggiunge la maturit�
 - **Auto-Discovery del Motore**: `engine = "auto"` risolve automaticamente il framework di
   documentazione (Docusaurus → MkDocs → Zensical → Standalone).
 - **Decoder Speculativo Base64**: Lo Shield rileva credenziali codificate in Base64 nel
-  frontmatter YAML, sigillando il vettore d'attacco S2 dal Tribunale Quartz.
+  frontmatter YAML, sigillando il vettore d'attacco S2 dal Quartz Tribunal.
 - **Z107 Ancora Circolare**, **Z505 Blocco Codice Senza Tag**, **Z905 Obsolescenza Brand**:
   Tre nuovi check basati su regole per integrità strutturale e del brand.
 - **Z404 Integrità Asset di Configurazione**: Verifica i percorsi favicon e social card su
@@ -49,7 +66,7 @@ maturità deterministica e integrità formale. Il codebase raggiunge la maturit�
 - **Parser Sidebar Statico**: Parser regex pure-Python per `sidebars.ts`/`sidebars.js`.
 - **GitHub Action Ufficiale**: Action composita `PythonWoods/zenzic-action` con upload SARIF
   e quality gate configurabili.
-- **Invariante di Determinismo**: Contratto formale in `pyproject.toml` — Zenzic non
+- **Determinism Invariant**: Contratto formale in `pyproject.toml` — Zenzic non
   distribuisce nessuna dipendenza AI/ML.
 
 #### Modificato

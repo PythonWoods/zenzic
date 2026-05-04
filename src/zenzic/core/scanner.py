@@ -26,6 +26,7 @@ from urllib.parse import unquote
 from zenzic.core.adapter import get_adapter
 from zenzic.core.discovery import (
     DOC_SUFFIXES,
+    iter_extra_content_markdown_sources,
     iter_locale_markdown_sources,
     iter_markdown_sources,
     walk_files,
@@ -658,6 +659,13 @@ def find_placeholders(
                 ):
                     content = md_file.read_text(encoding="utf-8")
                     findings.extend(check_placeholder_content(content, logical_rel, config))
+        if hasattr(adapter, "get_extra_content_roots"):
+            for content_root in adapter.get_extra_content_roots(repo_root):
+                for md_file, logical_rel in iter_extra_content_markdown_sources(
+                    content_root.path, content_root.url_prefix, config, exclusion_manager
+                ):
+                    content = md_file.read_text(encoding="utf-8")
+                    findings.extend(check_placeholder_content(content, logical_rel, config))
 
     return findings
 
@@ -746,6 +754,16 @@ def find_unused_assets(
             for locale_root, locale_name in adapter.get_locale_source_roots(repo_root):
                 for md_file, logical_rel in iter_locale_markdown_sources(
                     locale_root, locale_name, config, exclusion_manager
+                ):
+                    content = md_file.read_text(encoding="utf-8")
+                    page_dir = logical_rel.parent.as_posix()
+                    if page_dir == ".":
+                        page_dir = ""
+                    used_assets |= check_asset_references(content, page_dir)
+        if hasattr(adapter, "get_extra_content_roots"):
+            for content_root in adapter.get_extra_content_roots(repo_root):
+                for md_file, logical_rel in iter_extra_content_markdown_sources(
+                    content_root.path, content_root.url_prefix, config, exclusion_manager
                 ):
                     content = md_file.read_text(encoding="utf-8")
                     page_dir = logical_rel.parent.as_posix()

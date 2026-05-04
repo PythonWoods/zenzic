@@ -102,6 +102,55 @@ def iter_locale_markdown_sources(
         yield md_file, logical_rel
 
 
+def iter_extra_content_markdown_sources(
+    content_root: Path,
+    url_prefix: str,
+    config: ZenzicConfig,
+    exclusion_manager: LayeredExclusionManager,
+) -> Generator[tuple[Path, Path], None, None]:
+    """Yield ``(abs_path, logical_rel)`` for files in an extra content root.
+
+    EPOCH 7a Multi-Root Discovery helper.  Walks a content tree that lives
+    outside ``docs_root`` (e.g. Docusaurus's ``blog/`` directory) and yields
+    each Markdown file with a *logical* relative path that includes the
+    declared URL prefix.  The prefix injection lets the active adapter route
+    the file via its existing ``get_route_info()`` logic without a second
+    dispatch:
+
+    .. code-block:: text
+
+        <repo>/blog/2026-04-12-foo.mdx, prefix='blog'
+            → (abs_path, Path('blog/2026-04-12-foo.mdx'))
+
+    Empty ``url_prefix`` yields the file's path relative to ``content_root``
+    unchanged — useful for engines that serve extra content at the site root.
+
+    Args:
+        content_root:      Absolute path to the extra content root.
+        url_prefix:        URL prefix declared by the adapter
+                           (:attr:`ContentRoot.url_prefix`).
+        config:            Loaded Zenzic configuration.
+        exclusion_manager: Layered exclusion manager.
+
+    Yields:
+        ``(abs_path, logical_rel)`` tuples in deterministic sorted order.
+    """
+    if not content_root.is_dir():
+        return
+    excluded_dirs = set(config.excluded_dirs)
+    prefix_path = Path(url_prefix) if url_prefix else None
+    for md_file in walk_files(content_root, excluded_dirs, exclusion_manager):
+        if md_file.suffix not in DOC_SUFFIXES:
+            continue
+        if md_file.is_symlink():
+            continue
+        if exclusion_manager.should_exclude_file(md_file, content_root):
+            continue
+        rel = md_file.relative_to(content_root)
+        logical_rel = (prefix_path / rel) if prefix_path is not None else rel
+        yield md_file, logical_rel
+
+
 def iter_markdown_sources(
     docs_root: Path,
     config: ZenzicConfig,

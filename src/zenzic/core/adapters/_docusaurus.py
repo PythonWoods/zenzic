@@ -41,7 +41,7 @@ from zenzic.models.config import BuildContext
 
 
 if TYPE_CHECKING:
-    from zenzic.core.adapters._base import RouteMetadata
+    from zenzic.core.adapters._base import ContentRoot, RouteMetadata
     from zenzic.models.vsm import RouteStatus
 
 _log = logging.getLogger(__name__)
@@ -116,6 +116,20 @@ def find_docusaurus_config(repo_root: Path) -> Path | None:
 _BASE_URL_RE = re.compile(r"""baseUrl\s*:\s*['"]([^'"]+)['"]""")
 
 _ROUTE_BASE_PATH_RE = re.compile(r"""routeBasePath\s*:\s*['"]([^'"]*?)['"]""")
+
+# ── Blog plugin extraction (EPOCH 7a Multi-Root Discovery) ───────────────────
+
+# Detects ``blog: false`` (plugin disabled) anywhere in the preset body.
+_BLOG_DISABLED_RE = re.compile(r"""blog\s*:\s*false\b""")
+
+# Captures the body of a ``blog: { ... }`` block, single nesting level.
+# Keeps the inner content so subsequent regexes can pull ``path`` and
+# ``routeBasePath`` from it without false matches against unrelated keys
+# (e.g. ``docs.routeBasePath``).
+_BLOG_BLOCK_RE = re.compile(r"""blog\s*:\s*\{([^{}]*)\}""", re.DOTALL)
+
+_BLOG_PATH_RE = re.compile(r"""\bpath\s*:\s*['"]([^'"]+)['"]""")
+_BLOG_RBP_RE = re.compile(r"""\brouteBasePath\s*:\s*['"]([^'"]*?)['"]""")
 
 # ── Infrastructure asset path extraction (Z404) ──────────────────────────────
 
@@ -200,6 +214,58 @@ def _extract_route_base_path(config_path: Path) -> str | None:
     return match.group(1)
 
 
+# ── Blog plugin discovery (EPOCH 7a) ─────────────────────────────────────────
+
+
+def _extract_blog_config(config_path: Path) -> tuple[str, str] | None:
+    """Extract ``(blog_path, blog_route_base_path)`` from a Docusaurus config.
+
+    Discovers the ``blog`` plugin block inside the Docusaurus preset/plugin
+    declaration via static analysis (no Node.js execution).  Honours the
+    documented Docusaurus defaults: ``path = "blog"`` and
+    ``routeBasePath = "blog"``.
+
+    Returns ``None`` when:
+
+    - The config file cannot be read.
+    - The config uses dynamic patterns that defeat static analysis.
+    - ``blog: false`` is declared (plugin explicitly disabled).
+    - No ``blog: { ... }`` block is found AND no ``blog`` keyword appears
+      (caller falls back to convention-over-config: scan ``<repo>/blog``).
+
+    Args:
+        config_path: Path to ``docusaurus.config.{ts,js,mjs}``.
+
+    Returns:
+        ``(blog_path, blog_route_base_path)`` or ``None``.
+    """
+    try:
+        raw = config_path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+
+    content = _strip_js_comments(raw)
+
+    if _is_dynamic_config(content):
+        return None
+
+    if _BLOG_DISABLED_RE.search(content):
+        return None
+
+    block = _BLOG_BLOCK_RE.search(content)
+    if block is None:
+        # No explicit blog block — caller decides whether to scan default location.
+        return ("blog", "blog")
+
+    body = block.group(1)
+    path_match = _BLOG_PATH_RE.search(body)
+    rbp_match = _BLOG_RBP_RE.search(body)
+
+    blog_path = path_match.group(1) if path_match else "blog"
+    blog_rbp = rbp_match.group(1) if rbp_match else "blog"
+    return (blog_path, blog_rbp)
+
+
 def check_config_assets(config_path: Path, repo_root: Path) -> list[tuple[str, str]]:
     """Check that infrastructure assets referenced in ``docusaurus.config.*`` exist.
 
@@ -268,6 +334,16 @@ def check_config_assets(config_path: Path, repo_root: Path) -> list[tuple[str, s
 
 _FRONTMATTER_RE = re.compile(r"\A\s*---\s*\n(.*?)\n---", re.DOTALL)
 _SLUG_RE = re.compile(r"^slug\s*:\s*['\"]?([^'\"#\n]+?)['\"]?\s*$", re.MULTILINE)
+
+# EPOCH 7a: Docusaurus blog filename convention is ``YYYY-MM-DD-<slug>.mdx``.
+# When no frontmatter slug is declared, the engine derives the URL slug by
+# stripping the leading date.  Mirror that here.
+_BLOG_DATE_PREFIX_RE = re.compile(r"^\d{4}-\d{2}-\d{2}-")
+
+
+def _strip_blog_date_prefix(stem: str) -> str:
+    """Strip a leading ``YYYY-MM-DD-`` blog filename prefix, if any."""
+    return _BLOG_DATE_PREFIX_RE.sub("", stem, count=1)
 
 
 def _extract_frontmatter_slug(content: str) -> str | None:
@@ -566,11 +642,24 @@ class DocusaurusAdapter:
         # remains a pure aggregator with no I/O.
         self._navbar_paths: frozenset[str] = frozenset()
 
+        # EPOCH 7a Multi-Root Discovery — blog plugin metadata.
+        # Set eagerly by ``from_repo()`` when ``<repo>/blog`` exists or the
+        # config declares the blog plugin.  ``_blog_root`` is the absolute
+        # path to the blog content directory; ``_blog_route_base_path`` is the
+        # URL prefix the engine will use (default ``'blog'``).
+        self._blog_root: Path | None = None
+        self._blog_route_base_path: str = "blog"
+
     def set_slug_map(self, md_contents: dict[Path, str]) -> None:
         """Pre-compute the slug map from frontmatter of all loaded files.
 
         Must be called before ``map_url()`` to enable frontmatter slug
         overrides.  Safe to call multiple times (last call wins).
+
+        EPOCH 7a: also handles blog files when ``_blog_root`` is set — the
+        slug map key for those files is the blog-prefixed logical path
+        (e.g. ``blog/2026-04-12-foo.mdx``) so ``map_url()`` can resolve it
+        without a second dispatch.
 
         Args:
             md_contents: Pre-loaded mapping of absolute ``Path`` → raw content.
@@ -579,11 +668,17 @@ class DocusaurusAdapter:
         for abs_path, content in md_contents.items():
             try:
                 rel = abs_path.relative_to(self._docs_root)
+                key = rel.as_posix()
             except ValueError:
-                continue
+                # Not under docs_root — try the blog root with prefix injection.
+                if self._blog_root is not None and abs_path.is_relative_to(self._blog_root):
+                    rel = abs_path.relative_to(self._blog_root)
+                    key = (Path(self._blog_route_base_path) / rel).as_posix()
+                else:
+                    continue
             slug = _extract_frontmatter_slug(content)
             if slug is not None:
-                slugs[rel.as_posix()] = slug
+                slugs[key] = slug
         self._slug_map = slugs
 
     # ── BaseAdapter protocol ───────────────────────────────────────────────
@@ -734,32 +829,57 @@ class DocusaurusAdapter:
         """
         rel_posix = rel.as_posix()
 
+        # ── EPOCH 7a: blog plugin routing ──
+        # Blog files arrive with the route_base_path prefix injected by the
+        # caller (e.g. ``blog/2026-04-12-foo.mdx``).  Routing rules diverge
+        # from docs:
+        #   • No routeBasePath stacking: the blog prefix IS the route base.
+        #   • Slug derivation strips the leading ``YYYY-MM-DD-`` date segment
+        #     when present (Docusaurus blog convention).
+        #   • Frontmatter ``slug:`` always wins.
+        if self._blog_root is not None and rel.parts and rel.parts[0] == self._blog_route_base_path:
+            slug_override = self._slug_map.get(rel_posix)
+            if slug_override is not None:
+                clean = slug_override.strip("/")
+                if not clean:
+                    return "/" + self._blog_route_base_path + "/"
+                if slug_override.startswith("/"):
+                    # Absolute slug bypasses the blog prefix per Docusaurus spec.
+                    return "/" + clean + "/"
+                return "/" + self._blog_route_base_path + "/" + clean + "/"
+            # Filename-derived slug: strip extension and leading date.
+            stem = rel.with_suffix("").name
+            if stem.lower() in ("readme", "index"):
+                return "/" + self._blog_route_base_path + "/"
+            slug = _strip_blog_date_prefix(stem)
+            return "/" + self._blog_route_base_path + "/" + slug + "/"
+
         # ── Stage 1: frontmatter slug override ──
-        slug = self._slug_map.get(rel_posix)
-        if slug is not None:
-            if slug.startswith("/"):
+        mapped_slug = self._slug_map.get(rel_posix)
+        if mapped_slug is not None:
+            if mapped_slug.startswith("/"):
                 # Absolute slug: always prefixed with routeBasePath.
                 # Docusaurus: permalink = normalizeUrl([versionMetadata.path, docSlug])
                 # where versionMetadata.path IS the routeBasePath.
                 rbp = self._route_base_path if self._route_base_path is not None else "docs"
-                url = slug.rstrip("/") or ""
+                url = mapped_slug.rstrip("/") or ""
                 if rbp:
                     return "/" + rbp + url + "/"
                 return url + "/" if url else "/"
             # Relative slug: replace the last path segment
             parent = rel.parent
             if parent == Path("."):
-                return "/" + slug.strip("/") + "/"
-            return "/" + parent.as_posix() + "/" + slug.strip("/") + "/"
+                return "/" + mapped_slug.strip("/") + "/"
+            return "/" + parent.as_posix() + "/" + mapped_slug.strip("/") + "/"
 
         # ── Stage 2: filesystem-derived URL ──
         # Strip .md / .mdx extension
-        stem = rel.with_suffix("")
-        if stem.suffix == ".":
+        stem_path = rel.with_suffix("")
+        if stem_path.suffix == ".":
             # Handle edge case: file with no real stem after stripping
-            stem = stem.with_suffix("")
+            stem_path = stem_path.with_suffix("")
 
-        parts = list(stem.parts)
+        parts = list(stem_path.parts)
 
         locale = None
         if parts and parts[0] in self._locale_dirs:
@@ -841,6 +961,11 @@ class DocusaurusAdapter:
         if any(part.startswith("_") for part in non_sentinel_parts):
             return "IGNORED"
 
+        # EPOCH 7a: blog posts are always reachable through the blog plugin
+        # (paginated index, archive, tags).  No sidebar/nav membership needed.
+        if self._blog_root is not None and rel.parts and rel.parts[0] == self._blog_route_base_path:
+            return "REACHABLE"
+
         # Draft files: check is deferred to frontmatter parsing (future).
 
         # Version Ghost Routes: all files under a known versioned_docs tree are REACHABLE.
@@ -886,6 +1011,20 @@ class DocusaurusAdapter:
         from zenzic.core.adapters._base import RouteMetadata
 
         rel_posix = rel.as_posix()
+
+        # EPOCH 7a: blog files take a dedicated routing fast-path.  Their
+        # canonical URL, status, and route_base_path are all derived from
+        # the blog plugin metadata, never from the docs sidebar.
+        if self._blog_root is not None and rel.parts and rel.parts[0] == self._blog_route_base_path:
+            return RouteMetadata(
+                canonical_url=self.map_url(rel),
+                status="REACHABLE",
+                slug=self._slug_map.get(rel_posix),
+                route_base_path=self._blog_route_base_path,
+                is_proxy=False,
+                version=None,
+            )
+
         slug = self._slug_map.get(rel_posix)
 
         canonical_url = self.map_url(rel)
@@ -1021,6 +1160,25 @@ class DocusaurusAdapter:
         inst = cls(context, docs_root, base_url, route_base_path, versions)
         inst._sidebar_path = sidebar_path
         inst._navbar_paths = navbar_paths
+
+        # ── EPOCH 7a Multi-Root Discovery: blog plugin auto-detection ──
+        # Resolution order:
+        #   1. Static parse of docusaurus.config.* for ``blog: { ... }``.
+        #   2. Convention-over-config: if ``<repo>/blog`` exists, assume the
+        #      default plugin layout (``path = 'blog'``, ``rbp = 'blog'``).
+        #   3. Otherwise the blog plugin is absent — leave ``_blog_root`` None.
+        blog_meta: tuple[str, str] | None = None
+        if config_path is not None:
+            blog_meta = _extract_blog_config(config_path)
+        if blog_meta is None and (repo_root / "blog").is_dir():
+            blog_meta = ("blog", "blog")
+        if blog_meta is not None:
+            blog_path_str, blog_rbp = blog_meta
+            blog_root = (repo_root / blog_path_str).resolve()
+            if blog_root.is_dir():
+                inst._blog_root = blog_root
+                inst._blog_route_base_path = blog_rbp
+
         return inst
 
     def get_locale_source_roots(self, repo_root: Path) -> list[tuple[Path, str]]:
@@ -1067,3 +1225,30 @@ class DocusaurusAdapter:
                     result.append((vl_root, f"{locale}/_version_/{version}"))
 
         return result
+
+    def get_extra_content_roots(self, repo_root: Path) -> list[ContentRoot]:
+        """Return out-of-tree content roots — currently the Docusaurus blog/.
+
+        EPOCH 7a Multi-Root Discovery.  Honours auto-detection performed in
+        :meth:`from_repo`: when the blog plugin is active and its content
+        directory exists on disk, it is returned as a single
+        :class:`ContentRoot`.  Otherwise the list is empty.
+
+        Args:
+            repo_root: Absolute repository root.
+
+        Returns:
+            [ContentRoot(blog_root, blog_route_base_path, 'docusaurus-blog')]
+            when blog content exists; [] otherwise.
+        """
+        from zenzic.core.adapters._base import ContentRoot
+
+        if self._blog_root is None or not self._blog_root.is_dir():
+            return []
+        return [
+            ContentRoot(
+                path=self._blog_root,
+                url_prefix=self._blog_route_base_path,
+                label="docusaurus-blog",
+            )
+        ]

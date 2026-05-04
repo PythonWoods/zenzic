@@ -26,6 +26,21 @@ deterministic maturity and formal integrity. The codebase achieves structural ma
 
 #### Added
 
+- **EPOCH 7a — Multi-Root Discovery (VSM Blindness sealed)**: The VSM is no longer
+  bounded by `docs_dir`. Adapters can now declare extra content roots via the optional
+  `get_extra_content_roots(repo_root) -> list[ContentRoot]` hook (discovered via
+  `hasattr()`, mirroring `get_locale_source_roots` — non-breaking for third-party adapters).
+  The Docusaurus adapter auto-detects the `blog/` plugin in two pure-parsing passes
+  (static regex over `docusaurus.config.{ts,js,mjs,cjs}` then convention fallback) — the
+  Zero Subprocess invariant is preserved. Four pipeline stages (Discovery, VSM, Validator,
+  Scanner Z903/Z104) cooperate so blog posts behave as first-class content: broken links
+  inside `blog/` and cross-tree links from `docs/` to `blog/` are now caught by
+  `zenzic check all --strict` instead of slipping through to `docusaurus build`. A
+  Reverse-Mapping invariant test (`tests/test_docusaurus_blog_vsm.py::TestEpoch7aReverseMapping`)
+  asserts every blog `Route.source` traces back to a real file on disk, locking the
+  contract that EPOCH 7b virtual routes (tags, pagination, authors) will inherit.
+  Discovery uses `walk_files` (the existing `os.walk` engine), not `rglob` — determinism
+  is preserved.
 - **Sentinel Seal**: Rigorous 4-Gates validation system (`just verify`) integrated across
   every repository — pre-commit, test-cov, and self-check run identically in local and CI.
 - **Cross-Repo Governance**: Branch Parity Rule for Core/Doc synchronisation with automatic

@@ -45,6 +45,7 @@ import yaml
 from zenzic.core.adapter import get_adapter
 from zenzic.core.discovery import (
     DOC_SUFFIXES,
+    iter_extra_content_markdown_sources,
     iter_locale_markdown_sources,
     iter_markdown_sources,
     walk_files,
@@ -654,6 +655,23 @@ async def validate_links_async(
                 except OSError:
                     continue
 
+    # ── Pass 1c: include extra content roots (EPOCH 7a Multi-Root Discovery) ──
+    # Plugin-managed content trees that live outside docs_root — most notably
+    # Docusaurus's blog/ directory.  Loading them here means the VSM, anchor
+    # index, and link resolver all see them as first-class content, closing the
+    # gap between ``zenzic check`` and the engine's own build-time link check.
+    extra_content_roots: list[tuple[Path, str]] = []
+    if hasattr(adapter, "get_extra_content_roots"):
+        for content_root in adapter.get_extra_content_roots(repo_root):
+            extra_content_roots.append((content_root.path, content_root.url_prefix))
+            for abs_path, _logical_rel in iter_extra_content_markdown_sources(
+                content_root.path, content_root.url_prefix, config, exclusion_manager
+            ):
+                try:
+                    md_contents[abs_path.resolve()] = abs_path.read_text(encoding="utf-8")
+                except OSError:
+                    continue
+
     # Build the asset map once — eliminates all Path.exists() calls from Pass 2.
     # Scanning repo_root (not just docs_root) ensures that @site/static/ assets
     # referenced from locale files (or any page) are included in the map.
@@ -676,10 +694,14 @@ async def validate_links_async(
     )
     # Multi-root allowed list passed to the resolver: docs_root is always in the
     # list; locale roots are added so that cross-locale relative links resolve
-    # within an authorised boundary instead of firing PATH_TRAVERSAL.
+    # within an authorised boundary instead of firing PATH_TRAVERSAL.  EPOCH 7a:
+    # extra content roots (Docusaurus blog/, …) are also admitted so that
+    # in-blog relative links and cross-blog↔docs links resolve as authorised.
     _allowed_roots: list[Path] = [docs_root]
     if locale_roots:
         _allowed_roots.extend(locale_root for locale_root, _ in locale_roots)
+    if extra_content_roots:
+        _allowed_roots.extend(root for root, _ in extra_content_roots)
 
     # ── Phase 1: parallel index (anchors + resolved links) ────────────────
     # Workers return immutable payloads. The main process only merges maps
@@ -710,7 +732,13 @@ async def validate_links_async(
     # The VSM maps every .md file to its canonical URL and routing status.
     # It is only meaningful when the adapter has a nav (MkDocs with mkdocs.yml);
     # for StandaloneAdapter / Zensical every file is REACHABLE by definition.
-    vsm = build_vsm(adapter, docs_root, md_contents, anchors_cache=anchors_cache)
+    vsm = build_vsm(
+        adapter,
+        docs_root,
+        md_contents,
+        anchors_cache=anchors_cache,
+        extra_content_roots=extra_content_roots,
+    )
 
     # ── Phase 1.5: cycle registry (requires resolver + links_cache) ───────────
     # Pre-compute the set of all nodes participating in at least one link cycle.
@@ -722,9 +750,20 @@ async def validate_links_async(
 
     # ── Phase 2: validate against global indexes ────────────────────────────
     # Pre-compute known relative paths once for Z104 "Did you mean?" hints.
-    # No disk I/O — md_contents is already in memory from Pass 1.
+    # No disk I/O — md_contents is already in memory from Pass 1.  Files under
+    # extra content roots (EPOCH 7a) are admitted with their url_prefix injected
+    # so suggestions like ``blog/2026-04-12-foo.mdx`` surface for typos.
+    def _compute_logical_rel(f: Path) -> str | None:
+        if f.is_relative_to(docs_root):
+            return f.relative_to(docs_root).as_posix()
+        for root, prefix in extra_content_roots:
+            if f.is_relative_to(root):
+                inner = f.relative_to(root).as_posix()
+                return f"{prefix}/{inner}" if prefix else inner
+        return None
+
     _known_rel_paths: list[str] = sorted(
-        f.relative_to(docs_root).as_posix() for f in md_contents if f.is_relative_to(docs_root)
+        rp for rp in (_compute_logical_rel(f) for f in md_contents) if rp is not None
     )
 
     internal_errors: list[LinkError] = []
