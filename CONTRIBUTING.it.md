@@ -657,6 +657,53 @@ Questo repository core contiene solamente:
 
 Per contribuire alla documentazione, apri una PR nel repository `zenzic-doc`.
 
+## 🚀 Cross-Repo Validation (Branch Parity Rule)
+
+Per garantire la coerenza tra il codice core (**zenzic**) e la documentazione (**zenzic-doc**), il nostro sistema di CI adotta la **Regola della Parità dei Branch**.
+
+### 🔍 Come funziona
+
+1. **Sviluppo Locale**: Il linter cerca sempre il repository core nella cartella affiancata (`../zenzic`). Sei responsabile di mantenere i branch allineati localmente.
+2. **In CI (GitHub Actions)**: La pipeline di documentazione tenta di clonare il repository core cercando un branch con lo **stesso nome** di quello in lavorazione nella doc.
+3. **Fallback**: Se il branch speculare non viene trovato nel core, la CI utilizzerà automaticamente il branch `main`.
+
+### 🛠️ Sintesi Operativa per i Contributori
+
+| Scenario | Azione Richiesta | Comportamento CI |
+| :--- | :--- | :--- |
+| **Fix di Documentazione** | Push solo su `zenzic-doc` | Valida contro `main` del core. |
+| **Nuova Feature (Sincronizzata)** | Push su `zenzic` **PRIMA** del push su `zenzic-doc` | Valida contro il codice esatto della feature. |
+| **Naming Convention** | Usa nomi identici per i branch in entrambi i repo | Garantisce il "Dogfooding" perfetto. |
+
+> **Nota**: Non pushare mai modifiche alla documentazione che dipendono da feature del core non ancora presenti sul server (anche se su branch diversi), altrimenti la build fallirà per disallineamento.
+
+### 💻 Configurazione VS Code Multi-Root Workspace
+
+Poiché i repository sono fortemente accoppiati, ti consigliamo di gestirli tramite un singolo **Multi-Root Workspace** in VS Code.
+
+1. Clona entrambi i repository nella stessa cartella padre.
+2. Apri VS Code e vai su **File > Save Workspace As...** e salvalo come `zenzic.code-workspace` nella cartella padre.
+3. Modifica il file appena creato in questo modo:
+
+```json
+{
+  "folders": [
+    { "path": "zenzic" },
+    { "path": "zenzic-doc" },
+    { "path": "zenzic-action" }
+  ],
+  "settings": {
+    "python.analysis.extraPaths": ["./zenzic/src"],
+    "files.exclude": {
+      "**/.venv": true,
+      "**/_zenzic_core": true
+    }
+  }
+}
+```
+
+In questo modo potrai eseguire ricerche globali su tutti i repository contemporaneamente e gestire i branch dal pannello Source Control in un'unica interfaccia unificata.
+
 ---
 
 ## QA Avanzato: Mutanti & Proprietà

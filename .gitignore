@@ -88,10 +88,13 @@ coverage-*.json
 coverage.json
 .tox/
 .nox/
+
+# --- Ephemeral Artifacts (Machine Silence) ---
+zenzic-results.sarif
 mutmut*
-!mutmut_pytest.ini
-# ↑ Keep mutmut_pytest.ini tracked: isolated pytest config for the mutation session.
 .mutmut-cache/
+.pytest_cache/
+
 mutants/
 
 # ────────────────────────────────────────────────────────────────────────────

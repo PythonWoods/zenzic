@@ -45,7 +45,7 @@ test-slow *args:
 # Audit: serial, deterministic, with coverage XML (pre-push gate + CI)
 # Coverage threshold (fail_under=80) enforced via pyproject.toml.
 test-cov *args:
-    {{ runner }} pytest --cov=src/zenzic --cov-report=term-missing --cov-report=xml:coverage.xml {{ args }}
+    {{ runner }} pytest --cov=src/zenzic --cov-report=term-missing --cov-report=json:coverage.json {{ args }}
 
 # Run the test suite with the thorough Hypothesis profile (ci — 500 examples)
 test-full *args:
@@ -64,4 +64,4 @@ verify:
 
 # Remove generated artefacts (.nox is kept — reuse avoids reinstalling deps)
 clean:
-    rm -rf dist/ .pytest_cache/ .hypothesis/ .zenzic-score.json coverage.xml
+    rm -rf dist/ .pytest_cache/ .hypothesis/ .zenzic-score.json coverage.json

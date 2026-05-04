@@ -30,7 +30,7 @@ def tests(session: nox.Session) -> None:
         "pytest",
         "--cov=src/zenzic",
         "--cov-report=term-missing",
-        "--cov-report=xml:coverage.xml",
+        "--cov-report=json:coverage.json",
         *session.posargs,
         env={"HYPOTHESIS_PROFILE": os.environ.get("HYPOTHESIS_PROFILE", "ci")},
     )

@@ -6,8 +6,8 @@ message: "If you use this software, please cite it as below."
 type: software
 authors:
   - name: "PythonWoods"
-    address: "https://pythonwoods.dev"
     email: "dev@pythonwoods.dev"
+    website: "https://pythonwoods.dev"
 title: "Zenzic: Resilient Static Content Analysis Framework"
 abstract: >-
   A high-performance, engine-agnostic framework for securing and validating
@@ -15,7 +15,7 @@ abstract: >-
   VCS-aware exclusion mapping, and the Sentinel Shield middleware to provide
   a deterministic Safe Harbor for complex documentation lifecycles.
 version: 0.7.0
-date-released: 2026-04-22
+date-released: 2026-05-XX
 url: "https://zenzic.dev"
 repository-code: "https://github.com/PythonWoods/zenzic"
 repository-artifact: "https://pypi.org/project/zenzic/"
