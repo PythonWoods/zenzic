@@ -118,3 +118,7 @@ class StandaloneAdapter:
     def get_link_scheme_bypasses(self) -> frozenset[str]:
         """Standalone projects have no engine-specific link-scheme bypass."""
         return frozenset()
+
+    def get_absolute_url_prefixes(self, repo_root: Path) -> frozenset[str]:
+        """Standalone projects do not host engine-routed absolute URL prefixes."""
+        return frozenset()

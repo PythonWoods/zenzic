@@ -285,3 +285,40 @@ class BaseAdapter(Protocol):
             ``frozenset()`` when the engine has no special link-scheme bypass.
         """
         ...
+
+    def get_absolute_url_prefixes(self, repo_root: Path) -> frozenset[str]:
+        """Return absolute URL prefixes the engine owns at the current site.
+
+        Multi-instance engines (most notably Docusaurus with sibling
+        ``@docusaurus/plugin-content-docs`` instances) route content trees
+        under distinct top-level URL prefixes — e.g. ``/docs/`` for the user
+        manual and ``/developers/`` for the developer area.  Cross-plugin
+        links must be authored as absolute paths because the local VSM of
+        either plugin cannot resolve the other plugin's relative tree.
+
+        The Core honours **Zero-Config**: rather than asking the user to
+        duplicate Docusaurus routing into ``zenzic.toml``, it queries the
+        active adapter through this method.  Each returned prefix bypasses
+        Z105 ``ABSOLUTE_PATH`` for URLs that start with it.
+
+        Returned prefixes:
+
+        - **MUST** start with ``/`` and **SHOULD** end with ``/`` (so
+          ``/developers/`` matches ``/developers/intro`` but not
+          ``/developers-only/``).
+        - Are matched with ``str.startswith`` — engines that need richer
+          semantics return them as multiple entries.
+
+        Default implementation returns ``frozenset()`` so adapters that do
+        not host multi-instance plugins continue to fire Z105 on every
+        absolute internal link.
+
+        Args:
+            repo_root: Absolute repository root, supplied so the adapter can
+                consult the filesystem (e.g. confirm a sibling content
+                directory exists before claiming its prefix).
+
+        Returns:
+            A ``frozenset`` of project-owned absolute URL prefixes.
+        """
+        ...

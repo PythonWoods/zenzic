@@ -761,6 +761,10 @@ class MkDocsAdapter:
         """MkDocs has no engine-specific link-scheme bypass."""
         return frozenset()
 
+    def get_absolute_url_prefixes(self, repo_root: Path) -> frozenset[str]:
+        """MkDocs is single-instance: no cross-plugin absolute prefixes to allowlist."""
+        return frozenset()
+
     @classmethod
     def from_repo(
         cls,

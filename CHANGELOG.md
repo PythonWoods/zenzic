@@ -26,6 +26,33 @@ deterministic maturity and formal integrity. The codebase achieves structural ma
 
 #### Added
 
+- **EPOCH 7b — Zero-Config Sovereignty (`absolute_path_allowlist` purged)**: The
+  `[link_validation]` TOML schema and its `absolute_path_allowlist` field are
+  removed. Multi-instance Docusaurus plugin URL prefixes (`/docs/`, `/developers/`,
+  every additional `@docusaurus/plugin-content-docs` instance) are now auto-detected
+  by `DocusaurusAdapter.get_absolute_url_prefixes(repo_root)` — a new Protocol
+  method on `BaseAdapter`. Two pure-Python passes preserve the Zero Subprocess
+  invariant: a regex-based static parse of `docusaurus.config.{ts,js,mjs,cjs}` that
+  walks every `@docusaurus/plugin-content-docs` tuple and harvests its
+  `routeBasePath`, plus a filesystem heuristic that pairs `<repo>/<id>/` content
+  trees with `i18n/<locale>/docusaurus-plugin-content-docs-<id>/` siblings when
+  the config is dynamic. Z105 `ABSOLUTE_PATH` honours the discovered prefixes
+  without any user-side TOML duplication. **Industry-grade — no compat shim**:
+  `LinkValidationConfig` is removed in full; configs that still declare
+  `[link_validation]` will fail TOML validation.
+- **Zero-Config Asset Defaults (CEO Directive — Asset Cemetery)**: Universal
+  toolchain files are promoted to Layer 1 in `SYSTEM_EXCLUDED_FILE_NAMES` and
+  `SYSTEM_EXCLUDED_FILE_PATTERNS` — `*.toml`, `*.yaml`, `*.yml`, `*.json`,
+  `*.cfg`, `*.ini`, `*.cff`, `*.code-workspace`, `LICENSE`, `LICENSE.txt`,
+  `LICENSE.md`, `NOTICE`, `NOTICE.txt`, `COPYING`, `Dockerfile`, `noxfile.py`,
+  `.gitignore`, `.gitattributes`, `.coverage`. "Prose-only Maintenance" repos
+  (engine `standalone` with `docs_dir = "."`) no longer need to repeat them in
+  `excluded_assets`.
+- **Zero-Config Directory Defaults (CEO Directive — Dir Cemetery)**: Universal
+  build / temporary artefact directories are promoted to `SYSTEM_EXCLUDED_DIRS`
+  — `build`, `dist`, `temp`, `tmp`, `mutants` (`.tox` was already there). Every
+  Python wheel build, JS bundler, and mutation-testing toolchain is honoured
+  Zero-Config from now on.
 - **EPOCH 7a — Multi-Root Discovery (VSM Blindness sealed)**: The VSM is no longer
   bounded by `docs_dir`. Adapters can now declare extra content roots via the optional
   `get_extra_content_roots(repo_root) -> list[ContentRoot]` hook (discovered via
@@ -79,6 +106,14 @@ deterministic maturity and formal integrity. The codebase achieves structural ma
 
 #### Removed
 
+- **`[link_validation]` TOML schema (EPOCH 7b)**: The `LinkValidationConfig`
+  Pydantic model and its `absolute_path_allowlist: list[str]` field are removed
+  from `zenzic.models.config`. Configurations that still declare
+  `[link_validation]` raise a TOML validation error. **Migration:** delete the
+  block — DocusaurusAdapter discovers plugin URL prefixes Zero-Config.
+- **Stale ghost paths in `excluded_build_artifacts`**: `docs/configuration/*.md`
+  and `docs/adr/*.md` removed from `zenzic.toml` — the underlying directories
+  were estirpated in earlier EPOCHs; the entries were dead.
 - **Legacy Brand Purge**: Complete removal of all obsolete nomenclature and external
   platform references from active configuration and documentation.
 - **MkDocs Plugin**: `zenzic.integrations.mkdocs` physically purged. The `[mkdocs]`

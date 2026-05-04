@@ -266,6 +266,69 @@ def _extract_blog_config(config_path: Path) -> tuple[str, str] | None:
     return (blog_path, blog_rbp)
 
 
+# ── Multi-instance content-docs plugin discovery ──────────────────────────────
+
+# Captures every ``['@docusaurus/plugin-content-docs', { ... }]`` tuple in the
+# Docusaurus config.  The brace body must be single-nesting (no inner objects)
+# — adequate for the canonical multi-instance pattern documented at
+# https://docusaurus.io/docs/docs-multi-instance.  Sibling instances that need
+# nested objects (e.g. ``remarkPlugins: [require('foo', {opt: true})]``) fall
+# through to the filesystem heuristic below, preserving Zero Subprocess.
+_PLUGIN_CONTENT_DOCS_RE = re.compile(
+    r"""['"]@docusaurus/plugin-content-docs['"]\s*,\s*\{([^{}]*)\}""",
+    re.DOTALL,
+)
+
+_PLUGIN_ID_RE = re.compile(r"""\bid\s*:\s*['"]([^'"]+)['"]""")
+
+
+def _extract_content_docs_instances(config_path: Path) -> list[tuple[str, str]]:
+    """Extract sibling content-docs plugin instances from a Docusaurus config.
+
+    Returns ``(instance_id, route_base_path)`` tuples for every
+    ``['@docusaurus/plugin-content-docs', { id, path, routeBasePath, ... }]``
+    entry found inside ``plugins: [ ... ]``.  The default docs instance
+    (declared inside ``presets``) is **not** returned here — it is owned by
+    :meth:`DocusaurusAdapter._route_base_path` and emitted separately.
+
+    Falls back to ``[]`` when:
+
+    - The config file cannot be read.
+    - The config uses dynamic patterns (async / dynamic ``import()``).
+    - No instance declares a static ``routeBasePath``.
+
+    Args:
+        config_path: Path to ``docusaurus.config.{ts,js,mjs,cjs}``.
+
+    Returns:
+        List of ``(id, route_base_path)`` tuples, in source order.
+    """
+    try:
+        raw = config_path.read_text(encoding="utf-8")
+    except OSError:
+        return []
+
+    content = _strip_js_comments(raw)
+    if _is_dynamic_config(content):
+        return []
+
+    instances: list[tuple[str, str]] = []
+    for match in _PLUGIN_CONTENT_DOCS_RE.finditer(content):
+        body = match.group(1)
+        rbp_match = _ROUTE_BASE_PATH_RE.search(body)
+        if rbp_match is None:
+            continue
+        rbp = rbp_match.group(1)
+        if not rbp:
+            continue
+        id_match = _PLUGIN_ID_RE.search(body)
+        # Default instance has no ``id`` and lives in presets, never in plugins.
+        instance_id = id_match.group(1) if id_match else rbp
+        instances.append((instance_id, rbp))
+
+    return instances
+
+
 def check_config_assets(config_path: Path, repo_root: Path) -> list[tuple[str, str]]:
     """Check that infrastructure assets referenced in ``docusaurus.config.*`` exist.
 
@@ -649,6 +712,14 @@ class DocusaurusAdapter:
         # URL prefix the engine will use (default ``'blog'``).
         self._blog_root: Path | None = None
         self._blog_route_base_path: str = "blog"
+
+        # Sibling content-docs plugin instances (e.g. ``/developers/``).
+        # Each tuple is ``(instance_id, route_base_path)``.  Populated by
+        # ``from_repo()`` from the ``plugins: [ ... ]`` array OR from a
+        # filesystem heuristic when static parsing fails.  Drives
+        # :meth:`get_absolute_url_prefixes` so cross-plugin absolute links
+        # bypass Z105 without any user-side config (Zero-Config invariant).
+        self._content_docs_instances: tuple[tuple[str, str], ...] = ()
 
     def set_slug_map(self, md_contents: dict[Path, str]) -> None:
         """Pre-compute the slug map from frontmatter of all loaded files.
@@ -1179,6 +1250,38 @@ class DocusaurusAdapter:
                 inst._blog_root = blog_root
                 inst._blog_route_base_path = blog_rbp
 
+        # ── Multi-instance content-docs plugin auto-detection ──
+        # Resolution order:
+        #   1. Static parse of docusaurus.config.* for entries of the form
+        #      ``['@docusaurus/plugin-content-docs', { id, routeBasePath }]``.
+        #   2. Filesystem heuristic: pair every top-level repo directory with
+        #      a sibling ``i18n/<locale>/docusaurus-plugin-content-docs-<id>/``
+        #      folder.  When both exist, the directory name doubles as the
+        #      route base path — covering projects whose config defeats static
+        #      parsing while still preserving Zero Subprocess.
+        instances: list[tuple[str, str]] = []
+        if config_path is not None:
+            instances.extend(_extract_content_docs_instances(config_path))
+
+        if not instances:
+            i18n_root = repo_root / "i18n"
+            if i18n_root.is_dir():
+                seen: set[str] = set()
+                for locale_dir in sorted(p for p in i18n_root.iterdir() if p.is_dir()):
+                    for plugin_dir in locale_dir.iterdir():
+                        name = plugin_dir.name
+                        prefix = "docusaurus-plugin-content-docs-"
+                        if not (plugin_dir.is_dir() and name.startswith(prefix)):
+                            continue
+                        instance_id = name[len(prefix) :]
+                        if not instance_id or instance_id in seen:
+                            continue
+                        if (repo_root / instance_id).is_dir():
+                            seen.add(instance_id)
+                            instances.append((instance_id, instance_id))
+
+        inst._content_docs_instances = tuple(instances)
+
         return inst
 
     def get_locale_source_roots(self, repo_root: Path) -> list[tuple[Path, str]]:
@@ -1252,3 +1355,46 @@ class DocusaurusAdapter:
                 label="docusaurus-blog",
             )
         ]
+
+    def get_absolute_url_prefixes(self, repo_root: Path) -> frozenset[str]:
+        """Return absolute URL prefixes owned by this Docusaurus project.
+
+        Yields one prefix per active routing surface so cross-plugin links
+        (the canonical multi-instance Docusaurus pattern) bypass Z105
+        ABSOLUTE_PATH without any user-side configuration:
+
+        - The default docs instance — ``/<route_base_path>/`` (commonly
+          ``/docs/``; ``''`` means "served at the site root" which yields
+          no prefix because every internal link would then start with
+          ``/`` and the suppression would be vacuous).
+        - The blog plugin — ``/<blog_route_base_path>/`` when the EPOCH 7a
+          auto-detection located a blog content directory.
+        - Every sibling ``@docusaurus/plugin-content-docs`` instance whose
+          ``routeBasePath`` was discovered by ``from_repo`` (static parse
+          of the JS/TS config or filesystem heuristic).
+
+        Each prefix is normalised to ``/<segment>/`` so ``startswith``
+        matches the route boundary (``/developers/intro`` matches but
+        ``/developers-only/`` does not).
+
+        Args:
+            repo_root: Absolute repository root.
+
+        Returns:
+            A ``frozenset`` of absolute URL prefixes (each starting and
+            ending with ``/``).
+        """
+        prefixes: set[str] = set()
+
+        rbp = self._route_base_path if self._route_base_path is not None else "docs"
+        if rbp:
+            prefixes.add(f"/{rbp.strip('/')}/")
+
+        if self._blog_root is not None and self._blog_route_base_path:
+            prefixes.add(f"/{self._blog_route_base_path.strip('/')}/")
+
+        for _instance_id, route_base_path in self._content_docs_instances:
+            if route_base_path:
+                prefixes.add(f"/{route_base_path.strip('/')}/")
+
+        return frozenset(prefixes)

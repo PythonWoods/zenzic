@@ -630,6 +630,16 @@ async def validate_links_async(
     # ── Instantiate the build-engine adapter (locale-aware path resolution) ──
     adapter = get_adapter(config.build_context, docs_root, repo_root)
     _bypass_schemes = adapter.get_link_scheme_bypasses()
+    # Adapter-declared absolute URL prefixes (multi-instance plugin roots, blog,
+    # default docs route base path).  Honours Zero-Config: the user does not
+    # duplicate Docusaurus routing into ``zenzic.toml``; the adapter inspects
+    # its own engine's config and reports ownership.  Adapters that don't host
+    # multi-instance plugins return ``frozenset()``.
+    _project_absolute_prefixes: frozenset[str] = (
+        adapter.get_absolute_url_prefixes(repo_root)
+        if hasattr(adapter, "get_absolute_url_prefixes")
+        else frozenset()
+    )
 
     # ── Pass 1: read all .md/.mdx files + map all non-doc assets into memory ──
     md_contents: dict[Path, str] = {}
@@ -838,16 +848,15 @@ async def validate_links_async(
             # BaseAdapter.get_link_scheme_bypasses(); URLs using those schemes are
             # already in _effective_skip and never reach this check.
             #
-            # Project-owned route prefixes declared in
-            # ``[link_validation] absolute_path_allowlist`` are also bypassed:
-            # multi-instance Docusaurus deployments cross plugin boundaries
-            # with absolute URLs (e.g. ``/developers/intro``) that the local
-            # VSM cannot resolve but are valid project-internal targets.
+            # Multi-instance route prefixes are reported by the active adapter
+            # via :meth:`BaseAdapter.get_absolute_url_prefixes` — Docusaurus
+            # projects with sibling ``@docusaurus/plugin-content-docs``
+            # instances cross plugin boundaries with absolute URLs (e.g.
+            # ``/developers/intro``) that the local VSM cannot resolve, but
+            # the target is still owned by the project.  No user-side config
+            # required (Zero-Config invariant).
             if parsed.path.startswith("/") and parsed.scheme not in _bypass_schemes:
-                if any(
-                    parsed.path.startswith(prefix)
-                    for prefix in config.link_validation.absolute_path_allowlist
-                ):
+                if any(parsed.path.startswith(prefix) for prefix in _project_absolute_prefixes):
                     continue
                 internal_errors.append(
                     LinkError(

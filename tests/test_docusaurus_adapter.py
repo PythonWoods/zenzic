@@ -1133,27 +1133,116 @@ const c = {
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# EPOCH 5 — Z105 absolute_path_allowlist (cross-plugin / multi-instance support)
+# Z105 — Adapter-driven cross-plugin allow-list (Zero-Config invariant)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
-class TestAbsolutePathAllowlist:
-    """``[link_validation] absolute_path_allowlist`` suppresses Z105 for
-    project-owned route prefixes that span Docusaurus plugin instances.
+class TestAdapterAbsoluteUrlPrefixes:
+    """``DocusaurusAdapter.get_absolute_url_prefixes`` auto-discovers project-
+    owned route prefixes so cross-plugin absolute links bypass Z105 without
+    requiring the user to duplicate Docusaurus routing into ``zenzic.toml``.
 
-    Multi-instance Docusaurus deployments cannot use relative paths across
-    plugin boundaries — the second ``@docusaurus/plugin-content-docs``
-    instance owns its own VSM, so a link from ``/docs/`` to ``/developers/``
-    must be absolute. Without an allowlist Z105 would block this legitimate
-    pattern.
+    Discovery sources (in priority order):
+      1. Static parse of ``docusaurus.config.{ts,js,mjs,cjs}`` for sibling
+         ``['@docusaurus/plugin-content-docs', { id, routeBasePath }]`` entries.
+      2. Filesystem heuristic — pair every ``<repo>/<name>/`` with
+         ``i18n/<locale>/docusaurus-plugin-content-docs-<name>/``.
+    Plus the always-on default docs ``routeBasePath`` and the blog plugin
+    prefix when active.
     """
 
-    def test_link_in_allowlist_skips_z105(self, tmp_path: Path) -> None:
-        from zenzic.core.exclusion import LayeredExclusionManager
-        from zenzic.models.config import LinkValidationConfig
+    def test_default_docs_prefix_is_always_emitted(self, tmp_path: Path) -> None:
+        from zenzic.core.adapters._docusaurus import DocusaurusAdapter
 
         docs = tmp_path / "docs"
         docs.mkdir()
+        adapter = DocusaurusAdapter.from_repo(BuildContext(engine="docusaurus"), docs, tmp_path)
+        prefixes = adapter.get_absolute_url_prefixes(tmp_path)
+        assert "/docs/" in prefixes
+
+    def test_static_parse_emits_sibling_plugin_prefix(self, tmp_path: Path) -> None:
+        from zenzic.core.adapters._docusaurus import DocusaurusAdapter
+
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        (tmp_path / "developers").mkdir()
+        (tmp_path / "docusaurus.config.ts").write_text(
+            """
+            export default {
+              presets: [['@docusaurus/preset-classic', { docs: { routeBasePath: 'docs' } }]],
+              plugins: [
+                ['@docusaurus/plugin-content-docs', {
+                  id: 'developers',
+                  path: 'developers',
+                  routeBasePath: 'developers',
+                }],
+              ],
+            };
+            """,
+            encoding="utf-8",
+        )
+        adapter = DocusaurusAdapter.from_repo(BuildContext(engine="docusaurus"), docs, tmp_path)
+        prefixes = adapter.get_absolute_url_prefixes(tmp_path)
+        assert "/developers/" in prefixes
+        assert "/docs/" in prefixes
+
+    def test_filesystem_heuristic_when_static_parse_unavailable(self, tmp_path: Path) -> None:
+        """No config file at all — adapter must still pair root dirs with
+        ``i18n/<locale>/docusaurus-plugin-content-docs-<name>/`` to recover
+        the plugin route. Covers projects whose config defeats static parsing
+        (async, dynamic ``import()``).
+        """
+        from zenzic.core.adapters._docusaurus import DocusaurusAdapter
+
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        (tmp_path / "developers").mkdir()
+        (tmp_path / "i18n" / "it" / "docusaurus-plugin-content-docs-developers" / "current").mkdir(
+            parents=True
+        )
+        adapter = DocusaurusAdapter.from_repo(BuildContext(engine="docusaurus"), docs, tmp_path)
+        prefixes = adapter.get_absolute_url_prefixes(tmp_path)
+        assert "/developers/" in prefixes
+
+    def test_heuristic_skips_unpaired_directories(self, tmp_path: Path) -> None:
+        """A root directory without a sibling i18n plugin folder is NOT a
+        plugin instance — the heuristic must reject it to avoid false
+        suppressions of Z105.
+        """
+        from zenzic.core.adapters._docusaurus import DocusaurusAdapter
+
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        (tmp_path / "scripts").mkdir()  # not a plugin — no i18n pairing
+        adapter = DocusaurusAdapter.from_repo(BuildContext(engine="docusaurus"), docs, tmp_path)
+        prefixes = adapter.get_absolute_url_prefixes(tmp_path)
+        assert "/scripts/" not in prefixes
+
+    def test_blog_prefix_emitted_when_plugin_active(self, tmp_path: Path) -> None:
+        from zenzic.core.adapters._docusaurus import DocusaurusAdapter
+
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        (tmp_path / "blog").mkdir()  # convention-fallback discovery (EPOCH 7a)
+        adapter = DocusaurusAdapter.from_repo(BuildContext(engine="docusaurus"), docs, tmp_path)
+        prefixes = adapter.get_absolute_url_prefixes(tmp_path)
+        assert "/blog/" in prefixes
+
+
+class TestZ105AdapterDrivenSuppression:
+    """End-to-end: Z105 must not fire on cross-plugin links once the adapter
+    auto-detects the sibling plugin — no ``zenzic.toml`` allow-list required.
+    """
+
+    def test_cross_plugin_link_passes_with_zero_config(self, tmp_path: Path) -> None:
+        from zenzic.core.exclusion import LayeredExclusionManager
+
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        (tmp_path / "developers").mkdir()
+        (tmp_path / "i18n" / "it" / "docusaurus-plugin-content-docs-developers" / "current").mkdir(
+            parents=True
+        )
         (docs / "guide.md").write_text(
             "[Writing an Adapter](/developers/how-to/implement-adapter)\n",
             encoding="utf-8",
@@ -1161,23 +1250,18 @@ class TestAbsolutePathAllowlist:
         config = ZenzicConfig(
             docs_dir="docs",
             build_context=BuildContext(engine="docusaurus"),
-            link_validation=LinkValidationConfig(
-                absolute_path_allowlist=["/developers/"],
-            ),
         )
         em = LayeredExclusionManager(config, docs_root=docs, repo_root=tmp_path)
         errors = validate_links_structured(
-            docs,
-            em,
-            repo_root=tmp_path,
-            config=config,
-            strict=False,
+            docs, em, repo_root=tmp_path, config=config, strict=False
         )
-        assert errors == [], f"Allowlisted link should not raise Z105: {errors}"
+        assert errors == [], (
+            f"Cross-plugin link must pass when the adapter detects "
+            f"/developers/ — no allow-list required. Got: {errors}"
+        )
 
-    def test_link_outside_allowlist_still_flagged(self, tmp_path: Path) -> None:
+    def test_unknown_absolute_prefix_still_flagged(self, tmp_path: Path) -> None:
         from zenzic.core.exclusion import LayeredExclusionManager
-        from zenzic.models.config import LinkValidationConfig
 
         docs = tmp_path / "docs"
         docs.mkdir()
@@ -1188,118 +1272,39 @@ class TestAbsolutePathAllowlist:
         config = ZenzicConfig(
             docs_dir="docs",
             build_context=BuildContext(engine="docusaurus"),
-            link_validation=LinkValidationConfig(
-                absolute_path_allowlist=["/developers/"],
-            ),
         )
         em = LayeredExclusionManager(config, docs_root=docs, repo_root=tmp_path)
         errors = validate_links_structured(
-            docs,
-            em,
-            repo_root=tmp_path,
-            config=config,
-            strict=False,
+            docs, em, repo_root=tmp_path, config=config, strict=False
         )
         assert any("absolute" in str(e).lower() for e in errors), (
-            f"Non-allowlisted absolute path must still raise Z105: {errors}"
+            f"Unknown prefix must still raise Z105: {errors}"
         )
 
-    def test_default_allowlist_is_empty(self, tmp_path: Path) -> None:
-        """No allowlist configured → all absolute paths still raise Z105."""
-        from zenzic.core.exclusion import LayeredExclusionManager
-
-        docs = tmp_path / "docs"
-        docs.mkdir()
-        (docs / "guide.md").write_text(
-            "[Dev](/developers/intro)\n",
-            encoding="utf-8",
-        )
-        config = ZenzicConfig(
-            docs_dir="docs",
-            build_context=BuildContext(engine="docusaurus"),
-        )
-        em = LayeredExclusionManager(config, docs_root=docs, repo_root=tmp_path)
-        errors = validate_links_structured(
-            docs,
-            em,
-            repo_root=tmp_path,
-            config=config,
-            strict=False,
-        )
-        assert any("absolute" in str(e).lower() for e in errors), (
-            f"Empty allowlist (default) must preserve Z105: {errors}"
-        )
-
-    def test_allowlist_typo_does_not_silence_correct_path(self, tmp_path: Path) -> None:
-        """Team-D break-test: a typo'd allowlist entry must NOT silence Z105
-        on a similar-looking but distinct prefix. Guards against the matcher
-        ever degrading from strict ``startswith`` to fuzzy / substring match.
+    def test_adapter_prefix_does_not_match_neighbour(self, tmp_path: Path) -> None:
+        """The trailing slash in adapter-emitted prefixes scopes ``startswith``
+        precisely: ``/developers/`` must not silence ``/developers-only/``.
         """
         from zenzic.core.exclusion import LayeredExclusionManager
-        from zenzic.models.config import LinkValidationConfig
 
         docs = tmp_path / "docs"
         docs.mkdir()
+        (tmp_path / "developers").mkdir()
+        (tmp_path / "i18n" / "it" / "docusaurus-plugin-content-docs-developers" / "current").mkdir(
+            parents=True
+        )
         (docs / "guide.md").write_text(
-            "[Dev](/developers/intro)\n",
+            "[Internal](/developers-only/secret)\n",
             encoding="utf-8",
         )
         config = ZenzicConfig(
             docs_dir="docs",
             build_context=BuildContext(engine="docusaurus"),
-            link_validation=LinkValidationConfig(
-                absolute_path_allowlist=["/develpers/"],  # intentional typo
-            ),
         )
         em = LayeredExclusionManager(config, docs_root=docs, repo_root=tmp_path)
         errors = validate_links_structured(
-            docs,
-            em,
-            repo_root=tmp_path,
-            config=config,
-            strict=False,
+            docs, em, repo_root=tmp_path, config=config, strict=False
         )
         assert any("absolute" in str(e).lower() for e in errors), (
-            f"A typo'd allowlist entry must not silently bypass Z105 on the "
-            f"correctly-spelled path: {errors}"
-        )
-
-    def test_allowlist_prefix_does_not_match_neighbour(self, tmp_path: Path) -> None:
-        """Team-D break-test: an entry without trailing slash must not match
-        a sibling prefix that merely starts with the same characters. Guards
-        the ADR-0011 invariant that ``startswith`` semantics should be paired
-        with disciplined trailing slashes in user-supplied entries.
-        """
-        from zenzic.core.exclusion import LayeredExclusionManager
-        from zenzic.models.config import LinkValidationConfig
-
-        docs = tmp_path / "docs"
-        docs.mkdir()
-        (docs / "guide.md").write_text(
-            "[Internal](/developers-internal/secret)\n",
-            encoding="utf-8",
-        )
-        # Entry without trailing slash — broad on purpose to expose the risk.
-        config = ZenzicConfig(
-            docs_dir="docs",
-            build_context=BuildContext(engine="docusaurus"),
-            link_validation=LinkValidationConfig(
-                absolute_path_allowlist=["/developers"],
-            ),
-        )
-        em = LayeredExclusionManager(config, docs_root=docs, repo_root=tmp_path)
-        errors = validate_links_structured(
-            docs,
-            em,
-            repo_root=tmp_path,
-            config=config,
-            strict=False,
-        )
-        # This documents the current behaviour: bare prefix DOES match neighbour.
-        # The allowlist documentation explicitly recommends trailing slashes.
-        # If the matcher ever gains stricter semantics, flip the assertion.
-        assert errors == [], (
-            f"Bare-prefix allowlist entry currently matches neighbours via "
-            f"startswith — this is documented behaviour. Use trailing slashes "
-            f"to scope precisely. Errors: {errors}"
+            f"Trailing-slash boundary must keep Z105 active on /developers-only/. Got: {errors}"
         )

@@ -210,6 +210,9 @@ class ZensicalLegacyProxy:
     def get_link_scheme_bypasses(self) -> frozenset[str]:
         return self._adapter.get_link_scheme_bypasses()
 
+    def get_absolute_url_prefixes(self, repo_root: Path) -> frozenset[str]:
+        return self._adapter.get_absolute_url_prefixes(repo_root)
+
 
 class ZensicalAdapter:
     """Adapter for the Zensical build engine — reads ``zensical.toml`` natively.
@@ -444,6 +447,10 @@ class ZensicalAdapter:
 
     def get_link_scheme_bypasses(self) -> frozenset[str]:
         """Zensical has no engine-specific link-scheme bypass."""
+        return frozenset()
+
+    def get_absolute_url_prefixes(self, repo_root: Path) -> frozenset[str]:
+        """Zensical is single-instance: no cross-plugin absolute prefixes to allowlist."""
         return frozenset()
 
     @classmethod

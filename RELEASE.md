@@ -260,6 +260,72 @@ ever saying `where`.
 
 ---
 
+## 🌿 EPOCH 7b — Zero-Config Sovereignty (`absolute_path_allowlist` Purged)
+
+EPOCH 7b extends the Zero-Config invariant to one of v0.7.0's last residues of
+user-side coupling: the `[link_validation].absolute_path_allowlist` block.
+Multi-instance Docusaurus sites (one `@docusaurus/plugin-content-docs`
+instance per top-level URL prefix — e.g. `/docs/` for the user manual and
+`/developers/` for the developer area) used to require the user to copy every
+prefix into `zenzic.toml` so Z105 `ABSOLUTE_PATH` would not flag legitimate
+cross-plugin links. That was a Zero-Config violation: Zenzic was forcing the
+user to duplicate Docusaurus routing it could read for itself.
+
+### What changes
+
+- A new Protocol method `BaseAdapter.get_absolute_url_prefixes(repo_root) ->
+  frozenset[str]` returns the absolute URL prefixes the engine owns at the
+  current site. The validator queries the adapter via `hasattr()` (mirroring
+  EPOCH 7a's `get_extra_content_roots` pattern) and bypasses Z105 for any
+  internal absolute URL whose path starts with one of the discovered prefixes.
+- `DocusaurusAdapter` implements the method with two pure-Python passes that
+  honour Zero Subprocess:
+  1. **Static parse** — a regex over `docusaurus.config.{ts,js,mjs,cjs}` walks
+     every `@docusaurus/plugin-content-docs` tuple in the `plugins:` array and
+     harvests its `routeBasePath`. Combined with the docs-plugin
+     `routeBasePath` from the preset (already parsed for Multi-Root Discovery)
+     and the EPOCH 7a blog `routeBasePath`, this yields the full set of
+     project-owned prefixes.
+  2. **Filesystem heuristic fallback** — when the config is dynamic
+     (`module.exports = async () => …` etc.) and static parsing returns nothing,
+     Zenzic walks `i18n/<locale>/docusaurus-plugin-content-docs-<id>/` and pairs
+     each plugin instance with `<repo>/<id>/` if the directory exists. This
+     matches the actual `zenzic-doc` layout and fires deterministically without
+     ever launching Node.js.
+- `LinkValidationConfig` and the `link_validation` field on `ZenzicConfig` are
+  **removed in full** — no compat shim, no deprecation alias. Configurations
+  that still declare `[link_validation]` will fail TOML validation. The
+  industry-grade rule applies: breaking changes are always permitted.
+
+### CEO Directive — Asset and Directory Cemeteries
+
+The same audit revealed two more Zero-Config violations in `zenzic/zenzic.toml`:
+
+- **`excluded_assets` boilerplate** — `*.toml`, `*.lock`, `*.yaml`, `*.json`,
+  `LICENSE`, `NOTICE`, `Makefile`, `justfile`, `Dockerfile`, etc. were declared
+  per-repo. Promoted to Layer 1 (`SYSTEM_EXCLUDED_FILE_NAMES` /
+  `SYSTEM_EXCLUDED_FILE_PATTERNS`); user TOMLs no longer need them.
+- **`excluded_dirs` boilerplate** — universal build directories (`build`,
+  `dist`, `temp`, `tmp`, `mutants`) were declared per-repo. Promoted to
+  `SYSTEM_EXCLUDED_DIRS`; only repo-specific entries (`src`, `tests`, `scripts`,
+  `examples`, `assets`, `LICENSES`, `.redteam`) remain in `zenzic/zenzic.toml`.
+- **Stale ghost paths** — `docs/configuration/*.md` and `docs/adr/*.md` were
+  removed from `excluded_build_artifacts`; the directories had been estirpated
+  in earlier EPOCHs and the entries were dead.
+
+### Result
+
+- `zenzic-doc/zenzic.toml`: 9 lines lighter (`[link_validation]` block + 3-line
+  `excluded_assets`). The Docusaurus engine context is now *purely* engine
+  context.
+- `zenzic/zenzic.toml`: 28 lines lighter (asset cemetery + dir cemetery + stale
+  paths purged). The standalone repo is back to the minimum viable
+  configuration.
+- `1433 / 1433` Core tests green. `zenzic check all` on `zenzic-doc` returns
+  zero Z105 findings — the discovered prefixes do their job in production.
+
+---
+
 ## 🚀 The Big Three
 
 ### 1. Sovereign Root Protocol

@@ -13,63 +13,37 @@
 # README.md and README.it.md via an include_files entry.
 # Rationale: the README is the primary entry point for users; broken links
 # there are indistinguishable from broken links in the documentation itself.
+#
+# 🌿  ZERO-CONFIG NOTE (v0.7.1):
+#   * Universal build / cache directories (`build`, `dist`, `temp`, `tmp`,
+#     `.tox`, `mutants`, plus `.git`, `.venv`, `node_modules`, …) are part
+#     of `SYSTEM_EXCLUDED_DIRS` — never repeat them here.
+#   * Universal toolchain files (`*.toml`, `*.yaml`, `*.json`, `*.lock`,
+#     `LICENSE`, `NOTICE`, `Dockerfile`, `Makefile`, `justfile`, …) are
+#     part of `SYSTEM_EXCLUDED_FILE_NAMES` / `SYSTEM_EXCLUDED_FILE_PATTERNS`
+#     — never repeat them in `excluded_assets`.
+# Only repo-specific entries belong below.
 
 docs_dir = "."
 
-# Exclude code, tests, examples, and build artefacts — only prose matters here.
-# Directories like .venv, .git, .nox, __pycache__, etc. are already excluded
-# by Zenzic's system defaults.  The entries below cover project-specific dirs.
+# Repo-specific source / asset trees that are not documentation.
 excluded_dirs = [
     "src",
     "tests",
-    "examples",
-    "mutants",
     "scripts",
+    "examples",
     "assets",
-    "drafts",
-    "Draft",
     "LICENSES",
     ".redteam",
-    "arch",
-    "configuration",
-    "usage",
-    "dist",
-    "build",
-    "temp",
-]
-
-# Root-level project files that are not documentation assets.
-# With docs_dir = ".", every non-Markdown file would be flagged as an
-# unreferenced asset.  These globs suppress that noise.
-excluded_assets = [
-    "*.toml",
-    "*.lock",
-    "*.yml",
-    "*.yaml",
-    "*.json",
-    "*.xml",
-    "*.ini",
-    "*.cfg",
-    "*.cff",
-    "*.txt",
-    "justfile",
-    "noxfile.py",
-    "LICENSE",
-    "NOTICE",
-    ".gitignore",
-    ".coverage",
-    "*.code-workspace",
 ]
 
 # Historical changelogs contain example secrets and deprecated syntax
 # snippets that would trigger Shield and Snippet false positives.
 excluded_file_patterns = ["CHANGELOG*.md"]
 
-# Cross-repo documentation links and files excluded from scanning that are
-# still referenced as link targets.  Suppress FILE_NOT_FOUND for them.
+# Cross-repo documentation links and CHANGELOG history that are still
+# referenced as link targets — suppress FILE_NOT_FOUND for them.
 excluded_build_artifacts = [
-    "docs/configuration/*.md",
-    "docs/adr/*.md",
     "CHANGELOG*.md",
     ".github/workflows/*.yml",
 ]
