@@ -751,7 +751,7 @@ async def validate_links_async(
     # ``set_slug_map()`` is a DocusaurusAdapter-specific method (other adapters
     # don't use frontmatter slugs in the same way), hence the hasattr guard.
     if hasattr(adapter, "set_slug_map"):
-        adapter.set_slug_map(md_contents)  # type: ignore[union-attr]
+        adapter.set_slug_map(md_contents)
 
     vsm = build_vsm(
         adapter,
