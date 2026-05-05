@@ -59,14 +59,28 @@ def test_sarif_levels_are_valid_values() -> None:
     assert invalid == {}, f"Invalid SARIF levels: {invalid}"
 
 
-# ── Severity policy: Z1xx/Z2xx must be 'error', Z906 must be 'note' ───────────
+# ── Severity policy: Z1xx/Z2xx must be 'error', Z906/Z114 must be 'note' ───────
+# Z114 LARGE_PAGINATION_SET is intentionally informational within the Z1xx
+# range — it reports a threshold metric, not a broken link. It is the only
+# Z1xx code exempt from the 'error' invariant.
+_Z1XX_NOTE_EXCEPTIONS: frozenset[str] = frozenset({"Z114"})
 
 
-@pytest.mark.parametrize("code", [c for c in CODE_NAMES if c.startswith("Z1")])
+@pytest.mark.parametrize(
+    "code",
+    [c for c in CODE_NAMES if c.startswith("Z1") and c not in _Z1XX_NOTE_EXCEPTIONS],
+)
 def test_z1xx_sarif_level_is_error(code: str) -> None:
     """Z1xx (Link Integrity) codes must have SARIF level 'error'."""
     assert CODE_SARIF_LEVELS[code] == "error", (
         f"{code} should be 'error' (Link Integrity), got '{CODE_SARIF_LEVELS[code]}'"
+    )
+
+
+def test_z114_sarif_level_is_note() -> None:
+    """Z114 LARGE_PAGINATION_SET is informational — must be SARIF level 'note'."""
+    assert CODE_SARIF_LEVELS["Z114"] == "note", (
+        f"Z114 should be 'note' (informational threshold), got '{CODE_SARIF_LEVELS['Z114']}'"
     )
 
 
