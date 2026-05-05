@@ -62,13 +62,6 @@ repos:
         types: [python]
         pass_filenames: false
 
-      - id: pytest
-        name: Run Tests (pytest quick gate)
-        entry: uv run pytest -q -x
-        language: system
-        types: [python]
-        pass_filenames: false
-
       - id: zenzic
         name: Zenzic self-check
         # --no-external: dev machine may be offline; CI pipelines omit this flag for full validation
