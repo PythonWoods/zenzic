@@ -32,8 +32,9 @@ sync:
 # ZENZIC_EXTRA_ARGS (env, optional): injects extra flags at CI time — e.g.
 #   ZENZIC_EXTRA_ARGS="--exclude-url https://zenzic.dev/" just check
 # Local runs leave ZENZIC_EXTRA_ARGS unset; the ${:-} default expands to empty.
-check:
-    {{ runner }} zenzic check all --strict ${ZENZIC_EXTRA_ARGS:-}
+# Pass extra flags directly: just check --no-external
+check *args:
+    {{ runner }} zenzic check all --strict ${ZENZIC_EXTRA_ARGS:-} {{ args }}
 
 # Inner loop: ultra-fast, parallel, no coverage (TDD feedback).
 # Pillar 3 (Pure Functions) guarantees pytest-xdist worker isolation.
@@ -55,6 +56,10 @@ test-full *args:
     HYPOTHESIS_PROFILE=ci {{ nox_runner }} tests {{ args }}
 
 # ─── Quality Gates (4-Gates Standard) ─────────────────────────────────────────
+
+# Fast linter pass: run all pre-commit hooks without the full test suite.
+lint:
+    uvx pre-commit run --all-files
 
 # Final Guard: atomic verification invoked by pre-push hook + GHA.
 # Sequence: pre-commit (all hooks) → test-cov (with coverage gate) → zenzic self-check.
