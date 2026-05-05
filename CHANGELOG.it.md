@@ -116,6 +116,11 @@ maturità deterministica e integrità formale. Il codebase raggiunge la maturit�
   e quality gate configurabili.
 - **Determinism Invariant**: Contratto formale in `pyproject.toml` — Zenzic non
   distribuisce nessuna dipendenza AI/ML.
+- **Flag CLI `--exclude-url`** (`check all`, `check links`): Soppressione a runtime della
+  validazione degli URL esterni per prefissi specifici. Ripetibile; i valori vengono uniti
+  a `excluded_external_urls` in `zenzic.toml`. Pensato per i paradossi di deployment
+  CI/CD — es. sopprimere una Release GitHub non ancora pubblicata al momento dell'esecuzione
+  della pipeline.
 
 #### Modificato
 

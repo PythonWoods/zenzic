@@ -73,6 +73,15 @@ def check_links(
             "Shield (Z201) always active regardless of this flag."
         ),
     ),
+    exclude_url: list[str] = typer.Option(
+        [],
+        "--exclude-url",
+        help=(
+            "Bypass external URL validation for URLs matching this prefix (repeatable). "
+            "Merged with excluded_external_urls from zenzic.toml at runtime."
+        ),
+        metavar="PREFIX",
+    ),
     path: str | None = typer.Argument(
         None,
         help="Limit to a directory or file. Accepts paths relative to repo root or docs dir.",
@@ -90,6 +99,10 @@ def check_links(
     config, _ = ZenzicConfig.load(repo_root)
     if offline:
         config.build_context.offline_mode = True
+    if exclude_url:
+        config = config.model_copy(
+            update={"excluded_external_urls": config.excluded_external_urls + list(exclude_url)}
+        )
     if path is not None:
         config, _, docs_root, _ = _apply_target(repo_root, config, path)
         try:
@@ -1196,6 +1209,15 @@ def check_all(
             "Shield (Z201) always active regardless of this flag."
         ),
     ),
+    exclude_url: list[str] = typer.Option(
+        [],
+        "--exclude-url",
+        help=(
+            "Bypass external URL validation for URLs matching this prefix (repeatable). "
+            "Merged with excluded_external_urls from zenzic.toml at runtime."
+        ),
+        metavar="PREFIX",
+    ),
 ) -> None:
     """Run all checks: links, orphans, snippets, placeholders, assets, references.
 
@@ -1229,6 +1251,10 @@ def check_all(
     config = _shared._apply_engine_override(config, engine)
     if offline:
         config.build_context.offline_mode = True
+    if exclude_url:
+        config = config.model_copy(
+            update={"excluded_external_urls": config.excluded_external_urls + list(exclude_url)}
+        )
 
     if not quiet and output_format == "text":
         from zenzic import __version__
