@@ -15,9 +15,13 @@ Design principles (The Zenzic Way):
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
+
+
+_log = logging.getLogger(__name__)
 
 
 # ─── Status type ──────────────────────────────────────────────────────────────
@@ -226,7 +230,7 @@ def build_vsm(
         routes.append(route)
 
     if hasattr(adapter, "get_virtual_routes"):
-        for vr in adapter.get_virtual_routes(md_contents):  # type: ignore[attr-defined]
+        for vr in adapter.get_virtual_routes(md_contents):
             # Layer 2 defensive check (layer 1 already enforced in __post_init__)
             if not vr.source_files:  # pragma: no cover
                 _log.error("VirtualRoute %r escaped invariant — skipped", vr.url)

@@ -223,11 +223,13 @@ def inspect_routes(
     _VALID_KINDS = frozenset({"physical", "virtual", "all"})
     if kind not in _VALID_KINDS:
         # JSON Purity Invariant: errors always go to stderr, never stdout
-        msg = f"Error: --kind must be one of: physical, virtual, all\n"
+        msg = "Error: --kind must be one of: physical, virtual, all\n"
         if as_json:
             sys.stderr.write(msg)
         else:
-            _shared.console.print("[bold red]Error:[/] --kind must be one of: physical, virtual, all")
+            _shared.console.print(
+                "[bold red]Error:[/] --kind must be one of: physical, virtual, all"
+            )
         raise typer.Exit(1)
 
     repo_root = find_repo_root()
@@ -285,7 +287,7 @@ def inspect_routes(
         return hashlib.sha256(raw.encode()).hexdigest()
 
     # ── Build records ──────────────────────────────────────────────────────────
-    records: list[dict[str, object]] = []
+    records: list[dict[str, str | list[str]]] = []
     for url, route in sorted(vsm.items()):
         if not url:
             continue
@@ -340,7 +342,7 @@ def inspect_routes(
         table.add_row(
             str(rec["url"]),
             str(rec["kind"]),
-            ", ".join(str(sf) for sf in rec["source_files"]),  # type: ignore[arg-type]
+            ", ".join(str(sf) for sf in rec["source_files"]),
             str(rec["digest"])[:12] + "…",
         )
 
