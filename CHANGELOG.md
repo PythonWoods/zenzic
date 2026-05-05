@@ -26,6 +26,16 @@ deterministic maturity and formal integrity. The codebase achieves structural ma
 
 #### Added
 
+- **Z204 FORBIDDEN_TERM — Enterprise Privacy Gate (Sprint D100)**: New Shield rule that
+  triggers Exit 2 when a forbidden project term appears in any documentation file. Patterns
+  (plain strings or anchored regexes) are declared in the machine-local, git-ignored
+  `.zenzic.local.toml`, keeping sensitive project vocabulary permanently off `git log`.
+  Two-layer architecture: `scan_line_for_forbidden_terms()` in `shield.py` handles the
+  term scan; `_apply_local_toml()` in `config.py` merges patterns additively at load time.
+- **`.zenzic.local.toml` init scaffolding (Sprint D100)**: `zenzic init` (and `--dev`)
+  always creates `.zenzic.local.toml` and appends it to `.gitignore` automatically, so
+  private patterns are git-ignored from the first commit.
+
 - **EPOCH 7a.1 — Zero-Config Sovereignty (`absolute_path_allowlist` purged)**: The
   `[link_validation]` TOML schema and its `absolute_path_allowlist` field are
   removed. Multi-instance Docusaurus plugin URL prefixes (`/docs/`, `/developers/`,
@@ -128,6 +138,11 @@ deterministic maturity and formal integrity. The codebase achieves structural ma
 
 #### Removed
 
+- **`.zenzic.dev.toml` (D002 Environmental Privacy Gate) — hard removed**: The file no longer
+  exists for the Zenzic engine. It is not scanned, not loaded, not warned about. The sole
+  source of truth for local Privacy Gate patterns is `.zenzic.local.toml`.
+  `_scaffold_dev_toml()` removed; `zenzic init --dev` calls `_scaffold_local_toml()` directly.
+
 - **`[link_validation]` TOML schema (EPOCH 7a.1)**: The `LinkValidationConfig`
   Pydantic model and its `absolute_path_allowlist: list[str]` field are removed
   from `zenzic.models.config`. Configurations that still declare
@@ -145,6 +160,11 @@ deterministic maturity and formal integrity. The codebase achieves structural ma
 
 #### Security
 
+- **[D100] Z204 FORBIDDEN_TERM — Brand Integrity Shield**: Two-layer Privacy Gate
+  architecture seals sensitive project vocabulary (codenames, internal endpoints, PII) at
+  the Shield layer (Exit 2). Patterns are declared in machine-local, git-ignored
+  `.zenzic.local.toml`. `.zenzic.dev.toml` is hard-removed: unrecognised by the engine,
+  never scanned, never loaded.
 - **[ZRT-001]** Shield Blind Spot — YAML Frontmatter Bypass sealed (Dual-Stream architecture).
 - **[ZRT-002]** ReDoS + ProcessPoolExecutor Deadlock — Canary prevention + 30s timeout containment.
 - **[ZRT-003]** Split-Token Shield Bypass — `_normalize_line_for_shield()` pre-processor.
@@ -165,3 +185,35 @@ uvx pre-commit install -t pre-push  # 🛡️ Final Guard (just verify)
 
 Replace `zenzic plugins list` with `zenzic inspect capabilities`.
 Replace `pip install "zenzic[mkdocs]"` with `pip install zenzic`.
+
+#### Fixed
+
+- **[ZRT-006] VSM Bypass: Absolute Slug Links Skipped Silently** (`core/validator.py`):
+  Two coordinated bugs caused Zenzic to emit no finding when an absolute link targeted
+  the wrong slug of a Docusaurus blog post — while `docusaurus build` failed with a
+  broken-link error.
+
+  1. **Lifecycle ordering** — `DocusaurusAdapter.set_slug_map(md_contents)` was never
+     called during `validate_links_async()`. The slug map was empty at VSM construction
+     time, so blog posts with a `slug:` frontmatter field were routed via filename
+     derivation (e.g. `2026-04-29-post.mdx` → `/blog/2026-04-29-post/`) instead of
+     the declared slug URL. Fix: `set_slug_map()` is now called via `hasattr` guard
+     immediately before `build_vsm()` — cross-engine safe, non-breaking for MkDocs /
+     Standalone / Zensical adapters that do not implement the method.
+
+  2. **Scoped VSM lookup** — The Z105 `ABSOLUTE_PATH` suppression for project-owned
+     prefixes (e.g. `/blog/`) was implemented as a bare `continue`, which exited the
+     per-link loop before any VSM lookup, making `FILE_NOT_FOUND` impossible to fire
+     on those links. Fix: a new `_scanned_vsm_prefixes` discriminator separates
+     *fully-scanned* prefixes (those with ≥1 route in the VSM) from *unscanned sibling
+     plugins* (e.g. `/developers/` whose markdown is outside the scan scope). Links
+     targeting a scanned prefix now receive a `dict.get()` lookup and report Z104
+     `FILE_NOT_FOUND` when the exact route is absent. Unscanned prefixes retain the
+     unconditional bypass — Zero-Config invariant preserved.
+
+- **Regression lock** — `tests/test_docusaurus_blog_vsm.py::TestAbsoluteSlugMismatch`
+  (2 new tests):
+  - `test_absolute_broken_blog_link_is_detected` — wrong slug raises `FILE_NOT_FOUND`
+  - `test_correct_absolute_slug_link_is_clean` — correct slug produces no finding
+
+**Test suite: 1480 passed, 0 failed.**

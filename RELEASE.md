@@ -9,6 +9,10 @@ This release marks the birth of the Sovereign Knowledge System. Following the Qu
 - **Deterministic Integrity**: Complete absence of any probabilistic dependency or logic. Zenzic now operates exclusively on structural facts and certain invariants.
 - **Sentinel Seal**: A 4-stage validation system (4-Gates Standard) ensuring absolute quality before every push.
 - **Cross-Repo Governance**: Implementation of the Branch Parity Rule for perfect synchronization between code and documentation.
+- **Sovereign Privacy Gate**: The Z204 Enterprise Privacy Gate (`.zenzic.local.toml`) ensures
+  that sensitive project vocabulary — codenames, internal endpoints, PII — never escapes the
+  developer's machine. `.zenzic.dev.toml` is gone; `.zenzic.local.toml` is the only
+  supported local configuration file.
 - **Machine Silence**: Optimization of analysis flows for native CI/CD integration via the SARIF 2.1.0 standard.
 
 ## ⚠️ Evolution Note (Breaking Changes)
@@ -29,6 +33,7 @@ With this release, Zenzic is no longer just a tool, but a trust platform for doc
 
 | Change | Migration |
 | :--- | :--- |
+| `.zenzic.dev.toml` hard-removed (D002 → D100 hard break) | Rename to `.zenzic.local.toml`; copy your `forbidden_patterns` into it; delete the old file. The engine does not recognise the old filename. |
 | MkDocs plugin (`zenzic.integrations.mkdocs`) removed | Remove `plugins: - zenzic` from `mkdocs.yml`; add `zenzic check all` as a CI step |
 | `engine = "vanilla"` removed | Replace with `engine = "standalone"` in `zenzic.toml` |
 | `zenzic plugins` command removed | Use `zenzic inspect capabilities` |
@@ -375,7 +380,45 @@ all three. Zero asymmetries.
 
 ---
 
+## 🔐 EPOCH 8 — Z204 Enterprise Privacy Gate (Sovereign Local Configuration)
+
+**Sprint D100** is a hard break, not a migration path. `.zenzic.dev.toml` is gone.
+`.zenzic.local.toml` is the only supported machine-local configuration file.
+
+### Why Hard-Remove, Not Deprecate
+
+D002 introduced `.zenzic.dev.toml` as an Environmental Privacy Gate. v0.6.1 was never
+published to end users; v0.7.0 is Year Zero. There are no production deployments to protect.
+A deprecation warning would add scanning overhead and imply a support contract that
+does not exist. The Quartz Maturity standard admits no nostalgia.
+
+### The EPOCH 8 Solution
+
+| Layer | Component | Behaviour |
+| :---- | :-------- | :-------- |
+| **Shield** | `scan_line_for_forbidden_terms()` in `shield.py` | Scans every documentation line against `forbidden_patterns`; emits a `FORBIDDEN_TERM` signal on match |
+| **Config** | `forbidden_patterns: list[str]` in `ZenzicConfig` | Declared in `zenzic.toml` or additively merged from `.zenzic.local.toml` at load time |
+| **Local file** | `.zenzic.local.toml` | Machine-local, git-ignored sole authority for private patterns; auto-scaffolded by `zenzic init` |
+| **Finding** | **Z204 FORBIDDEN_TERM** | Exit 2; SARIF level `error`; Privacy Gate category |
+
+### Architectural Invariants Preserved
+
+- **Zero Subprocess** — `_apply_local_toml()` uses pure Python `tomllib`; no shell calls.
+- **Engine Sovereignty** — Z204 is a core Shield rule, not an engine-specific extension.
+- **Additive Merge** — patterns from `.zenzic.local.toml` are appended to any patterns already
+  declared in `zenzic.toml`; duplicates are removed; insertion order is preserved.
+- **No Silent Failures** — a malformed `.zenzic.local.toml` is skipped gracefully (engine continues).
+
+
+---
+
 ## 🛡️ Security
+
+**[D100] Z204 FORBIDDEN_TERM — Brand Integrity Shield (Sprint D100):** Two-layer
+Privacy Gate architecture seals sensitive project vocabulary at the Shield layer (Exit 2).
+Patterns are declared in machine-local, git-ignored `.zenzic.local.toml`.
+`.zenzic.dev.toml` is hard-removed: not scanned, not loaded, not acknowledged.
+Zero Subprocess invariant preserved.
 
 **Sealed 5 critical bypass vectors — including the S2 Red Team attack vector (Base64) — during AI-driven red-team audit.**
 
@@ -407,6 +450,9 @@ authorised root.
 
 ## 📋 What's New at a Glance
 
+- **Z204 FORBIDDEN_TERM — Enterprise Privacy Gate (Sprint D100)**: Shield rule that triggers
+  Exit 2 when a forbidden term appears in any documentation file. Configured exclusively via
+  `.zenzic.local.toml` (machine-local, git-ignored). `.zenzic.dev.toml` is hard-removed.
 - **Law of Contemporary Testimony** — code and documentation updated in the same commit;
   documentation that contradicts the code is classified as a bug.
 - **`zenzic score [PATH]` and `zenzic diff [PATH]`** — full PATH sovereignty for scoring.
