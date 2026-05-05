@@ -56,7 +56,9 @@ excluded_build_artifacts = [
 # If a CI runner cannot reach zenzic.dev, pass --exclude-url https://zenzic.dev/
 # as a runtime flag rather than encoding the bypass in the config file.
 excluded_external_urls = [
+    # Prevents HTTP 429 (Too Many Requests) rate-limiting from GitHub when CI checks multiple internal links.
     "https://github.com/PythonWoods/zenzic",
+    # Prevents HTTP 403 (Forbidden) / Auth redirects since the CI runner is an unauthenticated bot.
     "https://github.com/settings/tokens",
 ]
 
