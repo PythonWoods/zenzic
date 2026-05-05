@@ -418,7 +418,7 @@ def init(
         False,
         "--dev",
         help=(
-            "Also scaffold .zenzic.dev.toml (D002 Environmental Privacy Gate). "
+            "Also scaffold .zenzic.local.toml (Z204 Enterprise Privacy Gate). "
             "Auto-enabled in editable installs (CEO-275)."
         ),
     ),
@@ -443,8 +443,8 @@ def init(
     pre-sets ``engine = "zensical"``.  Otherwise the ``[build_context]`` block
     is omitted and the standalone (engine-agnostic) defaults apply.
 
-    Use ``--dev`` to also create ``.zenzic.dev.toml`` (D002 Environmental Privacy
-    Gate).  In editable installs the dev scaffold is created automatically
+    Use ``--dev`` to also create ``.zenzic.local.toml`` (Z204 Enterprise Privacy
+    Gate).  In editable installs the local scaffold is created automatically
     (CEO-275 Conditional Scaffolding).
     """
     from zenzic import __version__
@@ -489,11 +489,11 @@ def init(
     else:
         _init_standalone(repo_root, force)
 
-    # CEO-275: Conditional Scaffolding — create .zenzic.dev.toml when:
+    # CEO-275: Conditional Scaffolding — create .zenzic.local.toml when:
     #   (a) --dev flag is explicitly passed, or
     #   (b) running in an editable (developer) install (auto-detection)
     if dev or _is_editable_install():
-        _scaffold_dev_toml(repo_root)
+        _scaffold_local_toml(repo_root)
 
 
 def _is_editable_install() -> bool:
@@ -518,42 +518,56 @@ def _is_editable_install() -> bool:
         return False
 
 
-def _scaffold_dev_toml(repo_root: Path) -> None:
-    """Create a ``.zenzic.dev.toml`` template for the D002 Environmental Privacy Gate.
+def _scaffold_local_toml(repo_root: Path) -> None:
+    """Create a ``.zenzic.local.toml`` template for the Z204 Privacy Gate.
 
     Idempotent — skips creation silently if the file already exists.
-    The generated file is annotated with the literal-string constraint
-    (CEO-276 Literal Certainty Standard) and must be git-ignored.
+    Patterns are matched verbatim and case-insensitively (no regex).
+    The file is automatically added to ``.gitignore`` when that file exists.
     """
     from rich.panel import Panel
 
-    dev_toml = repo_root / ".zenzic.dev.toml"
-    if dev_toml.exists():
-        _shared.console.print("[dim]  .zenzic.dev.toml already exists — skipped.[/]")
+    local_toml = repo_root / ".zenzic.local.toml"
+    if local_toml.exists():
+        _shared.console.print("[dim]  .zenzic.local.toml already exists — skipped.[/]")
         return
 
     content = (
-        "# .zenzic.dev.toml — Local Development Gate (git-ignored)\n"
+        "# .zenzic.local.toml — Enterprise Privacy Gate (git-ignored)\n"
         "# This file is local to your machine. DO NOT commit it to version control.\n"
-        "# Use it to protect private context from being exported by Zenzic tooling.\n"
+        "# Use it to define project-specific forbidden terms that trigger Z204 (Exit 2)\n"
+        "# when found in any documentation file scanned by Zenzic.\n"
         "#\n"
-        "# Documentation: https://zenzic.dev/docs/community/developers/how-to/configure-dev-perimeters\n"
-        "\n"
-        "[development_gate]\n"
-        "# List of literal strings (case-insensitive) to be redacted from exports.\n"
-        "# Regular expressions are NOT supported — patterns are matched verbatim.\n"
-        '# forbidden_patterns = ["internal-project-name", "/home/user/private/path"]\n'
+        "# Patterns are matched verbatim and case-insensitively (no regex).\n"
+        "# Examples: internal code-names, staging hostnames, team aliases.\n"
+        "#\n"
+        '# forbidden_patterns = ["Project Titan", "internal-api.corp", "staging.acme.io"]\n'
         "forbidden_patterns = []\n"
     )
-    dev_toml.write_text(content, encoding="utf-8")
+    local_toml.write_text(content, encoding="utf-8")
+
+    # Auto-append to .gitignore when found and entry not already present.
+    gitignore = repo_root / ".gitignore"
+    gitignore_line = "[yellow]⚠[/]  Remember to add [bold].zenzic.local.toml[/] to [bold].gitignore[/].\n"
+    if gitignore.is_file():
+        existing = gitignore.read_text(encoding="utf-8")
+        if ".zenzic.local.toml" not in existing:
+            separator = "" if existing.endswith("\n") else "\n"
+            gitignore.write_text(
+                existing + separator + ".zenzic.local.toml\n",
+                encoding="utf-8",
+            )
+            gitignore_line = (
+                "[green]✔[/] [bold].gitignore[/] updated — .zenzic.local.toml is now git-ignored.\n"
+            )
 
     _shared.console.print(
         Panel(
-            "[green]✔[/] [bold].zenzic.dev.toml[/] created (D002 Privacy Gate).\n"
-            "[yellow]⚠[/]  Add this file to [bold].gitignore[/] — it is local only.\n\n"
-            "Edit [bold cyan]forbidden_patterns[/] with literal strings to protect "
-            "from exports.",
-            title="[bold]Dev Perimeter Gate[/]",
+            "[green]✔[/] [bold].zenzic.local.toml[/] created (Z204 Privacy Gate).\n"
+            + gitignore_line
+            + "\nEdit [bold cyan]forbidden_patterns[/] with literal strings — "
+            "any match in documentation source triggers [bold red]Exit 2[/].",
+            title="[bold]Privacy Gate[/]",
             border_style="cyan",
         )
     )
@@ -636,7 +650,8 @@ def _init_standalone(repo_root: Path, force: bool) -> None:
             border_style="green",
         )
     )
-
+    # Always scaffold .zenzic.local.toml alongside zenzic.toml
+    _scaffold_local_toml(repo_root)
 
 def _init_pyproject(repo_root: Path, pyproject_path: Path, force: bool) -> None:
     """Append a ``[tool.zenzic]`` section to an existing ``pyproject.toml``."""

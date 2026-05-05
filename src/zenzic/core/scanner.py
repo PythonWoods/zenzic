@@ -33,7 +33,7 @@ from zenzic.core.discovery import (
 )
 from zenzic.core.reporter import Finding
 from zenzic.core.rules import AdaptiveRuleEngine, BaseRule
-from zenzic.core.shield import SecurityFinding, scan_lines_with_lookback, scan_url_for_secrets
+from zenzic.core.shield import SecurityFinding, scan_line_for_forbidden_terms, scan_lines_with_lookback, scan_url_for_secrets
 from zenzic.core.validator import LinkValidator
 from zenzic.models.config import (
     SYSTEM_EXCLUDED_FILE_NAMES,
@@ -140,19 +140,33 @@ def _map_shield_to_finding(sf: SecurityFinding, docs_root: Path) -> Finding:
     "The Silencer" mutants must all be killed here).
 
     Args:
-        sf: A secret detection result from :func:`~zenzic.core.shield.scan_line_for_secrets`
-            or :func:`~zenzic.core.shield.scan_url_for_secrets`.
+        sf: A secret detection result from :func:`~zenzic.core.shield.scan_line_for_secrets`,
+            :func:`~zenzic.core.shield.scan_url_for_secrets`, or
+            :func:`~zenzic.core.shield.scan_line_for_forbidden_terms`.
         docs_root: Absolute path to the docs root directory used to compute
             a project-relative display path.
 
     Returns:
-        A :class:`~zenzic.core.reporter.Finding` with
-        ``severity="security_breach"`` ready for the SentinelReporter pipeline.
+        A :class:`~zenzic.core.reporter.Finding` ready for the SentinelReporter
+        pipeline.  Z204 FORBIDDEN_TERM findings use ``severity="security_breach"``
+        with code ``"Z204"``; all other Shield findings use ``"Z201"``.
     """
     try:
         rel = str(sf.file_path.relative_to(docs_root))
     except ValueError:
         rel = str(sf.file_path)
+
+    if sf.secret_type == "FORBIDDEN_TERM":
+        return Finding(
+            rel_path=rel,
+            line_no=sf.line_no,
+            code="Z204",
+            severity="security_breach",
+            message=f"Forbidden term detected — remove from documentation: '{sf.match_text}'",
+            source_line=sf.url,
+            col_start=sf.col_start,
+            match_text=sf.match_text,
+        )
 
     return Finding(
         rel_path=rel,
@@ -1047,6 +1061,23 @@ class ReferenceScanner:
             for finding in scan_lines_with_lookback(enumerate(fh, start=1), self.file_path):
                 shield_events.append((finding.line_no, "SECRET", finding))
                 secret_line_nos.add(finding.line_no)
+
+        # ── 1.a.2 Privacy Gate: scan for Z204 FORBIDDEN_TERM ─────────────────
+        # Separate pass over the same file with the merged forbidden_patterns
+        # list (populated from .zenzic.local.toml by config.load()).  Only
+        # lines not already flagged by the credential scan are emitted to
+        # avoid duplicate SecurityFinding entries for the same line.
+        fp = self._config.forbidden_patterns if self._config else []
+        if fp:
+            with self.file_path.open(encoding="utf-8") as fh:
+                for lineno, raw_line in enumerate(fh, start=1):
+                    if lineno in secret_line_nos:
+                        continue
+                    for finding in scan_line_for_forbidden_terms(
+                        raw_line, fp, self.file_path, lineno
+                    ):
+                        shield_events.append((finding.line_no, "SECRET", finding))
+                        secret_line_nos.add(finding.line_no)
 
         # ── 1.b Content pass: harvest ref-defs and alt-text (fences skipped) ─
         content_events: list[HarvestEvent] = []

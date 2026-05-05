@@ -287,6 +287,49 @@ def scan_line_for_secrets(
                 )
 
 
+def scan_line_for_forbidden_terms(
+    line: str,
+    forbidden_patterns: list[str],
+    file_path: Path | str,
+    line_no: int,
+) -> Iterator[SecurityFinding]:
+    """Scan a text line for project-specific forbidden terms (Z204).
+
+    Performs a case-insensitive verbatim substring search against every entry
+    in *forbidden_patterns*.  Patterns are matched literally — regular
+    expressions are **not** supported.  The first matching term per line is
+    reported; subsequent terms on the same line are skipped to avoid
+    flooding the reporter with duplicate findings.
+
+    Args:
+        line: Raw text line from the Markdown source.
+        forbidden_patterns: List of literal strings from ``.zenzic.local.toml``.
+        file_path: Path identifier (no disk access).
+        line_no: 1-based line number.
+
+    Yields:
+        :class:`SecurityFinding` with ``secret_type="FORBIDDEN_TERM"`` for
+        each line that matches at least one pattern.  At most one finding per
+        line is yielded (first-match wins).
+    """
+    if not forbidden_patterns:
+        return
+    path = Path(file_path)
+    line_lower = line.lower()
+    for term in forbidden_patterns:
+        idx = line_lower.find(term.lower())
+        if idx != -1:
+            yield SecurityFinding(
+                file_path=path,
+                line_no=line_no,
+                secret_type="FORBIDDEN_TERM",
+                url=line.strip(),
+                col_start=idx,
+                match_text=line[idx : idx + len(term)],
+            )
+            return  # one finding per line — first-match wins
+
+
 def scan_lines_with_lookback(
     lines: Iterator[tuple[int, str]],
     file_path: Path | str,

@@ -34,7 +34,7 @@ class ContentRoot:
     """A documentation content root scanned in addition to ``docs_dir``.
 
     Introduced in EPOCH 7a (Multi-Root Discovery) to fix the *VSM Blindness*
-    bug: prior to v0.7.1, the VSM only ingested files under ``docs_dir``,
+    bug: prior to v0.7.0, the VSM only ingested files under ``docs_dir``,
     so plugin-managed content trees living elsewhere — e.g. Docusaurus's
     ``blog/`` directory — were silently excluded from validation.  The
     Docusaurus build then surfaced broken links that ``zenzic check all``

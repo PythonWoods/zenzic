@@ -34,7 +34,12 @@ from zenzic.models.vsm import build_vsm
 # ── Sandbox builder ───────────────────────────────────────────────────────────
 
 
-def _build_sandbox(repo: Path, *, with_broken_links: bool = False) -> tuple[Path, Path]:
+def _build_sandbox(
+    repo: Path,
+    *,
+    with_broken_links: bool = False,
+    with_absolute_slug_mismatch: bool = False,
+) -> tuple[Path, Path]:
     """Materialise a minimal Docusaurus repo with docs/ and blog/.
 
     Returns ``(docs_root, repo_root)``.
@@ -65,6 +70,22 @@ def _build_sandbox(repo: Path, *, with_broken_links: bool = False) -> tuple[Path
         # Broken cross-tree link from docs/ to a non-existent blog post.
         (docs / "stale.md").write_text(
             "# Stale\n\n[Old post](../blog/2030-01-01-ghost.md).\n",
+            encoding="utf-8",
+        )
+
+    if with_absolute_slug_mismatch:
+        # VSM bypass regression — EPOCH 7b / validator.py fix.
+        #
+        # The file declares slug: saga-iv-zenzic, so Docusaurus publishes it at
+        # /blog/saga-iv-zenzic/.  The log post links to /blog/saga-iv/ (missing
+        # the "-zenzic" suffix) — an absolute path that starts with the project
+        # prefix /blog/ and was silently skipped by the Z105 bypass before the fix.
+        (blog / "2026-04-29-saga-iv.mdx").write_text(
+            "---\nslug: saga-iv-zenzic\n---\n# Saga IV\n\nThe sovereign root.\n",
+            encoding="utf-8",
+        )
+        (blog / "2026-05-05-log.mdx").write_text(
+            "# Log\n\nSee [Saga IV](/blog/saga-iv) for details.\n",
             encoding="utf-8",
         )
 
@@ -208,4 +229,62 @@ class TestEpoch7aValidatorClosesTheGap:
         blog_errors = [e for e in errors if "blog" in e.lower()]
         assert blog_errors == [], (
             f"blog files should not produce errors in a clean repo, got: {blog_errors}"
+        )
+
+
+class TestAbsoluteSlugMismatch:
+    """Regression for the VSM bypass: absolute /blog/ links must be VSM-validated.
+
+    Before the validator.py fix, the Z105 ABSOLUTE_PATH bypass silently accepted
+    ``/blog/<any-slug>`` without checking the VSM, because
+    ``_project_absolute_prefixes`` matched and the ``continue`` exited the loop
+    before the route-existence lookup.  A slug mismatch (e.g. ``/blog/saga-iv``
+    vs. the real slug ``/blog/saga-iv-zenzic``) therefore slipped through Zenzic
+    while ``docusaurus build`` caught it.
+
+    This class locks the corrected invariant: every absolute link whose path starts
+    with a project-owned prefix MUST still be verified against the VSM.
+    """
+
+    def _run(self, repo: Path, docs: Path) -> list[str]:
+        config = ZenzicConfig(build_context=BuildContext(engine="docusaurus"))
+        em = LayeredExclusionManager(repo_root=repo, config=config)
+        result = asyncio.run(
+            validate_links_async(
+                docs.resolve(),
+                em,
+                repo_root=repo.resolve(),
+                config=config,
+                strict=False,
+                structured=False,
+                check_external=False,
+            )
+        )
+        assert isinstance(result, list)
+        return [str(e) for e in result]
+
+    def test_absolute_broken_blog_link_is_detected(self, tmp_path: Path) -> None:
+        """``/blog/saga-iv`` must raise FILE_NOT_FOUND when slug is saga-iv-zenzic."""
+        docs, repo = _build_sandbox(tmp_path, with_absolute_slug_mismatch=True)
+        errors = self._run(repo, docs)
+        assert any("saga-iv" in e for e in errors), (
+            f"expected FILE_NOT_FOUND for /blog/saga-iv (slug mismatch), got: {errors}"
+        )
+
+    def test_correct_absolute_slug_link_is_clean(self, tmp_path: Path) -> None:
+        """``/blog/saga-iv-zenzic`` must not raise any error (correct slug)."""
+        docs, repo = _build_sandbox(tmp_path)
+        blog = repo / "blog"
+        (blog / "2026-04-29-saga-iv.mdx").write_text(
+            "---\nslug: saga-iv-zenzic\n---\n# Saga IV\n\nThe sovereign root.\n",
+            encoding="utf-8",
+        )
+        (blog / "2026-05-05-log.mdx").write_text(
+            "# Log\n\nSee [Saga IV](/blog/saga-iv-zenzic) for details.\n",
+            encoding="utf-8",
+        )
+        errors = self._run(repo, docs)
+        saga_errors = [e for e in errors if "saga-iv" in e]
+        assert saga_errors == [], (
+            f"correct absolute slug link should be clean, got: {saga_errors}"
         )

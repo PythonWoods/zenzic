@@ -742,6 +742,17 @@ async def validate_links_async(
     # The VSM maps every .md file to its canonical URL and routing status.
     # It is only meaningful when the adapter has a nav (MkDocs with mkdocs.yml);
     # for StandaloneAdapter / Zensical every file is REACHABLE by definition.
+    #
+    # EPOCH 7b: populate the adapter's slug map BEFORE building the VSM so that
+    # ``map_url()`` resolves frontmatter ``slug:`` overrides correctly.
+    # Without this call the slug map is empty and all blog URLs are derived from
+    # the physical filename — mismatching the URLs that Docusaurus actually serves.
+    #
+    # ``set_slug_map()`` is a DocusaurusAdapter-specific method (other adapters
+    # don't use frontmatter slugs in the same way), hence the hasattr guard.
+    if hasattr(adapter, "set_slug_map"):
+        adapter.set_slug_map(md_contents)  # type: ignore[union-attr]
+
     vsm = build_vsm(
         adapter,
         docs_root,
@@ -782,6 +793,17 @@ async def validate_links_async(
     # Engine-aware skip schemes: adapters declare their own bypass schemes via
     # get_link_scheme_bypasses() — the Core never hardcodes engine names here.
     _effective_skip = _SKIP_SCHEMES + tuple(f"{s}:" for s in _bypass_schemes)
+
+    # Pre-compute which absolute prefixes are actually represented in the VSM.
+    # Scanned prefixes (blog/, docs/, …) get full VSM-lookup validation.
+    # Unscanned sibling plugins (/developers/ with no markdown files in scope)
+    # keep the unconditional bypass — they are owned by the project but their
+    # content is not in md_contents and therefore has no VSM entries to check.
+    _scanned_vsm_prefixes: frozenset[str] = frozenset(
+        prefix
+        for prefix in _project_absolute_prefixes
+        if any(url.startswith(prefix) for url in vsm)
+    )
 
     def _source_line(md_file: Path, lineno: int) -> str:
         """Return the raw source line (1-based) from the pre-split cache."""
@@ -857,6 +879,36 @@ async def validate_links_async(
             # required (Zero-Config invariant).
             if parsed.path.startswith("/") and parsed.scheme not in _bypass_schemes:
                 if any(parsed.path.startswith(prefix) for prefix in _project_absolute_prefixes):
+                    # Z105 suppressed: the absolute path is owned by this project.
+                    # For prefixes whose content was actually scanned into the VSM
+                    # (e.g. /blog/), verify the exact route exists so that a slug
+                    # mismatch (e.g. /blog/wrong-slug vs real /blog/correct-slug)
+                    # is caught.  Prefixes with no VSM entries are sibling plugins
+                    # whose content is outside the scan scope — those get the
+                    # unconditional bypass (Zero-Config invariant preserved).
+                    if any(parsed.path.startswith(p) for p in _scanned_vsm_prefixes):
+                        _abs_parts = [p for p in parsed.path.split("/") if p]
+                        _canonical = "/" + "/".join(_abs_parts) + "/" if _abs_parts else "/"
+                        if vsm.get(_canonical) is None:
+                            _suggestions = difflib.get_close_matches(
+                                _canonical.strip("/"), [k.strip("/") for k in vsm], n=1, cutoff=0.6
+                            )
+                            _hint = (
+                                f" 💡 Did you mean: '/{_suggestions[0]}/'?" if _suggestions else ""
+                            )
+                            internal_errors.append(
+                                LinkError(
+                                    file_path=md_file,
+                                    line_no=lineno,
+                                    message=(
+                                        f"{label}:{lineno}: '{url}' not found in the site map{_hint}"
+                                    ),
+                                    source_line=_source_line(md_file, lineno),
+                                    error_type="FILE_NOT_FOUND",
+                                    col_start=link.col_start,
+                                    match_text=link.match_text,
+                                )
+                            )
                     continue
                 internal_errors.append(
                     LinkError(

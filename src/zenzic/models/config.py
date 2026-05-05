@@ -197,7 +197,7 @@ SYSTEM_EXCLUDED_DIRS: frozenset[str] = frozenset(
         ".docusaurus",
         ".cache",
         ".hypothesis",
-        # Universal build / temporary artefact directories (v0.7.1, Zero-Config)
+        # Universal build / temporary artefact directories (v0.7.0, Zero-Config)
         # Previously required users to declare these in `excluded_dirs` of
         # every standalone repo. Promoted to Layer 1 to honour Zero-Config:
         # any project that builds Python wheels, JS bundles, or runs mutation
@@ -235,7 +235,7 @@ SYSTEM_EXCLUDED_FILE_NAMES: frozenset[str] = frozenset(
         "Makefile",
         "justfile",
         "Dockerfile",
-        # Licensing & legal (Zero-Config v0.7.1 — never documentation assets)
+        # Licensing & legal (Zero-Config v0.7.0 — never documentation assets)
         "LICENSE",
         "LICENSE.txt",
         "LICENSE.md",
@@ -255,7 +255,7 @@ SYSTEM_EXCLUDED_FILE_PATTERNS: tuple[str, ...] = (
     ".prettierrc*",
     ".editorconfig",
     "*.lock",
-    # Project metadata / build manifests promoted to Layer 1 in v0.7.1.
+    # Project metadata / build manifests promoted to Layer 1 in v0.7.0.
     # Honours Zero-Config for "Prose-only Maintenance" repos (engine = standalone)
     # whose docs_root is the repository root: every TOML/YAML/JSON config file
     # was previously triggering Z903 unless individually declared.
@@ -476,6 +476,16 @@ class ZenzicConfig(BaseModel):
             "file must have a mirror in each target language root."
         ),
     )
+    forbidden_patterns: list[str] = Field(
+        default=[],
+        description=(
+            "Z204 FORBIDDEN_TERM: literal strings (case-insensitive) whose presence "
+            "in any documentation file triggers an exit-2 security breach. "
+            "Populated by merging patterns from ``.zenzic.local.toml`` at runtime. "
+            "Never declare these in the shared ``zenzic.toml`` — use the git-ignored "
+            "``.zenzic.local.toml`` so private terms are never committed."
+        ),
+    )
     # Pre-compiled regex patterns for placeholder detection.
     # Populated automatically from placeholder_patterns in model_post_init.
     # Excluded from serialisation — never written to or read from TOML.
@@ -604,7 +614,9 @@ class ZenzicConfig(BaseModel):
                     "Fix the TOML syntax error and re-run Zenzic.",
                     context={"config_path": str(zenzic_toml)},
                 ) from exc
-            return cls._build_from_data(data), True
+            config = cls._build_from_data(data)
+            cls._apply_local_toml(config, repo_root)
+            return config, True
 
         # ── Priority 2: [tool.zenzic] in pyproject.toml ──────────────────────
         pyproject_toml = repo_root / "pyproject.toml"
@@ -623,7 +635,35 @@ class ZenzicConfig(BaseModel):
             tool_section = pyproject_data.get("tool", {})
             zenzic_section = tool_section.get("zenzic", {})
             if zenzic_section:
-                return cls._build_from_data(zenzic_section), True
+                config = cls._build_from_data(zenzic_section)
+                cls._apply_local_toml(config, repo_root)
+                return config, True
 
         # ── Priority 3: built-in defaults ─────────────────────────────────────
-        return cls(), False
+        config = cls()
+        cls._apply_local_toml(config, repo_root)
+        return config, False
+
+    @classmethod
+    def _apply_local_toml(cls, config: "ZenzicConfig", repo_root: Path) -> None:
+        """Merge ``forbidden_patterns`` from ``.zenzic.local.toml`` into *config*.
+
+        The local file is git-ignored and machine-local — it is the canonical
+        home for the Z204 Privacy Gate patterns.  Patterns from the local file
+        are appended to any patterns already declared in the primary config
+        (additive merge, insertion-order preserved, duplicates removed).
+
+        Silently a no-op when the file does not exist or is malformed.
+        """
+        local_toml = repo_root / ".zenzic.local.toml"
+        if not local_toml.is_file():
+            return
+        try:
+            with local_toml.open("rb") as f:
+                local_data = tomllib.load(f)
+        except tomllib.TOMLDecodeError:
+            return  # malformed local file — silently skip to avoid hard failures
+        extra = local_data.get("forbidden_patterns", [])
+        if isinstance(extra, list):
+            merged = list(dict.fromkeys([*config.forbidden_patterns, *extra]))
+            config.forbidden_patterns = merged

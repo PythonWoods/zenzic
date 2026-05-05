@@ -24,6 +24,7 @@ Z2xx — Security (Shield)
     Z201  SHIELD_SECRET        — credential / secret detected (Exit 2)
     Z202  PATH_TRAVERSAL       — path escapes the docs root boundary
     Z203  PATH_TRAVERSAL_FATAL — traversal targeting OS system directories (Exit 3)
+    Z204  FORBIDDEN_TERM       — project-specific forbidden term in documentation content (Exit 2)
 
 Z3xx — Reference Integrity
     Z301  DANGLING_REF         — reference link uses an undefined ID
@@ -110,6 +111,7 @@ LEGACY_TO_CODE: dict[str, str] = {
     "SHIELD": "Z201",
     "PATH_TRAVERSAL": "Z202",
     "PATH_TRAVERSAL_SUSPICIOUS": "Z203",
+    "FORBIDDEN_TERM": "Z204",
     # Reference integrity (Z3xx)
     "DANGLING": "Z301",
     "DEAD_DEF": "Z302",
@@ -146,6 +148,7 @@ CODE_NAMES: dict[str, str] = {
     "Z201": "SHIELD_SECRET",
     "Z202": "PATH_TRAVERSAL",
     "Z203": "PATH_TRAVERSAL_FATAL",
+    "Z204": "FORBIDDEN_TERM",
     "Z301": "DANGLING_REF",
     "Z302": "DEAD_DEF",
     "Z303": "DUPLICATE_DEF",
@@ -185,6 +188,7 @@ CODE_DESCRIPTIONS: dict[str, str] = {
     "Z201": "Potential credential or secret detected in documentation content",
     "Z202": "Link escapes the documentation root boundary (path traversal)",
     "Z203": "Path traversal targeting OS system directories — fatal security breach",
+    "Z204": "Forbidden project term detected in documentation content",
     # Z3xx — Reference Integrity
     "Z301": "Reference-style link uses an undefined identifier",
     "Z302": "Link definition declared but never referenced",
@@ -229,6 +233,7 @@ CODE_SARIF_LEVELS: dict[str, str] = {
     "Z201": "error",
     "Z202": "error",
     "Z203": "error",
+    "Z204": "error",
     # Z3xx — Reference Integrity: warnings (quality signal, not blocking)
     "Z301": "warning",
     "Z302": "warning",
@@ -308,6 +313,16 @@ CORE_SCANNERS: list[CoreScanner] = [
         capability=(
             "Credential & secret detection \u2014 9 families "
             "(AWS, GitHub, GitLab PAT, Stripe, Slack, OpenAI, Google, PEM, hex)"
+        ),
+        primary_exit=2,
+        non_suppressible=True,
+    ),
+    CoreScanner(
+        codes="Z204",
+        name="Privacy Gate",
+        capability=(
+            "Project-specific forbidden term detection \u2014 "
+            "verbatim case-insensitive match against patterns in .zenzic.local.toml"
         ),
         primary_exit=2,
         non_suppressible=True,
