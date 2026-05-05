@@ -199,8 +199,8 @@ def check_links(
     )
     if no_external and output_format == "text":
         _shared.console.print(
-            "[dim]\u1f4a1 External link validation skipped (--no-external). "
-            "Shield (Z201) remains active.[/dim]"
+            "[dim]  💡 External link validation skipped (--no-external). "
+            "Shield (Z201) remains active.[/dim]\n"
         )
     incidents = sum(1 for f in findings if f.severity == "security_incident")
     if incidents:
@@ -1385,8 +1385,8 @@ def check_all(
 
     if no_external and output_format == "text" and not quiet:
         _shared.console.print(
-            "[dim]💡 External link validation skipped (--no-external). "
-            "Shield (Z201) remains active.[/dim]"
+            "[dim]  💡 External link validation skipped (--no-external). "
+            "Shield (Z201) remains active.[/dim]\n"
         )
 
     incidents = sum(1 for f in all_findings if f.severity == "security_incident")

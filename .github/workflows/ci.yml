@@ -54,9 +54,10 @@ jobs:
 
       - name: Run unified verification
         env:
-          # Release Bridge (v0.7.0): zenzic.dev and the v0.7.0 GitHub tag are
-          # not yet publicly reachable at CI time. Injected at runtime so the
-          # permanent zenzic.toml config stays clean. Remove after GA deploy.
+          # Pre-Launch Guard Pattern: runtime exclusion for pre-launch assets.
+          # zenzic.dev and the v0.7.0 GitHub release tag are not yet publicly
+          # reachable at CI time. Injected at runtime — zenzic.toml stays clean.
+          # Remove after GA deploy when all URLs resolve.
           ZENZIC_EXTRA_ARGS: >-
             --exclude-url https://zenzic.dev/
             --exclude-url https://github.com/PythonWoods/zenzic/releases/tag/v0.7.0
