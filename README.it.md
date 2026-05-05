@@ -164,13 +164,25 @@ Zenzic legge i file di configurazione come testo semplice — non importa né es
 
 | Motore | Adapter | Funzionalità chiave |
 | :--- | :--- | :--- |
-| [Docusaurus v3][docusaurus] | `DocusaurusAdapter` | Docs versionati, alias `@site/`, rilevamento Ghost Route |
+| [Docusaurus v3][docusaurus] | `DocusaurusAdapter` | Docs versionati, alias `@site/`, rilevamento Ghost Route, Virtual Routes (Tag, Paginazione, Autori) |
 | [MkDocs][mkdocs] | `MkDocsAdapter` | Modalità i18n suffix + folder, `fallback_to_default` |
 | [Zensical][zensical] | `ZensicalAdapter` | Transparent Proxy ponte `mkdocs.yml` se `zensical.toml` assente |
 | Qualsiasi cartella | `StandaloneAdapter` | Solo integrità dei file — rilevamento orfani disabilitato senza contratto di navigazione |
 
 Adapter di terze parti si installano tramite il gruppo di entry-point `zenzic.adapters`.
 Vedi la [Guida Developer][docs-it-arch] per le API degli adapter.
+
+### Virtual Routes di Docusaurus
+
+Docusaurus genera pagine URL prive di sorgente Markdown fisica: le pagine di elenco tag
+(`/blog/tags/python/`), gli indici paginati del blog (`/blog/page/2/`) e le pagine autore
+(`/blog/authors/alice/`). Prima di EPOCH 7b, Zenzic non era consapevole di queste rotte,
+e qualsiasi link che le referenziava veniva erroneamente segnalato come link interrotto.
+
+`DocusaurusAdapter` costruisce ora una **mappa di Virtual Route** derivata dai metadati
+del frontmatter — senza eseguire alcun build, senza Node.js. Ogni virtual route porta un
+insieme `source_files` che la ricollega ai file fisici che la generano, soddisfacendo
+l'**Invariante di Reverse-Mapping**: ogni URL nella VSM ha un'origine fisica non ambigua.
 
 ---
 

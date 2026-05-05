@@ -72,6 +72,25 @@ maturità deterministica e integrità formale. Il codebase raggiunge la maturit�
   virtuali di EPOCH 7b (tag, paginazione, autori) erediteranno. La Discovery usa
   `walk_files` (lo stesso motore `os.walk` esistente), non `rglob` — il determinismo è
   preservato.
+- **EPOCH 7b — Virtual Routes e `zenzic inspect routes` (La JSON API)**: Le pagine generate
+  dal motore — pagine di tag Docusaurus (`/blog/tags/{slug}/`), indice dei tag (`/blog/tags/`),
+  indici paginati e profili autore — sono ora cittadini di prima classe nella VSM, con
+  l'Invariante di Reverse-Mapping applicata al momento della costruzione: una `VirtualRoute`
+  con `source_files=frozenset()` solleva immediatamente `ValueError`, impedendo che un URL
+  non tracciato raggiunga la VSM. Tre nuovi codici di finding: **Z111 VIRTUAL_ROUTE_BROKEN**
+  (error) quando un link in docs punta a un URL di tag che nessun post del blog attiva,
+  **Z113 AUTHOR_KEY_COLLISION** (error) per chiavi autore duplicate, **Z114 LARGE_PAGINATION_SET**
+  (info) quando il set di paginazione supera 200 pagine. Il generatore di tag di
+  `DocusaurusAdapter` applica la normalizzazione Unicode NFKD + slugification `re.ASCII`
+  (replicando l'algoritmo di Docusaurus) e gestisce i tag puramente CJK restituendo
+  `"untagged"`. Il nuovo comando CLI `zenzic inspect routes [--kind physical|virtual|all]
+  [--json]` esporta la mappa completa del sito in formato JSON deterministico con `url`,
+  `kind`, `source_files` (path POSIX repo-relative) e `digest`
+  (`sha256(url + ":" + ",".join(sorted(source_files)))`) per rotta.
+  **Invariante di Purezza JSON**: quando `--json` è attivo, `stdout` contiene
+  esclusivamente JSON valido — nessun codice ANSI, nessun banner. Questa funzionalità
+  è progettata per essere consumata da tool esterni: script Bash custom, dashboard di
+  CI/CD, o agenti di Intelligenza Artificiale che necessitano di contesto architetturale.
 - **Sentinel Seal**: Sistema di validazione rigorosa a 4 stadi (`just verify`) integrato in
   ogni repository — pre-commit, test-cov e self-check eseguiti identicamente in locale e in CI.
 - **Cross-Repo Governance**: Branch Parity Rule per la sincronizzazione Core/Doc

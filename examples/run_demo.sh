@@ -30,6 +30,7 @@
 #   Act 14 — Shield Extreme        : rules/z200-shield — base64/pct-enc/mixed-case BREACH.
 #   Act 15 — SEO Coverage          : rules/z400-seo — Z401 ×3 + Z402 ×1.
 #   Act 16 — Quality Gate          : rules/z500-quality — Z501 ×3 + Z503 ×1.
+#   Act 17 — Virtual Routes        : docusaurus-v3 — tag virtual routes validated clean.
 #
 # Usage (from repo root):
 #   bash examples/run_demo.sh
@@ -325,6 +326,20 @@ else
     print_result "rules/z500-quality check all (Z501/Z503 fires)" "FAIL"
 fi
 
+# ─── Act 17: Virtual Routes ───────────────────────────────────────────────────
+
+print_header "Act 17 — Virtual Routes (docusaurus-v3)"
+echo "  Blog posts generate tag virtual routes. A docs link to /blog/tags/tutorial/"
+echo "  is validated against the tag virtual route map — no Node.js build required."
+echo "  Expected: PASS — all virtual routes present, link resolves cleanly."
+echo ""
+
+if (cd "$REPO_ROOT/examples/docusaurus-v3" && uv run zenzic check all); then
+    print_result "docusaurus-v3 check all (Virtual Routes)" "PASS"
+else
+    print_result "docusaurus-v3 check all" "UNEXPECTED FAIL"
+fi
+
 # ─── Self-audit + score snapshot ──────────────────────────────────────────────
 
 print_header "Self-audit + Score Snapshot (main repo)"
@@ -367,4 +382,5 @@ echo "  Act 13 (Link Graph Stress)     : must be red — Z102 + Z104"
 echo "  Act 14 (Shield Extreme)        : must be red (exit 2) — obfuscated creds BREACH"
 echo "  Act 15 (SEO Coverage)          : must be red — Z401 + Z402"
 echo "  Act 16 (Quality Gate)          : must be red — Z501 + Z503"
+echo "  Act 17 (Virtual Routes)        : must be green — tag routes resolved, link clean"
 echo ""

@@ -10,7 +10,9 @@ from rich.table import Table
 from rich.text import Text
 
 from zenzic.core.codes import CORE_SCANNERS
+from zenzic.core.scanner import find_repo_root
 from zenzic.core.ui import SentinelPalette
+from zenzic.models.config import ZenzicConfig
 
 from . import _shared
 
@@ -181,3 +183,167 @@ inspect_app.command(
     name="capabilities",
     help="Show all built-in scanners, plugin rules, and engine-specific link bypasses.",
 )(_inspect_capabilities)
+
+
+@inspect_app.command(name="routes")
+def inspect_routes(
+    kind: str = typer.Option(
+        "all",
+        "--kind",
+        help="Filter routes by kind: physical, virtual, or all.",
+        show_default=True,
+    ),
+    as_json: bool = typer.Option(
+        False,
+        "--json",
+        help="Output the route map as machine-readable JSON.",
+    ),
+) -> None:
+    """Export the complete site map — URLs, source files, and digest fingerprints.
+
+    Each route entry carries:
+
+    * **url** — the canonical path,
+    * **kind** — physical, tag, tag_index, pagination, author, or author_index,
+    * **source_files** — repo-relative POSIX paths that activate the route, and
+    * **digest** — SHA-256 of ``url + ':' + ','.join(sorted(source_files))``.
+    """
+    import hashlib
+    import json as _json
+    import sys
+    from pathlib import Path
+
+    from zenzic.core.adapters import get_adapter
+    from zenzic.core.discovery import (
+        iter_extra_content_markdown_sources,
+        iter_markdown_sources,
+    )
+    from zenzic.models.vsm import build_vsm
+
+    _VALID_KINDS = frozenset({"physical", "virtual", "all"})
+    if kind not in _VALID_KINDS:
+        # JSON Purity Invariant: errors always go to stderr, never stdout
+        msg = f"Error: --kind must be one of: physical, virtual, all\n"
+        if as_json:
+            sys.stderr.write(msg)
+        else:
+            _shared.console.print("[bold red]Error:[/] --kind must be one of: physical, virtual, all")
+        raise typer.Exit(1)
+
+    repo_root = find_repo_root()
+    config, _ = ZenzicConfig.load(repo_root)
+    docs_root = (repo_root / config.docs_dir).resolve()
+    exclusion_mgr = _shared._build_exclusion_manager(config, repo_root, docs_root)
+    adapter = get_adapter(config.build_context, docs_root, repo_root)
+
+    # ── Pass 1: load docs markdown files ──────────────────────────────────────
+    md_contents: dict[Path, str] = {}
+    for md_file in iter_markdown_sources(docs_root, config, exclusion_mgr):
+        try:
+            md_contents[md_file.resolve()] = md_file.read_text(encoding="utf-8")
+        except OSError:
+            continue
+
+    # ── Pass 1c: include extra content roots (blog/, etc.) ────────────────────
+    extra_content_roots: list[tuple[Path, str]] = []
+    if hasattr(adapter, "get_extra_content_roots"):
+        for content_root in adapter.get_extra_content_roots(repo_root):
+            extra_content_roots.append((content_root.path, content_root.url_prefix))
+            for abs_path, _ in iter_extra_content_markdown_sources(
+                content_root.path, content_root.url_prefix, config, exclusion_mgr
+            ):
+                try:
+                    md_contents[abs_path.resolve()] = abs_path.read_text(encoding="utf-8")
+                except OSError:
+                    continue
+
+    vsm = build_vsm(adapter, docs_root, md_contents, extra_content_roots=extra_content_roots)
+
+    # ── Virtual route kind lookup (call once; idempotent with build_vsm's call) ─
+    virtual_kind_map: dict[str, str] = {}
+    if hasattr(adapter, "get_virtual_routes"):
+        for vr in adapter.get_virtual_routes(md_contents):
+            virtual_kind_map[vr.url] = vr.kind
+
+    # ── Source file normalisation ──────────────────────────────────────────────
+    # Extra-content-root files are already repo-relative (e.g. "blog/post.md").
+    # Docs-root files are relative to docs/, so prepend docs_dir to make them
+    # repo-relative (e.g. "intro.md" → "docs/intro.md").
+    _extra_prefixes: frozenset[str] = frozenset(
+        prefix.rstrip("/") for _, prefix in extra_content_roots if prefix
+    )
+    _docs_prefix = config.docs_dir.as_posix().rstrip("/")
+
+    def _physical_source(route_source: str) -> str:
+        for pfx in _extra_prefixes:
+            if route_source == pfx or route_source.startswith(pfx + "/"):
+                return route_source  # already repo-relative
+        return _docs_prefix + "/" + route_source
+
+    def _digest(url: str, source_files: list[str]) -> str:
+        raw = url + ":" + ",".join(sorted(source_files))
+        return hashlib.sha256(raw.encode()).hexdigest()
+
+    # ── Build records ──────────────────────────────────────────────────────────
+    records: list[dict[str, object]] = []
+    for url, route in sorted(vsm.items()):
+        if not url:
+            continue
+        is_virtual = route.source == "<virtual>"
+        if kind == "physical" and is_virtual:
+            continue
+        if kind == "virtual" and not is_virtual:
+            continue
+        if is_virtual:
+            route_kind: str = virtual_kind_map.get(url, "tag")
+            source_files: list[str] = sorted(route.proxy_sources)
+        else:
+            route_kind = "physical"
+            source_files = [_physical_source(route.source)]
+
+        records.append(
+            {
+                "url": url,
+                "kind": route_kind,
+                "source_files": source_files,
+                "digest": _digest(url, source_files),
+            }
+        )
+
+    # ── Output ─────────────────────────────────────────────────────────────────
+    if as_json:
+        # JSON Purity Invariant (Rule R20 Machine Silence):
+        # stdout must contain EXCLUSIVELY valid JSON — no Rich markup, no ANSI
+        # codes, no banners. Write directly to sys.stdout, bypassing the Rich
+        # console entirely.
+        sys.stdout.write(_json.dumps({"routes": records}, indent=2, ensure_ascii=False))
+        sys.stdout.write("\n")
+        sys.stdout.flush()
+        return
+
+    label = f"{len(records)} route{'s' if len(records) != 1 else ''}"
+    table = Table(
+        title=f"[bold]Site Map[/] · {label}",
+        title_justify="left",
+        box=box.ROUNDED,
+        border_style=SentinelPalette.DIM,
+        header_style=SentinelPalette.STYLE_BRAND,
+        pad_edge=True,
+        padding=(0, 1),
+    )
+    table.add_column("URL", style="bold cyan", no_wrap=True)
+    table.add_column("Kind", min_width=10)
+    table.add_column("Source Files")
+    table.add_column("Digest", style="dim", min_width=12, no_wrap=True)
+
+    for rec in records:
+        table.add_row(
+            str(rec["url"]),
+            str(rec["kind"]),
+            ", ".join(str(sf) for sf in rec["source_files"]),  # type: ignore[arg-type]
+            str(rec["digest"])[:12] + "…",
+        )
+
+    _shared.console.print()
+    _shared.console.print(table)
+    _shared.console.print()

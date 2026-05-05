@@ -33,10 +33,15 @@ from __future__ import annotations
 
 import logging
 import re
+import unicodedata
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from zenzic.core.adapters._utils import case_sensitive_exists, remap_to_default_locale
+from zenzic.core.adapters._utils import (
+    case_sensitive_exists,
+    extract_frontmatter_tags,
+    remap_to_default_locale,
+)
 from zenzic.models.config import BuildContext
 
 
@@ -407,6 +412,35 @@ _BLOG_DATE_PREFIX_RE = re.compile(r"^\d{4}-\d{2}-\d{2}-")
 def _strip_blog_date_prefix(stem: str) -> str:
     """Strip a leading ``YYYY-MM-DD-`` blog filename prefix, if any."""
     return _BLOG_DATE_PREFIX_RE.sub("", stem, count=1)
+
+
+def _slugify_tag(tag: str) -> str:
+    """Convert a raw frontmatter tag string to a Docusaurus-compatible URL slug.
+
+    Mirrors Docusaurus's own tag slug algorithm:
+
+    1. NFKD-normalise and strip combining characters (decomposes accented
+       letters: ``à`` → ``a`` + combining grave, then drop the combining part).
+    2. Lower-case.
+    3. Strip characters that are neither word chars (``\\w``), spaces, nor
+       hyphens.
+    4. Collapse runs of whitespace to a single hyphen; strip leading/trailing
+       hyphens.
+    5. Return ``'untagged'`` as a safe fallback when the result is empty
+       (e.g. a tag composed entirely of CJK characters).
+
+    Args:
+        tag: Raw tag string as found in frontmatter (e.g. ``'Python 3.10'``).
+
+    Returns:
+        URL-safe slug string (e.g. ``'python-310'``), or ``'untagged'``.
+    """
+    slug = unicodedata.normalize("NFKD", tag)
+    slug = "".join(c for c in slug if not unicodedata.combining(c))
+    slug = slug.lower()
+    slug = re.sub(r"[^\w\s-]", "", slug, flags=re.ASCII)
+    slug = re.sub(r"\s+", "-", slug).strip("-")
+    return slug or "untagged"
 
 
 def _extract_frontmatter_slug(content: str) -> str | None:
@@ -1398,3 +1432,73 @@ class DocusaurusAdapter:
                 prefixes.add(f"/{route_base_path.strip('/')}/")
 
         return frozenset(prefixes)
+
+    def get_virtual_routes(self, md_contents: dict[Path, str]) -> list[object]:
+        """Return engine-generated virtual routes derived from blog frontmatter.
+
+        EPOCH 7b Virtual Frontier.  Reads ``tags:`` from every blog post in
+        ``md_contents``, slugifies each tag value, and emits one
+        :class:`~zenzic.core.adapters._base.VirtualRoute` per unique slug plus
+        one ``tag_index`` route for the ``/{blog_rbp}/tags/`` listing page.
+
+        Complements :meth:`get_extra_content_roots` (EPOCH 7a): where that
+        method makes the physical blog posts visible to the VSM, this method
+        makes the *engine-generated pages* (tag listing pages, etc.) visible
+        so that links pointing at them are not incorrectly flagged as broken.
+
+        Args:
+            md_contents: Pre-loaded mapping of absolute ``Path`` \u2192 raw Markdown.
+                         Same object passed to ``build_vsm()``.
+
+        Returns:
+            List of :class:`VirtualRoute` objects.  Empty when
+            ``_blog_root`` is ``None`` (blog plugin disabled) or when no
+            blog posts carry any ``tags:`` frontmatter.
+        """
+        from zenzic.core.adapters._base import VirtualRoute
+
+        if self._blog_root is None:  # CEO guard: blog plugin disabled
+            return []
+
+        tag_sources: dict[str, set[str]] = {}
+        all_tagged_files: set[str] = set()
+
+        for abs_path, content in md_contents.items():
+            if not abs_path.is_relative_to(self._blog_root):
+                continue
+            inner = abs_path.relative_to(self._blog_root)
+            logical_rel = (Path(self._blog_route_base_path) / inner).as_posix()
+            tags = extract_frontmatter_tags(content)
+            has_valid_tag = False
+            for raw_tag in tags:
+                slug = _slugify_tag(raw_tag)
+                if slug and slug != "untagged":
+                    tag_sources.setdefault(slug, set()).add(logical_rel)
+                    has_valid_tag = True
+            if has_valid_tag:
+                all_tagged_files.add(logical_rel)
+
+        routes: list[VirtualRoute] = []
+        for slug, sources in tag_sources.items():
+            routes.append(
+                VirtualRoute(
+                    url=f"/{self._blog_route_base_path}/tags/{slug}/",
+                    label=f"tag:{slug}",
+                    source_files=frozenset(sources),
+                    kind="tag",
+                )
+            )
+
+        # tag_index: /{blog_rbp}/tags/ — index of all tag listing pages.
+        # source_files = union of all blog files with at least one valid tag.
+        if all_tagged_files:
+            routes.append(
+                VirtualRoute(
+                    url=f"/{self._blog_route_base_path}/tags/",
+                    label="tag_index",
+                    source_files=frozenset(all_tagged_files),
+                    kind="tag_index",
+                )
+            )
+
+        return routes  # type: ignore[return-value]

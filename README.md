@@ -177,13 +177,25 @@ Zenzic reads config files as plain text — never imports or executes your build
 
 | Engine | Adapter | Highlights |
 | :--- | :--- | :--- |
-| [Docusaurus v3][docusaurus] | `DocusaurusAdapter` | Versioned docs, `@site/` alias, Ghost Route detection |
+| [Docusaurus v3][docusaurus] | `DocusaurusAdapter` | Versioned docs, `@site/` alias, Ghost Route detection, Virtual Routes (Tags, Pagination, Authors) |
 | [MkDocs][mkdocs] | `MkDocsAdapter` | i18n suffix + folder modes, `fallback_to_default` |
 | [Zensical][zensical] | `ZensicalAdapter` | Transparent Proxy bridges `mkdocs.yml` if `zensical.toml` absent |
 | Any folder | `StandaloneAdapter` | File integrity checks only — orphan detection disabled without a nav contract |
 
 Third-party adapters install via the `zenzic.adapters` entry-point group.
 See the [Developer Guide][docs-arch] for the adapter API.
+
+### Docusaurus Virtual Routes
+
+Docusaurus generates URL pages that have no physical Markdown source: tag listing pages
+(`/blog/tags/python/`), paginated blog indexes (`/blog/page/2/`), and author pages
+(`/blog/authors/alice/`). Before EPOCH 7b, Zenzic had no knowledge of these routes, so
+any link pointing at them was incorrectly flagged as a broken link.
+
+`DocusaurusAdapter` now builds a **Virtual Route map** derived from frontmatter metadata
+— no build step needed, no Node.js execution. Each virtual route carries a `source_files`
+set that traces it back to the physical files that generate it, satisfying the
+**Reverse-Mapping Invariant**: every URL in the VSM has an unambiguous physical origin.
 
 ---
 

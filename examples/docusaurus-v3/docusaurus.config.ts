@@ -17,6 +17,10 @@ const config = {
           routeBasePath: "docs",
           sidebarPath: "./sidebars.ts",
         },
+        blog: {
+          path: "blog",
+          routeBasePath: "blog",
+        },
       },
     ],
   ],

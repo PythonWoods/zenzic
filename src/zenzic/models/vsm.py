@@ -66,6 +66,7 @@ class Route:
     status: RouteStatus
     anchors: set[str] = field(default_factory=set)
     aliases: set[str] = field(default_factory=set)
+    proxy_sources: frozenset[str] = field(default_factory=frozenset)
 
     # Convenience ──────────────────────────────────────────────────────────────
 
@@ -223,6 +224,21 @@ def build_vsm(
             anchors=set(ac.get(abs_path, set())),
         )
         routes.append(route)
+
+    if hasattr(adapter, "get_virtual_routes"):
+        for vr in adapter.get_virtual_routes(md_contents):  # type: ignore[attr-defined]
+            # Layer 2 defensive check (layer 1 already enforced in __post_init__)
+            if not vr.source_files:  # pragma: no cover
+                _log.error("VirtualRoute %r escaped invariant — skipped", vr.url)
+                continue
+            routes.append(
+                Route(
+                    url=vr.url,
+                    source="<virtual>",
+                    status="REACHABLE",
+                    proxy_sources=vr.source_files,
+                )
+            )
 
     _detect_collisions(routes)
 

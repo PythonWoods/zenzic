@@ -7,7 +7,7 @@
 #
 #   repos:
 #     - repo: https://github.com/PythonWoods/zenzic
-#       rev: v0.7.0  # Era della Chiarezza
+#       rev: v0.7.0  # Quartz
 #       hooks:
 #         - id: zenzic-verify    # gate Sentinel — corrisponde a `just verify` lato zenzic
 #

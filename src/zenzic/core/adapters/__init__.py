@@ -28,7 +28,7 @@ Zensical utilities:
 
 from __future__ import annotations
 
-from ._base import BaseAdapter, RouteMetadata
+from ._base import BaseAdapter, RouteMetadata, VirtualRoute
 from ._docusaurus import (
     DocusaurusAdapter,
     _extract_base_url,
@@ -58,6 +58,7 @@ __all__ = [
     # Protocol & Metadata
     "BaseAdapter",
     "RouteMetadata",
+    "VirtualRoute",
     # Adapters
     "DocusaurusAdapter",
     "MkDocsAdapter",

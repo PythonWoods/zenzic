@@ -13,7 +13,7 @@
 .env.*.local
 !.env.example
 !.env.template
-.zenzic.dev.toml
+.zenzic.local.toml
 
 # ────────────────────────────────────────────────────────────────────────────
 # AI Tools & IDE Integrations

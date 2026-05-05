@@ -28,9 +28,12 @@ export BUILD_DATE := `date +'%Y/%m/%d'`
 sync:
     uv sync --all-groups
 
-# Self-linting: run Zenzic on its own documentation (The Sentinel's duty)
+# Self-linting: run Zenzic on its own documentation (The Sentinel's duty).
+# ZENZIC_EXTRA_ARGS (env, optional): injects extra flags at CI time — e.g.
+#   ZENZIC_EXTRA_ARGS="--exclude-url https://zenzic.dev/" just check
+# Local runs leave ZENZIC_EXTRA_ARGS unset; the ${:-} default expands to empty.
 check:
-    {{ runner }} zenzic check all --strict
+    {{ runner }} zenzic check all --strict ${ZENZIC_EXTRA_ARGS:-}
 
 # Inner loop: ultra-fast, parallel, no coverage (TDD feedback).
 # Pillar 3 (Pure Functions) guarantees pytest-xdist worker isolation.

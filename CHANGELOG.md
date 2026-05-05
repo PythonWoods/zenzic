@@ -68,6 +68,24 @@ deterministic maturity and formal integrity. The codebase achieves structural ma
   contract that EPOCH 7b virtual routes (tags, pagination, authors) will inherit.
   Discovery uses `walk_files` (the existing `os.walk` engine), not `rglob` — determinism
   is preserved.
+- **EPOCH 7b — Virtual Routes & `zenzic inspect routes` (The JSON API)**: Engine-generated
+  pages — Docusaurus tag pages (`/blog/tags/{slug}/`), tag index (`/blog/tags/`), paginated
+  indexes, and author profiles — are now first-class VSM citizens with the
+  Reverse-Mapping Invariant enforced at construction time: a `VirtualRoute` with
+  `source_files=frozenset()` raises `ValueError` immediately, preventing any untraced URL
+  from reaching the VSM. Three new finding codes: **Z111 VIRTUAL_ROUTE_BROKEN** (error)
+  when a docs link targets a tag URL that no blog post activates, **Z113 AUTHOR_KEY_COLLISION**
+  (error) for duplicate author keys, **Z114 LARGE_PAGINATION_SET** (info) when the
+  pagination set exceeds 200 pages. The `DocusaurusAdapter` tag generator applies Unicode
+  NFKD normalisation + `re.ASCII` slugification (matching Docusaurus's own algorithm) and
+  guards against pure-CJK tags returning `"untagged"`. The new CLI command
+  `zenzic inspect routes [--kind physical|virtual|all] [--json]` exports the complete site
+  map in a deterministic JSON format with per-route `url`, `kind`, `source_files`
+  (repo-relative POSIX), and `digest` (`sha256(url + ":" + ",".join(sorted(source_files)))`).
+  **JSON Purity Invariant**: when `--json` is active, `stdout` contains exclusively valid
+  JSON — no ANSI codes, no banners. This feature is designed to be consumed by external
+  tools: custom Bash scripts, CI/CD dashboards, or Artificial Intelligence agents that
+  require architectural context.
 - **Sentinel Seal**: Rigorous 4-Gates validation system (`just verify`) integrated across
   every repository — pre-commit, test-cov, and self-check run identically in local and CI.
 - **Cross-Repo Governance**: Branch Parity Rule for Core/Doc synchronisation with automatic
