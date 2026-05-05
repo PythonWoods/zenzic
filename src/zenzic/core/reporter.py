@@ -284,7 +284,7 @@ class SentinelReporter:
                 _ok_items.append(Text())
                 _ok_items.append(
                     Text.from_markup(
-                        f"  [{SentinelPalette.DIM}]{emoji('info')} {info_count} info finding"
+                        f" [{SentinelPalette.DIM}]{emoji('info')} {info_count} info finding"
                         f"{'s' if info_count != 1 else ''} suppressed"
                         f" — use --show-info for details.[/]"
                     )
@@ -416,7 +416,7 @@ class SentinelReporter:
             renderables.append(Text())
             renderables.append(
                 Text.from_markup(
-                    f"  [{SentinelPalette.DIM}]{emoji('info')} {info_count} info finding"
+                    f" [{SentinelPalette.DIM}]{emoji('info')} {info_count} info finding"
                     f"{'s' if info_count != 1 else ''} hidden — use --show-info to display.[/]"
                 )
             )
@@ -428,6 +428,7 @@ class SentinelReporter:
         for _r in renderables:
             self._con.print(_r)
         # ── Usage hint ─────────────────────────────────────────────────────────────
+        self._con.print()
         self._con.print(
             Text.from_markup(f"[{SentinelPalette.DIM}]Try 'zenzic check --help' for options.[/]")
         )
