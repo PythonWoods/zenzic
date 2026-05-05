@@ -46,8 +46,8 @@ SPDX-License-Identifier: Apache-2.0
 </p>
 
 <p align="center">
-  <strong>High-performance, parallel Markdown linter &amp; security shield.</strong><br>
-  <em>Built in Python. Agnostic by design.</em>
+  <strong>Deterministic audit of documentation structures with bidirectional traceability.</strong><br>
+  <em>Every finding maps to a source file and a line number. Every URL has a physical origin. Zero global state.</em>
 </p>
 
 ---
@@ -117,6 +117,7 @@ zenzic check all  # Audit the current directory
 - **Not a build wrapper.** Zero-Trust Execution: no subprocesses, no `mkdocs` or `docusaurus` binaries invoked.
 - **Not a spell checker.** Structure and security — not prose.
 - **Not an HTTP crawler.** All validation is local and file-based.
+- **Not a blackbox.** Every finding carries a code, a source file, and a line number. Absolute traceability — no finding without a physical origin.
 
 ---
 
@@ -196,6 +197,8 @@ any link pointing at them was incorrectly flagged as a broken link.
 — no build step needed, no Node.js execution. Each virtual route carries a `source_files`
 set that traces it back to the physical files that generate it, satisfying the
 **Reverse-Mapping Invariant**: every URL in the VSM has an unambiguous physical origin.
+A `VirtualRoute` with `source_files=frozenset()` raises `ValueError` at construction —
+no untraced URL can reach the VSM.
 
 ---
 
@@ -366,7 +369,20 @@ for what we deferred and why.
 ## 🧱 Engineering Ledger
 
 Zenzic is governed by three non-negotiable operational contracts — each
-enforce-able by machine, not by convention:
+enforce-able by machine, not by convention.
+
+Three design axioms from the NASA Power of 10 — applied without exception:
+
+- **Rule 1 / Rule 4 — Pure, deterministic control flow.** The analysis engine has zero global
+  state. Given identical inputs, Zenzic produces identical output. Every finding maps to a
+  single source file and a single line number. No stochastic components; no inference
+  dependencies declared in `pyproject.toml`.
+- **Rule 2 — No dynamic execution.** `subprocess.Popen`, `os.system`, and all shell
+  invocations are permanently banned from `src/`. Docusaurus TypeScript configs are parsed
+  as plain text. Node.js is never invoked. The Zero Subprocess invariant is enforced by
+  ruff and audited at every push.
+
+These are not conventions — they are machine-enforced contracts.
 
 <table>
 <tr>

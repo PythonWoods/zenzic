@@ -46,8 +46,8 @@ SPDX-License-Identifier: Apache-2.0
 </p>
 
 <p align="center">
-  <strong>Il Safe Harbor per la tua documentazione Markdown.</strong><br>
-  <em>Analisi statica engine-agnostic — standalone, con sicurezza rafforzata, zero configurazione richiesta.</em>
+  <strong>Audit deterministico di strutture documentali con tracciabilità bidirezionale.</strong><br>
+  <em>Ogni finding mappa su un file sorgente e un numero di riga. Ogni URL ha un'origine fisica. Zero stato globale.</em>
 </p>
 
 ---
@@ -102,6 +102,7 @@ zenzic check all  # Analizza la cartella corrente
 - **Non è un wrapper di build.** Zero-Trust Execution: nessun sottoprocesso, nessun binario `mkdocs` o `docusaurus` invocato.
 - **Non è un correttore ortografico.** Struttura e sicurezza — non prosa.
 - **Non è un crawler HTTP.** Tutta la validazione è locale e basata su file.
+- **Non è una scatola nera.** Ogni finding porta un codice, un file sorgente e un numero di riga. Tracciabilità assoluta — nessun finding senza un'origine fisica.
 
 ---
 
@@ -183,6 +184,8 @@ e qualsiasi link che le referenziava veniva erroneamente segnalato come link int
 del frontmatter — senza eseguire alcun build, senza Node.js. Ogni virtual route porta un
 insieme `source_files` che la ricollega ai file fisici che la generano, soddisfacendo
 l'**Invariante di Reverse-Mapping**: ogni URL nella VSM ha un'origine fisica non ambigua.
+Un `VirtualRoute` con `source_files=frozenset()` solleva `ValueError` alla costruzione —
+nessun URL non tracciato può raggiungere la VSM.
 
 ---
 
@@ -369,7 +372,20 @@ perché.
 ## 🧱 Registro Ingegneristico
 
 Zenzic è governato da tre contratti operativi non negoziabili — ciascuno
-verificabile dalla macchina, non dalla convenzione:
+verificabile dalla macchina, non dalla convenzione.
+
+Tre assiomi di progettazione dalle NASA Power of 10 Rules — applicati senza eccezioni:
+
+- **Rule 1 / Rule 4 — Flusso di controllo puro e deterministico.** Il motore di analisi ha
+  zero stato globale. A parità di input, Zenzic produce output identico. Ogni finding mappa
+  su un singolo file sorgente e un singolo numero di riga. Nessuna componente stocastica;
+  nessuna dipendenza di inferenza dichiarata in `pyproject.toml`.
+- **Rule 2 — Nessuna esecuzione dinamica.** `subprocess.Popen`, `os.system` e tutte le
+  invocazioni shell sono permanentemente vietati in `src/`. I config TypeScript di Docusaurus
+  sono analizzati come testo semplice. Node.js non viene mai invocato. L'invariante Zero
+  Subprocess è applicato da ruff e verificato ad ogni push.
+
+Non sono convenzioni — sono contratti applicati dalla macchina.
 
 <table>
 <tr>
