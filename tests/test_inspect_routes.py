@@ -17,6 +17,7 @@ from typer.testing import CliRunner
 
 from zenzic.main import app
 
+
 runner = CliRunner()
 
 
@@ -49,7 +50,7 @@ def _invoke_json(tmp_path: Path, extra_args: list[str] | None = None) -> dict:
     return json.loads(result.stdout)
 
 
-def _invoke_raw(tmp_path: Path, args: list[str]) -> "CliRunner":
+def _invoke_raw(tmp_path: Path, args: list[str]) -> CliRunner:
     """Return the raw CliRunner result (no assertions)."""
     with patch("zenzic.cli._inspect.find_repo_root", return_value=tmp_path):
         return runner.invoke(app, args)
@@ -133,9 +134,7 @@ class TestInspectRoutesJSON:
         for rec in physical:
             url = rec["url"]
             sf = rec["source_files"]
-            expected = hashlib.sha256(
-                (url + ":" + ",".join(sorted(sf))).encode()
-            ).hexdigest()
+            expected = hashlib.sha256((url + ":" + ",".join(sorted(sf))).encode()).hexdigest()
             assert rec["digest"] == expected, (
                 f"Digest mismatch for {url}: got {rec['digest']!r}, expected {expected!r}"
             )
@@ -148,12 +147,8 @@ class TestInspectRoutesJSON:
         for rec in virtual:
             url = rec["url"]
             sf = rec["source_files"]
-            expected = hashlib.sha256(
-                (url + ":" + ",".join(sorted(sf))).encode()
-            ).hexdigest()
-            assert rec["digest"] == expected, (
-                f"Digest mismatch for virtual {url}"
-            )
+            expected = hashlib.sha256((url + ":" + ",".join(sorted(sf))).encode()).hexdigest()
+            assert rec["digest"] == expected, f"Digest mismatch for virtual {url}"
 
     def test_physical_route_has_kind_physical(self, tmp_path: Path) -> None:
         _make_docusaurus_repo(tmp_path)
@@ -167,9 +162,9 @@ class TestInspectRoutesJSON:
         tag_routes = [r for r in data["routes"] if r["kind"] == "tag"]
         assert len(tag_routes) > 0, "Expected tag virtual routes from blog posts"
         tag_urls = {r["url"] for r in tag_routes}
-        assert "/blog/tags/tutorial/" in tag_urls or any(
-            "tutorial" in u for u in tag_urls
-        ), f"Expected /blog/tags/tutorial/ in {tag_urls}"
+        assert "/blog/tags/tutorial/" in tag_urls or any("tutorial" in u for u in tag_urls), (
+            f"Expected /blog/tags/tutorial/ in {tag_urls}"
+        )
 
     def test_tag_index_route_has_kind_tag_index(self, tmp_path: Path) -> None:
         _make_docusaurus_repo(tmp_path)
@@ -347,6 +342,4 @@ class TestJSONPuritySubprocess:
             text=True,
         )
         assert proc.returncode == 0, f"zenzic exited {proc.returncode}; stderr:\n{proc.stderr}"
-        assert proc.stderr == "", (
-            f"Expected empty stderr on success, got:\n{proc.stderr}"
-        )
+        assert proc.stderr == "", f"Expected empty stderr on success, got:\n{proc.stderr}"

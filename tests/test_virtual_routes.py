@@ -131,16 +131,12 @@ class TestSlugifyTag:
 class TestDocusaurusTagGenerator:
     """DocusaurusAdapter.get_virtual_routes() produces tag + tag_index routes."""
 
-    def test_tagged_post_produces_tag_and_tag_index_routes(
-        self, tmp_path: Path
-    ) -> None:
+    def test_tagged_post_produces_tag_and_tag_index_routes(self, tmp_path: Path) -> None:
         docs, repo = _build_sandbox(tmp_path)
         post = repo / "blog" / "2026-04-12-post.md"
         post.write_text("---\ntags: [python, tutorial]\n---\n# Post\n", encoding="utf-8")
 
-        adapter = DocusaurusAdapter.from_repo(
-            BuildContext(engine="docusaurus"), docs, repo
-        )
+        adapter = DocusaurusAdapter.from_repo(BuildContext(engine="docusaurus"), docs, repo)
         md = {post.resolve(): post.read_text(encoding="utf-8")}
         vrs = adapter.get_virtual_routes(md)
         by_url = {vr.url: vr for vr in vrs}
@@ -150,12 +146,8 @@ class TestDocusaurusTagGenerator:
         assert "/blog/tags/tutorial/" in by_url
         assert by_url["/blog/tags/python/"].kind == "tag"
         assert by_url["/blog/tags/tutorial/"].kind == "tag"
-        assert by_url["/blog/tags/python/"].source_files == frozenset(
-            {"blog/2026-04-12-post.md"}
-        )
-        assert by_url["/blog/tags/tutorial/"].source_files == frozenset(
-            {"blog/2026-04-12-post.md"}
-        )
+        assert by_url["/blog/tags/python/"].source_files == frozenset({"blog/2026-04-12-post.md"})
+        assert by_url["/blog/tags/tutorial/"].source_files == frozenset({"blog/2026-04-12-post.md"})
 
         # tag_index route
         assert "/blog/tags/" in by_url
@@ -167,9 +159,7 @@ class TestDocusaurusTagGenerator:
         post = repo / "blog" / "2026-04-12-no-tags.md"
         post.write_text("# Post without tags\n\nNo frontmatter.\n", encoding="utf-8")
 
-        adapter = DocusaurusAdapter.from_repo(
-            BuildContext(engine="docusaurus"), docs, repo
-        )
+        adapter = DocusaurusAdapter.from_repo(BuildContext(engine="docusaurus"), docs, repo)
         md = {post.resolve(): post.read_text(encoding="utf-8")}
         vrs = adapter.get_virtual_routes(md)
 
@@ -185,9 +175,7 @@ class TestDocusaurusTagGenerator:
         )
         (docs / "intro.md").write_text("# Intro\n", encoding="utf-8")
 
-        adapter = DocusaurusAdapter.from_repo(
-            BuildContext(engine="docusaurus"), docs, tmp_path
-        )
+        adapter = DocusaurusAdapter.from_repo(BuildContext(engine="docusaurus"), docs, tmp_path)
         md: dict[Path, str] = {}
         assert adapter.get_virtual_routes(md) == []
 
@@ -198,9 +186,7 @@ class TestDocusaurusTagGenerator:
         post_a.write_text("---\ntags: [python]\n---\n# A\n", encoding="utf-8")
         post_b.write_text("---\ntags: [python]\n---\n# B\n", encoding="utf-8")
 
-        adapter = DocusaurusAdapter.from_repo(
-            BuildContext(engine="docusaurus"), docs, repo
-        )
+        adapter = DocusaurusAdapter.from_repo(BuildContext(engine="docusaurus"), docs, repo)
         md = {
             post_a.resolve(): post_a.read_text(encoding="utf-8"),
             post_b.resolve(): post_b.read_text(encoding="utf-8"),
