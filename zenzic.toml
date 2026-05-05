@@ -14,7 +14,7 @@
 # Rationale: the README is the primary entry point for users; broken links
 # there are indistinguishable from broken links in the documentation itself.
 #
-# 🌿  ZERO-CONFIG NOTE (v0.7.1):
+# 🌿  ZERO-CONFIG NOTE (v0.7.0):
 #   * Universal build / cache directories (`build`, `dist`, `temp`, `tmp`,
 #     `.tox`, `mutants`, plus `.git`, `.venv`, `node_modules`, …) are part
 #     of `SYSTEM_EXCLUDED_DIRS` — never repeat them here.
@@ -58,11 +58,6 @@ excluded_build_artifacts = [
 excluded_external_urls = [
     "https://github.com/PythonWoods/zenzic",
     "https://github.com/settings/tokens",
-    # Release Bridge: blog post slug updated — remove exclusion 5 min after v0.7.0 GA deploy
-    "https://zenzic.dev/blog/beyond-the-siege-v070-quartz",
-    "https://zenzic.dev/blog/beyond-the-siege-zenzic-v070",
-    # Release Bridge: audit report page — pre-deployment forward reference; remove after v0.7.0 GA deploy
-    "https://zenzic.dev/docs/explanation/audit-v070-quartz-siege",
 ]
 
 # Pattern matching disabled: the README and CHANGELOG describe placeholder

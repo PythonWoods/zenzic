@@ -54,9 +54,10 @@ jobs:
 
       - name: Run unified verification
         env:
-          # During v0.7.x, the live docs domain (https://zenzic.dev/) does not
-          # yet serve routes for the newly shipped features.  Exclude the entire
-          # domain prefix so 404s from release-gate docs do not block the build.
-          # Remove this exclusion once the documentation site is fully deployed.
-          ZENZIC_EXTRA_ARGS: "--exclude-url https://zenzic.dev/"
+          # Release Bridge (v0.7.0): zenzic.dev and the v0.7.0 GitHub tag are
+          # not yet publicly reachable at CI time. Injected at runtime so the
+          # permanent zenzic.toml config stays clean. Remove after GA deploy.
+          ZENZIC_EXTRA_ARGS: >-
+            --exclude-url https://zenzic.dev/
+            --exclude-url https://github.com/PythonWoods/zenzic/releases/tag/v0.7.0
         run: just verify
