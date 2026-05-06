@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import io
 import os
 import sys
 from typing import Annotated
@@ -103,6 +104,21 @@ _err_console = Console(
 _err_ui = SentinelUI(_err_console)
 
 
+def bootstrap_unicode() -> None:
+    """Force UTF-8 stdio on Windows before Rich/logging start.
+
+    This prevents code-page related crashes (e.g., cp1252) when Rich emits
+    box drawing symbols or emoji in local terminals and CI runners.
+    """
+    if sys.platform != "win32":
+        return
+
+    if isinstance(sys.stdout, io.TextIOWrapper):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    if isinstance(sys.stderr, io.TextIOWrapper):
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
+
 def _sentinel_alert(exc: ZenzicError, *, border_style: str, title: str) -> None:
     """Render a styled Sentinel Alert panel for a ZenzicError."""
     _err_ui.print_exception_alert(
@@ -123,6 +139,7 @@ def cli_main() -> None:
     """Wired as the `zenzic` console_scripts entry point."""
     from rich.traceback import install as _rich_tb_install
 
+    bootstrap_unicode()
     _rich_tb_install(show_locals=True, suppress=[typer], word_wrap=True)
     setup_cli_logging()
 

@@ -18,9 +18,12 @@
 #   just verify      — Final Guard (pre-commit + test-cov + check)
 #   just clean       — remove generated artefacts
 
+set shell := ["bash", "-c"]
+
 runner     := "uv run --active"
 nox_runner := "uv run nox -s"
-export BUILD_DATE := `date +'%Y/%m/%d'`
+# Keep BUILD_DATE deterministic across Ubuntu and Git Bash on Windows runners.
+export BUILD_DATE := `date -u +'%Y/%m/%d'`
 
 # ─── Workflow ─────────────────────────────────────────────────────────────────
 

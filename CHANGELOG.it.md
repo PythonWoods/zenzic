@@ -137,12 +137,20 @@ maturità deterministica e integrità formale. Il codebase raggiunge la maturit�
 
 - **Architettura Engine-Agnostic**: Plugin MkDocs rimosso permanentemente. Zenzic è ora una
   CLI Sovrana indipendente da qualsiasi framework di documentazione.
+- **Scudo Unicode Windows nel bootstrap CLI**: `cli_main()` invoca ora
+  `bootstrap_unicode()` prima dell'inizializzazione di Rich traceback e logging,
+  forzando stdio UTF-8 (`errors='replace'`) su Windows per prevenire crash
+  `UnicodeEncodeError` causati dalle code page della console.
 - **Ristrutturazione CLI**: Il monolite `cli.py` è stato suddiviso nel package coerente `cli/`.
   `zenzic plugins` sostituito da `zenzic inspect capabilities`.
 - **Applicazione della Legge dei Layer**: `ui.py` → `core/ui.py`, `lab.py` → `cli/_lab.py`,
   `run_rule()` → `core/rules.py`. Il Core non importa mai dal layer CLI.
 - **Hook Pre-commit**: `zenzic-check-all` sostituito da `zenzic-verify` (postura 4-Gates).
 - **Formato Coverage**: Standardizzato in JSON (`coverage.json`) in justfile e noxfile.
+- **Parità CI e automazione cross-platform**: `.github/workflows/ci.yml` ora
+  esegue `just verify` su matrice Ubuntu/Windows (`fail-fast: false`) e il
+  `justfile` del core è esplicitamente Bash-first (`set shell := ["bash", "-c"]`)
+  per comportamento uniforme delle recipe sui runner Windows di GitHub.
 
 #### Rimosso
 
