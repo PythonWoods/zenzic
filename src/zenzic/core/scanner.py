@@ -33,7 +33,12 @@ from zenzic.core.discovery import (
 )
 from zenzic.core.reporter import Finding
 from zenzic.core.rules import AdaptiveRuleEngine, BaseRule
-from zenzic.core.shield import SecurityFinding, scan_line_for_forbidden_terms, scan_lines_with_lookback, scan_url_for_secrets
+from zenzic.core.shield import (
+    SecurityFinding,
+    scan_line_for_forbidden_terms,
+    scan_lines_with_lookback,
+    scan_url_for_secrets,
+)
 from zenzic.core.validator import LinkValidator
 from zenzic.models.config import (
     SYSTEM_EXCLUDED_FILE_NAMES,

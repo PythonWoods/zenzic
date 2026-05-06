@@ -285,6 +285,4 @@ class TestAbsoluteSlugMismatch:
         )
         errors = self._run(repo, docs)
         saga_errors = [e for e in errors if "saga-iv" in e]
-        assert saga_errors == [], (
-            f"correct absolute slug link should be clean, got: {saga_errors}"
-        )
+        assert saga_errors == [], f"correct absolute slug link should be clean, got: {saga_errors}"

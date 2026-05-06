@@ -645,7 +645,7 @@ class ZenzicConfig(BaseModel):
         return config, False
 
     @classmethod
-    def _apply_local_toml(cls, config: "ZenzicConfig", repo_root: Path) -> None:
+    def _apply_local_toml(cls, config: ZenzicConfig, repo_root: Path) -> None:
         """Merge ``forbidden_patterns`` from ``.zenzic.local.toml`` into *config*.
 
         The local file is git-ignored and machine-local — it is the canonical

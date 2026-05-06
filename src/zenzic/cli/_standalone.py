@@ -548,7 +548,9 @@ def _scaffold_local_toml(repo_root: Path) -> None:
 
     # Auto-append to .gitignore when found and entry not already present.
     gitignore = repo_root / ".gitignore"
-    gitignore_line = "[yellow]⚠[/]  Remember to add [bold].zenzic.local.toml[/] to [bold].gitignore[/].\n"
+    gitignore_line = (
+        "[yellow]⚠[/]  Remember to add [bold].zenzic.local.toml[/] to [bold].gitignore[/].\n"
+    )
     if gitignore.is_file():
         existing = gitignore.read_text(encoding="utf-8")
         if ".zenzic.local.toml" not in existing:
@@ -652,6 +654,7 @@ def _init_standalone(repo_root: Path, force: bool) -> None:
     )
     # Always scaffold .zenzic.local.toml alongside zenzic.toml
     _scaffold_local_toml(repo_root)
+
 
 def _init_pyproject(repo_root: Path, pyproject_path: Path, force: bool) -> None:
     """Append a ``[tool.zenzic]`` section to an existing ``pyproject.toml``."""

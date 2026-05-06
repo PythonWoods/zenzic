@@ -409,7 +409,6 @@ does not exist. The Quartz Maturity standard admits no nostalgia.
   declared in `zenzic.toml`; duplicates are removed; insertion order is preserved.
 - **No Silent Failures** — a malformed `.zenzic.local.toml` is skipped gracefully (engine continues).
 
-
 ---
 
 ## 🛡️ Security
