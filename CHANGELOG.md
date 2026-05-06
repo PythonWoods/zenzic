@@ -142,7 +142,14 @@ deterministic maturity and formal integrity. The codebase achieves structural ma
 - **Core CI and automation parity**: `.github/workflows/ci.yml` now runs
   `just verify` on an Ubuntu/Windows matrix (`fail-fast: false`) and the core
   `justfile` is explicitly Bash-first (`set shell := ["bash", "-c"]`) for
-  consistent recipe behavior on GitHub Windows runners.
+  consistent recipe behavior on GitHub Windows runners. `ZENZIC_EXTRA_ARGS`
+  is propagated as an env block in CI and honoured via `${ZENZIC_EXTRA_ARGS:-}`
+  in the `check` recipe — enabling the Sovereign Override 404 shield without
+  local configuration changes.
+- **`.zenzic.dev.toml` hard-fail guard** (`config.py`): `_apply_local_toml()`
+  now raises `ConfigurationError` immediately when `.zenzic.dev.toml` is found
+  at repo root, with an inline migration message pointing users to `zenzic init`
+  and `.zenzic.local.toml`. Eliminates ghost-config debugging surface.
 
 #### Removed
 
