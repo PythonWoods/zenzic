@@ -653,8 +653,22 @@ class ZenzicConfig(BaseModel):
         are appended to any patterns already declared in the primary config
         (additive merge, insertion-order preserved, duplicates removed).
 
-        Silently a no-op when the file does not exist or is malformed.
+        ``.zenzic.dev.toml`` is a hard-removed legacy file in v0.7.0: when
+        present, configuration loading fails with an explicit migration error.
         """
+        legacy_toml = repo_root / ".zenzic.dev.toml"
+        if legacy_toml.is_file():
+            from zenzic.core.exceptions import (
+                ConfigurationError,  # deferred to avoid circular import
+            )
+
+            raise ConfigurationError(
+                "Legacy local config [bold].zenzic.dev.toml[/] is no longer supported in v0.7.0.\n"
+                f"  [dim]{legacy_toml}[/]\n\n"
+                "Migrate to [bold].zenzic.local.toml[/] and remove the legacy file.\n"
+                "Run [bold cyan]zenzic init[/] to scaffold the new local template."
+            )
+
         local_toml = repo_root / ".zenzic.local.toml"
         if not local_toml.is_file():
             return
