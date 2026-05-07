@@ -32,12 +32,17 @@ sync:
     uv sync --all-groups
 
 # Self-linting: run Zenzic on its own documentation (The Sentinel's duty).
-# ZENZIC_EXTRA_ARGS (env, optional): injects extra flags at CI time — e.g.
-#   ZENZIC_EXTRA_ARGS="--exclude-url https://zenzic.dev/" just check
-# Local runs leave ZENZIC_EXTRA_ARGS unset; the ${:-} default expands to empty.
+# ZRT-010 — Sovereign Parity: Pre-Launch Guard inlined; local == CI.
 # Pass extra flags directly: just check --no-external
 check *args:
-    {{ runner }} zenzic check all --strict ${ZENZIC_EXTRA_ARGS:-} {{ args }}
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # Pre-Launch Guard — remove after GA deploy when all URLs resolve
+    GUARD=(
+      --exclude-url "https://zenzic.dev/"
+      --exclude-url "https://github.com/PythonWoods/zenzic/releases/tag/v0.7.0"
+    )
+    {{ runner }} zenzic check all --strict "${GUARD[@]}" {{ args }}
 
 # Inner loop: ultra-fast, parallel, no coverage (TDD feedback).
 # Pillar 3 (Pure Functions) guarantees pytest-xdist worker isolation.
