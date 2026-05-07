@@ -491,11 +491,11 @@ Apache-2.0 — see [LICENSE][license].
 
 Zenzic was born from a technical journey through the fragility of modern documentation
 ecosystems. Discover the philosophy, the security siege, and the engineering behind the
-Sentinel in the [**Engineering Chronicles**](https://zenzic.dev/blog/tags/engineering-chronicles) on the official blog.
+Sentinel in the [**Engineering Chronicles**](https://zenzic.dev/blog/tags/chronicles) on the official blog.
 
 The v0.7.0 release story — AI-driven red-team siege, 4 bypass vectors closed, and the
 road to engine-agnostic parity — is documented in
-[**Beyond the Siege: Zenzic v0.7.0**](https://zenzic.dev/blog/beyond-the-siege-zenzic-v070).
+[**Beyond the Siege: Zenzic v0.7.0**](https://zenzic.dev/blog/beyond-the-siege-zenzic-v070-quartz).
 
 ---
 
@@ -523,7 +523,7 @@ road to engine-agnostic parity — is documented in
 [docs-home]:         https://zenzic.dev/docs/
 [docs-badges]:       https://zenzic.dev/docs/how-to/add-badges/
 [docs-cicd]:         https://zenzic.dev/docs/how-to/configure-ci-cd/
-[docs-arch]:         https://zenzic.dev/developers/explanation/
+[docs-arch]:         https://zenzic.dev/developers/explanation/engineering-ledger
 [docs-developers]:   https://zenzic.dev/developers/
 [docs-adr-vault]:    https://zenzic.dev/developers/explanation/adr-vault
 [docs-adr-011]:      https://zenzic.dev/developers/explanation/adr-cross-instance-allowlist
