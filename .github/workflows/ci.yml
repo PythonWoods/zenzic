@@ -83,7 +83,12 @@ jobs:
           enable-cache: true
 
       - name: Set up Python ${{ matrix.python }}
-        run: uv python install ${{ matrix.python }} --prerelease allow
+        # --prerelease allow is injected before the version (flag-first, uv convention)
+        # and only for experimental slots (Sentinel 3.15). Stable slots need no flag.
+        run: >
+          uv python install
+          ${{ matrix.experimental && '--prerelease allow' || '' }}
+          ${{ matrix.python }}
 
       - name: Sync dependencies
         run: uv sync --all-groups
