@@ -199,3 +199,7 @@ Desktop.ini
 # EPOCH 4 — draft vault (git-ignored, local reference only)
 .draft/
 zenzic.code-workspace
+
+# ImageMagick / tooling artifacts
+*.ps
+/sys
