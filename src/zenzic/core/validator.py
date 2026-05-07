@@ -32,8 +32,14 @@ import fnmatch
 import json
 import os
 import re
-import tomllib
+import sys
 from collections.abc import Iterator
+
+
+if sys.version_info >= (3, 11):
+    import tomllib
+else:
+    import tomli as tomllib  # type: ignore[no-redef]  # PEP 680 backport
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, NamedTuple

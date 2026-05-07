@@ -48,6 +48,9 @@ dependencies = [
     # ImportError at module load time is intentional: non-RE2 environments
     # are explicitly unsupported. google-re2 provides the C++ RE2 bindings.
     "google-re2>=1.0",
+    # tomllib was added to the stdlib in Python 3.11 (PEP 680).
+    # tomli is the identical backport for Python 3.10 (our Floor).
+    "tomli>=2.0.0; python_version < '3.11'",
 ]
 
 [project.scripts]
