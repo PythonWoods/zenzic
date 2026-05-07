@@ -28,7 +28,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict, dataclass, field
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from zenzic.core.exceptions import ConfigurationError
@@ -124,7 +124,7 @@ class ScoreReport:
             "score": self.score,
             "threshold": self.threshold,
             "status": status,
-            "timestamp": datetime.now(tz=UTC).isoformat(timespec="seconds"),
+            "timestamp": datetime.now(tz=timezone.utc).isoformat(timespec="seconds"),
             "categories": [asdict(c) for c in self.categories],
         }
         if self.security_override:
