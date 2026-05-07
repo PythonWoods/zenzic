@@ -154,14 +154,10 @@ intermediate version:
 |------|----|--------|---------|
 | **Floor** | ubuntu-latest | `3.10` | Enforces minimum compatibility. If it passes here, it passes everywhere ≥ 3.10. |
 | **Peak** | ubuntu-latest | `3.14` | Latest stable CPython; primary dev target. |
-| **Sentinel** | ubuntu-latest | `3.15` | Early-warning probe for next CPython (alpha/beta). Allowed to fail — does not block release. |
 | **Windows Anchor** | windows-latest | `3.14` | Validates path separators, binary encoding, and shell compat on a stable anchor. |
 
 If `just verify` passes on your local Python (e.g. 3.11 or 3.13), CI failure is highly
 unlikely — the matrix covers the language boundary conditions, not every minor release.
-
-All slots run `uv python install ${{ matrix.python }} --prerelease allow` to support
-pre-release CPython builds.
 
 ---
 
