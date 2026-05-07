@@ -12,7 +12,7 @@ Zenzic is split into two independent repositories:
 
 | Repository | Purpose | Stack |
 |:-----------|:--------|:------|
-| **[zenzic](https://github.com/PythonWoods/zenzic)** (this repo) | Core analysis engine — the Python library and CLI | Python 3.11+, `uv`, `pytest`, `mypy` |
+| **[zenzic](https://github.com/PythonWoods/zenzic)** (this repo) | Core analysis engine — the Python library and CLI | Python 3.10+, `uv`, `pytest`, `mypy` |
 | **[zenzic-doc](https://github.com/PythonWoods/zenzic-doc)** | User-facing documentation site | React, Docusaurus v3, MDX |
 
 **If you want to contribute to the analysis engine** (new checks, adapters, bug fixes,
@@ -37,7 +37,7 @@ their data and quality process regardless of ecosystem churn.
 
 | Requirement | Version | Notes |
 |:------------|:--------|:------|
-| **Python** | ≥ 3.11 | Core engine and CLI |
+| **Python** | ≥ 3.10 | Core engine and CLI (Floor); validated on 3.10 & 3.14-dev in CI |
 | **uv** | latest | Package manager — `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
 | **just** | latest | Task runner — `cargo install just` or via your OS package manager |
 | **Node.js** | ≥ 24 | Required for docs CI (`zenzic-doc`) and coverage upload (`codecov-action@v6`) |
@@ -145,11 +145,29 @@ paths in any contribution, use `pathlib.Path` throughout — never string concat
 > Node 24 runner environment. GitHub-hosted runners (`ubuntu-latest`) satisfy this
 > automatically; self-hosted runners must use Node ≥ 24.
 
+### CI Pillar Matrix (v0.7.0)
+
+Zenzic adopts a **Pillar Matrix** strategy — testing the boundaries rather than every
+intermediate version:
+
+| Slot | OS | Python | Purpose |
+|------|----|--------|---------|
+| **Floor** | ubuntu-latest | `3.10` | Enforces minimum compatibility. If it passes here, it passes everywhere ≥ 3.10. |
+| **Peak** | ubuntu-latest | `3.14` | Latest stable CPython; primary dev target. |
+| **Sentinel** | ubuntu-latest | `3.15` | Early-warning probe for next CPython (alpha/beta). Allowed to fail — does not block release. |
+| **Windows Anchor** | windows-latest | `3.14` | Validates path separators, binary encoding, and shell compat on a stable anchor. |
+
+If `just verify` passes on your local Python (e.g. 3.11 or 3.13), CI failure is highly
+unlikely — the matrix covers the language boundary conditions, not every minor release.
+
+All slots run `uv python install ${{ matrix.python }} --prerelease allow` to support
+pre-release CPython builds.
+
 ---
 
 ## Code conventions
 
-- **Python ≥ 3.11** with full type annotations (`mypy --strict` must pass).
+- **Python ≥ 3.10** with full type annotations (`mypy --strict` must pass).
 - **SPDX header** on every source file — `reuse lint` is enforced in CI.
 - No placeholder text, `TODO`, or stub comments in committed code.
 - Tests must pass with ≥ 80% branch coverage.

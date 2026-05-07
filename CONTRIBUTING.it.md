@@ -13,7 +13,7 @@ Zenzic è diviso in due repository indipendenti:
 
 | Repository | Scopo | Stack |
 |:-----------|:------|:------|
-| **[zenzic](https://github.com/PythonWoods/zenzic)** (questo repo) | Motore di analisi Core — libreria Python e CLI | Python 3.11+, `uv`, `pytest`, `mypy` |
+| **[zenzic](https://github.com/PythonWoods/zenzic)** (questo repo) | Motore di analisi Core — libreria Python e CLI | Python 3.10+, `uv`, `pytest`, `mypy` |
 | **[zenzic-doc](https://github.com/PythonWoods/zenzic-doc)** | Sito di documentazione utente | React, Docusaurus v3, MDX |
 
 **Se vuoi contribuire al motore di analisi** (nuovi check, adapter, bug fix,
@@ -74,6 +74,25 @@ just verify
 > usa `nox -s fmt` per formattare e `nox -s tests-3.12` (sostituendo con la tua versione)
 > per far girare i test solo sul tuo interprete corrente.
 
+### Matrice dei Pilastri CI (v0.7.0)
+
+Zenzic adotta una strategia a **Matrice dei Pilastri** — testando i confini piuttosto
+che ogni versione intermedia:
+
+| Slot | OS | Python | Scopo |
+|------|----|--------|-------|
+| **Floor** | ubuntu-latest | `3.10` | Impone la compatibilità minima. Se passa qui, passa ovunque ≥ 3.10. |
+| **Peak** | ubuntu-latest | `3.14` | Ultimo CPython stabile; target principale di sviluppo. |
+| **Sentinel** | ubuntu-latest | `3.15` | Sonda di allerta precoce per il prossimo CPython (alpha/beta). Può fallire — non blocca il rilascio. |
+| **Windows Anchor** | windows-latest | `3.14` | Valida separatori di percorso, encoding binario e compatibilità shell su un ancoraggio stabile. |
+
+Se `just verify` passa sulla tua versione locale di Python (es. 3.11 o 3.13), il fallimento
+in CI è altamente improbabile — la matrice copre i casi limite del linguaggio, non ogni
+versione minore.
+
+Tutti gli slot eseguono `uv python install ${{ matrix.python }} --prerelease allow` per
+supportare le build pre-release di CPython.
+
 ### Compatibilità cross-platform
 
 Zenzic è validato su Ubuntu, Windows e macOS ad ogni commit. Quando si lavora con percorsi
@@ -89,7 +108,7 @@ di file in qualsiasi contributo, utilizza `pathlib.Path` — mai concatenazione 
 
 ## Convenzioni sul codice
 
-- **Python ≥ 3.11** con annotazioni dei tipi complete (`mypy --strict` deve passare).
+- **Python ≥ 3.10** con annotazioni dei tipi complete (`mypy --strict` deve passare).
 - **Intestazione SPDX** in ogni file sorgente — `reuse lint` è imposto dalla CI.
 - Nessun testo segnaposto, `TODO`, o commenti parziali nel codice inserito tramite commit.
 - I test devono superare l'80% o più di copertura dei rami.

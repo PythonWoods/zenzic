@@ -300,6 +300,10 @@ pip install zenzic
 **Portability:** Zenzic rejects absolute internal links (starting with `/`). Relative links
 work at any hosting path. External `https://` URLs are never affected.
 
+**Python compatibility:** Zenzic requires Python 3.10+. In CI, every release is officially
+validated against **Python 3.10** (Floor — legacy compatibility) and **Python 3.14**
+(Peak — performance and future-readiness). If you run any version in between, it works.
+
 ---
 
 ## 🖥️ CLI Reference
