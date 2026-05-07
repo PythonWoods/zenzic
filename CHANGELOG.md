@@ -187,12 +187,12 @@ deterministic maturity and formal integrity. The codebase achieves structural ma
 - **[ZRT-007] DFA Revolution — Google RE2 Engine** (`core/rules.py`, `core/shield.py`): Integral
   migration to the **Google RE2** DFA engine. `CustomRule` patterns now have guaranteed $O(n)$
   complexity — ReDoS is eliminated by design, not by timeout.
-  * **Breaking Change**: patterns using backreferences (`\1`), lookaheads (`(?=...)`, `(?!...)`)  
+  - **Breaking Change**: patterns using backreferences (`\1`), lookaheads (`(?=...)`, `(?!...)`)
     or lookbehinds (`(?<=...)`) are rejected at load time with `PluginContractError`.
-  * `timeout.py` and its dependency on `signal.SIGALRM` deleted: Zenzic is now natively
+  - `timeout.py` and its dependency on `signal.SIGALRM` deleted: Zenzic is now natively
     identical on Linux and Windows.
-  * `shield.py` migrated to `re2`: the Shield is now fully DFA-Pure.
-  * Legacy code aliases `Z001` and `Z009` removed: findings now emit `Z101` (LINK_BROKEN)
+  - `shield.py` migrated to `re2`: the Shield is now fully DFA-Pure.
+  - Legacy code aliases `Z001` and `Z009` removed: findings now emit `Z101` (LINK_BROKEN)
     and `Z902` (ANALYSIS_TIMEOUT) directly at the source.
 - **Base64 speculative decoder** seals encoded credential attack vector.
 - **`os.path.normcase` portability fix** for cross-platform Shield boundary comparison.

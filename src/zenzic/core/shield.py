@@ -29,11 +29,12 @@ from __future__ import annotations
 import base64
 import binascii
 import html
-import re2
 import unicodedata
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
+
+import re2
 
 
 # ─── Pre-scan Normalizer (ZRT-003: split-token bypass defence) ────────────────

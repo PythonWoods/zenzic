@@ -63,18 +63,17 @@ from __future__ import annotations
 
 import pickle
 import re
+from abc import ABC, abstractmethod
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import TYPE_CHECKING, Literal
 
 # ZRT-007 — DFA Purity Contract: RE2 is the sole regex engine for user-supplied
 # patterns.  google-re2 provides O(n) DFA guarantees, eliminating the entire
 # ReDoS attack surface.  ImportError here is intentional and fatal: non-RE2
 # environments are explicitly unsupported.
 import re2
-
-from abc import ABC, abstractmethod
-from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
-from pathlib import Path
-from typing import TYPE_CHECKING, Literal
 
 
 if TYPE_CHECKING:
@@ -416,7 +415,6 @@ def _assert_pickleable(rule: BaseRule) -> None:
             f"  Fix: ensure the rule class is defined at module level (not inside a "
             f"function or closure) and that all instance attributes are pickleable.",
         ) from exc
-
 
 
 class AdaptiveRuleEngine:

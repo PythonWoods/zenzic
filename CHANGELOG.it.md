@@ -191,12 +191,12 @@ maturità deterministica e integrità formale. Il codebase raggiunge la maturit�
 - **[ZRT-007] La Rivoluzione DFA — Motore Google RE2** (`core/rules.py`, `core/shield.py`): Migrazione
   integrale al motore DFA **Google RE2**. I pattern `CustomRule` hanno ora complessità garantita $O(n)$
   — il rischio ReDoS è eliminato per design, non tramite timeout.
-  * **Breaking Change**: pattern che usano backreference (`\1`), lookahead (`(?=...)`, `(?!...)`)  
+  - **Breaking Change**: pattern che usano backreference (`\1`), lookahead (`(?=...)`, `(?!...)`)
     o lookbehind (`(?<=...)`) vengono rifiutati al caricamento con `PluginContractError`.
-  * `timeout.py` e la sua dipendenza da `signal.SIGALRM` eliminati: Zenzic è ora nativamente
+  - `timeout.py` e la sua dipendenza da `signal.SIGALRM` eliminati: Zenzic è ora nativamente
     identico su Linux e Windows.
-  * `shield.py` migrato a `re2`: lo Shield è ora completamente DFA-Pure.
-  * Alias legacy `Z001` e `Z009` rimossi: i finding emettono ora direttamente `Z101` (LINK_BROKEN)
+  - `shield.py` migrato a `re2`: lo Shield è ora completamente DFA-Pure.
+  - Alias legacy `Z001` e `Z009` rimossi: i finding emettono ora direttamente `Z101` (LINK_BROKEN)
     e `Z902` (ANALYSIS_TIMEOUT) alla sorgente.
 - **Decoder speculativo Base64** sigilla il vettore d'attacco delle credenziali codificate.
 - **Fix di portabilità `os.path.normcase`** per confronto perimetro Shield cross-platform.
