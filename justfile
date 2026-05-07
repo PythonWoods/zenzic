@@ -41,6 +41,7 @@ check *args:
     GUARD=(
       --exclude-url "https://zenzic.dev/"
       --exclude-url "https://github.com/PythonWoods/zenzic/releases/tag/v0.7.0"
+      --exclude-url "https://www.contributor-covenant.org/version/2/1/code_of_conduct.html"
     )
     if [[ ${#GUARD[@]} -gt 0 ]]; then
       echo -e "\033[33m[QUARTZ WARNING] Pre-Launch Guard active: skipping internal/future URLs. DO NOT release with these guards active.\033[0m" >&2
