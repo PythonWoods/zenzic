@@ -34,39 +34,23 @@ jobs:
   verify:
     name: Verify (${{ matrix.os }}, Python ${{ matrix.python }})
     runs-on: ${{ matrix.os }}
-    # Allow the experimental Sentinel slot to fail without blocking the workflow.
-    continue-on-error: ${{ matrix.experimental == true }}
     strategy:
       fail-fast: true
       matrix:
-        # Pillar Matrix (v0.7.0 / EPOCH 4):
-        #   Floor    → 3.10  (oldest supported; enforces minimum compat)
-        #   Peak     → 3.14  (latest stable; primary target + Windows anchor)
-        #   Sentinel → 3.15  (Ubuntu only; alpha/beta early-warning probe for next CPython)
-        # Windows runs stable 3.14 only: path/encoding/binary validation is
-        # version-independent; a stable anchor avoids nightly-build regressions
-        # blocking the release pipeline.
+        # Pillar Matrix (v0.7.0):
+        #   Floor          → 3.10  (oldest supported; enforces minimum compat)
+        #   Peak / Windows → 3.14  (latest stable; primary target + Windows anchor)
         include:
           # ── Ubuntu Floor ──────────────────────────────────────────────────
           - os: ubuntu-latest
             python: '3.10'
-            experimental: false
-          # ── Ubuntu Peak ──────────────────────────────────────────────────
+          # ── Ubuntu Peak ───────────────────────────────────────────────────
           - os: ubuntu-latest
             python: '3.14'
-            experimental: false
-          # ── Ubuntu Sentinel ────────────────────────────────────────────
-          # Warns early if the next CPython release breaks Zenzic.
-          # Allowed to fail — does not block the release.
-          - os: ubuntu-latest
-            python: '3.15'
-            experimental: true
-          # ── Windows Stable ─────────────────────────────────────────────
-          # Validates path separators, binary encoding, and shell compat on the
-          # latest stable CPython — anchored to avoid nightly regression noise.
+          # ── Windows Stable ────────────────────────────────────────────────
+          # Validates path separators, binary encoding, and shell compat.
           - os: windows-latest
             python: '3.14'
-            experimental: false
     defaults:
       run:
         shell: bash
@@ -83,8 +67,6 @@ jobs:
           enable-cache: true
 
       - name: Set up Python ${{ matrix.python }}
-        # uv python install has no --prerelease / --pre flag; it resolves any
-        # published CPython version (alpha/beta included) from the uv index.
         run: uv python install ${{ matrix.python }}
 
       - name: Sync dependencies
