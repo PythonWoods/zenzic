@@ -44,13 +44,19 @@ jobs:
           # ── Ubuntu Floor ──────────────────────────────────────────────────
           - os: ubuntu-latest
             python: '3.10'
+            lint: true   # pre-commit (incl. markdownlint Node hook) runs here
           # ── Ubuntu Peak ───────────────────────────────────────────────────
           - os: ubuntu-latest
             python: '3.14'
+            lint: true
           # ── Windows Stable ────────────────────────────────────────────────
           # Validates path separators, binary encoding, and shell compat.
+          # pre-commit is skipped: Node hook (markdownlint) triggers thousands
+          # of small-file I/O operations that freeze the Windows runner.
+          # Linting is already enforced by both Ubuntu slots.
           - os: windows-latest
             python: '3.14'
+            lint: false
     defaults:
       run:
         shell: bash
@@ -75,5 +81,13 @@ jobs:
       - name: Run unified verification
         shell: bash
         # ZRT-010 — Sovereign Parity: Pre-Launch Guard lives in justfile.
-        # Local and CI run identical 'just check' invocations.
-        run: just verify
+        # Ubuntu: full verify (pre-commit + test-cov + check).
+        # Windows: skip pre-commit (markdownlint Node hook causes I/O freeze
+        # on Windows runners); linting is enforced by both Ubuntu slots.
+        run: |
+          if [[ "${{ matrix.lint }}" == "true" ]]; then
+            just verify
+          else
+            just test-cov
+            just check
+          fi
