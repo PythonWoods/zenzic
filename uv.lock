@@ -1996,6 +1996,7 @@ dependencies = [
     { name = "pydantic" },
     { name = "pyyaml" },
     { name = "rich" },
+    { name = "tomli", marker = "python_full_version < '3.11'" },
     { name = "typer" },
 ]
 
@@ -2059,6 +2060,7 @@ requires-dist = [
     { name = "reuse", marker = "extra == 'dev'", specifier = ">=3.0.0" },
     { name = "rich", specifier = ">=15.0.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.4.0" },
+    { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=2.0.0" },
     { name = "typer", specifier = ">=0.9.0" },
     { name = "types-toml", marker = "extra == 'dev'" },
 ]
