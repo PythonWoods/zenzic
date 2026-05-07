@@ -496,11 +496,11 @@ Apache-2.0 — vedi [LICENSE][license].
 
 Zenzic è nato da un percorso tecnico attraverso la fragilità dei moderni ecosistemi di
 documentazione. Scopri la filosofia, l'assedio della sicurezza e l'ingegneria dietro il
-Sentinel nelle [**Engineering Chronicles**](https://zenzic.dev/blog/tags/engineering-chronicles) sul blog ufficiale.
+Sentinel nelle [**Engineering Chronicles**](https://zenzic.dev/blog/tags/chronicles) sul blog ufficiale.
 
 La storia della release v0.7.0 — l'assedio red-team guidato dall'IA, 4 vettori di bypass
 chiusi, e la strada verso la parità engine-agnostica — è documentata in
-[**Beyond the Siege: Zenzic v0.7.0**](https://zenzic.dev/blog/beyond-the-siege-zenzic-v070).
+[**Beyond the Siege: Zenzic v0.7.0**](https://zenzic.dev/blog/beyond-the-siege-zenzic-v070-quartz).
 
 ---
 
@@ -528,7 +528,7 @@ chiusi, e la strada verso la parità engine-agnostica — è documentata in
 [docs-it-home]:      https://zenzic.dev/it/docs/
 [docs-it-badges]:    https://zenzic.dev/it/docs/how-to/add-badges/
 [docs-it-cicd]:      https://zenzic.dev/it/docs/how-to/configure-ci-cd/
-[docs-it-arch]:      https://zenzic.dev/it/developers/explanation/
+[docs-it-arch]:      https://zenzic.dev/it/developers/explanation/engineering-ledger
 [docs-it-developers]: https://zenzic.dev/it/developers/
 [docs-it-adr-vault]: https://zenzic.dev/it/developers/explanation/adr-vault
 [docs-it-adr-011]:   https://zenzic.dev/it/developers/explanation/adr-cross-instance-allowlist
