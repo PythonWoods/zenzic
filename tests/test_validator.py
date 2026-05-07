@@ -312,11 +312,17 @@ class TestInternalLinks:
 
     @pytest.mark.slow
     def test_anchor_torture_parallel_indexing_1000_files(self, tmp_path: Path) -> None:
-        """1000 cross-linked anchors must validate without race-induced false positives."""
+        """1000 cross-linked anchors must validate without race-induced false positives.
+
+        Windows uses spawn (not fork) — scale down to 100 files to stay within
+        the 120s pytest-timeout budget on GitHub Actions Windows runners.
+        """
+        import os
+
         docs = tmp_path / "docs"
         docs.mkdir()
 
-        total = 1000
+        total = 100 if os.name == "nt" else 1000
         for i in range(total):
             nxt = i + 1
             # Linear chain: each page links to the next (no ring to avoid CIRCULAR_LINK).

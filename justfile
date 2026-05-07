@@ -57,9 +57,15 @@ test *args:
 test-slow *args:
     {{ runner }} pytest -m "slow" {{ args }}
 
-# Audit: serial, deterministic, with coverage XML (pre-push gate + CI)
+# Audit: serial, deterministic, with coverage XML (pre-push gate + CI).
+# Excludes @pytest.mark.slow — use test-cov-full for the complete suite.
 # Coverage threshold (fail_under=80) enforced via pyproject.toml.
 test-cov *args:
+    {{ runner }} pytest -m "not slow" --cov=src/zenzic --cov-report=term-missing --cov-report=json:coverage.json {{ args }}
+
+# Full audit: includes slow tests (deadlock guards, 1k-file torture, Hypothesis ci).
+# Run on Ubuntu only; reserved for pre-release validation.
+test-cov-full *args:
     {{ runner }} pytest --cov=src/zenzic --cov-report=term-missing --cov-report=json:coverage.json {{ args }}
 
 # Run the test suite with the thorough Hypothesis profile (ci — 500 examples)
