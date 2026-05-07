@@ -63,6 +63,13 @@ from __future__ import annotations
 
 import pickle
 import re
+
+# ZRT-007 — DFA Purity Contract: RE2 is the sole regex engine for user-supplied
+# patterns.  google-re2 provides O(n) DFA guarantees, eliminating the entire
+# ReDoS attack surface.  ImportError here is intentional and fatal: non-RE2
+# environments are explicitly unsupported.
+import re2
+
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
@@ -335,14 +342,25 @@ class CustomRule(BaseRule):
     pattern: str
     message: str
     severity: Severity = "error"
-    _compiled: re.Pattern[str] = field(init=False, repr=False, compare=False)
+    # re2.Pattern[str] at runtime; annotated as Any-compatible via the untyped re2 import.
+    _compiled: re2.Pattern[str] = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
+        # ZRT-007: compile with RE2 — rejection here means the pattern uses
+        # backreferences, lookaheads, or lookbehinds, which are non-regular
+        # constructs incompatible with the DFA engine.  The error is fatal at
+        # load time (not at scan time) so CI fails immediately on a bad config.
+        from zenzic.core.exceptions import PluginContractError
+
         try:
-            self._compiled = re.compile(self.pattern)
-        except re.error as exc:
-            raise ValueError(
-                f"CustomRule '{self.id}': invalid regex pattern {self.pattern!r} — {exc}"
+            self._compiled = re2.compile(self.pattern)
+        except re2.error as exc:
+            raise PluginContractError(
+                f"CustomRule '{self.id}': pattern {self.pattern!r} is not supported "
+                f"by the RE2 engine (ZRT-007 — DFA Purity Contract). "
+                f"Backreferences, lookaheads, and lookbehinds are non-regular "
+                f"constructs that require NFA backtracking and are banned. "
+                f"RE2 error: {exc}"
             ) from exc
 
     @property
@@ -400,71 +418,6 @@ def _assert_pickleable(rule: BaseRule) -> None:
         ) from exc
 
 
-# Canary strings that trigger catastrophic backtracking in ReDoS-vulnerable
-# patterns.  A safe regex at n=50 takes microseconds; a ReDoS pattern at n=50
-# triggers 2^50 backtracking steps — guaranteed to exceed the timeout on any
-# hardware, from the slowest CI Linux runner to the fastest Apple M-series.
-_CANARY_STRINGS: tuple[str, ...] = (
-    "a" * 50 + "b",  # classic (a+)+  /  (a*)* style
-    "A" * 40 + "!",  # uppercase variant
-    "1" * 32 + "x",  # numeric variant
-)
-_CANARY_TIMEOUT_S: float = 0.05  # 50 ms — hardware-independent gate
-
-
-def _assert_regex_canary(rule: BaseRule) -> None:
-    """Raise :class:`PluginContractError` if a :class:`CustomRule` pattern hangs.
-
-    ZRT-002 defence: a regex that causes catastrophic backtracking inside a
-    worker process will deadlock the :class:`~concurrent.futures.ProcessPoolExecutor`
-    because the executor has no timeout.  This canary tests each
-    :class:`CustomRule` pattern against stress strings under a ``SIGALRM``
-    watchdog **before** the engine is distributed to worker processes.
-
-    Only :class:`CustomRule` instances are tested (they carry user-supplied
-    regexes).  Python-native :class:`BaseRule` subclasses are trusted to
-    have been written with complexity in mind.
-
-    This function is a no-op on Windows (``signal.SIGALRM`` is unavailable).
-
-    Args:
-        rule: A :class:`BaseRule` instance to validate.
-
-    Raises:
-        PluginContractError: When the pattern takes longer than
-            :data:`_CANARY_TIMEOUT_S` on any canary string.
-    """
-    import platform
-    import signal
-
-    from zenzic.core.exceptions import PluginContractError
-
-    if platform.system() == "Windows" or not isinstance(rule, CustomRule):
-        return
-
-    def _alarm(_signum: int, _frame: object) -> None:
-        raise TimeoutError
-
-    old_handler = signal.signal(signal.SIGALRM, _alarm)
-    try:
-        for canary in _CANARY_STRINGS:
-            signal.setitimer(signal.ITIMER_REAL, _CANARY_TIMEOUT_S)
-            try:
-                rule.check(Path("__canary__.md"), canary)
-            except TimeoutError:
-                raise PluginContractError(
-                    f"Rule '{rule.rule_id}': pattern {rule.pattern!r} may cause "
-                    f"catastrophic backtracking (ReDoS).  The pattern timed out "
-                    f"after {int(_CANARY_TIMEOUT_S * 1000)} ms on the stress string "
-                    f"{canary!r}.\n"
-                    "  Fix: simplify the regex to avoid nested quantifiers "
-                    "such as (a+)+, (a*)*, (a|aa)+, etc."
-                ) from None
-            finally:
-                signal.setitimer(signal.ITIMER_REAL, 0)  # cancel alarm
-    finally:
-        signal.signal(signal.SIGALRM, old_handler)
-
 
 class AdaptiveRuleEngine:
     """Applies a collection of :class:`BaseRule` instances to a Markdown file.
@@ -494,7 +447,6 @@ class AdaptiveRuleEngine:
     def __init__(self, rules: Sequence[BaseRule]) -> None:
         for rule in rules:
             _assert_pickleable(rule)
-            _assert_regex_canary(rule)  # ZRT-002: ReDoS pre-flight check
         self._rules = rules
 
     def __bool__(self) -> bool:
@@ -525,7 +477,7 @@ class AdaptiveRuleEngine:
                     RuleFinding(
                         file_path=file_path,
                         line_no=0,
-                        rule_id="RULE-ENGINE-ERROR",
+                        rule_id="Z901",
                         message=(
                             f"Rule '{rule.rule_id}' raised an unexpected exception: "
                             f"{type(exc).__name__}: {exc}"
@@ -573,7 +525,7 @@ class AdaptiveRuleEngine:
                     RuleFinding(
                         file_path=file_path,
                         line_no=0,
-                        rule_id="RULE-ENGINE-ERROR",
+                        rule_id="Z901",
                         message=(
                             f"Rule '{rule.rule_id}' raised an unexpected exception "
                             f"in check_vsm: {type(exc).__name__}: {exc}"
@@ -921,7 +873,7 @@ class VSMBrokenLinkRule(BaseRule):
     * :meth:`check` is a no-op — this rule only makes sense with a VSM.
       Without routing context, link reachability cannot be determined.
 
-    Rule code: ``Z001``
+    Rule code: ``Z101``
     """
 
     # Schemes we skip — not navigable internal links
@@ -941,7 +893,7 @@ class VSMBrokenLinkRule(BaseRule):
 
     @property
     def rule_id(self) -> str:
-        return "Z001"
+        return "Z101"
 
     def check(self, file_path: Path, text: str) -> list[RuleFinding]:
         """No-op: VSMBrokenLinkRule requires VSM context — use check_vsm."""
@@ -964,7 +916,7 @@ class VSMBrokenLinkRule(BaseRule):
         3. For relative paths, compute the canonical URL using the same
            clean-URL logic the build engines use (``/page/``).
         4. Look up the URL in the VSM.  If absent or not ``REACHABLE``,
-           emit a :class:`Violation` with code ``Z001``.
+           emit a :class:`Violation` with code ``Z101``.
 
         Args:
             file_path:     Absolute path of the file being checked.
@@ -1019,7 +971,7 @@ class VSMBrokenLinkRule(BaseRule):
                     Violation(
                         file_path=file_path,
                         line_no=lineno,
-                        code="Z002",
+                        code="Z103",
                         message=(
                             f"'{url}' resolves to '{target_url}' which exists on disk "
                             f"but is not in the site navigation (ORPHAN_LINK). "
@@ -1197,7 +1149,7 @@ class PluginRegistry:
             ep for ep in self._entry_points() if ep.dist is not None and ep.dist.name == "zenzic"
         ]
         loaded = [self._load_entry_point(ep) for ep in core_eps]
-        if not any(rule.rule_id == "Z001" for rule in loaded):
+        if not any(rule.rule_id == "Z101" for rule in loaded):
             loaded.append(VSMBrokenLinkRule())
         return loaded
 

@@ -157,15 +157,13 @@ class LinkError:
     line_no: int
     message: str
     source_line: str = ""
-    error_type: str = "LINK_ERROR"
+    error_type: str = "Z101"
     col_start: int = 0
     match_text: str = ""
     code: str = field(init=False, default="Z101")
 
     def __post_init__(self) -> None:
-        from zenzic.core.codes import normalize as _normalize_code
-
-        self.code = _normalize_code(self.error_type)
+        self.code = self.error_type
 
     def __str__(self) -> str:
         """Flat string form — backwards-compatible with the old list[str] API."""
@@ -852,7 +850,7 @@ async def validate_links_async(
                                 line_no=lineno,
                                 message=f"{label}:{lineno}: anchor '#{anchor}' not found in '{label}'",
                                 source_line=_source_line(md_file, lineno),
-                                error_type="ANCHOR_MISSING",
+                                error_type="Z102",
                                 col_start=link.col_start,
                                 match_text=link.match_text,
                             )
@@ -904,7 +902,7 @@ async def validate_links_async(
                                         f"{label}:{lineno}: '{url}' not found in the site map{_hint}"
                                     ),
                                     source_line=_source_line(md_file, lineno),
-                                    error_type="FILE_NOT_FOUND",
+                                    error_type="Z104",
                                     col_start=link.col_start,
                                     match_text=link.match_text,
                                 )
@@ -921,7 +919,7 @@ async def validate_links_async(
                             "in a subdirectory"
                         ),
                         source_line=_source_line(md_file, lineno),
-                        error_type="ABSOLUTE_PATH",
+                        error_type="Z105",
                         col_start=link.col_start,
                         match_text=link.match_text,
                     )
@@ -946,9 +944,9 @@ async def validate_links_async(
                             message=f"{label}:{lineno}: '{url}' resolves outside the docs directory",
                             source_line=_source_line(md_file, lineno),
                             error_type=(
-                                "PATH_TRAVERSAL_SUSPICIOUS"
+                                "Z203"
                                 if _intent == "suspicious"
-                                else "PATH_TRAVERSAL"
+                                else "Z202"
                             ),
                             col_start=link.col_start,
                             match_text=link.match_text,
@@ -1001,7 +999,7 @@ async def validate_links_async(
                                 line_no=lineno,
                                 message=f"{label}:{lineno}: '{path_part}' not found in docs{_hint}",
                                 source_line=_source_line(md_file, lineno),
-                                error_type="FILE_NOT_FOUND",
+                                error_type="Z104",
                                 col_start=link.col_start,
                                 match_text=link.match_text,
                             )
@@ -1020,7 +1018,7 @@ async def validate_links_async(
                             line_no=lineno,
                             message=f"{label}:{lineno}: anchor '#{anchor}' not found in '{path_part}'",
                             source_line=_source_line(md_file, lineno),
-                            error_type="ANCHOR_MISSING",
+                            error_type="Z102",
                             col_start=link.col_start,
                             match_text=link.match_text,
                         )
@@ -1036,7 +1034,7 @@ async def validate_links_async(
                                     f"{label}:{lineno}: '{url}' is part of a circular link cycle"
                                 ),
                                 source_line=_source_line(md_file, lineno),
-                                error_type="CIRCULAR_LINK",
+                                error_type="Z106",
                                 col_start=link.col_start,
                                 match_text=link.match_text,
                             )
@@ -1070,7 +1068,7 @@ async def validate_links_async(
                                             "add it to nav in mkdocs.yml or remove the link"
                                         ),
                                         source_line=_source_line(md_file, lineno),
-                                        error_type="UNREACHABLE_LINK",
+                                        error_type="Z101",
                                         col_start=link.col_start,
                                         match_text=link.match_text,
                                     )

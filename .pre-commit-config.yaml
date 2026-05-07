@@ -57,6 +57,10 @@ repos:
     hooks:
       - id: mypy
         name: Type Checking (mypy)
+        # language: system + uv run → uv reads pyproject.toml and installs all
+        # [project.dependencies] including google-re2. No additional_dependencies
+        # needed here (that's only for mirrors-mypy repo hooks that run in
+        # isolated virtualenvs outside the project's uv-managed environment).
         entry: uv run mypy src/
         language: system
         types: [python]

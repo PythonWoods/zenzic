@@ -1,10 +1,10 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
-"""Tests for ZRT Red-Team remediation (v0.5.0a4 hotfix).
+"""Tests for ZRT Red-Team remediation.
 
 Covers:
 - ZRT-001: Shield must detect secrets in YAML frontmatter
-- ZRT-002: _assert_regex_canary must reject ReDoS patterns at engine construction
+- ZRT-007: CustomRule must reject RE2-incompatible patterns at construction (DFA purity)
 - ZRT-003: Shield normalizer must catch split-token obfuscation in tables
 - ZRT-004: VSMBrokenLinkRule must resolve relative links with source-file context
 """
@@ -23,7 +23,6 @@ from zenzic.core.rules import (
     ResolutionContext,
     Violation,
     VSMBrokenLinkRule,
-    _assert_regex_canary,
 )
 from zenzic.models.vsm import Route
 
@@ -136,90 +135,130 @@ class TestShieldFrontmatterCoverage:
         assert secrets[0].line_no == 3
 
 
-# ─── ZRT-002: ReDoS canary must reject catastrophic patterns at construction ──
+# ─── ZRT-007: RE2-native DFA enforcement ──────────────────────────────────────────────
 
 
-@pytest.mark.skipif(
-    platform.system() == "Windows",
-    reason="SIGALRM not available on Windows — canary is a no-op there",
-)
 class TestReDoSCanary:
-    """ZRT-002: AdaptiveRuleEngine must reject ReDoS patterns before worker dispatch."""
+    """ZRT-007: CustomRule must reject RE2-incompatible patterns at construction.
 
-    def test_canary_rejects_classic_redos_pattern(self) -> None:
-        """Pattern (a+)+ must be caught by the canary before engine construction."""
+    The RE2 DFA engine eliminates the ReDoS attack surface mathematically by
+    rejecting any pattern that requires NFA backtracking (backreferences,
+    lookaheads, lookbehinds) at compile time.  There is no runtime canary:
+    construction IS the safety check.
+
+    Patterns like (a+)+ that were previously dangerous under Python\'s NFA are
+    accepted by RE2 and run in O(n) — they are no longer a threat.
+    """
+
+    def test_construction_rejects_backreference(self) -> None:
+        """Backreferences (\\1) are non-regular and rejected by RE2 at compile time."""
+        with pytest.raises(PluginContractError, match="RE2"):
+            CustomRule(
+                id="ZZ-BACKREF",
+                pattern=r"(\w+)\1",
+                message="Backreference test.",
+                severity="error",
+            )
+
+    def test_construction_rejects_lookahead_positive(self) -> None:
+        """Positive lookahead (?=...) is rejected by RE2 at compile time."""
+        with pytest.raises(PluginContractError, match="RE2"):
+            CustomRule(
+                id="ZZ-LOOKAHEAD",
+                pattern=r"foo(?=bar)",
+                message="Lookahead test.",
+                severity="error",
+            )
+
+    def test_construction_rejects_lookahead_negative(self) -> None:
+        """Negative lookahead (?!...) is rejected by RE2 at compile time."""
+        with pytest.raises(PluginContractError, match="RE2"):
+            CustomRule(
+                id="ZZ-NEGLOOKAHEAD",
+                pattern=r"foo(?!bar)",
+                message="Negative lookahead test.",
+                severity="error",
+            )
+
+    def test_construction_rejects_lookbehind(self) -> None:
+        """Lookbehind (?<=...) is rejected by RE2 at compile time."""
+        with pytest.raises(PluginContractError, match="RE2"):
+            CustomRule(
+                id="ZZ-LOOKBEHIND",
+                pattern=r"(?<=foo)bar",
+                message="Lookbehind test.",
+                severity="error",
+            )
+
+    def test_classic_redos_pattern_compiles_and_runs_fast(self) -> None:
+        """(a+)+ is accepted by RE2 and runs in O(n) — no longer a ReDoS threat."""
+        import time
+
         rule = CustomRule(
-            id="ZZ-REDOS",
-            pattern=r"^(a+)+$",
-            message="ReDoS test.",
+            id="ZZ-REDOS-SAFE",
+            pattern=r"(a+)+",
+            message="RE2-safe pattern.",
             severity="error",
         )
-        with pytest.raises(PluginContractError, match="catastrophic backtracking"):
-            _assert_regex_canary(rule)
+        t0 = time.perf_counter()
+        rule.check(Path("x.md"), "a" * 50 + "b")
+        elapsed = time.perf_counter() - t0
+        assert elapsed < 0.1, f"RE2 search took {elapsed:.3f}s — expected microseconds"
 
-    def test_canary_rejects_alternation_redos(self) -> None:
-        """Nested-quantifier ReDoS -- deterministic across all platforms.
+    def test_engine_construction_rejects_re2_incompatible_rule(self) -> None:
+        """AdaptiveRuleEngine cannot be built with a RE2-incompatible CustomRule."""
+        with pytest.raises(PluginContractError, match="RE2"):
+            AdaptiveRuleEngine(
+                [
+                    CustomRule(
+                        id="ZZ-DEADLOCK",
+                        pattern=r"(\w+)\1",
+                        message="Backreference pattern.",
+                        severity="error",
+                    )
+                ]
+            )
 
-        CEO-249: The previous pattern (a|aa)+ has O(fibonacci(n)) backtracking
-        paths (~2M for n=30) which Apple Silicon resolves within the 50ms
-        SIGALRM window.  Pattern (a+)+ has O(2^n) paths (~2^50 for n=50) --
-        guaranteed to exceed the SIGALRM timer on any hardware.
-        """
-        rule = CustomRule(
-            id="ZZ-REDOS2",
-            pattern=r"^(a+)+$",
-            message="ReDoS deterministic test.",
-            severity="error",
-        )
-        with pytest.raises(PluginContractError, match="catastrophic backtracking"):
-            _assert_regex_canary(rule)
-
-    def test_engine_construction_rejects_redos_custom_rule(self) -> None:
-        """AdaptiveRuleEngine.__init__ must raise at construction for ReDoS rules."""
-        rule = CustomRule(
-            id="ZZ-DEADLOCK",
-            pattern=r"^(a+)+$",
-            message="Deadlock pattern.",
-            severity="error",
-        )
-        with pytest.raises(PluginContractError, match="catastrophic backtracking"):
-            AdaptiveRuleEngine([rule])
-
-    def test_canary_passes_safe_pattern(self) -> None:
-        """A simple, safe regex must pass the canary without raising."""
+    def test_construction_accepts_safe_pattern(self) -> None:
+        """A simple, DFA-compatible regex compiles without error."""
         rule = CustomRule(
             id="ZZ-SAFE",
             pattern=r"TODO",
             message="TODO found.",
             severity="warning",
         )
-        # Must not raise
-        _assert_regex_canary(rule)
+        assert rule.rule_id == "ZZ-SAFE"
 
-    def test_canary_passes_anchored_safe_pattern(self) -> None:
-        """A more complex but safe anchored pattern must pass the canary."""
+    def test_construction_accepts_anchored_safe_pattern(self) -> None:
+        """A complex-but-safe anchored pattern compiles without error."""
         rule = CustomRule(
             id="ZZ-SAFE2",
             pattern=r"^(DRAFT|WIP|TODO):?\s",
             message="Status marker.",
             severity="info",
         )
-        _assert_regex_canary(rule)
+        assert rule.rule_id == "ZZ-SAFE2"
 
-    def test_canary_skips_non_custom_rules(self) -> None:
-        """BaseRule subclasses that are not CustomRule are not tested by the canary."""
-        from zenzic.core.rules import BaseRule, RuleFinding
+    def test_construction_accepts_inline_flags(self) -> None:
+        """Inline RE2 flags like (?i) and (?m) are valid DFA constructs."""
+        rule = CustomRule(
+            id="ZZ-FLAG",
+            pattern=r"(?i)\bDRAFT\b",
+            message="Draft marker.",
+            severity="warning",
+        )
+        findings = rule.check(Path("x.md"), "This is a draft document")
+        assert len(findings) == 1
 
-        class _TrustedRule(BaseRule):
-            @property
-            def rule_id(self) -> str:
-                return "TRUSTED-001"
-
-            def check(self, file_path: Path, text: str) -> list[RuleFinding]:
-                return []
-
-        # Must not raise even though _TrustedRule is not a CustomRule
-        _assert_regex_canary(_TrustedRule())
+    def test_engine_works_with_re2_compatible_rules(self) -> None:
+        """An engine built from valid RE2 rules scans correctly."""
+        rules: list[CustomRule] = [
+            CustomRule(id="ZZ-A", pattern=r"TODO", message="todo", severity="info"),
+            CustomRule(id="ZZ-B", pattern=r"(?i)\bDRAFT\b", message="draft", severity="warning"),
+        ]
+        engine = AdaptiveRuleEngine(rules)
+        findings = engine.run(Path("x.md"), "DRAFT content with TODO marker")
+        assert len(findings) == 2
 
 
 # ─── ZRT-003: Split-token Shield bypass via Markdown table normalizer ──────────
@@ -347,17 +386,17 @@ class TestVSMContextAwareResolution:
         assert violations == [], "Link ../sibling.md from docs/subdir/ must resolve to /sibling/"
 
     def test_context_aware_dotdot_absent_from_vsm_emits_violation(self) -> None:
-        """A context-resolved link to an absent URL must still emit Z001."""
+        """A context-resolved link to an absent URL must still emit Z101."""
         vsm = _make_vsm("/other/")  # /sibling/ is absent
         violations = self._run_with_ctx("[Broken](../sibling.md)", vsm, "subdir/page.md")
         assert len(violations) == 1
-        assert violations[0].code == "Z001"
+        assert violations[0].code == "Z101"
 
     def test_context_aware_traversal_escape_returns_none(self) -> None:
         """A path that escapes docs_root via .. must be silently skipped (no crash)."""
         vsm = _make_vsm("/etc/")
         violations = self._run_with_ctx("[Escape](../../../../etc/passwd)", vsm, "subdir/page.md")
-        # The path escapes docs_root — must not emit a false Z001 nor crash
+        # The path escapes docs_root — must not emit a false Z101 nor crash
         assert violations == []
 
     def test_without_context_preserves_backward_compatibility(self) -> None:

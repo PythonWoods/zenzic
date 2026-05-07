@@ -313,7 +313,7 @@ def check_placeholder_content(
             PlaceholderFinding(
                 file_path=path,
                 line_no=_first_content_line(text),
-                issue="short-content",
+                issue="Z502",
                 detail=f"Page has only {visible} words (minimum {config.placeholder_max_words}).",
             )
         )
@@ -326,7 +326,7 @@ def check_placeholder_content(
                     PlaceholderFinding(
                         file_path=path,
                         line_no=i,
-                        issue="placeholder-text",
+                        issue="Z501",
                         detail=f"Found placeholder text matching pattern: '{pattern.pattern}'",
                         col_start=m.start(),
                         match_text=m.group(),
@@ -974,7 +974,7 @@ def check_image_alt_text(
                     ReferenceFinding(
                         file_path=path,
                         line_no=lineno,
-                        issue="missing-alt",
+                        issue="Z403",
                         detail=f"Image '{url}' has no alt text.",
                         is_warning=True,
                     )
@@ -990,7 +990,7 @@ def check_image_alt_text(
                     ReferenceFinding(
                         file_path=path,
                         line_no=lineno,
-                        issue="missing-alt",
+                        issue="Z403",
                         detail=f"HTML <img> tag has no alt text: {src[:60]}",
                         is_warning=True,
                     )
@@ -1147,7 +1147,7 @@ class ReferenceScanner:
                         ReferenceFinding(
                             file_path=self.file_path,
                             line_no=lineno,
-                            issue="DANGLING",
+                            issue="Z301",
                             detail=(
                                 f"Reference '[{text}][{ref_id}]' uses undefined ID '{norm_id}'."
                             ),
@@ -1190,7 +1190,7 @@ class ReferenceScanner:
                 ReferenceFinding(
                     file_path=self.file_path,
                     line_no=def_line,
-                    issue="DEAD_DEF",
+                    issue="Z302",
                     detail=(f"Reference '[{norm_id}]: {url}' is defined but never used."),
                     is_warning=True,
                 )
@@ -1203,7 +1203,7 @@ class ReferenceScanner:
                 ReferenceFinding(
                     file_path=self.file_path,
                     line_no=def_line,
-                    issue="duplicate-def",
+                    issue="Z303",
                     detail=(
                         f"Reference ID '[{norm_id}]' is defined more than once. "
                         "First definition wins (CommonMark §4.7)."
@@ -1486,7 +1486,7 @@ def scan_docs_references(
             # results in completion order and cancel queued tasks immediately on
             # the first security breach (Z201–Z203).
             # ZRT-002 preserved: if no future completes within _WORKER_TIMEOUT_S,
-            # all remaining workers are emitted as Z009 (deadlock guard).
+            # all remaining workers are emitted as Z902 (deadlock guard).
             futures_map = {executor.submit(_worker, item): item[0] for item in work_items}
             raw: list[IntegrityReport] = []
             _abort = False
@@ -1499,7 +1499,7 @@ def scan_docs_references(
                 )
                 if not done:
                     # ZRT-002 deadlock guard: no worker completed within the
-                    # timeout window — treat all stalled workers as Z009.
+                    # timeout window — treat all stalled workers as Z902.
                     for fut in _pending:
                         raw.append(_make_timeout_report(futures_map[fut]))
                         fut.cancel()
@@ -1606,10 +1606,10 @@ def scan_docs_references(
 ADAPTIVE_PARALLEL_THRESHOLD: int = 50
 
 #: Maximum wall-clock seconds a single worker may spend analysing one file.
-#: If a worker exceeds this limit it is abandoned and a Z009 timeout finding
+#: If a worker exceeds this limit it is abandoned and a Z902 timeout finding
 #: is emitted for the file instead of a normal IntegrityReport.  The purpose
-#: is to prevent ReDoS patterns in [[custom_rules]] from deadlocking the
-#: entire parallel pipeline.  (ZRT-002 fix)
+#: is to guard against I/O hangs, network stalls, and worker process crashes
+#: that would otherwise deadlock the entire parallel pipeline.  (ZRT-002 fix)
 _WORKER_TIMEOUT_S: int = 30
 
 
@@ -1618,14 +1618,18 @@ def _make_timeout_report(md_file: Path) -> IntegrityReport:
 
     Called by the parallel coordinator when ``future.result(timeout=...)``
     raises :class:`concurrent.futures.TimeoutError`.  The returned report
-    carries a single ``Z009`` rule finding so the CLI can surface the
+    carries a single ``Z902`` rule finding so the CLI can surface the
     timeout in the standard findings UI without crashing the scan.
+
+    A Z902 finding indicates a systemic stall (I/O hang, network timeout,
+    worker process crash) rather than a regex issue — all CustomRule patterns
+    are DFA-safe since ZRT-007 replaced the NFA engine with Google RE2.
 
     Args:
         md_file: Absolute path of the file whose worker timed out.
 
     Returns:
-        A :class:`IntegrityReport` with ``score=0`` and one ``Z009`` finding.
+        A :class:`IntegrityReport` with ``score=0`` and one ``Z902`` finding.
     """
     from zenzic.core.rules import RuleFinding  # deferred: avoid circular at module level
     from zenzic.models.references import IntegrityReport
@@ -1633,11 +1637,11 @@ def _make_timeout_report(md_file: Path) -> IntegrityReport:
     timeout_finding = RuleFinding(
         file_path=md_file,
         line_no=0,
-        rule_id="Z009",
+        rule_id="Z902",
         message=(
             f"Analysis of '{md_file.name}' timed out after {_WORKER_TIMEOUT_S}s. "
-            "A custom rule pattern may be causing catastrophic backtracking (ReDoS). "
-            "Check [[custom_rules]] patterns in zenzic.toml."
+            "Worker stalled — possible I/O hang, network timeout, or process crash. "
+            "Custom rule patterns are DFA-safe (ZRT-007); this is a systemic stall."
         ),
         severity="error",
     )
@@ -1666,7 +1670,7 @@ def _make_error_report(md_file: Path, exc: BaseException) -> IntegrityReport:
     error_finding = RuleFinding(
         file_path=md_file,
         line_no=0,
-        rule_id="RULE-ENGINE-ERROR",
+        rule_id="Z901",
         message=(
             f"Worker for '{md_file.name}' raised an unexpected exception: "
             f"{type(exc).__name__}: {exc}"

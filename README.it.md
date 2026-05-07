@@ -224,6 +224,10 @@ severity = "warning"
 
 Le regole si attivano identicamente su tutti gli adapter. Nessuna modifica richiesta dopo la migrazione del motore.
 
+> **Garanzia DFA** (v0.7.0+): I pattern delle custom rule devono essere compatibili con RE2 —
+> backreference, lookahead e lookbehind vengono rifiutati al caricamento. Consulta
+> [Architettura › Garanzia DFA](https://zenzic.dev/it/docs/explanation/architecture#dfa-guarantee).
+
 ---
 
 ## 🔄 Integrazione CI/CD

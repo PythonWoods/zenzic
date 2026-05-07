@@ -71,7 +71,7 @@ def test_check_links_ok(_links, _cfg, _root) -> None:
             line_no=1,
             message="index.md:1: broken link 'foo.md' (is not found)",
             source_line="[foo](foo.md)",
-            error_type="FILE_NOT_FOUND",
+            error_type="Z104",
         )
     ],
 )
@@ -79,7 +79,7 @@ def test_check_links_with_errors(_links, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "links"])
     assert result.exit_code == 1
     assert "ZENZIC SENTINEL" in result.stdout
-    assert "FILE_NOT_FOUND" in result.stdout or "error" in result.stdout.lower()
+    assert "Z104" in result.stdout or "error" in result.stdout.lower()
 
 
 @patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
@@ -108,7 +108,7 @@ def test_check_links_strict_passes_flag(mock_links, _cfg, _root) -> None:
             line_no=2,
             message="index.md:2: '../../../../etc/passwd' resolves outside the docs directory",
             source_line="[escape](../../../../etc/passwd)",
-            error_type="PATH_TRAVERSAL_SUSPICIOUS",
+            error_type="Z203",
         )
     ],
 )
@@ -128,7 +128,7 @@ def test_check_links_system_path_traversal_exits_3(_links, _cfg, _root) -> None:
             line_no=2,
             message="index.md:2: '../../outside.md' resolves outside the docs directory",
             source_line="[escape](../../outside.md)",
-            error_type="PATH_TRAVERSAL",
+            error_type="Z202",
         )
     ],
 )
@@ -244,7 +244,7 @@ def test_check_placeholders_ok(_ph, _cfg, _root) -> None:
     "zenzic.cli._check.find_placeholders",
     return_value=[
         PlaceholderFinding(
-            file_path=Path("stub.md"), line_no=1, issue="short-content", detail="5 words"
+            file_path=Path("stub.md"), line_no=1, issue="Z502", detail="5 words"
         )
     ],
 )

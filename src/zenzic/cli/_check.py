@@ -12,7 +12,6 @@ from pathlib import Path
 
 import typer
 
-from zenzic.core.codes import normalize as _normalize_code
 from zenzic.core.exclusion import LayeredExclusionManager
 from zenzic.core.reporter import Finding, SentinelReporter
 from zenzic.core.scanner import (
@@ -143,12 +142,12 @@ def check_links(
         Finding(
             rel_path=_rel(err.file_path),
             line_no=err.line_no,
-            code=_normalize_code(err.error_type),
+            code=err.code,
             severity=(
                 "security_incident"
-                if err.error_type == "PATH_TRAVERSAL_SUSPICIOUS"
+                if err.code == "Z203"
                 else "info"
-                if err.error_type == "CIRCULAR_LINK"
+                if err.code == "Z106"
                 else "error"
             ),
             message=err.message,
@@ -503,7 +502,7 @@ def check_references(
                 Finding(
                     rel_path=rel,
                     line_no=ref_f.line_no,
-                    code=_normalize_code(ref_f.issue),
+                    code=ref_f.issue,
                     severity="warning" if ref_f.is_warning else "error",
                     message=ref_f.detail,
                     source_line=src,
@@ -514,7 +513,7 @@ def check_references(
                 Finding(
                     rel_path=rel,
                     line_no=rule_f.line_no,
-                    code=_normalize_code(rule_f.rule_id),
+                    code=rule_f.rule_id,
                     severity=rule_f.severity,
                     message=rule_f.message,
                     source_line=rule_f.matched_line or "",
@@ -732,7 +731,7 @@ def check_placeholders(
             Finding(
                 rel_path=str(pf.file_path),
                 line_no=pf.line_no,
-                code=_normalize_code(pf.issue),
+                code=pf.issue,
                 severity="warning",
                 message=pf.detail,
                 source_line=src,
@@ -894,12 +893,12 @@ def _to_findings(results: _AllCheckResults, docs_root: Path) -> list[Finding]:
             Finding(
                 rel_path=_rel(err.file_path),
                 line_no=err.line_no,
-                code=_normalize_code(err.error_type),
+                code=err.code,
                 severity=(
                     "security_incident"
-                    if err.error_type in ("PATH_TRAVERSAL_SUSPICIOUS", "PATH_TRAVERSAL")
+                    if err.code in ("Z203", "Z202")
                     else "info"
-                    if err.error_type == "CIRCULAR_LINK"
+                    if err.code == "Z106"
                     else "error"
                 ),
                 message=err.message,
@@ -955,7 +954,7 @@ def _to_findings(results: _AllCheckResults, docs_root: Path) -> list[Finding]:
             Finding(
                 rel_path=str(pf.file_path),
                 line_no=pf.line_no,
-                code=_normalize_code(pf.issue),
+                code=pf.issue,
                 severity="warning",
                 message=pf.detail,
                 source_line=src,
@@ -1014,7 +1013,7 @@ def _to_findings(results: _AllCheckResults, docs_root: Path) -> list[Finding]:
                 Finding(
                     rel_path=rel,
                     line_no=ref_f.line_no,
-                    code=_normalize_code(ref_f.issue),
+                    code=ref_f.issue,
                     severity="warning" if ref_f.is_warning else "error",
                     message=ref_f.detail,
                     source_line=src,
@@ -1025,7 +1024,7 @@ def _to_findings(results: _AllCheckResults, docs_root: Path) -> list[Finding]:
                 Finding(
                     rel_path=rel,
                     line_no=rule_f.line_no,
-                    code=_normalize_code(rule_f.rule_id),
+                    code=rule_f.rule_id,
                     severity=rule_f.severity,
                     message=rule_f.message,
                     source_line=rule_f.matched_line,

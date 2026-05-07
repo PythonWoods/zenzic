@@ -252,7 +252,7 @@ def _render_link_error(err: object, docs_root: Path) -> None:
     prefix = f"{err.file_path.relative_to(docs_root).as_posix() if err.file_path != docs_root else ''}:{err.line_no}: "
     body = raw_msg[len(prefix) :] if raw_msg.startswith(prefix) else raw_msg
 
-    type_badge = f"[[bold red]{err.error_type}[/]]" if err.error_type != "LINK_ERROR" else ""
+    type_badge = f"[[bold red]{err.code}[/]]"
     header = f"  {type_badge} {location} — {body}"
     console.print(header)
 

@@ -66,11 +66,11 @@ def test_list_plugin_rules_contains_core_broken_links() -> None:
 
 
 def test_list_plugin_rules_broken_links_has_correct_id() -> None:
-    """broken-links entry-point exposes rule_id 'Z001'."""
+    """broken-links entry-point exposes rule_id 'Z101'."""
     result = list_plugin_rules()
     by_source = {r.source: r for r in result}
     assert "broken-links" in by_source
-    assert by_source["broken-links"].rule_id == "Z001"
+    assert by_source["broken-links"].rule_id == "Z101"
 
 
 def test_list_plugin_rules_broken_links_origin_is_zenzic() -> None:
@@ -149,7 +149,7 @@ def test_cli_inspect_capabilities_shows_broken_links() -> None:
     runner = CliRunner()
     result = runner.invoke(app, ["inspect", "capabilities"])
     assert "broken-links" in result.output
-    assert "Z001" in result.output
+    assert "Z101" in result.output
 
 
 def test_cli_inspect_capabilities_empty_when_no_rules(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -308,8 +308,8 @@ def test_parallel_fail_fast_aborts_pending_on_breach(tmp_path: Path) -> None:
 
 
 @pytest.mark.slow
-def test_parallel_zrt002_deadlock_guard_emits_z009(tmp_path: Path) -> None:
-    """ZRT-002 preserved: when no worker completes within _WORKER_TIMEOUT_S, Z009 is emitted."""
+def test_parallel_zrt002_deadlock_guard_emits_z902(tmp_path: Path) -> None:
+    """ZRT-002 preserved: when no worker completes within _WORKER_TIMEOUT_S, Z902 is emitted."""
     import concurrent.futures
     import threading
 
@@ -339,9 +339,9 @@ def test_parallel_zrt002_deadlock_guard_emits_z009(tmp_path: Path) -> None:
         scanner_mod._WORKER_TIMEOUT_S = original_timeout
         _hang_event.set()  # unblock any lingering threads
 
-    # ZRT-002: every stalled file must produce a Z009 finding.
-    z009_reports = [r for r in reports if any(f.rule_id == "Z009" for f in r.rule_findings)]
-    assert len(z009_reports) >= 1, "Expected at least one Z009 timeout finding"
+    # ZRT-002: every stalled file must produce a Z902 finding.
+    z902_reports = [r for r in reports if any(f.rule_id == "Z902" for f in r.rule_findings)]
+    assert len(z902_reports) >= 1, "Expected at least one Z902 timeout finding"
 
 
 def test_parallel_results_sorted_after_fail_fast(tmp_path: Path) -> None:

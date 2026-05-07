@@ -57,7 +57,7 @@ class TestFrontmatterInvisible:
             f"Expected exactly one Z502 finding (10 prose words < 50 threshold) but got: {findings}"
         )
         finding = findings[0]
-        assert finding.issue == "short-content"
+        assert finding.issue == "Z502"
         assert "10 words" in finding.detail, (
             f"Word count in detail must be 10 (prose only), got: {finding.detail!r}"
         )
@@ -74,7 +74,7 @@ class TestFrontmatterInvisible:
         config = ZenzicConfig(placeholder_max_words=50)
         findings = check_placeholder_content(content, "test.md", config)
         assert len(findings) == 1
-        assert findings[0].issue == "short-content"
+        assert findings[0].issue == "Z502"
         assert "3 words" in findings[0].detail
 
     def test_html_comment_before_frontmatter_stripped(self) -> None:
@@ -124,7 +124,7 @@ class TestPathnameIsPortable:
         mgr = make_mgr(config, repo_root=tmp_path)
         errors = validate_links_structured(docs, mgr, repo_root=tmp_path, config=config)
         error_types = {e.error_type for e in errors}
-        assert "ABSOLUTE_PATH" not in error_types, (
+        assert "Z105" not in error_types, (
             "pathname:/// must not trigger Z105 — it carries an explicit URI scheme"
         )
 
@@ -140,6 +140,6 @@ class TestPathnameIsPortable:
         mgr = make_mgr(config, repo_root=tmp_path)
         errors = validate_links_structured(docs, mgr, repo_root=tmp_path, config=config)
         error_types = {e.error_type for e in errors}
-        assert "ABSOLUTE_PATH" in error_types, (
+        assert "Z105" in error_types, (
             "A bare /path link (no scheme) must still trigger Z105"
         )

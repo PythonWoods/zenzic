@@ -48,7 +48,7 @@ def test_calculate_orphans_sorted() -> None:
 
 def test_check_placeholder_short_content() -> None:
     findings = check_placeholder_content("too short", "page.md")
-    assert any(f.issue == "short-content" for f in findings)
+    assert any(f.issue == "Z502" for f in findings)
 
 
 def test_check_placeholder_pattern_match() -> None:
@@ -56,7 +56,7 @@ def test_check_placeholder_pattern_match() -> None:
         "# Title\n\nThis is a TODO section that needs more content.\n" * 5,
         "page.md",
     )
-    assert any(f.issue == "placeholder-text" for f in findings)
+    assert any(f.issue == "Z501" for f in findings)
 
 
 def test_check_placeholder_clean_page() -> None:

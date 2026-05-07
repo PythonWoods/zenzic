@@ -115,8 +115,8 @@ def test_find_placeholders(tmp_path: Path) -> None:
     assert len(findings) == 2
 
     issues = {f.issue for f in findings}
-    assert "short-content" in issues
-    assert "placeholder-text" in issues
+    assert "Z502" in issues
+    assert "Z501" in issues
 
     file_paths = {f.file_path.name for f in findings}
     assert "short.md" in file_paths
@@ -241,7 +241,7 @@ def test_find_placeholders_no_config(tmp_path: Path) -> None:
     config = ZenzicConfig()
     mgr = make_mgr(config, repo_root=tmp_path)
     findings = find_placeholders(docs, mgr, config=config)
-    assert any(f.issue == "placeholder-text" for f in findings)
+    assert any(f.issue == "Z501" for f in findings)
 
 
 def test_find_placeholders_docs_not_exist(tmp_path: Path) -> None:
@@ -293,7 +293,7 @@ See LICENSE file.
 """
     config = ZenzicConfig(placeholder_max_words=50)
     findings = check_placeholder_content(text, "community/license.mdx", config)
-    assert any(f.issue == "short-content" for f in findings), (
+    assert any(f.issue == "Z502" for f in findings), (
         "Page with MDX-comment-inflated word count must still be flagged as short-content"
     )
 
@@ -319,7 +319,7 @@ LICENZA
 """
     config = ZenzicConfig(placeholder_max_words=50)
     findings = check_placeholder_content(text, "community/license.mdx", config)
-    short = [f for f in findings if f.issue == "short-content"]
+    short = [f for f in findings if f.issue == "Z502"]
     assert short, "Page with 3 visible words must trigger short-content"
     # The finding must NOT point at line 1 (the opening ``---``).
     assert short[0].line_no > 1, (
@@ -361,7 +361,7 @@ def test_short_content_pointer_skips_spdx_comments() -> None:
     # REUSE-IgnoreEnd
     config = ZenzicConfig(placeholder_max_words=50)
     findings = check_placeholder_content(text, "spdx-trap.md", config)
-    short = [f for f in findings if f.issue == "short-content"]
+    short = [f for f in findings if f.issue == "Z502"]
     assert short, "File with single word 'FINE' must trigger short-content"
     assert short[0].detail == "Page has only 1 words (minimum 50)."
     # The pointer must land on the line containing "FINE", not on any comment or frontmatter.
@@ -391,7 +391,7 @@ def test_short_content_pointer_skips_multiline_html_comment() -> None:
     # REUSE-IgnoreEnd
     config = ZenzicConfig(placeholder_max_words=50)
     findings = check_placeholder_content(text, "multi-html.mdx", config)
-    short = [f for f in findings if f.issue == "short-content"]
+    short = [f for f in findings if f.issue == "Z502"]
     assert short, "Single-word prose must trigger short-content"
     target_line = text.splitlines()[short[0].line_no - 1]
     assert target_line.strip() == "Brief.", (
@@ -418,7 +418,7 @@ def test_short_content_pointer_skips_multiline_mdx_comment() -> None:
     # REUSE-IgnoreEnd
     config = ZenzicConfig(placeholder_max_words=50)
     findings = check_placeholder_content(text, "multi-mdx.mdx", config)
-    short = [f for f in findings if f.issue == "short-content"]
+    short = [f for f in findings if f.issue == "Z502"]
     assert short, "Single-word prose must trigger short-content"
     target_line = text.splitlines()[short[0].line_no - 1]
     assert target_line.strip() == "Note.", (
@@ -437,7 +437,7 @@ def test_short_content_pointer_unclosed_frontmatter() -> None:
     config = ZenzicConfig(placeholder_max_words=50)
     findings = check_placeholder_content(text, "unclosed-fm.mdx", config)
     # Unclosed frontmatter is not stripped by _FRONTMATTER_RE → word count > 0 but < 50
-    short = [f for f in findings if f.issue == "short-content"]
+    short = [f for f in findings if f.issue == "Z502"]
     assert short, "Near-empty file must trigger short-content"
     assert short[0].line_no >= 1
 

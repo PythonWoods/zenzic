@@ -195,9 +195,9 @@ def test_parallel_rule_exception_isolated(tmp_path: Path) -> None:
     config = ZenzicConfig()
     engine = AdaptiveRuleEngine([_BoomRule()])
 
-    # All files should produce a report with one RULE-ENGINE-ERROR finding
+    # All files should produce a report with one Z901 finding
     for f in files:
         report, _ = _scan_single_file(f, config, engine)
         assert len(report.rule_findings) == 1
-        assert report.rule_findings[0].rule_id == "RULE-ENGINE-ERROR"
+        assert report.rule_findings[0].rule_id == "Z901"
         assert report.rule_findings[0].is_error

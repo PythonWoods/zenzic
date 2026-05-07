@@ -131,8 +131,8 @@ class TestLocalePathTraversalBlocked:
 
         errors = _run(tmp_path, locale_root)
         types = [e.error_type for e in errors]
-        assert "PATH_TRAVERSAL_SUSPICIOUS" in types, (
-            f"Expected PATH_TRAVERSAL_SUSPICIOUS; got error_types: {types}"
+        assert "Z203" in types, (
+            f"Expected Z203 (PATH_TRAVERSAL_SUSPICIOUS); got error_types: {types}"
         )
 
     def test_traversal_to_proc_is_suspicious(self, tmp_path: Path) -> None:
@@ -144,8 +144,8 @@ class TestLocalePathTraversalBlocked:
 
         errors = _run(tmp_path, locale_root)
         types = [e.error_type for e in errors]
-        assert "PATH_TRAVERSAL_SUSPICIOUS" in types, (
-            f"Expected PATH_TRAVERSAL_SUSPICIOUS; got error_types: {types}"
+        assert "Z203" in types, (
+            f"Expected Z203 (PATH_TRAVERSAL_SUSPICIOUS); got error_types: {types}"
         )
 
     def test_traversal_to_parent_repo_is_traversal(self, tmp_path: Path) -> None:
@@ -160,8 +160,8 @@ class TestLocalePathTraversalBlocked:
 
         errors = _run(tmp_path, locale_root)
         types = [e.error_type for e in errors]
-        assert any(t.startswith("PATH_TRAVERSAL") for t in types), (
-            f"Expected a PATH_TRAVERSAL* error; got error_types: {types}"
+        assert any(t in ("Z202", "Z203") for t in types), (
+            f"Expected a Z202/Z203 (PATH_TRAVERSAL*) error; got error_types: {types}"
         )
 
 
@@ -183,8 +183,8 @@ class TestLocaleIntraFileAnchorValidation:
 
         errors = _run(tmp_path, locale_root)
         types = [e.error_type for e in errors]
-        assert "ANCHOR_MISSING" in types, (
-            f"Expected ANCHOR_MISSING for #contesto vs {{#context}}; got error_types: {types}"
+        assert "Z102" in types, (
+            f"Expected Z102 (ANCHOR_MISSING) for #contesto vs {{#context}}; got error_types: {types}"
         )
 
     def test_correct_anchor_passes(self, tmp_path: Path) -> None:
@@ -226,7 +226,7 @@ class TestLocaleIntraFileAnchorValidation:
             locale_roots=[(locale_root, "it")],
         )
         types = [e.error_type for e in errors]
-        assert "ANCHOR_MISSING" in types, (
+        assert "Z102" in types, (
             "validate_same_page_anchors=False must not suppress anchor "
             f"validation in locale files; got error_types: {types}"
         )
@@ -265,6 +265,6 @@ class TestSiteAliasFromLocaleFile:
 
         errors = _run(tmp_path, locale_root)
         types = [e.error_type for e in errors]
-        assert "FILE_NOT_FOUND" in types, (
-            f"Expected FILE_NOT_FOUND for missing @site/static/ghost.png; got error_types: {types}"
+        assert "Z104" in types, (
+            f"Expected Z104 (FILE_NOT_FOUND) for missing @site/static/ghost.png; got error_types: {types}"
         )

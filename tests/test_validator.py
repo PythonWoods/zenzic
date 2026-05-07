@@ -373,7 +373,7 @@ class TestTraversalIntent:
         mgr = make_mgr(config, repo_root=tmp_path)
         errors = validate_links_structured(docs_root, mgr, repo_root=tmp_path, config=config)
         assert len(errors) == 1
-        assert errors[0].error_type == "PATH_TRAVERSAL_SUSPICIOUS"
+        assert errors[0].error_type == "Z203"
 
     def test_path_traversal_boundary_error_type(self, tmp_path: Path) -> None:
         """validate_links_structured emits PATH_TRAVERSAL for non-system out-of-bounds hrefs."""
@@ -385,7 +385,7 @@ class TestTraversalIntent:
         mgr = make_mgr(config, repo_root=tmp_path)
         errors = validate_links_structured(docs_root, mgr, repo_root=tmp_path, config=config)
         assert len(errors) == 1
-        assert errors[0].error_type == "PATH_TRAVERSAL"
+        assert errors[0].error_type == "Z202"
 
 
 # ─── Absolute-path prohibition ───────────────────────────────────────────────
@@ -471,7 +471,7 @@ class TestAbsolutePathProhibition:
         mgr = make_mgr(config, repo_root=tmp_path)
         errors = validate_links_structured(docs_root, mgr, repo_root=tmp_path, config=config)
         assert len(errors) == 1
-        assert errors[0].error_type == "ABSOLUTE_PATH"
+        assert errors[0].error_type == "Z105"
 
 
 # ─── S4-2: known_assets pre-map + excluded_build_artifacts ───────────────────
@@ -1290,7 +1290,7 @@ class TestCircularLinkIntegration:
         docs_root = tmp_path / config.docs_dir
         mgr = make_mgr(config, repo_root=tmp_path)
         errors = validate_links_structured(docs_root, mgr, repo_root=tmp_path, config=config)
-        circular = [e for e in errors if e.error_type == "CIRCULAR_LINK"]
+        circular = [e for e in errors if e.error_type == "Z106"]
         assert len(circular) == 2  # one from a.md and one from b.md
 
     def test_linear_chain_no_circular_link(self, tmp_path: Path) -> None:
@@ -1303,7 +1303,7 @@ class TestCircularLinkIntegration:
         docs_root = tmp_path / config.docs_dir
         mgr = make_mgr(config, repo_root=tmp_path)
         errors = validate_links_structured(docs_root, mgr, repo_root=tmp_path, config=config)
-        circular = [e for e in errors if e.error_type == "CIRCULAR_LINK"]
+        circular = [e for e in errors if e.error_type == "Z106"]
         assert circular == []
 
     def test_i18n_cross_language_cycle_detected(self, tmp_path: Path) -> None:
@@ -1318,7 +1318,7 @@ class TestCircularLinkIntegration:
         docs_root = tmp_path / config.docs_dir
         mgr = make_mgr(config, repo_root=tmp_path)
         errors = validate_links_structured(docs_root, mgr, repo_root=tmp_path, config=config)
-        circular = [e for e in errors if e.error_type == "CIRCULAR_LINK"]
+        circular = [e for e in errors if e.error_type == "Z106"]
         assert len(circular) == 2
 
 

@@ -29,7 +29,7 @@ from __future__ import annotations
 import base64
 import binascii
 import html
-import re
+import re2
 import unicodedata
 from collections.abc import Iterator
 from dataclasses import dataclass
@@ -39,14 +39,14 @@ from pathlib import Path
 # ─── Pre-scan Normalizer (ZRT-003: split-token bypass defence) ────────────────
 
 # Unwrap inline code spans: `AKIA` → AKIA
-_BACKTICK_INLINE_RE = re.compile(r"`([^`]*)`")
+_BACKTICK_INLINE_RE = re2.compile(r"`([^`]*)`")
 # Remove concatenation operators that split tokens: `AKIA` + `KEY` → AKIAKEY
-_CONCAT_OP_RE = re.compile(r"[`'\"\s]*\+[`'\"\s]*")
+_CONCAT_OP_RE = re2.compile(r"[`'\"\s]*\+[`'\"\s]*")
 # Replace table-cell separators with spaces
-_TABLE_PIPE_RE = re.compile(r"\|")
+_TABLE_PIPE_RE = re2.compile(r"\|")
 # ZRT-007: strip HTML comments <!-- ... --> and MDX comments {/* ... */}
-_HTML_COMMENT_RE = re.compile(r"<!--.*?-->")
-_MDX_COMMENT_RE = re.compile(r"\{/\*.*?\*/\}")
+_HTML_COMMENT_RE = re2.compile(r"<!--.*?-->")
+_MDX_COMMENT_RE = re2.compile(r"\{/\*.*?\*/\}")
 
 
 def _normalize_line_for_shield(line: str) -> str:
@@ -90,16 +90,16 @@ def _normalize_line_for_shield(line: str) -> str:
 
 # ─── Pre-compiled secret signatures ───────────────────────────────────────────
 
-_SECRETS: list[tuple[str, re.Pattern[str]]] = [
-    ("openai-api-key", re.compile(r"sk-[a-zA-Z0-9]{48}")),
-    ("github-token", re.compile(r"gh[pousr]_[a-zA-Z0-9]{36}")),
-    ("aws-access-key", re.compile(r"AKIA[0-9A-Z]{16}")),
-    ("stripe-live-key", re.compile(r"sk_live_[0-9a-zA-Z]{24}")),
-    ("slack-token", re.compile(r"xox[baprs]-[0-9a-zA-Z]{10,48}")),
-    ("google-api-key", re.compile(r"AIza[0-9A-Za-z\-_]{35}")),
-    ("private-key", re.compile(r"-----BEGIN [A-Z ]+ PRIVATE KEY-----")),
-    ("hex-encoded-payload", re.compile(r"(?:\\x[0-9a-fA-F]{2}){3,}")),
-    ("gitlab-pat", re.compile(r"glpat-[A-Za-z0-9\-_]{20,}")),
+_SECRETS: list[tuple[str, re2.Pattern[str]]] = [
+    ("openai-api-key", re2.compile(r"sk-[a-zA-Z0-9]{48}")),
+    ("github-token", re2.compile(r"gh[pousr]_[a-zA-Z0-9]{36}")),
+    ("aws-access-key", re2.compile(r"AKIA[0-9A-Z]{16}")),
+    ("stripe-live-key", re2.compile(r"sk_live_[0-9a-zA-Z]{24}")),
+    ("slack-token", re2.compile(r"xox[baprs]-[0-9a-zA-Z]{10,48}")),
+    ("google-api-key", re2.compile(r"AIza[0-9A-Za-z\-_]{35}")),
+    ("private-key", re2.compile(r"-----BEGIN [A-Z ]+ PRIVATE KEY-----")),
+    ("hex-encoded-payload", re2.compile(r"(?:\\x[0-9a-fA-F]{2}){3,}")),
+    ("gitlab-pat", re2.compile(r"glpat-[A-Za-z0-9\-_]{20,}")),
 ]
 
 #: Maximum line length the Shield will scan.  Lines exceeding this limit
@@ -111,7 +111,7 @@ _MAX_LINE_LENGTH: int = 1_048_576  # 1 MiB
 # ─── Base64 speculative decoder (CEO-194 / D095) ─────────────────────────────
 # Matches properly-padded Base64 tokens.  Length threshold (≥ 20 chars)
 # ensures we skip strings too short to encode any known credential type.
-_BASE64_CANDIDATE_RE: re.Pattern[str] = re.compile(
+_BASE64_CANDIDATE_RE: re2.Pattern[str] = re2.compile(
     r"(?:[A-Za-z0-9+/]{4})+(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{4})"
 )
 

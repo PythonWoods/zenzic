@@ -14,7 +14,6 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-from zenzic.core.codes import normalize as _normalize_code
 from zenzic.core.exceptions import ConfigurationError
 from zenzic.core.exclusion import LayeredExclusionManager
 from zenzic.core.scanner import (
@@ -83,7 +82,7 @@ def _run_all_checks(
 
     # Link errors — split by Zxxx code derived from error_type
     for err in link_errors:
-        code = _normalize_code(err.error_type)  # type: ignore[attr-defined]
+        code = err.code  # type: ignore[attr-defined]
         findings_counts[code] = findings_counts.get(code, 0) + 1
 
     # Core check aggregates
@@ -94,7 +93,7 @@ def _run_all_checks(
 
     # Placeholder findings — Z501 (pattern) vs Z502 (short-content) split (CEO-171)
     for pf in placeholders:
-        pcode = "Z502" if pf.issue == "short-content" else "Z501"
+        pcode = "Z502" if pf.issue == "Z502" else "Z501"
         findings_counts[pcode] = findings_counts.get(pcode, 0) + 1
 
     # Rule-engine findings: Z107, Z505, Z905 (rule_id already a Zxxx code)

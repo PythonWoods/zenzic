@@ -87,52 +87,6 @@ class ZenzicExitCode:
     SENTINEL: int = 3
 
 
-# ── Canonical code map ────────────────────────────────────────────────────────
-# Maps legacy string codes (as emitted by validators / scanner) to the stable
-# Zxxx code.  The legacy string is kept as the public code value for now so
-# that existing tool integrations continue to work; the Zxxx code is always
-# displayed alongside it in the report.
-
-#: Mapping of legacy ``error_type`` / ``issue`` strings to canonical Zxxx codes.
-LEGACY_TO_CODE: dict[str, str] = {
-    # Link integrity (Z1xx)
-    "Z001": "Z101",  # VSMBrokenLinkRule emits Z001 → Z101 LINK_BROKEN
-    "Z002": "Z103",  # VSMBrokenLinkRule emits Z002 → Z103 ORPHAN_LINK
-    "FILE_NOT_FOUND": "Z104",
-    "ANCHOR_MISSING": "Z102",
-    "ABSOLUTE_PATH": "Z105",
-    "CIRCULAR_LINK": "Z106",
-    "VIRTUAL_ROUTE_BROKEN": "Z111",
-    "AUTHOR_KEY_COLLISION": "Z113",
-    "LARGE_PAGINATION_SET": "Z114",
-    "LINK_ERROR": "Z101",  # generic catch-all for broken links
-    "UNREACHABLE_LINK": "Z101",
-    # Security (Z2xx)
-    "SHIELD": "Z201",
-    "PATH_TRAVERSAL": "Z202",
-    "PATH_TRAVERSAL_SUSPICIOUS": "Z203",
-    "FORBIDDEN_TERM": "Z204",
-    # Reference integrity (Z3xx)
-    "DANGLING": "Z301",
-    "DEAD_DEF": "Z302",
-    "duplicate-def": "Z303",
-    "missing-alt": "Z403",
-    # Structure (Z4xx)
-    "MISSING_DIRECTORY_INDEX": "Z401",
-    "ORPHAN": "Z402",
-    "CONFIG_ASSET_MISSING": "Z404",
-    # Content quality (Z5xx)
-    "placeholder-text": "Z501",
-    "short-content": "Z502",
-    "SNIPPET": "Z503",
-    # Engine / system (Z9xx)
-    "RULE-ENGINE-ERROR": "Z901",
-    "Z009": "Z902",
-    "ASSET": "Z903",
-    "NAV": "Z904",
-    "LINK_URL": "Z101",
-}
-
 #: Human-readable name for each code (for report headers).
 CODE_NAMES: dict[str, str] = {
     "Z101": "LINK_BROKEN",
@@ -415,23 +369,6 @@ CORE_SCANNERS: list[CoreScanner] = [
         non_suppressible=False,
     ),
 ]
-
-
-def normalize(legacy_code: str) -> str:
-    """Return the canonical ``Zxxx`` code for *legacy_code*.
-
-    If *legacy_code* already starts with ``Z`` and has exactly 4 characters
-    (i.e. it is already a canonical code or a core-rule Zxxx code like
-    ``Z001``), it is looked up in the map first; if not found it is returned
-    as-is.
-
-    Args:
-        legacy_code: Raw code string from a validator, scanner, or rule engine.
-
-    Returns:
-        Canonical ``Zxxx`` string.
-    """
-    return LEGACY_TO_CODE.get(legacy_code, legacy_code)
 
 
 def label(code: str) -> str:

@@ -106,7 +106,11 @@ def test_custom_rule_no_match() -> None:
 
 
 def test_custom_rule_invalid_regex_raises() -> None:
-    with pytest.raises(ValueError, match="invalid regex"):
+    # ZRT-007: RE2 rejects non-regular and syntactically invalid patterns at
+    # construction time with PluginContractError (not ValueError).
+    from zenzic.core.exceptions import PluginContractError
+
+    with pytest.raises(PluginContractError, match="RE2"):
         CustomRule(id="ZZ004", pattern=r"[unclosed", message="Bad pattern.", severity="error")
 
 
@@ -160,7 +164,7 @@ def test_rule_engine_isolates_exception() -> None:
 
     # One error from the broken rule, one info from the good rule
     assert len(findings) == 2
-    engine_err = next(f for f in findings if f.rule_id == "RULE-ENGINE-ERROR")
+    engine_err = next(f for f in findings if f.rule_id == "Z901")
     assert "ZZ-BROKEN" in engine_err.message or "rule internal error" in engine_err.message
     assert engine_err.severity == "error"
 
@@ -396,32 +400,32 @@ class TestViolation:
         v = Violation(
             file_path=_FILE,
             line_no=5,
-            code="Z001",
+            code="Z101",
             message="Broken link.",
             level="error",
             context="[bad link](missing.md)",
         )
-        assert v.code == "Z001"
+        assert v.code == "Z101"
         assert v.level == "error"
         assert v.context == "[bad link](missing.md)"
         assert v.is_error
 
     def test_violation_warning_not_error(self) -> None:
-        v = Violation(file_path=_FILE, line_no=1, code="Z002", message="hint", level="warning")
+        v = Violation(file_path=_FILE, line_no=1, code="Z103", message="hint", level="warning")
         assert not v.is_error
 
     def test_violation_as_finding_round_trip(self) -> None:
         v = Violation(
             file_path=_FILE,
             line_no=3,
-            code="Z001",
+            code="Z101",
             message="msg",
             level="error",
             context="src",
         )
         f = v.as_finding()
         assert isinstance(f, RuleFinding)
-        assert f.rule_id == "Z001"
+        assert f.rule_id == "Z101"
         assert f.line_no == 3
         assert f.matched_line == "src"
         assert f.severity == "error"
@@ -469,7 +473,7 @@ class TestVSMBrokenLinkRule:
     def test_missing_url_emits_violation(self) -> None:
         violations = self._run("[Broken](missing.md)", {})
         assert len(violations) == 1
-        assert violations[0].code == "Z001"
+        assert violations[0].code == "Z101"
         assert "missing" in violations[0].message
         assert "missing.md" in violations[0].context
 
@@ -479,7 +483,7 @@ class TestVSMBrokenLinkRule:
         vsm = _make_vsm("/draft/", status="ORPHAN_BUT_EXISTING")
         violations = self._run("[Draft](draft.md)", vsm)
         assert len(violations) == 1
-        assert violations[0].code == "Z002"
+        assert violations[0].code == "Z103"
         assert violations[0].level == "warning"
         assert "ORPHAN_LINK" in violations[0].message
 
@@ -526,7 +530,7 @@ class TestVSMBrokenLinkRule:
         vsm = _make_vsm("/ok/")
         findings = engine.run_vsm(_FILE, "[OK](ok/index.md)\n[Bad](ghost.md)\n", vsm, {})
         assert len(findings) == 1
-        assert findings[0].rule_id == "Z001"
+        assert findings[0].rule_id == "Z101"
         assert isinstance(findings[0], RuleFinding)
 
 
@@ -758,13 +762,13 @@ class TestVSMBrokenLinkRuleMutantKill:
     # ── Exact field assertions on violations (kill string mutations) ──────────
 
     def test_missing_link_violation_exact_fields(self) -> None:
-        """Assert every field of a Z001 violation — kills all string/field mutations."""
+        """Assert every field of a Z101 violation — kills all string/field mutations."""
         violations = self._run("[Bad](ghost.md)", {})
         assert len(violations) == 1
         v = violations[0]
         assert v.file_path == _FILE
         assert v.line_no == 1
-        assert v.code == "Z001"
+        assert v.code == "Z101"
         assert v.level == "error"
         assert v.is_error
         assert "ghost.md" in v.message
@@ -779,7 +783,7 @@ class TestVSMBrokenLinkRuleMutantKill:
         v = violations[0]
         assert v.file_path == _FILE
         assert v.line_no == 1
-        assert v.code == "Z002"
+        assert v.code == "Z103"
         assert v.level == "warning"
         assert not v.is_error
         assert "ORPHAN_LINK" in v.message
@@ -794,7 +798,7 @@ class TestVSMBrokenLinkRuleMutantKill:
         assert len(violations) == 1
         v = violations[0]
         assert v.file_path == _FILE
-        assert v.code == "Z001"
+        assert v.code == "Z101"
         assert v.level == "error"
         assert "UNREACHABLE_LINK" in v.message
         assert "'UNREACHABLE'" in v.message
@@ -804,7 +808,7 @@ class TestVSMBrokenLinkRuleMutantKill:
         vsm = {"/page/": Route(url="/page/", source="page.md", status="SOME_OTHER_STATUS")}
         violations = self._run("[Page](page.md)", vsm)
         assert len(violations) == 1
-        assert violations[0].code == "Z001"
+        assert violations[0].code == "Z101"
 
     # ── file_path propagation (kill file_path=None mutations) ────────────────
 
@@ -847,7 +851,7 @@ class TestVSMBrokenLinkRuleMutantKill:
         }
         violations = self._run("[A](a.md)\n[B](b.md)", vsm)
         assert len(violations) == 2
-        assert all(v.code == "Z002" for v in violations)
+        assert all(v.code == "Z103" for v in violations)
 
     def test_mixed_valid_and_broken_only_broken_reported(self) -> None:
         vsm = _make_vsm("/ok/")
@@ -953,7 +957,7 @@ class TestVSMBrokenLinkRuleMutantKill:
         assert v.file_path == _FILE
         assert v.line_no == 3
         assert isinstance(v.line_no, int)
-        assert v.code == "Z001"
+        assert v.code == "Z101"
         assert v.level == "error"
         assert v.context is not None
         assert isinstance(v.context, str)
@@ -965,8 +969,8 @@ class TestVSMBrokenLinkRuleMutantKill:
         # Kill case mutation
         assert "VIA SITE NAVIGATION" not in v.message
 
-    def test_z001_missing_message_no_xx_wrapper(self) -> None:
-        """Kill XX-wrapper mutants on Z001 missing link message."""
+    def test_z101_missing_message_no_xx_wrapper(self) -> None:
+        """Kill XX-wrapper mutants on Z101 missing link message."""
         violations = self._run("[Bad](ghost.md)", {})
         v = violations[0]
         assert v.message.endswith("the target file may not exist")
@@ -1052,7 +1056,7 @@ class TestAdaptiveRuleEngineRunMutantKill:
         f = findings[0]
         assert f.file_path == _FILE
         assert f.line_no == 0
-        assert f.rule_id == "RULE-ENGINE-ERROR"
+        assert f.rule_id == "Z901"
         assert f.severity == "error"
         assert "ZZ-BROKEN" in f.message
         assert "RuntimeError" in f.message
@@ -1063,7 +1067,7 @@ class TestAdaptiveRuleEngineRunMutantKill:
         engine = AdaptiveRuleEngine([_BrokenRule(), good])
         findings = engine.run(_FILE, "a text\n")
         rule_ids = [f.rule_id for f in findings]
-        assert "RULE-ENGINE-ERROR" in rule_ids
+        assert "Z901" in rule_ids
         assert "ZZ-GOOD" in rule_ids
 
     def test_run_multiple_rules_all_produce_findings(self) -> None:
@@ -1100,7 +1104,7 @@ class TestAdaptiveRuleEngineRunVsmMutantKill:
         assert isinstance(f, RuleFinding)
         assert f.file_path == _FILE
         assert f.line_no == 1
-        assert f.rule_id == "Z001"
+        assert f.rule_id == "Z101"
         assert f.severity == "error"
         assert "ghost.md" in f.message
 
@@ -1112,7 +1116,7 @@ class TestAdaptiveRuleEngineRunVsmMutantKill:
         f = findings[0]
         assert f.file_path == _FILE
         assert f.line_no == 0
-        assert f.rule_id == "RULE-ENGINE-ERROR"
+        assert f.rule_id == "Z901"
         assert f.severity == "error"
         assert "ZZ-BROKEN-VSM" in f.message
         assert "check_vsm" in f.message
@@ -1124,7 +1128,7 @@ class TestAdaptiveRuleEngineRunVsmMutantKill:
         vsm = _make_vsm("/ok/")
         findings = engine.run_vsm(_FILE, "[OK](ok/index.md)", vsm, {})
         # Should have the error finding from _BrokenVsmRule, and 0 from valid link
-        error_findings = [f for f in findings if f.rule_id == "RULE-ENGINE-ERROR"]
+        error_findings = [f for f in findings if f.rule_id == "Z901"]
         assert len(error_findings) == 1
 
     def test_run_vsm_multiple_rules_all_produce_findings(self) -> None:
@@ -1133,7 +1137,7 @@ class TestAdaptiveRuleEngineRunVsmMutantKill:
         findings = engine.run_vsm(_FILE, "[Bad](ghost.md)", {}, {})
         # Both instances should report the broken link
         assert len(findings) == 2
-        assert all(f.rule_id == "Z001" for f in findings)
+        assert all(f.rule_id == "Z101" for f in findings)
 
     def test_run_vsm_worker_returns_empty_list(self) -> None:
         """Rule returning no violations is fine — no crash."""
@@ -1207,9 +1211,9 @@ class TestPluginRegistryMutantKill:
         sources = [r.source for r in rules]
         assert "broken-links" in sources
 
-    def test_list_rules_broken_links_has_z001_id(self) -> None:
+    def test_list_rules_broken_links_has_z101_id(self) -> None:
         bl = next(r for r in PluginRegistry().list_rules() if r.source == "broken-links")
-        assert bl.rule_id == "Z001"
+        assert bl.rule_id == "Z101"
         assert bl.origin == "zenzic"
 
     def test_list_rules_results_are_sorted_by_source(self) -> None:
@@ -1224,14 +1228,14 @@ class TestPluginRegistryMutantKill:
         assert "VSMBrokenLinkRule" in bl.class_name
         assert "." in bl.class_name
 
-    def test_load_core_rules_includes_z001(self) -> None:
-        """Kills Z001→z001 mutant and not-any→any inversion."""
+    def test_load_core_rules_includes_z101(self) -> None:
+        """Kills Z101→z101 mutant and not-any→any inversion."""
         reg = PluginRegistry()
         rules = reg.load_core_rules()
-        assert any(r.rule_id == "Z001" for r in rules)
+        assert any(r.rule_id == "Z101" for r in rules)
 
     def test_load_core_rules_fallback_is_vsm_broken_link_rule(self) -> None:
-        """When no entry points provide Z001, the fallback must be a real VSMBrokenLinkRule."""
+        """When no entry points provide Z101, the fallback must be a real VSMBrokenLinkRule."""
         reg = PluginRegistry()
         rules = reg.load_core_rules()
         vsm_rules = [r for r in rules if isinstance(r, VSMBrokenLinkRule)]
@@ -1243,7 +1247,7 @@ class TestPluginRegistryMutantKill:
         rules = reg.load_selected_rules(["broken-links"])
         assert len(rules) == 1
         assert isinstance(rules[0], VSMBrokenLinkRule)
-        assert rules[0].rule_id == "Z001"
+        assert rules[0].rule_id == "Z101"
 
     def test_load_selected_rules_empty_input_returns_empty(self) -> None:
         reg = PluginRegistry()
@@ -1359,16 +1363,16 @@ class TestPluginRegistryMutantKill:
         rules = reg.load_core_rules()
         # core-rule should be loaded, ext-rule should not
         rule_ids = [r.rule_id for r in rules]
-        assert "Z001" in rule_ids
+        assert "Z101" in rule_ids
         assert "PLUG-TODO" not in rule_ids
 
-    def test_load_core_rules_with_z001_already_loaded(
+    def test_load_core_rules_with_z101_already_loaded(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """When Z001 is already provided by an entry point, no duplicate fallback.
+        """When Z101 is already provided by an entry point, no duplicate fallback.
         Kills not-any→any inversion mutant."""
 
-        class _Z001EP:
+        class _Z101EP:
             name = "broken-links"
 
             class dist:
@@ -1379,11 +1383,11 @@ class TestPluginRegistryMutantKill:
                 return VSMBrokenLinkRule
 
         reg = PluginRegistry()
-        monkeypatch.setattr(reg, "_entry_points", lambda: [_Z001EP()])
+        monkeypatch.setattr(reg, "_entry_points", lambda: [_Z101EP()])
         rules = reg.load_core_rules()
-        z001_count = sum(1 for r in rules if r.rule_id == "Z001")
+        z101_count = sum(1 for r in rules if r.rule_id == "Z101")
         # Exactly 1 — no duplicate from fallback
-        assert z001_count == 1
+        assert z101_count == 1
 
     def test_load_core_rules_fallback_not_none(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Fallback appends a real VSMBrokenLinkRule, not None.
@@ -1394,7 +1398,7 @@ class TestPluginRegistryMutantKill:
         assert len(rules) == 1
         assert rules[0] is not None
         assert isinstance(rules[0], VSMBrokenLinkRule)
-        assert rules[0].rule_id == "Z001"
+        assert rules[0].rule_id == "Z101"
 
     def test_load_selected_rules_broken_links_plus_others(
         self, monkeypatch: pytest.MonkeyPatch

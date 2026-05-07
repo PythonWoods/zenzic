@@ -286,7 +286,7 @@ class TestCheckImageAltText:
         text = "![](pipeline.png)\n"
         findings = check_image_alt_text(text, Path("doc.md"))
         assert len(findings) == 1
-        assert findings[0].issue == "missing-alt"
+        assert findings[0].issue == "Z403"
         assert findings[0].is_warning is True
         assert findings[0].line_no == 1
 
@@ -299,7 +299,7 @@ class TestCheckImageAltText:
         text = '<img src="diagram.png">\n'
         findings = check_image_alt_text(text, Path("doc.md"))
         assert len(findings) == 1
-        assert findings[0].issue == "missing-alt"
+        assert findings[0].issue == "Z403"
 
     def test_html_img_with_alt_ok(self) -> None:
         text = '<img src="diagram.png" alt="A flowchart">\n'
@@ -463,7 +463,7 @@ class TestReferenceScannerCrossCheck:
         scanner = self._make_scanner(tmp_path, content)
         findings = scanner.cross_check()
         assert len(findings) == 1
-        assert findings[0].issue == "DANGLING"
+        assert findings[0].issue == "Z301"
         assert "ghost_id" in findings[0].detail
         assert findings[0].is_warning is False
 
@@ -490,8 +490,8 @@ class TestReferenceScannerCrossCheck:
         scanner = self._make_scanner(tmp_path, content)
         findings = scanner.cross_check()
         issues = {f.issue for f in findings}
-        assert "DANGLING" in issues
-        dangling = [f for f in findings if f.issue == "DANGLING"]
+        assert "Z301" in issues
+        dangling = [f for f in findings if f.issue == "Z301"]
         assert len(dangling) == 2
 
 
@@ -524,14 +524,14 @@ class TestReferenceScannerIntegrityReport:
         content = "[used]: https://used.com\n[orphan]: https://orphan.com\n\nSee [X][used].\n"
         report = self._run_full_pipeline(tmp_path, content)
         assert report.score == pytest.approx(50.0)
-        orphan_findings = [f for f in report.findings if f.issue == "DEAD_DEF"]
+        orphan_findings = [f for f in report.findings if f.issue == "Z302"]
         assert len(orphan_findings) == 1
         assert orphan_findings[0].is_warning is True
 
     def test_duplicate_def_in_report(self, tmp_path: Path) -> None:
         content = "[ref]: https://first.com\n[ref]: https://second.com\n\nSee [X][ref].\n"
         report = self._run_full_pipeline(tmp_path, content)
-        dup_findings = [f for f in report.findings if f.issue == "duplicate-def"]
+        dup_findings = [f for f in report.findings if f.issue == "Z303"]
         assert len(dup_findings) == 1
         assert dup_findings[0].is_warning is True
 
@@ -565,7 +565,7 @@ class TestReferenceScannerIntegrityReport:
 
         report = scanner.get_integrity_report(cross_findings, security_findings)
         assert report.is_secure is False
-        dangling = [f for f in report.findings if f.issue == "DANGLING"]
+        dangling = [f for f in report.findings if f.issue == "Z301"]
         assert dangling == []  # Pass 2 was skipped
 
     def test_no_definitions_score_100(self, tmp_path: Path) -> None:
@@ -703,7 +703,7 @@ class TestDiabolicalFirstWins:
 
         scanner = self._make_scanner(tmp_path, "".join(lines))
         cross_findings = scanner.cross_check()
-        dangling = [f for f in cross_findings if f.issue == "DANGLING"]
+        dangling = [f for f in cross_findings if f.issue == "Z301"]
 
         assert dangling == [], (
             "Two-Pass Pipeline must resolve forward references. "
@@ -744,7 +744,7 @@ class TestDiabolicalFirstWins:
         assert "contested" in scanner.ref_map.duplicate_ids
         # Cross-check: all 10 forward usages resolve correctly
         cross_findings = scanner.cross_check()
-        dangling = [f for f in cross_findings if f.issue == "DANGLING"]
+        dangling = [f for f in cross_findings if f.issue == "Z301"]
         assert dangling == []
 
     def test_triple_definition_only_first_active(self, tmp_path: Path) -> None:
@@ -794,10 +794,10 @@ class TestDiabolicalFirstWins:
         # All usages resolved → 100% integrity
         assert report.score == pytest.approx(100.0)
         assert report.is_secure is True
-        dangling = [f for f in report.findings if f.issue == "DANGLING"]
+        dangling = [f for f in report.findings if f.issue == "Z301"]
         assert dangling == []
         # The duplicate-def warning must appear
-        dup_findings = [f for f in report.findings if f.issue == "duplicate-def"]
+        dup_findings = [f for f in report.findings if f.issue == "Z303"]
         assert len(dup_findings) == 1
         assert dup_findings[0].is_warning is True
 
