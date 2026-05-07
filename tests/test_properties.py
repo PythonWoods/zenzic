@@ -283,7 +283,7 @@ class TestCheckPlaceholderProperties:
         body = " ".join(["content"] * 60) + "\nTODO: fix this\n"
         findings = check_placeholder_content(body, Path("test.md"))
         issues = [f.issue for f in findings]
-        assert "placeholder-text" in issues
+        assert "Z501" in issues
 
 
 # ── InMemoryPathResolver.resolve — Invariants ────────────────────────────────

@@ -1,17 +1,16 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
-"""Tests for ZRT Red-Team remediation (v0.5.0a4 hotfix).
+"""Tests for ZRT Red-Team remediation.
 
 Covers:
 - ZRT-001: Shield must detect secrets in YAML frontmatter
-- ZRT-002: _assert_regex_canary must reject ReDoS patterns at engine construction
+- ZRT-007: CustomRule must reject RE2-incompatible patterns at construction (DFA purity)
 - ZRT-003: Shield normalizer must catch split-token obfuscation in tables
 - ZRT-004: VSMBrokenLinkRule must resolve relative links with source-file context
 """
 
 from __future__ import annotations
 
-import platform
 from pathlib import Path
 
 import pytest
@@ -23,7 +22,6 @@ from zenzic.core.rules import (
     ResolutionContext,
     Violation,
     VSMBrokenLinkRule,
-    _assert_regex_canary,
 )
 from zenzic.models.vsm import Route
 
@@ -136,84 +134,130 @@ class TestShieldFrontmatterCoverage:
         assert secrets[0].line_no == 3
 
 
-# ─── ZRT-002: ReDoS canary must reject catastrophic patterns at construction ──
+# ─── ZRT-007: RE2-native DFA enforcement ──────────────────────────────────────────────
 
 
-@pytest.mark.skipif(
-    platform.system() == "Windows",
-    reason="SIGALRM not available on Windows — canary is a no-op there",
-)
 class TestReDoSCanary:
-    """ZRT-002: AdaptiveRuleEngine must reject ReDoS patterns before worker dispatch."""
+    """ZRT-007: CustomRule must reject RE2-incompatible patterns at construction.
 
-    def test_canary_rejects_classic_redos_pattern(self) -> None:
-        """Pattern (a+)+ must be caught by the canary before engine construction."""
+    The RE2 DFA engine eliminates the ReDoS attack surface mathematically by
+    rejecting any pattern that requires NFA backtracking (backreferences,
+    lookaheads, lookbehinds) at compile time.  There is no runtime canary:
+    construction IS the safety check.
+
+    Patterns like (a+)+ that were previously dangerous under Python\'s NFA are
+    accepted by RE2 and run in O(n) — they are no longer a threat.
+    """
+
+    def test_construction_rejects_backreference(self) -> None:
+        """Backreferences (\\1) are non-regular and rejected by RE2 at compile time."""
+        with pytest.raises(PluginContractError, match="RE2"):
+            CustomRule(
+                id="ZZ-BACKREF",
+                pattern=r"(\w+)\1",
+                message="Backreference test.",
+                severity="error",
+            )
+
+    def test_construction_rejects_lookahead_positive(self) -> None:
+        """Positive lookahead (?=...) is rejected by RE2 at compile time."""
+        with pytest.raises(PluginContractError, match="RE2"):
+            CustomRule(
+                id="ZZ-LOOKAHEAD",
+                pattern=r"foo(?=bar)",
+                message="Lookahead test.",
+                severity="error",
+            )
+
+    def test_construction_rejects_lookahead_negative(self) -> None:
+        """Negative lookahead (?!...) is rejected by RE2 at compile time."""
+        with pytest.raises(PluginContractError, match="RE2"):
+            CustomRule(
+                id="ZZ-NEGLOOKAHEAD",
+                pattern=r"foo(?!bar)",
+                message="Negative lookahead test.",
+                severity="error",
+            )
+
+    def test_construction_rejects_lookbehind(self) -> None:
+        """Lookbehind (?<=...) is rejected by RE2 at compile time."""
+        with pytest.raises(PluginContractError, match="RE2"):
+            CustomRule(
+                id="ZZ-LOOKBEHIND",
+                pattern=r"(?<=foo)bar",
+                message="Lookbehind test.",
+                severity="error",
+            )
+
+    def test_classic_redos_pattern_compiles_and_runs_fast(self) -> None:
+        """(a+)+ is accepted by RE2 and runs in O(n) — no longer a ReDoS threat."""
+        import time
+
         rule = CustomRule(
-            id="ZZ-REDOS",
-            pattern=r"^(a+)+$",
-            message="ReDoS test.",
+            id="ZZ-REDOS-SAFE",
+            pattern=r"(a+)+",
+            message="RE2-safe pattern.",
             severity="error",
         )
-        with pytest.raises(PluginContractError, match="catastrophic backtracking"):
-            _assert_regex_canary(rule)
+        t0 = time.perf_counter()
+        rule.check(Path("x.md"), "a" * 50 + "b")
+        elapsed = time.perf_counter() - t0
+        assert elapsed < 0.1, f"RE2 search took {elapsed:.3f}s — expected microseconds"
 
-    def test_canary_rejects_alternation_redos(self) -> None:
-        """Alternation-based ReDoS (a|aa)+ also caught."""
-        rule = CustomRule(
-            id="ZZ-REDOS2",
-            pattern=r"^(a|aa)+$",
-            message="ReDoS alt test.",
-            severity="error",
-        )
-        with pytest.raises(PluginContractError, match="catastrophic backtracking"):
-            _assert_regex_canary(rule)
+    def test_engine_construction_rejects_re2_incompatible_rule(self) -> None:
+        """AdaptiveRuleEngine cannot be built with a RE2-incompatible CustomRule."""
+        with pytest.raises(PluginContractError, match="RE2"):
+            AdaptiveRuleEngine(
+                [
+                    CustomRule(
+                        id="ZZ-DEADLOCK",
+                        pattern=r"(\w+)\1",
+                        message="Backreference pattern.",
+                        severity="error",
+                    )
+                ]
+            )
 
-    def test_engine_construction_rejects_redos_custom_rule(self) -> None:
-        """AdaptiveRuleEngine.__init__ must raise at construction for ReDoS rules."""
-        rule = CustomRule(
-            id="ZZ-DEADLOCK",
-            pattern=r"^(a+)+$",
-            message="Deadlock pattern.",
-            severity="error",
-        )
-        with pytest.raises(PluginContractError, match="catastrophic backtracking"):
-            AdaptiveRuleEngine([rule])
-
-    def test_canary_passes_safe_pattern(self) -> None:
-        """A simple, safe regex must pass the canary without raising."""
+    def test_construction_accepts_safe_pattern(self) -> None:
+        """A simple, DFA-compatible regex compiles without error."""
         rule = CustomRule(
             id="ZZ-SAFE",
             pattern=r"TODO",
             message="TODO found.",
             severity="warning",
         )
-        # Must not raise
-        _assert_regex_canary(rule)
+        assert rule.rule_id == "ZZ-SAFE"
 
-    def test_canary_passes_anchored_safe_pattern(self) -> None:
-        """A more complex but safe anchored pattern must pass the canary."""
+    def test_construction_accepts_anchored_safe_pattern(self) -> None:
+        """A complex-but-safe anchored pattern compiles without error."""
         rule = CustomRule(
             id="ZZ-SAFE2",
             pattern=r"^(DRAFT|WIP|TODO):?\s",
             message="Status marker.",
             severity="info",
         )
-        _assert_regex_canary(rule)
+        assert rule.rule_id == "ZZ-SAFE2"
 
-    def test_canary_skips_non_custom_rules(self) -> None:
-        """BaseRule subclasses that are not CustomRule are not tested by the canary."""
-        from zenzic.core.rules import BaseRule, RuleFinding
+    def test_construction_accepts_inline_flags(self) -> None:
+        """Inline RE2 flags like (?i) and (?m) are valid DFA constructs."""
+        rule = CustomRule(
+            id="ZZ-FLAG",
+            pattern=r"(?i)\bDRAFT\b",
+            message="Draft marker.",
+            severity="warning",
+        )
+        findings = rule.check(Path("x.md"), "This is a draft document")
+        assert len(findings) == 1
 
-        class _TrustedRule(BaseRule):
-            @property
-            def rule_id(self) -> str:
-                return "TRUSTED-001"
-
-            def check(self, file_path: Path, text: str) -> list[RuleFinding]:
-                return []
-
-        # Must not raise even though _TrustedRule is not a CustomRule
-        _assert_regex_canary(_TrustedRule())
+    def test_engine_works_with_re2_compatible_rules(self) -> None:
+        """An engine built from valid RE2 rules scans correctly."""
+        rules: list[CustomRule] = [
+            CustomRule(id="ZZ-A", pattern=r"TODO", message="todo", severity="info"),
+            CustomRule(id="ZZ-B", pattern=r"(?i)\bDRAFT\b", message="draft", severity="warning"),
+        ]
+        engine = AdaptiveRuleEngine(rules)
+        findings = engine.run(Path("x.md"), "DRAFT content with TODO marker")
+        assert len(findings) == 2
 
 
 # ─── ZRT-003: Split-token Shield bypass via Markdown table normalizer ──────────
@@ -341,17 +385,17 @@ class TestVSMContextAwareResolution:
         assert violations == [], "Link ../sibling.md from docs/subdir/ must resolve to /sibling/"
 
     def test_context_aware_dotdot_absent_from_vsm_emits_violation(self) -> None:
-        """A context-resolved link to an absent URL must still emit Z001."""
+        """A context-resolved link to an absent URL must still emit Z101."""
         vsm = _make_vsm("/other/")  # /sibling/ is absent
         violations = self._run_with_ctx("[Broken](../sibling.md)", vsm, "subdir/page.md")
         assert len(violations) == 1
-        assert violations[0].code == "Z001"
+        assert violations[0].code == "Z101"
 
     def test_context_aware_traversal_escape_returns_none(self) -> None:
         """A path that escapes docs_root via .. must be silently skipped (no crash)."""
         vsm = _make_vsm("/etc/")
         violations = self._run_with_ctx("[Escape](../../../../etc/passwd)", vsm, "subdir/page.md")
-        # The path escapes docs_root — must not emit a false Z001 nor crash
+        # The path escapes docs_root — must not emit a false Z101 nor crash
         assert violations == []
 
     def test_without_context_preserves_backward_compatibility(self) -> None:
@@ -555,3 +599,68 @@ class TestShieldReportingIntegrity:
             f"Expected 2 Finding objects from 2 SecurityFindings, got {len(findings_list)}. "
             "A Silencer mutant (no-op return / conditional append) would produce 0."
         )
+
+
+# ─── Mutant-Killing Tests: _obfuscate_secret boundary conditions ──────────────
+
+
+@_shield_skip
+class TestObfuscateSecretMutantKill:
+    """Kill surviving mutants in _obfuscate_secret().
+
+    Targeted mutants:
+    - mutmut_1: ``<= 8`` → ``< 8``  (length-8 string should be fully redacted)
+    - mutmut_2: ``<= 8`` → ``<= 9`` (length-9 string should be partially redacted)
+    - mutmut_7: ``raw[:4]`` → ``raw[:5]`` (prefix must be exactly 4 chars)
+    - mutmut_10/11/12/13: suffix ``raw[-4:]`` and ``(len(raw) - 8)`` star count
+    """
+
+    def test_length_8_is_fully_redacted(self) -> None:
+        """Exact boundary: 8-char string → all stars.
+        Kills ``< 8`` mutant (would partially redact length-8)."""
+        raw = "12345678"  # exactly 8 chars
+        result = _obfuscate_secret(raw)
+        assert result == "********", f"Expected 8 stars, got {result!r}"
+        assert len(result) == 8
+
+    def test_length_9_is_partially_redacted(self) -> None:
+        """One above boundary: 9-char string → prefix + stars + suffix.
+        Kills ``<= 9`` mutant (would fully redact length-9)."""
+        raw = "123456789"  # exactly 9 chars
+        result = _obfuscate_secret(raw)
+        # Should be: raw[:4] + "*" * 1 + raw[-4:] = "1234*6789"
+        assert result != "*" * 9, "length-9 must NOT be fully redacted"
+        assert result[0] == "1"  # prefix preserved
+        assert result[-4:] == "6789"  # suffix preserved
+        assert "*" in result
+
+    def test_prefix_is_exactly_4_chars(self) -> None:
+        """raw[:4] — kills raw[:5] mutant."""
+        raw = "ABCDEFGHIJKLMNOP"  # 16 chars
+        result = _obfuscate_secret(raw)
+        assert result[:4] == "ABCD"
+        assert result[4] != "E", "5th char must be a star, not 'E'"
+
+    def test_suffix_is_exactly_4_chars(self) -> None:
+        """raw[-4:] — kills raw[-5:] or raw[-3:] mutants."""
+        raw = "ABCDEFGHIJKLMNOP"  # 16 chars
+        result = _obfuscate_secret(raw)
+        assert result[-4:] == "MNOP"
+
+    def test_star_count_is_length_minus_8(self) -> None:
+        """Middle star count: len(raw) - 8 — kills off-by-one mutants."""
+        raw = "ABCDEFGHIJKLMNOP"  # 16 chars → 16 - 8 = 8 stars
+        result = _obfuscate_secret(raw)
+        stars = result[4:-4]
+        assert stars == "*" * 8, f"Expected 8 stars, got {stars!r}"
+
+    def test_length_1_fully_redacted(self) -> None:
+        """Very short string — not a boundary case but validates the path."""
+        assert _obfuscate_secret("X") == "*"
+
+    def test_total_length_preserved(self) -> None:
+        """Obfuscated string must always have same length as input."""
+        for n in range(1, 20):
+            raw = "A" * n
+            result = _obfuscate_secret(raw)
+            assert len(result) == n, f"len mismatch for n={n}: {result!r}"

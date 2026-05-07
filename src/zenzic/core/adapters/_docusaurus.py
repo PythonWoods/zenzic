@@ -33,15 +33,20 @@ from __future__ import annotations
 
 import logging
 import re
+import unicodedata
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from zenzic.core.adapters._utils import remap_to_default_locale
+from zenzic.core.adapters._utils import (
+    case_sensitive_exists,
+    extract_frontmatter_tags,
+    remap_to_default_locale,
+)
 from zenzic.models.config import BuildContext
 
 
 if TYPE_CHECKING:
-    from zenzic.core.adapters._base import RouteMetadata
+    from zenzic.core.adapters._base import ContentRoot, RouteMetadata
     from zenzic.models.vsm import RouteStatus
 
 _log = logging.getLogger(__name__)
@@ -117,6 +122,31 @@ _BASE_URL_RE = re.compile(r"""baseUrl\s*:\s*['"]([^'"]+)['"]""")
 
 _ROUTE_BASE_PATH_RE = re.compile(r"""routeBasePath\s*:\s*['"]([^'"]*?)['"]""")
 
+# ── Blog plugin extraction (EPOCH 7a Multi-Root Discovery) ───────────────────
+
+# Detects ``blog: false`` (plugin disabled) anywhere in the preset body.
+_BLOG_DISABLED_RE = re.compile(r"""blog\s*:\s*false\b""")
+
+# Captures the body of a ``blog: { ... }`` block, single nesting level.
+# Keeps the inner content so subsequent regexes can pull ``path`` and
+# ``routeBasePath`` from it without false matches against unrelated keys
+# (e.g. ``docs.routeBasePath``).
+_BLOG_BLOCK_RE = re.compile(r"""blog\s*:\s*\{([^{}]*)\}""", re.DOTALL)
+
+_BLOG_PATH_RE = re.compile(r"""\bpath\s*:\s*['"]([^'"]+)['"]""")
+_BLOG_RBP_RE = re.compile(r"""\brouteBasePath\s*:\s*['"]([^'"]*?)['"]""")
+
+# ── Infrastructure asset path extraction (Z404) ──────────────────────────────
+
+# Matches: favicon: 'some/path' or favicon: "some/path"
+_FAVICON_ASSET_RE = re.compile(r"""favicon\s*:\s*['"]([^'"]+)['"]""")
+
+# Matches: image: 'path.png' — restricted to image extensions to avoid
+# matching unrelated 'image:' keys (e.g. Docker image references).
+_OG_IMAGE_ASSET_RE = re.compile(
+    r"""(?<!\w)image\s*:\s*['"]([^'"]+\.(?:png|jpg|jpeg|svg|gif|webp))['"]"""
+)
+
 
 def _extract_base_url(config_path: Path) -> str:
     """Extract ``baseUrl`` from a Docusaurus config file via static analysis.
@@ -189,10 +219,228 @@ def _extract_route_base_path(config_path: Path) -> str | None:
     return match.group(1)
 
 
+# ── Blog plugin discovery (EPOCH 7a) ─────────────────────────────────────────
+
+
+def _extract_blog_config(config_path: Path) -> tuple[str, str] | None:
+    """Extract ``(blog_path, blog_route_base_path)`` from a Docusaurus config.
+
+    Discovers the ``blog`` plugin block inside the Docusaurus preset/plugin
+    declaration via static analysis (no Node.js execution).  Honours the
+    documented Docusaurus defaults: ``path = "blog"`` and
+    ``routeBasePath = "blog"``.
+
+    Returns ``None`` when:
+
+    - The config file cannot be read.
+    - The config uses dynamic patterns that defeat static analysis.
+    - ``blog: false`` is declared (plugin explicitly disabled).
+    - No ``blog: { ... }`` block is found AND no ``blog`` keyword appears
+      (caller falls back to convention-over-config: scan ``<repo>/blog``).
+
+    Args:
+        config_path: Path to ``docusaurus.config.{ts,js,mjs}``.
+
+    Returns:
+        ``(blog_path, blog_route_base_path)`` or ``None``.
+    """
+    try:
+        raw = config_path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+
+    content = _strip_js_comments(raw)
+
+    if _is_dynamic_config(content):
+        return None
+
+    if _BLOG_DISABLED_RE.search(content):
+        return None
+
+    block = _BLOG_BLOCK_RE.search(content)
+    if block is None:
+        # No explicit blog block — caller decides whether to scan default location.
+        return ("blog", "blog")
+
+    body = block.group(1)
+    path_match = _BLOG_PATH_RE.search(body)
+    rbp_match = _BLOG_RBP_RE.search(body)
+
+    blog_path = path_match.group(1) if path_match else "blog"
+    blog_rbp = rbp_match.group(1) if rbp_match else "blog"
+    return (blog_path, blog_rbp)
+
+
+# ── Multi-instance content-docs plugin discovery ──────────────────────────────
+
+# Captures every ``['@docusaurus/plugin-content-docs', { ... }]`` tuple in the
+# Docusaurus config.  The brace body must be single-nesting (no inner objects)
+# — adequate for the canonical multi-instance pattern documented at
+# https://docusaurus.io/docs/docs-multi-instance.  Sibling instances that need
+# nested objects (e.g. ``remarkPlugins: [require('foo', {opt: true})]``) fall
+# through to the filesystem heuristic below, preserving Zero Subprocess.
+_PLUGIN_CONTENT_DOCS_RE = re.compile(
+    r"""['"]@docusaurus/plugin-content-docs['"]\s*,\s*\{([^{}]*)\}""",
+    re.DOTALL,
+)
+
+_PLUGIN_ID_RE = re.compile(r"""\bid\s*:\s*['"]([^'"]+)['"]""")
+
+
+def _extract_content_docs_instances(config_path: Path) -> list[tuple[str, str]]:
+    """Extract sibling content-docs plugin instances from a Docusaurus config.
+
+    Returns ``(instance_id, route_base_path)`` tuples for every
+    ``['@docusaurus/plugin-content-docs', { id, path, routeBasePath, ... }]``
+    entry found inside ``plugins: [ ... ]``.  The default docs instance
+    (declared inside ``presets``) is **not** returned here — it is owned by
+    :meth:`DocusaurusAdapter._route_base_path` and emitted separately.
+
+    Falls back to ``[]`` when:
+
+    - The config file cannot be read.
+    - The config uses dynamic patterns (async / dynamic ``import()``).
+    - No instance declares a static ``routeBasePath``.
+
+    Args:
+        config_path: Path to ``docusaurus.config.{ts,js,mjs,cjs}``.
+
+    Returns:
+        List of ``(id, route_base_path)`` tuples, in source order.
+    """
+    try:
+        raw = config_path.read_text(encoding="utf-8")
+    except OSError:
+        return []
+
+    content = _strip_js_comments(raw)
+    if _is_dynamic_config(content):
+        return []
+
+    instances: list[tuple[str, str]] = []
+    for match in _PLUGIN_CONTENT_DOCS_RE.finditer(content):
+        body = match.group(1)
+        rbp_match = _ROUTE_BASE_PATH_RE.search(body)
+        if rbp_match is None:
+            continue
+        rbp = rbp_match.group(1)
+        if not rbp:
+            continue
+        id_match = _PLUGIN_ID_RE.search(body)
+        # Default instance has no ``id`` and lives in presets, never in plugins.
+        instance_id = id_match.group(1) if id_match else rbp
+        instances.append((instance_id, rbp))
+
+    return instances
+
+
+def check_config_assets(config_path: Path, repo_root: Path) -> list[tuple[str, str]]:
+    """Check that infrastructure assets referenced in ``docusaurus.config.*`` exist.
+
+    Extracts ``favicon`` and ``themeConfig.image`` (OG/social-card) values via
+    static analysis and verifies the physical files exist inside the Docusaurus
+    ``static/`` directory.
+
+    No subprocess execution.  Only two existence checks (one per asset class)
+    — safe to call during discovery phase outside hot-path loops.
+
+    Args:
+        config_path: Path to ``docusaurus.config.ts`` or ``.js``.
+        repo_root:   Repository root (parent of ``static/``).
+
+    Returns:
+        List of ``(rel_path, message)`` tuples for each missing asset.
+        ``rel_path`` is relative to ``repo_root`` (e.g.
+        ``"static/assets/favicon/png/icon.png"``).  Empty list when all
+        referenced assets exist or the config cannot be parsed.
+    """
+    try:
+        raw = config_path.read_text(encoding="utf-8")
+    except OSError:
+        return []
+
+    content = _strip_js_comments(raw)
+    static_root = repo_root / "static"
+    issues: list[tuple[str, str]] = []
+
+    # -- favicon ------------------------------------------------------------
+    favicon_match = _FAVICON_ASSET_RE.search(content)
+    if favicon_match:
+        asset_rel = favicon_match.group(1).lstrip("/")
+        if not (static_root / asset_rel).exists():
+            issues.append(
+                (
+                    f"static/{asset_rel}",
+                    f"favicon asset not found on disk: "
+                    f"'static/{asset_rel}' "
+                    f"(declared as favicon: '{favicon_match.group(1)}' "
+                    f"in {config_path.name}) [Z404]",
+                )
+            )
+
+    # -- OG / social-card image -------------------------------------------
+    # Take the first image-extension match; the themeConfig.image field is
+    # always the first occurrence in a well-structured config.
+    og_match = _OG_IMAGE_ASSET_RE.search(content)
+    if og_match:
+        asset_rel = og_match.group(1).lstrip("/")
+        if not (static_root / asset_rel).exists():
+            issues.append(
+                (
+                    f"static/{asset_rel}",
+                    f"OG/social-card image not found on disk: "
+                    f"'static/{asset_rel}' "
+                    f"(declared as image: '{og_match.group(1)}' "
+                    f"in {config_path.name}) [Z404]",
+                )
+            )
+
+    return issues
+
+
 # ── Frontmatter slug extraction ──────────────────────────────────────────────
 
 _FRONTMATTER_RE = re.compile(r"\A\s*---\s*\n(.*?)\n---", re.DOTALL)
 _SLUG_RE = re.compile(r"^slug\s*:\s*['\"]?([^'\"#\n]+?)['\"]?\s*$", re.MULTILINE)
+
+# EPOCH 7a: Docusaurus blog filename convention is ``YYYY-MM-DD-<slug>.mdx``.
+# When no frontmatter slug is declared, the engine derives the URL slug by
+# stripping the leading date.  Mirror that here.
+_BLOG_DATE_PREFIX_RE = re.compile(r"^\d{4}-\d{2}-\d{2}-")
+
+
+def _strip_blog_date_prefix(stem: str) -> str:
+    """Strip a leading ``YYYY-MM-DD-`` blog filename prefix, if any."""
+    return _BLOG_DATE_PREFIX_RE.sub("", stem, count=1)
+
+
+def _slugify_tag(tag: str) -> str:
+    """Convert a raw frontmatter tag string to a Docusaurus-compatible URL slug.
+
+    Mirrors Docusaurus's own tag slug algorithm:
+
+    1. NFKD-normalise and strip combining characters (decomposes accented
+       letters: ``à`` → ``a`` + combining grave, then drop the combining part).
+    2. Lower-case.
+    3. Strip characters that are neither word chars (``\\w``), spaces, nor
+       hyphens.
+    4. Collapse runs of whitespace to a single hyphen; strip leading/trailing
+       hyphens.
+    5. Return ``'untagged'`` as a safe fallback when the result is empty
+       (e.g. a tag composed entirely of CJK characters).
+
+    Args:
+        tag: Raw tag string as found in frontmatter (e.g. ``'Python 3.10'``).
+
+    Returns:
+        URL-safe slug string (e.g. ``'python-310'``), or ``'untagged'``.
+    """
+    slug = unicodedata.normalize("NFKD", tag)
+    slug = "".join(c for c in slug if not unicodedata.combining(c))
+    slug = slug.lower()
+    slug = re.sub(r"[^\w\s-]", "", slug, flags=re.ASCII)
+    slug = re.sub(r"\s+", "-", slug).strip("-")
+    return slug or "untagged"
 
 
 def _extract_frontmatter_slug(content: str) -> str | None:
@@ -214,6 +462,207 @@ def _extract_frontmatter_slug(content: str) -> str | None:
     if slug_match is None:
         return None
     return slug_match.group(1).strip()
+
+
+# ── Config navigation parser (navbar) ────────────────────────────────────────
+
+# Matches: to: '/docs/intro' or to: "/docs/intro"
+_NAVBAR_TO_RE = re.compile(r"""(?<!\w)to\s*:\s*['"]([^'"]+)['"]""")
+
+# Matches: docId: 'guide/install' or docId: "guide/install"
+_NAVBAR_DOC_ID_RE = re.compile(r"""(?<!\w)docId\s*:\s*['"]([a-zA-Z0-9][a-zA-Z0-9_/\-.]*?)['"]""")
+
+
+def _parse_config_navigation(
+    config_path: Path,
+    docs_root: Path,
+    base_url: str,
+    route_base_path: str | None,
+) -> frozenset[str]:
+    """Extract doc paths from ``navbar`` declarations in ``docusaurus.config.*``.
+
+    Docusaurus navbar items use two patterns to reference docs:
+
+    * ``docId: 'guide/install'`` — a direct doc ID (same as sidebar IDs).
+    * ``to: '/docs/guide/install'`` — a URL path that must be stripped of
+      ``base_url`` and ``routeBasePath`` prefixes to recover the doc ID.
+
+    Navbar and footer links do **not** create new routes in Docusaurus — routing
+    is file-system driven by the docs plugin.  However, from a UX-discoverability
+    standpoint, files linked from the navbar are reachable by users, so Zenzic
+    must mark them ``REACHABLE`` even when they are absent from the sidebar.
+
+    Extracted IDs are resolved to physical files by probing ``.md`` / ``.mdx``
+    (and ``index.md`` / ``index.mdx`` for directory IDs), identical to the
+    sidebar parser.  IDs with no matching file are silently dropped.
+
+    Args:
+        config_path:       Path to ``docusaurus.config.ts`` or ``.js``.
+        docs_root:         Absolute path to the ``docs/`` directory.
+        base_url:          Extracted ``baseUrl`` (e.g. ``'/'`` or ``'/project/'``).
+        route_base_path:   Extracted ``routeBasePath`` (e.g. ``'docs'`` or ``''``).
+                           ``None`` means not set → Docusaurus default ``'docs'``.
+
+    Returns:
+        Frozenset of posix paths with extension relative to ``docs_root``
+        (e.g. ``frozenset({'changelog.md', 'guide/install.mdx'})``).
+        Empty frozenset when nothing resolves.
+    """
+    try:
+        raw = config_path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return frozenset()
+
+    content = _strip_js_comments(raw)
+
+    # Normalise prefixes to strip from `to:` URL paths.
+    rbp = (route_base_path if route_base_path is not None else "docs").strip("/")
+    bu = base_url.strip("/")
+
+    raw_ids: set[str] = set()
+
+    # Pattern A: docId: 'some-id'  — direct doc ID, no prefix stripping needed.
+    for m in _NAVBAR_DOC_ID_RE.finditer(content):
+        raw_ids.add(m.group(1))
+
+    # Pattern B: to: '/docs/guide/install'  — strip base_url + routeBasePath.
+    for m in _NAVBAR_TO_RE.finditer(content):
+        url_path = m.group(1).strip("/")
+        # Strip baseUrl prefix first (e.g. 'my-project/docs/intro' → 'docs/intro')
+        if bu and url_path.startswith(bu + "/"):
+            url_path = url_path[len(bu) + 1 :]
+        elif bu and url_path == bu:
+            url_path = ""
+        # Strip routeBasePath prefix (e.g. 'docs/intro' → 'intro')
+        if rbp and url_path.startswith(rbp + "/"):
+            url_path = url_path[len(rbp) + 1 :]
+        elif rbp and url_path == rbp:
+            url_path = ""
+        if url_path:
+            raw_ids.add(url_path)
+
+    # Resolve IDs to physical files — same logic as _parse_sidebars.
+    nav_paths: set[str] = set()
+    for id_ in raw_ids:
+        for ext in (".md", ".mdx"):
+            candidate = docs_root / (id_ + ext)
+            if candidate.exists():
+                nav_paths.add(id_ + ext)
+                break
+        else:
+            for ext in (".md", ".mdx"):
+                candidate = docs_root / id_ / ("index" + ext)
+                if candidate.exists():
+                    nav_paths.add(f"{id_}/index{ext}")
+                    break
+
+    _log.debug(
+        "config navigation parser: %d raw IDs → %d resolved paths from %s",
+        len(raw_ids),
+        len(nav_paths),
+        config_path.name,
+    )
+    return frozenset(nav_paths)
+
+
+# ── Sidebar parser ────────────────────────────────────────────────────────────
+
+_SIDEBAR_AUTOGENERATED_RE = re.compile(r"""type\s*:\s*['"]autogenerated['"]""")
+_SIDEBAR_DOC_ID_RE = re.compile(r"""(?<!\w)id\s*:\s*['"]([a-zA-Z0-9][a-zA-Z0-9_/\-.]*?)['"]""")
+_SIDEBAR_ARRAY_STRING_RE = re.compile(
+    r"""(?:[\[,{]\s*|^\s*)['"]([a-zA-Z0-9][a-zA-Z0-9_/\-.]+)['"]""",
+    re.MULTILINE,
+)
+_SIDEBAR_NON_ID_VALUES: frozenset[str] = frozenset(
+    {
+        "doc",
+        "category",
+        "link",
+        "html",
+        "autogenerated",
+        "ref",
+        "generated-index",
+        "ts",
+        "js",
+        "mjs",
+    }
+)
+
+_log_sidebar = logging.getLogger(__name__)
+
+
+def _parse_sidebars(sidebar_path: Path, docs_root: Path) -> frozenset[str] | None:
+    """Parse ``sidebars.ts`` or ``sidebars.js`` and return explicit nav paths.
+
+    Resolution rules (Pillar 2 — no Node.js):
+
+    1. If the file contains ``type: 'autogenerated'`` anywhere, return ``None``
+       to signal "keep current all-REACHABLE behaviour".
+    2. Otherwise extract doc IDs from two patterns:
+
+       * ``{type: 'doc', id: 'foo/bar'}`` — explicit doc object.
+       * Bare string literals in array/object contexts: ``['intro', 'guide/install']``.
+
+    3. Resolve each raw ID to a physical file by probing ``.md`` then ``.mdx``
+       (and ``index.md`` / ``index.mdx`` for directory IDs).  IDs with no
+       matching file are silently dropped — false positives from label strings
+       are naturally filtered by file-existence.
+
+    Args:
+        sidebar_path: Absolute path to ``sidebars.ts`` or ``sidebars.js``.
+        docs_root:    Absolute path to the ``docs/`` directory.
+
+    Returns:
+        ``None`` — autogenerated mode detected; caller should use ``frozenset()``
+                   so all files remain ``REACHABLE`` (current behaviour preserved).
+        ``frozenset[str]`` — posix paths *with* extension relative to ``docs_root``
+                             (e.g. ``'guide/install.md'``).  May be empty when no
+                             IDs resolve to disk files.
+    """
+    try:
+        content = sidebar_path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        _log_sidebar.debug(
+            "sidebar parser: cannot read %s — falling back to autogenerated mode",
+            sidebar_path,
+        )
+        return None
+
+    if _SIDEBAR_AUTOGENERATED_RE.search(content):
+        _log_sidebar.debug(
+            "sidebar parser: 'autogenerated' detected in %s — all files REACHABLE",
+            sidebar_path.name,
+        )
+        return None
+
+    raw_ids: set[str] = set()
+    for m in _SIDEBAR_DOC_ID_RE.finditer(content):
+        raw_ids.add(m.group(1))
+    for m in _SIDEBAR_ARRAY_STRING_RE.finditer(content):
+        val = m.group(1)
+        if val not in _SIDEBAR_NON_ID_VALUES:
+            raw_ids.add(val)
+
+    nav_paths: set[str] = set()
+    for id_ in raw_ids:
+        for ext in (".md", ".mdx"):
+            candidate = docs_root / (id_ + ext)
+            if candidate.exists():
+                nav_paths.add(id_ + ext)
+                break
+        else:
+            for ext in (".md", ".mdx"):
+                candidate = docs_root / id_ / ("index" + ext)
+                if candidate.exists():
+                    nav_paths.add(f"{id_}/index{ext}")
+                    break
+
+    _log_sidebar.debug(
+        "sidebar parser: explicit nav — %d raw IDs → %d resolved paths",
+        len(raw_ids),
+        len(nav_paths),
+    )
+    return frozenset(nav_paths)
 
 
 # ── Adapter ───────────────────────────────────────────────────────────────────
@@ -281,11 +730,41 @@ class DocusaurusAdapter:
         # Slug map: rel_posix → slug.  Populated by set_slug_map().
         self._slug_map: dict[str, str] = {}
 
+        # Sidebar path — set by from_repo() when sidebars.ts or sidebars.js exists.
+        # None means "no sidebar file found"; get_nav_paths() returns frozenset() (all REACHABLE).
+        self._sidebar_path: Path | None = None
+
+        # Config navigation paths — doc IDs extracted from navbar items in
+        # docusaurus.config.*  Set eagerly by from_repo() so that get_nav_paths()
+        # remains a pure aggregator with no I/O.
+        self._navbar_paths: frozenset[str] = frozenset()
+
+        # EPOCH 7a Multi-Root Discovery — blog plugin metadata.
+        # Set eagerly by ``from_repo()`` when ``<repo>/blog`` exists or the
+        # config declares the blog plugin.  ``_blog_root`` is the absolute
+        # path to the blog content directory; ``_blog_route_base_path`` is the
+        # URL prefix the engine will use (default ``'blog'``).
+        self._blog_root: Path | None = None
+        self._blog_route_base_path: str = "blog"
+
+        # Sibling content-docs plugin instances (e.g. ``/developers/``).
+        # Each tuple is ``(instance_id, route_base_path)``.  Populated by
+        # ``from_repo()`` from the ``plugins: [ ... ]`` array OR from a
+        # filesystem heuristic when static parsing fails.  Drives
+        # :meth:`get_absolute_url_prefixes` so cross-plugin absolute links
+        # bypass Z105 without any user-side config (Zero-Config invariant).
+        self._content_docs_instances: tuple[tuple[str, str], ...] = ()
+
     def set_slug_map(self, md_contents: dict[Path, str]) -> None:
         """Pre-compute the slug map from frontmatter of all loaded files.
 
         Must be called before ``map_url()`` to enable frontmatter slug
         overrides.  Safe to call multiple times (last call wins).
+
+        EPOCH 7a: also handles blog files when ``_blog_root`` is set — the
+        slug map key for those files is the blog-prefixed logical path
+        (e.g. ``blog/2026-04-12-foo.mdx``) so ``map_url()`` can resolve it
+        without a second dispatch.
 
         Args:
             md_contents: Pre-loaded mapping of absolute ``Path`` → raw content.
@@ -294,11 +773,17 @@ class DocusaurusAdapter:
         for abs_path, content in md_contents.items():
             try:
                 rel = abs_path.relative_to(self._docs_root)
+                key = rel.as_posix()
             except ValueError:
-                continue
+                # Not under docs_root — try the blog root with prefix injection.
+                if self._blog_root is not None and abs_path.is_relative_to(self._blog_root):
+                    rel = abs_path.relative_to(self._blog_root)
+                    key = (Path(self._blog_route_base_path) / rel).as_posix()
+                else:
+                    continue
             slug = _extract_frontmatter_slug(content)
             if slug is not None:
-                slugs[rel.as_posix()] = slug
+                slugs[key] = slug
         self._slug_map = slugs
 
     # ── BaseAdapter protocol ───────────────────────────────────────────────
@@ -312,7 +797,7 @@ class DocusaurusAdapter:
         if not self._fallback_to_default:
             return None
         fallback = remap_to_default_locale(missing_abs, docs_root, self._locale_dirs)
-        return fallback if fallback is not None and fallback.exists() else None
+        return fallback if fallback is not None and case_sensitive_exists(fallback) else None
 
     def resolve_anchor(
         self,
@@ -356,18 +841,57 @@ class DocusaurusAdapter:
         return {"_*"}
 
     def get_nav_paths(self) -> frozenset[str]:
-        """Return nav-listed paths.
+        """Return all navigation-declared paths, or frozenset() when autogenerated.
 
-        With auto-generated sidebar (the Docusaurus default), all ``.md`` and
-        ``.mdx`` files are navigable.  This method returns an empty frozenset
-        to signal "no explicit nav" — ``classify_route()`` treats all files as
-        ``REACHABLE`` in that case (same semantics as MkDocs without nav).
+        Aggregates two sources of UX-discoverable doc paths:
+
+        1. **Sidebar** (``sidebars.ts`` / ``sidebars.js``) — explicit doc IDs
+           listed in the sidebar tree.
+        2. **Config navigation** (``docusaurus.config.*`` navbar items) — docs
+           linked via ``to:`` URL paths or ``docId:`` attributes.
+
+        A file absent from **both** sources is a true orphan (Z402): it exists
+        on disk, has a Docusaurus-generated URL, but is not discoverable by
+        users through any UI entry point.
+
+        Returns ``frozenset()`` (no explicit nav → all files ``REACHABLE``) when:
+
+        - No sidebar file is present (from_repo was not used, or the file does
+          not exist) — backwards-compatible behaviour.
+        - The sidebar uses ``type: 'autogenerated'`` — Docusaurus shows all
+          docs in the sidebar, so all are discoverable.
+
+        Returns:
+            Frozenset of posix paths with extension relative to ``docs_root``
+            (e.g. ``frozenset({'intro.mdx', 'guide/install.md'})``), or an
+            empty frozenset signalling "no explicit nav".
         """
+        if self._sidebar_path is not None:
+            sidebar_paths = _parse_sidebars(self._sidebar_path, self._docs_root)
+            if sidebar_paths is not None:
+                # Explicit sidebar: merge with navbar paths.
+                # A file is REACHABLE if it appears in the sidebar UI OR the navbar UI.
+                return sidebar_paths | self._navbar_paths
+        # Autogenerated or no sidebar: all files are already REACHABLE.
         return frozenset()
 
     def has_engine_config(self) -> bool:
         """``True`` — DocusaurusAdapter is constructed only when a config exists."""
         return True
+
+    def get_metadata_files(self) -> frozenset[str]:
+        """Docusaurus configuration and sidebar files — shielded from Z903."""
+        return frozenset(
+            {
+                "docusaurus.config.ts",
+                "docusaurus.config.js",
+                "docusaurus.config.mjs",
+                "sidebars.ts",
+                "sidebars.js",
+                "versions.json",
+                "_category_.json",
+            }
+        )
 
     # ── VSM integration ────────────────────────────────────────────────────
 
@@ -410,32 +934,57 @@ class DocusaurusAdapter:
         """
         rel_posix = rel.as_posix()
 
+        # ── EPOCH 7a: blog plugin routing ──
+        # Blog files arrive with the route_base_path prefix injected by the
+        # caller (e.g. ``blog/2026-04-12-foo.mdx``).  Routing rules diverge
+        # from docs:
+        #   • No routeBasePath stacking: the blog prefix IS the route base.
+        #   • Slug derivation strips the leading ``YYYY-MM-DD-`` date segment
+        #     when present (Docusaurus blog convention).
+        #   • Frontmatter ``slug:`` always wins.
+        if self._blog_root is not None and rel.parts and rel.parts[0] == self._blog_route_base_path:
+            slug_override = self._slug_map.get(rel_posix)
+            if slug_override is not None:
+                clean = slug_override.strip("/")
+                if not clean:
+                    return "/" + self._blog_route_base_path + "/"
+                if slug_override.startswith("/"):
+                    # Absolute slug bypasses the blog prefix per Docusaurus spec.
+                    return "/" + clean + "/"
+                return "/" + self._blog_route_base_path + "/" + clean + "/"
+            # Filename-derived slug: strip extension and leading date.
+            stem = rel.with_suffix("").name
+            if stem.lower() in ("readme", "index"):
+                return "/" + self._blog_route_base_path + "/"
+            slug = _strip_blog_date_prefix(stem)
+            return "/" + self._blog_route_base_path + "/" + slug + "/"
+
         # ── Stage 1: frontmatter slug override ──
-        slug = self._slug_map.get(rel_posix)
-        if slug is not None:
-            if slug.startswith("/"):
+        mapped_slug = self._slug_map.get(rel_posix)
+        if mapped_slug is not None:
+            if mapped_slug.startswith("/"):
                 # Absolute slug: always prefixed with routeBasePath.
                 # Docusaurus: permalink = normalizeUrl([versionMetadata.path, docSlug])
                 # where versionMetadata.path IS the routeBasePath.
                 rbp = self._route_base_path if self._route_base_path is not None else "docs"
-                url = slug.rstrip("/") or ""
+                url = mapped_slug.rstrip("/") or ""
                 if rbp:
                     return "/" + rbp + url + "/"
                 return url + "/" if url else "/"
             # Relative slug: replace the last path segment
             parent = rel.parent
             if parent == Path("."):
-                return "/" + slug.strip("/") + "/"
-            return "/" + parent.as_posix() + "/" + slug.strip("/") + "/"
+                return "/" + mapped_slug.strip("/") + "/"
+            return "/" + parent.as_posix() + "/" + mapped_slug.strip("/") + "/"
 
         # ── Stage 2: filesystem-derived URL ──
         # Strip .md / .mdx extension
-        stem = rel.with_suffix("")
-        if stem.suffix == ".":
+        stem_path = rel.with_suffix("")
+        if stem_path.suffix == ".":
             # Handle edge case: file with no real stem after stripping
-            stem = stem.with_suffix("")
+            stem_path = stem_path.with_suffix("")
 
-        parts = list(stem.parts)
+        parts = list(stem_path.parts)
 
         locale = None
         if parts and parts[0] in self._locale_dirs:
@@ -517,6 +1066,11 @@ class DocusaurusAdapter:
         if any(part.startswith("_") for part in non_sentinel_parts):
             return "IGNORED"
 
+        # EPOCH 7a: blog posts are always reachable through the blog plugin
+        # (paginated index, archive, tags).  No sidebar/nav membership needed.
+        if self._blog_root is not None and rel.parts and rel.parts[0] == self._blog_route_base_path:
+            return "REACHABLE"
+
         # Draft files: check is deferred to frontmatter parsing (future).
 
         # Version Ghost Routes: all files under a known versioned_docs tree are REACHABLE.
@@ -562,6 +1116,20 @@ class DocusaurusAdapter:
         from zenzic.core.adapters._base import RouteMetadata
 
         rel_posix = rel.as_posix()
+
+        # EPOCH 7a: blog files take a dedicated routing fast-path.  Their
+        # canonical URL, status, and route_base_path are all derived from
+        # the blog plugin metadata, never from the docs sidebar.
+        if self._blog_root is not None and rel.parts and rel.parts[0] == self._blog_route_base_path:
+            return RouteMetadata(
+                canonical_url=self.map_url(rel),
+                status="REACHABLE",
+                slug=self._slug_map.get(rel_posix),
+                route_base_path=self._blog_route_base_path,
+                is_proxy=False,
+                version=None,
+            )
+
         slug = self._slug_map.get(rel_posix)
 
         canonical_url = self.map_url(rel)
@@ -624,6 +1192,16 @@ class DocusaurusAdapter:
                 return True  # conservative: assume it provides an index
         return False
 
+    def get_link_scheme_bypasses(self) -> frozenset[str]:
+        """Return ``{"pathname"}`` — the Docusaurus static-asset routing escape hatch.
+
+        Docusaurus uses ``pathname:///`` links to reference files under ``static/``
+        that bypass the React router.  The leading ``/`` in the path component is a
+        URI convention artifact, not a server-absolute path — suppressing Z105 for
+        these links is correct and intentional (Rule R16, CEO-055).
+        """
+        return frozenset({"pathname"})
+
     # ── Factory hook ───────────────────────────────────────────────────────
 
     @classmethod
@@ -670,7 +1248,75 @@ class DocusaurusAdapter:
                 pass
 
         route_base_path = _extract_route_base_path(config_path) if config_path else None
-        return cls(context, docs_root, base_url, route_base_path, versions)
+
+        sidebar_path: Path | None = None
+        for _sidebar_name in ("sidebars.ts", "sidebars.js"):
+            _candidate = repo_root / _sidebar_name
+            if _candidate.is_file():
+                sidebar_path = _candidate
+                break
+
+        navbar_paths: frozenset[str] = frozenset()
+        if config_path is not None:
+            navbar_paths = _parse_config_navigation(
+                config_path, docs_root, base_url, route_base_path
+            )
+
+        inst = cls(context, docs_root, base_url, route_base_path, versions)
+        inst._sidebar_path = sidebar_path
+        inst._navbar_paths = navbar_paths
+
+        # ── EPOCH 7a Multi-Root Discovery: blog plugin auto-detection ──
+        # Resolution order:
+        #   1. Static parse of docusaurus.config.* for ``blog: { ... }``.
+        #   2. Convention-over-config: if ``<repo>/blog`` exists, assume the
+        #      default plugin layout (``path = 'blog'``, ``rbp = 'blog'``).
+        #   3. Otherwise the blog plugin is absent — leave ``_blog_root`` None.
+        blog_meta: tuple[str, str] | None = None
+        if config_path is not None:
+            blog_meta = _extract_blog_config(config_path)
+        if blog_meta is None and (repo_root / "blog").is_dir():
+            blog_meta = ("blog", "blog")
+        if blog_meta is not None:
+            blog_path_str, blog_rbp = blog_meta
+            blog_root = (repo_root / blog_path_str).resolve()
+            if blog_root.is_dir():
+                inst._blog_root = blog_root
+                inst._blog_route_base_path = blog_rbp
+
+        # ── Multi-instance content-docs plugin auto-detection ──
+        # Resolution order:
+        #   1. Static parse of docusaurus.config.* for entries of the form
+        #      ``['@docusaurus/plugin-content-docs', { id, routeBasePath }]``.
+        #   2. Filesystem heuristic: pair every top-level repo directory with
+        #      a sibling ``i18n/<locale>/docusaurus-plugin-content-docs-<id>/``
+        #      folder.  When both exist, the directory name doubles as the
+        #      route base path — covering projects whose config defeats static
+        #      parsing while still preserving Zero Subprocess.
+        instances: list[tuple[str, str]] = []
+        if config_path is not None:
+            instances.extend(_extract_content_docs_instances(config_path))
+
+        if not instances:
+            i18n_root = repo_root / "i18n"
+            if i18n_root.is_dir():
+                seen: set[str] = set()
+                for locale_dir in sorted(p for p in i18n_root.iterdir() if p.is_dir()):
+                    for plugin_dir in locale_dir.iterdir():
+                        name = plugin_dir.name
+                        prefix = "docusaurus-plugin-content-docs-"
+                        if not (plugin_dir.is_dir() and name.startswith(prefix)):
+                            continue
+                        instance_id = name[len(prefix) :]
+                        if not instance_id or instance_id in seen:
+                            continue
+                        if (repo_root / instance_id).is_dir():
+                            seen.add(instance_id)
+                            instances.append((instance_id, instance_id))
+
+        inst._content_docs_instances = tuple(instances)
+
+        return inst
 
     def get_locale_source_roots(self, repo_root: Path) -> list[tuple[Path, str]]:
         """Return (locale_root, locale_name) pairs for all configured locales.
@@ -716,3 +1362,143 @@ class DocusaurusAdapter:
                     result.append((vl_root, f"{locale}/_version_/{version}"))
 
         return result
+
+    def get_extra_content_roots(self, repo_root: Path) -> list[ContentRoot]:
+        """Return out-of-tree content roots — currently the Docusaurus blog/.
+
+        EPOCH 7a Multi-Root Discovery.  Honours auto-detection performed in
+        :meth:`from_repo`: when the blog plugin is active and its content
+        directory exists on disk, it is returned as a single
+        :class:`ContentRoot`.  Otherwise the list is empty.
+
+        Args:
+            repo_root: Absolute repository root.
+
+        Returns:
+            [ContentRoot(blog_root, blog_route_base_path, 'docusaurus-blog')]
+            when blog content exists; [] otherwise.
+        """
+        from zenzic.core.adapters._base import ContentRoot
+
+        if self._blog_root is None or not self._blog_root.is_dir():
+            return []
+        return [
+            ContentRoot(
+                path=self._blog_root,
+                url_prefix=self._blog_route_base_path,
+                label="docusaurus-blog",
+            )
+        ]
+
+    def get_absolute_url_prefixes(self, repo_root: Path) -> frozenset[str]:
+        """Return absolute URL prefixes owned by this Docusaurus project.
+
+        Yields one prefix per active routing surface so cross-plugin links
+        (the canonical multi-instance Docusaurus pattern) bypass Z105
+        ABSOLUTE_PATH without any user-side configuration:
+
+        - The default docs instance — ``/<route_base_path>/`` (commonly
+          ``/docs/``; ``''`` means "served at the site root" which yields
+          no prefix because every internal link would then start with
+          ``/`` and the suppression would be vacuous).
+        - The blog plugin — ``/<blog_route_base_path>/`` when the EPOCH 7a
+          auto-detection located a blog content directory.
+        - Every sibling ``@docusaurus/plugin-content-docs`` instance whose
+          ``routeBasePath`` was discovered by ``from_repo`` (static parse
+          of the JS/TS config or filesystem heuristic).
+
+        Each prefix is normalised to ``/<segment>/`` so ``startswith``
+        matches the route boundary (``/developers/intro`` matches but
+        ``/developers-only/`` does not).
+
+        Args:
+            repo_root: Absolute repository root.
+
+        Returns:
+            A ``frozenset`` of absolute URL prefixes (each starting and
+            ending with ``/``).
+        """
+        prefixes: set[str] = set()
+
+        rbp = self._route_base_path if self._route_base_path is not None else "docs"
+        if rbp:
+            prefixes.add(f"/{rbp.strip('/')}/")
+
+        if self._blog_root is not None and self._blog_route_base_path:
+            prefixes.add(f"/{self._blog_route_base_path.strip('/')}/")
+
+        for _instance_id, route_base_path in self._content_docs_instances:
+            if route_base_path:
+                prefixes.add(f"/{route_base_path.strip('/')}/")
+
+        return frozenset(prefixes)
+
+    def get_virtual_routes(self, md_contents: dict[Path, str]) -> list[object]:
+        """Return engine-generated virtual routes derived from blog frontmatter.
+
+        EPOCH 7b Virtual Frontier.  Reads ``tags:`` from every blog post in
+        ``md_contents``, slugifies each tag value, and emits one
+        :class:`~zenzic.core.adapters._base.VirtualRoute` per unique slug plus
+        one ``tag_index`` route for the ``/{blog_rbp}/tags/`` listing page.
+
+        Complements :meth:`get_extra_content_roots` (EPOCH 7a): where that
+        method makes the physical blog posts visible to the VSM, this method
+        makes the *engine-generated pages* (tag listing pages, etc.) visible
+        so that links pointing at them are not incorrectly flagged as broken.
+
+        Args:
+            md_contents: Pre-loaded mapping of absolute ``Path`` \u2192 raw Markdown.
+                         Same object passed to ``build_vsm()``.
+
+        Returns:
+            List of :class:`VirtualRoute` objects.  Empty when
+            ``_blog_root`` is ``None`` (blog plugin disabled) or when no
+            blog posts carry any ``tags:`` frontmatter.
+        """
+        from zenzic.core.adapters._base import VirtualRoute
+
+        if self._blog_root is None:  # CEO guard: blog plugin disabled
+            return []
+
+        tag_sources: dict[str, set[str]] = {}
+        all_tagged_files: set[str] = set()
+
+        for abs_path, content in md_contents.items():
+            if not abs_path.is_relative_to(self._blog_root):
+                continue
+            inner = abs_path.relative_to(self._blog_root)
+            logical_rel = (Path(self._blog_route_base_path) / inner).as_posix()
+            tags = extract_frontmatter_tags(content)
+            has_valid_tag = False
+            for raw_tag in tags:
+                slug = _slugify_tag(raw_tag)
+                if slug and slug != "untagged":
+                    tag_sources.setdefault(slug, set()).add(logical_rel)
+                    has_valid_tag = True
+            if has_valid_tag:
+                all_tagged_files.add(logical_rel)
+
+        routes: list[VirtualRoute] = []
+        for slug, sources in tag_sources.items():
+            routes.append(
+                VirtualRoute(
+                    url=f"/{self._blog_route_base_path}/tags/{slug}/",
+                    label=f"tag:{slug}",
+                    source_files=frozenset(sources),
+                    kind="tag",
+                )
+            )
+
+        # tag_index: /{blog_rbp}/tags/ — index of all tag listing pages.
+        # source_files = union of all blog files with at least one valid tag.
+        if all_tagged_files:
+            routes.append(
+                VirtualRoute(
+                    url=f"/{self._blog_route_base_path}/tags/",
+                    label="tag_index",
+                    source_files=frozenset(all_tagged_files),
+                    kind="tag_index",
+                )
+            )
+
+        return routes  # type: ignore[return-value]

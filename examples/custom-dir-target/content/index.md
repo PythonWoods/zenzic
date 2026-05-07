@@ -10,7 +10,7 @@ rather than the conventional `docs/` directory.
 
 Many static-site generators — Hugo, Docusaurus, Astro, Hexo — use `content/`
 or `pages/` as the source root. Zenzic works with any of them: pass the
-directory as a positional argument and the engine-agnostic VanillaAdapter
+directory as a positional argument and the `StandaloneAdapter`
 is selected automatically.
 
 ## Getting Started

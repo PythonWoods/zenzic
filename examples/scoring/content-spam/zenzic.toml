@@ -1,0 +1,19 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# zenzic.toml — Scoring Demo: Category Cap in Action (Z505)
+#
+# This fixture contains 100 untagged code blocks (Z505).
+# The Quartz Penalty Table caps content deductions at 30 points.
+# Even with 100 violations (100 × 1.0 = 100 pts of potential deduction),
+# the content category floor is 0 — it cannot go negative.
+#
+# Result:
+#   structural(40) + content(0) + navigation(20) + brand(10) = 70/100
+#
+# This proves the Category Cap invariant: no single category can drag
+# the total score below 70 (for content), or below 80/90 for others.
+#
+# Run: zenzic score
+# Expected: Score 70/100 · content category = 0/100 · no security override
+
+docs_dir = "docs"

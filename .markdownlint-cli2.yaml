@@ -8,9 +8,16 @@
 #   MD051 — MkDocs Material { #custom-id } anchor syntax is not resolved statically by
 #            markdownlint. Zenzic handles these correctly via slug_heading() since v0.4.0.
 
+gitignore: true
+
 overrides:
   - files: ["CHANGELOG.md"]
     config:
       # Keep a Changelog uses repeated ### Added / ### Fixed / ### Changed
       # headings under each version block — this is intentional and correct.
       MD024: false
+  - files: ["examples/scoring/**/*.md"]
+    config:
+      # Scoring fixtures may have intentional heading/frontmatter combinations
+      # (e.g. security-base64/secret.md: frontmatter title + H1 = Shield Z201 trigger).
+      MD025: false

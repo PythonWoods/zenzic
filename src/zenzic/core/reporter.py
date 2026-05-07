@@ -4,17 +4,17 @@
 
 from __future__ import annotations
 
+import shutil
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 
-from rich.console import Console, Group, RenderableType
+from rich.console import Console, RenderableType
 from rich.markup import escape as _esc
-from rich.panel import Panel
 from rich.rule import Rule
 from rich.text import Text
 
-from zenzic.ui import AMBER, BLOOD, EMERALD, INDIGO, ROSE, SLATE, emoji
+from zenzic.core.ui import SentinelPalette, emoji
 
 
 @dataclass(slots=True)
@@ -32,11 +32,11 @@ class Finding:
 
 
 _SEVERITY_STYLE: dict[str, str] = {
-    "error": f"bold {ROSE}",
-    "warning": f"bold {AMBER}",
-    "info": f"bold {INDIGO}",
-    "security_breach": f"bold white on {ROSE}",
-    "security_incident": f"bold white on {BLOOD}",
+    "error": SentinelPalette.STYLE_ERR,
+    "warning": SentinelPalette.STYLE_WARN,
+    "info": SentinelPalette.STYLE_BRAND,
+    "security_breach": f"bold white on {SentinelPalette.ERROR}",
+    "security_incident": f"bold white on {SentinelPalette.FATAL}",
 }
 
 
@@ -110,25 +110,38 @@ def _render_snippet(
         is_err = cur == line_no
         num = str(cur).rjust(gutter_w)
 
+        # Prefix overhead: "    {num}  ❱  " or "    {num}  │  "
+        # = 4 + gutter_w + 2 + 3 = 9 + gutter_w visual chars.
+        # Keep source display within 2/3 of the terminal width so long lines
+        # don't wrap and misalign the caret row below.
+        term_cols = shutil.get_terminal_size(fallback=(120, 24)).columns
+        max_src = max(20, term_cols - 9 - gutter_w)
+
         t = Text()
-        t.append(f"    {num}  ", style=SLATE)
+        t.append(f"    {num}  ", style=SentinelPalette.DIM)
         if is_err:
-            t.append("❱  ", style=f"bold {ROSE}")
-            t.append(src)
+            t.append("❱  ", style=SentinelPalette.STYLE_ERR)
+            if len(src) > max_src:
+                t.append(src[: max_src - 1] + "…")
+            else:
+                t.append(src)
         else:
-            t.append("│  ", style=SLATE)
-            t.append(src, style="dim")
+            t.append("│  ", style=SentinelPalette.DIM)
+            if len(src) > max_src:
+                t.append(src[: max_src - 1] + "…", style="dim")
+            else:
+                t.append(src, style="dim")
         result.append(t)
 
-        # Surgical caret: only when the checker provided native position data
-        # and the caret won't be misaligned by terminal line-wrapping.
+        # Surgical caret: render only when the checker provided native position data
+        # AND the caret falls within the visible (non-truncated) portion of the line.
         if is_err and match_text and col_start >= 0:
             caret_len = len(match_text)
-            if col_start + caret_len <= 60:
+            if col_start + caret_len <= max_src:
                 ct = Text()
-                ct.append(f"    {' ' * gutter_w}  ", style=SLATE)
-                ct.append("│  ", style=SLATE)
-                ct.append(" " * col_start + "^" * caret_len, style=f"bold {ROSE}")
+                ct.append(f"    {' ' * gutter_w}  ", style=SentinelPalette.DIM)
+                ct.append("│  ", style=SentinelPalette.DIM)
+                ct.append(" " * col_start + "^" * caret_len, style=SentinelPalette.STYLE_ERR)
                 result.append(ct)
 
     return result
@@ -188,6 +201,7 @@ class SentinelReporter:
         """
         errors = sum(1 for f in findings if f.severity == "error")
         warnings = sum(1 for f in findings if f.severity == "warning")
+        info_total = sum(1 for f in findings if f.severity == "info")
 
         # ── Split: breach findings get dedicated panels; rest goes to the grouped view
         breach_findings = [f for f in findings if f.severity == "security_breach"]
@@ -208,74 +222,76 @@ class SentinelReporter:
         if target is not None:
             parts.append(target)
         if total:
-            breakdown = f"([{INDIGO}]{docs_count}[/] docs, [{INDIGO}]{assets_count}[/] assets)"
-            parts.append(f"[{INDIGO}]{total}[/] file{'s' if total != 1 else ''} {breakdown}")
+            breakdown = f"([{SentinelPalette.BRAND}]{docs_count}[/] docs, [{SentinelPalette.BRAND}]{assets_count}[/] assets)"
+            parts.append(
+                f"[{SentinelPalette.BRAND}]{total}[/] file{'s' if total != 1 else ''} {breakdown}"
+            )
         if elapsed:
-            parts.append(f"[{INDIGO}]{elapsed:.1f}[/]s")
-        telemetry = Text.from_markup(f"[{SLATE}]{f' {dot} '.join(parts)}[/]")
+            parts.append(f"[{SentinelPalette.BRAND}]{elapsed:.1f}[/]s")
+            if total:
+                throughput = total / elapsed
+                parts.append(f"[{SentinelPalette.BRAND}]{throughput:.0f}[/] files/s")
+        telemetry = Text.from_markup(f"[{SentinelPalette.DIM}]{f' {dot} '.join(parts)}[/]")
 
-        # ── Security breach panels (rendered BEFORE main panel) ───────────────
+        # ── Security breach flat output (rendered BEFORE main findings) ──────
         if breach_findings:
             for bf in breach_findings:
                 obfuscated = _obfuscate_secret(bf.match_text) if bf.match_text else "[redacted]"
-                breach_body = Group(
-                    Text.from_markup(f"  {emoji('cross')} [bold]Finding:[/]    {_esc(bf.message)}"),
+                self._con.print()
+                self._con.print(
+                    Text("\u2718 SECURITY BREACH DETECTED", style="bold white on #8b0000")
+                )
+                self._con.print(
+                    Text.from_markup(f"  {emoji('cross')} [bold]Finding:[/]    {_esc(bf.message)}")
+                )
+                self._con.print(
                     Text.from_markup(
                         f"  {emoji('cross')} [bold]Location:[/]   "
                         f"[bold]{_esc(self._full_rel(bf.rel_path))}[/]:{bf.line_no}"
-                    ),
+                    )
+                )
+                self._con.print(
                     Text.from_markup(
                         f"  {emoji('cross')} [bold]Credential:[/] "
                         f"[bold reverse] {_esc(obfuscated)} [/]"
-                    ),
-                    Text(),
+                    )
+                )
+                self._con.print(Text())
+                self._con.print(
                     Text.from_markup(
                         "  [bold]Action:[/] Rotate this credential immediately "
                         "and purge it from the repository history."
-                    ),
-                )
-                self._con.print()
-                self._con.print(
-                    Panel(
-                        breach_body,
-                        title=f"[bold white on {ROSE}]  SECURITY BREACH DETECTED  ",
-                        title_align="center",
-                        border_style=f"bold {ROSE}",
-                        padding=(1, 2),
-                        expand=True,
                     )
                 )
 
         if not normal_findings and not breach_findings:
             # ── All-clear panel ───────────────────────────────────────────────
-            _ok = ok_message or "All checks passed. Your documentation is secure."
+            _ok = ok_message or (
+                f"[bold {SentinelPalette.SUCCESS}]Sentinel Seal:[/bold {SentinelPalette.SUCCESS}]"
+                f" [{SentinelPalette.SUCCESS}]All statically-detectable links, credentials,"
+                f" and references verified.[/{SentinelPalette.SUCCESS}]"
+            )
             _ok_items: list[RenderableType] = [
                 telemetry,
                 Text(),
-                Rule(style=SLATE),
+                Rule(style=SentinelPalette.DIM),
                 Text(),
-                Text.from_markup(f"[{EMERALD}]{emoji('check')} {_ok}[/]"),
+                Text.from_markup(f"{emoji('sparkles')} {_ok}")
+                if not ok_message
+                else Text.from_markup(f"[{SentinelPalette.SUCCESS}]{emoji('check')} {_ok}[/]"),
             ]
             if info_count:
                 _ok_items.append(Text())
                 _ok_items.append(
                     Text.from_markup(
-                        f"  [{SLATE}]{emoji('info')} {info_count} info finding"
+                        f" [{SentinelPalette.DIM}]{emoji('info')} {info_count} info finding"
                         f"{'s' if info_count != 1 else ''} suppressed"
                         f" — use --show-info for details.[/]"
                     )
                 )
             self._con.print()
-            self._con.print(
-                Panel(
-                    Group(*_ok_items),
-                    title=f"[bold white on {INDIGO}] {emoji('shield')}  ZENZIC SENTINEL  v{version} [/]",
-                    title_align="center",
-                    border_style=f"bold {INDIGO}",
-                    padding=(1, 2),
-                    expand=True,
-                )
-            )
+            for _item in _ok_items:
+                self._con.print(_item)
             return 0, 0
 
         # ── Grouped findings (non-breach only) ───────────────────────────────
@@ -286,13 +302,9 @@ class SentinelReporter:
         renderables: list[RenderableType] = []
         for rel_path in sorted(grouped):
             abs_path = self._docs_root / rel_path
-            # File separator — Rule with full project-relative path
-            renderables.append(Rule(self._full_rel(rel_path), style=SLATE))
-            renderables.append(Text())  # breathing after Rule
-
             for idx, f in enumerate(sorted(grouped[rel_path], key=lambda x: (x.line_no, x.code))):
                 if idx > 0:
-                    renderables.append(Text())  # breathing between findings
+                    renderables.append(Text())  # breathing between findings within a file
 
                 sev_icon = (
                     emoji("cross")
@@ -303,10 +315,15 @@ class SentinelReporter:
                 )
                 style = _SEVERITY_STYLE.get(f.severity, "dim")
                 msg = _strip_prefix(f.rel_path, f.line_no, f.message)
-                # Finding line
+                # Bold-cyan clickable location prefix (ruff-style, CEO-169)
+                loc = self._full_rel(f.rel_path)
+                if f.line_no > 0:
+                    loc += f":{f.line_no}"
+                    if f.col_start > 0:
+                        loc += f":{f.col_start}"
                 renderables.append(
                     Text.from_markup(
-                        f"  [{style}]{sev_icon}[/] [{style}]\\[{f.code}][/]  {_esc(msg)}"
+                        f"[bold cyan]{_esc(loc)}[/]  [{style}]{sev_icon}[/]  [{style}][{f.code}][/]  {_esc(msg)}"
                     )
                 )
                 # Snippet with native position data — no guessing
@@ -324,72 +341,97 @@ class SentinelReporter:
                         # Fallback: file unreadable, use source_line directly
                         gutter_w = len(str(f.line_no))
                         t = Text()
-                        t.append(f"    {str(f.line_no).rjust(gutter_w)}  ", style=SLATE)
-                        t.append("❱  ", style=f"bold {ROSE}")
+                        t.append(
+                            f"    {str(f.line_no).rjust(gutter_w)}  ", style=SentinelPalette.DIM
+                        )
+                        t.append("❱  ", style=SentinelPalette.STYLE_ERR)
                         t.append(f.source_line)
                         renderables.append(t)
 
             renderables.append(Text())  # spacing after file group
 
         # ── Summary (inside the panel) ────────────────────────────────────────
-        renderables.append(Rule(style=SLATE))
+        renderables.append(Rule(style=SentinelPalette.DIM))
         renderables.append(Text())  # breathing after Rule
-        summary_parts: list[str] = []
         incidents_count = sum(1 for f in normal_findings if f.severity == "security_incident")
+        summary_parts: list[str] = [f"[{SentinelPalette.DIM}]Summary:[/]"]
         if incidents_count:
             summary_parts.append(
-                f"[bold white on {BLOOD}]{emoji('cross')} {incidents_count}"
+                f"[bold white on {SentinelPalette.FATAL}]{emoji('cross')} {incidents_count}"
                 f" security incident{'s' if incidents_count != 1 else ''}[/]"
             )
-        if errors:
-            summary_parts.append(
-                f"[{ROSE}]{emoji('cross')} {errors} error{'s' if errors != 1 else ''}[/]"
-            )
-        if warnings:
-            summary_parts.append(
-                f"[{AMBER}]{emoji('warn')} {warnings} warning{'s' if warnings != 1 else ''}[/]"
-            )
+        summary_parts.append(
+            f"[{SentinelPalette.ERROR}]{emoji('cross')} {errors} error{'s' if errors != 1 else ''}[/]"
+        )
+        summary_parts.append(
+            f"[{SentinelPalette.WARNING}]{emoji('warn')} {warnings} warning{'s' if warnings != 1 else ''}[/]"
+        )
+        summary_parts.append(f"[{SentinelPalette.BRAND}]{emoji('info')} {info_total} info[/]")
         n_files = len(grouped)
         summary_parts.append(
-            f"[{SLATE}]{emoji('dot')} {n_files} file{'s' if n_files != 1 else ''} with findings[/]"
+            f"[{SentinelPalette.DIM}]{emoji('dot')} {n_files} file{'s' if n_files != 1 else ''} with findings[/]"
         )
         renderables.append(Text.from_markup("  ".join(summary_parts)))
 
         # ── Status line (verdict) ─────────────────────────────────────────────
         renderables.append(Text())  # breathing before verdict
-        has_failures = (incidents_count > 0) or (errors > 0) or (strict and warnings > 0)
+        has_hard_failures = (incidents_count > 0) or (errors > 0)
+        has_strict_failures = strict and warnings > 0
+        has_failures = has_hard_failures or has_strict_failures
         if has_failures:
-            renderables.append(
-                Text.from_markup(f"[bold {ROSE}]FAILED:[/] One or more checks failed.")
-            )
+            if has_hard_failures:
+                renderables.append(
+                    Text.from_markup(
+                        f"[bold {SentinelPalette.ERROR}]FAILED:[/]"
+                        " Hard errors detected. Exit code 1 is mandatory."
+                    )
+                )
+                if has_strict_failures:
+                    renderables.append(
+                        Text.from_markup(
+                            f"[bold {SentinelPalette.WARNING}]STRICT MODE:[/]"
+                            " Warnings have been promoted to errors."
+                        )
+                    )
+            else:
+                renderables.append(
+                    Text.from_markup(
+                        f"[bold {SentinelPalette.WARNING}]FAILED:[/]"
+                        " Warnings promoted to errors via --strict flag."
+                    )
+                )
         else:
-            _ok = ok_message or "All checks passed."
-            renderables.append(Text.from_markup(f"[{EMERALD}]{emoji('check')} {_ok}[/]"))
+            _ok = ok_message or (
+                f"[bold {SentinelPalette.SUCCESS}]Sentinel Seal:[/bold {SentinelPalette.SUCCESS}]"
+                f" [{SentinelPalette.SUCCESS}]All statically-detectable links, credentials,"
+                f" and references verified.[/{SentinelPalette.SUCCESS}]"
+            )
+            renderables.append(
+                Text.from_markup(f"{emoji('sparkles')} {_ok}")
+                if not ok_message
+                else Text.from_markup(f"[{SentinelPalette.SUCCESS}]{emoji('check')} {_ok}[/]")
+            )
 
         if info_count:
             renderables.append(Text())
             renderables.append(
                 Text.from_markup(
-                    f"  [{SLATE}]{emoji('info')} {info_count} info finding"
-                    f"{'s' if info_count != 1 else ''} suppressed"
-                    f" — use --show-info for details.[/]"
+                    f" [{SentinelPalette.DIM}]{emoji('info')} {info_count} info finding"
+                    f"{'s' if info_count != 1 else ''} hidden — use --show-info to display.[/]"
                 )
             )
 
-        # ── Single unified panel ──────────────────────────────────────────────
+        # ── Flat output (ruff-style, CEO-169) ──────────────────────────────────────
+        self._con.print()
+        self._con.print(telemetry)
+        self._con.print()
+        for _r in renderables:
+            self._con.print(_r)
+        # ── Usage hint ─────────────────────────────────────────────────────────────
         self._con.print()
         self._con.print(
-            Panel(
-                Group(telemetry, Text(), *renderables),
-                title=f"[bold white on {INDIGO}] {emoji('shield')}  ZENZIC SENTINEL  v{version} [/]",
-                title_align="center",
-                border_style=f"bold {INDIGO}",
-                padding=(1, 2),
-                expand=True,
-            )
+            Text.from_markup(f"[{SentinelPalette.DIM}]Try 'zenzic check --help' for options.[/]")
         )
-        # ── Usage hint (outside the audit box) ───────────────────────────────
-        self._con.print(Text.from_markup(f"[{SLATE}]Try 'zenzic check --help' for options.[/]"))
         return errors, warnings
 
     # ── Quiet mode (pre-commit) ──────────────────────────────────────────────

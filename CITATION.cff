@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2025 PythonWoods <dev@pythonwoods.dev>
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
 
 cff-version: 1.2.0
@@ -6,16 +6,16 @@ message: "If you use this software, please cite it as below."
 type: software
 authors:
   - name: "PythonWoods"
-    address: "https://pythonwoods.dev"
     email: "dev@pythonwoods.dev"
+    website: "https://pythonwoods.dev"
 title: "Zenzic: Resilient Static Content Analysis Framework"
 abstract: >-
   A high-performance, engine-agnostic framework for securing and validating
   Markdown-based documentation. Zenzic introduces Universal Discovery,
   VCS-aware exclusion mapping, and the Sentinel Shield middleware to provide
   a deterministic Safe Harbor for complex documentation lifecycles.
-version: 0.6.1
-date-released: 2026-04-19
+version: 0.7.0
+date-released: 2026-05-07
 url: "https://zenzic.dev"
 repository-code: "https://github.com/PythonWoods/zenzic"
 repository-artifact: "https://pypi.org/project/zenzic/"
@@ -23,6 +23,9 @@ license: Apache-2.0
 keywords:
   - static-analysis
   - documentation
+  - link-validation
+  - markdown
   - security-auditing
+  - re2
   - docusaurus
   - mkdocs

@@ -48,7 +48,7 @@ repos:
 
   # 5. REUSE/SPDX license compliance
   - repo: https://github.com/fsfe/reuse-tool
-    rev: v5.0.2
+    rev: v6.2.0
     hooks:
       - id: reuse
 
@@ -57,21 +57,32 @@ repos:
     hooks:
       - id: mypy
         name: Type Checking (mypy)
+        # language: system + uv run → uv reads pyproject.toml and installs all
+        # [project.dependencies] including google-re2. No additional_dependencies
+        # needed here (that's only for mirrors-mypy repo hooks that run in
+        # isolated virtualenvs outside the project's uv-managed environment).
         entry: uv run mypy src/
-        language: system
-        types: [python]
-        pass_filenames: false
-
-      - id: pytest
-        name: Run Tests (pytest)
-        entry: uv run pytest -q -x
         language: system
         types: [python]
         pass_filenames: false
 
       - id: zenzic
         name: Zenzic self-check
-        entry: uv run zenzic check all --strict
+        # --no-external: dev machine may be offline; CI pipelines omit this flag for full validation
+        entry: uv run zenzic check all --strict --no-external
         language: system
         types_or: [python, markdown, yaml]
         pass_filenames: false
+
+  # 7. Pre-push Final Guard (4-Gates Standard, EPOCH 4 / v0.7.0)
+  # Single entry-point: locale ≡ remote. Same `just verify` runs in GHA.
+  # Install with: uvx pre-commit install -t pre-push
+  - repo: local
+    hooks:
+      - id: just-verify
+        name: 🛡️ Zenzic Final Guard (just verify)
+        entry: just verify
+        language: system
+        stages: [pre-push]
+        pass_filenames: false
+        always_run: true

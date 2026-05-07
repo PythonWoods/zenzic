@@ -20,11 +20,13 @@ from _helpers import make_mgr
 
 from zenzic.core.adapter import (
     BaseAdapter,
+    DocusaurusAdapter,
     MkDocsAdapter,
     StandaloneAdapter,
     ZensicalAdapter,
     get_adapter,
 )
+from zenzic.core.adapters._factory import discover_engine
 from zenzic.core.exceptions import ConfigurationError
 from zenzic.core.scanner import find_orphans
 from zenzic.models.config import BuildContext, ZenzicConfig
@@ -45,6 +47,11 @@ def _zensical(repo: Path, nav: list[str] | None = None) -> None:
     (repo / "zensical.toml").write_text(
         f'[project]\nsite_name = "Test"\ndocs_dir = "docs"\nnav = [\n{nav_items}\n]\n'
     )
+
+
+def _docusaurus(repo: Path) -> None:
+    """Write a minimal docusaurus.config.ts into *repo*."""
+    (repo / "docusaurus.config.ts").write_text('module.exports = { title: "Test" };\n')
 
 
 # ── StandaloneAdapter unit tests ─────────────────────────────────────────────
@@ -137,6 +144,98 @@ def test_get_adapter_vanilla_engine_raises_configuration_error(tmp_path: Path) -
     context = BuildContext(engine="vanilla")
     with pytest.raises(ConfigurationError, match="Z000"):
         get_adapter(context, tmp_path / "docs", tmp_path)
+
+
+# ── discover_engine: Quartz Discovery Logic ───────────────────────────────────
+
+
+def test_discover_engine_empty_dir_returns_standalone(tmp_path: Path) -> None:
+    """No engine config files → 'standalone' (universal Safe Harbor)."""
+    assert discover_engine(tmp_path) == "standalone"
+
+
+def test_discover_engine_mkdocs_yml(tmp_path: Path) -> None:
+    """mkdocs.yml present → 'mkdocs'."""
+    _mkdocs(tmp_path)
+    assert discover_engine(tmp_path) == "mkdocs"
+
+
+def test_discover_engine_zensical_toml(tmp_path: Path) -> None:
+    """zensical.toml present → 'zensical' (highest priority)."""
+    _zensical(tmp_path)
+    assert discover_engine(tmp_path) == "zensical"
+
+
+def test_discover_engine_docusaurus_ts(tmp_path: Path) -> None:
+    """docusaurus.config.ts present → 'docusaurus'."""
+    _docusaurus(tmp_path)
+    assert discover_engine(tmp_path) == "docusaurus"
+
+
+def test_discover_engine_docusaurus_js(tmp_path: Path) -> None:
+    """docusaurus.config.js present → 'docusaurus'."""
+    (tmp_path / "docusaurus.config.js").write_text("module.exports = {};\n")
+    assert discover_engine(tmp_path) == "docusaurus"
+
+
+def test_discover_engine_zensical_wins_over_mkdocs(tmp_path: Path) -> None:
+    """Priority: zensical.toml beats mkdocs.yml when both present."""
+    _zensical(tmp_path)
+    _mkdocs(tmp_path)
+    assert discover_engine(tmp_path) == "zensical"
+
+
+def test_discover_engine_docusaurus_wins_over_mkdocs(tmp_path: Path) -> None:
+    """Priority: docusaurus.config.ts beats mkdocs.yml when both present."""
+    _docusaurus(tmp_path)
+    _mkdocs(tmp_path)
+    assert discover_engine(tmp_path) == "docusaurus"
+
+
+# ── get_adapter + engine="auto" routing ───────────────────────────────────────
+
+
+def test_get_adapter_auto_no_config_returns_standalone(tmp_path: Path) -> None:
+    """engine='auto' + no config files → StandaloneAdapter + mutates context.engine."""
+    ctx = BuildContext()  # default engine is now "auto"
+    assert ctx.engine == "auto"
+    adapter = get_adapter(ctx, tmp_path / "docs", tmp_path)
+    assert isinstance(adapter, StandaloneAdapter)
+    assert ctx.engine == "standalone"  # mutated in-place by discover_engine
+
+
+def test_get_adapter_auto_mkdocs_yml_routes_to_mkdocs(tmp_path: Path) -> None:
+    """engine='auto' + mkdocs.yml → MkDocsAdapter + context.engine mutated."""
+    _mkdocs(tmp_path)
+    (tmp_path / "docs").mkdir()
+    ctx = BuildContext()
+    adapter = get_adapter(ctx, tmp_path / "docs", tmp_path)
+    assert isinstance(adapter, MkDocsAdapter)
+    assert ctx.engine == "mkdocs"
+
+
+def test_get_adapter_auto_docusaurus_routes_to_docusaurus(tmp_path: Path) -> None:
+    """engine='auto' + docusaurus.config.ts → DocusaurusAdapter + context.engine mutated."""
+    _docusaurus(tmp_path)
+    (tmp_path / "docs").mkdir()
+    ctx = BuildContext()
+    adapter = get_adapter(ctx, tmp_path / "docs", tmp_path)
+    assert isinstance(adapter, DocusaurusAdapter)
+    assert ctx.engine == "docusaurus"
+
+
+def test_get_adapter_auto_mutates_engine_for_cache_reuse(tmp_path: Path) -> None:
+    """After auto-detection, second call with a different context uses the cache."""
+    _mkdocs(tmp_path)
+    (tmp_path / "docs").mkdir()
+    ctx1 = BuildContext()
+    ctx2 = BuildContext()
+    adapter1 = get_adapter(ctx1, tmp_path / "docs", tmp_path)
+    adapter2 = get_adapter(ctx2, tmp_path / "docs", tmp_path)
+    # Both should resolve to the same cached instance
+    assert adapter1 is adapter2
+    assert ctx1.engine == "mkdocs"
+    assert ctx2.engine == "mkdocs"
 
 
 # ── Zensical Identity Violation (enforcement) ─────────────────────────────────

@@ -1,0 +1,16 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# zenzic.toml — Link Graph Stress Test (Act 13 — Red Team Matrix)
+#
+# Stress test: circular broken anchors + missing file references.
+# Exercises Z102 ANCHOR_MISSING and Z104 FILE_NOT_FOUND across a mesh of pages.
+#
+# Expected results:
+#   zenzic check links  → EXIT 1  (Z102 + Z104 across multiple files)
+#   zenzic check all    → EXIT 1
+
+docs_dir = "docs"
+fail_under = 0
+
+[build_context]
+engine = "standalone"

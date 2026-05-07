@@ -31,61 +31,63 @@ permissions:
   contents: read
 
 jobs:
-  quality:
-    name: Quality Checks
-    runs-on: ubuntu-latest
+  verify:
+    name: Verify (${{ matrix.os }}, Python ${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: true
       matrix:
-        python-version: ["3.11", "3.12", "3.13"]
+        # Pillar Matrix (v0.7.0):
+        #   Floor          → 3.10  (oldest supported; enforces minimum compat)
+        #   Peak / Windows → 3.14  (latest stable; primary target + Windows anchor)
+        include:
+          # ── Ubuntu Floor ──────────────────────────────────────────────────
+          - os: ubuntu-latest
+            python: '3.10'
+            lint: true   # pre-commit (incl. markdownlint Node hook) runs here
+          # ── Ubuntu Peak ───────────────────────────────────────────────────
+          - os: ubuntu-latest
+            python: '3.14'
+            lint: true
+          # ── Windows Stable ────────────────────────────────────────────────
+          # Validates path separators, binary encoding, and shell compat.
+          # pre-commit is skipped: Node hook (markdownlint) triggers thousands
+          # of small-file I/O operations that freeze the Windows runner.
+          # Linting is already enforced by both Ubuntu slots.
+          - os: windows-latest
+            python: '3.14'
+            lint: false
+    defaults:
+      run:
+        shell: bash
 
     steps:
       - uses: actions/checkout@v6
 
+      - name: Install just
+        uses: taiki-e/install-action@just
+
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@v8.1.0
         with:
           enable-cache: true
 
-      - name: Set up Python ${{ matrix.python-version }}
-        run: uv python install ${{ matrix.python-version }}
+      - name: Set up Python ${{ matrix.python }}
+        run: uv python install ${{ matrix.python }}
 
-      - name: Cache .nox
-        uses: actions/cache@v5
-        with:
-          path: .nox/
-          key: ${{ runner.os }}-nox-${{ matrix.python-version }}-${{ hashFiles('uv.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-nox-${{ matrix.python-version }}-
+      - name: Sync dependencies
+        run: uv sync --all-groups
 
-      - name: Run Quality Matrix
-        run: uvx nox -s tests lint format typecheck --python ${{ matrix.python-version }}
-
-      - name: Upload coverage
-        if: matrix.python-version == '3.13'
-        uses: codecov/codecov-action@v6
-        with:
-          files: ./coverage.xml
-          fail_ci_if_error: false
-
-  security:
-    name: Security
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v7
-        with:
-          enable-cache: true
-
-      - name: Run pip-audit
-        run: uvx nox -s security
-
-  reuse:
-    name: REUSE Compliance
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: REUSE Compliance Check
-        uses: fsfe/reuse-action@v6
+      - name: Run unified verification
+        shell: bash
+        # ZRT-010 — Sovereign Parity: Pre-Launch Guard lives in justfile.
+        # Ubuntu: full verify (pre-commit + test-cov + check).
+        # Windows: skip pre-commit (markdownlint Node hook causes I/O freeze
+        # on Windows runners); linting is enforced by both Ubuntu slots.
+        run: |
+          if [[ "${{ matrix.lint }}" == "true" ]]; then
+            just verify
+          else
+            just test-cov
+            just check
+          fi

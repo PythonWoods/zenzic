@@ -26,25 +26,28 @@ The Shield itself returns findings; callers are responsible for the exit.
 
 from __future__ import annotations
 
+import base64
+import binascii
 import html
-import re
 import unicodedata
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
+import re2
+
 
 # ─── Pre-scan Normalizer (ZRT-003: split-token bypass defence) ────────────────
 
 # Unwrap inline code spans: `AKIA` → AKIA
-_BACKTICK_INLINE_RE = re.compile(r"`([^`]*)`")
+_BACKTICK_INLINE_RE = re2.compile(r"`([^`]*)`")
 # Remove concatenation operators that split tokens: `AKIA` + `KEY` → AKIAKEY
-_CONCAT_OP_RE = re.compile(r"[`'\"\s]*\+[`'\"\s]*")
+_CONCAT_OP_RE = re2.compile(r"[`'\"\s]*\+[`'\"\s]*")
 # Replace table-cell separators with spaces
-_TABLE_PIPE_RE = re.compile(r"\|")
+_TABLE_PIPE_RE = re2.compile(r"\|")
 # ZRT-007: strip HTML comments <!-- ... --> and MDX comments {/* ... */}
-_HTML_COMMENT_RE = re.compile(r"<!--.*?-->")
-_MDX_COMMENT_RE = re.compile(r"\{/\*.*?\*/\}")
+_HTML_COMMENT_RE = re2.compile(r"<!--.*?-->")
+_MDX_COMMENT_RE = re2.compile(r"\{/\*.*?\*/\}")
 
 
 def _normalize_line_for_shield(line: str) -> str:
@@ -88,22 +91,51 @@ def _normalize_line_for_shield(line: str) -> str:
 
 # ─── Pre-compiled secret signatures ───────────────────────────────────────────
 
-_SECRETS: list[tuple[str, re.Pattern[str]]] = [
-    ("openai-api-key", re.compile(r"sk-[a-zA-Z0-9]{48}")),
-    ("github-token", re.compile(r"gh[pousr]_[a-zA-Z0-9]{36}")),
-    ("aws-access-key", re.compile(r"AKIA[0-9A-Z]{16}")),
-    ("stripe-live-key", re.compile(r"sk_live_[0-9a-zA-Z]{24}")),
-    ("slack-token", re.compile(r"xox[baprs]-[0-9a-zA-Z]{10,48}")),
-    ("google-api-key", re.compile(r"AIza[0-9A-Za-z\-_]{35}")),
-    ("private-key", re.compile(r"-----BEGIN [A-Z ]+ PRIVATE KEY-----")),
-    ("hex-encoded-payload", re.compile(r"(?:\\x[0-9a-fA-F]{2}){3,}")),
-    ("gitlab-pat", re.compile(r"glpat-[A-Za-z0-9\-_]{20,}")),
+_SECRETS: list[tuple[str, re2.Pattern[str]]] = [
+    ("openai-api-key", re2.compile(r"sk-[a-zA-Z0-9]{48}")),
+    ("github-token", re2.compile(r"gh[pousr]_[a-zA-Z0-9]{36}")),
+    ("aws-access-key", re2.compile(r"AKIA[0-9A-Z]{16}")),
+    ("stripe-live-key", re2.compile(r"sk_live_[0-9a-zA-Z]{24}")),
+    ("slack-token", re2.compile(r"xox[baprs]-[0-9a-zA-Z]{10,48}")),
+    ("google-api-key", re2.compile(r"AIza[0-9A-Za-z\-_]{35}")),
+    ("private-key", re2.compile(r"-----BEGIN [A-Z ]+ PRIVATE KEY-----")),
+    ("hex-encoded-payload", re2.compile(r"(?:\\x[0-9a-fA-F]{2}){3,}")),
+    ("gitlab-pat", re2.compile(r"glpat-[A-Za-z0-9\-_]{20,}")),
 ]
 
 #: Maximum line length the Shield will scan.  Lines exceeding this limit
 #: are silently truncated before regex matching to prevent ReDoS or
 #: excessive memory consumption from pathological input (F2-1 hardening).
 _MAX_LINE_LENGTH: int = 1_048_576  # 1 MiB
+
+
+# ─── Base64 speculative decoder (CEO-194 / D095) ─────────────────────────────
+# Matches properly-padded Base64 tokens.  Length threshold (≥ 20 chars)
+# ensures we skip strings too short to encode any known credential type.
+_BASE64_CANDIDATE_RE: re2.Pattern[str] = re2.compile(
+    r"(?:[A-Za-z0-9+/]{4})+(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{4})"
+)
+
+
+def _try_decode_base64(token: str) -> str | None:
+    """Attempt to base64-decode a candidate token.
+
+    Uses ``validate=True`` to reject tokens that contain non-Base64 characters
+    before decoding.  The decoded bytes are interpreted as UTF-8 so that text
+    secrets (API keys, tokens) are recoverable even from binary-looking blobs.
+
+    Args:
+        token: A candidate string consisting only of Base64 alphabet characters.
+
+    Returns:
+        The decoded string when the token is valid Base64 and the result is
+        non-empty; ``None`` otherwise.
+    """
+    try:
+        decoded = base64.b64decode(token, validate=True)
+        return decoded.decode("utf-8", errors="ignore") or None
+    except (binascii.Error, ValueError):
+        return None
 
 
 # ─── Data classes ─────────────────────────────────────────────────────────────
@@ -227,6 +259,76 @@ def scan_line_for_secrets(
                     col_start=raw_m.start() if raw_m else 0,
                     match_text=match_text,
                 )
+
+    # ── Phase 3: Base64 speculative decoding (CEO-194) ────────────────────────
+    # Extract candidate tokens from the normalised line, decode each, then
+    # re-scan the decoded text through _SECRETS.  Catches credentials that
+    # have been Base64-encoded to bypass the raw-text scan (e.g. a frontmatter
+    # field containing base64(ghp_...) or base64(AKIA...)).
+    for _b64_match in _BASE64_CANDIDATE_RE.finditer(normalized):
+        _candidate = _b64_match.group(0)
+        if len(_candidate) < 20:
+            continue
+        _decoded = _try_decode_base64(_candidate)
+        if _decoded is None:
+            continue
+        for secret_type, pattern in _SECRETS:
+            if secret_type in seen:
+                continue
+            m = pattern.search(_decoded)
+            if m:
+                seen.add(secret_type)
+                yield SecurityFinding(
+                    file_path=path,
+                    line_no=line_no,
+                    secret_type=secret_type,
+                    url=line.strip(),
+                    col_start=0,  # position in decoded text is meaningless in raw line
+                    match_text=m.group(0),
+                )
+
+
+def scan_line_for_forbidden_terms(
+    line: str,
+    forbidden_patterns: list[str],
+    file_path: Path | str,
+    line_no: int,
+) -> Iterator[SecurityFinding]:
+    """Scan a text line for project-specific forbidden terms (Z204).
+
+    Performs a case-insensitive verbatim substring search against every entry
+    in *forbidden_patterns*.  Patterns are matched literally — regular
+    expressions are **not** supported.  The first matching term per line is
+    reported; subsequent terms on the same line are skipped to avoid
+    flooding the reporter with duplicate findings.
+
+    Args:
+        line: Raw text line from the Markdown source.
+        forbidden_patterns: List of literal strings from ``.zenzic.local.toml``.
+        file_path: Path identifier (no disk access).
+        line_no: 1-based line number.
+
+    Yields:
+        :class:`SecurityFinding` with ``secret_type="FORBIDDEN_TERM"`` for
+        each line that matches at least one pattern.  At most one finding per
+        line is yielded (first-match wins).
+    """
+    if not forbidden_patterns:
+        return
+    path = Path(file_path)
+    line_lower = line.lower()
+    for term in forbidden_patterns:
+        idx = line_lower.find(term.lower())
+        if idx != -1:
+            yield SecurityFinding(
+                file_path=path,
+                line_no=line_no,
+                secret_type="FORBIDDEN_TERM",
+                url=line.strip(),
+                col_start=idx,
+                match_text=line[idx : idx + len(term)],
+            )
+            return  # one finding per line — first-match wins
 
 
 def scan_lines_with_lookback(

@@ -69,10 +69,17 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
+# ZRT-007 — DFA Purity Contract: RE2 is the sole regex engine for user-supplied
+# patterns.  google-re2 provides O(n) DFA guarantees, eliminating the entire
+# ReDoS attack surface.  ImportError here is intentional and fatal: non-RE2
+# environments are explicitly unsupported.
+import re2
+
 
 if TYPE_CHECKING:
     from importlib.metadata import EntryPoint
 
+    from zenzic.models.config import ProjectMetadata
     from zenzic.models.vsm import VSM, Route
 
 
@@ -334,14 +341,25 @@ class CustomRule(BaseRule):
     pattern: str
     message: str
     severity: Severity = "error"
-    _compiled: re.Pattern[str] = field(init=False, repr=False, compare=False)
+    # re2.Pattern[str] at runtime; annotated as Any-compatible via the untyped re2 import.
+    _compiled: re2.Pattern[str] = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
+        # ZRT-007: compile with RE2 — rejection here means the pattern uses
+        # backreferences, lookaheads, or lookbehinds, which are non-regular
+        # constructs incompatible with the DFA engine.  The error is fatal at
+        # load time (not at scan time) so CI fails immediately on a bad config.
+        from zenzic.core.exceptions import PluginContractError
+
         try:
-            self._compiled = re.compile(self.pattern)
-        except re.error as exc:
-            raise ValueError(
-                f"CustomRule '{self.id}': invalid regex pattern {self.pattern!r} — {exc}"
+            self._compiled = re2.compile(self.pattern)
+        except re2.error as exc:
+            raise PluginContractError(
+                f"CustomRule '{self.id}': pattern {self.pattern!r} is not supported "
+                f"by the RE2 engine (ZRT-007 — DFA Purity Contract). "
+                f"Backreferences, lookaheads, and lookbehinds are non-regular "
+                f"constructs that require NFA backtracking and are banned. "
+                f"RE2 error: {exc}"
             ) from exc
 
     @property
@@ -399,71 +417,6 @@ def _assert_pickleable(rule: BaseRule) -> None:
         ) from exc
 
 
-# Canary strings that trigger catastrophic backtracking in ReDoS-vulnerable
-# patterns.  A safe regex at n=30 takes microseconds; a ReDoS pattern at n=30
-# takes seconds or longer.
-_CANARY_STRINGS: tuple[str, ...] = (
-    "a" * 30 + "b",  # classic (a+)+  /  (a*)* style
-    "A" * 25 + "!",  # uppercase variant
-    "1" * 20 + "x",  # numeric variant
-)
-_CANARY_TIMEOUT_S: float = 0.1  # 100 ms
-
-
-def _assert_regex_canary(rule: BaseRule) -> None:
-    """Raise :class:`PluginContractError` if a :class:`CustomRule` pattern hangs.
-
-    ZRT-002 defence: a regex that causes catastrophic backtracking inside a
-    worker process will deadlock the :class:`~concurrent.futures.ProcessPoolExecutor`
-    because the executor has no timeout.  This canary tests each
-    :class:`CustomRule` pattern against stress strings under a ``SIGALRM``
-    watchdog **before** the engine is distributed to worker processes.
-
-    Only :class:`CustomRule` instances are tested (they carry user-supplied
-    regexes).  Python-native :class:`BaseRule` subclasses are trusted to
-    have been written with complexity in mind.
-
-    This function is a no-op on Windows (``signal.SIGALRM`` is unavailable).
-
-    Args:
-        rule: A :class:`BaseRule` instance to validate.
-
-    Raises:
-        PluginContractError: When the pattern takes longer than
-            :data:`_CANARY_TIMEOUT_S` on any canary string.
-    """
-    import platform
-    import signal
-
-    from zenzic.core.exceptions import PluginContractError
-
-    if platform.system() == "Windows" or not isinstance(rule, CustomRule):
-        return
-
-    def _alarm(_signum: int, _frame: object) -> None:
-        raise TimeoutError
-
-    old_handler = signal.signal(signal.SIGALRM, _alarm)
-    try:
-        for canary in _CANARY_STRINGS:
-            signal.setitimer(signal.ITIMER_REAL, _CANARY_TIMEOUT_S)
-            try:
-                rule.check(Path("__canary__.md"), canary)
-            except TimeoutError:
-                raise PluginContractError(
-                    f"Rule '{rule.rule_id}': pattern {rule.pattern!r} may cause "
-                    f"catastrophic backtracking (ReDoS).  The pattern timed out "
-                    f"after {int(_CANARY_TIMEOUT_S * 1000)} ms on the stress string "
-                    f"{canary!r}.\n"
-                    "  Fix: simplify the regex to avoid nested quantifiers "
-                    "such as (a+)+, (a*)*, (a|aa)+, etc."
-                ) from None
-            finally:
-                signal.setitimer(signal.ITIMER_REAL, 0)  # cancel alarm
-    finally:
-        signal.signal(signal.SIGALRM, old_handler)
-
-
 class AdaptiveRuleEngine:
     """Applies a collection of :class:`BaseRule` instances to a Markdown file.
 
@@ -492,7 +445,6 @@ class AdaptiveRuleEngine:
     def __init__(self, rules: Sequence[BaseRule]) -> None:
         for rule in rules:
             _assert_pickleable(rule)
-            _assert_regex_canary(rule)  # ZRT-002: ReDoS pre-flight check
         self._rules = rules
 
     def __bool__(self) -> bool:
@@ -523,7 +475,7 @@ class AdaptiveRuleEngine:
                     RuleFinding(
                         file_path=file_path,
                         line_no=0,
-                        rule_id="RULE-ENGINE-ERROR",
+                        rule_id="Z901",
                         message=(
                             f"Rule '{rule.rule_id}' raised an unexpected exception: "
                             f"{type(exc).__name__}: {exc}"
@@ -571,7 +523,7 @@ class AdaptiveRuleEngine:
                     RuleFinding(
                         file_path=file_path,
                         line_no=0,
-                        rule_id="RULE-ENGINE-ERROR",
+                        rule_id="Z901",
                         message=(
                             f"Rule '{rule.rule_id}' raised an unexpected exception "
                             f"in check_vsm: {type(exc).__name__}: {exc}"
@@ -579,6 +531,279 @@ class AdaptiveRuleEngine:
                         severity="error",
                     )
                 )
+        return findings
+
+
+# ─── Built-in core rules (Z107, Z505, Z905) ──────────────────────────────────
+
+#: Matches a same-page anchor link: [text](#fragment) — not cross-file.
+_ANCHOR_LINK_RE = re.compile(r"\[([^\[\]]+)\]\(#([^)]+)\)")
+
+#: Fenced code block line: captures the fence chars and the full info string.
+#: CEO-138: info string may contain language + metadata (e.g. ``python title="x"``
+#: showLineNumbers). CEO-140: closing fence detection requires empty info string
+#: (CommonMark invariant — a closing fence never has an info string).
+_FENCE_OPEN_RE = re.compile(r"^(?P<fence>[`~]{3,})(?P<info>.*)$")
+
+#: CEO-142/143 — Silent Sentinel Protocol (Polymorphic Suppression).
+#: Matches BOTH Markdown HTML comments AND MDX/JSX comments in one pass.
+#:
+#:   Markdown (.md) syntax:  ``<!-- zenzic:ignore Z905 -->``
+#:   MDX (.mdx) syntax:      ``{/* zenzic:ignore Z905 */}``
+#:
+#: The regex is intentionally format-agnostic so a single helper works for
+#: every file format Zenzic audits.
+_SUPPRESS_RE = re.compile(r"(?:<!--|\{/\*)\s*zenzic:ignore\s+(?P<code>Z\d{3})\s*(?:-->|\*/\})")
+
+#: CEO-152 — The Suppression Manifesto: Inviolability Law.
+#: Security findings are facts, not suggestions.  These codes are permanently
+#: non-suppressible via per-line ``zenzic:ignore`` comments.  The Shield and
+#: Blood Sentinel scanners operate independently of the rule engine and never
+#: consult this function, but this guard future-proofs the contract: even if a
+#: Z2xx finding were ever routed through the rule engine it could not be silenced.
+_INVIOLABLE_CODES: frozenset[str] = frozenset({"Z201", "Z202", "Z203"})
+
+
+def _is_suppressed(line: str, code: str) -> bool:
+    """Return ``True`` if *line* carries a ``zenzic:ignore`` comment for *code*.
+
+    **Format-aware suppression (CEO-143 — Polymorphic Suppression Protocol):**
+
+    In ``.md`` files use an HTML comment (invisible in rendered Markdown)::
+
+        Obsidian was the v0.6.x codename. <!-- zenzic:ignore Z905 -->
+
+    In ``.mdx`` files use a JSX comment (invisible in rendered MDX and safe
+    for the Docusaurus/React parser)::
+
+        Obsidian was the v0.6.x codename. {/* zenzic:ignore Z905 */}
+
+    Each suppression comment silences **only** the specified diagnostic code
+    on the tagged line.  To suppress multiple codes, add multiple comments.
+
+    **CEO-152 — Inviolability Law:** Security findings (Z201, Z202, Z203)
+    always return ``False`` unconditionally.  Security findings are facts,
+    not suggestions — a credential leak cannot be declared a false positive.
+    """
+    if code in _INVIOLABLE_CODES:
+        return False
+    m = _SUPPRESS_RE.search(line)
+    return m is not None and m.group("code") == code
+
+
+def _slugify(text: str) -> str:
+    """Return the GitHub-Markdown slug for heading *text*.
+
+    Lowercases, strips leading/trailing whitespace, replaces internal spaces
+    with hyphens. Does NOT strip punctuation — matches the minimal slug that
+    Docusaurus and most renderers produce for same-page anchor links.
+    """
+    return text.lower().strip().replace(" ", "-")
+
+
+class CircularAnchorRule(BaseRule):
+    """Z107 — Detect self-referential anchor links.
+
+    Flags any ``[text](#fragment)`` where ``slug(text) == fragment``.  Such
+    links appear to reference a heading further down the page but actually
+    reference the element the reader is already reading — a no-op that
+    indicates a mis-copied heading.
+
+    Cross-file links (``[text](other.md#fragment)``) and external URLs are
+    never flagged.
+    """
+
+    @property
+    def rule_id(self) -> str:
+        return "Z107"
+
+    def check(self, file_path: Path, text: str) -> list[RuleFinding]:
+        findings: list[RuleFinding] = []
+        for line_no, line in enumerate(text.splitlines(), start=1):
+            if _is_suppressed(line, self.rule_id):
+                continue
+            for m in _ANCHOR_LINK_RE.finditer(line):
+                link_text = m.group(1)
+                fragment = m.group(2)
+                if _slugify(link_text) == fragment.lower():
+                    findings.append(
+                        RuleFinding(
+                            file_path=file_path,
+                            line_no=line_no,
+                            rule_id=self.rule_id,
+                            message=(
+                                f"Self-referential anchor link: "
+                                f"'[{link_text}](#{fragment})' slugifies to its own fragment. "
+                                "Replace with a meaningful target or remove the link."
+                            ),
+                            severity="warning",
+                            matched_line=line,
+                            col_start=m.start(),
+                            match_text=m.group(0),
+                        )
+                    )
+        return findings
+
+
+class UntaggedCodeBlockRule(BaseRule):
+    """Z505 — Detect fenced code blocks without a language specifier.
+
+    A fence opened with `` ``` `` or ``~~~`` followed by nothing (or only
+    whitespace) is untagged.  Untagged blocks prevent syntax highlighting,
+    skip snippet validation, and reduce readability.
+
+    Only the **opening** fence is flagged; closing fences are never reported.
+    """
+
+    @property
+    def rule_id(self) -> str:
+        return "Z505"
+
+    def check(self, file_path: Path, text: str) -> list[RuleFinding]:
+        findings: list[RuleFinding] = []
+        inside: bool = False
+        open_char: str = ""
+        open_count: int = 0
+
+        for line_no, line in enumerate(text.splitlines(), start=1):
+            m = _FENCE_OPEN_RE.match(line)
+            if not inside:
+                if m:
+                    fence = m.group("fence")
+                    info = m.group("info").strip()
+                    # CEO-138: tag present iff info string has any non-whitespace
+                    # char. Supports Docusaurus metadata:
+                    # ```python title="x" showLineNumbers
+                    has_tag = bool(info)
+                    inside = True
+                    open_char = fence[0]
+                    open_count = len(fence)
+                    if not has_tag and not _is_suppressed(line, self.rule_id):
+                        findings.append(
+                            RuleFinding(
+                                file_path=file_path,
+                                line_no=line_no,
+                                rule_id=self.rule_id,
+                                message=(
+                                    "Fenced code block has no language specifier. "
+                                    "Add a language tag (e.g. ```python, ```bash, ```toml) "
+                                    "to enable syntax highlighting and snippet validation."
+                                ),
+                                severity="warning",
+                                matched_line=line,
+                                col_start=0,
+                                match_text=line.rstrip(),
+                            )
+                        )
+            else:
+                if m:
+                    fence = m.group("fence")
+                    info = m.group("info").strip()
+                    # CEO-139/140: closing fence must use same char, equal or more
+                    # length, and have NO info string (CommonMark spec invariant —
+                    # a fence with an info string is always an opening fence).
+                    if fence[0] == open_char and len(fence) >= open_count and not info:
+                        inside = False
+                        open_char = ""
+                        open_count = 0
+        return findings
+
+
+if TYPE_CHECKING:
+    from zenzic.models.config import ProjectMetadata
+
+
+class BrandObsolescenceRule(BaseRule):
+    """Z905 — Detect deprecated brand terms in documentation source.
+
+    Activated only when ``[project_metadata] obsolete_names`` is non-empty in
+    ``zenzic.toml``.  Emits a warning for each occurrence of an obsolete name
+    found in documentation source files.
+
+    **Suppression (CEO-142 — Silent Sentinel Protocol):** Add an HTML comment
+    to the end of any line to silence Z905 for that specific occurrence::
+
+        Obsidian was the v0.6.x codename. <!-- zenzic:ignore Z905 -->
+
+    The comment is invisible in rendered Markdown and MDX output.  The
+    deprecated token ``[HISTORICAL]`` is no longer recognised — it is visible
+    in rendered output and is therefore a documentation defect, not a solution.
+
+    **Path exclusion:** Files matching any pattern in
+    ``obsolete_names_exclude_patterns`` (relative to ``docs_dir``) are skipped
+    entirely.  Default patterns exclude ``CHANGELOG*.md`` and
+    ``CHANGELOG*.archive.md``.
+    """
+
+    def __init__(self, project_metadata: ProjectMetadata) -> None:
+        import re as _re
+
+        self._release_name = project_metadata.release_name
+        self._patterns: list[re.Pattern[str]] = [
+            _re.compile(rf"\b{_re.escape(name)}\b", _re.IGNORECASE)
+            for name in project_metadata.obsolete_names
+            if name.strip()
+        ]
+        self._exclude_globs: list[str] = list(project_metadata.obsolete_names_exclude_patterns)
+
+    @property
+    def rule_id(self) -> str:
+        return "Z905"
+
+    def check(self, file_path: Path, text: str) -> list[RuleFinding]:
+        if not self._patterns:
+            return []
+        import fnmatch as _fnmatch
+
+        # Path-level exclusion: check against each glob pattern using the file name.
+        file_name = file_path.name
+        for glob in self._exclude_globs:
+            if _fnmatch.fnmatch(file_name, glob):
+                return []
+
+        findings: list[RuleFinding] = []
+        hint = f" use '{self._release_name}' instead." if self._release_name else ""
+        # Fence-tracking state — body lines inside code blocks are not brand
+        # claims and must not trigger Z905 (CEO-152).
+        inside_fence: bool = False
+        open_char: str = ""
+        open_count: int = 0
+        for line_no, line in enumerate(text.splitlines(), start=1):
+            fm = _FENCE_OPEN_RE.match(line)
+            if not inside_fence:
+                if fm:
+                    fence = fm.group("fence")
+                    inside_fence = True
+                    open_char = fence[0]
+                    open_count = len(fence)
+            else:
+                if fm:
+                    fence = fm.group("fence")
+                    info = fm.group("info").strip()
+                    if fence[0] == open_char and len(fence) >= open_count and not info:
+                        inside_fence = False
+                        open_char = ""
+                        open_count = 0
+                continue  # skip all body lines inside the fence block
+            if _is_suppressed(line, "Z905"):
+                continue
+            for pat in self._patterns:
+                for m in pat.finditer(line):
+                    findings.append(
+                        RuleFinding(
+                            file_path=file_path,
+                            line_no=line_no,
+                            rule_id=self.rule_id,
+                            message=(
+                                f"Obsolete brand term '{m.group(0)}':{hint} "
+                                "Add <!-- zenzic:ignore Z905 --> to the line to suppress intentional references."
+                            ),
+                            severity="warning",
+                            matched_line=line,
+                            col_start=m.start(),
+                            match_text=m.group(0),
+                        )
+                    )
         return findings
 
 
@@ -646,7 +871,7 @@ class VSMBrokenLinkRule(BaseRule):
     * :meth:`check` is a no-op — this rule only makes sense with a VSM.
       Without routing context, link reachability cannot be determined.
 
-    Rule code: ``Z001``
+    Rule code: ``Z101``
     """
 
     # Schemes we skip — not navigable internal links
@@ -666,7 +891,7 @@ class VSMBrokenLinkRule(BaseRule):
 
     @property
     def rule_id(self) -> str:
-        return "Z001"
+        return "Z101"
 
     def check(self, file_path: Path, text: str) -> list[RuleFinding]:
         """No-op: VSMBrokenLinkRule requires VSM context — use check_vsm."""
@@ -689,7 +914,7 @@ class VSMBrokenLinkRule(BaseRule):
         3. For relative paths, compute the canonical URL using the same
            clean-URL logic the build engines use (``/page/``).
         4. Look up the URL in the VSM.  If absent or not ``REACHABLE``,
-           emit a :class:`Violation` with code ``Z001``.
+           emit a :class:`Violation` with code ``Z101``.
 
         Args:
             file_path:     Absolute path of the file being checked.
@@ -744,7 +969,7 @@ class VSMBrokenLinkRule(BaseRule):
                     Violation(
                         file_path=file_path,
                         line_no=lineno,
-                        code="Z002",
+                        code="Z103",
                         message=(
                             f"'{url}' resolves to '{target_url}' which exists on disk "
                             f"but is not in the site navigation (ORPHAN_LINK). "
@@ -922,7 +1147,7 @@ class PluginRegistry:
             ep for ep in self._entry_points() if ep.dist is not None and ep.dist.name == "zenzic"
         ]
         loaded = [self._load_entry_point(ep) for ep in core_eps]
-        if not any(rule.rule_id == "Z001" for rule in loaded):
+        if not any(rule.rule_id == "Z101" for rule in loaded):
             loaded.append(VSMBrokenLinkRule())
         return loaded
 
@@ -998,3 +1223,34 @@ def list_plugin_rules() -> list[PluginRuleInfo]:
         Sorted list of :class:`PluginRuleInfo`, ordered by ``source`` name.
     """
     return PluginRegistry().list_rules()
+
+
+def run_rule(
+    rule: BaseRule,
+    text: str,
+    *,
+    file_path: Path | str = "test.md",
+) -> list[RuleFinding]:
+    """Run a single rule against *text* and return findings.
+
+    This is the recommended way for plugin authors to test their rules::
+
+        from zenzic.rules import BaseRule, RuleFinding, run_rule
+
+        def test_my_rule():
+            findings = run_rule(MyRule(), "some DRAFT content")
+            assert len(findings) == 1
+            assert findings[0].severity == "warning"
+
+    Args:
+        rule: A :class:`BaseRule` instance to test.
+        text: Raw Markdown content to scan.
+        file_path: Optional file path for labelling (default: ``test.md``).
+
+    Returns:
+        List of :class:`RuleFinding` objects.
+    """
+    from pathlib import Path
+
+    engine = AdaptiveRuleEngine([rule])
+    return engine.run(Path(file_path), text)

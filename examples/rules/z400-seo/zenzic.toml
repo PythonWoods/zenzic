@@ -1,0 +1,16 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# zenzic.toml — SEO Coverage (Act 15 — Red Team Matrix)
+#
+# Three subdirectories without index.md → Z401 MISSING_DIRECTORY_INDEX ×3.
+# One orphan page (no inbound links from any other doc) → Z402 ORPHAN_PAGE.
+#
+# Expected results:
+#   zenzic check orphans  → EXIT 1  (Z402 ×1)
+#   zenzic check all      → EXIT 1  (Z401 ×3 as info, Z402 as warning)
+
+docs_dir = "docs"
+fail_under = 0
+
+[build_context]
+engine = "standalone"

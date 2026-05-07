@@ -29,10 +29,13 @@ from zenzic.core.adapters._docusaurus import (
     _extract_frontmatter_slug,
     _extract_route_base_path,
     _is_dynamic_config,
+    _parse_config_navigation,
+    _parse_sidebars,
     _strip_js_comments,
     find_docusaurus_config,
 )
-from zenzic.models.config import BuildContext
+from zenzic.core.validator import _SKIP_SCHEMES, validate_links_structured
+from zenzic.models.config import BuildContext, ZenzicConfig
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -651,3 +654,657 @@ class TestClassifyRouteRegression:
     def test_locale_ghost_route(self, adapter: DocusaurusAdapter) -> None:
         nav = frozenset({"intro.mdx"})
         assert adapter.classify_route(Path("it/index.mdx"), nav) == "REACHABLE"
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# D117: pathname:/// protocol — Docusaurus-only escape hatch
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestPathnameProtocolSupport:
+    """D117 — pathname:/// is a verified Docusaurus escape hatch.
+
+    Docusaurus uses ``pathname:///`` to link static assets (PDFs, HTML downloads)
+    that live outside the React router.  Zenzic must:
+      - Treat ``pathname:`` as a valid skip in Docusaurus mode (no Z101/Z105 error).
+      - Flag ``pathname:`` as an error in non-Docusaurus engines.
+    """
+
+    def test_pathname_not_in_global_skip_schemes(self) -> None:
+        """pathname: must NOT be in the unconditional skip list."""
+        assert "pathname:" not in _SKIP_SCHEMES
+
+    def test_pathname_in_docusaurus_skip_schemes(self) -> None:
+        """DocusaurusAdapter.get_link_scheme_bypasses() must include 'pathname'."""
+        from zenzic.core.adapters._docusaurus import DocusaurusAdapter
+
+        adapter = DocusaurusAdapter.__new__(DocusaurusAdapter)
+        assert "pathname" in adapter.get_link_scheme_bypasses()
+        assert "pathname:" not in _SKIP_SCHEMES
+
+    def test_pathname_link_not_flagged_in_docusaurus(self, tmp_path: Path) -> None:
+        """validate_links_structured must not raise any error for pathname:/// in Docusaurus mode."""
+        from zenzic.core.exclusion import LayeredExclusionManager
+
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        # A Markdown file that uses pathname:/// — legitimate Docusaurus idiom
+        (docs / "guide.md").write_text(
+            "[Download brand system](pathname:///assets/brand-system.html)\n",
+            encoding="utf-8",
+        )
+        config = ZenzicConfig(
+            docs_dir="docs",
+            build_context=BuildContext(engine="docusaurus"),
+        )
+        em = LayeredExclusionManager(config, docs_root=docs, repo_root=tmp_path)
+        errors = validate_links_structured(
+            docs,
+            em,
+            repo_root=tmp_path,
+            config=config,
+            strict=False,
+        )
+        assert errors == [], f"Unexpected errors for pathname:/// in Docusaurus: {errors}"
+
+    def test_pathname_link_flagged_in_mkdocs(self, tmp_path: Path) -> None:
+        """validate_links_structured MUST raise Z105 for pathname:/// in MkDocs mode."""
+        from zenzic.core.exclusion import LayeredExclusionManager
+
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        (docs / "guide.md").write_text(
+            "[Download](pathname:///assets/file.pdf)\n",
+            encoding="utf-8",
+        )
+        config = ZenzicConfig(
+            docs_dir="docs",
+            build_context=BuildContext(engine="mkdocs"),
+        )
+        em = LayeredExclusionManager(config, docs_root=docs, repo_root=tmp_path)
+        errors = validate_links_structured(
+            docs,
+            em,
+            repo_root=tmp_path,
+            config=config,
+            strict=False,
+        )
+        # pathname:/// starts with "/" after scheme removal — triggers ABSOLUTE_PATH (Z105)
+        assert any("pathname" in str(e) or "absolute" in str(e).lower() for e in errors), (
+            f"Expected Z105 for pathname:/// in MkDocs, got: {errors}"
+        )
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Sidebar parser — unit tests (Issue #47)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestParseSidebars:
+    """Unit tests for _parse_sidebars() — pure parser, no adapter instantiation."""
+
+    def _write_sidebar(self, tmp_path: Path, content: str, name: str = "sidebars.ts") -> Path:
+        p = tmp_path / name
+        p.write_text(content, encoding="utf-8")
+        return p
+
+    def _make_docs(self, tmp_path: Path, *rel_paths: str) -> Path:
+        docs = tmp_path / "docs"
+        docs.mkdir(exist_ok=True)
+        for rp in rel_paths:
+            f = docs / rp
+            f.parent.mkdir(parents=True, exist_ok=True)
+            f.write_text("# stub\n", encoding="utf-8")
+        return docs
+
+    # SBP-01 — autogenerated → None
+    def test_autogenerated_returns_none(self, tmp_path: Path) -> None:
+        docs = self._make_docs(tmp_path)
+        sidebar = self._write_sidebar(
+            tmp_path,
+            "const s = { main: [{ type: 'autogenerated', dirName: '.' }] }; export default s;",
+        )
+        assert _parse_sidebars(sidebar, docs) is None
+
+    # SBP-02 — bare string IDs resolve to .md
+    def test_bare_string_id_resolves_md(self, tmp_path: Path) -> None:
+        docs = self._make_docs(tmp_path, "guide/install.md")
+        sidebar = self._write_sidebar(
+            tmp_path,
+            "export default { main: ['guide/install'] };",
+        )
+        result = _parse_sidebars(sidebar, docs)
+        assert result == frozenset({"guide/install.md"})
+
+    # SBP-03 — bare string IDs resolve to .mdx
+    def test_bare_string_id_resolves_mdx(self, tmp_path: Path) -> None:
+        docs = self._make_docs(tmp_path, "intro.mdx")
+        sidebar = self._write_sidebar(
+            tmp_path,
+            "export default { main: ['intro'] };",
+        )
+        result = _parse_sidebars(sidebar, docs)
+        assert result == frozenset({"intro.mdx"})
+
+    # SBP-04 — explicit {type:'doc', id:'...'} pattern
+    def test_explicit_doc_type_id(self, tmp_path: Path) -> None:
+        docs = self._make_docs(tmp_path, "reference/api.md")
+        sidebar = self._write_sidebar(
+            tmp_path,
+            "export default { main: [{ type: 'doc', id: 'reference/api', label: 'API' }] };",
+        )
+        result = _parse_sidebars(sidebar, docs)
+        assert result is not None
+        assert "reference/api.md" in result
+
+    # SBP-05 — nested categories extracted recursively (string IDs at any depth)
+    def test_nested_categories_extracted(self, tmp_path: Path) -> None:
+        docs = self._make_docs(tmp_path, "intro.md", "guide/start.md", "guide/advanced.md")
+        sidebar = self._write_sidebar(
+            tmp_path,
+            """\
+export default {
+  main: [
+    'intro',
+    { type: 'category', label: 'Guide', items: ['guide/start', 'guide/advanced'] },
+  ],
+};
+""",
+        )
+        result = _parse_sidebars(sidebar, docs)
+        assert result == frozenset({"intro.md", "guide/start.md", "guide/advanced.md"})
+
+    # SBP-06 — IDs that don't match any file are silently dropped
+    def test_unresolvable_id_excluded(self, tmp_path: Path) -> None:
+        docs = self._make_docs(tmp_path, "exists.md")
+        sidebar = self._write_sidebar(
+            tmp_path,
+            "export default { main: ['exists', 'ghost-page'] };",
+        )
+        result = _parse_sidebars(sidebar, docs)
+        assert result == frozenset({"exists.md"})
+
+    # SBP-07 — non-ID values (type/label keywords) are filtered out
+    def test_non_id_keywords_excluded(self, tmp_path: Path) -> None:
+        docs = self._make_docs(tmp_path, "real.md")
+        sidebar = self._write_sidebar(
+            tmp_path,
+            """\
+export default {
+  main: [
+    'real',
+    { type: 'category', label: 'Section', items: [{ type: 'doc', id: 'real' }] },
+  ],
+};
+""",
+        )
+        result = _parse_sidebars(sidebar, docs)
+        # 'category', 'doc' must not appear as paths — only 'real.md'
+        assert result == frozenset({"real.md"})
+
+    # SBP-08 — sidebars.js (not only .ts)
+    def test_js_extension_parsed(self, tmp_path: Path) -> None:
+        docs = self._make_docs(tmp_path, "start.md")
+        sidebar = self._write_sidebar(
+            tmp_path, "module.exports = { main: ['start'] };", "sidebars.js"
+        )
+        result = _parse_sidebars(sidebar, docs)
+        assert result == frozenset({"start.md"})
+
+    # SBP-09 — directory ID resolves to index.md
+    def test_directory_id_resolves_to_index(self, tmp_path: Path) -> None:
+        docs = self._make_docs(tmp_path, "tutorial/index.md")
+        sidebar = self._write_sidebar(tmp_path, "export default { main: ['tutorial'] };")
+        result = _parse_sidebars(sidebar, docs)
+        assert result == frozenset({"tutorial/index.md"})
+
+    # SBP-10 — unreadable file → None (autogenerated fallback)
+    def test_io_error_returns_none(self, tmp_path: Path) -> None:
+        docs = self._make_docs(tmp_path)
+        missing = tmp_path / "sidebars.ts"  # does not exist
+        assert _parse_sidebars(missing, docs) is None
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Sidebar integration — from_repo + classify_route (Issue #47)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestFromRepoSidebar:
+    """Integration tests: from_repo sets _sidebar_path; get_nav_paths() delegates."""
+
+    def _setup(
+        self, tmp_path: Path, sidebar_content: str | None = None
+    ) -> tuple[Path, DocusaurusAdapter]:
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        (docs / "intro.md").write_text("# Intro\n", encoding="utf-8")
+        guide = docs / "guide"
+        guide.mkdir()
+        (guide / "install.md").write_text("# Install\n", encoding="utf-8")
+        if sidebar_content is not None:
+            (tmp_path / "sidebars.ts").write_text(sidebar_content, encoding="utf-8")
+        ctx = BuildContext(engine="docusaurus")
+        adapter = DocusaurusAdapter.from_repo(ctx, docs, tmp_path)
+        return docs, adapter
+
+    # SBI-01 — no sidebar file → all REACHABLE (backwards compat)
+    def test_no_sidebar_file_all_reachable(self, tmp_path: Path) -> None:
+        _, adapter = self._setup(tmp_path, sidebar_content=None)
+        assert adapter._sidebar_path is None
+        assert adapter.get_nav_paths() == frozenset()
+        assert adapter.classify_route(Path("intro.md"), frozenset()) == "REACHABLE"
+
+    # SBI-02 — autogenerated sidebar → all REACHABLE
+    def test_autogenerated_sidebar_all_reachable(self, tmp_path: Path) -> None:
+        _, adapter = self._setup(
+            tmp_path,
+            "export default { main: [{ type: 'autogenerated', dirName: '.' }] };",
+        )
+        assert adapter._sidebar_path is not None
+        assert adapter.get_nav_paths() == frozenset()
+        assert adapter.classify_route(Path("intro.md"), frozenset()) == "REACHABLE"
+
+    # SBI-03 — explicit sidebar → only listed files are REACHABLE
+    def test_explicit_sidebar_listed_file_reachable(self, tmp_path: Path) -> None:
+        _, adapter = self._setup(
+            tmp_path,
+            "export default { main: ['intro', 'guide/install'] };",
+        )
+        nav = adapter.get_nav_paths()
+        assert "intro.md" in nav
+        assert "guide/install.md" in nav
+        assert adapter.classify_route(Path("intro.md"), nav) == "REACHABLE"
+        assert adapter.classify_route(Path("guide/install.md"), nav) == "REACHABLE"
+
+    # SBI-04 — explicit sidebar → unlisted file is ORPHAN_BUT_EXISTING
+    def test_explicit_sidebar_unlisted_file_orphan(self, tmp_path: Path) -> None:
+        docs, adapter = self._setup(
+            tmp_path,
+            "export default { main: ['intro'] };",
+        )
+        (docs / "secret.md").write_text("# Secret\n", encoding="utf-8")
+        nav = adapter.get_nav_paths()
+        assert adapter.classify_route(Path("secret.md"), nav) == "ORPHAN_BUT_EXISTING"
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Config navigation parser — _parse_config_navigation (D090)
+# NCF = Config Navigation Function unit tests
+# NCI = Config Navigation Integration tests
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestParseConfigNavigation:
+    """Unit tests for _parse_config_navigation (navbar + footer UX-discoverability)."""
+
+    def _write_config(self, tmp_path: Path, content: str) -> Path:
+        p = tmp_path / "docusaurus.config.ts"
+        p.write_text(content, encoding="utf-8")
+        return p
+
+    def _make_docs(self, tmp_path: Path, *rel_paths: str) -> Path:
+        docs = tmp_path / "docs"
+        docs.mkdir(exist_ok=True)
+        for rel in rel_paths:
+            target = docs / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text("# Doc\n", encoding="utf-8")
+        return docs
+
+    # NCF-01 — to: with routeBasePath prefix extracted correctly
+    def test_to_with_route_base_path(self, tmp_path: Path) -> None:
+        docs = self._make_docs(tmp_path, "changelog.md")
+        cfg = self._write_config(
+            tmp_path,
+            "const c = { themeConfig: { navbar: { items: [{ to: '/docs/changelog' }] } } };",
+        )
+        result = _parse_config_navigation(cfg, docs, "/", "docs")
+        assert result == frozenset({"changelog.md"})
+
+    # NCF-02 — docId: extracted directly (no prefix stripping)
+    def test_doc_id_direct(self, tmp_path: Path) -> None:
+        docs = self._make_docs(tmp_path, "guide/install.md")
+        cfg = self._write_config(
+            tmp_path,
+            "const c = { navbar: { items: [{ type: 'doc', docId: 'guide/install' }] } };",
+        )
+        result = _parse_config_navigation(cfg, docs, "/", "docs")
+        assert result == frozenset({"guide/install.md"})
+
+    # NCF-03 — footer to: also captured (same regex scope)
+    def test_footer_to_captured(self, tmp_path: Path) -> None:
+        docs = self._make_docs(tmp_path, "about.md")
+        cfg = self._write_config(
+            tmp_path,
+            "const c = { themeConfig: { footer: { links: [{ items: [{ to: '/docs/about' }] }] } } };",
+        )
+        result = _parse_config_navigation(cfg, docs, "/", "docs")
+        assert result == frozenset({"about.md"})
+
+    # NCF-04 — non-doc to: (blog, external) filtered by file-existence check
+    def test_non_doc_to_filtered(self, tmp_path: Path) -> None:
+        docs = self._make_docs(tmp_path, "real.md")
+        cfg = self._write_config(
+            tmp_path,
+            "const c = { navbar: { items: [{ to: '/blog' }, { to: '/docs/real' }] } };",
+        )
+        result = _parse_config_navigation(cfg, docs, "/", "docs")
+        assert result == frozenset({"real.md"})
+
+    # NCF-05 — .mdx extension resolved
+    def test_mdx_extension_resolved(self, tmp_path: Path) -> None:
+        docs = self._make_docs(tmp_path, "changelog.mdx")
+        cfg = self._write_config(
+            tmp_path,
+            "const c = { navbar: { items: [{ to: '/docs/changelog' }] } };",
+        )
+        result = _parse_config_navigation(cfg, docs, "/", "docs")
+        assert result == frozenset({"changelog.mdx"})
+
+    # NCF-06 — baseUrl prefix stripped before routeBasePath
+    def test_base_url_stripped(self, tmp_path: Path) -> None:
+        docs = self._make_docs(tmp_path, "intro.md")
+        cfg = self._write_config(
+            tmp_path,
+            "const c = { navbar: { items: [{ to: '/project/docs/intro' }] } };",
+        )
+        result = _parse_config_navigation(cfg, docs, "/project/", "docs")
+        assert result == frozenset({"intro.md"})
+
+    # NCF-07 — unreadable config → empty frozenset (no crash)
+    def test_unreadable_config_returns_empty(self, tmp_path: Path) -> None:
+        docs = self._make_docs(tmp_path)
+        missing = tmp_path / "docusaurus.config.ts"  # does not exist
+        result = _parse_config_navigation(missing, docs, "/", "docs")
+        assert result == frozenset()
+
+    # NCF-08 — JS comments in config stripped before parsing
+    def test_js_comments_stripped(self, tmp_path: Path) -> None:
+        docs = self._make_docs(tmp_path, "intro.md")
+        cfg = self._write_config(
+            tmp_path,
+            """\
+const c = {
+  // to: '/docs/commented-out-should-not-match',
+  navbar: { items: [{ to: '/docs/intro' }] },
+};
+""",
+        )
+        result = _parse_config_navigation(cfg, docs, "/", "docs")
+        assert "commented-out-should-not-match.md" not in result
+        assert "intro.md" in result
+
+    # NCF-09 — empty routeBasePath (docs at site root)
+    def test_empty_route_base_path(self, tmp_path: Path) -> None:
+        docs = self._make_docs(tmp_path, "intro.md")
+        cfg = self._write_config(
+            tmp_path,
+            "const c = { navbar: { items: [{ to: '/intro' }] } };",
+        )
+        result = _parse_config_navigation(cfg, docs, "/", "")
+        assert result == frozenset({"intro.md"})
+
+    # NCF-10 — directory ID in navbar resolves to index.md
+    def test_directory_id_resolves_to_index(self, tmp_path: Path) -> None:
+        docs = self._make_docs(tmp_path, "guide/index.md")
+        cfg = self._write_config(
+            tmp_path,
+            "const c = { navbar: { items: [{ to: '/docs/guide' }] } };",
+        )
+        result = _parse_config_navigation(cfg, docs, "/", "docs")
+        assert result == frozenset({"guide/index.md"})
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Unified Navigation Integration — D090 "UX-Discoverability Law"
+# NCI = Config Navigation Integration tests
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestUnifiedNavigation:
+    """Integration tests: sidebar + navbar + footer all contribute to REACHABLE."""
+
+    def _setup(self, tmp_path: Path, sidebar: str, config: str) -> tuple[Path, DocusaurusAdapter]:
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        (docs / "intro.md").write_text("# Intro\n", encoding="utf-8")
+        (docs / "changelog.md").write_text("# Changelog\n", encoding="utf-8")
+        (docs / "about.md").write_text("# About\n", encoding="utf-8")
+        (docs / "secret.md").write_text("# Secret\n", encoding="utf-8")
+        (tmp_path / "sidebars.ts").write_text(sidebar, encoding="utf-8")
+        (tmp_path / "docusaurus.config.ts").write_text(config, encoding="utf-8")
+        ctx = BuildContext(engine="docusaurus")
+        adapter = DocusaurusAdapter.from_repo(ctx, docs, tmp_path)
+        return docs, adapter
+
+    # NCI-01 — navbar-only file is REACHABLE (not in sidebar)
+    def test_navbar_only_file_reachable(self, tmp_path: Path) -> None:
+        _, adapter = self._setup(
+            tmp_path,
+            sidebar="export default { main: ['intro'] };",
+            config="const c = { baseUrl: '/', themeConfig: { navbar: { items: [{ to: '/docs/changelog' }] } } };",
+        )
+        nav = adapter.get_nav_paths()
+        assert "changelog.md" in nav
+        assert adapter.classify_route(Path("changelog.md"), nav) == "REACHABLE"
+
+    # NCI-02 — footer-only file is REACHABLE (not in sidebar or navbar)
+    def test_footer_only_file_reachable(self, tmp_path: Path) -> None:
+        _, adapter = self._setup(
+            tmp_path,
+            sidebar="export default { main: ['intro'] };",
+            config="const c = { baseUrl: '/', themeConfig: { footer: { links: [{ items: [{ to: '/docs/about' }] }] } } };",
+        )
+        nav = adapter.get_nav_paths()
+        assert "about.md" in nav
+        assert adapter.classify_route(Path("about.md"), nav) == "REACHABLE"
+
+    # NCI-03 — file absent from sidebar, navbar, and footer is ORPHAN_BUT_EXISTING
+    def test_unlisted_everywhere_is_orphan(self, tmp_path: Path) -> None:
+        _, adapter = self._setup(
+            tmp_path,
+            sidebar="export default { main: ['intro'] };",
+            config="const c = { baseUrl: '/', themeConfig: { navbar: { items: [{ to: '/docs/changelog' }] } } };",
+        )
+        nav = adapter.get_nav_paths()
+        assert adapter.classify_route(Path("secret.md"), nav) == "ORPHAN_BUT_EXISTING"
+
+    # NCI-04 — sidebar + navbar + footer all merged into single nav set
+    def test_all_sources_merged(self, tmp_path: Path) -> None:
+        _, adapter = self._setup(
+            tmp_path,
+            sidebar="export default { main: ['intro'] };",
+            config="""\
+const c = {
+  baseUrl: '/',
+  themeConfig: {
+    navbar: { items: [{ to: '/docs/changelog' }] },
+    footer: { links: [{ items: [{ to: '/docs/about' }] }] },
+  },
+};
+""",
+        )
+        nav = adapter.get_nav_paths()
+        assert "intro.md" in nav
+        assert "changelog.md" in nav
+        assert "about.md" in nav
+        assert "secret.md" not in nav
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Z105 — Adapter-driven cross-plugin allow-list (Zero-Config invariant)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestAdapterAbsoluteUrlPrefixes:
+    """``DocusaurusAdapter.get_absolute_url_prefixes`` auto-discovers project-
+    owned route prefixes so cross-plugin absolute links bypass Z105 without
+    requiring the user to duplicate Docusaurus routing into ``zenzic.toml``.
+
+    Discovery sources (in priority order):
+      1. Static parse of ``docusaurus.config.{ts,js,mjs,cjs}`` for sibling
+         ``['@docusaurus/plugin-content-docs', { id, routeBasePath }]`` entries.
+      2. Filesystem heuristic — pair every ``<repo>/<name>/`` with
+         ``i18n/<locale>/docusaurus-plugin-content-docs-<name>/``.
+    Plus the always-on default docs ``routeBasePath`` and the blog plugin
+    prefix when active.
+    """
+
+    def test_default_docs_prefix_is_always_emitted(self, tmp_path: Path) -> None:
+        from zenzic.core.adapters._docusaurus import DocusaurusAdapter
+
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        adapter = DocusaurusAdapter.from_repo(BuildContext(engine="docusaurus"), docs, tmp_path)
+        prefixes = adapter.get_absolute_url_prefixes(tmp_path)
+        assert "/docs/" in prefixes
+
+    def test_static_parse_emits_sibling_plugin_prefix(self, tmp_path: Path) -> None:
+        from zenzic.core.adapters._docusaurus import DocusaurusAdapter
+
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        (tmp_path / "developers").mkdir()
+        (tmp_path / "docusaurus.config.ts").write_text(
+            """
+            export default {
+              presets: [['@docusaurus/preset-classic', { docs: { routeBasePath: 'docs' } }]],
+              plugins: [
+                ['@docusaurus/plugin-content-docs', {
+                  id: 'developers',
+                  path: 'developers',
+                  routeBasePath: 'developers',
+                }],
+              ],
+            };
+            """,
+            encoding="utf-8",
+        )
+        adapter = DocusaurusAdapter.from_repo(BuildContext(engine="docusaurus"), docs, tmp_path)
+        prefixes = adapter.get_absolute_url_prefixes(tmp_path)
+        assert "/developers/" in prefixes
+        assert "/docs/" in prefixes
+
+    def test_filesystem_heuristic_when_static_parse_unavailable(self, tmp_path: Path) -> None:
+        """No config file at all — adapter must still pair root dirs with
+        ``i18n/<locale>/docusaurus-plugin-content-docs-<name>/`` to recover
+        the plugin route. Covers projects whose config defeats static parsing
+        (async, dynamic ``import()``).
+        """
+        from zenzic.core.adapters._docusaurus import DocusaurusAdapter
+
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        (tmp_path / "developers").mkdir()
+        (tmp_path / "i18n" / "it" / "docusaurus-plugin-content-docs-developers" / "current").mkdir(
+            parents=True
+        )
+        adapter = DocusaurusAdapter.from_repo(BuildContext(engine="docusaurus"), docs, tmp_path)
+        prefixes = adapter.get_absolute_url_prefixes(tmp_path)
+        assert "/developers/" in prefixes
+
+    def test_heuristic_skips_unpaired_directories(self, tmp_path: Path) -> None:
+        """A root directory without a sibling i18n plugin folder is NOT a
+        plugin instance — the heuristic must reject it to avoid false
+        suppressions of Z105.
+        """
+        from zenzic.core.adapters._docusaurus import DocusaurusAdapter
+
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        (tmp_path / "scripts").mkdir()  # not a plugin — no i18n pairing
+        adapter = DocusaurusAdapter.from_repo(BuildContext(engine="docusaurus"), docs, tmp_path)
+        prefixes = adapter.get_absolute_url_prefixes(tmp_path)
+        assert "/scripts/" not in prefixes
+
+    def test_blog_prefix_emitted_when_plugin_active(self, tmp_path: Path) -> None:
+        from zenzic.core.adapters._docusaurus import DocusaurusAdapter
+
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        (tmp_path / "blog").mkdir()  # convention-fallback discovery (EPOCH 7a)
+        adapter = DocusaurusAdapter.from_repo(BuildContext(engine="docusaurus"), docs, tmp_path)
+        prefixes = adapter.get_absolute_url_prefixes(tmp_path)
+        assert "/blog/" in prefixes
+
+
+class TestZ105AdapterDrivenSuppression:
+    """End-to-end: Z105 must not fire on cross-plugin links once the adapter
+    auto-detects the sibling plugin — no ``zenzic.toml`` allow-list required.
+    """
+
+    def test_cross_plugin_link_passes_with_zero_config(self, tmp_path: Path) -> None:
+        from zenzic.core.exclusion import LayeredExclusionManager
+
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        (tmp_path / "developers").mkdir()
+        (tmp_path / "i18n" / "it" / "docusaurus-plugin-content-docs-developers" / "current").mkdir(
+            parents=True
+        )
+        (docs / "guide.md").write_text(
+            "[Writing an Adapter](/developers/how-to/implement-adapter)\n",
+            encoding="utf-8",
+        )
+        config = ZenzicConfig(
+            docs_dir="docs",
+            build_context=BuildContext(engine="docusaurus"),
+        )
+        em = LayeredExclusionManager(config, docs_root=docs, repo_root=tmp_path)
+        errors = validate_links_structured(
+            docs, em, repo_root=tmp_path, config=config, strict=False
+        )
+        assert errors == [], (
+            f"Cross-plugin link must pass when the adapter detects "
+            f"/developers/ — no allow-list required. Got: {errors}"
+        )
+
+    def test_unknown_absolute_prefix_still_flagged(self, tmp_path: Path) -> None:
+        from zenzic.core.exclusion import LayeredExclusionManager
+
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        (docs / "guide.md").write_text(
+            "[API](/api/v1/users)\n",
+            encoding="utf-8",
+        )
+        config = ZenzicConfig(
+            docs_dir="docs",
+            build_context=BuildContext(engine="docusaurus"),
+        )
+        em = LayeredExclusionManager(config, docs_root=docs, repo_root=tmp_path)
+        errors = validate_links_structured(
+            docs, em, repo_root=tmp_path, config=config, strict=False
+        )
+        assert any("absolute" in str(e).lower() for e in errors), (
+            f"Unknown prefix must still raise Z105: {errors}"
+        )
+
+    def test_adapter_prefix_does_not_match_neighbour(self, tmp_path: Path) -> None:
+        """The trailing slash in adapter-emitted prefixes scopes ``startswith``
+        precisely: ``/developers/`` must not silence ``/developers-only/``.
+        """
+        from zenzic.core.exclusion import LayeredExclusionManager
+
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        (tmp_path / "developers").mkdir()
+        (tmp_path / "i18n" / "it" / "docusaurus-plugin-content-docs-developers" / "current").mkdir(
+            parents=True
+        )
+        (docs / "guide.md").write_text(
+            "[Internal](/developers-only/secret)\n",
+            encoding="utf-8",
+        )
+        config = ZenzicConfig(
+            docs_dir="docs",
+            build_context=BuildContext(engine="docusaurus"),
+        )
+        em = LayeredExclusionManager(config, docs_root=docs, repo_root=tmp_path)
+        errors = validate_links_structured(
+            docs, em, repo_root=tmp_path, config=config, strict=False
+        )
+        assert any("absolute" in str(e).lower() for e in errors), (
+            f"Trailing-slash boundary must keep Z105 active on /developers-only/. Got: {errors}"
+        )

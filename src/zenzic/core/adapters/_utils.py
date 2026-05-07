@@ -13,8 +13,37 @@ may use or ignore them as needed.
 
 from __future__ import annotations
 
+import os
 import re
 from pathlib import Path
+
+
+def case_sensitive_exists(path: Path) -> bool:
+    """Return ``True`` only when *path* exists with an exact case-sensitive match.
+
+    On case-insensitive filesystems (Windows NTFS, macOS HFS+), ``Path.exists()``
+    returns ``True`` even when the on-disk filename differs only in case from the
+    requested name.  Web servers and browsers are case-sensitive, so
+    ``Logo.png`` and ``logo.png`` are different resources; a linter must
+    reflect that.
+
+    This function uses ``os.listdir(path.parent)`` — which always returns the
+    actual stored filenames — to enforce case-sensitive semantics on every
+    platform without any per-platform branching.
+
+    Args:
+        path: Absolute or relative path to check.
+
+    Returns:
+        ``True`` when a directory entry with *exactly* this name exists.
+        ``False`` when the parent directory does not exist or an OS error occurs.
+    """
+    if not path.parent.is_dir():
+        return False
+    try:
+        return path.name in os.listdir(path.parent)
+    except OSError:
+        return False
 
 
 def remap_to_default_locale(

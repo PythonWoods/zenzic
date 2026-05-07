@@ -3,8 +3,6 @@ SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# 🛡️ Zenzic
-
 <p align="center">
   <img src="assets/brand/svg/zenzic-wordmark.svg#gh-light-mode-only" alt="Zenzic" width="360">
   <img src="assets/brand/svg/zenzic-wordmark-dark.svg#gh-dark-mode-only" alt="Zenzic" width="360">
@@ -32,6 +30,12 @@ SPDX-License-Identifier: Apache-2.0
   <a href="https://docusaurus.io/">
     <img src="https://img.shields.io/badge/docs_by-Docusaurus-3ECC5F?style=flat-square" alt="Built with Docusaurus">
   </a>
+  <a href="https://zenzic.dev/it/developers/explanation/adr-vault">
+    <img src="https://img.shields.io/badge/4--Gates-Sentinel%20Seal-10b981?style=flat-square" alt="4-Gates: Sentinel Seal">
+  </a>
+  <a href="https://reuse.software/">
+    <img src="https://img.shields.io/badge/REUSE-3.x%20compliant-0d9488?style=flat-square" alt="REUSE 3.x compliant">
+  </a>
 </p>
 
 <p align="center">
@@ -39,8 +43,8 @@ SPDX-License-Identifier: Apache-2.0
 </p>
 
 <p align="center">
-  <strong>Il Safe Harbor per la tua documentazione Markdown.</strong><br>
-  <em>Analisi statica engine-agnostic — standalone, con sicurezza rafforzata, zero configurazione richiesta.</em>
+  <strong>Audit deterministico di strutture documentali con tracciabilità bidirezionale.</strong><br>
+  <em>Ogni finding mappa su un file sorgente e un numero di riga. Ogni URL ha un'origine fisica. Zero stato globale.</em>
 </p>
 
 ---
@@ -53,8 +57,14 @@ Hai una cartella di file Markdown? Esegui un audit istantaneo dei link e della s
 uvx zenzic check all ./tua-cartella
 ```
 
-Zenzic identificherà il tuo motore tramite i file di configurazione o passerà alla **modalità Vanilla**
-per cartelle indipendenti — garantendo protezione immediata per link, credenziali e integrità strutturale.
+Zenzic identificherà il tuo motore tramite i file di configurazione o passerà alla **Standalone Mode**
+per cartelle Markdown pure — garantendo protezione immediata per link, credenziali e
+integrità dei file.
+
+> **Nota:** In Standalone Mode non esiste un contratto di navigazione dichiarato, quindi il
+> rilevamento delle pagine orfane (`Z402`) è disabilitato. Ciò che ottieni: validazione completa
+> dei link (`Z101`/`Z104`), scansione delle credenziali (`Z201`), blocco del path-traversal
+> (`Z202`) e controlli di integrità dell'indice di directory (`Z401`).
 
 ---
 
@@ -89,6 +99,7 @@ zenzic check all  # Analizza la cartella corrente
 - **Non è un wrapper di build.** Zero-Trust Execution: nessun sottoprocesso, nessun binario `mkdocs` o `docusaurus` invocato.
 - **Non è un correttore ortografico.** Struttura e sicurezza — non prosa.
 - **Non è un crawler HTTP.** Tutta la validazione è locale e basata su file.
+- **Non è una scatola nera.** Ogni finding porta un codice, un file sorgente e un numero di riga. Tracciabilità assoluta — nessun finding senza un'origine fisica.
 
 ---
 
@@ -97,19 +108,24 @@ zenzic check all  # Analizza la cartella corrente
 | Funzionalità | Comando | Rileva | Exit |
 | :--- | :--- | :--- | :---: |
 | Integrità dei link | `check links` | Link rotti, ancore morte | 1 |
+| Ancore circolari | `check all` | Link ancora auto-referenziali (`Z107`) | 1 |
 | Rilevamento orfani | `check orphans` | File assenti dalla `nav` — invisibili dopo la build | 1 |
 | Snippet di codice | `check snippets` | Errori di sintassi in blocchi Python / YAML / JSON / TOML | 1 |
+| Blocchi codice non etichettati | `check all` | Blocchi recinzati senza specificatore di linguaggio (`Z505`) | 1 |
 | Contenuto placeholder | `check placeholders` | Pagine stub e pattern di testo vietati | 1 |
 | Asset inutilizzati | `check assets` | Immagini e file non referenziati | 1 |
+| Integrità asset di config | `check all` | Percorsi di favicon e OG image dichiarati nella config del motore verificati su disco (`Z404`) | 1 |
+| Integrità del brand | `check all` | Codename di release obsoleti (`Z905`) — configurabile via `[project_metadata]` | 1 |
 | **Scansione credenziali** | `check references` | **9 famiglie di credenziali** — testo, URL, blocchi di codice | **2** |
 | **Path traversal** | `check links` | Tentativi di fuga verso path di sistema | **3** |
+| **Report enterprise** | `check all --format sarif` | Output SARIF 2.1.0 per GitHub Code Scanning — annotazioni inline nella PR | 1/2/3 |
 | Punteggio qualità | `score` | Metrica composita deterministica 0–100 | — |
 | Rilevamento regressioni | `diff` | Calo del punteggio vs baseline salvata — CI-friendly | 1 |
 
 **Correzione automatica:** `zenzic clean assets [-y] [--dry-run]` elimina gli asset inutilizzati.
 
-> 🚀 **v0.6.1 "Obsidian Glass" (Stabile)** — Versioning completo Docusaurus v3, risoluzione
-> alias `@site/` e Transparent Proxy Zensical. Vedi [CHANGELOG.md](CHANGELOG.md).
+> 🚀 **v0.7.0 "Quartz Maturity" (Stabile)** — Suggerimenti proattivi Z104, audit di verità
+> Standalone Mode e hardening dell'Engineering Ledger. Vedi [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
@@ -119,8 +135,9 @@ Due livelli di sicurezza sono permanentemente attivi — nessuno è sopprimibile
 
 **The Shield** scansiona ogni riga — inclusi i blocchi di codice delimitati — alla ricerca di
 credenziali. La normalizzazione Unicode sconfigge l'offuscamento (entità HTML, interposizione
-di commenti, lookback multi-riga). Famiglie rilevate: AWS, GitHub/GitLab, Stripe, Slack, OpenAI,
+di commenti, lookback multi-riga). Famiglie rilevate: AWS, GitHub, GitLab PAT, Stripe, Slack, OpenAI,
 Google, intestazioni PEM, payload esadecimali.
+La decodifica speculativa Base64 rileva credenziali offuscate nel frontmatter e nei blocchi di codice.
 **→ Exit 2. Ruota e verifica immediatamente.**
 
 **Blood Sentinel** normalizza ogni link risolto con `os.path.normpath` e rifiuta qualsiasi
@@ -145,19 +162,33 @@ Zenzic legge i file di configurazione come testo semplice — non importa né es
 
 | Motore | Adapter | Funzionalità chiave |
 | :--- | :--- | :--- |
-| [Docusaurus v3][docusaurus] | `DocusaurusAdapter` | Docs versionati, alias `@site/`, rilevamento Ghost Route |
+| [Docusaurus v3][docusaurus] | `DocusaurusAdapter` | Docs versionati, alias `@site/`, rilevamento Ghost Route, Virtual Routes (Tag, Paginazione, Autori) |
 | [MkDocs][mkdocs] | `MkDocsAdapter` | Modalità i18n suffix + folder, `fallback_to_default` |
 | [Zensical][zensical] | `ZensicalAdapter` | Transparent Proxy ponte `mkdocs.yml` se `zensical.toml` assente |
-| Qualsiasi cartella | `VanillaAdapter` | Zero-config, Directory Index Integrity — nessun motore richiesto |
+| Qualsiasi cartella | `StandaloneAdapter` | Solo integrità dei file — rilevamento orfani disabilitato senza contratto di navigazione |
 
 Adapter di terze parti si installano tramite il gruppo di entry-point `zenzic.adapters`.
 Vedi la [Guida Developer][docs-it-arch] per le API degli adapter.
+
+### Virtual Routes di Docusaurus
+
+Docusaurus genera pagine URL prive di sorgente Markdown fisica: le pagine di elenco tag
+(`/blog/tags/python/`), gli indici paginati del blog (`/blog/page/2/`) e le pagine autore
+(`/blog/authors/alice/`). Prima di EPOCH 7b, Zenzic non era consapevole di queste rotte,
+e qualsiasi link che le referenziava veniva erroneamente segnalato come link interrotto.
+
+`DocusaurusAdapter` costruisce ora una **mappa di Virtual Route** derivata dai metadati
+del frontmatter — senza eseguire alcun build, senza Node.js. Ogni virtual route porta un
+insieme `source_files` che la ricollega ai file fisici che la generano, soddisfacendo
+l'**Invariante di Reverse-Mapping**: ogni URL nella VSM ha un'origine fisica non ambigua.
+Un `VirtualRoute` con `source_files=frozenset()` solleva `ValueError` alla costruzione —
+nessun URL non tracciato può raggiungere la VSM.
 
 ---
 
 ## ⚙️ Configurazione
 
-Zero-config di default. Priorità: `zenzic.toml` > `[tool.zenzic]` in `pyproject.toml` > valori predefiniti.
+Zero-config di default. Catena di priorità: **flag CLI** > `zenzic.toml` > `[tool.zenzic]` in `pyproject.toml` > valori predefiniti. I flag CLI hanno sempre la precedenza sui file di configurazione.
 
 ```toml
 # zenzic.toml  (tutti i campi sono opzionali)
@@ -168,7 +199,7 @@ excluded_build_artifacts = ["pdf/*.pdf", "dist/*.zip"]
 placeholder_patterns     = ["coming soon", "todo", "stub"]
 
 [build_context]
-engine         = "mkdocs"   # mkdocs | docusaurus | zensical | vanilla
+engine         = "mkdocs"   # mkdocs | docusaurus | zensical | standalone
 default_locale = "en"
 locales        = ["it"]
 ```
@@ -190,9 +221,32 @@ severity = "warning"
 
 Le regole si attivano identicamente su tutti gli adapter. Nessuna modifica richiesta dopo la migrazione del motore.
 
+> **Garanzia DFA** (v0.7.0+): I pattern delle custom rule devono essere compatibili con RE2 —
+> backreference, lookahead e lookbehind vengono rifiutati al caricamento. Consulta
+> [Architettura › Garanzia DFA](https://zenzic.dev/it/docs/explanation/architecture#dfa-guarantee).
+
 ---
 
 ## 🔄 Integrazione CI/CD
+
+### GitHub Action Ufficiale (Raccomandato)
+
+```yaml
+permissions:
+  contents: read
+  security-events: write   # richiesto per il caricamento su Code Scanning
+
+steps:
+  - uses: actions/checkout@v6
+
+  - name: 🛡️ Zenzic Documentation Quality Gate
+    uses: PythonWoods/zenzic-action@v1
+    with:
+      format: sarif
+      upload-sarif: "true"   # i risultati appaiono nella tab Security e come annotazioni nella PR
+```
+
+### Zero-install con `uvx`
 
 ```yaml
 - name: 🛡️ Zenzic Sentinel
@@ -225,14 +279,14 @@ uv add --dev zenzic
 
 # pip
 pip install zenzic
-pip install "zenzic[mkdocs]"   # + plugin build-time MkDocs
 ```
-
-> L'extra `[mkdocs]` aggiunge il plugin build-time (`zenzic.integrations.mkdocs`).
-> Tutti gli adapter dei motori (Docusaurus, Zensical, Vanilla) sono inclusi nell'installazione base.
 
 **Portabilità:** Zenzic rifiuta i link interni assoluti (che iniziano con `/`). I link relativi
 funzionano con qualsiasi percorso di hosting. Gli URL esterni `https://` non sono mai interessati.
+
+**Compatibilità Python:** Zenzic richiede Python 3.10+. In CI, ogni rilascio viene validato
+ufficialmente su **Python 3.10** (Floor — compatibilità legacy) e **Python 3.14**
+(Peak — performance e preparazione al futuro). Qualsiasi versione intermedia funziona.
 
 ---
 
@@ -240,14 +294,14 @@ funzionano con qualsiasi percorso di hosting. Gli URL esterni `https://` non son
 
 ```bash
 # Controlli
-zenzic check links [--strict]
+zenzic check links [--strict] [--no-external]
 zenzic check orphans
 zenzic check snippets
 zenzic check placeholders
 zenzic check assets
 zenzic check references [--strict] [--links]
 zenzic check all [--strict] [--exit-zero] [--format json] [--engine ENGINE]
-zenzic check all [--exclude-dir DIR] [--include-dir DIR]
+zenzic check all [--exclude-dir DIR] [--include-dir DIR] [--no-external]
 
 # Punteggio e diff
 zenzic score [--save] [--fail-under N]
@@ -268,7 +322,7 @@ zenzic lab [--act N] [--list]
 ## 📟 Tour Visivo
 
 ```text
-╭───────────────────────  🛡  ZENZIC SENTINEL  v0.6.1  ────────────────────────╮
+╭───────────────────────  🛡  ZENZIC SENTINEL  v0.7.0  ────────────────────────╮
 │                                                                              │
 │  docusaurus • 38 file (18 docs, 20 asset) • 0.9s                             │
 │                                                                              │
@@ -289,29 +343,93 @@ Visita il [portale di documentazione][docs-it-home] per screenshot interattivi e
 
 ---
 
-## 🗺️ Roadmap v0.7.0
+## 📖 Mappa della Documentazione — La Promessa di Quarzo
 
-- [ ] **Auto-fix Engine** — Riparazione automatica di link rotti e ancore orfane.
-- [ ] **Estensioni IDE** — Lint in tempo reale per VS Code e Cursor tramite LSP.
-- [ ] **AI Context Provider** — Export VSM in formato LLM-friendly per agenti AI.
-- [ ] **Adapter Astro & VitePress** — Espandere il Safe Harbor ai framework JS.
+I docs di Zenzic sono pubblicati come **due istanze Docusaurus separate** sotto lo
+stesso dominio. Ciascuna ha la propria sidebar, la propria ricerca e il proprio
+pubblico — mai mescolati.
+
+```text
+zenzic.dev/
+├── docs/           → Area Utente   — install, configurazione, CI/CD, codici di finding
+├── developers/     → Area Dev      — plugin, adapter, ADR, registro debito tecnico
+├── blog/           → Note di rilascio & post-mortem ingegneristici
+└── community/      → Brand kit, FAQ, governance
+```
+
+**La Promessa di Quarzo.** Due istanze, un solo Sentinel. La separazione è
+applicata da [ADR 011: Allowlist Cross-Istanza][docs-it-adr-011] — ogni link
+cross-confine è un contratto documentato, mai una soppressione silenziosa. Il
+debito nascosto corrompe la fiducia; il debito dichiarato è ingegneria. Vedi il
+[Registro del Debito Tecnico][docs-it-tech-debt] per cosa abbiamo rinviato e
+perché.
+
+**Punti di ingresso:**
+
+| Sei un... | Inizia da |
+| :--- | :--- |
+| 👤 Utente che integra Zenzic | `uvx zenzic lab` · [Guida Utente][docs-it-home] |
+| 🔧 Contributor / autore di plugin | [Portale Sviluppatori][docs-it-developers] · [ADR Vault][docs-it-adr-vault] |
+| 🛡️ Revisore di sicurezza | [Engineering Ledger][docs-it-eng-ledger] · [SECURITY.md][security] |
 
 ---
 
-## 🏗️ Filosofia di Design
+## 🧱 Registro Ingegneristico
 
-Zenzic è costruito su tre contratti operativi:
+Zenzic è governato da tre contratti operativi non negoziabili — ciascuno
+verificabile dalla macchina, non dalla convenzione.
 
-**Analizza la Sorgente, non la Build.** La VSM (Virtual Site Map) mappa ogni file `.md` al suo
-URL canonico senza eseguire la build — gli errori vengono intercettati prima di raggiungere la produzione.
+Tre assiomi di progettazione dalle NASA Power of 10 Rules — applicati senza eccezioni:
 
-**Zero-Trust Execution.** Nessun sottoprocesso, nessuna esecuzione di codice arbitrario, nessuna
-importazione di motori di build. I config Docusaurus `.ts`/`.js` sono analizzati tramite analisi
-testuale statica — Node.js non viene mai invocato.
+- **Rule 1 / Rule 4 — Flusso di controllo puro e deterministico.** Il motore di analisi ha
+  zero stato globale. A parità di input, Zenzic produce output identico. Ogni finding mappa
+  su un singolo file sorgente e un singolo numero di riga. Nessuna componente stocastica;
+  nessuna dipendenza di inferenza dichiarata in `pyproject.toml`.
+- **Rule 2 — Nessuna esecuzione dinamica.** `subprocess.Popen`, `os.system` e tutte le
+  invocazioni shell sono permanentemente vietati in `src/`. I config TypeScript di Docusaurus
+  sono analizzati come testo semplice. Node.js non viene mai invocato. L'invariante Zero
+  Subprocess è applicato da ruff e verificato ad ogni push.
 
-**Esclusione Obbligatoria ad Ogni Entry Point.** Tutta la scoperta dei file passa attraverso
-`LayeredExclusionManager` — una gerarchia a 4 livelli (Sistema → VCS → Config → CLI). Nessuna
-scansione globale senza un contesto di esclusione esplicito.
+Non sono convenzioni — sono contratti applicati dalla macchina.
+
+<table>
+<tr>
+<td width="33%" valign="top">
+
+**Zero Assunzioni** — Ogni adapter gira con `mypy --strict`. Nessun `Any`, nessuna coercizione
+silenziosa. Il sistema di tipi è un contratto a tempo di compilazione.
+
+```python
+# mypy: strict = true
+# Zero def non tipizzate, zero errori ignorati.
+```
+
+</td>
+<td width="33%" valign="top">
+
+**Subprocess-Free** — `subprocess.Popen` è permanentemente vietato in `src/`. I config
+Docusaurus `.ts` sono analizzati come testo semplice. Node.js non
+viene mai invocato.
+
+```python
+# ruff: ban = ["subprocess"]
+# Solo analisi statica deterministica.
+```
+
+</td>
+<td width="33%" valign="top">
+
+**Conformità Deterministica** — Ogni file sorgente porta un'intestazione SPDX. REUSE 3.x è applicato
+in CI. Nessuna licenza ambigua — verificabile dalla macchina su ogni PR.
+
+```toml
+# REUSE-IgnoreStart / REUSE-IgnoreEnd
+# SPDX-License-Identifier: Apache-2.0
+```
+
+</td>
+</tr>
+</table>
 
 Vedi la [Guida all'Architettura][docs-it-arch] per il Two-Pass Reference Pipeline e l'analisi approfondita della VSM.
 
@@ -374,11 +492,32 @@ Apache-2.0 — vedi [LICENSE][license].
 
 ---
 
-<p align="center">
-  &copy; 2026 <strong>PythonWoods</strong>. Ingegnerizzato con precisione.<br>
-  Con sede in Italia 🇮🇹 &nbsp;·&nbsp; Dediti all'arte dello sviluppo Python.<br>
-  <a href="mailto:dev@pythonwoods.dev">dev@pythonwoods.dev</a>
-</p>
+## 📚 Le Cronache Ossidiane
+
+Zenzic è nato da un percorso tecnico attraverso la fragilità dei moderni ecosistemi di
+documentazione. Scopri la filosofia, l'assedio della sicurezza e l'ingegneria dietro il
+Sentinel nelle [**Engineering Chronicles**](https://zenzic.dev/blog/tags/engineering-chronicles) sul blog ufficiale.
+
+La storia della release v0.7.0 — l'assedio red-team guidato dall'IA, 4 vettori di bypass
+chiusi, e la strada verso la parità engine-agnostica — è documentata in
+[**Beyond the Siege: Zenzic v0.7.0**](https://zenzic.dev/blog/beyond-the-siege-zenzic-v070).
+
+---
+
+<div align="center">
+  <a href="https://zenzic.dev/it/">
+    <img src="assets/brand/pythonwoods-logo.svg" alt="PythonWoods" height="50" />
+  </a>
+  <p>
+    <strong>Ingegnerizzato con precisione da PythonWoods in Italia 🇮🇹</strong><br/>
+    <em>"Costruiamo il Porto Sicuro per la conoscenza tecnica."</em>
+  </p>
+  <p>
+    <a href="https://zenzic.dev/it/"><strong>Documentazione</strong></a> &middot;
+    <a href="https://github.com/PythonWoods"><strong>GitHub</strong></a> &middot;
+    <a href="https://zenzic.dev/it/blog"><strong>Blog</strong></a>
+  </p>
+</div>
 
 <!-- ─── Definizioni dei link di riferimento ──────────────────────────────────── -->
 
@@ -387,9 +526,14 @@ Apache-2.0 — vedi [LICENSE][license].
 [zensical]:          https://zensical.org/
 [uv]:                https://docs.astral.sh/uv/
 [docs-it-home]:      https://zenzic.dev/it/docs/
-[docs-it-badges]:    https://zenzic.dev/it/docs/usage/badges/
-[docs-it-cicd]:      https://zenzic.dev/it/docs/guides/ci-cd/
-[docs-it-arch]:      https://zenzic.dev/it/docs/internals/architecture-overview/
+[docs-it-badges]:    https://zenzic.dev/it/docs/how-to/add-badges/
+[docs-it-cicd]:      https://zenzic.dev/it/docs/how-to/configure-ci-cd/
+[docs-it-arch]:      https://zenzic.dev/it/developers/explanation/
+[docs-it-developers]: https://zenzic.dev/it/developers/
+[docs-it-adr-vault]: https://zenzic.dev/it/developers/explanation/adr-vault
+[docs-it-adr-011]:   https://zenzic.dev/it/developers/explanation/adr-cross-instance-allowlist
+[docs-it-tech-debt]: https://zenzic.dev/it/developers/governance/technical-debt
+[docs-it-eng-ledger]: https://zenzic.dev/it/developers/explanation/engineering-ledger
 [ci-workflow]:       .github/workflows/ci.yml
 [contributing]:      CONTRIBUTING.it.md
 [license]:           LICENSE

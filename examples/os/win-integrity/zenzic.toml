@@ -1,0 +1,16 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# zenzic.toml — Windows Path Integrity (Act 12 — Red Team Matrix)
+#
+# RED TEAM: Absolute-path links styled after Windows filesystem conventions.
+# BLUE TEAM: Z105 ABSOLUTE_LINK fires on every /C:/, /UNC/, and file:/// link.
+#
+# Expected results:
+#   zenzic check links  → EXIT 1  (Z105: absolute paths in win-paths.md + unc-paths.md)
+#   zenzic check all    → EXIT 1  (link violations, no credential exposure)
+
+docs_dir = "docs"
+fail_under = 0
+
+[build_context]
+engine = "standalone"

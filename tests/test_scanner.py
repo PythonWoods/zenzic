@@ -13,6 +13,7 @@ from _helpers import make_mgr
 
 from zenzic.core.adapter import _extract_i18n_locale_dirs, _extract_i18n_locale_patterns
 from zenzic.core.scanner import (
+    check_placeholder_content,
     find_orphans,
     find_placeholders,
     find_repo_root,
@@ -114,8 +115,8 @@ def test_find_placeholders(tmp_path: Path) -> None:
     assert len(findings) == 2
 
     issues = {f.issue for f in findings}
-    assert "short-content" in issues
-    assert "placeholder-text" in issues
+    assert "Z502" in issues
+    assert "Z501" in issues
 
     file_paths = {f.file_path.name for f in findings}
     assert "short.md" in file_paths
@@ -240,7 +241,7 @@ def test_find_placeholders_no_config(tmp_path: Path) -> None:
     config = ZenzicConfig()
     mgr = make_mgr(config, repo_root=tmp_path)
     findings = find_placeholders(docs, mgr, config=config)
-    assert any(f.issue == "placeholder-text" for f in findings)
+    assert any(f.issue == "Z501" for f in findings)
 
 
 def test_find_placeholders_docs_not_exist(tmp_path: Path) -> None:
@@ -261,6 +262,184 @@ def test_find_placeholders_symlink_skipped(tmp_path: Path) -> None:
     mgr = make_mgr(config, repo_root=tmp_path)
     findings = find_placeholders(docs, mgr, config=config)
     assert findings == []
+
+
+def test_placeholder_mdx_comments_excluded_from_word_count() -> None:
+    """MDX {/* … */} and HTML <!-- … --> comments must not count as prose words.
+
+    Regression: docs/community/license.mdx had <10 visible words but was not
+    flagged because its {/* … */} comment block (70+ words) inflated the count.
+    """
+    # Only 4 visible prose words — far below the default threshold of 50.
+    # The comment contains >60 words and must be ignored.
+    text = """\
+---
+sidebar_label: "License"
+description: "Licensing information."
+---
+
+# License
+
+{/*
+This page uses the pymdownx snippets extension to include the root LICENSE file
+directly — single source of truth, no divergence possible.
+
+Below, we add some extra explanation text about how this license applies to the
+Zenzic documentation and source code, as required to provide more context to our users
+and to pass internal minimum content validation checks within our own linting loops.
+*/}
+
+See LICENSE file.
+"""
+    config = ZenzicConfig(placeholder_max_words=50)
+    findings = check_placeholder_content(text, "community/license.mdx", config)
+    assert any(f.issue == "Z502" for f in findings), (
+        "Page with MDX-comment-inflated word count must still be flagged as short-content"
+    )
+
+
+def test_short_content_pointer_skips_frontmatter() -> None:
+    """Z502 short-content finding must point to the first content line, not to frontmatter.
+
+    Regression (D048 Bug 1): line_no was hardcoded to 1, causing the red arrow ``❱``
+    to point at the opening ``---`` of the frontmatter block, misleading users into
+    thinking frontmatter words were being counted as content.
+    """
+    text = """\
+---
+icon: ShieldCheck
+sidebar_label: Licenza
+title: Licenza Apache 2.0
+description: Informazioni sulla licenza.
+---
+
+# Licenza
+
+LICENZA
+"""
+    config = ZenzicConfig(placeholder_max_words=50)
+    findings = check_placeholder_content(text, "community/license.mdx", config)
+    short = [f for f in findings if f.issue == "Z502"]
+    assert short, "Page with 3 visible words must trigger short-content"
+    # The finding must NOT point at line 1 (the opening ``---``).
+    assert short[0].line_no > 1, (
+        f"short-content finding points at line {short[0].line_no} — "
+        "expected a line past the frontmatter block"
+    )
+
+
+def test_short_content_pointer_skips_spdx_comments() -> None:
+    """Z502 short-content finding must skip leading SPDX HTML comments when computing line_no.
+
+    Regression (D072 — The Ghost Content Fix): ``_first_content_line`` was anchored to
+    ``\\A`` via the frontmatter regex and returned line 1 whenever the file opened with
+    ``<!-- SPDX … -->`` comments, causing the red arrow ``❱`` to point at the licence
+    header instead of the first prose word.
+    """
+    # 5 SPDX comment lines + blank + 10-line frontmatter + blank + single word.
+    # REUSE-IgnoreStart
+    text = (
+        "<!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->\n"
+        "<!-- SPDX-License-Identifier: Apache-2.0 -->\n"
+        "<!-- SPDX-FileCopyrightText: 2024 Contributor A -->\n"
+        "<!-- SPDX-License-Identifier: MIT -->\n"
+        "<!-- Internal audit marker: approved -->\n"
+        "\n"
+        "---\n"
+        "title: SPDX Trap\n"
+        "sidebar_label: Trap\n"
+        "description: Regression test for comment-aware pointer.\n"
+        "icon: lock\n"
+        "draft: true\n"
+        "tags: [test, spdx]\n"
+        "keywords: [regression]\n"
+        "version: 0.7.0\n"
+        "---\n"
+        "\n"
+        "FINE\n"
+    )
+    # REUSE-IgnoreEnd
+    config = ZenzicConfig(placeholder_max_words=50)
+    findings = check_placeholder_content(text, "spdx-trap.md", config)
+    short = [f for f in findings if f.issue == "Z502"]
+    assert short, "File with single word 'FINE' must trigger short-content"
+    assert short[0].detail == "Page has only 1 words (minimum 50)."
+    # The pointer must land on the line containing "FINE", not on any comment or frontmatter.
+    target_line = text.splitlines()[short[0].line_no - 1]
+    assert target_line.strip() == "FINE", (
+        f"short-content pointer at line {short[0].line_no} is {target_line!r}; "
+        "expected the line containing 'FINE'"
+    )
+
+
+def test_short_content_pointer_skips_multiline_html_comment() -> None:
+    """_first_content_line must traverse a multi-line HTML comment (in_html=True path).
+
+    Covers the ``in_html`` continuation branch — lines 209-213, 221 in scanner.py.
+    When ``<!--`` and ``-->`` appear on different lines the walker must consume
+    every continuation line before recognising prose content.
+    """
+    # REUSE-IgnoreStart
+    text = (
+        "<!--\n"
+        " SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>\n"
+        " SPDX-License-Identifier: Apache-2.0\n"
+        "-->\n"
+        "\n"
+        "Brief.\n"
+    )
+    # REUSE-IgnoreEnd
+    config = ZenzicConfig(placeholder_max_words=50)
+    findings = check_placeholder_content(text, "multi-html.mdx", config)
+    short = [f for f in findings if f.issue == "Z502"]
+    assert short, "Single-word prose must trigger short-content"
+    target_line = text.splitlines()[short[0].line_no - 1]
+    assert target_line.strip() == "Brief.", (
+        f"Pointer at line {short[0].line_no} is {target_line!r}; expected 'Brief.'"
+    )
+
+
+def test_short_content_pointer_skips_multiline_mdx_comment() -> None:
+    """_first_content_line must traverse a multi-line MDX comment (in_mdx=True path).
+
+    Covers the ``in_mdx`` continuation branch — lines 214-218, 226 in scanner.py.
+    When ``{/*`` and ``*/`` appear on different lines the walker must consume
+    every continuation line before recognising prose content.
+    """
+    # REUSE-IgnoreStart
+    text = (
+        "{/*\n"
+        " SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>\n"
+        " SPDX-License-Identifier: Apache-2.0\n"
+        "*/}\n"
+        "\n"
+        "Note.\n"
+    )
+    # REUSE-IgnoreEnd
+    config = ZenzicConfig(placeholder_max_words=50)
+    findings = check_placeholder_content(text, "multi-mdx.mdx", config)
+    short = [f for f in findings if f.issue == "Z502"]
+    assert short, "Single-word prose must trigger short-content"
+    target_line = text.splitlines()[short[0].line_no - 1]
+    assert target_line.strip() == "Note.", (
+        f"Pointer at line {short[0].line_no} is {target_line!r}; expected 'Note.'"
+    )
+
+
+def test_short_content_pointer_unclosed_frontmatter() -> None:
+    """_first_content_line handles frontmatter with no closing ``---`` (EOF branch).
+
+    Covers the ``if i < n:`` False branch at line 239 in scanner.py — when the
+    frontmatter opening ``---`` is found but EOF is reached before the closing ``---``.
+    The function must not raise; it returns the line after the last consumed line.
+    """
+    text = "---\ntitle: Unclosed\nsidebar_label: Unclosed\n"
+    config = ZenzicConfig(placeholder_max_words=50)
+    findings = check_placeholder_content(text, "unclosed-fm.mdx", config)
+    # Unclosed frontmatter is not stripped by _FRONTMATTER_RE → word count > 0 but < 50
+    short = [f for f in findings if f.issue == "Z502"]
+    assert short, "Near-empty file must trigger short-content"
+    assert short[0].line_no >= 1
 
 
 def test_find_unused_assets_no_config(tmp_path: Path) -> None:
@@ -700,3 +879,57 @@ def test_find_unused_assets_symlink_skipped(tmp_path: Path) -> None:
     mgr = make_mgr(config, repo_root=tmp_path)
     unused = find_unused_assets(docs, mgr, config=config)
     assert any(p.name == "img.png" for p in unused)
+
+
+# ─── find_unused_assets — L1 System File Guardrails (CEO-050) ────────────────
+
+
+def test_find_unused_assets_skips_system_infrastructure_files(tmp_path: Path) -> None:
+    """System infrastructure files must never appear as Z903 findings.
+
+    Regression (D050): when docs_root == project root, toolchain files like
+    package.json were included in the asset walk and emitted spurious Z903
+    warnings. The Level 1a guardrail in find_unused_assets must filter them.
+    """
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "index.md").write_text("# Hello\n")
+    # Infra files that must be silently skipped
+    (docs / "package.json").write_text("{}")
+    (docs / "pyproject.toml").write_text("[project]")
+    (docs / "yarn.lock").write_text("")
+    (docs / "eslint.config.mjs").write_text("export default {};")
+
+    config = ZenzicConfig()
+    mgr = make_mgr(config, repo_root=tmp_path)
+    unused = find_unused_assets(docs, mgr, config=config)
+
+    infra_names = {p.name for p in unused}
+    assert "package.json" not in infra_names, "package.json must be shielded (L1a)"
+    assert "pyproject.toml" not in infra_names, "pyproject.toml must be shielded (L1a)"
+    assert "yarn.lock" not in infra_names, "yarn.lock must be shielded (L1a)"
+    assert "eslint.config.mjs" not in infra_names, "eslint.config.mjs must be shielded (L1a)"
+
+
+def test_find_unused_assets_skips_adapter_metadata_files(tmp_path: Path) -> None:
+    """Adapter metadata files must be excluded via the adapter_metadata_files param.
+
+    Regression (D050): docusaurus.config.ts in docs_root triggered Z903 when
+    the Docusaurus adapter's metadata files were not passed to find_unused_assets.
+    """
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "index.md").write_text("# Hello\n")
+    (docs / "docusaurus.config.ts").write_text("export default {};")
+    (docs / "sidebars.ts").write_text("export default {};")
+    (docs / "logo.png").write_bytes(b"\x89PNG")  # unreferenced — should be reported
+
+    config = ZenzicConfig()
+    mgr = make_mgr(config, repo_root=tmp_path)
+    adapter_meta = frozenset({"docusaurus.config.ts", "sidebars.ts"})
+    unused = find_unused_assets(docs, mgr, config=config, adapter_metadata_files=adapter_meta)
+
+    unused_names = {p.name for p in unused}
+    assert "docusaurus.config.ts" not in unused_names, "adapter config must be shielded (L1b)"
+    assert "sidebars.ts" not in unused_names, "adapter sidebar must be shielded (L1b)"
+    assert "logo.png" in unused_names, "genuine unused asset must still be reported"

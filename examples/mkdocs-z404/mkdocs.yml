@@ -1,0 +1,10 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+
+site_name: MkDocs Z404 Fixture
+site_url: https://example.com/docs/
+
+theme:
+  name: material
+  favicon: assets/images/missing-favicon.png
+  logo: assets/images/missing-logo.svg

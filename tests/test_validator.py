@@ -312,11 +312,17 @@ class TestInternalLinks:
 
     @pytest.mark.slow
     def test_anchor_torture_parallel_indexing_1000_files(self, tmp_path: Path) -> None:
-        """1000 cross-linked anchors must validate without race-induced false positives."""
+        """1000 cross-linked anchors must validate without race-induced false positives.
+
+        Windows uses spawn (not fork) — scale down to 100 files to stay within
+        the 120s pytest-timeout budget on GitHub Actions Windows runners.
+        """
+        import os
+
         docs = tmp_path / "docs"
         docs.mkdir()
 
-        total = 1000
+        total = 100 if os.name == "nt" else 1000
         for i in range(total):
             nxt = i + 1
             # Linear chain: each page links to the next (no ring to avoid CIRCULAR_LINK).
@@ -373,7 +379,7 @@ class TestTraversalIntent:
         mgr = make_mgr(config, repo_root=tmp_path)
         errors = validate_links_structured(docs_root, mgr, repo_root=tmp_path, config=config)
         assert len(errors) == 1
-        assert errors[0].error_type == "PATH_TRAVERSAL_SUSPICIOUS"
+        assert errors[0].error_type == "Z203"
 
     def test_path_traversal_boundary_error_type(self, tmp_path: Path) -> None:
         """validate_links_structured emits PATH_TRAVERSAL for non-system out-of-bounds hrefs."""
@@ -385,7 +391,7 @@ class TestTraversalIntent:
         mgr = make_mgr(config, repo_root=tmp_path)
         errors = validate_links_structured(docs_root, mgr, repo_root=tmp_path, config=config)
         assert len(errors) == 1
-        assert errors[0].error_type == "PATH_TRAVERSAL"
+        assert errors[0].error_type == "Z202"
 
 
 # ─── Absolute-path prohibition ───────────────────────────────────────────────
@@ -450,6 +456,28 @@ class TestAbsolutePathProhibition:
         errors = validate_links(docs_root, mgr, repo_root=tmp_path, config=config)
         assert len(errors) == 1
         assert "absolute path" in errors[0]
+
+    def test_z105_fires_even_when_target_file_exists_on_disk(self, tmp_path: Path) -> None:
+        """CEO-053 regression: Z105 is a hard pre-resolution gate.
+
+        Even when the target file exists on disk, an absolute link must be
+        flagged as ABSOLUTE_PATH (Z105) — the validator must never short-circuit
+        the check because the file happens to be reachable locally.
+
+        This test creates a real file, then links to it via an absolute path.
+        The error_type must be ABSOLUTE_PATH, not FILE_NOT_FOUND.
+        """
+        docs = tmp_path / "docs"
+        (docs / "assets").mkdir(parents=True)
+        # Physical file exists — the link target is reachable on disk
+        (docs / "assets" / "logo.png").write_bytes(b"\x89PNG")
+        (docs / "index.md").write_text("![logo](/assets/logo.png)\n")
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        errors = validate_links_structured(docs_root, mgr, repo_root=tmp_path, config=config)
+        assert len(errors) == 1
+        assert errors[0].error_type == "Z105"
 
 
 # ─── S4-2: known_assets pre-map + excluded_build_artifacts ───────────────────
@@ -1268,7 +1296,7 @@ class TestCircularLinkIntegration:
         docs_root = tmp_path / config.docs_dir
         mgr = make_mgr(config, repo_root=tmp_path)
         errors = validate_links_structured(docs_root, mgr, repo_root=tmp_path, config=config)
-        circular = [e for e in errors if e.error_type == "CIRCULAR_LINK"]
+        circular = [e for e in errors if e.error_type == "Z106"]
         assert len(circular) == 2  # one from a.md and one from b.md
 
     def test_linear_chain_no_circular_link(self, tmp_path: Path) -> None:
@@ -1281,7 +1309,7 @@ class TestCircularLinkIntegration:
         docs_root = tmp_path / config.docs_dir
         mgr = make_mgr(config, repo_root=tmp_path)
         errors = validate_links_structured(docs_root, mgr, repo_root=tmp_path, config=config)
-        circular = [e for e in errors if e.error_type == "CIRCULAR_LINK"]
+        circular = [e for e in errors if e.error_type == "Z106"]
         assert circular == []
 
     def test_i18n_cross_language_cycle_detected(self, tmp_path: Path) -> None:
@@ -1296,5 +1324,106 @@ class TestCircularLinkIntegration:
         docs_root = tmp_path / config.docs_dir
         mgr = make_mgr(config, repo_root=tmp_path)
         errors = validate_links_structured(docs_root, mgr, repo_root=tmp_path, config=config)
-        circular = [e for e in errors if e.error_type == "CIRCULAR_LINK"]
+        circular = [e for e in errors if e.error_type == "Z106"]
         assert len(circular) == 2
+
+
+# ── CEO-252: check_external=False skips Pass 3 (Environmental Sovereignty) ───
+
+
+class TestCheckExternalFlag:
+    """CEO-252 — --no-external / check_external=False skips HTTP HEAD only."""
+
+    def test_no_external_skips_http_pass(self, tmp_path: Path) -> None:
+        """validate_links_async Pass 3 (_check_external_links) is never called
+        when check_external=False, even when strict=True.
+        """
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        (docs / "index.md").write_text("[External](https://example.com)\n")
+        config = ZenzicConfig()
+        mgr = make_mgr(config, repo_root=tmp_path)
+
+        with patch(
+            "zenzic.core.validator._check_external_links",
+            new_callable=AsyncMock,
+        ) as mock_pass3:
+            errors = validate_links_structured(
+                docs,
+                mgr,
+                repo_root=tmp_path,
+                config=config,
+                strict=True,  # Pass 3 would normally run
+                check_external=False,  # R27: skip Pass 3
+            )
+
+        mock_pass3.assert_not_called()
+        assert errors == []
+
+    def test_check_external_true_allows_pass3(self, tmp_path: Path) -> None:
+        """When check_external=True (default) and strict=True, Pass 3 is called."""
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        (docs / "index.md").write_text("[External](https://example.com)\n")
+        config = ZenzicConfig()
+        mgr = make_mgr(config, repo_root=tmp_path)
+
+        with patch(
+            "zenzic.core.validator._check_external_links",
+            new_callable=AsyncMock,
+            return_value=[],
+        ) as mock_pass3:
+            validate_links_structured(
+                docs,
+                mgr,
+                repo_root=tmp_path,
+                config=config,
+                strict=True,
+                check_external=True,
+            )
+
+        mock_pass3.assert_called_once()
+
+    def test_shield_fires_with_check_external_false(self, tmp_path: Path) -> None:
+        """Shield (Pass 1 via scan_lines_with_lookback) is independent of check_external.
+
+        The Shield operates on raw file content and has no concept of check_external.
+        This test verifies that (a) validate_links_structured still succeeds when
+        check_external=False, and (b) the Shield module independently detects the
+        credential — confirming they are orthogonal systems.
+        """
+        from zenzic.core.shield import scan_lines_with_lookback
+
+        # Construct a fake PAT (Synthetic Test Protocol — D002)
+        _prefix = "ghp_"
+        _body = "A" * 36
+        fake_pat = _prefix + _body
+
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        file_content = f"[Click here](https://example.com?token={fake_pat})\n"
+        md_file = docs / "secret.md"
+        md_file.write_text(file_content)
+        (tmp_path / "zenzic.toml").write_text("[project]\n")
+        config = ZenzicConfig()
+        mgr = make_mgr(config, repo_root=tmp_path)
+
+        # validate_links_structured with check_external=False must complete without error
+        errors = validate_links_structured(
+            docs,
+            mgr,
+            repo_root=tmp_path,
+            config=config,
+            strict=False,
+            check_external=False,
+        )
+        # No link errors — the PAT is in an external URL, not a broken internal link
+        link_errors = [e for e in errors if e.error_type not in ("SHIELD_SECRET", "Z201")]
+        assert link_errors == []
+
+        # Independently: the Shield detects the credential in raw content
+        numbered_lines = enumerate(file_content.splitlines(keepends=True), start=1)
+        shield_findings = list(scan_lines_with_lookback(numbered_lines, file_path=md_file))
+        assert len(shield_findings) >= 1, (
+            "Shield must detect the credential independently of check_external"
+        )

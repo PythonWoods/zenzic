@@ -9,461 +9,242 @@ Le versioni seguono il [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [Non rilasciato]
-
-## [0.6.1] — 2026-04-19 — Obsidian Glass (Stable)
-
-### Modifiche che rompono la compatibilità
-
-- **Standalone Engine sostituisce Vanilla (Direttiva 037).** `VanillaAdapter` e la
-  keyword `engine = "vanilla"` sono stati rimossi. Tutti i progetti devono migrare a
-  `engine = "standalone"`. Qualsiasi `zenzic.toml` che usa ancora `engine = "vanilla"`
-  genera una `ConfigurationError [Z000]` all'avvio con un messaggio di migrazione chiaro.
-  *Migrazione:* sostituire `engine = "vanilla"` con `engine = "standalone"` nel proprio
-  `zenzic.toml` o nel blocco `[tool.zenzic]`.
-
-### Aggiunto
-
-- **Codici Finding (Zxxx) (Direttiva 036).** Ogni diagnostica emessa da Zenzic ora
-  porta un identificatore univoco leggibile dalla macchina (es. `Z101 LINK_BROKEN`,
-  `Z201 SHIELD_SECRET`, `Z401 MISSING_DIRECTORY_INDEX`). Il registro completo si trova
-  in `src/zenzic/core/codes.py` — unica fonte di verità per tutti i codici.
-- **Menu interattivo del Lab.** `zenzic lab` senza argomenti mostra ora l'indice degli
-  atti per scegliere quale scenario esplorare. Eseguire `zenzic lab <N>` per avviare
-  un atto specifico (0–8). L'opzione `--act` è stata sostituita da un argomento
-  posizionale.
-- **Identità Standalone Mode.** `StandaloneAdapter` è il motore no-op canonico per
-  progetti Markdown puri. `zenzic init` ora scrive `engine = "standalone"` quando non
-  viene rilevata nessuna configurazione di framework.
-
-- **Flag `--offline` per la risoluzione URL Flat.** Disponibile su `check all`,
-  `check links` e `check orphans`. Forza tutti gli adapter a produrre URL `.html`
-  (es. `guida/install.md` → `/guida/install.html`) invece di slug in stile directory.
-- **Supporto multi-versione Docusaurus v3.** `DocusaurusAdapter` ora identifica
-  `versions.json`, `versioned_docs/` e le traduzioni versionate.
-- **Proxy Trasparente Zensical.** Se viene dichiarato `engine = "zensical"` ma
-  `zensical.toml` è assente, l'adapter crea automaticamente un ponte con il tuo
-  `mkdocs.yml` esistente.
-- **Ghost Routing consapevole delle versioni.** I percorsi della documentazione
-  versionata sono automaticamente classificati come `REACHABLE`.
-- **Risoluzione Alias @site/.** Aggiunto il supporto per l'alias di percorso `@site/`
-  in `DocusaurusAdapter`, permettendo la corretta risoluzione dei link relativi al progetto.
-- **Integrità dell'Indice di Directory.** Nuovo metodo `provides_index(path)` nel protocollo
-  `BaseAdapter` per il rilevamento engine-aware delle directory prive di landing page.
-  Il finding `MISSING_DIRECTORY_INDEX` (severità: `info`), emesso da `zenzic check all`,
-  avvisa di ogni sottodirectory che contiene sorgenti Markdown ma nessun indice fornito
-  dall'engine — prevenendo i 404 gerarchici prima del deploy.
-- **Notifiche nel Banner Sentinel.** Nuovi messaggi di stato per l'attivazione della
-  **Modalità Offline** e della **Modalità Proxy**.
-
-### Corretto
-
-- **Audit dei Guardiani: Allineamento Specifiche Ufficiali.**
-  - **Versioning Docusaurus:** Corretta la mappatura URL della versione "latest" (prima voce
-    in `versions.json`) per escludere il prefisso dell'etichetta di versione, allineandosi
-    al comportamento ufficiale di Docusaurus. In precedenza ogni file versionato riceveva
-    un prefisso `/versione/`, generando falsi positivi per tutte le pagine della versione latest.
-  - **Slug Docusaurus:** Gli slug frontmatter assoluti (es. `slug: /mio-percorso`) sono
-    ora correttamente preceduti dalla `routeBasePath` (es. `/docs/mio-percorso/`),
-    allineandosi alla specifica Docusaurus `normalizeUrl([versionMetadata.path, docSlug])`.
-  - **Collasso Intelligente dei File:** La logica `isCategoryIndex` ora rispecchia
-    esattamente Docusaurus: `README.md`, `INDEX.md` (case-insensitive) e
-    `{NomeCartella}/{NomeCartella}.md` collassano nell'URL della directory genitore,
-    prevenendo falsi positivi per le convenzioni valide di landing page di categoria.
-  - **Risoluzione Alias `@site/`:** `InMemoryPathResolver` ora risolve i link `@site/`
-    rispetto al corretto confine `repo_root` invece di sfuggire tramite `../`,
-    eliminando errori `PathTraversal` spuri per tutti i link relativi al progetto Docusaurus.
-- **Integrità dei Metadati.** Corretto l'allineamento delle stringhe di versione in
-  `CITATION.cff` e `pyproject.toml`.
-- **Default routeBasePath Docusaurus.** Ripristinato `docs` come prefisso URL predefinito
-  per i progetti Docusaurus per corrispondere al comportamento ufficiale dell'engine.
-
-- **Parità Documentale Bilingue.** Copertura completa della documentazione EN/IT per
-  tutte le feature della v0.6.1 nelle guide Architettura, Motori e Comandi.
-
-## [0.6.1rc2] — 2026-04-16 — Obsidian Bastion (Hardened)
-
-### SICUREZZA: Risultati Operation Obsidian Stress
-
-- **Shield: bypass tramite caratteri Unicode di formato (ZRT-006).** Caratteri
-  Unicode invisibili (ZWJ U+200D, ZWNJ U+200C, ZWSP U+200B) inseriti all'interno
-  di un token potevano eludere il pattern matching. Il normalizzatore ora rimuove
-  tutti i caratteri Unicode di categoria Cf prima della scansione.
-- **Shield: bypass tramite offuscamento con entità HTML (ZRT-006).** I riferimenti
-  a caratteri HTML (`&#65;&#75;` → `AK`) potevano nascondere i prefissi delle
-  credenziali. Il normalizzatore ora decodifica le entità `&#NNN;`/`&#xHH;`
-  tramite `html.unescape()`.
-- **Shield: bypass tramite interleaving di commenti (ZRT-007).** Commenti HTML
-  (`<!-- -->`) e commenti MDX (`{/* */}`) inseriti all'interno di un token
-  potevano interrompere il pattern matching. Il normalizzatore ora rimuove
-  entrambe le forme di commento.
-- **Shield: rilevamento token spezzati tra righe (ZRT-007).** Aggiunto un buffer
-  lookback di 1 riga tramite `scan_lines_with_lookback()` per rilevare segreti
-  suddivisi su due righe consecutive (es. scalari YAML folded). I duplicati sono
-  soppressi tramite il set di tipi già rilevati sulla riga precedente.
-
-### Aggiunto
-
-- **`--format json` sui comandi di controllo singoli.** `check links`, `check orphans`,
-  `check snippets`, `check references` e `check assets` accettano ora `--format json`
-  con uno schema uniforme `findings`/`summary`. I codici di uscita sono preservati in
-  modalità JSON.
-  ([#55](https://github.com/PythonWoods/zenzic/pull/55) — contributo di [@xyaz1313](https://github.com/xyaz1313))
-- **Shield: rilevamento GitLab Personal Access Token.** Lo scanner di credenziali
-  rileva ora i token `glpat-` (9 famiglie di credenziali in totale).
-  ([#57](https://github.com/PythonWoods/zenzic/pull/57) — contributo di [@gtanb4l](https://github.com/gtanb4l))
-
-### Corretto
-
-- **Asimmetria exit-code JSON in `check orphans` e `check assets`.** Entrambi i comandi
-  ora distinguono la severità `error` da `warning` prima di decidere il codice di uscita,
-  in modo coerente con `check references` e `check snippets`. In precedenza, qualsiasi
-  finding (inclusi i warning) attivava Exit 1 in modalità JSON.
-
-## [0.6.1rc1] — 2026-04-15 — Obsidian Bastion
-
-### Breaking Changes
-
-- **Rimosso il comando `zenzic serve`.** Zenzic è ora 100% privo di sotto-processi,
-  concentrandosi esclusivamente sull'analisi statica del sorgente. Per visualizzare
-  la documentazione, usa il comando nativo del tuo engine: `mkdocs serve`,
-  `docusaurus start`, o `zensical serve`. Questa rimozione elimina l'unica eccezione
-  al Pillar 2 (Nessun Sottoprocesso) e completa la purezza architetturale del
-  framework.
-- **Plugin MkDocs spostato in `zenzic.integrations.mkdocs`** — In precedenza in
-  `zenzic.plugin`. Aggiornare `mkdocs.yml` e reinstallare il pacchetto;
-  il plugin viene ora auto-scoperto tramite l'entry point `mkdocs.plugins`.
-  Richiede `pip install "zenzic[mkdocs]"`.
-
-### Aggiunto
-
-- **Layered Exclusion Manager** — Nuova gerarchia di esclusione a 4 livelli
-  (Guardrail di Sistema > Inclusioni Forzate + VCS > Config > CLI). Parser
-  gitignore pure-Python (`VCSIgnoreParser`) con pattern regex pre-compilati.
-  Nuovi campi di configurazione: `respect_vcs_ignore`, `included_dirs`,
-  `included_file_patterns`.
-- **Discovery Universale** — Zero chiamate `rglob` nel codebase. Tutta
-  l'iterazione sui file passa attraverso `walk_files` / `iter_markdown_sources`
-  da `discovery.py`. Parametro `exclusion_manager` obbligatorio su tutti i punti
-  d'ingresso di scanner e validator — nessun Optional, nessun fallback.
-- **Flag CLI di Esclusione** — `--exclude-dir` e `--include-dir` ripetibili su
-  tutti i comandi check, `score` e `diff`.
-- **Cache Adapter** — Cache a livello di modulo con chiave `(engine, docs_root,
-  repo_root)`. Singola istanziazione dell'adapter per sessione CLI.
-- **F4-1 Protezione Jailbreak** — `_validate_docs_root()` rifiuta percorsi
-  `docs_dir` che escono dalla radice del repository (Sentinella di Sangue
-  Exit 3).
-- **F2-1 Hardening Shield** — Le righe che superano 1 MiB vengono troncate
-  silenziosamente prima del matching regex per prevenire ReDoS.
-- **Namespace `zenzic.integrations`** — Plugin MkDocs spostato da `zenzic.plugin`
-  a `zenzic.integrations.mkdocs`. Registrato come entry point ufficiale
-  `mkdocs.plugins`. Il core è ora privo di import specifici per engine.
-  Installa l'extra: `pip install "zenzic[mkdocs]"`.
-
-### Modificato
-
-- **BREAKING (Alpha):** il parametro `exclusion_manager` è ora obbligatorio su
-  `walk_files`, `iter_markdown_sources`, `generate_virtual_site_map`,
-  `check_nav_contract`, e tutte le funzioni dello scanner. Nessun default
-  `None` retrocompatibile.
-
-## [0.6.0a2] — 2026-04-13 — Obsidian Glass (Alpha 2)
-
-### Aggiunto
-
-- **Supporto Glob Pattern per `excluded_assets`** — Le voci di `excluded_assets`
-  sono ora interpretate tramite `fnmatch` (sintassi glob: `*`, `?`, `[]`, `**`).
-  I percorsi letterali continuano a funzionare come prima.  Questo allinea
-  `excluded_assets` con `excluded_build_artifacts` e `excluded_file_patterns`,
-  dando all'intera API di esclusione un linguaggio unico e coerente.
-- **`base_url` in `[build_context]`** — Nuovo campo opzionale che permette di
-  dichiarare esplicitamente la base URL del sito.  Quando impostato, l'adapter
-  Docusaurus salta l'estrazione statica da `docusaurus.config.ts`, eliminando
-  il warning di fallback "dynamic patterns" per le configurazioni che usano
-  `async`, `import()` o `require()`.
-- **Routing Guidato dai Metadati** — Nuovo dataclass `RouteMetadata` e metodo
-  `get_route_info()` nel protocollo `BaseAdapter`. Tutti e quattro gli adapter
-  (Vanilla, MkDocs, Docusaurus, Zensical) implementano la nuova API.
-  `build_vsm()` preferisce il percorso metadata-driven quando disponibile,
-  con fallback alla coppia legacy `map_url()` + `classify_route()` per gli
-  adapter di terze parti.
-- **Estrazione Centralizzata del Frontmatter** — Utility engine-agnostiche in
-  `_utils.py`: `extract_frontmatter_slug()`, `extract_frontmatter_draft()`,
-  `extract_frontmatter_unlisted()`, `extract_frontmatter_tags()`, e
-  `build_metadata_cache()` per il harvesting eager single-pass del frontmatter
-  YAML su tutti i file Markdown.
-- **Dataclass `FileMetadata`** — Rappresentazione strutturata del frontmatter
-  per file: `slug`, `draft`, `unlisted`, `tags`.
-- **Shield IO Middleware** — `safe_read_line()` scansiona ogni riga del
-  frontmatter attraverso lo Shield prima che qualsiasi parser la veda.
-  L'eccezione `ShieldViolation` fornisce un errore strutturato con payload
-  `SecurityFinding`.
-- **Test di Conformità del Protocollo** — 43 nuovi test in
-  `test_protocol_evolution.py`: validazione `runtime_checkable` del protocollo,
-  invarianti `RouteMetadata`, test di contratto `get_route_info()` per tutti
-  gli adapter, stress test Hypothesis con percorsi estremi, sicurezza pickle,
-  estrazione frontmatter, middleware Shield, e operazione senza warning di
-  VanillaAdapter.
-
-### Modificato
-
-- **BREAKING: `excluded_assets` usa fnmatch** — Tutte le voci sono ora
-  interpretate come pattern glob.  I percorsi letterali continuano a
-  funzionare (sono pattern validi), ma pattern come `**/_category_.json` o
-  `assets/brand/*` sono ora supportati nativamente.  L'implementazione
-  precedente basata sulla sottrazione di insiemi è stata rimossa.
-
-### Corretto
-
-- **Warning "dynamic patterns" di Docusaurus emesso due volte** — Quando
-  `base_url` è dichiarato in `zenzic.toml`, l'adapter non chiama più
-  `_extract_base_url()`, sopprimendo completamente il warning duplicato.
-
-## [0.6.0a1] — 2026-04-12 — Obsidian Glass
-
-> **Alpha 1 della serie v0.6.** Zenzic evolve da un linter MkDocs-aware a un
-> **Analizzatore di Piattaforme Documentali**. Questo rilascio introduce
-> l'adapter per il motore Docusaurus v3 — il primo adapter non-MkDocs/Zensical —
-> e segna l'inizio della strategia di migrazione Obsidian Bridge.
-
-### Aggiunto
-
-- **Adapter Docusaurus v3 (Full Spec)**: Nuovo adapter engine-agnostico con
-  parsing statico AST-like per `docusaurus.config.ts/js`. Adapter puro Python
-  conforme al protocollo `BaseAdapter`. Gestisce file sorgente `.md` e `.mdx`,
-  modalità sidebar auto-generata (tutti i file `REACHABLE`), geografia i18n
-  Docusaurus (`i18n/{locale}/docusaurus-plugin-content-docs/current/`),
-  rilevamento Ghost Route per le pagine indice delle locale, ed esclusione di
-  file/directory con prefisso `_` (`IGNORED`). Registrato come adapter built-in
-  con entry-point `docusaurus = "zenzic.core.adapters:DocusaurusAdapter"`.
-  - **Estrazione `baseUrl`**: Parser statico multi-pattern che supporta
-    `export default`, `module.exports` e pattern di assegnazione `const`/`let`.
-    I commenti JS/TS vengono rimossi prima dell'estrazione. Nessun
-    sottoprocesso Node.js (conformità Pilastro 2).
-  - **Estrazione `routeBasePath`**: Rilevamento automatico di `routeBasePath`
-    dai preset e blocchi plugin Docusaurus (es.
-    `@docusaurus/preset-classic`). Supporta stringa vuota (docs alla radice
-    del sito).
-  - **Supporto Slug**: Gli override `slug:` nel frontmatter Markdown sono ora
-    correttamente mappati nella VSM. Gli slug assoluti (`/custom-path`)
-    sostituiscono l'URL completo; gli slug relativi sostituiscono l'ultimo
-    segmento del percorso.
-  - **Rilevamento Config Dinamica**: Rilevamento intelligente di config
-    creator asincroni, chiamate `import()`/`require()` e export basati su
-    funzione. Fallback a `baseUrl='/'` con warning utente — mai crash, mai
-    assunzioni.
-- **Hook factory `from_repo()`** per `DocusaurusAdapter`: Scopre automaticamente
-  `docusaurus.config.ts` o `.js` e costruisce l'adapter con il `baseUrl` e
-  `routeBasePath` corretti.
-- **Topologia i18n Migliorata**: Mappatura nativa per la struttura delle
-  directory `i18n/` di Docusaurus e risoluzione delle rotte specifiche per
-  locale.
-
-### Test
-
-- **`tests/test_docusaurus_adapter.py` — 65 test in 12 classi di test.**
-  Copertura completa del refactor dell'adapter Docusaurus: parsing config
-  (CFG-01..07), estrazione `routeBasePath` (RBP-01), supporto slug
-  frontmatter (SLUG-01), rilevamento config dinamica, rimozione commenti,
-  integrazione `from_repo()`, regressione URL mapping e classificazione rotte.
-
-## [0.5.0a5] — 2026-04-09 — Il Codex Sentinel
-
-> **Rilascio Alpha 5.** Revisione del linguaggio visivo: Guida di Stile Sentinel,
-> refactoring delle griglie a schede, normalizzazione di admonition e icone,
-> 102 anchor ID strategici, effetti hover CSS per le schede, e pipeline di
-> generazione screenshot completamente automatizzata. Rimosso template PDF legacy.
-> Tracking changelog stabilizzato. Test E2E CLI di sicurezza aggiunti; bug
-> `--exit-zero` corretto (exit 2/3 ora incondizionatamente non sopprimibili,
-> conforme al contratto documentato).
-
-### Aggiunto
-
-- **Guida di Stile Sentinel** — riferimento canonico del linguaggio visivo
-  (`docs/internal/style-guide-sentinel.md` + specchio italiano) che definisce
-  griglie a schede, tipi di admonition, vocabolario icone e convenzioni
-  anchor-ID.
-
-- **Generazione screenshot automatizzata — SVG Blood & Circular.**
-  `scripts/generate_docs_assets.py` ora genera tutti e cinque gli screenshot
-  della documentazione. Gli SVG Blood Sentinel e Circular Link erano asset
-  statici realizzati a mano; ora sono generati deterministicamente da fixture
-  sandbox dedicate.
-
-- **Tracking bumpversion CHANGELOG.it.md.** Il changelog italiano aggiunto a
-  `[tool.bumpversion.files]` in `pyproject.toml`, garantendo la sincronizzazione
-  delle intestazioni di versione durante le esecuzioni di `bump-my-version`.
-
-### Corretto
-
-- **`--exit-zero` non sopprime più gli exit di sicurezza in `check all`.**
-  Gli exit code 2 (Shield breach) e 3 (Blood Sentinel) erano protetti da
-  `not effective_exit_zero` in `check all`, in contraddizione con il contratto
-  documentato. Le guardie sono state rimosse — exit 2 e 3 sono ora
-  incondizionali.
-
-### Test
-
-- **`tests/test_cli_e2e.py` — 8 test E2E CLI di sicurezza.**
-  Test full-pipeline (nessun mock) che verificano il contratto exit-code:
-  Blood Sentinel (Exit 3), Shield Breach (Exit 2), `--exit-zero` non
-  sopprime exit di sicurezza, priorità Exit 3 > Exit 2.
-  Chiude gap: `docs/internal/arch_gaps.md` § "Security Pipeline Coverage".
-
-### Modificato
-
-- **Refactoring Griglie a Schede.** Pagine documentazione standardizzate con
-  sintassi griglia Material for MkDocs.
-
-- **Normalizzazione Admonition.** Stili callout ad-hoc sostituiti con tipi
-  canonici (`tip`, `warning`, `info`, `example`).
-
-- **Normalizzazione Icone.** Icone non-Material rimosse; standardizzate al set
-  `:material-*:`.
-
-- **102 Anchor ID Strategici** posizionati in 70 file di documentazione per
-  deep-linking stabile.
-
-- **Override CSS Schede.** Effetti hover e stile schede coerente via
-  `docs/assets/stylesheets/`.
-
-### Rimosso
-
-- **`docs/assets/pdf_cover.html.j2`** — template Jinja2 copertina PDF legacy.
-  Artefatto orfano senza riferimenti nella pipeline di build; rimosso per ridurre
-  la superficie di manutenzione.
-
----
-
-## [0.5.0a4] — 2026-04-08 — Il Sentinel Indurito: Sicurezza & Integrità
-
-> **Rilascio Alpha 4.** Quattro vulnerabilità confermate chiuse (ZRT-001–004), tre
-> nuovi pilastri di hardening aggiunti (Sentinella di Sangue, Integrità del Grafo,
-> Scudo Esadecimale), e piena parità documentale bilingue raggiunta. In attesa di
-> revisione manuale prima della promozione a Release Candidate.
->
-> Branch: `fix/sentinel-hardening-v0.5.0a4`
-
-### Aggiunto
-
-- **Integrità del grafo — rilevamento link circolari.** Zenzic ora pre-calcola
-  un registro dei cicli (Fase 1.5) tramite ricerca depth-first iterativa (Θ(V+E))
-  sul grafo dei link interni risolti. Ogni link il cui target appartiene a un ciclo
-  emette un finding `CIRCULAR_LINK` con severità `info`. I link di navigazione
-  reciproca (A ↔ B) sono una struttura valida della documentazione; il finding è
-  puramente informativo — non influisce mai sugli exit code in modalità normale o
-  `--strict`. O(1) per query in Phase 2. Le Ghost Route (URL canonici generati da
-  plugin senza file sorgente fisico) sono correttamente escluse dal grafo dei cicli.
-
-- **`INTERNAL_GLOSSARY.toml`** — registro bilingue EN↔IT dei termini tecnici
-  (15 voci) per un vocabolario coerente tra documentazione inglese e italiana. Copre
-  i concetti principali: Porto Sicuro, Rotta Fantasma, Mappa del Sito Virtuale,
-  Motore a Due Passaggi, Scudo, Sentinella di Sangue e altri. Mantenuto da S-0.
-  Tutti i termini con `stable = true` richiedono un ADR prima della rinomina.
-
-- **Parità documentale bilingue.** `docs/checks.md` e `docs/it/checks.md` aggiornati
-  con le sezioni Sentinella di Sangue, Link Circolari e Scudo Esadecimale.
-  `CHANGELOG.it.md` creato. Piena parità EN↔IT applicata per il Protocollo di
-  Parità Bilingue.
-
-### ⚠️ Sicurezza
-
-- **Sentinella di Sangue — classificazione degli attraversamenti di percorso (Exit Code 3).**
-  `check links` e `check all` ora classificano i finding di path-traversal per
-  intenzione. Un href che esce da `docs/` e si risolve in una directory di sistema
-  del SO (`/etc/`, `/root/`, `/var/`, `/proc/`, `/sys/`, `/usr/`) viene classificato
-  come `PATH_TRAVERSAL_SUSPICIOUS` con severità `security_incident` e attiva
-  l'**Exit Code 3** — un nuovo exit code dedicato riservato alle sonde del sistema
-  host. L'Exit 3 ha priorità sull'Exit 2 (violazione credenziali) e non viene mai
-  soppresso da `--exit-zero`. Gli attraversamenti fuori confine ordinari (es.
-  `../../repo-adiacente/`) restano `PATH_TRAVERSAL` con severità `error` (Exit Code 1).
-
-- **Scudo Esadecimale — rilevamento di payload hex-encoded.**
-  Un nuovo pattern built-in dello Shield, `hex-encoded-payload`, rileva sequenze di
-  tre o più escape hex `\xNN` consecutive (`(?:\\x[0-9a-fA-F]{2}){3,}`). La soglia
-  `{3,}` evita falsi positivi sulle singole escape hex comuni nella documentazione
-  delle regex. I finding escono con codice 2 (Shield, non sopprimibile) e si
-  applicano a tutti i flussi di contenuto inclusi i blocchi di codice delimitati.
-
-- **[ZRT-001] Shield Blind Spot — Bypass YAML Frontmatter (CRITICO).**
-  `_skip_frontmatter()` veniva usato come sorgente di righe dello Shield,
-  scartando silenziosamente ogni riga nel blocco YAML `---` del file prima che
-  il motore regex girasse. Qualsiasi coppia chiave-valore (`aws_key: AKIA…`,
-  `github_token: ghp_…`) era invisibile allo Shield.
-  **Fix:** Il flusso Shield ora usa `enumerate(fh, start=1)` grezzo — ogni byte
-  del file viene scansionato. Il flusso contenuto usa ancora `_iter_content_lines()`
-  con salto del frontmatter per evitare falsi positivi da valori di metadati.
-  Architettura **Dual-Stream**.
-
-- **[ZRT-002] ReDoS + Deadlock ProcessPoolExecutor (ALTO).**
-  Un pattern `[[custom_rules]]` come `^(a+)+$` superava il controllo
-  `_assert_pickleable()` e veniva distribuito ai worker process senza timeout.
-  **Due difese aggiunte:**
-  — *Canary (prevenzione):* `_assert_regex_canary()` stress-testa ogni pattern
-    `CustomRule` sotto un watchdog `signal.SIGALRM` di 100 ms. I pattern ReDoS
-    sollevano `PluginContractError` prima della prima scansione.
-  — *Timeout (contenimento):* `ProcessPoolExecutor.map()` sostituito con
-    `submit()` + `future.result(timeout=30)`.
-
-- **[ZRT-003] Bypass Shield Split-Token — Offuscamento Tabelle Markdown (MEDIO).**
-  Il separatore `|` delle tabelle Markdown spezzava i token segreti su più celle.
-  **Fix:** Le righe di tabella vengono de-pipe prima della scansione Shield.
-
-- **[ZRT-004] Injection Path Traversal nei Link Reference (BASSO).**
-  Link reference con href malevoli potevano sfuggire alla sandbox `docs/`.
-  **Fix:** La validazione PATH_TRAVERSAL applicata ai link reference come ai link
-  inline.
-
-### Interno
-
-- **Pipeline CI/CD corretta per Node.js 24.**
-  `cloudflare/wrangler-action@v3` invoca `npx wrangler` senza il flag `--yes`;
-  npm 10+ sui runner GitHub con Node.js 24 blocca i prompt non interattivi,
-  causando il fallimento del deploy su Cloudflare Pages. Fix: pre-installazione
-  globale di `wrangler@latest` prima dell'esecuzione dell'action, così npx trova
-  il binario nel PATH senza scaricarlo. `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true`
-  silenzia il warning di deprecazione di Node.js 20 prima della migrazione forzata
-  di giugno 2026. Tracciato in `arch_gaps.md`.
-  Branch: `fix/v050a4-infra-alignment`.
-
-## [0.5.0a3] — 2026-03-28 — Il Sentinel: Plugin, Regole Adattive, Hooks Pre-commit
-
-> Branch: `feat/sentinel-v0.5.0a3`
-
-### Aggiunto
-
-- **Sistema Plugin** — `[[custom_rules]]` in `zenzic.toml` per regole regex
-  personalizzate. `PluginContractError` per la validazione contratto a boot.
-- **Regex Canary** — watchdog SIGALRM 100 ms per backtracking catastrofico.
-- **Hooks Pre-commit** — configurazione ufficiale per pipeline CI.
-- **UI Sentinel** — palette colori, reporter a griglia, output Sentinel rinnovato.
-
-## [0.5.0a1] — 2026-03-15 — Il Sentinel: Motore Adattivo delle Regole
-
-> Branch: `feat/sentinel-v0.5.0a1`
-
-### Aggiunto
-
-- **AdaptiveRuleEngine** — motore di analisi estensibile con Phase 3.
-- **Hybrid Adaptive Engine** — integrazione MkDocs + motore adattivo.
-- **Pannelli Sentinel** — output strutturato per tutti i controlli.
-
-## [0.4.0] — 2026-03-01 — Il Grande Disaccoppiamento
-
-> Branch: `feat/engine-decoupling`
-
-### Aggiunto
-
-- **Factory entry-point dinamica** — `--engine` CLI flag; protocollo
-  `has_engine_config`.
-- **InMemoryPathResolver** — resolver agnostico rispetto al motore.
-- **Tower of Babel Guard** — fallback i18n per ancora mancante nella locale.
-
-## [0.3.0] — 2026-02-15 — Two-Pass Pipeline
-
-### Aggiunto
-
-- **Two-Pass Engine** — Phase 1 (I/O parallelo) + Phase 2 (validazione O(1)).
-- **Virtual Site Map (VSM)** — proiezione logica del sito renderizzato.
-- **Shield** — rilevamento segreti, Stream Dual, exit code 2.
-- **Validazione anchor cross-lingua** — Tower of Babel Guard.
+> **Cronologia di sviluppo (v0.1.0 – v0.6.x):** Consultare l'[Archivio Changelog](CHANGELOG.it.archive.md).
+
+## [0.7.0] — 2026-05-07 — Quartz Maturity (Stable)
+
+> **Documentazione precedente:** Le versioni precedenti a v0.7.0 sono ufficialmente deprecate
+> e non seguono l'attuale architettura Diátaxis. Per riferimento storico, vedere la
+> [Release v0.6.1 su GitHub](https://github.com/PythonWoods/zenzic/releases/tag/v0.6.1).
+> La fonte autorevole è [zenzic.dev](https://zenzic.dev).
+
+### 💎 Era del Quarzo (Release Iniziale)
+
+Questa release segna l'Anno Zero dell'ecosistema Zenzic, stabilendo un nuovo standard di
+maturità deterministica e integrità formale. Il codebase raggiunge la maturità strutturale:
+1.485+ test, copertura branch >80%, e una pipeline di sicurezza blindata.
+
+#### Aggiunto
+
+- **Z204 FORBIDDEN_TERM — Enterprise Privacy Gate (Sprint D100)**: Nuova regola Shield che
+  scatena Exit 2 quando un termine proibito del progetto compare in qualsiasi file di
+  documentazione. I pattern (stringhe semplici o regex ancorate) sono dichiarati nel file
+  locale e git-ignorato `.zenzic.local.toml`, mantenendo il vocabolario sensibile del
+  progetto permanentemente fuori da `git log`. Architettura a due layer:
+  `scan_line_for_forbidden_terms()` in `shield.py` esegue la scansione dei termini;
+  `_apply_local_toml()` in `config.py` unisce i pattern in modo additivo al caricamento.
+- **Scaffolding init di `.zenzic.local.toml` (Sprint D100)**: `zenzic init` (e `--dev`)
+  crea sempre `.zenzic.local.toml` e lo aggiunge automaticamente a `.gitignore`, così i
+  pattern privati sono git-ignorati fin dal primo commit.
+
+- **EPOCH 7a.1 — Sovranità Zero-Config (`absolute_path_allowlist` epurato)**: Lo
+  schema TOML `[link_validation]` e il campo `absolute_path_allowlist` sono
+  rimossi. I prefissi URL multi-instance di Docusaurus (`/docs/`, `/developers/`,
+  ogni ulteriore istanza `@docusaurus/plugin-content-docs`) vengono ora
+  auto-rilevati da `DocusaurusAdapter.get_absolute_url_prefixes(repo_root)` —
+  nuovo metodo del Protocol `BaseAdapter`. Due passi puramente Python preservano
+  l'invariante Zero Subprocess: parsing statico via regex su
+  `docusaurus.config.{ts,js,mjs,cjs}` per ogni tupla
+  `@docusaurus/plugin-content-docs` e l'estrazione del relativo `routeBasePath`,
+  più un'euristica filesystem che accoppia `<repo>/<id>/` con
+  `i18n/<locale>/docusaurus-plugin-content-docs-<id>/` quando la config è
+  dinamica. Z105 `ABSOLUTE_PATH` rispetta i prefissi rilevati senza alcuna
+  duplicazione TOML lato utente. **Industry-grade — nessuno shim di
+  compatibilità**: `LinkValidationConfig` viene rimossa integralmente; le
+  configurazioni che ancora dichiarano `[link_validation]` falliranno la
+  validazione TOML.
+- **Default Zero-Config per gli Asset (Direttiva CEO — Cimitero degli Asset)**:
+  I file di toolchain universali sono promossi a Layer 1 in
+  `SYSTEM_EXCLUDED_FILE_NAMES` e `SYSTEM_EXCLUDED_FILE_PATTERNS` — `*.toml`,
+  `*.yaml`, `*.yml`, `*.json`, `*.cfg`, `*.ini`, `*.cff`, `*.code-workspace`,
+  `LICENSE`, `LICENSE.txt`, `LICENSE.md`, `NOTICE`, `NOTICE.txt`, `COPYING`,
+  `Dockerfile`, `noxfile.py`, `.gitignore`, `.gitattributes`, `.coverage`. I
+  repo "Prose-only Maintenance" (engine `standalone` con `docs_dir = "."`) non
+  devono più ripeterli in `excluded_assets`.
+- **Default Zero-Config per le Directory (Direttiva CEO — Cimitero delle Dir)**:
+  Le directory universali di build / artefatti temporanei sono promosse a
+  `SYSTEM_EXCLUDED_DIRS` — `build`, `dist`, `temp`, `tmp`, `mutants` (`.tox`
+  era già presente). Ogni build di wheel Python, bundler JS e toolchain di
+  mutation testing è ora onorato Zero-Config.
+- **EPOCH 7a — Multi-Root Discovery (VSM Blindness sigillata)**: Il VSM non è
+  più vincolato a `docs_dir`. Gli adapter possono dichiarare radici di contenuto
+  aggiuntive tramite l'hook opzionale `get_extra_content_roots(repo_root) -> list[ContentRoot]`
+  (rilevato con `hasattr()`, replicando la convenzione di `get_locale_source_roots` —
+  non-breaking per gli adapter di terze parti). L'adapter Docusaurus auto-rileva il
+  plugin `blog/` in due passaggi puramente di parsing (regex statico su
+  `docusaurus.config.{ts,js,mjs,cjs}` con fallback per convenzione) — l'invariante Zero
+  Subprocess è preservato. Quattro stadi della pipeline (Discovery, VSM, Validator,
+  Scanner Z903/Z104) cooperano affinché i post del blog siano contenuto di prima classe:
+  link rotti dentro `blog/` e link cross-tree da `docs/` verso `blog/` sono ora
+  intercettati da `zenzic check all --strict` invece di sfuggire a `docusaurus build`.
+  Un test di invariante Reverse-Mapping
+  (`tests/test_docusaurus_blog_vsm.py::TestEpoch7aReverseMapping`) verifica che ogni
+  `Route.source` di blog risalga a un file fisico, bloccando il contratto che le rotte
+  virtuali di EPOCH 7b (tag, paginazione, autori) erediteranno. La Discovery usa
+  `walk_files` (lo stesso motore `os.walk` esistente), non `rglob` — il determinismo è
+  preservato.
+- **EPOCH 7b — Virtual Routes e `zenzic inspect routes` (La JSON API)**: Le pagine generate
+  dal motore — pagine di tag Docusaurus (`/blog/tags/{slug}/`), indice dei tag (`/blog/tags/`),
+  indici paginati e profili autore — sono ora cittadini di prima classe nella VSM, con
+  l'Invariante di Reverse-Mapping applicata al momento della costruzione: una `VirtualRoute`
+  con `source_files=frozenset()` solleva immediatamente `ValueError`, impedendo che un URL
+  non tracciato raggiunga la VSM. Tre nuovi codici di finding: **Z111 VIRTUAL_ROUTE_BROKEN**
+  (error) quando un link in docs punta a un URL di tag che nessun post del blog attiva,
+  **Z113 AUTHOR_KEY_COLLISION** (error) per chiavi autore duplicate, **Z114 LARGE_PAGINATION_SET**
+  (info) quando il set di paginazione supera 200 pagine. Il generatore di tag di
+  `DocusaurusAdapter` applica la normalizzazione Unicode NFKD + slugification `re.ASCII`
+  (replicando l'algoritmo di Docusaurus) e gestisce i tag puramente CJK restituendo
+  `"untagged"`. Il nuovo comando CLI `zenzic inspect routes [--kind physical|virtual|all]
+  [--json]` esporta la mappa completa del sito in formato JSON deterministico con `url`,
+  `kind`, `source_files` (path POSIX repo-relative) e `digest`
+  (`sha256(url + ":" + ",".join(sorted(source_files)))`) per rotta.
+  **Invariante di Purezza JSON**: quando `--json` è attivo, `stdout` contiene
+  esclusivamente JSON valido — nessun codice ANSI, nessun banner. Questa funzionalità
+  è progettata per essere consumata da tool esterni: script Bash custom, dashboard di
+  CI/CD, o agenti di Intelligenza Artificiale che necessitano di contesto architetturale.
+- **Sentinel Seal**: Sistema di validazione rigorosa a 4 stadi (`just verify`) integrato in
+  ogni repository — pre-commit, test-cov e self-check eseguiti identicamente in locale e in CI.
+- **Cross-Repo Governance**: Branch Parity Rule per la sincronizzazione Core/Doc
+  con fallback automatico su `main`. Configurazione VS Code Multi-Root Workspace per lo
+  sviluppo unificato.
+- **Z907 I18N_PARITY**: Scanner di parità traduzione language-agnostic con parallelismo
+  adattivo, imposizione chiavi frontmatter e supporto Docusaurus multi-istanza.
+- **Esportazione SARIF 2.1.0**: Tutti i comandi `check` supportano `--format sarif` per
+  l'integrazione nativa con GitHub Code Scanning e annotazioni inline nelle PR.
+- **Matrice CI Cross-Platform**: Matrice 3×3 (Ubuntu/Windows/macOS × Python 3.11/3.12/3.13).
+- **Auto-Discovery del Motore**: `engine = "auto"` risolve automaticamente il framework di
+  documentazione (Docusaurus → MkDocs → Zensical → Standalone).
+- **Decoder Speculativo Base64**: Lo Shield rileva credenziali codificate in Base64 nel
+  frontmatter YAML, sigillando il vettore d'attacco S2 dal Quartz Tribunal.
+- **Z107 Ancora Circolare**, **Z505 Blocco Codice Senza Tag**, **Z905 Obsolescenza Brand**:
+  Tre nuovi check basati su regole per integrità strutturale e del brand.
+- **Z404 Integrità Asset di Configurazione**: Verifica i percorsi favicon e social card su
+  tutti e tre i motori supportati (Docusaurus, MkDocs, Zensical).
+- **Scoperta Navigazione Unificata**: Il rilevamento orfani Docusaurus aggrega le superfici
+  sidebar, navbar e footer (Legge di Raggiungibilità UX R21).
+- **Parser Sidebar Statico**: Parser regex pure-Python per `sidebars.ts`/`sidebars.js`.
+- **GitHub Action Ufficiale**: Action composita `PythonWoods/zenzic-action` con upload SARIF
+  e quality gate configurabili.
+- **Determinism Invariant**: Contratto formale in `pyproject.toml` — Zenzic non
+  distribuisce nessuna dipendenza AI/ML.
+- **Flag CLI `--exclude-url`** (`check all`, `check links`): Soppressione a runtime della
+  validazione degli URL esterni per prefissi specifici. Ripetibile; i valori vengono uniti
+  a `excluded_external_urls` in `zenzic.toml`. Pensato per i paradossi di deployment
+  CI/CD — es. sopprimere una Release GitHub non ancora pubblicata al momento dell'esecuzione
+  della pipeline.
+
+#### Modificato
+
+- **Architettura Engine-Agnostic**: Plugin MkDocs rimosso permanentemente. Zenzic è ora una
+  CLI Sovrana indipendente da qualsiasi framework di documentazione.
+- **Scudo Unicode Windows nel bootstrap CLI**: `cli_main()` invoca ora
+  `bootstrap_unicode()` prima dell'inizializzazione di Rich traceback e logging,
+  forzando stdio UTF-8 (`errors='replace'`) su Windows per prevenire crash
+  `UnicodeEncodeError` causati dalle code page della console.
+- **Ristrutturazione CLI**: Il monolite `cli.py` è stato suddiviso nel package coerente `cli/`.
+  `zenzic plugins` sostituito da `zenzic inspect capabilities`.
+- **Applicazione della Legge dei Layer**: `ui.py` → `core/ui.py`, `lab.py` → `cli/_lab.py`,
+  `run_rule()` → `core/rules.py`. Il Core non importa mai dal layer CLI.
+- **Hook Pre-commit**: `zenzic-check-all` sostituito da `zenzic-verify` (postura 4-Gates).
+- **Formato Coverage**: Standardizzato in JSON (`coverage.json`) in justfile e noxfile.
+- **Parità CI e automazione cross-platform**: `.github/workflows/ci.yml` ora
+  esegue `just verify` su matrice Ubuntu/Windows (`fail-fast: false`) e il
+  `justfile` del core è esplicitamente Bash-first (`set shell := ["bash", "-c"]`)
+  per comportamento uniforme delle recipe sui runner Windows di GitHub.
+
+#### Rimosso
+
+- **`.zenzic.dev.toml` (D002 Environmental Privacy Gate) — rimosso definitivamente**: Il file
+  non esiste più per il motore Zenzic. Non viene scansionato, non viene caricato, non riceve
+  warning. L'unica fonte di verità per i pattern locali del Privacy Gate è
+  `.zenzic.local.toml`. `_scaffold_dev_toml()` rimosso; `zenzic init --dev` chiama
+  direttamente `_scaffold_local_toml()`.
+
+- **Schema TOML `[link_validation]` (EPOCH 7a.1)**: Il modello Pydantic
+  `LinkValidationConfig` e il campo `absolute_path_allowlist: list[str]`
+  vengono rimossi da `zenzic.models.config`. Le configurazioni che dichiarano
+  ancora `[link_validation]` sollevano un errore di validazione TOML.
+  **Migrazione:** elimina il blocco — il `DocusaurusAdapter` rileva i prefissi
+  URL plugin Zero-Config.
+- **Percorsi fantasma stantii in `excluded_build_artifacts`**:
+  `docs/configuration/*.md` e `docs/adr/*.md` rimossi da `zenzic.toml` — le
+  directory sottostanti erano state estirpate in EPOCH precedenti; le voci
+  erano ormai morte.
+- **Epurazione Brand Legacy**: Rimozione completa di ogni nomenclatura obsoleta e riferimento
+  a piattaforme esterne dalla configurazione e documentazione attive.
+- **Plugin MkDocs**: `zenzic.integrations.mkdocs` eliminato fisicamente. L'extra opzionale
+  `[mkdocs]` non esiste più.
+- **Comando `zenzic plugins`**: Eliminato completamente. Usare `zenzic inspect capabilities`.
+- **`scripts/map_project.py`**: Superato; nessun chiamante residuo.
+
+#### Sicurezza
+
+- **[D100] Z204 FORBIDDEN_TERM — Brand Integrity Shield**: Architettura Privacy Gate a due
+  layer che sigilla il vocabolario sensibile del progetto (codename, endpoint interni, PII)
+  al layer Shield (Exit 2). I pattern sono dichiarati nel `.zenzic.local.toml` locale e
+  git-ignorato. `.zenzic.dev.toml` è rimosso definitivamente: non riconosciuto dal motore,
+  mai scansionato, mai caricato.
+- **[ZRT-001]** Shield Blind Spot — Bypass YAML Frontmatter sigillato (architettura Dual-Stream).
+- **[ZRT-002]** ReDoS + Deadlock ProcessPoolExecutor — Prevenzione Canary + contenimento timeout 30s.
+- **[ZRT-003]** Shield Bypass Split-Token — Pre-processore `_normalize_line_for_shield()`.
+- **[ZRT-004]** Risoluzione VSM Context-Aware — Dataclass `ResolutionContext` per percorsi annidati.
+- **[ZRT-007] La Rivoluzione DFA — Motore Google RE2** (`core/rules.py`, `core/shield.py`): Migrazione
+  integrale al motore DFA **Google RE2**. I pattern `CustomRule` hanno ora complessità garantita $O(n)$
+  — il rischio ReDoS è eliminato per design, non tramite timeout.
+  - **Breaking Change**: pattern che usano backreference (`\1`), lookahead (`(?=...)`, `(?!...)`)
+    o lookbehind (`(?<=...)`) vengono rifiutati al caricamento con `PluginContractError`.
+  - `timeout.py` e la sua dipendenza da `signal.SIGALRM` eliminati: Zenzic è ora nativamente
+    identico su Linux e Windows.
+  - `shield.py` migrato a `re2`: lo Shield è ora completamente DFA-Pure.
+  - Alias legacy `Z001` e `Z009` rimossi: i finding emettono ora direttamente `Z101` (LINK_BROKEN)
+    e `Z902` (ANALYSIS_TIMEOUT) alla sorgente.
+- **Decoder speculativo Base64** sigilla il vettore d'attacco delle credenziali codificate.
+- **Fix di portabilità `os.path.normcase`** per confronto perimetro Shield cross-platform.
+- **Standard 4-Gates**: pre-commit → test-cov → self-check, applicato ad ogni push.
+
+#### Migrazione
+
+I contributor devono rieseguire il bootstrap dopo il pull di questa release:
+
+```bash
+just sync
+uvx pre-commit install              # hook stage commit
+uvx pre-commit install -t pre-push  # 🛡️ Final Guard (just verify)
+```
+
+Sostituire `zenzic plugins list` con `zenzic inspect capabilities`.
+Sostituire `pip install "zenzic[mkdocs]"` con `pip install zenzic`.
+
+#### Corretto
+
+- **[ZRT-006] Bypass VSM: Link con Slug Assoluti Saltati Silenziosamente** (`core/validator.py`):
+  Due bug coordinati causavano l'assenza di finding quando un link assoluto puntava allo
+  slug sbagliato di un post del blog Docusaurus — mentre `docusaurus build` falliva con un
+  errore di link non trovato.
+
+  1. **Ordinamento del ciclo di vita** — `DocusaurusAdapter.set_slug_map(md_contents)` non
+     veniva mai chiamato durante `validate_links_async()`. La mappa degli slug era vuota al
+     momento della costruzione della VSM, quindi i post con un campo `slug:` nel frontmatter
+     venivano instradati tramite derivazione dal filename (es. `2026-04-29-post.mdx` →
+     `/blog/2026-04-29-post/`) anziché tramite l'URL dello slug dichiarato. Fix:
+     `set_slug_map()` viene ora chiamato tramite guardia `hasattr` immediatamente prima di
+     `build_vsm()` — sicuro cross-engine, non-breaking per gli adapter MkDocs / Standalone /
+     Zensical che non implementano il metodo.
+
+  2. **Lookup VSM con scope** — La soppressione Z105 `ABSOLUTE_PATH` per i prefissi di
+     proprietà del progetto (es. `/blog/`) era implementata con un `continue` nudo, che
+     usciva dal ciclo per-link prima di qualsiasi lookup nella VSM, rendendo impossibile
+     a `FILE_NOT_FOUND` di attivarsi su quei link. Fix: un nuovo discriminatore
+     `_scanned_vsm_prefixes` separa i prefissi *completamente scansionati* (quelli con ≥1
+     route nella VSM) dai *plugin sorella non scansionati* (es. `/developers/` il cui
+     markdown è fuori dallo scope di scansione). I link che puntano a un prefisso scansionato
+     ricevono ora un lookup `dict.get()` e riportano Z104 `FILE_NOT_FOUND` quando la route
+     esatta è assente. I prefissi non scansionati mantengono il bypass incondizionato —
+     invariante Zero-Config preservata.
+
+- **Lock di regressione** — `tests/test_docusaurus_blog_vsm.py::TestAbsoluteSlugMismatch`
+  (2 nuovi test):
+  - `test_absolute_broken_blog_link_is_detected` — slug sbagliato solleva `FILE_NOT_FOUND`
+  - `test_correct_absolute_slug_link_is_clean` — slug corretto non produce finding
+
+**Suite di test: 1485 passati, 0 falliti.**

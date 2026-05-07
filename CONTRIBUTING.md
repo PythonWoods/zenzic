@@ -12,7 +12,7 @@ Zenzic is split into two independent repositories:
 
 | Repository | Purpose | Stack |
 |:-----------|:--------|:------|
-| **[zenzic](https://github.com/PythonWoods/zenzic)** (this repo) | Core analysis engine — the Python library and CLI | Python 3.11+, `uv`, `pytest`, `mypy` |
+| **[zenzic](https://github.com/PythonWoods/zenzic)** (this repo) | Core analysis engine — the Python library and CLI | Python 3.10+, `uv`, `pytest`, `mypy` |
 | **[zenzic-doc](https://github.com/PythonWoods/zenzic-doc)** | User-facing documentation site | React, Docusaurus v3, MDX |
 
 **If you want to contribute to the analysis engine** (new checks, adapters, bug fixes,
@@ -21,12 +21,29 @@ performance improvements) — you are in the right place.
 **If you want to contribute to the documentation** (guides, tutorials, translations) —
 head to [zenzic-doc](https://github.com/PythonWoods/zenzic-doc).
 
+> **Brand System** — The visual identity and color palette reference live at
+> <https://zenzic.dev/assets/brand/zenzic-brand-system.html>
+
 ## Mission
 
 Zenzic is not just a linter. It is a long-term safety layer for documentation teams that
 depend on open, auditable source files. We preserve validation continuity across engine
 changes (MkDocs, Docusaurus, Zensical, and future adapters) so projects keep control over
 their data and quality process regardless of ecosystem churn.
+
+---
+
+## Prerequisites
+
+| Requirement | Version | Notes |
+|:------------|:--------|:------|
+| **Python** | ≥ 3.10 | Core engine and CLI (Floor); validated on 3.10 & 3.14-dev in CI |
+| **uv** | latest | Package manager — `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
+| **just** | latest | Task runner — `cargo install just` or via your OS package manager |
+| **Node.js** | ≥ 24 | Required for docs CI (`zenzic-doc`) and coverage upload (`codecov-action@v6`) |
+
+The core Python library and CLI work without Node. Node 24 is only needed if you are
+contributing to the documentation site or running the full CI suite locally.
 
 ---
 
@@ -40,6 +57,47 @@ just sync
 
 `just sync` installs all dependency groups via `uv sync --all-groups`.
 
+Install BOTH pre-commit hook stages immediately after sync (mandatory):
+
+```bash
+uvx pre-commit install              # commit-stage: light hooks (ruff, format, hygiene)
+uvx pre-commit install -t pre-push  # pre-push: 🛡️ Final Guard runs `just verify`
+```
+
+The pre-push hook is the atomic gate of EPOCH 4 / v0.7.0: a single
+entry-point (`just verify`) runs both locally and in GitHub Actions —
+**locale ≡ remote, no drift**. Pushes are blocked when any of the
+4 Gates (pre-commit hooks, coverage, tests, `zenzic check all`) fails.
+
+---
+
+## The 4-Gates Standard
+
+Zenzic enforces a deterministic quality pipeline with one atomic
+entry-point. The same `just verify` runs in three places:
+
+| Stage | Trigger | What runs | Speed |
+|:------|:--------|:----------|:------|
+| **TDD inner loop** | `just test` | `pytest -n auto` (no coverage, parallel) | ⚡ instant |
+| **Commit** | `git commit` | Light hooks (ruff, format, file hygiene) | < 5 s |
+| **Push (Final Guard)** | `git push` (pre-push hook) | `just verify` = pre-commit + `test-cov` + `zenzic check all` | < 60 s |
+| **CI** | GitHub Actions | `just verify` (identical) | matches local |
+
+### Emergency & Break-Glass Protocol
+
+`--no-verify` bypass is permitted **only** during genuine outages
+(production hotfix, CI infra down, broken upstream dependency) when the
+gate cannot be fixed in time. Every bypass requires:
+
+1. Label `gate-bypass` on the PR.
+2. Issue from `.github/ISSUE_TEMPLATE/gate-bypass-postmortem.md`
+   opened within 24h (blameless: data, not blame).
+3. Explicit mention in the sprint CHANGELOG.
+
+Silent bypasses ("ghost pushes") violate project integrity and are
+escalated at sprint retrospective. A documented bypass is an
+opportunity to harden the gate; a hidden one is technical debt.
+
 ---
 
 ## Running tasks
@@ -52,11 +110,11 @@ the exact same environment as CI.
 |:-----|:---------------|:-----------------|:------------|
 | Bootstrap | `just sync` | — | Install / update all dependency groups |
 | **Self-lint** | **`just check`** | — | **Run Zenzic on its own examples (strict)** |
-| Test suite | `just test` | `nox -s tests` | pytest + branch coverage (Hypothesis **dev** profile) |
-| Test suite (thorough) | `just test-full` | — | pytest with Hypothesis **ci** profile (500 examples) |
+| Test (fast) | `just test` | — | pytest `-n auto`, no coverage (TDD inner loop) |
+| Test (audit) | `just test-cov` | `nox -s tests` | pytest serial + branch coverage XML (matches CI) |
+| Test (thorough) | `just test-full` | — | pytest with Hypothesis **ci** profile (500 examples) |
 | Mutation testing | — | `nox -s mutation` | mutmut on `rules.py`, `shield.py`, `reporter.py` |
-| Full pipeline | `just preflight` | `nox -s preflight` | lint, typecheck, tests, reuse, security |
-| **Pre-push gate** | **`just verify`** | — | **preflight + self-lint — run before every push** |
+| **Final Guard** | **`just verify`** | — | **pre-commit + test-cov + check — runs automatically on `git push`** |
 | Clean | `just clean` | — | Remove `dist/`, `.hypothesis/`, caches |
 | Version bump | — | `nox -s bump -- patch` | bump version + commit + tag |
 
@@ -66,15 +124,51 @@ Run the full pre-push gate with:
 just verify
 ```
 
+> **Nox — Development Checklist**
+>
+> Zenzic uses Nox to guarantee parity between the local environment and CI. For rapid
+> development, use `nox -s fmt` to format and `nox -s tests-3.12` (substituting your Python
+> version) to run tests only on your current interpreter.
+
+### Cross-platform compatibility
+
+Zenzic is validated on Ubuntu, Windows, and macOS on every commit. When working with file
+paths in any contribution, use `pathlib.Path` throughout — never string concatenation or
+`os.sep`. Key rules:
+
+- `Path("a") / "b"` — always, never `"a" + os.sep + "b"` or `"a/b"` as a string literal.
+- Use `.as_posix()` only at the point of comparison against URLs or POSIX-style config values.
+- Test fixtures that construct paths must use `tmp_path / "subdir"`, not `"/tmp/subdir"`.
+- PRs that introduce `str` path concatenation will be rejected by the cross-platform CI matrix.
+
+> **CI matrix note:** Coverage upload uses `codecov/codecov-action@v6`, which requires the
+> Node 24 runner environment. GitHub-hosted runners (`ubuntu-latest`) satisfy this
+> automatically; self-hosted runners must use Node ≥ 24.
+
+### CI Pillar Matrix (v0.7.0)
+
+Zenzic adopts a **Pillar Matrix** strategy — testing the boundaries rather than every
+intermediate version:
+
+| Slot | OS | Python | Purpose |
+|------|----|--------|---------|
+| **Floor** | ubuntu-latest | `3.10` | Enforces minimum compatibility. If it passes here, it passes everywhere ≥ 3.10. |
+| **Peak** | ubuntu-latest | `3.14` | Latest stable CPython; primary dev target. |
+| **Windows Anchor** | windows-latest | `3.14` | Validates path separators, binary encoding, and shell compat on a stable anchor. |
+
+If `just verify` passes on your local Python (e.g. 3.11 or 3.13), CI failure is highly
+unlikely — the matrix covers the language boundary conditions, not every minor release.
+
 ---
 
 ## Code conventions
 
-- **Python ≥ 3.11** with full type annotations (`mypy --strict` must pass).
+- **Python ≥ 3.10** with full type annotations (`mypy --strict` must pass).
 - **SPDX header** on every source file — `reuse lint` is enforced in CI.
 - No placeholder text, `TODO`, or stub comments in committed code.
 - Tests must pass with ≥ 80% branch coverage.
 - All PRs must target `main`; direct commits are blocked by pre-commit.
+- Update `CHANGELOG.md` (and `CHANGELOG.it.md`) in the same commit as the code change.
 
 ---
 
@@ -282,7 +376,7 @@ Adding `fallback_to_cwd=True` to any command other than `init` requires a
 recorded Architecture Decision Record explaining why that command needs
 perimeter-free access.
 
-See [ADR 003](https://zenzic.dev/docs/internals/adr/discovery-logic/) for the full rationale and
+See [ADR 003](https://zenzic.dev/docs/explanation/discovery/) for the full rationale and
 the ZRT-005 amendment history.
 
 ### The Discovery Engine
@@ -388,19 +482,30 @@ timeout is **30 seconds**.
 **What this means:**
 
 ```python
-# ✅ Required form — always use submit() + result(timeout=...)
+# ✅ Required form — always use submit() + wait(FIRST_COMPLETED) + result(timeout=...)
 futures_map = {executor.submit(_worker, item): item[0] for item in work_items}
-for fut, md_file in futures_map.items():
-    try:
-        raw.append(fut.result(timeout=_WORKER_TIMEOUT_S))
-    except concurrent.futures.TimeoutError:
-        raw.append(_make_timeout_report(md_file))  # Z009 finding
+raw: list[IntegrityReport] = []
+_pending: set[concurrent.futures.Future[IntegrityReport]] = set(futures_map)
+while _pending:
+    done, _pending = concurrent.futures.wait(
+        _pending,
+        timeout=_WORKER_TIMEOUT_S,
+        return_when=concurrent.futures.FIRST_COMPLETED,
+    )
+    if not done:
+        # ZRT-002 deadlock guard: no worker completed within the timeout window
+        for fut in _pending:
+            raw.append(_make_timeout_report(futures_map[fut]))  # Z902 finding
+            fut.cancel()
+        break
+    for fut in done:
+        raw.append(fut.result())
 
 # ❌ Forbidden — blocks indefinitely on ReDoS or deadlocked workers
 raw = list(executor.map(_worker, work_items))
 ```
 
-**The Z009 finding** (`ANALYSIS_TIMEOUT`) is not a crash. It is a structured
+**The Z902 finding** (`WORKER_TIMEOUT`) is not a crash. It is a structured
 finding that surfaces in the standard report UI. A worker that times out does
 not kill the scan — the coordinator continues with the remaining workers.
 
@@ -633,7 +738,7 @@ mark surviving mutants as equivalent without explicit Architecture Lead approval
 
 ## Adding a new check
 
-Zenzic's checks live in `src/zenzic/core/`. Each check is a standalone function in either `scanner.py` (filesystem traversal) or `validator.py` (content validation). CLI wiring is in `cli.py`.
+Zenzic's checks live in `src/zenzic/core/`. Each check is a standalone function in either `scanner.py` (filesystem traversal) or `validator.py` (content validation). CLI wiring is in the `cli/` package (`src/zenzic/cli/`).
 
 When adding a new check:
 
@@ -645,7 +750,7 @@ When adding a new check:
    See [Core Laws — Zero I/O in the hot path](#zero-io-in-the-hot-path) above.
 3. If the check involves file paths, test it in all three i18n configurations.
    See [Core Laws — i18n determinism](#i18n-determinism) above.
-4. Add a corresponding command (or sub-command) in `cli.py`.
+4. Add a corresponding command (or sub-command) in the `cli/` package — see [the CLI Architecture section](#cli-architecture) below.
 5. Write tests in `tests/` covering both passing and failing cases, including a performance
    baseline (5 000 links resolved in < 100 ms against a mock in-memory corpus).
 6. Update the examples in `examples/` to exercise the new check — Zenzic validates its own
@@ -654,6 +759,62 @@ When adding a new check:
 > **Performance contract:** the `zenzic.core` hot path must remain allocation-free. No `Path`
 > object construction, no syscalls, and no `relative_to()` calls inside the resolution loop.
 > See `docs/architecture.md` — *IO Purity contract* and *Contributor rules* for the rationale.
+
+---
+
+## CLI Architecture {#cli-architecture}
+
+The CLI is organised as a **package** (`src/zenzic/cli/`) rather than a single module. Each file owns one domain of responsibility:
+
+| Module | Responsibility |
+|:-------|:---------------|
+| `_shared.py` | `console` singleton, `_ui` singleton, `configure_console()`, and all cross-command utilities (`_build_exclusion_manager`, `_output_json_findings`, `_render_link_error`, etc.) |
+| `_check.py` | `check_app` Typer sub-app + seven `check *` commands and their private helpers |
+| `_clean.py` | `clean_app` Typer sub-app + `clean assets` command |
+| `_plugins.py` | `plugins_app` Typer sub-app + `plugins list` command |
+| `_standalone.py` | `score`, `diff`, and `init` commands + their private helpers |
+| `__init__.py` | Public re-export surface consumed by `main.py` — **do not add logic here** |
+
+### The Visual State Guardian
+
+`_shared.py` is the **sole owner of all console and UI state**. This is the most critical architectural rule in the CLI layer:
+
+> **PROHIBITION:** No command module may instantiate `Console()` or `ObsidianUI()` directly. All output must go through `get_ui()` and `get_console()` from `_shared.py`.
+
+```python
+# ✅ Correct — in any _check.py / _clean.py / _standalone.py command
+from . import _shared
+_shared.get_ui().print_header(__version__)
+_shared.get_console().print("output")
+
+# ❌ FORBIDDEN — never do this in a command module
+from rich.console import Console
+from zenzic.ui import ObsidianUI
+console = Console(...)      # breaks shared state
+ui = ObsidianUI(console)    # creates an orphaned instance
+```
+
+This rule exists because `configure_console()` replaces the module-level `console` and `_ui` singletons when `--no-color` or `--force-color` is passed. Any locally-created `Console` or `ObsidianUI` instance will be frozen at the pre-flag state and will ignore the user's color preference.
+
+The `force_terminal` parameter of the module-level `Console` is always `None` (auto-detect via `sys.stdout.isatty()`), never `False` (which would explicitly disable color). Setting `force_terminal=False` is a silent bug that strips all ANSI styling even in interactive terminals.
+
+### Adding a command to an existing sub-app
+
+```python
+# src/zenzic/cli/_check.py (example: adding "check metadata")
+@check_app.command(name="metadata")
+def check_metadata(path: Path = ...) -> None:
+    ...
+```
+
+No changes to `__init__.py` or `main.py` are required — Typer discovers the new sub-command automatically.
+
+### Adding a new top-level sub-app
+
+1. Create `src/zenzic/cli/_myfeature.py` with `myfeature_app = typer.Typer(...)` and your commands.
+2. Export `myfeature_app` from `src/zenzic/cli/__init__.py`.
+3. Register in `src/zenzic/main.py`: `app.add_typer(myfeature_app, name="myfeature", rich_help_panel="...")`.
+4. If the sub-app uses `no_args_is_help=True`, add `"myfeature"` to the `_SUBAPPS_WITH_MENU` frozenset in `cli_main()` so the Zenzic banner appears when the sub-app is invoked with no arguments.
 
 ---
 
@@ -669,6 +830,53 @@ This core repository contains only:
 - `examples/` — maintained fixtures that Zenzic self-validates.
 
 To contribute documentation improvements, open a PR in the `zenzic-doc` repository.
+
+## 🚀 Cross-Repo Validation (Branch Parity Rule)
+
+To ensure consistency between the core engine (**zenzic**) and the documentation (**zenzic-doc**), our CI system enforces the **Rule of Branch Parity**.
+
+### 🔍 How it works
+
+1. **Local Development**: The linter always looks for the core repository in the adjacent folder (`../zenzic`). You are responsible for keeping local branches aligned.
+2. **In CI (GitHub Actions)**: The documentation pipeline attempts to clone the core repository by looking for a branch with the **exact same name** as the one being built in the doc repo.
+3. **Fallback**: If the mirrored branch is not found in the core repo, the CI will automatically fall back to the `main` branch.
+
+### 🛠️ Operational Summary for Contributors
+
+| Scenario | Required Action | CI Behavior |
+| :--- | :--- | :--- |
+| **Documentation Fix** | Push only to `zenzic-doc` | Validates against core `main`. |
+| **New Feature (Synchronized)** | Push to `zenzic` **BEFORE** pushing to `zenzic-doc` | Validates against the exact feature code. |
+| **Naming Convention** | Use identical branch names in both repos | Guarantees perfect "Dogfooding". |
+
+> **Note**: Never push documentation changes that depend on core features not yet present on the remote server (even if on different branches), otherwise the build will fail due to misalignment.
+
+### 💻 VS Code Multi-Root Workspace Configuration
+
+Because the repositories are tightly coupled, we recommend managing them through a single **Multi-Root Workspace** in VS Code.
+
+1. Clone both repositories into the same parent directory.
+2. Open VS Code and go to **File > Save Workspace As...**, saving it as `zenzic.code-workspace` in the parent directory.
+3. Edit the newly created file like this:
+
+```json
+{
+  "folders": [
+    { "path": "zenzic" },
+    { "path": "zenzic-doc" },
+    { "path": "zenzic-action" }
+  ],
+  "settings": {
+    "python.analysis.extraPaths": ["./zenzic/src"],
+    "files.exclude": {
+      "**/.venv": true,
+      "**/_zenzic_core": true
+    }
+  }
+}
+```
+
+This allows you to perform global searches across all repositories simultaneously and manage branches from the Source Control panel in a single, unified interface.
 
 ---
 

@@ -5,8 +5,14 @@
 from __future__ import annotations
 
 import re
-import tomllib
+import sys
 from pathlib import Path
+
+
+if sys.version_info >= (3, 11):
+    import tomllib
+else:
+    import tomli as tomllib  # type: ignore[no-redef]  # PEP 680 backport
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
@@ -41,6 +47,46 @@ class CustomRuleConfig(BaseModel):
     )
 
 
+class ProjectMetadata(BaseModel):
+    """Optional brand-integrity metadata declared in ``[project_metadata]``.
+
+    When ``obsolete_names`` is non-empty, Zenzic activates the Z905
+    BRAND_OBSOLESCENCE rule, which warns on every occurrence of a deprecated
+    brand term found in documentation source files.  Lines carrying a
+    ``zenzic:ignore`` comment are silently skipped so intentional historical
+    references (e.g. in CHANGELOG files or ADR entries) are not flagged.
+    Use ``<!-- zenzic:ignore Z905 -->`` in ``.md`` files and
+    ``{/* zenzic:ignore Z905 */}`` in ``.mdx`` files.
+
+    TOML example::
+
+        [project_metadata]
+        release_name = "Quartz"
+        obsolete_names = ["Obsidian"]
+        # ADR files contain intentional historical references
+        obsolete_names_exclude_patterns = [
+            "CHANGELOG*.md",
+            "community/developers/explanation/adr-*.mdx",
+        ]
+    """
+
+    release_name: str = Field(
+        default="",
+        description="Current canonical brand/release name shown in Z905 remediation hints.",
+    )
+    obsolete_names: list[str] = Field(
+        default=[],
+        description="Deprecated brand terms that trigger Z905 when found in docs.",
+    )
+    obsolete_names_exclude_patterns: list[str] = Field(
+        default=["CHANGELOG*.md", "CHANGELOG*.archive.md"],
+        description=(
+            "Glob patterns (relative to docs_dir) for files excluded from Z905. "
+            "CHANGELOG*.md is excluded by default to allow historical prose."
+        ),
+    )
+
+
 class BuildContext(BaseModel):
     """Build engine context declared in ``[build_context]`` of ``zenzic.toml``.
 
@@ -49,7 +95,13 @@ class BuildContext(BaseModel):
     asset and page paths correctly across locale boundaries.
     """
 
-    engine: str = Field(default="mkdocs", description="Build engine: 'mkdocs' or 'zensical'.")
+    engine: str = Field(
+        default="auto",
+        description=(
+            "Build engine: 'auto' (file-driven discovery), 'mkdocs', 'zensical', "
+            "'docusaurus', or 'standalone'."
+        ),
+    )
     default_locale: str = Field(default="en", description="ISO 639-1 code of the default locale.")
     locales: list[str] = Field(
         default=[],
@@ -78,6 +130,57 @@ class BuildContext(BaseModel):
     )
 
 
+class I18nSource(BaseModel):
+    """A single base/targets pair for Z907 I18N_PARITY.
+
+    Supports N Docusaurus plugin instances (e.g. user docs + developer docs)
+    by allowing multiple sources via :attr:`I18nConfig.extra_sources`.
+    """
+
+    base_source: Path = Field(description="Base-language root (e.g. 'docs' or 'developers').")
+    targets: dict[str, Path] = Field(
+        default_factory=dict,
+        description=(
+            "Mapping of target language code to mirror root, e.g. "
+            "{'it': 'i18n/it/.../current', 'es': 'i18n/es/.../current'}."
+        ),
+    )
+
+
+class I18nConfig(BaseModel):
+    """Configuration for Z907 I18N_PARITY check.
+
+    Language-agnostic: knows nothing about specific locales — only the
+    association between a base-language tree and one or more target trees.
+    """
+
+    enabled: bool = Field(default=False, description="Activate the Z907 I18N_PARITY check.")
+    base_lang: str = Field(default="en", description="ISO 639-1 code of the base language.")
+    base_source: Path = Field(
+        default=Path("docs"),
+        description="Primary base-language root.",
+    )
+    targets: dict[str, Path] = Field(
+        default_factory=dict,
+        description=("Mapping of target language code to mirror root for the primary source."),
+    )
+    strict_parity: bool = Field(
+        default=True,
+        description="When True, missing mirror is an error; when False, a warning.",
+    )
+    require_frontmatter_parity: list[str] = Field(
+        default_factory=lambda: ["title", "description"],
+        description="Frontmatter keys that must be present in every translation.",
+    )
+    extra_sources: list[I18nSource] = Field(
+        default_factory=list,
+        description=(
+            "Additional base/targets pairs (e.g. for a second Docusaurus "
+            "plugin instance such as 'developers')."
+        ),
+    )
+
+
 # ── System Guardrails ────────────────────────────────────────────────────────
 # Directories that Zenzic ALWAYS ignores.  These are merged into
 # ``excluded_dirs`` unconditionally in ``model_post_init``.  User entries
@@ -100,8 +203,76 @@ SYSTEM_EXCLUDED_DIRS: frozenset[str] = frozenset(
         ".docusaurus",
         ".cache",
         ".hypothesis",
+        # Universal build / temporary artefact directories (v0.7.0, Zero-Config)
+        # Previously required users to declare these in `excluded_dirs` of
+        # every standalone repo. Promoted to Layer 1 to honour Zero-Config:
+        # any project that builds Python wheels, JS bundles, or runs mutation
+        # tests should never need to repeat them in TOML.
+        "build",
+        "dist",
+        "temp",
         ".temp",
+        "tmp",
+        "mutants",
     }
+)
+
+# ── System File Guardrails (L1a) ─────────────────────────────────────────────
+# Files that Zenzic ALWAYS excludes from asset checks — universal development
+# toolchain files that are never documentation content.  Adapters may declare
+# additional files via ``BaseAdapter.get_metadata_files()`` (L1b).
+SYSTEM_EXCLUDED_FILE_NAMES: frozenset[str] = frozenset(
+    {
+        # JavaScript / Node.js
+        "package.json",
+        "package-lock.json",
+        "yarn.lock",
+        "pnpm-lock.yaml",
+        "tsconfig.json",
+        "tsconfig.base.json",
+        # Python
+        "pyproject.toml",
+        "poetry.lock",
+        "uv.lock",
+        "setup.cfg",
+        "setup.py",
+        "noxfile.py",
+        # Generic toolchain
+        "Makefile",
+        "justfile",
+        "Dockerfile",
+        # Licensing & legal (Zero-Config v0.7.0 — never documentation assets)
+        "LICENSE",
+        "LICENSE.txt",
+        "LICENSE.md",
+        "NOTICE",
+        "NOTICE.txt",
+        "COPYING",
+        # VCS / coverage / IDE artefacts that may slip into a docs root
+        ".gitignore",
+        ".gitattributes",
+        ".coverage",
+        "coverage.xml",
+    }
+)
+
+SYSTEM_EXCLUDED_FILE_PATTERNS: tuple[str, ...] = (
+    "eslint.config.*",
+    ".prettierrc*",
+    ".editorconfig",
+    "*.lock",
+    # Project metadata / build manifests promoted to Layer 1 in v0.7.0.
+    # Honours Zero-Config for "Prose-only Maintenance" repos (engine = standalone)
+    # whose docs_root is the repository root: every TOML/YAML/JSON config file
+    # was previously triggering Z903 unless individually declared.
+    "*.toml",
+    "*.yaml",
+    "*.yml",
+    "*.json",
+    "*.cfg",
+    "*.ini",
+    "*.cff",
+    "*.code-workspace",
 )
 
 
@@ -201,13 +372,16 @@ class ZenzicConfig(BaseModel):
         ),
     )
     respect_vcs_ignore: bool = Field(
-        default=False,
+        default=True,
         description=(
-            "When True, Zenzic reads .gitignore files from the repository root "
-            "and docs directory and excludes matching files from all checks. "
-            "Disabled by default to preserve Zero-Config surprise principle. "
-            "Forced inclusions (included_dirs, included_file_patterns) override "
-            "VCS exclusions, but System Guardrails are always enforced."
+            "When True (default), Zenzic reads .gitignore files from the "
+            "repository root and docs directory and excludes matching paths "
+            "from all checks. This aligns with industry-grade linter standards "
+            "(Ruff, Ripgrep, Black, Prettier) where VCS-ignored paths are "
+            "transparently excluded. Set to False only to override this "
+            "behaviour explicitly. Forced inclusions (included_dirs, "
+            "included_file_patterns) override VCS exclusions, but System "
+            "Guardrails are always enforced."
         ),
     )
     included_dirs: list[str] = Field(
@@ -228,7 +402,7 @@ class ZenzicConfig(BaseModel):
         ),
     )
     validate_same_page_anchors: bool = Field(
-        default=False,
+        default=True,
         description=(
             "When True, same-page anchor links (#section) are validated against the "
             "headings present in the source file. A link like [text](#missing) is "
@@ -286,12 +460,36 @@ class ZenzicConfig(BaseModel):
             "message='Remove before publish.'  severity='warning'"
         ),
     )
+    project_metadata: ProjectMetadata = Field(
+        default_factory=ProjectMetadata,
+        description=(
+            "Optional brand-integrity metadata. When obsolete_names is non-empty, "
+            "activates the Z905 BRAND_OBSOLESCENCE rule."
+        ),
+    )
     plugins: list[str] = Field(
         default_factory=list,
         description=(
             "Explicit allow-list of external rule plugins to activate from the "
             "'zenzic.rules' entry-point group. Core rules shipped by Zenzic are "
             "always enabled."
+        ),
+    )
+    i18n: I18nConfig = Field(
+        default_factory=I18nConfig,
+        description=(
+            "Z907 I18N_PARITY config. When ``enabled=True``, every base-language "
+            "file must have a mirror in each target language root."
+        ),
+    )
+    forbidden_patterns: list[str] = Field(
+        default=[],
+        description=(
+            "Z204 FORBIDDEN_TERM: literal strings (case-insensitive) whose presence "
+            "in any documentation file triggers an exit-2 security breach. "
+            "Populated by merging patterns from ``.zenzic.local.toml`` at runtime. "
+            "Never declare these in the shared ``zenzic.toml`` — use the git-ignored "
+            "``.zenzic.local.toml`` so private terms are never committed."
         ),
     )
     # Pre-compiled regex patterns for placeholder detection.
@@ -327,7 +525,7 @@ class ZenzicConfig(BaseModel):
         # The most common pitfall: writing root-level settings AFTER a [section]
         # header (e.g. `[project]`) causes TOML to nest them under that table,
         # which is then silently dropped because `project` is not a known field.
-        _HANDLED_SECTIONS = frozenset({"build_context", "custom_rules"})
+        _HANDLED_SECTIONS = frozenset({"build_context", "custom_rules", "project_metadata", "i18n"})
         for key in data:
             if key not in known_fields and key not in _HANDLED_SECTIONS:
                 if isinstance(data[key], dict):
@@ -356,6 +554,28 @@ class ZenzicConfig(BaseModel):
                 for r in data["custom_rules"]
                 if isinstance(r, dict)
             ]
+        if "project_metadata" in data and isinstance(data["project_metadata"], dict):
+            filtered_data["project_metadata"] = ProjectMetadata(
+                **{
+                    k: v
+                    for k, v in data["project_metadata"].items()
+                    if k in ProjectMetadata.model_fields
+                }
+            )
+        if "i18n" in data and isinstance(data["i18n"], dict):
+            i18n_raw = data["i18n"]
+            extra_raw = i18n_raw.get("extra_sources", []) or []
+            extra = [
+                I18nSource(**{k: v for k, v in s.items() if k in I18nSource.model_fields})
+                for s in extra_raw
+                if isinstance(s, dict)
+            ]
+            i18n_filtered = {
+                k: v
+                for k, v in i18n_raw.items()
+                if k in I18nConfig.model_fields and k != "extra_sources"
+            }
+            filtered_data["i18n"] = I18nConfig(extra_sources=extra, **i18n_filtered)
         return cls(**filtered_data)
 
     @classmethod
@@ -400,7 +620,9 @@ class ZenzicConfig(BaseModel):
                     "Fix the TOML syntax error and re-run Zenzic.",
                     context={"config_path": str(zenzic_toml)},
                 ) from exc
-            return cls._build_from_data(data), True
+            config = cls._build_from_data(data)
+            cls._apply_local_toml(config, repo_root)
+            return config, True
 
         # ── Priority 2: [tool.zenzic] in pyproject.toml ──────────────────────
         pyproject_toml = repo_root / "pyproject.toml"
@@ -419,7 +641,49 @@ class ZenzicConfig(BaseModel):
             tool_section = pyproject_data.get("tool", {})
             zenzic_section = tool_section.get("zenzic", {})
             if zenzic_section:
-                return cls._build_from_data(zenzic_section), True
+                config = cls._build_from_data(zenzic_section)
+                cls._apply_local_toml(config, repo_root)
+                return config, True
 
         # ── Priority 3: built-in defaults ─────────────────────────────────────
-        return cls(), False
+        config = cls()
+        cls._apply_local_toml(config, repo_root)
+        return config, False
+
+    @classmethod
+    def _apply_local_toml(cls, config: ZenzicConfig, repo_root: Path) -> None:
+        """Merge ``forbidden_patterns`` from ``.zenzic.local.toml`` into *config*.
+
+        The local file is git-ignored and machine-local — it is the canonical
+        home for the Z204 Privacy Gate patterns.  Patterns from the local file
+        are appended to any patterns already declared in the primary config
+        (additive merge, insertion-order preserved, duplicates removed).
+
+        ``.zenzic.dev.toml`` is a hard-removed legacy file in v0.7.0: when
+        present, configuration loading fails with an explicit migration error.
+        """
+        legacy_toml = repo_root / ".zenzic.dev.toml"
+        if legacy_toml.is_file():
+            from zenzic.core.exceptions import (
+                ConfigurationError,  # deferred to avoid circular import
+            )
+
+            raise ConfigurationError(
+                "Legacy local config [bold].zenzic.dev.toml[/] is no longer supported in v0.7.0.\n"
+                f"  [dim]{legacy_toml}[/]\n\n"
+                "Migrate to [bold].zenzic.local.toml[/] and remove the legacy file.\n"
+                "Run [bold cyan]zenzic init[/] to scaffold the new local template."
+            )
+
+        local_toml = repo_root / ".zenzic.local.toml"
+        if not local_toml.is_file():
+            return
+        try:
+            with local_toml.open("rb") as f:
+                local_data = tomllib.load(f)
+        except tomllib.TOMLDecodeError:
+            return  # malformed local file — silently skip to avoid hard failures
+        extra = local_data.get("forbidden_patterns", [])
+        if isinstance(extra, list):
+            merged = list(dict.fromkeys([*config.forbidden_patterns, *extra]))
+            config.forbidden_patterns = merged

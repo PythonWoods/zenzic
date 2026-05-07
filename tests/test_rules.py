@@ -15,14 +15,17 @@ from zenzic.core.exceptions import PluginContractError
 from zenzic.core.rules import (
     AdaptiveRuleEngine,
     BaseRule,
+    BrandObsolescenceRule,
+    CircularAnchorRule,
     CustomRule,
     PluginRegistry,
     RuleFinding,
+    UntaggedCodeBlockRule,
     Violation,
     VSMBrokenLinkRule,
     _extract_inline_links_with_lines,
 )
-from zenzic.models.config import CustomRuleConfig, ZenzicConfig
+from zenzic.models.config import CustomRuleConfig, ProjectMetadata, ZenzicConfig
 from zenzic.models.vsm import Route
 
 
@@ -103,7 +106,11 @@ def test_custom_rule_no_match() -> None:
 
 
 def test_custom_rule_invalid_regex_raises() -> None:
-    with pytest.raises(ValueError, match="invalid regex"):
+    # ZRT-007: RE2 rejects non-regular and syntactically invalid patterns at
+    # construction time with PluginContractError (not ValueError).
+    from zenzic.core.exceptions import PluginContractError
+
+    with pytest.raises(PluginContractError, match="RE2"):
         CustomRule(id="ZZ004", pattern=r"[unclosed", message="Bad pattern.", severity="error")
 
 
@@ -157,7 +164,7 @@ def test_rule_engine_isolates_exception() -> None:
 
     # One error from the broken rule, one info from the good rule
     assert len(findings) == 2
-    engine_err = next(f for f in findings if f.rule_id == "RULE-ENGINE-ERROR")
+    engine_err = next(f for f in findings if f.rule_id == "Z901")
     assert "ZZ-BROKEN" in engine_err.message or "rule internal error" in engine_err.message
     assert engine_err.severity == "error"
 
@@ -237,12 +244,16 @@ def test_scan_docs_with_custom_rules_from_config(tmp_path: Path) -> None:
     assert reports[0].rule_findings[0].rule_id == "ZZ-DRAFT"
 
 
-def test_build_rule_engine_none_without_custom_or_plugins() -> None:
-    """Without custom_rules/plugins, scanner avoids building a no-op engine."""
+def test_build_rule_engine_always_built() -> None:
+    """Engine is always built: Z107 and Z505 are always-active built-in rules."""
     from zenzic.core.scanner import _build_rule_engine
 
     config = ZenzicConfig()
-    assert _build_rule_engine(config) is None
+    engine = _build_rule_engine(config)
+    assert engine is not None
+    rule_ids = {r.rule_id for r in engine._rules}  # type: ignore[attr-defined]
+    assert "Z107" in rule_ids
+    assert "Z505" in rule_ids
 
 
 def test_scan_docs_with_enabled_plugins_from_config(tmp_path: Path) -> None:
@@ -389,32 +400,32 @@ class TestViolation:
         v = Violation(
             file_path=_FILE,
             line_no=5,
-            code="Z001",
+            code="Z101",
             message="Broken link.",
             level="error",
             context="[bad link](missing.md)",
         )
-        assert v.code == "Z001"
+        assert v.code == "Z101"
         assert v.level == "error"
         assert v.context == "[bad link](missing.md)"
         assert v.is_error
 
     def test_violation_warning_not_error(self) -> None:
-        v = Violation(file_path=_FILE, line_no=1, code="Z002", message="hint", level="warning")
+        v = Violation(file_path=_FILE, line_no=1, code="Z103", message="hint", level="warning")
         assert not v.is_error
 
     def test_violation_as_finding_round_trip(self) -> None:
         v = Violation(
             file_path=_FILE,
             line_no=3,
-            code="Z001",
+            code="Z101",
             message="msg",
             level="error",
             context="src",
         )
         f = v.as_finding()
         assert isinstance(f, RuleFinding)
-        assert f.rule_id == "Z001"
+        assert f.rule_id == "Z101"
         assert f.line_no == 3
         assert f.matched_line == "src"
         assert f.severity == "error"
@@ -462,7 +473,7 @@ class TestVSMBrokenLinkRule:
     def test_missing_url_emits_violation(self) -> None:
         violations = self._run("[Broken](missing.md)", {})
         assert len(violations) == 1
-        assert violations[0].code == "Z001"
+        assert violations[0].code == "Z101"
         assert "missing" in violations[0].message
         assert "missing.md" in violations[0].context
 
@@ -472,7 +483,7 @@ class TestVSMBrokenLinkRule:
         vsm = _make_vsm("/draft/", status="ORPHAN_BUT_EXISTING")
         violations = self._run("[Draft](draft.md)", vsm)
         assert len(violations) == 1
-        assert violations[0].code == "Z002"
+        assert violations[0].code == "Z103"
         assert violations[0].level == "warning"
         assert "ORPHAN_LINK" in violations[0].message
 
@@ -519,7 +530,7 @@ class TestVSMBrokenLinkRule:
         vsm = _make_vsm("/ok/")
         findings = engine.run_vsm(_FILE, "[OK](ok/index.md)\n[Bad](ghost.md)\n", vsm, {})
         assert len(findings) == 1
-        assert findings[0].rule_id == "Z001"
+        assert findings[0].rule_id == "Z101"
         assert isinstance(findings[0], RuleFinding)
 
 
@@ -751,13 +762,13 @@ class TestVSMBrokenLinkRuleMutantKill:
     # ── Exact field assertions on violations (kill string mutations) ──────────
 
     def test_missing_link_violation_exact_fields(self) -> None:
-        """Assert every field of a Z001 violation — kills all string/field mutations."""
+        """Assert every field of a Z101 violation — kills all string/field mutations."""
         violations = self._run("[Bad](ghost.md)", {})
         assert len(violations) == 1
         v = violations[0]
         assert v.file_path == _FILE
         assert v.line_no == 1
-        assert v.code == "Z001"
+        assert v.code == "Z101"
         assert v.level == "error"
         assert v.is_error
         assert "ghost.md" in v.message
@@ -772,7 +783,7 @@ class TestVSMBrokenLinkRuleMutantKill:
         v = violations[0]
         assert v.file_path == _FILE
         assert v.line_no == 1
-        assert v.code == "Z002"
+        assert v.code == "Z103"
         assert v.level == "warning"
         assert not v.is_error
         assert "ORPHAN_LINK" in v.message
@@ -787,7 +798,7 @@ class TestVSMBrokenLinkRuleMutantKill:
         assert len(violations) == 1
         v = violations[0]
         assert v.file_path == _FILE
-        assert v.code == "Z001"
+        assert v.code == "Z101"
         assert v.level == "error"
         assert "UNREACHABLE_LINK" in v.message
         assert "'UNREACHABLE'" in v.message
@@ -797,7 +808,7 @@ class TestVSMBrokenLinkRuleMutantKill:
         vsm = {"/page/": Route(url="/page/", source="page.md", status="SOME_OTHER_STATUS")}
         violations = self._run("[Page](page.md)", vsm)
         assert len(violations) == 1
-        assert violations[0].code == "Z001"
+        assert violations[0].code == "Z101"
 
     # ── file_path propagation (kill file_path=None mutations) ────────────────
 
@@ -840,7 +851,7 @@ class TestVSMBrokenLinkRuleMutantKill:
         }
         violations = self._run("[A](a.md)\n[B](b.md)", vsm)
         assert len(violations) == 2
-        assert all(v.code == "Z002" for v in violations)
+        assert all(v.code == "Z103" for v in violations)
 
     def test_mixed_valid_and_broken_only_broken_reported(self) -> None:
         vsm = _make_vsm("/ok/")
@@ -946,7 +957,7 @@ class TestVSMBrokenLinkRuleMutantKill:
         assert v.file_path == _FILE
         assert v.line_no == 3
         assert isinstance(v.line_no, int)
-        assert v.code == "Z001"
+        assert v.code == "Z101"
         assert v.level == "error"
         assert v.context is not None
         assert isinstance(v.context, str)
@@ -958,8 +969,8 @@ class TestVSMBrokenLinkRuleMutantKill:
         # Kill case mutation
         assert "VIA SITE NAVIGATION" not in v.message
 
-    def test_z001_missing_message_no_xx_wrapper(self) -> None:
-        """Kill XX-wrapper mutants on Z001 missing link message."""
+    def test_z101_missing_message_no_xx_wrapper(self) -> None:
+        """Kill XX-wrapper mutants on Z101 missing link message."""
         violations = self._run("[Bad](ghost.md)", {})
         v = violations[0]
         assert v.message.endswith("the target file may not exist")
@@ -1045,7 +1056,7 @@ class TestAdaptiveRuleEngineRunMutantKill:
         f = findings[0]
         assert f.file_path == _FILE
         assert f.line_no == 0
-        assert f.rule_id == "RULE-ENGINE-ERROR"
+        assert f.rule_id == "Z901"
         assert f.severity == "error"
         assert "ZZ-BROKEN" in f.message
         assert "RuntimeError" in f.message
@@ -1056,7 +1067,7 @@ class TestAdaptiveRuleEngineRunMutantKill:
         engine = AdaptiveRuleEngine([_BrokenRule(), good])
         findings = engine.run(_FILE, "a text\n")
         rule_ids = [f.rule_id for f in findings]
-        assert "RULE-ENGINE-ERROR" in rule_ids
+        assert "Z901" in rule_ids
         assert "ZZ-GOOD" in rule_ids
 
     def test_run_multiple_rules_all_produce_findings(self) -> None:
@@ -1093,7 +1104,7 @@ class TestAdaptiveRuleEngineRunVsmMutantKill:
         assert isinstance(f, RuleFinding)
         assert f.file_path == _FILE
         assert f.line_no == 1
-        assert f.rule_id == "Z001"
+        assert f.rule_id == "Z101"
         assert f.severity == "error"
         assert "ghost.md" in f.message
 
@@ -1105,7 +1116,7 @@ class TestAdaptiveRuleEngineRunVsmMutantKill:
         f = findings[0]
         assert f.file_path == _FILE
         assert f.line_no == 0
-        assert f.rule_id == "RULE-ENGINE-ERROR"
+        assert f.rule_id == "Z901"
         assert f.severity == "error"
         assert "ZZ-BROKEN-VSM" in f.message
         assert "check_vsm" in f.message
@@ -1117,7 +1128,7 @@ class TestAdaptiveRuleEngineRunVsmMutantKill:
         vsm = _make_vsm("/ok/")
         findings = engine.run_vsm(_FILE, "[OK](ok/index.md)", vsm, {})
         # Should have the error finding from _BrokenVsmRule, and 0 from valid link
-        error_findings = [f for f in findings if f.rule_id == "RULE-ENGINE-ERROR"]
+        error_findings = [f for f in findings if f.rule_id == "Z901"]
         assert len(error_findings) == 1
 
     def test_run_vsm_multiple_rules_all_produce_findings(self) -> None:
@@ -1126,7 +1137,7 @@ class TestAdaptiveRuleEngineRunVsmMutantKill:
         findings = engine.run_vsm(_FILE, "[Bad](ghost.md)", {}, {})
         # Both instances should report the broken link
         assert len(findings) == 2
-        assert all(f.rule_id == "Z001" for f in findings)
+        assert all(f.rule_id == "Z101" for f in findings)
 
     def test_run_vsm_worker_returns_empty_list(self) -> None:
         """Rule returning no violations is fine — no crash."""
@@ -1200,9 +1211,9 @@ class TestPluginRegistryMutantKill:
         sources = [r.source for r in rules]
         assert "broken-links" in sources
 
-    def test_list_rules_broken_links_has_z001_id(self) -> None:
+    def test_list_rules_broken_links_has_z101_id(self) -> None:
         bl = next(r for r in PluginRegistry().list_rules() if r.source == "broken-links")
-        assert bl.rule_id == "Z001"
+        assert bl.rule_id == "Z101"
         assert bl.origin == "zenzic"
 
     def test_list_rules_results_are_sorted_by_source(self) -> None:
@@ -1217,14 +1228,14 @@ class TestPluginRegistryMutantKill:
         assert "VSMBrokenLinkRule" in bl.class_name
         assert "." in bl.class_name
 
-    def test_load_core_rules_includes_z001(self) -> None:
-        """Kills Z001→z001 mutant and not-any→any inversion."""
+    def test_load_core_rules_includes_z101(self) -> None:
+        """Kills Z101→z101 mutant and not-any→any inversion."""
         reg = PluginRegistry()
         rules = reg.load_core_rules()
-        assert any(r.rule_id == "Z001" for r in rules)
+        assert any(r.rule_id == "Z101" for r in rules)
 
     def test_load_core_rules_fallback_is_vsm_broken_link_rule(self) -> None:
-        """When no entry points provide Z001, the fallback must be a real VSMBrokenLinkRule."""
+        """When no entry points provide Z101, the fallback must be a real VSMBrokenLinkRule."""
         reg = PluginRegistry()
         rules = reg.load_core_rules()
         vsm_rules = [r for r in rules if isinstance(r, VSMBrokenLinkRule)]
@@ -1236,7 +1247,7 @@ class TestPluginRegistryMutantKill:
         rules = reg.load_selected_rules(["broken-links"])
         assert len(rules) == 1
         assert isinstance(rules[0], VSMBrokenLinkRule)
-        assert rules[0].rule_id == "Z001"
+        assert rules[0].rule_id == "Z101"
 
     def test_load_selected_rules_empty_input_returns_empty(self) -> None:
         reg = PluginRegistry()
@@ -1352,16 +1363,16 @@ class TestPluginRegistryMutantKill:
         rules = reg.load_core_rules()
         # core-rule should be loaded, ext-rule should not
         rule_ids = [r.rule_id for r in rules]
-        assert "Z001" in rule_ids
+        assert "Z101" in rule_ids
         assert "PLUG-TODO" not in rule_ids
 
-    def test_load_core_rules_with_z001_already_loaded(
+    def test_load_core_rules_with_z101_already_loaded(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """When Z001 is already provided by an entry point, no duplicate fallback.
+        """When Z101 is already provided by an entry point, no duplicate fallback.
         Kills not-any→any inversion mutant."""
 
-        class _Z001EP:
+        class _Z101EP:
             name = "broken-links"
 
             class dist:
@@ -1372,11 +1383,11 @@ class TestPluginRegistryMutantKill:
                 return VSMBrokenLinkRule
 
         reg = PluginRegistry()
-        monkeypatch.setattr(reg, "_entry_points", lambda: [_Z001EP()])
+        monkeypatch.setattr(reg, "_entry_points", lambda: [_Z101EP()])
         rules = reg.load_core_rules()
-        z001_count = sum(1 for r in rules if r.rule_id == "Z001")
+        z101_count = sum(1 for r in rules if r.rule_id == "Z101")
         # Exactly 1 — no duplicate from fallback
-        assert z001_count == 1
+        assert z101_count == 1
 
     def test_load_core_rules_fallback_not_none(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Fallback appends a real VSMBrokenLinkRule, not None.
@@ -1387,7 +1398,7 @@ class TestPluginRegistryMutantKill:
         assert len(rules) == 1
         assert rules[0] is not None
         assert isinstance(rules[0], VSMBrokenLinkRule)
-        assert rules[0].rule_id == "Z001"
+        assert rules[0].rule_id == "Z101"
 
     def test_load_selected_rules_broken_links_plus_others(
         self, monkeypatch: pytest.MonkeyPatch
@@ -1473,3 +1484,357 @@ class TestPluginRegistryMutantKill:
         rules = reg.list_rules()
         my_rule = next(r for r in rules if r.source == "my-rule")
         assert my_rule.origin == "my-package"
+
+
+# ─── Mutant-Killing Tests: VSMBrokenLinkRule._to_canonical_url ───────────────
+
+
+class TestToCanonicalUrlMutantKill:
+    """Kill mutants in VSMBrokenLinkRule._to_canonical_url.
+
+    Tested directly on the method to avoid routing through check_vsm overhead.
+    """
+
+    _RULE = VSMBrokenLinkRule()
+
+    def _url(
+        self, href: str, source_dir: Path | None = None, docs_root: Path | None = None
+    ) -> str | None:
+        return self._RULE._to_canonical_url(href, source_dir, docs_root)
+
+    # ── rstrip("/") kills ────────────────────────────────────────────────────
+
+    def test_trailing_slash_is_stripped_before_processing(self) -> None:
+        """rstrip(None) / lstrip("/") / rstrip("XX/XX") mutants leave a trailing slash
+        that would produce "//guide//" or cause wrong path splits."""
+        # "guide/" → must become "/guide/"  (rstrip strips the trailing slash)
+        result = self._url("guide/")
+        assert result == "/guide/"
+
+    def test_trailing_slash_on_md_link(self) -> None:
+        """guide.md/ (pathological) — rstrip removes trailing slash first."""
+        result = self._url("guide.md/")
+        assert result == "/guide/"
+
+    # ── replace("\\", "/") kills ─────────────────────────────────────────────
+
+    def test_backslash_normalized_to_forward_slash(self) -> None:
+        """Windows-style backslash must be converted to '/' before URL parsing.
+        Kills replace("XX\\XX", "/") and replace("\\", "XX/XX") mutants."""
+        result = self._url("a\\b")
+        assert result == "/a/b/"
+
+    # ── empty path → None kills ───────────────────────────────────────────────
+
+    def test_empty_path_returns_none(self) -> None:
+        """Bare query string has no path — must return None."""
+        assert self._url("?foo=bar") is None
+
+    def test_fragment_only_returns_none(self) -> None:
+        """Fragment-only href has no path component."""
+        assert self._url("#section") is None
+
+    # ── index stripping kills (parts[:-1] → parts[:+1]) ──────────────────────
+
+    def test_index_md_becomes_parent_dir(self) -> None:
+        """'dir/index.md' → '/dir/' — kills parts[:-1] → parts[:+1] mutant."""
+        result = self._url("dir/index.md")
+        assert result == "/dir/"
+
+    def test_bare_index_md_becomes_root(self) -> None:
+        """'index.md' → '/' — kills the return '/' after index removal."""
+        result = self._url("index.md")
+        assert result == "/"
+
+    def test_empty_path_after_md_strip_becomes_root(self) -> None:
+        """'index.md' strips to 'index', then index is removed → '/' from empty parts.
+        Kills return 'XX/XX' mutant in both empty-parts return statements."""
+        result = self._url("index.md")
+        assert result == "/"
+
+    def test_nested_index_removed(self) -> None:
+        """'a/b/index.md' → '/a/b/' — kills parts[:-1] → parts[:+1] mutant."""
+        result = self._url("a/b/index.md")
+        assert result == "/a/b/"
+
+    # ── source_dir / docs_root logic kills ───────────────────────────────────
+
+    def test_dotdot_with_context_resolves_correctly(self, tmp_path: Path) -> None:
+        """With context, '../sibling.md' resolves relative to source_dir.
+        Kills 'and … or' logic mutations in the context guard."""
+        docs_root = tmp_path / "docs"
+        source_dir = docs_root / "guide"
+        # '../sibling' → docs_root/sibling → '/sibling/'
+        result = self._url("../sibling.md", source_dir=source_dir, docs_root=docs_root)
+        assert result == "/sibling/"
+
+    def test_dotdot_without_context_treated_as_literal(self) -> None:
+        """Without source_dir+docs_root, '..' in path is kept as-is (root-relative path)."""
+        # No source_dir/docs_root supplied → context branch not taken
+        result = self._url("../page.md")
+        # '../page.md' → path = '../page' → parts = ['..', 'page'] → '/../page/'
+        # This is an awkward URL but the function is pure — no filesystem checks
+        assert result is not None  # does not raise, returns some value
+
+    def test_dotdot_escaping_docs_root_returns_none(self, tmp_path: Path) -> None:
+        """Path escaping docs_root must return None — kills inversion mutant."""
+        docs_root = tmp_path / "docs"
+        source_dir = docs_root / "sub"
+        # '../../evil' escapes docs_root
+        result = self._url("../../evil.md", source_dir=source_dir, docs_root=docs_root)
+        assert result is None
+
+    def test_source_dir_none_skips_context_branch(self, tmp_path: Path) -> None:
+        """source_dir=None → context branch NOT taken even if docs_root is set.
+        Kills 'source_dir is not None or docs_root is not None' mutant."""
+        docs_root = tmp_path / "docs"
+        # No source_dir → no context-aware resolution regardless of docs_root
+        result = self._url("../page.md", source_dir=None, docs_root=docs_root)
+        # Without context, '..' is kept literally — no escaping check
+        assert result is not None  # does not return None from the context guard
+
+    def test_docs_root_none_skips_context_branch(self, tmp_path: Path) -> None:
+        """docs_root=None → context branch NOT taken even if source_dir is set.
+        Kills 'source_dir is not None or docs_root is not None' mutant."""
+        source_dir = tmp_path / "docs" / "sub"
+        result = self._url("../page.md", source_dir=source_dir, docs_root=None)
+        assert result is not None  # no context-guard None
+
+    def test_rel_dot_becomes_empty_path(self, tmp_path: Path) -> None:
+        """When normpath gives '.' (same-dir reference) path becomes '' → '/'.
+        Kills rel != 'XX.XX' and else 'XXXX' mutants."""
+        docs_root = tmp_path / "docs"
+        source_dir = docs_root / "sub"
+        # './sub' relative to source_dir (docs/sub) → normpath → docs/sub → rel='sub'
+        # Let's use '.' to get rel='.'
+        # source_dir/../ = docs_root itself
+        result = self._url("../sub/../", source_dir=source_dir, docs_root=docs_root)
+        # This resolves to docs_root itself → rel='.' → path='' → return '/'
+        assert result == "/"
+
+
+# ─── CircularAnchorRule (Z107) ────────────────────────────────────────────────
+
+
+_ANCHOR_FILE = Path("docs/guide.md")
+
+
+class TestCircularAnchorRule:
+    """18-test suite for built-in Z107, Z505, Z905 rules (D091)."""
+
+    def _rule(self) -> CircularAnchorRule:
+        return CircularAnchorRule()
+
+    def test_z107_matches_simple_anchor(self) -> None:
+        """[Foo](#foo) → slug('Foo') == 'foo' → Z107."""
+        rule = self._rule()
+        findings = rule.check(_ANCHOR_FILE, "[Foo](#foo)\n")
+        assert len(findings) == 1
+        assert findings[0].rule_id == "Z107"
+        assert findings[0].line_no == 1
+        assert findings[0].severity == "warning"
+
+    def test_z107_matches_multi_word_anchor(self) -> None:
+        """[Foo Bar](#foo-bar) → slug('Foo Bar') == 'foo-bar' → Z107."""
+        rule = self._rule()
+        findings = rule.check(_ANCHOR_FILE, "[Foo Bar](#foo-bar)\n")
+        assert len(findings) == 1
+        assert findings[0].rule_id == "Z107"
+
+    def test_z107_no_match_different_target(self) -> None:
+        """[Docs](#introduction) — slug('Docs')='docs' != 'introduction' → no finding."""
+        rule = self._rule()
+        findings = rule.check(_ANCHOR_FILE, "[Docs](#introduction)\n")
+        assert findings == []
+
+    def test_z107_ignores_cross_file_link(self) -> None:
+        """[text](other.md#foo) is a cross-file link, not a same-page anchor → no finding."""
+        rule = self._rule()
+        findings = rule.check(_ANCHOR_FILE, "[text](other.md#foo)\n")
+        assert findings == []
+
+    def test_z107_ignores_external_url(self) -> None:
+        """External URLs are never flagged by Z107."""
+        rule = self._rule()
+        findings = rule.check(_ANCHOR_FILE, "[Zenzic](https://zenzic.dev)\n")
+        assert findings == []
+
+    def test_z107_col_start_correct(self) -> None:
+        """col_start points to the opening '[' of the anchor link."""
+        rule = self._rule()
+        text = "See [Foo](#foo) for details.\n"
+        findings = rule.check(_ANCHOR_FILE, text)
+        assert len(findings) == 1
+        assert findings[0].col_start == text.index("[Foo]")
+
+
+# ─── UntaggedCodeBlockRule (Z505) ─────────────────────────────────────────────
+
+
+class TestUntaggedCodeBlockRule:
+    def _rule(self) -> UntaggedCodeBlockRule:
+        return UntaggedCodeBlockRule()
+
+    def test_z505_untagged_fence_detected(self) -> None:
+        """Opening ``` with no language tag → one Z505 finding."""
+        rule = self._rule()
+        text = "```\nsome code\n```\n"
+        findings = rule.check(_ANCHOR_FILE, text)
+        assert len(findings) == 1
+        assert findings[0].rule_id == "Z505"
+        assert findings[0].line_no == 1
+        assert findings[0].severity == "warning"
+
+    def test_z505_tagged_fence_no_finding(self) -> None:
+        """Opening ```python has a tag → no finding."""
+        rule = self._rule()
+        text = "```python\nx = 1\n```\n"
+        findings = rule.check(_ANCHOR_FILE, text)
+        assert findings == []
+
+    def test_z505_closing_fence_not_flagged(self) -> None:
+        """Closing ``` of a tagged block is never flagged."""
+        rule = self._rule()
+        text = "```toml\nkey = 'val'\n```\n"
+        findings = rule.check(_ANCHOR_FILE, text)
+        assert findings == []
+
+    def test_z505_tilde_fence_untagged(self) -> None:
+        """~~~ without a language tag → Z505 (tilde fences supported)."""
+        rule = self._rule()
+        text = "~~~\ncode\n~~~\n"
+        findings = rule.check(_ANCHOR_FILE, text)
+        assert len(findings) == 1
+        assert findings[0].rule_id == "Z505"
+
+    def test_z505_multiple_untagged_blocks(self) -> None:
+        """Two untagged fences in the same file → two Z505 findings."""
+        rule = self._rule()
+        text = "```\nblock1\n```\nText.\n```\nblock2\n```\n"
+        findings = rule.check(_ANCHOR_FILE, text)
+        assert len(findings) == 2
+
+    def test_z505_content_inside_not_flagged(self) -> None:
+        """Lines inside a fence block are not inspected for the fence pattern."""
+        rule = self._rule()
+        # Inner ``` looks like a fence but is inside the block → ignored
+        text = "```markdown\n```\ninner content\n```\n```\n"
+        findings = rule.check(_ANCHOR_FILE, text)
+        # CEO-140: ``` closes the markdown block (no info string, same char, same
+        # length). Then the third ``` re-opens an untagged block → Z505.
+        # Structure: open(md) → close → open(untagged) → close
+        # So: 0 from tagged, 1 from second untagged open
+        assert len(findings) == 1
+
+    def test_z505_info_string_with_title_not_flagged(self) -> None:
+        """```python title="test.py" has a language tag → no finding (CEO-138)."""
+        rule = self._rule()
+        text = '```python title="test.py"\nx = 1\n```\n'
+        findings = rule.check(_ANCHOR_FILE, text)
+        assert findings == []
+
+    def test_z505_info_string_with_metadata_not_flagged(self) -> None:
+        """```bash showLineNumbers {1-3} has a language tag → no finding (CEO-138)."""
+        rule = self._rule()
+        text = "```bash showLineNumbers {1-3}\necho hi\n```\n"
+        findings = rule.check(_ANCHOR_FILE, text)
+        assert findings == []
+
+    def test_z505_closing_fence_with_info_does_not_close(self) -> None:
+        """A closing fence with info string is an opener, not a closer (CEO-140)."""
+        rule = self._rule()
+        # ````text opens, ```mermaid does NOT close (has info), ``` closes.
+        text = "````text\n```mermaid\nflowchart\n```\n````\n"
+        findings = rule.check(_ANCHOR_FILE, text)
+        # ````text is tagged → no Z505
+        assert findings == []
+
+
+# ─── BrandObsolescenceRule (Z905) ─────────────────────────────────────────────
+
+
+def _meta(
+    obsolete: list[str] | None = None,
+    release: str = "Quartz",
+    exclude: list[str] | None = None,
+) -> ProjectMetadata:
+    kwargs: dict = {"release_name": release, "obsolete_names": obsolete or []}
+    if exclude is not None:
+        kwargs["obsolete_names_exclude_patterns"] = exclude
+    return ProjectMetadata(**kwargs)
+
+
+class TestBrandObsolescenceRule:
+    def _rule(self, meta: ProjectMetadata) -> BrandObsolescenceRule:
+        return BrandObsolescenceRule(meta)
+
+    def test_z905_empty_obsolete_no_findings(self) -> None:
+        """When obsolete_names is empty, rule always returns []."""
+        rule = self._rule(_meta(obsolete=[]))
+        findings = rule.check(_ANCHOR_FILE, "Obsidian was the old name.\n")
+        assert findings == []
+
+    def test_z905_match_emits_warning(self) -> None:
+        """Obsolete term found → one Z905 warning with remediation hint."""
+        rule = self._rule(_meta(obsolete=["Obsidian"]))
+        findings = rule.check(_ANCHOR_FILE, "Obsidian is documented here.\n")
+        assert len(findings) == 1
+        assert findings[0].rule_id == "Z905"
+        assert findings[0].severity == "warning"
+        assert "Obsidian" in findings[0].message
+        assert "Quartz" in findings[0].message
+
+    def test_z905_suppress_md_html_comment(self) -> None:
+        """CEO-143: HTML comment suppression (Markdown .md syntax)."""
+        rule = self._rule(_meta(obsolete=["Obsidian"]))
+        text = "Obsidian was the old name. <!-- zenzic:ignore Z905 -->\n"
+        findings = rule.check(_ANCHOR_FILE, text)
+        assert findings == []
+
+    def test_z905_suppress_mdx_jsx_comment(self) -> None:
+        """CEO-143: JSX comment suppression (MDX .mdx syntax)."""
+        rule = self._rule(_meta(obsolete=["Obsidian"]))
+        mdx_file = Path("docs/explanation/mineral-path.mdx")
+        text = "The Obsidian era defined Zenzic's foundations. {/* zenzic:ignore Z905 */}\n"
+        findings = rule.check(mdx_file, text)
+        assert findings == []
+
+    def test_z905_suppress_only_correct_code(self) -> None:
+        """CEO-143: A suppression comment for a different code does NOT suppress Z905."""
+        rule = self._rule(_meta(obsolete=["Obsidian"]))
+        text = "Obsidian was the old name. <!-- zenzic:ignore Z107 -->\n"
+        findings = rule.check(_ANCHOR_FILE, text)
+        assert len(findings) == 1
+        assert findings[0].rule_id == "Z905"
+
+    def test_z905_historical_tag_no_longer_suppresses(self) -> None:
+        """CEO-143: The deprecated [HISTORICAL] token is no longer a suppression mechanism."""
+        rule = self._rule(_meta(obsolete=["Obsidian"]))
+        text = "Obsidian was the old name. [HISTORICAL]\n"
+        findings = rule.check(_ANCHOR_FILE, text)
+        # [HISTORICAL] is plain text — does not suppress Z905
+        assert len(findings) == 1
+        assert findings[0].rule_id == "Z905"
+
+    def test_z905_path_in_exclude_patterns_skipped(self) -> None:
+        """File matching an exclusion glob is skipped entirely."""
+        rule = self._rule(_meta(obsolete=["Obsidian"], exclude=["CHANGELOG*.md"]))
+        cl_file = Path("CHANGELOG.md")
+        findings = rule.check(cl_file, "Obsidian was the old name.\n")
+        assert findings == []
+
+    def test_z905_case_insensitive(self) -> None:
+        """Z905 is case-insensitive: 'obsidian' also triggers."""
+        rule = self._rule(_meta(obsolete=["Obsidian"]))
+        findings = rule.check(_ANCHOR_FILE, "obsidian is no longer used.\n")
+        assert len(findings) == 1
+        assert findings[0].match_text.lower() == "obsidian"
+
+    def test_z905_multiple_names_multiple_findings(self) -> None:
+        """Each unique obsolete term on a line → its own finding."""
+        rule = self._rule(_meta(obsolete=["Obsidian", "Legacy"]))
+        text = "Obsidian and Legacy are both deprecated.\n"
+        findings = rule.check(_ANCHOR_FILE, text)
+        assert len(findings) == 2
+        codes = {f.rule_id for f in findings}
+        assert codes == {"Z905"}

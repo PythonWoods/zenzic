@@ -1,10 +1,11 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
-# zenzic.toml — Vanilla (engine-agnostic) example.
+# zenzic.toml — Standalone (engine-agnostic) example.
 #
 # No mkdocs.yml, no zensical.toml, no build engine of any kind.
-# Zenzic runs in Vanilla mode: links, snippets, placeholders, and assets
-# are all checked. The orphan check is skipped (no nav to compare against).
+# Zenzic runs in Standalone Mode: links, snippets, placeholders, and assets
+# are all checked. The orphan check (Z402) is disabled because there is no
+# navigation contract to compare against.
 #
 # Use this mode for Hugo, Docusaurus, Sphinx, Astro, hand-written HTML,
 # or any project where you want documentation quality gates without
@@ -24,7 +25,7 @@ fail_under = 80
 # All lines including fenced code blocks are scanned. Exit code 2 on detection.
 
 [build_context]
-engine = "vanilla"
+engine = "standalone"
 
 # Project-specific lint rule: no inline HTML in docs.
 [[custom_rules]]

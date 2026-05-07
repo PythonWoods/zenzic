@@ -1,0 +1,17 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# zenzic.toml — Shield Extreme (Act 14 — Red Team Matrix)
+#
+# RED TEAM: Credential exposure in unusual Markdown contexts —
+#           tables, blockquotes, HTML comments, link titles, mixed-case keys.
+# BLUE TEAM: Zenzic Shield scans every source line regardless of Markdown structure.
+#
+# Expected results:
+#   zenzic check references  → EXIT 2  (Z201: Shield breached — credentials in all files)
+#   zenzic check all         → EXIT 2
+
+docs_dir = "docs"
+fail_under = 0
+
+[build_context]
+engine = "standalone"

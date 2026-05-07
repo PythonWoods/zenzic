@@ -46,9 +46,9 @@ _SANDBOX_ZENSICAL = _HERE / "sandboxes" / "zensical"
 
 def _invoke_with_errors(errors: list[LinkError]):  # type: ignore[return]
     with (
-        patch("zenzic.cli.find_repo_root", return_value=_ROOT),
-        patch("zenzic.cli.ZenzicConfig.load", return_value=(_CFG, True)),
-        patch("zenzic.cli.validate_links_structured", return_value=errors),
+        patch("zenzic.cli._check.find_repo_root", return_value=_ROOT),
+        patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True)),
+        patch("zenzic.cli._check.validate_links_structured", return_value=errors),
     ):
         return runner.invoke(app, ["check", "links"])
 
@@ -93,15 +93,15 @@ def test_visual_snippet_absent_when_source_line_empty() -> None:
 @pytest.mark.parametrize(
     "error_type,expected_code",
     [
-        ("FILE_NOT_FOUND", "Z104"),
-        ("UNREACHABLE_LINK", "Z101"),
-        ("ANCHOR_MISSING", "Z102"),
-        ("ABSOLUTE_PATH", "Z105"),
-        ("PATH_TRAVERSAL", "Z202"),
+        ("Z104", "Z104"),
+        ("Z101", "Z101"),
+        ("Z102", "Z102"),
+        ("Z105", "Z105"),
+        ("Z202", "Z202"),
     ],
 )
 def test_error_type_badge_present(error_type: str, expected_code: str) -> None:
-    """Every error type must appear as a normalized Zxxx badge in the output."""
+    """Every canonical Zxxx error_type must appear as a badge in the output."""
     err = LinkError(
         file_path=_DOCS / "page.md",
         line_no=1,
@@ -114,13 +114,13 @@ def test_error_type_badge_present(error_type: str, expected_code: str) -> None:
 
 
 def test_generic_link_error_has_no_badge() -> None:
-    """LINK_ERROR code is normalised to Z101 LINK_BROKEN."""
+    """Z101 is the canonical code for generic broken links."""
     err = LinkError(
         file_path=_DOCS / "page.md",
         line_no=1,
         message="page.md:1: some generic error",
         source_line="",
-        error_type="LINK_ERROR",
+        error_type="Z101",
     )
     result = _invoke_with_errors([err])
     assert "Z101" in result.stdout
@@ -138,14 +138,14 @@ def test_multiple_errors_each_have_snippet() -> None:
             line_no=1,
             message="a.md:1: error one",
             source_line="[one](one.md)",
-            error_type="FILE_NOT_FOUND",
+            error_type="Z104",
         ),
         LinkError(
             file_path=_DOCS / "b.md",
             line_no=2,
             message="b.md:2: error two",
             source_line="[two](two.md)",
-            error_type="UNREACHABLE_LINK",
+            error_type="Z101",
         ),
     ]
     result = _invoke_with_errors(errors)

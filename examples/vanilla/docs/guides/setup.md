@@ -3,7 +3,7 @@
 
 # Setup Guide
 
-This guide covers installing and configuring the project in Vanilla mode.
+This guide covers installing and configuring the project in Standalone Mode.
 
 ## Prerequisites
 
@@ -25,7 +25,7 @@ uv add --dev zenzic
 Create a `zenzic.toml` at the repository root:
 
 ```toml
-engine   = "vanilla"
+engine   = "standalone"
 docs_dir = "docs"
 ```
 

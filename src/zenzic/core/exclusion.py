@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Layered Exclusion system: VCS-aware file exclusion with 4-level hierarchy.
 
-This module implements the core exclusion logic for the Obsidian Bastion
+This module implements the core exclusion logic for the Sentinel Perimeter
 architecture.  All functions are **pure** — no I/O after construction except
 for the ``VCSIgnoreParser.from_file()`` factory.
 
@@ -13,7 +13,7 @@ Exclusion Hierarchy (processed top-to-bottom, first match wins):
    from config — overrides VCS and Config exclusions (but NOT L1).
 3. **CLI Overrides (L4):** ``--exclude-dir`` / ``--include-dir`` flags.
 4. **VCS Discovery (L2-VCS):** ``.gitignore`` patterns when
-   ``respect_vcs_ignore = true``.
+   ``respect_vcs_ignore = true`` (default).
 5. **Config Overrides (L3):** ``excluded_dirs`` / ``excluded_file_patterns``
    from ``zenzic.toml``.
 6. **Default:** Included.
@@ -30,9 +30,17 @@ import fnmatch
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Self
+from typing import TYPE_CHECKING
 
-from zenzic.models.config import SYSTEM_EXCLUDED_DIRS
+
+if TYPE_CHECKING:
+    from typing import Self  # PEP 673; available at runtime only from Python 3.11+
+
+from zenzic.models.config import (
+    SYSTEM_EXCLUDED_DIRS,
+    SYSTEM_EXCLUDED_FILE_NAMES,
+    SYSTEM_EXCLUDED_FILE_PATTERNS,
+)
 
 
 if TYPE_CHECKING:
@@ -301,6 +309,7 @@ class LayeredExclusionManager:
 
     __slots__ = (
         "_system_dirs",
+        "_adapter_metadata_files",
         "_config_excluded_dirs",
         "_config_included_dirs",
         "_cli_exclude_dirs",
@@ -319,8 +328,10 @@ class LayeredExclusionManager:
         docs_root: Path | None = None,
         cli_exclude: list[str] | None = None,
         cli_include: list[str] | None = None,
+        adapter_metadata_files: frozenset[str] = frozenset(),
     ) -> None:
         self._system_dirs: frozenset[str] = SYSTEM_EXCLUDED_DIRS
+        self._adapter_metadata_files: frozenset[str] = adapter_metadata_files
 
         # Config-level dirs — strip system guardrails to keep layers clean
         raw_excluded = getattr(config, "excluded_dirs", []) or []
@@ -419,6 +430,14 @@ class LayeredExclusionManager:
             rel_path = file_path.relative_to(docs_root).as_posix()
         except ValueError:
             rel_path = filename
+
+        # L1a: System file guardrails — immutable (infrastructure + adapter metadata)
+        if (
+            filename in SYSTEM_EXCLUDED_FILE_NAMES
+            or any(fnmatch.fnmatch(filename, p) for p in SYSTEM_EXCLUDED_FILE_PATTERNS)
+            or filename in self._adapter_metadata_files
+        ):
+            return True
 
         # L1: System guardrails — check path components
         for part in Path(rel_path).parts[:-1]:  # directories only, not filename

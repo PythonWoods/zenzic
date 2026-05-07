@@ -1,0 +1,16 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+#
+# zensical.toml — Zensical Z404 fixture.
+# favicon and logo reference files that do not exist on disk.
+
+[project]
+site_name = "Zensical Z404 Fixture"
+site_url  = "https://example.com/"
+docs_dir  = "docs"
+favicon   = "assets/images/missing-favicon.ico"
+logo      = "assets/images/missing-logo.png"
+
+nav = [
+    "index.md",
+]

@@ -26,15 +26,25 @@ from urllib.parse import unquote
 from zenzic.core.adapter import get_adapter
 from zenzic.core.discovery import (
     DOC_SUFFIXES,
+    iter_extra_content_markdown_sources,
     iter_locale_markdown_sources,
     iter_markdown_sources,
     walk_files,
 )
 from zenzic.core.reporter import Finding
 from zenzic.core.rules import AdaptiveRuleEngine, BaseRule
-from zenzic.core.shield import SecurityFinding, scan_lines_with_lookback, scan_url_for_secrets
+from zenzic.core.shield import (
+    SecurityFinding,
+    scan_line_for_forbidden_terms,
+    scan_lines_with_lookback,
+    scan_url_for_secrets,
+)
 from zenzic.core.validator import LinkValidator
-from zenzic.models.config import ZenzicConfig
+from zenzic.models.config import (
+    SYSTEM_EXCLUDED_FILE_NAMES,
+    SYSTEM_EXCLUDED_FILE_PATTERNS,
+    ZenzicConfig,
+)
 from zenzic.models.references import IntegrityReport, ReferenceFinding, ReferenceMap
 
 
@@ -68,8 +78,8 @@ _RE_HTML_ALT = re.compile(r'\balt=["\']([^"\']*)["\']', re.IGNORECASE)
 _MARKDOWN_ASSET_LINK_RE = re.compile(r"!\[.*?\]\((.*?)\)|<img.*?src=[\"'](.*?)[\"'].*?>")
 
 
-def find_repo_root(*, fallback_to_cwd: bool = False) -> Path:
-    """Walk upward from CWD until a Zenzic project root marker is found.
+def find_repo_root(*, fallback_to_cwd: bool = False, search_from: Path | None = None) -> Path:
+    """Walk upward from *search_from* (or CWD) until a Zenzic project root marker is found.
 
     Root markers (first match wins, checked in order):
     - ``.git/``  — universal VCS marker.
@@ -83,25 +93,29 @@ def find_repo_root(*, fallback_to_cwd: bool = False) -> Path:
 
     Args:
         fallback_to_cwd: When *True* and no root marker is found, return the
-            current working directory instead of raising.  Use this only for
-            bootstrap commands (``zenzic init``) that are explicitly designed
-            to create a project root from scratch — the "Genesis Fallback".
+            starting path instead of raising.  Use this only for bootstrap
+            commands (``zenzic init``) that are explicitly designed to create a
+            project root from scratch — the "Genesis Fallback".
+        search_from: Optional starting path for the upward search.  When
+            provided, the search begins here instead of ``Path.cwd()``.
+            CEO-052 "The Sovereign Root Fix": pass the explicit target path so
+            the project config follows the target, not the caller.
 
     Raises:
         RuntimeError: if no root marker is found in any ancestor and
             ``fallback_to_cwd`` is *False*.
     """
-    cwd = Path.cwd().resolve()
-    for candidate in [cwd, *cwd.parents]:
+    start = search_from.resolve() if search_from is not None else Path.cwd().resolve()
+    for candidate in [start, *start.parents]:
         if (candidate / ".git").is_dir() or (candidate / "zenzic.toml").is_file():
             return candidate
 
     if fallback_to_cwd:
-        return cwd
+        return start
 
     raise RuntimeError(
         "Could not locate repo root: no .git directory or zenzic.toml found in any "
-        f"ancestor of {cwd}. Run Zenzic from inside the repository."
+        f"ancestor of {start}. Run Zenzic from inside the repository."
     )
 
 
@@ -131,19 +145,33 @@ def _map_shield_to_finding(sf: SecurityFinding, docs_root: Path) -> Finding:
     "The Silencer" mutants must all be killed here).
 
     Args:
-        sf: A secret detection result from :func:`~zenzic.core.shield.scan_line_for_secrets`
-            or :func:`~zenzic.core.shield.scan_url_for_secrets`.
+        sf: A secret detection result from :func:`~zenzic.core.shield.scan_line_for_secrets`,
+            :func:`~zenzic.core.shield.scan_url_for_secrets`, or
+            :func:`~zenzic.core.shield.scan_line_for_forbidden_terms`.
         docs_root: Absolute path to the docs root directory used to compute
             a project-relative display path.
 
     Returns:
-        A :class:`~zenzic.core.reporter.Finding` with
-        ``severity="security_breach"`` ready for the SentinelReporter pipeline.
+        A :class:`~zenzic.core.reporter.Finding` ready for the SentinelReporter
+        pipeline.  Z204 FORBIDDEN_TERM findings use ``severity="security_breach"``
+        with code ``"Z204"``; all other Shield findings use ``"Z201"``.
     """
     try:
         rel = str(sf.file_path.relative_to(docs_root))
     except ValueError:
         rel = str(sf.file_path)
+
+    if sf.secret_type == "FORBIDDEN_TERM":
+        return Finding(
+            rel_path=rel,
+            line_no=sf.line_no,
+            code="Z204",
+            severity="security_breach",
+            message=f"Forbidden term detected — remove from documentation: '{sf.match_text}'",
+            source_line=sf.url,
+            col_start=sf.col_start,
+            match_text=sf.match_text,
+        )
 
     return Finding(
         rel_path=rel,
@@ -165,6 +193,96 @@ class PlaceholderFinding:
     detail: str
     col_start: int = 0
     match_text: str = ""
+
+
+# Strips YAML frontmatter (leading ---...--- block).
+_FRONTMATTER_RE: re.Pattern[str] = re.compile(r"\A\s*---\s*\n.*?\n---\s*\n?", re.DOTALL)
+# Strips MDX comments {/* ... */} — invisible in the rendered page.
+_MDX_COMMENT_RE: re.Pattern[str] = re.compile(r"\{/\*.*?\*/\}", re.DOTALL)
+# Strips HTML comments <!-- ... --> — also invisible.
+_HTML_COMMENT_RE: re.Pattern[str] = re.compile(r"<!--.*?-->", re.DOTALL)
+
+
+def _first_content_line(text: str) -> int:
+    """Return the 1-based line number of the first prose content line.
+
+    Skips, in order:
+
+    1. Leading HTML comments (``<!-- … -->``) — may span multiple lines.
+    2. Leading MDX comments (``{/* … */}``) — may span multiple lines.
+    3. YAML frontmatter (``--- … ---`` block).
+    4. Blank lines interspersed among the above.
+
+    This ensures Z502 short-content findings point at actual prose, not at
+    SPDX licence headers (``<!-- SPDX-FileCopyrightText: … -->``) or at the
+    frontmatter delimiters (``---``).
+    """
+    lines = text.splitlines()
+    n = len(lines)
+    i = 0
+
+    # ── Phase 1: skip leading comments and blank lines ────────────────
+    in_html = False
+    in_mdx = False
+    while i < n:
+        stripped = lines[i].strip()
+        if in_html:
+            if "-->" in lines[i]:
+                in_html = False
+            i += 1
+            continue
+        if in_mdx:
+            if "*/" in lines[i]:
+                in_mdx = False
+            i += 1
+            continue
+        if stripped.startswith("<!--"):
+            if "-->" not in lines[i]:
+                in_html = True
+            i += 1
+            continue
+        if stripped.startswith("{/*"):
+            if "*/" not in lines[i]:
+                in_mdx = True
+            i += 1
+            continue
+        if stripped == "":
+            i += 1
+            continue
+        break  # first non-comment, non-blank line
+
+    # ── Phase 2: skip YAML frontmatter block (--- … ---) ─────────────
+    if i < n and lines[i].strip() == "---":
+        i += 1  # skip opening ---
+        while i < n and lines[i].strip() != "---":
+            i += 1
+        if i < n:
+            i += 1  # skip closing ---
+
+    # ── Phase 3: skip blank lines after frontmatter ───────────────────
+    while i < n and lines[i].strip() == "":
+        i += 1
+
+    return i + 1  # 1-based
+
+
+def _visible_word_count(text: str) -> int:
+    """Return the number of prose words in *text*, excluding invisible markup.
+
+    Strips MDX and HTML comments **first**, then YAML frontmatter.  The ordering
+    is load-bearing: MDX files often open with a ``{/* SPDX … */}`` licence
+    header *before* the ``---`` block.  If frontmatter stripping runs first,
+    ``_FRONTMATTER_RE`` (anchored to ``\\A``) fails to match because ``{`` is not
+    whitespace, leaving the entire YAML block counted as prose words.  Stripping
+    comments first guarantees the frontmatter lands at the start of the string
+    where the regex can anchor correctly.
+    """
+    # Strip invisible comments first — they may precede YAML frontmatter.
+    text = _MDX_COMMENT_RE.sub("", text)
+    text = _HTML_COMMENT_RE.sub("", text)
+    # Frontmatter is now at \A — strip it.
+    text = _FRONTMATTER_RE.sub("", text)
+    return len(text.split())
 
 
 def check_placeholder_content(
@@ -189,14 +307,14 @@ def check_placeholder_content(
     findings: list[PlaceholderFinding] = []
     patterns = config.placeholder_patterns_compiled
 
-    words = text.split()
-    if len(words) < config.placeholder_max_words:
+    visible = _visible_word_count(text)
+    if visible < config.placeholder_max_words:
         findings.append(
             PlaceholderFinding(
                 file_path=path,
-                line_no=1,
-                issue="short-content",
-                detail=f"Page has only {len(words)} words (minimum {config.placeholder_max_words}).",
+                line_no=_first_content_line(text),
+                issue="Z502",
+                detail=f"Page has only {visible} words (minimum {config.placeholder_max_words}).",
             )
         )
 
@@ -208,7 +326,7 @@ def check_placeholder_content(
                     PlaceholderFinding(
                         file_path=path,
                         line_no=i,
-                        issue="placeholder-text",
+                        issue="Z501",
                         detail=f"Found placeholder text matching pattern: '{pattern.pattern}'",
                         col_start=m.start(),
                         match_text=m.group(),
@@ -300,6 +418,227 @@ def find_orphans(
     return orphans
 
 
+# ─── Z907 I18N_PARITY ─────────────────────────────────────────────────────────
+
+
+@dataclass(slots=True, frozen=True)
+class I18nParityIssue:
+    """A single Z907 finding: missing mirror or frontmatter parity violation.
+
+    Attributes:
+        file_path: The base-language file (for missing-mirror) or the target
+            file with the missing/divergent frontmatter (for fm-mismatch).
+        target_lang: ISO 639-1 code of the offending target language.
+        issue_type: ``"missing_mirror"`` or ``"missing_frontmatter"``.
+        missing_key: For ``missing_frontmatter``, the frontmatter key that
+            is absent or empty in the translation; empty string otherwise.
+        message: Human-readable message ready for Finding emission.
+    """
+
+    file_path: Path
+    target_lang: str
+    issue_type: str
+    missing_key: str
+    message: str
+
+
+_I18N_IGNORE_RE: re.Pattern[str] = re.compile(
+    r"^\s*i18n-ignore\s*:\s*(true|yes|1)\s*$",
+    re.IGNORECASE | re.MULTILINE,
+)
+_FM_KV_RE: re.Pattern[str] = re.compile(
+    r"^\s*([A-Za-z_][\w-]*)\s*:\s*(.*?)\s*$",
+    re.MULTILINE,
+)
+
+
+def _read_frontmatter_block(path: Path) -> str:
+    """Return the raw YAML frontmatter block of *path* (without delimiters).
+
+    Returns an empty string when the file has no frontmatter or cannot be read.
+    Pure read-only; safe on missing / unreadable files.
+    """
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return ""
+    match = _FRONTMATTER_RE.match(text)
+    if match is None:
+        return ""
+    block = match.group(0)
+    # Drop the leading and trailing '---' delimiter lines.
+    lines = block.splitlines()
+    inner = [ln for ln in lines if ln.strip() != "---"]
+    return "\n".join(inner)
+
+
+def _parse_frontmatter_lite(block: str) -> dict[str, str]:
+    """Best-effort, dependency-free YAML key/value extraction.
+
+    Only the top-level scalar keys are returned (sufficient for parity checks
+    on ``title`` / ``description`` / ``i18n-ignore``).  Nested mappings and
+    sequences are ignored.  An empty string value means the key is present
+    but blank — treated as "missing" by the parity logic.
+    """
+    out: dict[str, str] = {}
+    for m in _FM_KV_RE.finditer(block):
+        key, value = m.group(1), m.group(2).strip().strip("\"'")
+        out[key] = value
+    return out
+
+
+def _is_i18n_ignored(path: Path) -> bool:
+    """Return True when *path*'s frontmatter contains ``i18n-ignore: true``."""
+    block = _read_frontmatter_block(path)
+    return bool(block) and bool(_I18N_IGNORE_RE.search(block))
+
+
+def _i18n_files(root: Path) -> list[Path]:
+    """Return every ``.md`` / ``.mdx`` file under *root* not marked i18n-ignore."""
+    if not root.exists() or not root.is_dir():
+        return []
+    out: list[Path] = []
+    for suffix in DOC_SUFFIXES:
+        for f in root.rglob(f"*{suffix}"):
+            if f.is_file() and not _is_i18n_ignored(f):
+                out.append(f)
+    return out
+
+
+def _check_one_base_file(
+    src: Path,
+    base_root: Path,
+    target_roots: dict[str, Path],
+    require_keys: tuple[str, ...],
+    strict: bool,
+) -> list[I18nParityIssue]:
+    """Verify a single base-language file against every target root.
+
+    Pure function (no shared state) — safe to invoke from a thread pool when
+    the base-file count exceeds :data:`ADAPTIVE_PARALLEL_THRESHOLD`.
+    """
+    rel = src.relative_to(base_root)
+    out: list[I18nParityIssue] = []
+    src_fm = _parse_frontmatter_lite(_read_frontmatter_block(src)) if require_keys else {}
+    for lang, target_root in target_roots.items():
+        target = target_root / rel
+        if not target.exists():
+            out.append(
+                I18nParityIssue(
+                    file_path=src,
+                    target_lang=lang,
+                    issue_type="missing_mirror",
+                    missing_key="",
+                    message=(
+                        f"Missing {lang.upper()} translation: expected mirror "
+                        f"at {target} (relative to base {rel.as_posix()})"
+                    ),
+                )
+            )
+            continue
+        if not require_keys:
+            continue
+        tgt_fm = _parse_frontmatter_lite(_read_frontmatter_block(target))
+        for key in require_keys:
+            if src_fm.get(key) and not tgt_fm.get(key):
+                out.append(
+                    I18nParityIssue(
+                        file_path=target,
+                        target_lang=lang,
+                        issue_type="missing_frontmatter",
+                        missing_key=key,
+                        message=(
+                            f"Missing translated '{key}' frontmatter in "
+                            f"{lang.upper()} mirror of {rel.as_posix()}"
+                        ),
+                    )
+                )
+    # ``strict`` is passed through so the caller can downgrade severities; the
+    # check itself reports issues uniformly.
+    _ = strict
+    return out
+
+
+def find_i18n_parity(
+    repo_root: Path,
+    *,
+    config: ZenzicConfig,
+) -> list[I18nParityIssue]:
+    """Z907 — verify cross-language documentation parity.
+
+    Returns the empty list when ``config.i18n.enabled`` is False or no targets
+    are configured.  Aggregates findings across the primary source and every
+    entry in :attr:`I18nConfig.extra_sources`.
+
+    Parallelises per-file work via :class:`ThreadPoolExecutor` when the base
+    population exceeds :data:`ADAPTIVE_PARALLEL_THRESHOLD` — mirrors the
+    pattern used by the rest of the scanner pipeline (Pillar 3 compliant:
+    ``_check_one_base_file`` is a pure function over its arguments).
+
+    Args:
+        repo_root: Repository root.  All relative paths in
+            :class:`I18nConfig` are resolved against this directory.
+        config: Loaded :class:`ZenzicConfig`.
+
+    Returns:
+        List of :class:`I18nParityIssue` — empty when parity holds.
+    """
+    cfg = config.i18n
+    if not cfg.enabled:
+        return []
+
+    sources: list[tuple[Path, dict[str, Path]]] = []
+    if cfg.targets:
+        sources.append(
+            (
+                (repo_root / cfg.base_source).resolve(),
+                {lang: (repo_root / p).resolve() for lang, p in cfg.targets.items()},
+            )
+        )
+    for extra in cfg.extra_sources:
+        if not extra.targets:
+            continue
+        sources.append(
+            (
+                (repo_root / extra.base_source).resolve(),
+                {lang: (repo_root / p).resolve() for lang, p in extra.targets.items()},
+            )
+        )
+    if not sources:
+        return []
+
+    require_keys = tuple(cfg.require_frontmatter_parity)
+    issues: list[I18nParityIssue] = []
+    for base_root, target_roots in sources:
+        base_files = _i18n_files(base_root)
+        if not base_files:
+            continue
+        if len(base_files) > ADAPTIVE_PARALLEL_THRESHOLD:
+            from concurrent.futures import ThreadPoolExecutor
+
+            def _worker(
+                src: Path,
+                _base: Path = base_root,
+                _targets: dict[str, Path] = target_roots,
+                _keys: tuple[str, ...] = require_keys,
+                _strict: bool = cfg.strict_parity,
+            ) -> list[I18nParityIssue]:
+                return _check_one_base_file(src, _base, _targets, _keys, _strict)
+
+            with ThreadPoolExecutor() as ex:
+                chunks = list(ex.map(_worker, base_files))
+            for chunk in chunks:
+                issues.extend(chunk)
+        else:
+            for src in base_files:
+                issues.extend(
+                    _check_one_base_file(
+                        src, base_root, target_roots, require_keys, cfg.strict_parity
+                    )
+                )
+    return issues
+
+
 def find_placeholders(
     docs_root: Path,
     exclusion_manager: LayeredExclusionManager,
@@ -339,6 +678,13 @@ def find_placeholders(
                 ):
                     content = md_file.read_text(encoding="utf-8")
                     findings.extend(check_placeholder_content(content, logical_rel, config))
+        if hasattr(adapter, "get_extra_content_roots"):
+            for content_root in adapter.get_extra_content_roots(repo_root):
+                for md_file, logical_rel in iter_extra_content_markdown_sources(
+                    content_root.path, content_root.url_prefix, config, exclusion_manager
+                ):
+                    content = md_file.read_text(encoding="utf-8")
+                    findings.extend(check_placeholder_content(content, logical_rel, config))
 
     return findings
 
@@ -349,6 +695,7 @@ def find_unused_assets(
     *,
     config: ZenzicConfig,
     repo_root: Path | None = None,
+    adapter_metadata_files: frozenset[str] = frozenset(),
 ) -> list[Path]:
     """Return asset files in docs/ that are not referenced by any markdown file.
 
@@ -360,6 +707,8 @@ def find_unused_assets(
             exposes ``get_locale_source_roots()``, locale translation trees
             are also scanned when collecting asset reference sets
             (Docusaurus i18n support).
+        adapter_metadata_files: Filenames (basename only) that the active adapter
+            consumes as configuration — shielded from Z903 (Level 1b guardrail).
 
     Returns:
         List of Path objects relative to docs_root that are unused.
@@ -374,8 +723,16 @@ def find_unused_assets(
     for file_path in walk_files(docs_root, asset_extra_prune, exclusion_manager):
         if file_path.is_dir() or file_path.is_symlink() or file_path.suffix in DOC_SUFFIXES:
             continue
+        # L1: System file guardrails + adapter metadata (CEO-050)
+        name = file_path.name
+        if (
+            name in SYSTEM_EXCLUDED_FILE_NAMES
+            or any(fnmatch.fnmatch(name, p) for p in SYSTEM_EXCLUDED_FILE_PATTERNS)
+            or name in adapter_metadata_files
+        ):
+            continue
         rel_path = file_path.relative_to(docs_root)
-        if rel_path.suffix in {".css", ".js", ".yml", ".license", ".j2"}:
+        if rel_path.suffix in {".css", ".js", ".yml", ".sarif", ".license", ".j2"}:
             continue
         if any(part in config.excluded_asset_dirs for part in rel_path.parts):
             continue
@@ -416,6 +773,16 @@ def find_unused_assets(
             for locale_root, locale_name in adapter.get_locale_source_roots(repo_root):
                 for md_file, logical_rel in iter_locale_markdown_sources(
                     locale_root, locale_name, config, exclusion_manager
+                ):
+                    content = md_file.read_text(encoding="utf-8")
+                    page_dir = logical_rel.parent.as_posix()
+                    if page_dir == ".":
+                        page_dir = ""
+                    used_assets |= check_asset_references(content, page_dir)
+        if hasattr(adapter, "get_extra_content_roots"):
+            for content_root in adapter.get_extra_content_roots(repo_root):
+                for md_file, logical_rel in iter_extra_content_markdown_sources(
+                    content_root.path, content_root.url_prefix, config, exclusion_manager
                 ):
                     content = md_file.read_text(encoding="utf-8")
                     page_dir = logical_rel.parent.as_posix()
@@ -607,7 +974,7 @@ def check_image_alt_text(
                     ReferenceFinding(
                         file_path=path,
                         line_no=lineno,
-                        issue="missing-alt",
+                        issue="Z403",
                         detail=f"Image '{url}' has no alt text.",
                         is_warning=True,
                     )
@@ -623,7 +990,7 @@ def check_image_alt_text(
                     ReferenceFinding(
                         file_path=path,
                         line_no=lineno,
-                        issue="missing-alt",
+                        issue="Z403",
                         detail=f"HTML <img> tag has no alt text: {src[:60]}",
                         is_warning=True,
                     )
@@ -700,6 +1067,23 @@ class ReferenceScanner:
                 shield_events.append((finding.line_no, "SECRET", finding))
                 secret_line_nos.add(finding.line_no)
 
+        # ── 1.a.2 Privacy Gate: scan for Z204 FORBIDDEN_TERM ─────────────────
+        # Separate pass over the same file with the merged forbidden_patterns
+        # list (populated from .zenzic.local.toml by config.load()).  Only
+        # lines not already flagged by the credential scan are emitted to
+        # avoid duplicate SecurityFinding entries for the same line.
+        fp = self._config.forbidden_patterns if self._config else []
+        if fp:
+            with self.file_path.open(encoding="utf-8") as fh:
+                for lineno, raw_line in enumerate(fh, start=1):
+                    if lineno in secret_line_nos:
+                        continue
+                    for finding in scan_line_for_forbidden_terms(
+                        raw_line, fp, self.file_path, lineno
+                    ):
+                        shield_events.append((finding.line_no, "SECRET", finding))
+                        secret_line_nos.add(finding.line_no)
+
         # ── 1.b Content pass: harvest ref-defs and alt-text (fences skipped) ─
         content_events: list[HarvestEvent] = []
         for lineno, line in _iter_content_lines(self.file_path):
@@ -763,7 +1147,7 @@ class ReferenceScanner:
                         ReferenceFinding(
                             file_path=self.file_path,
                             line_no=lineno,
-                            issue="DANGLING",
+                            issue="Z301",
                             detail=(
                                 f"Reference '[{text}][{ref_id}]' uses undefined ID '{norm_id}'."
                             ),
@@ -806,7 +1190,7 @@ class ReferenceScanner:
                 ReferenceFinding(
                     file_path=self.file_path,
                     line_no=def_line,
-                    issue="DEAD_DEF",
+                    issue="Z302",
                     detail=(f"Reference '[{norm_id}]: {url}' is defined but never used."),
                     is_warning=True,
                 )
@@ -819,7 +1203,7 @@ class ReferenceScanner:
                 ReferenceFinding(
                     file_path=self.file_path,
                     line_no=def_line,
-                    issue="duplicate-def",
+                    issue="Z303",
                     detail=(
                         f"Reference ID '[{norm_id}]' is defined more than once. "
                         "First definition wins (CommonMark §4.7)."
@@ -897,21 +1281,33 @@ def _build_rule_engine(config: ZenzicConfig) -> AdaptiveRuleEngine | None:
 
     Load order is deterministic:
 
-    1. Core rules registered by Zenzic itself (always enabled).
-    2. Regex rules from ``[[custom_rules]]``.
-    3. External plugin rules explicitly listed in ``plugins = [...]``.
+    1. Built-in always-active rules (Z107, Z505).
+    2. Z905 BRAND_OBSOLESCENCE — activated only when ``obsolete_names`` is set.
+    3. Core rules registered via the ``zenzic.rules`` entry-point group.
+    4. Regex rules from ``[[custom_rules]]``.
+    5. External plugin rules explicitly listed in ``plugins = [...]``.
 
     Returns ``None`` when no rules are available.
     """
-    from zenzic.core.rules import CustomRule, PluginRegistry  # deferred to keep import graph clean
+    from zenzic.core.rules import (  # deferred to keep import graph clean
+        BrandObsolescenceRule,
+        CircularAnchorRule,
+        CustomRule,
+        PluginRegistry,
+        UntaggedCodeBlockRule,
+    )
 
-    # In this per-file pipeline, core VSM-only rules are no-op. Avoid building
-    # an engine (and avoid extra read_text calls) when no effective rules exist.
-    if not config.custom_rules and not config.plugins:
-        return None
+    # Built-in rules are always active (no config gate required).
+    built_in: list[BaseRule] = [
+        CircularAnchorRule(),
+        UntaggedCodeBlockRule(),
+    ]
+    if config.project_metadata.obsolete_names:
+        built_in.append(BrandObsolescenceRule(config.project_metadata))
 
     registry = PluginRegistry()
-    rules = registry.load_core_rules()
+    rules: list[BaseRule] = list(built_in)
+    rules.extend(registry.load_core_rules())
     rules.extend(
         CustomRule(
             id=cr.id,
@@ -1086,18 +1482,46 @@ def scan_docs_references(
         # GA-1 fix: use actual_workers for the executor (not the raw `workers`
         # sentinel) so max_workers always matches what telemetry reports.
         with concurrent.futures.ProcessPoolExecutor(max_workers=actual_workers) as executor:
-            # ZRT-002 fix: use submit() + future.result(timeout=...) instead of
-            # executor.map().  This prevents a deadlocked worker (e.g. from a
-            # ReDoS pattern in [[custom_rules]]) from blocking the entire scan.
+            # CEO-298 fail-fast + ZRT-002: use wait(FIRST_COMPLETED) to process
+            # results in completion order and cancel queued tasks immediately on
+            # the first security breach (Z201–Z203).
+            # ZRT-002 preserved: if no future completes within _WORKER_TIMEOUT_S,
+            # all remaining workers are emitted as Z902 (deadlock guard).
             futures_map = {executor.submit(_worker, item): item[0] for item in work_items}
             raw: list[IntegrityReport] = []
-            for fut, md_file in futures_map.items():
-                try:
-                    raw.append(fut.result(timeout=_WORKER_TIMEOUT_S))
-                except concurrent.futures.TimeoutError:
-                    raw.append(_make_timeout_report(md_file))
-                except Exception as exc:  # noqa: BLE001
-                    raw.append(_make_error_report(md_file, exc))
+            _abort = False
+            _pending: set[concurrent.futures.Future[IntegrityReport]] = set(futures_map)
+            while _pending:
+                done, _pending = concurrent.futures.wait(
+                    _pending,
+                    timeout=_WORKER_TIMEOUT_S,
+                    return_when=concurrent.futures.FIRST_COMPLETED,
+                )
+                if not done:
+                    # ZRT-002 deadlock guard: no worker completed within the
+                    # timeout window — treat all stalled workers as Z902.
+                    for fut in _pending:
+                        raw.append(_make_timeout_report(futures_map[fut]))
+                        fut.cancel()
+                    break
+                for fut in done:
+                    md_file = futures_map[fut]
+                    if _abort:
+                        continue  # discard results after a security breach
+                    try:
+                        report = fut.result()
+                        raw.append(report)
+                        if report.security_findings:
+                            # CEO-298: cancel all still-queued (PENDING) tasks.
+                            # RUNNING workers cannot be interrupted — they
+                            # complete and their results are discarded above.
+                            _abort = True
+                            for pending_fut in _pending:
+                                pending_fut.cancel()
+                    except concurrent.futures.CancelledError:
+                        pass  # intentional abort — no report emitted
+                    except Exception as exc:  # noqa: BLE001
+                        raw.append(_make_error_report(md_file, exc))
 
         reports: list[IntegrityReport] = sorted(raw, key=lambda r: r.file_path)
 
@@ -1176,16 +1600,16 @@ def scan_docs_references(
 # ─── Adaptive parallel worker ─────────────────────────────────────────────────
 
 #: Files below this threshold are scanned sequentially (zero process-spawn
-#: overhead).  Above it, the AdaptiveRuleEngine switches to a
+#: overhead).  Above it, scan_docs_references() switches to a
 #: ProcessPoolExecutor automatically.  Exposed as a module constant so tests
 #: can override it without patching private internals.
 ADAPTIVE_PARALLEL_THRESHOLD: int = 50
 
 #: Maximum wall-clock seconds a single worker may spend analysing one file.
-#: If a worker exceeds this limit it is abandoned and a Z009 timeout finding
+#: If a worker exceeds this limit it is abandoned and a Z902 timeout finding
 #: is emitted for the file instead of a normal IntegrityReport.  The purpose
-#: is to prevent ReDoS patterns in [[custom_rules]] from deadlocking the
-#: entire parallel pipeline.  (ZRT-002 fix)
+#: is to guard against I/O hangs, network stalls, and worker process crashes
+#: that would otherwise deadlock the entire parallel pipeline.  (ZRT-002 fix)
 _WORKER_TIMEOUT_S: int = 30
 
 
@@ -1194,14 +1618,18 @@ def _make_timeout_report(md_file: Path) -> IntegrityReport:
 
     Called by the parallel coordinator when ``future.result(timeout=...)``
     raises :class:`concurrent.futures.TimeoutError`.  The returned report
-    carries a single ``Z009`` rule finding so the CLI can surface the
+    carries a single ``Z902`` rule finding so the CLI can surface the
     timeout in the standard findings UI without crashing the scan.
+
+    A Z902 finding indicates a systemic stall (I/O hang, network timeout,
+    worker process crash) rather than a regex issue — all CustomRule patterns
+    are DFA-safe since ZRT-007 replaced the NFA engine with Google RE2.
 
     Args:
         md_file: Absolute path of the file whose worker timed out.
 
     Returns:
-        A :class:`IntegrityReport` with ``score=0`` and one ``Z009`` finding.
+        A :class:`IntegrityReport` with ``score=0`` and one ``Z902`` finding.
     """
     from zenzic.core.rules import RuleFinding  # deferred: avoid circular at module level
     from zenzic.models.references import IntegrityReport
@@ -1209,11 +1637,11 @@ def _make_timeout_report(md_file: Path) -> IntegrityReport:
     timeout_finding = RuleFinding(
         file_path=md_file,
         line_no=0,
-        rule_id="Z009",
+        rule_id="Z902",
         message=(
             f"Analysis of '{md_file.name}' timed out after {_WORKER_TIMEOUT_S}s. "
-            "A custom rule pattern may be causing catastrophic backtracking (ReDoS). "
-            "Check [[custom_rules]] patterns in zenzic.toml."
+            "Worker stalled — possible I/O hang, network timeout, or process crash. "
+            "Custom rule patterns are DFA-safe (ZRT-007); this is a systemic stall."
         ),
         severity="error",
     )
@@ -1242,7 +1670,7 @@ def _make_error_report(md_file: Path, exc: BaseException) -> IntegrityReport:
     error_finding = RuleFinding(
         file_path=md_file,
         line_no=0,
-        rule_id="RULE-ENGINE-ERROR",
+        rule_id="Z901",
         message=(
             f"Worker for '{md_file.name}' raised an unexpected exception: "
             f"{type(exc).__name__}: {exc}"

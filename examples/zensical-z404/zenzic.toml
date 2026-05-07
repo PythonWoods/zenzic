@@ -1,0 +1,16 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# zenzic.toml — Zensical Z404 CONFIG_ASSET_MISSING fixture.
+#
+# This example demonstrates Z404 detection for Zensical projects.
+# zensical.toml declares:
+#   [project].favicon = "assets/images/missing-favicon.ico"  (absent from docs/)
+#   [project].logo    = "assets/images/missing-logo.png"     (absent from docs/)
+#
+# Run: zenzic check all
+# Expected: two Z404 warnings, exit code 0 (warning severity)
+
+docs_dir = "docs"
+
+[build_context]
+engine = "zensical"

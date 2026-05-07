@@ -1,0 +1,15 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# zenzic.toml — Act 19: The Base64 Shadow (Score 0/100)
+#
+# This fixture contains a GitHub PAT encoded in Base64 inside YAML frontmatter.
+# The Shield's speculative Base64 decoder (CEO-194) decodes it and detects
+# the credential — flagging the file as Z201 SHIELD_SECRET.
+#
+# Attack vector S2 (Red Team, CEO-189): an attacker encodes a live credential
+# in Base64 hoping to evade the raw-text scan.  The Base64 decoder seals this.
+#
+# Run: zenzic check all
+# Expected: Z201 SHIELD_SECRET · Exit code 2 · Score 0/100
+
+docs_dir = "."

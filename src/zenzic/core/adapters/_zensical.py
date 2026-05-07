@@ -22,12 +22,19 @@ Zensical v0.0.31+ uses a single ``[project]`` scope for all settings::
 from __future__ import annotations
 
 import logging
-import tomllib
+import re
+import sys
 from pathlib import Path
+
+
+if sys.version_info >= (3, 11):
+    import tomllib
+else:
+    import tomli as tomllib  # type: ignore[no-redef]  # PEP 680 backport
 from typing import TYPE_CHECKING, Any
 
 from zenzic.core.adapters._mkdocs import MkDocsAdapter, _load_doc_config, find_config_file
-from zenzic.core.adapters._utils import remap_to_default_locale
+from zenzic.core.adapters._utils import case_sensitive_exists, remap_to_default_locale
 from zenzic.core.exceptions import ConfigurationError
 from zenzic.models.config import BuildContext
 
@@ -73,7 +80,55 @@ def _load_zensical_config(repo_root: Path) -> dict[str, Any]:
         return {}
 
 
-# ── Nav helpers ──────────────────────────────────────────────────────────────
+# ── Infrastructure asset path extraction (Z404) ──────────────────────────────
+
+_IMAGE_EXT_RE_ZENSICAL = re.compile(r"\.(?:png|jpg|jpeg|svg|gif|ico|webp)$", re.IGNORECASE)
+
+
+def check_config_assets(repo_root: Path) -> list[tuple[str, str]]:
+    """Check that theme assets declared in ``zensical.toml`` exist on disk.
+
+    Checks ``[project].favicon`` and ``[project].logo`` (file-path values only).
+    Both fields are resolved relative to ``[project].docs_dir`` (default: ``docs/``).
+
+    Args:
+        repo_root: Repository root (parent of ``zensical.toml``).
+
+    Returns:
+        List of ``(rel_path, message)`` tuples for each missing asset.
+        Empty list when all referenced assets exist or the config is absent.
+    """
+    zensical_cfg = _load_zensical_config(repo_root)
+    if not zensical_cfg:
+        return []
+
+    project = zensical_cfg.get("project") or {}
+    if not isinstance(project, dict):
+        return []
+
+    docs_dir = str(project.get("docs_dir") or "docs")
+    docs_root = repo_root / docs_dir
+
+    issues: list[tuple[str, str]] = []
+
+    for field_key in ("favicon", "logo"):
+        value = project.get(field_key)
+        if not value or not isinstance(value, str):
+            continue
+        if not _IMAGE_EXT_RE_ZENSICAL.search(value):
+            continue
+        asset_path = docs_root / value.lstrip("/")
+        if not asset_path.exists():
+            rel = f"{docs_dir}/{value.lstrip('/')}"
+            issues.append(
+                (
+                    rel,
+                    f"{field_key} asset not found on disk: '{rel}' "
+                    f"(declared as [project].{field_key}: '{value}' in zensical.toml) [Z404]",
+                )
+            )
+
+    return issues
 
 
 def _extract_nav_paths(items: list[object]) -> set[str]:
@@ -143,6 +198,9 @@ class ZensicalLegacyProxy:
     def has_engine_config(self) -> bool:
         return self._adapter.has_engine_config()
 
+    def get_metadata_files(self) -> frozenset[str]:
+        return self._adapter.get_metadata_files()
+
     def map_url(self, rel: Path) -> str:
         return self._adapter.map_url(rel)
 
@@ -154,6 +212,12 @@ class ZensicalLegacyProxy:
 
     def provides_index(self, directory_path: Path) -> bool:
         return self._adapter.provides_index(directory_path)
+
+    def get_link_scheme_bypasses(self) -> frozenset[str]:
+        return self._adapter.get_link_scheme_bypasses()
+
+    def get_absolute_url_prefixes(self, repo_root: Path) -> frozenset[str]:
+        return self._adapter.get_absolute_url_prefixes(repo_root)
 
 
 class ZensicalAdapter:
@@ -223,7 +287,7 @@ class ZensicalAdapter:
         if not self._fallback_to_default:
             return None
         fallback = remap_to_default_locale(missing_abs, docs_root, self._locale_dirs)
-        return fallback if fallback is not None and fallback.exists() else None
+        return fallback if fallback is not None and case_sensitive_exists(fallback) else None
 
     def resolve_anchor(
         self,
@@ -269,6 +333,10 @@ class ZensicalAdapter:
     def has_engine_config(self) -> bool:
         """``True`` — ZensicalAdapter is constructed only when zensical.toml exists."""
         return True
+
+    def get_metadata_files(self) -> frozenset[str]:
+        """Zensical configuration file — shielded from Z903."""
+        return frozenset({"zensical.toml"})
 
     # ── VSM integration ────────────────────────────────────────────────────────
 
@@ -382,6 +450,14 @@ class ZensicalAdapter:
             ``True`` if an ``index.md`` exists in the directory.
         """
         return (directory_path / "index.md").exists()
+
+    def get_link_scheme_bypasses(self) -> frozenset[str]:
+        """Zensical has no engine-specific link-scheme bypass."""
+        return frozenset()
+
+    def get_absolute_url_prefixes(self, repo_root: Path) -> frozenset[str]:
+        """Zensical is single-instance: no cross-plugin absolute prefixes to allowlist."""
+        return frozenset()
 
     @classmethod
     def from_repo(

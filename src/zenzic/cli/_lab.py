@@ -1,0 +1,621 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+"""``zenzic lab`` — interactive showcase of bundled documentation examples.
+
+Each act runs a fresh check against one of the bundled example projects using
+Zenzic's internal Python APIs (zero subprocess).  Examples are resolved from
+the installed wheel via :func:`importlib.resources.files`, or from the
+repository checkout when running in editable mode.
+"""
+
+from __future__ import annotations
+
+import importlib.resources as _ilr
+import time
+from dataclasses import dataclass
+from pathlib import Path
+
+import typer
+from rich import box
+from rich.console import Group
+from rich.table import Table
+from rich.text import Text
+
+from zenzic import __version__
+from zenzic.cli._check import (
+    _apply_target,
+    _collect_all_results,
+    _to_findings,
+)
+from zenzic.cli._shared import (
+    _count_docs_assets,
+    get_console,
+    get_ui,
+)
+from zenzic.core.exclusion import LayeredExclusionManager
+from zenzic.core.reporter import Finding, SentinelReporter
+from zenzic.core.ui import SentinelPalette, emoji
+from zenzic.models.config import ZenzicConfig
+
+
+# ── Path resolution ──────────────────────────────────────────────────────────
+
+
+def _examples_root() -> Path:
+    """Locate the bundled examples directory.
+
+    Resolution order:
+
+    1. **Installed wheel** — ``zenzic/examples/`` inside the package tree, as
+       populated by the ``force-include`` hatchling directive.
+    2. **Editable / source checkout** — four directories above ``_lab.py``
+       (``<repo>/examples/``).
+
+    Raises :exc:`FileNotFoundError` when neither location resolves to a
+    directory.
+    """
+    pkg_root = Path(str(_ilr.files("zenzic")))
+    installed = pkg_root / "examples"
+    if installed.is_dir():
+        return installed
+    # _lab.py is at src/zenzic/cli/_lab.py; the repo root is four levels above.
+    dev = Path(__file__).resolve().parent.parent.parent.parent / "examples"
+    if dev.is_dir():
+        return dev
+    raise FileNotFoundError(
+        "Cannot locate examples/ — reinstall zenzic or run from the repository root."
+    )
+
+
+# ── Act definitions ──────────────────────────────────────────────────────────
+
+
+@dataclass(frozen=True)
+class _Act:
+    id: int
+    title: str
+    description: str
+    example_dir: str
+    expected_pass: bool
+    expected_breach: bool = False
+    show_info: bool = False
+    docs_root_override: str | None = None
+    single_file: str | None = None
+
+
+_ACTS: list[_Act] = [
+    _Act(
+        0,
+        "Linter Demo",
+        "FILE_NOT_FOUND and BROKEN_ANCHOR on a MkDocs 1.x project",
+        "mkdocs-basic",
+        expected_pass=False,
+    ),
+    _Act(
+        1,
+        "The Gold Standard",
+        "100/100 multi-locale MkDocs project — zero findings",
+        "i18n-standard",
+        expected_pass=True,
+    ),
+    _Act(
+        2,
+        "The Broken Docs",
+        "Every error class in a single fixture",
+        "broken-docs",
+        expected_pass=False,
+    ),
+    _Act(
+        3,
+        "The Shield",
+        "Credential exposure detected — security_breach severity",
+        "security_lab",
+        expected_pass=False,
+        expected_breach=True,
+    ),
+    _Act(
+        4,
+        "Single-File Target",
+        "Scope the audit to README.md only — 1 file, zero findings",
+        "single-file-target",
+        expected_pass=True,
+        single_file="README.md",
+    ),
+    _Act(
+        5,
+        "Custom Dir Target",
+        "Audit content/ at runtime without modifying zenzic.toml",
+        "custom-dir-target",
+        expected_pass=True,
+        docs_root_override="content",
+    ),
+    _Act(
+        6,
+        "Transparent Proxy",
+        "SENTINEL banner — Zensical bridge with mkdocs.yml only. Z905 brand ref to 'Obsidian' detected",
+        "zensical-bridge",
+        expected_pass=False,
+    ),
+    _Act(
+        7,
+        "The Flagship",
+        "Versioned docs + @site/ aliases + i18n Ghost Routing",
+        "docusaurus-v3-enterprise",
+        expected_pass=True,
+    ),
+    _Act(
+        8,
+        "Standalone Excellence",
+        "Config-free folder: link + Shield + Z401 checks. Z505 untagged block demonstrated",
+        "standalone-markdown",
+        expected_pass=False,
+        show_info=True,
+    ),
+    _Act(
+        9,
+        "MkDocs Favicon Guard",
+        "Z404 fired for theme.favicon + theme.logo declared but missing (MkDocs engine)",
+        "mkdocs-z404",
+        expected_pass=False,
+    ),
+    _Act(
+        10,
+        "Zensical Logo Guard",
+        "Z404 fired for [project].favicon + [project].logo declared but missing (Zensical engine)",
+        "zensical-z404",
+        expected_pass=False,
+    ),
+    # ── Red/Blue Team Matrix ──────────────────────────────────────────────────
+    _Act(
+        11,
+        "Unix Security Probe",
+        "PATH_TRAVERSAL + credential exposure: multi-hop ../chains, obfuscated & fenced creds",
+        "os/unix-security",
+        expected_pass=False,
+        expected_breach=True,
+    ),
+    _Act(
+        12,
+        "Windows Path Integrity",
+        "Z105 ABSOLUTE_LINK on /C:/, /D:/, /UNC/ and file:/// link targets",
+        "os/win-integrity",
+        expected_pass=False,
+    ),
+    _Act(
+        13,
+        "Link Graph Stress",
+        "Circular broken anchors (Z102) + FILE_NOT_FOUND (Z104) across 5 nodes",
+        "rules/z100-link-graph",
+        expected_pass=False,
+    ),
+    _Act(
+        14,
+        "Shield Extreme",
+        "Credential obfuscation: base64, percent-encoded, and mixed-case prefixes",
+        "rules/z200-shield",
+        expected_pass=False,
+        expected_breach=True,
+    ),
+    _Act(
+        15,
+        "SEO Coverage",
+        "Z401 MISSING_DIRECTORY_INDEX ×3 + Z402 ORPHAN_PAGE ×1",
+        "rules/z400-seo",
+        expected_pass=False,
+    ),
+    _Act(
+        16,
+        "Quality Gate",
+        "Z501 PLACEHOLDER ×3 (TODO, FIXME, stub) + Z503 SNIPPET_NOT_FOUND ×1",
+        "rules/z500-quality",
+        expected_pass=False,
+    ),
+    # \u2500\u2500 Scoring Scenarios (Quartz Penalty Table, CEO-163) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+    _Act(
+        17,
+        "Score 0/100 — Security Override",
+        "Fake AWS credential \u2192 Z201 SHIELD_SECRET \u2192 score collapses to 0 regardless of other quality",
+        "scoring/security-breach",
+        expected_pass=False,
+        expected_breach=True,
+    ),
+    _Act(
+        18,
+        "Score 70/100 — Category Cap",
+        "100 × Z505 UNTAGGED_CODE_BLOCK: content zeroed (30 pts) but total floors at 70/100",
+        "scoring/content-spam",
+        expected_pass=False,
+    ),
+    _Act(
+        19,
+        "The Base64 Shadow",
+        "GitHub PAT offuscata in Base64 nel frontmatter — Shield vede attraverso l'encoding (CEO-194)",
+        "scoring/security-base64",
+        expected_pass=False,
+        expected_breach=True,
+    ),
+]
+
+
+# ── Section definitions ───────────────────────────────────────────────────────
+
+_VALID_IDS: frozenset[int] = frozenset(a.id for a in _ACTS)
+
+
+# ── Range parser ──────────────────────────────────────────────────────────────
+
+
+def parse_act_range(raw: str) -> list[int]:
+    """Parse an act range string into an ordered list of valid act IDs.
+
+    Accepted formats:
+
+    - ``"3"``      → ``[3]``
+    - ``"11-16"``  → ``[11, 12, 13, 14, 15, 16]``
+    - ``"all"``    → all act IDs in ascending order
+
+    Raises :exc:`ValueError` for malformed input or empty ranges.
+    """
+    raw = raw.strip()
+    if raw == "all":
+        return sorted(_VALID_IDS)
+    if "-" in raw:
+        parts = raw.split("-", 1)
+        try:
+            lo, hi = int(parts[0]), int(parts[1])
+        except ValueError as exc:
+            raise ValueError(
+                f"Invalid range '{raw}': expected N-M where N and M are integers."
+            ) from exc
+        if lo > hi:
+            raise ValueError(f"Invalid range '{raw}': start ({lo}) must be ≤ end ({hi}).")
+        ids = [i for i in range(lo, hi + 1) if i in _VALID_IDS]
+        if not ids:
+            raise ValueError(f"Range '{raw}' contains no valid act numbers. Valid range: 0–19.")
+        return ids
+    try:
+        n = int(raw)
+    except ValueError as exc:
+        raise ValueError(f"Invalid act '{raw}': expected an integer, N-M range, or 'all'.") from exc
+    if n not in _VALID_IDS:
+        raise ValueError(f"Act {n} does not exist. Valid acts: 0–19.")
+    return [n]
+
+
+# ── Section definitions ───────────────────────────────────────────────────────
+
+_SECTIONS: list[tuple[str, str, range]] = [
+    ("OS & Environment Guardrails", "🛡", range(0, 4)),
+    ("Structural & SEO Integrity", "🔗", range(4, 7)),
+    ("Enterprise Adapters & Migration", "🏢", range(7, 11)),
+    ("Red/Blue Team Matrix", "🔴", range(11, 17)),
+    ("Scoring Scenarios", "📊", range(17, 20)),
+]
+
+
+# ── Act runner ───────────────────────────────────────────────────────────────
+
+
+@dataclass
+class _ActResult:
+    act: _Act
+    errors: int
+    warnings: int
+    has_breach: bool
+    elapsed: float
+    engine: str
+    docs_count: int = 0
+    assets_count: int = 0
+
+    @property
+    def total_files(self) -> int:
+        return self.docs_count + self.assets_count
+
+    @property
+    def throughput(self) -> float:
+        """Files per second — 0.0 when elapsed is zero."""
+        return self.total_files / self.elapsed if self.elapsed > 0 else 0.0
+
+    @property
+    def met_expectation(self) -> bool:
+        if self.act.expected_breach:
+            return self.has_breach
+        if self.act.expected_pass:
+            return self.errors == 0
+        return self.errors > 0 or self.warnings > 0
+
+
+def _run_act(act: _Act, examples_root: Path) -> _ActResult:
+    """Run all checks for *act* against its example directory."""
+    example_dir = examples_root / act.example_dir
+    config, _ = ZenzicConfig.load(example_dir)
+
+    single_file: Path | None = None
+    target_hint: str | None = None
+
+    if act.single_file is not None:
+        config, single_file, _, target_hint = _apply_target(example_dir, config, act.single_file)
+    elif act.docs_root_override is not None:
+        config, _, _, target_hint = _apply_target(example_dir, config, act.docs_root_override)
+
+    docs_root = (example_dir / config.docs_dir).resolve()
+    exclusion_mgr = LayeredExclusionManager(config, repo_root=example_dir, docs_root=docs_root)
+
+    t0 = time.monotonic()
+    results = _collect_all_results(example_dir, docs_root, config, exclusion_mgr, strict=False)
+    elapsed = time.monotonic() - t0
+
+    findings: list[Finding] = _to_findings(results, docs_root)
+
+    if single_file is not None:
+        sf_rel = str(single_file.relative_to(docs_root))
+        findings = [f for f in findings if f.rel_path == sf_rel]
+
+    docs_count, assets_count = _count_docs_assets(docs_root, example_dir, exclusion_mgr, config)
+    if single_file is not None:
+        docs_count, assets_count = 1, 0
+
+    reporter = SentinelReporter(get_console(), docs_root, docs_dir=str(config.docs_dir))
+    errors, warnings = reporter.render(
+        findings,
+        version=__version__,
+        elapsed=elapsed,
+        docs_count=docs_count,
+        assets_count=assets_count,
+        engine=config.build_context.engine,
+        target=target_hint,
+        show_info=act.show_info,
+    )
+
+    has_breach = any(f.severity == "security_breach" for f in findings)
+    return _ActResult(
+        act=act,
+        errors=errors,
+        warnings=warnings,
+        has_breach=has_breach,
+        elapsed=elapsed,
+        engine=config.build_context.engine,
+        docs_count=docs_count,
+        assets_count=assets_count,
+    )
+
+
+# ── Output helpers ────────────────────────────────────────────────────────────
+
+
+def _status_cell(r: _ActResult) -> str:
+    if r.act.expected_breach:
+        if r.has_breach:
+            return "[bold red]BREACH[/] [green]✓[/]"
+        return "[yellow]BREACH expected — not triggered[/] [red]✗[/]"
+    if r.act.expected_pass:
+        if r.errors == 0:
+            return "[bold green]PASS[/] [green]✓[/]"
+        return "[bold red]FAIL (unexpected)[/] [red]✗[/]"
+    if r.errors > 0 or r.warnings > 0:
+        return "[yellow]EXPECTED FAIL[/] [green]✓[/]"
+    return "[yellow]EXPECTED FAIL — nothing found[/] [red]✗[/]"
+
+
+def _print_summary(results: list[_ActResult]) -> None:
+    table = Table(
+        title=f"\n[bold {SentinelPalette.BRAND}]⬡  ZENZIC LAB — Full Run Summary[/]",
+        box=box.ROUNDED,
+        show_header=True,
+        header_style=SentinelPalette.STYLE_BRAND,
+    )
+    table.add_column("Act", justify="center", style=SentinelPalette.STYLE_BRAND, width=5)
+    table.add_column("Title", style="bold", min_width=22)
+    table.add_column("Engine", style="cyan", min_width=10)
+    table.add_column("Files", justify="right", style=SentinelPalette.DIM, min_width=7)
+    table.add_column("files/s", justify="right", style=SentinelPalette.DIM, min_width=8)
+    table.add_column("Result", min_width=26)
+    table.add_column("Time", justify="right", style="dim", min_width=7)
+
+    unexpected = sum(1 for r in results if not r.met_expectation)
+    total_files = sum(r.total_files for r in results)
+    total_elapsed = sum(r.elapsed for r in results)
+    for r in results:
+        table.add_row(
+            str(r.act.id),
+            r.act.title,
+            r.engine,
+            str(r.total_files),
+            f"{r.throughput:.0f}",
+            _status_cell(r),
+            f"{r.elapsed:.2f}s",
+        )
+
+    con = get_console()
+    con.print(table)
+
+    # ── Sentinel Seal footer ──────────────────────────────────────────────────
+    avg_throughput = total_files / total_elapsed if total_elapsed > 0 else 0.0
+    seal_items = [
+        Text.from_markup(
+            f"[{SentinelPalette.DIM}]{total_files} files scanned across {len(results)} acts"
+            f" {emoji('dot')} {total_elapsed:.2f}s total"
+            f" {emoji('dot')} {avg_throughput:.0f} files/s[/]"
+        ),
+        Text(),
+    ]
+    if unexpected == 0:
+        seal_items.append(
+            Text.from_markup(
+                f"[bold {SentinelPalette.SUCCESS}]{emoji('check')} All {len(results)} act(s) met expectations."
+                " Quartz Clarity: the audit surface is clean.[/]"
+            )
+        )
+    else:
+        seal_items.append(
+            Text.from_markup(
+                f"[bold {SentinelPalette.ERROR}]{emoji('cross')} {unexpected}/{len(results)} act(s)"
+                " did not meet expectations.[/]"
+            )
+        )
+
+    con.print()
+    con.print(
+        Group(
+            Text.from_markup(
+                f"[bold {SentinelPalette.BRAND}]{emoji('shield')} OBSIDIAN SEAL — Lab Complete[/]"
+            ),
+            Text(),
+            *seal_items,
+        ),
+    )
+
+
+def _print_act_seal(r: _ActResult) -> None:
+    """Render a Sentinel Seal footer after a single-act run."""
+    files_line = (
+        f"{r.total_files} file{'s' if r.total_files != 1 else ''} scanned"
+        f" {emoji('dot')} {r.elapsed:.2f}s"
+        + (f" {emoji('dot')} {r.throughput:.0f} files/s" if r.total_files else "")
+    )
+    seal_items: list[Text] = [
+        Text.from_markup(f"[{SentinelPalette.DIM}]{files_line}[/]"),
+        Text(),
+    ]
+    if r.met_expectation:
+        verdict = f"{emoji('check')} Act {r.act.id} — {r.act.title} — expectation met."
+        seal_items.append(Text.from_markup(f"[bold {SentinelPalette.SUCCESS}]{verdict}[/]"))
+    else:
+        verdict = f"{emoji('cross')} Act {r.act.id} — {r.act.title} — expectation NOT met."
+        seal_items.append(Text.from_markup(f"[bold {SentinelPalette.ERROR}]{verdict}[/]"))
+
+    con = get_console()
+    con.print()
+    con.print(
+        Group(
+            Text.from_markup(f"[bold {SentinelPalette.BRAND}]{emoji('shield')} OBSIDIAN SEAL[/]"),
+            Text(),
+            *seal_items,
+        ),
+    )
+
+
+def _make_section_table(section_acts: list[_Act]) -> Table:
+    table = Table(box=box.ROUNDED, show_header=True, header_style="bold cyan")
+    table.add_column("Act", justify="center", style="bold cyan", width=5)
+    table.add_column("Title", style="bold", min_width=22)
+    table.add_column("Description", style=SentinelPalette.WARNING)
+    table.add_column("Expects", justify="center", min_width=8)
+    for act in section_acts:
+        expects = (
+            "[red]BREACH[/]"
+            if act.expected_breach
+            else "[green]PASS[/]"
+            if act.expected_pass
+            else "[yellow]FAIL[/]"
+        )
+        table.add_row(str(act.id), act.title, act.description, expects)
+    return table
+
+
+def _print_act_index() -> None:
+    con = get_console()
+    con.print(
+        Text.from_markup(f"[bold {SentinelPalette.BRAND}]⬡  ZENZIC LAB[/]  [dim]v{__version__}[/]")
+    )
+    acts_by_id = {a.id: a for a in _ACTS}
+    for title, icon, act_range in _SECTIONS:
+        section_acts = [acts_by_id[i] for i in act_range if i in acts_by_id]
+        if not section_acts:
+            continue
+        con.print(Text.from_markup(f"\n  [bold {SentinelPalette.BRAND}]{icon}  {title}[/]"))
+        con.print(_make_section_table(section_acts))
+    con.print(
+        f"\n  [dim]zenzic lab <act>   eg. [bold cyan]zenzic lab 3[/]   "
+        f"{emoji('dot')}   [bold cyan]zenzic lab 11–16[/] Red/Blue   "
+        f"{emoji('dot')}   [bold cyan]zenzic lab 17-18[/] Scoring[/]\n"
+    )
+
+
+# ── CLI command ───────────────────────────────────────────────────────────────
+
+
+def lab(
+    act_input: str | None = typer.Argument(
+        None,
+        help="Act to run: a number (3), a range (11-16), or 'all'. Omit to display the menu.",
+        show_default=False,
+    ),
+    list_acts: bool = typer.Option(
+        False,
+        "--list",
+        "-l",
+        help="Print the act index without running checks.",
+    ),
+) -> None:
+    """Zenzic Lab — interactive showcase of bundled documentation examples.
+
+    Run without arguments to display the act menu.  Pass an act number,
+    range, or 'all' to execute the corresponding acts:
+
+        [bold cyan]zenzic lab[/]        — show act menu
+        [bold cyan]zenzic lab 3[/]      — run Act 3 (The Shield)
+        [bold cyan]zenzic lab 11-16[/]  — run the Red/Blue Team Matrix
+        [bold cyan]zenzic lab all[/]    — run all 17 acts
+        [bold cyan]zenzic lab --list[/] — print act index without running
+    """
+    con = get_console()
+    con.print()
+    get_ui().print_header(__version__)
+
+    if list_acts:
+        _print_act_index()
+        return
+
+    if act_input is None:
+        # No argument: show the menu and instructions, do not run any act.
+        _print_act_index()
+        con.print(
+            "\n[bold]Welcome to the Zenzic Lab.[/] Choose an act to see the Sentinel in action.\n"
+            "  Run [bold cyan]zenzic lab <N>[/] to execute a specific act (e.g. [cyan]zenzic lab 3[/]).\n"
+            "  Run [bold cyan]zenzic lab 11-16[/] for the Red/Blue matrix"
+            "  or [bold cyan]zenzic lab all[/] for the full tour.\n"
+        )
+        return
+
+    try:
+        act_ids = parse_act_range(act_input)
+    except ValueError as exc:
+        get_ui().print_exception_alert(str(exc), title="Lab — Invalid Act")
+        raise typer.Exit(1) from exc
+
+    try:
+        examples_root = _examples_root()
+    except FileNotFoundError as exc:
+        con.print(f"[bold red]ERROR:[/] {exc}")
+        raise typer.Exit(1) from exc
+
+    acts_to_run = [a for a in _ACTS if a.id in act_ids]
+    acts_to_run.sort(key=lambda a: act_ids.index(a.id))
+
+    if len(acts_to_run) > 1:
+        lo, hi = acts_to_run[0].id, acts_to_run[-1].id
+        con.print(
+            Text.from_markup(
+                f"\n  [bold {SentinelPalette.BRAND}]LAB SEQUENCE:[/]"
+                f"  Running Acts {lo} through {hi} …\n"
+            )
+        )
+
+    act_results: list[_ActResult] = []
+    for act in acts_to_run:
+        con.print()
+        con.print(
+            Group(
+                Text.from_markup(f"[bold {SentinelPalette.BRAND}]Act {act.id} — {act.title}[/]"),
+                Text(),
+                Text.from_markup(f"[bold]{act.description}[/]"),
+            )
+        )
+        result = _run_act(act, examples_root)
+        act_results.append(result)
+
+    if len(act_results) == 1:
+        _print_act_seal(act_results[0])
+    elif len(act_results) > 1:
+        _print_summary(act_results)

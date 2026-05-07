@@ -1,0 +1,14 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# zenzic.toml — Scoring Demo: Security Override (Score 0/100)
+#
+# This fixture contains a fake AWS access key in README.md.
+# Zenzic Shield detects it as Z201 SHIELD_SECRET.
+#
+# Security Override invariant: ANY Z2xx finding collapses the score to 0/100
+# regardless of how clean the rest of the documentation is.
+#
+# Run: zenzic score
+# Expected: Score 0/100 · security_override = true · Exit code 2
+
+docs_dir = "."

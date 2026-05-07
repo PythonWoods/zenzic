@@ -9,8 +9,8 @@ import nox
 nox.options.reuse_existing_virtualenvs = True
 nox.options.default_venv_backend = "uv"
 
-# Sessions run by plain `nox` (fast feedback loop, no side effects).
-# For the full CI-equivalent pipeline use: nox -s preflight
+# Nox = isolated environments for multi-version compatibility (3.11/3.12/3.13).
+# Daily quality gate is `just verify` (single entry-point — see justfile).
 # NOTE: posargs are forwarded with `--`, e.g.: nox -s lint -- --fix
 nox.options.sessions = ["lint", "format", "typecheck"]
 
@@ -20,7 +20,6 @@ PYTHONS = ["3.11", "3.12", "3.13"]
 _SYNC_TEST = ("uv", "sync", "--active", "--group", "test")
 _SYNC_LINT = ("uv", "sync", "--active", "--group", "lint")
 _SYNC_RELEASE = ("uv", "sync", "--active", "--group", "release")
-_SYNC_DEV = ("uv", "sync", "--active", "--group", "dev")
 
 
 @nox.session(python=PYTHONS)
@@ -31,7 +30,7 @@ def tests(session: nox.Session) -> None:
         "pytest",
         "--cov=src/zenzic",
         "--cov-report=term-missing",
-        "--cov-report=xml:coverage.xml",
+        "--cov-report=json:coverage.json",
         *session.posargs,
         env={"HYPOTHESIS_PROFILE": os.environ.get("HYPOTHESIS_PROFILE", "ci")},
     )
@@ -95,6 +94,16 @@ def security(session: nox.Session) -> None:
         "--strict",
         "-r",
         req,
+        # CVE-2026-3219: pip mishandles polyglot (tar+ZIP) archives, treating
+        # them as ZIP regardless of filename.  Attack requires a malicious
+        # archive already present on disk or fetched from a compromised index.
+        # Zenzic uses uv for all package management; pip is a transitive
+        # dev-only dependency of pip-audit itself and never installs packages
+        # programmatically.  All packages are pinned via uv.lock.
+        # No patched pip release exists on PyPI yet.
+        # Remove this exemption once pip ships a fix.
+        "--ignore-vuln",
+        "CVE-2026-3219",
         # CVE-2026-4539: ReDoS in Pygments AdlLexer (archetype.py).
         # Attack vector is LOCAL-only (crafted .adl file); Zenzic does not
         # process ADL input and uses Pygments only for documentation syntax
@@ -139,37 +148,19 @@ def mutation(session: nox.Session) -> None:
     session.run("mutmut", "results")
 
 
-@nox.session(python="3.11")
-def preflight(session: nox.Session) -> None:
-    """Run all quality checks — equivalent to a full CI pipeline."""
-    session.run(*_SYNC_DEV, external=True)
-    session.run("ruff", "check", "src/", "tests/")
-    session.run("ruff", "format", "--check", "src/", "tests/")
-    session.run("mypy", "src/")
-    session.run(
-        "pytest",
-        "--cov=src/zenzic",
-        "--cov-report=term-missing",
-        "--cov-report=xml:coverage.xml",
-    )
-    session.run("reuse", "lint")
-    # Pillar 1: Self-check — Zenzic validates its own integrity.
-    # --exit-zero: The Core repo has docs_dir = "." which scans prose files
-    # containing example secrets and code snippets from the CHANGELOG.
-    # These findings are expected and not actionable.  The documentation
-    # site (zenzic-doc) runs the strict self-check without this flag.
-    session.run("zenzic", "check", "all", "--exit-zero")
-
-
 @nox.session(python=False, venv_backend="none")
 def dev(session: nox.Session) -> None:
-    """One-time developer setup: install pre-commit hooks.
+    """One-time developer setup: install pre-commit AND pre-push hooks.
 
     Run once after cloning:
         nox -s dev
+
+    Installs both stages so that the 4-Gates `just verify` Final Guard runs
+    automatically on `git push` (EPOCH 4 / v0.7.0).
     """
     session.run("uv", "sync", "--group", "dev", external=True)
     session.run("uv", "run", "pre-commit", "install", external=True)
+    session.run("uv", "run", "pre-commit", "install", "-t", "pre-push", external=True)
 
 
 @nox.session(python="3.11", venv_backend="none")

@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING, Any
 import yaml
 from yaml.nodes import MappingNode, ScalarNode, SequenceNode
 
-from zenzic.core.adapters._utils import remap_to_default_locale
+from zenzic.core.adapters._utils import case_sensitive_exists, remap_to_default_locale
 from zenzic.core.exceptions import ConfigurationError
 from zenzic.models.config import BuildContext
 
@@ -178,6 +178,64 @@ def _load_doc_config(repo_root: Path) -> dict[str, Any]:
             return yaml.load(f, Loader=_PermissiveYamlLoader) or {}  # noqa: S506
         except yaml.YAMLError:
             return {}
+
+
+# ── Infrastructure asset path extraction (Z404) ──────────────────────────────
+
+_IMAGE_EXT_RE_MKDOCS = re.compile(r"\.(png|jpg|jpeg|svg|gif|ico|webp)$", re.IGNORECASE)
+
+
+def check_config_assets(repo_root: Path) -> list[tuple[str, str]]:
+    """Check that theme assets declared in ``mkdocs.yml`` exist on disk.
+
+    Checks ``theme.favicon`` and ``theme.logo`` (file-path values only).
+    Both fields are resolved relative to ``docs_dir`` (MkDocs default: ``docs/``).
+    Icon-name values (e.g. ``material/library``) are silently skipped because
+    they reference bundled theme icons, not local files.
+
+    No YAML re-parsing beyond what ``_load_doc_config`` already does.
+    No disk I/O in hot-path loops — only two existence checks at most.
+
+    Args:
+        repo_root: Repository root (parent of ``mkdocs.yml``).
+
+    Returns:
+        List of ``(rel_path, message)`` tuples for each missing asset.
+        Empty list when all referenced assets exist or the config is absent.
+    """
+    doc_config = _load_doc_config(repo_root)
+    if not doc_config:
+        return []
+
+    docs_dir = str(doc_config.get("docs_dir") or "docs")
+    docs_root = repo_root / docs_dir
+
+    theme = doc_config.get("theme") or {}
+    if not isinstance(theme, dict):
+        # theme: readthedocs  (scalar shorthand) — no file paths possible
+        return []
+
+    issues: list[tuple[str, str]] = []
+
+    for field_key, config_key in [("favicon", "theme.favicon"), ("logo", "theme.logo")]:
+        value = theme.get(field_key)
+        if not value or not isinstance(value, str):
+            continue
+        # Skip icon names (e.g. "material/cloud") — they have no image extension.
+        if not _IMAGE_EXT_RE_MKDOCS.search(value):
+            continue
+        asset_path = docs_root / value.lstrip("/")
+        if not asset_path.exists():
+            rel = f"{docs_dir}/{value.lstrip('/')}"
+            issues.append(
+                (
+                    rel,
+                    f"{field_key} asset not found on disk: '{rel}' "
+                    f"(declared as {config_key}: '{value}' in mkdocs.yml) [Z404]",
+                )
+            )
+
+    return issues
 
 
 # ── i18n plugin extraction helpers ───────────────────────────────────────────
@@ -472,7 +530,7 @@ class MkDocsAdapter:
         if not self._fallback_to_default:
             return None
         fallback = remap_to_default_locale(missing_abs, docs_root, self._locale_dirs)
-        return fallback if fallback is not None and fallback.exists() else None
+        return fallback if fallback is not None and case_sensitive_exists(fallback) else None
 
     def resolve_anchor(
         self,
@@ -550,6 +608,10 @@ class MkDocsAdapter:
         scenario where the adapter has no nav or i18n information to contribute.
         """
         return self._config_file_found or bool(self._locale_dirs)
+
+    def get_metadata_files(self) -> frozenset[str]:
+        """MkDocs configuration file — shielded from Z903."""
+        return frozenset({"mkdocs.yml"})
 
     # ── VSM integration ────────────────────────────────────────────────────────
 
@@ -694,6 +756,14 @@ class MkDocsAdapter:
             ``True`` if an ``index.md`` or ``README.md`` exists in the directory.
         """
         return any((directory_path / f).exists() for f in ("index.md", "README.md"))
+
+    def get_link_scheme_bypasses(self) -> frozenset[str]:
+        """MkDocs has no engine-specific link-scheme bypass."""
+        return frozenset()
+
+    def get_absolute_url_prefixes(self, repo_root: Path) -> frozenset[str]:
+        """MkDocs is single-instance: no cross-plugin absolute prefixes to allowlist."""
+        return frozenset()
 
     @classmethod
     def from_repo(

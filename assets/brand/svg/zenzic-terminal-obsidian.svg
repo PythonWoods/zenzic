@@ -1,0 +1,100 @@
+<!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 420"
+     role="img"
+     aria-label="Zenzic Sentinel v0.7.0 — All checks passed, score 100/100">
+  <defs>
+    <style>
+      .mono { font-family: 'JetBrains Mono', 'SFMono-Regular', Consolas, Menlo, monospace; }
+    </style>
+    <!-- Header bg clips to panel rounded corners -->
+    <clipPath id="clip-sentinel">
+      <rect x="24" y="72" width="672" height="104" rx="4"/>
+    </clipPath>
+    <clipPath id="clip-score">
+      <rect x="24" y="188" width="672" height="56" rx="4"/>
+    </clipPath>
+  </defs>
+
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <!-- WINDOW CHROME                                             -->
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <rect x="0" y="0" width="720" height="420" rx="12" fill="#09090b"/>
+  <rect x="0.75" y="0.75" width="718.5" height="418.5" rx="11.25"
+        fill="none" stroke="#27272a" stroke-width="1.5"/>
+
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <!-- TITLE BAR                                                 -->
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <rect x="0" y="0" width="720" height="44" rx="12" fill="#18181b"/>
+  <rect x="0" y="32" width="720" height="12" fill="#18181b"/>
+  <circle cx="22" cy="22" r="6" fill="#ef4444"/>
+  <circle cx="42" cy="22" r="6" fill="#eab308"/>
+  <circle cx="62" cy="22" r="6" fill="#22c55e"/>
+  <text class="mono" x="360" y="27" text-anchor="middle"
+        font-size="11" fill="#71717a" letter-spacing="0.5">zsh — zenzic check all</text>
+  <line x1="0" y1="44" x2="720" y2="44" stroke="#27272a" stroke-width="1"/>
+
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <!-- PROMPT                                                    -->
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <text class="mono" x="44" y="62" font-size="13" fill="#3f3f46">$ zenzic check all</text>
+
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <!-- SENTINEL PANEL  x=24  w=672  y=72→176                    -->
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <rect x="24" y="72" width="672" height="104" rx="4"
+        fill="#09090e" stroke="#4f46e5" stroke-width="1.5"/>
+  <!-- Header background, clipped to panel corners -->
+  <rect x="24" y="72" width="672" height="28" fill="#1e1b4b"
+        clip-path="url(#clip-sentinel)"/>
+  <!-- Header text -->
+  <text class="mono" x="360" y="91" text-anchor="middle"
+        font-size="13" fill="#38bdf8" letter-spacing="0.8">🛡  ZENZIC SENTINEL  v0.7.0</text>
+  <!-- Header divider -->
+  <line x1="24" y1="100" x2="696" y2="100" stroke="#3f3f46" stroke-width="1"/>
+  <!-- Engine + stats row -->
+  <text class="mono" x="44" y="122" font-size="13">
+    <tspan fill="#38bdf8">standalone</tspan><tspan fill="#71717a"> • </tspan><tspan fill="#a1a1aa">32 files</tspan><tspan fill="#71717a"> (18 docs, 14 assets) • 0.2s</tspan>
+  </text>
+  <!-- Inner divider -->
+  <line x1="24" y1="135" x2="696" y2="135" stroke="#3f3f46" stroke-width="1"/>
+  <!-- All checks passed -->
+  <text class="mono" x="44" y="159" font-size="13">
+    <tspan fill="#22c55e">✔</tspan><tspan fill="#f4f4f5">  All checks passed. Your documentation is secure.</tspan>
+  </text>
+
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <!-- SCORE PANEL  x=24  w=672  y=188→244                      -->
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <rect x="24" y="188" width="672" height="56" rx="4"
+        fill="#09090e" stroke="#4f46e5" stroke-width="1.5"/>
+  <!-- Header background, clipped to panel corners -->
+  <rect x="24" y="188" width="672" height="28" fill="#1e1b4b"
+        clip-path="url(#clip-score)"/>
+  <!-- Header text -->
+  <text class="mono" x="360" y="207" text-anchor="middle"
+        font-size="13" fill="#a5b4fc" letter-spacing="0.8">Zenzic Quality Score</text>
+  <!-- Header divider -->
+  <line x1="24" y1="216" x2="696" y2="216" stroke="#3f3f46" stroke-width="1"/>
+  <!-- Score row -->
+  <text class="mono" x="44" y="235" font-size="13">
+    <tspan fill="#22c55e">✔  </tspan><tspan fill="#f4f4f5">100</tspan><tspan fill="#71717a"> / 100</tspan>
+  </text>
+
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <!-- OBSIDIAN SEAL  x=24  w=672  y=258→348                    -->
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <rect x="24" y="258" width="672" height="90" rx="8"
+        fill="#1e1b4b" stroke="#4f46e5" stroke-width="1.5"/>
+  <text class="mono" x="360" y="292" text-anchor="middle"
+        font-size="13" fill="#a5b4fc" letter-spacing="0.5">✨  Obsidian Seal</text>
+  <text class="mono" x="360" y="316" text-anchor="middle"
+        font-size="12" fill="#e0e7ff">All statically-detectable links, credentials, and references verified.</text>
+
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <!-- FOOTER                                                    -->
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <text class="mono" x="360" y="392" text-anchor="middle"
+        font-size="11" fill="#52525b" letter-spacing="2">ZENZIC v0.7.0  ·  OBSIDIAN MATURITY  ·  EXIT 0</text>
+</svg>
