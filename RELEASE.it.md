@@ -22,7 +22,7 @@ Con questa release, Zenzic non è più solo un tool, ma una piattaforma di fiduc
 
 ---
 **PythonWoods** <dev@pythonwoods.dev>
-*Data di Rilascio Target: 2026-05-XX*
+*Data di Rilascio: 2026-05-07*
 
 ---
 

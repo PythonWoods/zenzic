@@ -11,7 +11,7 @@ Le versioni seguono il [Semantic Versioning](https://semver.org/).
 
 > **Cronologia di sviluppo (v0.1.0 – v0.6.x):** Consultare l'[Archivio Changelog](CHANGELOG.it.archive.md).
 
-## [0.7.0] — 2026-05-XX (Target) — Quartz Maturity (Stable)
+## [0.7.0] — 2026-05-07 — Quartz Maturity (Stable)
 
 > **Documentazione precedente:** Le versioni precedenti a v0.7.0 sono ufficialmente deprecate
 > e non seguono l'attuale architettura Diátaxis. Per riferimento storico, vedere la
@@ -247,4 +247,4 @@ Sostituire `pip install "zenzic[mkdocs]"` con `pip install zenzic`.
   - `test_absolute_broken_blog_link_is_detected` — slug sbagliato solleva `FILE_NOT_FOUND`
   - `test_correct_absolute_slug_link_is_clean` — slug corretto non produce finding
 
-**Suite di test: 1480 passati, 0 falliti.**
+**Suite di test: 1485 passati, 0 falliti.**

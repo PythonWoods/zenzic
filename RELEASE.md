@@ -25,7 +25,7 @@ With this release, Zenzic is no longer just a tool, but a trust platform for doc
 
 ---
 **PythonWoods** <dev@pythonwoods.dev>
-*Target Release Date: 2026-05-XX*
+*Release Date: 2026-05-07*
 
 ---
 
