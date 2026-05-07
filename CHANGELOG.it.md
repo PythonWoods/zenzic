@@ -22,7 +22,7 @@ Le versioni seguono il [Semantic Versioning](https://semver.org/).
 
 Questa release segna l'Anno Zero dell'ecosistema Zenzic, stabilendo un nuovo standard di
 maturità deterministica e integrità formale. Il codebase raggiunge la maturità strutturale:
-1.342+ test, copertura branch >80%, e una pipeline di sicurezza blindata.
+1.485+ test, copertura branch >80%, e una pipeline di sicurezza blindata.
 
 #### Aggiunto
 
