@@ -943,11 +943,7 @@ async def validate_links_async(
                             line_no=lineno,
                             message=f"{label}:{lineno}: '{url}' resolves outside the docs directory",
                             source_line=_source_line(md_file, lineno),
-                            error_type=(
-                                "Z203"
-                                if _intent == "suspicious"
-                                else "Z202"
-                            ),
+                            error_type=("Z203" if _intent == "suspicious" else "Z202"),
                             col_start=link.col_start,
                             match_text=link.match_text,
                         )

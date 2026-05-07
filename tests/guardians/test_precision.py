@@ -140,6 +140,4 @@ class TestPathnameIsPortable:
         mgr = make_mgr(config, repo_root=tmp_path)
         errors = validate_links_structured(docs, mgr, repo_root=tmp_path, config=config)
         error_types = {e.error_type for e in errors}
-        assert "Z105" in error_types, (
-            "A bare /path link (no scheme) must still trigger Z105"
-        )
+        assert "Z105" in error_types, "A bare /path link (no scheme) must still trigger Z105"

@@ -243,9 +243,7 @@ def test_check_placeholders_ok(_ph, _cfg, _root) -> None:
 @patch(
     "zenzic.cli._check.find_placeholders",
     return_value=[
-        PlaceholderFinding(
-            file_path=Path("stub.md"), line_no=1, issue="Z502", detail="5 words"
-        )
+        PlaceholderFinding(file_path=Path("stub.md"), line_no=1, issue="Z502", detail="5 words")
     ],
 )
 def test_check_placeholders_with_findings(_ph, _cfg, _root) -> None:
