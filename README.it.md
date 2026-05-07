@@ -30,9 +30,6 @@ SPDX-License-Identifier: Apache-2.0
   <a href="https://docusaurus.io/">
     <img src="https://img.shields.io/badge/docs_by-Docusaurus-3ECC5F?style=flat-square" alt="Built with Docusaurus">
   </a>
-  <a href="https://zenzic.dev/docs/community/governance/adversarial-ai">
-    <img src="https://img.shields.io/badge/AI--Adversarial-Human--Governed-4f46e5?style=flat-square" alt="AI Governance">
-  </a>
   <a href="https://zenzic.dev/it/developers/explanation/adr-vault">
     <img src="https://img.shields.io/badge/4--Gates-Sentinel%20Seal-10b981?style=flat-square" alt="4-Gates: Sentinel Seal">
   </a>
