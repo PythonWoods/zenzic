@@ -32,14 +32,33 @@ permissions:
 
 jobs:
   verify:
-    name: Verify (${{ matrix.os }})
+    name: Verify (${{ matrix.os }}, Python ${{ matrix.python }})
     runs-on: ${{ matrix.os }}
+    # Allow the 3.13-dev experimental slot to fail without blocking the workflow.
+    continue-on-error: ${{ matrix.experimental == true }}
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         os:
           - ubuntu-latest
           - windows-latest
+        python:
+          - '3.10'
+          - '3.11'
+          - '3.12'
+        exclude:
+          # Windows path/encoding/binary checks are version-independent;
+          # a single validation on 3.12 is sufficient.
+          - os: windows-latest
+            python: '3.10'
+          - os: windows-latest
+            python: '3.11'
+        include:
+          # Sentinel: warns us early if a future CPython release breaks Zenzic.
+          # Allowed to fail — does not block the release.
+          - os: ubuntu-latest
+            python: '3.13-dev'
+            experimental: true
     defaults:
       run:
         shell: bash
@@ -55,8 +74,8 @@ jobs:
         with:
           enable-cache: true
 
-      - name: Set up Python 3.11
-        run: uv python install 3.11
+      - name: Set up Python ${{ matrix.python }}
+        run: uv python install ${{ matrix.python }}
 
       - name: Sync dependencies
         run: uv sync --all-groups

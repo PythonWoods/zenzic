@@ -334,19 +334,30 @@ corrente è **30 secondi**.
 **Cosa significa:**
 
 ```python
-# ✅ Forma richiesta — usa sempre submit() + result(timeout=...)
+# ✅ Forma richiesta — usa sempre submit() + wait(FIRST_COMPLETED) + result(timeout=...)
 futures_map = {executor.submit(_worker, item): item[0] for item in work_items}
-for fut, md_file in futures_map.items():
-    try:
-        raw.append(fut.result(timeout=_WORKER_TIMEOUT_S))
-    except concurrent.futures.TimeoutError:
-        raw.append(_make_timeout_report(md_file))  # finding Z009
+raw: list[IntegrityReport] = []
+_pending: set[concurrent.futures.Future[IntegrityReport]] = set(futures_map)
+while _pending:
+    done, _pending = concurrent.futures.wait(
+        _pending,
+        timeout=_WORKER_TIMEOUT_S,
+        return_when=concurrent.futures.FIRST_COMPLETED,
+    )
+    if not done:
+        # guardia deadlock ZRT-002: nessun worker ha completato nel timeout
+        for fut in _pending:
+            raw.append(_make_timeout_report(futures_map[fut]))  # finding Z902
+            fut.cancel()
+        break
+    for fut in done:
+        raw.append(fut.result())
 
 # ❌ Vietato — si blocca indefinitamente su ReDoS o worker in deadlock
 raw = list(executor.map(_worker, work_items))
 ```
 
-**Il finding Z009** (`ANALYSIS_TIMEOUT`) non è un crash. È un finding strutturato
+**Il finding Z902** (`WORKER_TIMEOUT`) non è un crash. È un finding strutturato
 che appare nell'interfaccia del report standard. Un worker che va in timeout non
 interrompe la scansione — il coordinatore continua con i worker rimanenti.
 
