@@ -21,7 +21,6 @@ PYTHONS = ["3.10", "3.14"]
 # Per-group sync tuples — each session installs only what it needs.
 _SYNC_TEST = ("uv", "sync", "--active", "--group", "test")
 _SYNC_LINT = ("uv", "sync", "--active", "--group", "lint")
-_SYNC_RELEASE = ("uv", "sync", "--active", "--group", "release")
 
 
 @nox.session(python=PYTHONS)
@@ -163,23 +162,3 @@ def dev(session: nox.Session) -> None:
     session.run("uv", "sync", "--group", "dev", external=True)
     session.run("uv", "run", "pre-commit", "install", external=True)
     session.run("uv", "run", "pre-commit", "install", "-t", "pre-push", external=True)
-
-
-@nox.session(python="3.14", venv_backend="none")
-def bump(session: nox.Session) -> None:
-    """Bump the project version and create a release commit + tag.
-
-    Usage:
-        nox -s bump -- patch      # 0.1.0 → 0.1.1
-        nox -s bump -- minor      # 0.1.0 → 0.2.0
-        nox -s bump -- major      # 0.1.0 → 1.0.0
-
-    After bumping, push with:
-        git push && git push --tags
-    """
-    if not session.posargs:
-        session.error("Specify a bump type: nox -s bump -- patch|minor|major")
-    part = session.posargs[0]
-    if part not in ("patch", "minor", "major"):
-        session.error(f"Invalid bump type '{part}'. Use patch, minor, or major.")
-    session.run("bump-my-version", "bump", part, external=True)

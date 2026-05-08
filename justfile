@@ -90,6 +90,25 @@ _check-hooks:
         echo ""
     fi
 
+# Release orchestration: explicit, transparent, and lockfile-first.
+release part:
+        #!/usr/bin/env bash
+        set -euo pipefail
+        case "{{ part }}" in
+            patch|minor|major) ;;
+            *) echo "Invalid part '{{ part }}'. Use patch|minor|major"; exit 2 ;;
+        esac
+        uv run --active bump-my-version bump {{ part }}
+        uv sync
+        version="$(uv run --active bump-my-version show current_version)"
+        if git rev-parse "v${version}" >/dev/null 2>&1; then
+            echo "Tag v${version} already exists. Aborting."
+            exit 3
+        fi
+        git add -u
+        git commit -m "release: bump version to ${version}"
+        git tag -a "v${version}" -m "Release v${version}"
+
 # ─── Cleanup ──────────────────────────────────────────────────────────────
 
 # Remove generated artefacts (.nox is kept — reuse avoids reinstalling deps)

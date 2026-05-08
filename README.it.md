@@ -124,7 +124,7 @@ zenzic check all  # Analizza la cartella corrente
 
 **Correzione automatica:** `zenzic clean assets [-y] [--dry-run]` elimina gli asset inutilizzati.
 
-> 🚀 **v0.7.1a1 "Quartz Maturity" (Stabile)** — Suggerimenti proattivi Z104, audit di verità
+> 🚀 **v0.7.1 "Quartz Maturity" (Stabile)** — Suggerimenti proattivi Z104, audit di verità
 > Standalone Mode e hardening dell'Engineering Ledger. Vedi [CHANGELOG.md](CHANGELOG.md).
 
 ---
@@ -221,7 +221,7 @@ severity = "warning"
 
 Le regole si attivano identicamente su tutti gli adapter. Nessuna modifica richiesta dopo la migrazione del motore.
 
-> **Garanzia DFA** (v0.7.1a1+): I pattern delle custom rule devono essere compatibili con RE2 —
+> **Garanzia DFA** (v0.7.1+): I pattern delle custom rule devono essere compatibili con RE2 —
 > backreference, lookahead e lookbehind vengono rifiutati al caricamento. Consulta
 > [Architettura › Garanzia DFA](https://zenzic.dev/it/docs/explanation/architecture#dfa-guarantee).
 
@@ -322,7 +322,7 @@ zenzic lab [--act N] [--list]
 ## 📟 Tour Visivo
 
 ```text
-╭───────────────────────  🛡  ZENZIC SENTINEL  v0.7.1a1  ────────────────────────╮
+╭───────────────────────  🛡  ZENZIC SENTINEL  v0.7.1  ────────────────────────╮
 │                                                                              │
 │  docusaurus • 38 file (18 docs, 20 asset) • 0.9s                             │
 │                                                                              │
@@ -498,9 +498,9 @@ Zenzic è nato da un percorso tecnico attraverso la fragilità dei moderni ecosi
 documentazione. Scopri la filosofia, l'assedio della sicurezza e l'ingegneria dietro il
 Sentinel nelle [**Engineering Chronicles**](https://zenzic.dev/blog/tags/chronicles) sul blog ufficiale.
 
-La storia della release v0.7.1a1 — l'assedio red-team guidato dall'IA, 4 vettori di bypass
+La storia della release v0.7.1 — l'assedio red-team guidato dall'IA, 4 vettori di bypass
 chiusi, e la strada verso la parità engine-agnostica — è documentata in
-[**Beyond the Siege: Zenzic v0.7.1a1**](https://zenzic.dev/blog/beyond-the-siege-zenzic-v070-quartz).
+[**Beyond the Siege: Zenzic v0.7.1**](https://zenzic.dev/blog/beyond-the-siege-zenzic-v070-quartz).
 
 ---
 
