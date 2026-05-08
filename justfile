@@ -84,8 +84,10 @@ verify: _check-hooks
 _check-hooks:
     #!/usr/bin/env bash
     if [ ! -f .git/hooks/pre-push ]; then
-        echo "⚠️  WARNING: Pre-push hook not installed — commits are unprotected before push."
-        echo "👉 Run: pre-commit install -t pre-push"
+        echo -e "\033[33m⚠️  WARNING: Pre-push hook is not installed.\033[0m"
+        echo "Without it, you might accidentally push broken code to GitHub and fail the remote CI."
+        echo "👉 Fix it by running: uvx pre-commit install -t pre-push"
+        echo ""
     fi
 
 # ─── Cleanup ──────────────────────────────────────────────────────────────
