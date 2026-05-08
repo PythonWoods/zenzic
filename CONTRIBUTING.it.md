@@ -59,6 +59,10 @@ I controlli di qualità e le attività di sviluppo sono guidati da **just** (per
 | `mutation` | — | `nox -s mutation` | mutmut su `rules.py`, `shield.py`, `reporter.py` |
 | `preflight` | `just preflight` | `nox -s preflight` | lint, typecheck, test, reuse, security |
 | **Pre-push gate** | **`just verify`** | — | **preflight + self-lint — esegui prima di ogni push** |
+| Versione corrente | `just version` | — | Stampa la versione corrente tramite bump-my-version |
+| Release dry-run | `just release-dry patch` | — | Simula un bump (output diff completo) |
+| Release dry-run (compatto) | `just release-dry patch --short` | — | Simula un bump — solo riepilogo 3 righe |
+| Controllo contratti | `just release-contracts` | — | Verifica i contratti architetturali del justfile (invocato da `verify`) |
 | `clean` | `just clean` | — | Rimuove `dist/`, `.hypothesis/`, cache |
 | `bump` | — | `nox -s bump -- patch` | avanza la versione + commit + tag |
 

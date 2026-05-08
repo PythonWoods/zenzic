@@ -115,6 +115,10 @@ the exact same environment as CI.
 | Test (thorough) | `just test-full` | — | pytest with Hypothesis **ci** profile (500 examples) |
 | Mutation testing | — | `nox -s mutation` | mutmut on `rules.py`, `shield.py`, `reporter.py` |
 | **Final Guard** | **`just verify`** | — | **pre-commit + test-cov + check — runs automatically on `git push`** |
+| Show version | `just version` | — | Print current version from bump-my-version |
+| Release dry-run | `just release-dry patch` | — | Simulate a bump (full diff output) |
+| Release dry-run (compact) | `just release-dry patch --short` | — | Simulate a bump — 3-line summary only |
+| Contract check | `just release-contracts` | — | Verify justfile architectural contracts (run by `verify`) |
 | Clean | `just clean` | — | Remove `dist/`, `.hypothesis/`, caches |
 | Version bump | — | `nox -s bump -- patch` | bump version + commit + tag |
 

@@ -18,6 +18,15 @@ Versions follow [Semantic Versioning](https://semver.org/).
 - **`_check-hooks` DX guard:** Added hidden `_check-hooks` recipe as first dependency of
   `just verify`. Emits a warning if the pre-push Final Guard hook (`pre-commit install
   -t pre-push`) is not installed locally, without blocking the verification run.
+- **`version` recipe:** `just version` prints the current project version directly from
+  `bump-my-version`. Fast alternative to reading `pyproject.toml` manually.
+- **`release-dry --short` flag:** `just release-dry patch --short` filters the verbose
+  bump-my-version output to three essential lines: current version, new version, and
+  dry-run confirmation. Default behaviour (full verbose diff) is unchanged.
+- **`release-contracts` DX guard:** New recipe enforces architectural contracts on the
+  justfile: mandatory presence of `version`, `release`, and `release-dry` recipes;
+  `--allow-dirty` must appear only in `release-dry`, never in `release`. Wired into
+  `just verify` as a structural pre-flight check that fails fast on violations.
 
 ### Changed
 
