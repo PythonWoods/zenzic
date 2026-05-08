@@ -32,6 +32,14 @@ Versions follow [Semantic Versioning](https://semver.org/).
   The `tomllib` / `tomli` compatibility guard (`sys.version_info >= (3, 11)`) and the
   `tomli>=2.0.0; python_version < '3.11'` runtime dependency were already in place.
 
+### Fixed
+
+- **`Z000` added to code registry (`codes.py`):** `Z000` (UNSUPPORTED_ENGINE) was
+  already documented in the `codes.py` docstring schema and in `finding-codes.mdx`,
+  but was absent from `CODE_NAMES`, `CODE_DESCRIPTIONS`, and `CODE_SARIF_LEVELS`.
+  Registry now complete at 34 canonical codes. The `verify-codes-parity` session
+  counts Z000 as a full encyclopedia entry with `{#z000}` anchor.
+
 ---
 
 ## [0.7.0] — 2026-05-07 — Quartz Maturity (Stable)
