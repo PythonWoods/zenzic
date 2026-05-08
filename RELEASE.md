@@ -1,10 +1,10 @@
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
-# 💎 Zenzic v0.7.0 — The Quartz Era (Quartz Maturity)
+# 💎 Zenzic v0.7.1a1 — The Quartz Era (Quartz Maturity)
 
 This release marks the birth of the Sovereign Knowledge System. Following the Quartz Purgation, Zenzic definitively abandons all experimental residues to become a deterministic, industrial-grade infrastructure.
 
-## 🏛️ The Pillars of v0.7.0
+## 🏛️ The Pillars of v0.7.1a1
 
 - **Deterministic Integrity**: Complete absence of any probabilistic dependency or logic. Zenzic now operates exclusively on structural facts and certain invariants.
 - **Sentinel Seal**: A 4-stage validation system (4-Gates Standard) ensuring absolute quality before every push.
@@ -17,7 +17,7 @@ This release marks the birth of the Sovereign Knowledge System. Following the Qu
 
 ## ⚠️ Evolution Note (Breaking Changes)
 
-v0.7.0 is Year Zero. Previous versions are officially deprecated as they do not follow the current Diátaxis architecture. Every reference to old brands or legacy architectures has been removed to make way for a lean ecosystem focused on source purity.
+v0.7.1a1 is Year Zero. Previous versions are officially deprecated as they do not follow the current Diátaxis architecture. Every reference to old brands or legacy architectures has been removed to make way for a lean ecosystem focused on source purity.
 
 ## 🚀 Towards the Future
 
@@ -45,7 +45,7 @@ With this release, Zenzic is no longer just a tool, but a trust platform for doc
 
 ## 🛡️ EPOCH 4 — The Safe Port (4-Gates Standard)
 
-v0.7.0 introduces the **atomic single entry-point** for quality:
+v0.7.1a1 introduces the **atomic single entry-point** for quality:
 
 ```bash
 just verify    # locale ≡ remote — same command in pre-push hook AND GitHub Actions
@@ -77,7 +77,7 @@ harden the gate; a silent one is a betrayal of the Safe Port.
 
 ## 🌍 EPOCH 5 — Z907 I18N_PARITY (Cross-Language Integrity)
 
-v0.7.0 closes the last gap in the documentation integrity story:
+v0.7.1a1 closes the last gap in the documentation integrity story:
 **translation drift**. A new core scanner — `Z907 I18N_PARITY` — verifies
 that every base-language documentation file has a mirror in each
 configured target language root, and that key frontmatter fields
@@ -125,7 +125,7 @@ The check integrates seamlessly into `zenzic check all` and respects
 Multi-instance Docusaurus setups (e.g. `/docs/*` user area + `/developers/*`
 contributor area) need legitimate cross-plugin links — but those links
 look absolute (`/developers/foo`) and would normally trip `Z105 ABSOLUTE_PATH`.
-v0.7.0 introduces a **declarative trust contract**:
+v0.7.1a1 introduces a **declarative trust contract**:
 
 ```toml
 # zenzic.toml — opt-in, empty by default
@@ -176,7 +176,7 @@ read-only `zenzic inspect config` command. Documented in the
 
 ## 🌳 EPOCH 7a — Multi-Root Discovery (VSM Blindness Sealed)
 
-For every release before v0.7.0 the VSM ingested **only** files under `docs_dir`.
+For every release before v0.7.1a1 the VSM ingested **only** files under `docs_dir`.
 Modern static-site generators routinely manage content trees that live outside `docs/` —
 the textbook case is the Docusaurus `blog/` directory, materialised as live URLs at build
 time. A pre-EPOCH-7a `zenzic check all --strict` would never see those files: broken
@@ -198,7 +198,7 @@ Adapters opt in by implementing the optional
 `get_extra_content_roots(repo_root) -> list[ContentRoot]` method. The Core discovers it
 via `hasattr()` — the same convention already used by `get_locale_source_roots` — so
 adapters that have nothing to declare need no stub. **The addition is non-breaking** for
-third-party adapters built against the v0.7.0 Protocol.
+third-party adapters built against the v0.7.1a1 Protocol.
 
 ### Four pipeline stages cooperate
 
@@ -267,7 +267,7 @@ ever saying `where`.
 
 ## 🌿 EPOCH 7a.1 — Zero-Config Sovereignty (`absolute_path_allowlist` Purged)
 
-EPOCH 7a.1 extends the Zero-Config invariant to one of v0.7.0's last residues of
+EPOCH 7a.1 extends the Zero-Config invariant to one of v0.7.1a1's last residues of
 user-side coupling: the `[link_validation].absolute_path_allowlist` block.
 Multi-instance Docusaurus sites (one `@docusaurus/plugin-content-docs`
 instance per top-level URL prefix — e.g. `/docs/` for the user manual and
@@ -388,7 +388,7 @@ all three. Zero asymmetries.
 ### Why Hard-Remove, Not Deprecate
 
 D002 introduced `.zenzic.dev.toml` as an Environmental Privacy Gate. v0.6.1 was never
-published to end users; v0.7.0 is Year Zero. There are no production deployments to protect.
+published to end users; v0.7.1a1 is Year Zero. There are no production deployments to protect.
 A deprecation warning would add scanning overhead and imply a support contract that
 does not exist. The Quartz Maturity standard admits no nostalgia.
 
@@ -427,7 +427,7 @@ credential obfuscation via Base64 encoding, percent-encoding, and mixed-case nor
 (Shield — exit 2), Windows absolute path injection (`C:\`, UNC shares), and cross-line
 credential splitting via the ZRT-007 lookback buffer.
 
-**Base64 Speculative Decoder (v0.7.0 D095):** The Shield now decodes candidate Base64 tokens
+**Base64 Speculative Decoder (v0.7.1a1 D095):** The Shield now decodes candidate Base64 tokens
 and re-scans the decoded text. A GitHub PAT encoded as `Z2hwXzEyMzQ...` in frontmatter
 triggers Z201 and exits 2. Attack vector S2 sealed.
 
@@ -436,7 +436,7 @@ so that mixed-case paths on APFS/NTFS no longer produce false-positive traversal
 
 **Known limitations:** The ReDoS canary (`_CANARY_STRINGS` / `_assert_regex_canary`) uses
 `SIGALRM` and is a **no-op on Windows** — the 50 ms interrupt is not available on that
-platform. Plugin authors on Windows operate without startup ReDoS validation in v0.7.0.
+platform. Plugin authors on Windows operate without startup ReDoS validation in v0.7.1a1.
 Deterministic enforcement via a process-based watchdog is planned for v0.8.0 "Basalt".
 
 Full audit report: [Quartz Tribunal Audit](https://zenzic.dev/docs/explanation/audit-v070-quartz-siege)

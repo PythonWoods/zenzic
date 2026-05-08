@@ -42,7 +42,7 @@ Le versioni seguono il [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [0.7.0] — 2026-05-07 — Quartz Maturity (Stable)
+## [0.7.1a1] — 2026-05-07 — Quartz Maturity (Stable)
 
 > **Documentazione precedente:** Le versioni precedenti a v0.7.0 sono ufficialmente deprecate
 > e non seguono l'attuale architettura Diátaxis. Per riferimento storico, vedere la

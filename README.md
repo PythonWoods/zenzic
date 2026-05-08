@@ -139,7 +139,7 @@ zenzic check all  # Audit the current directory
 
 **Autofix:** `zenzic clean assets [-y] [--dry-run]` deletes unused images.
 
-> 🚀 **v0.7.0 "Quartz Maturity" (Stable)** — Z104 proactive suggestions, Standalone
+> 🚀 **v0.7.1a1 "Quartz Maturity" (Stable)** — Z104 proactive suggestions, Standalone
 > Mode truth audit, and Engineering Ledger hardening. See [CHANGELOG.md](CHANGELOG.md).
 
 ---
@@ -234,7 +234,7 @@ severity = "warning"
 
 Rules fire identically across all adapters. No changes required after engine migration.
 
-> **DFA Guarantee** (v0.7.0+): Custom rule patterns must be RE2-compatible — backreferences,
+> **DFA Guarantee** (v0.7.1a1+): Custom rule patterns must be RE2-compatible — backreferences,
 > lookaheads, and lookbehinds are rejected at load time. See
 > [Architecture › DFA Guarantee](https://zenzic.dev/docs/explanation/architecture#dfa-guarantee).
 
@@ -493,9 +493,9 @@ Zenzic was born from a technical journey through the fragility of modern documen
 ecosystems. Discover the philosophy, the security siege, and the engineering behind the
 Sentinel in the [**Engineering Chronicles**](https://zenzic.dev/blog/tags/chronicles) on the official blog.
 
-The v0.7.0 release story — AI-driven red-team siege, 4 bypass vectors closed, and the
+The v0.7.1a1 release story — AI-driven red-team siege, 4 bypass vectors closed, and the
 road to engine-agnostic parity — is documented in
-[**Beyond the Siege: Zenzic v0.7.0**](https://zenzic.dev/blog/beyond-the-siege-zenzic-v070-quartz).
+[**Beyond the Siege: Zenzic v0.7.1a1**](https://zenzic.dev/blog/beyond-the-siege-zenzic-v070-quartz).
 
 ---
 

@@ -64,7 +64,7 @@ uvx pre-commit install              # commit-stage: light hooks (ruff, format, h
 uvx pre-commit install -t pre-push  # pre-push: 🛡️ Final Guard runs `just verify`
 ```
 
-The pre-push hook is the atomic gate of EPOCH 4 / v0.7.0: a single
+The pre-push hook is the atomic gate of EPOCH 4 / v0.7.1a1: a single
 entry-point (`just verify`) runs both locally and in GitHub Actions —
 **locale ≡ remote, no drift**. Pushes are blocked when any of the
 4 Gates (pre-commit hooks, coverage, tests, `zenzic check all`) fails.
@@ -145,7 +145,7 @@ paths in any contribution, use `pathlib.Path` throughout — never string concat
 > Node 24 runner environment. GitHub-hosted runners (`ubuntu-latest`) satisfy this
 > automatically; self-hosted runners must use Node ≥ 24.
 
-### CI Pillar Matrix (v0.7.0)
+### CI Pillar Matrix (v0.7.1a1)
 
 Zenzic adopts a **Pillar Matrix** strategy — testing the boundaries rather than every
 intermediate version:
