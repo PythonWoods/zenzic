@@ -116,7 +116,7 @@ version:
 # Simulate a release bump without modifying any files
 # Usage: just release-dry patch|minor|major
 release-dry part:
-    uv run --active bump-my-version bump {{part}} --dry-run --verbose
+    uv run --active bump-my-version bump {{part}} --dry-run --allow-dirty --verbose
 
 # ─── Cleanup ──────────────────────────────────────────────────────────────
 
