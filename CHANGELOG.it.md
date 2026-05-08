@@ -13,6 +13,12 @@ Le versioni seguono il [Semantic Versioning](https://semver.org/).
 
 ## [Non Rilasciato]
 
+### Aggiunto
+
+- **DX guard `_check-hooks`:** Aggiunta recipe nascosta `_check-hooks` come prima dipendenza
+  di `just verify`. Emette un avviso se l’hook Final Guard pre-push (`pre-commit install
+  -t pre-push`) non è installato localmente, senza bloccare l’esecuzione della verifica.
+
 ### Modificato
 
 - **Matrice di test — Boundary Testing (parità CI):** `PYTHONS` di Nox aggiornato da

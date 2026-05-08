@@ -76,10 +76,17 @@ lint:
 
 # Final Guard: atomic verification invoked by pre-push hook + GHA.
 # Sequence: pre-commit (all hooks) → test-cov (with coverage gate) → zenzic self-check.
-verify:
+verify: _check-hooks
     uvx pre-commit run --all-files
     just test-cov
     just check
+
+_check-hooks:
+    #!/usr/bin/env bash
+    if [ ! -f .git/hooks/pre-push ]; then
+        echo "⚠️  WARNING: Pre-push hook not installed — commits are unprotected before push."
+        echo "👉 Run: pre-commit install -t pre-push"
+    fi
 
 # ─── Cleanup ──────────────────────────────────────────────────────────────
 
