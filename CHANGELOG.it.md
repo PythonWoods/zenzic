@@ -11,6 +11,23 @@ Le versioni seguono il [Semantic Versioning](https://semver.org/).
 
 > **Cronologia di sviluppo (v0.1.0 – v0.6.x):** Consultare l'[Archivio Changelog](CHANGELOG.it.archive.md).
 
+## [Non Rilasciato]
+
+### Modificato
+
+- **Matrice di test — Boundary Testing (parità CI):** `PYTHONS` di Nox aggiornato da
+  `["3.11", "3.12", "3.13"]` a `["3.10", "3.14"]`, specchiando la CI Pillar Matrix
+  (Floor 3.10 / Peak 3.14). Elimina la divergenza "verde in locale ≠ verde in remoto".
+- **Sessioni a versione fissa pinnate al Peak 3.14:** Le sessioni `lint`, `format`,
+  `fmt`, `typecheck`, `reuse`, `security`, `mutation` e `bump` aggiornate da
+  `python="3.11"` a `python="3.14"`.
+- **Floor Mypy abbassato a 3.10:** `[tool.mypy] python_version` modificato da `"3.11"` a
+  `"3.10"`, imponendo la compatibilità al floor dichiarato `requires-python = ">=3.10"`.
+  Il guard `tomllib` / `tomli` (`sys.version_info >= (3, 11)`) e la dipendenza runtime
+  `tomli>=2.0.0; python_version < '3.11'` erano già in posto.
+
+---
+
 ## [0.7.0] — 2026-05-07 — Quartz Maturity (Stable)
 
 > **Documentazione precedente:** Le versioni precedenti a v0.7.0 sono ufficialmente deprecate

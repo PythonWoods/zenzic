@@ -9,12 +9,14 @@ import nox
 nox.options.reuse_existing_virtualenvs = True
 nox.options.default_venv_backend = "uv"
 
-# Nox = isolated environments for multi-version compatibility (3.11/3.12/3.13).
+# Nox = isolated environments for multi-version compatibility (3.10 – 3.14).
 # Daily quality gate is `just verify` (single entry-point — see justfile).
 # NOTE: posargs are forwarded with `--`, e.g.: nox -s lint -- --fix
 nox.options.sessions = ["lint", "format", "typecheck"]
 
-PYTHONS = ["3.11", "3.12", "3.13"]
+# Boundary Testing: mirrors the CI Pillar Matrix (Floor 3.10 / Peak 3.14).
+# Intermediate versions are covered by the full nox-all run in release cycles.
+PYTHONS = ["3.10", "3.14"]
 
 # Per-group sync tuples — each session installs only what it needs.
 _SYNC_TEST = ("uv", "sync", "--active", "--group", "test")
@@ -36,7 +38,7 @@ def tests(session: nox.Session) -> None:
     )
 
 
-@nox.session(python="3.11")
+@nox.session(python="3.14")
 def lint(session: nox.Session) -> None:
     """Run ruff linting checks.
 
@@ -46,35 +48,35 @@ def lint(session: nox.Session) -> None:
     session.run("ruff", "check", *session.posargs, "src/", "tests/")
 
 
-@nox.session(python="3.11")
+@nox.session(python="3.14")
 def format(session: nox.Session) -> None:  # noqa: A001
     """Check code formatting with ruff (read-only, used in CI)."""
     session.run(*_SYNC_LINT, external=True)
     session.run("ruff", "format", "--check", "src/", "tests/")
 
 
-@nox.session(python="3.11")
+@nox.session(python="3.14")
 def fmt(session: nox.Session) -> None:
     """Auto-format code with ruff in place (use during development)."""
     session.run(*_SYNC_LINT, external=True)
     session.run("ruff", "format", "src/", "tests/")
 
 
-@nox.session(python="3.11")
+@nox.session(python="3.14")
 def typecheck(session: nox.Session) -> None:
     """Run static type checking with mypy."""
     session.run(*_SYNC_LINT, external=True)
     session.run("mypy", "src/")
 
 
-@nox.session(python="3.11")
+@nox.session(python="3.14")
 def reuse(session: nox.Session) -> None:
     """Verify REUSE/SPDX license compliance."""
     session.run(*_SYNC_LINT, external=True)
     session.run("reuse", "lint")
 
 
-@nox.session(python="3.11")
+@nox.session(python="3.14")
 def security(session: nox.Session) -> None:
     """Audit third-party dependencies for known CVEs with pip-audit."""
     session.install("pip-audit")
@@ -114,7 +116,7 @@ def security(session: nox.Session) -> None:
     )
 
 
-@nox.session(python="3.11")
+@nox.session(python="3.14")
 def mutation(session: nox.Session) -> None:
     """Run mutation testing with mutmut on the security-critical core modules.
 
@@ -163,7 +165,7 @@ def dev(session: nox.Session) -> None:
     session.run("uv", "run", "pre-commit", "install", "-t", "pre-push", external=True)
 
 
-@nox.session(python="3.11", venv_backend="none")
+@nox.session(python="3.14", venv_backend="none")
 def bump(session: nox.Session) -> None:
     """Bump the project version and create a release commit + tag.
 
