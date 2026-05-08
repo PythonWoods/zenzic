@@ -109,6 +109,15 @@ release part:
         git commit -m "release: bump version to ${version}"
         git tag -a "v${version}" -m "Release v${version}"
 
+# Show the current project version
+version:
+    @uv run --active bump-my-version show current_version
+
+# Simulate a release bump without modifying any files
+# Usage: just release-dry patch|minor|major
+release-dry part:
+    uv run --active bump-my-version bump {{part}} --dry-run --verbose
+
 # ─── Cleanup ──────────────────────────────────────────────────────────────
 
 # Remove generated artefacts (.nox is kept — reuse avoids reinstalling deps)
