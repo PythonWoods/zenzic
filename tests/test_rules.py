@@ -315,7 +315,7 @@ def test_plugin_registry_deduplicates_requested_plugin_ids(
 
     loaded_names: list[str] = []
 
-    def _fake_load(ep: _EP) -> BaseRule:
+    def _fake_load(ep: _EP, *_args: object, **_kwargs: object) -> BaseRule:
         loaded_names.append(ep.name)
         return _PluginTodoRule()
 
