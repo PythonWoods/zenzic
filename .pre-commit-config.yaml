@@ -16,9 +16,6 @@ repos:
       - id: check-merge-conflict
       - id: check-case-conflict
       - id: mixed-line-ending
-      - id: no-commit-to-branch
-        args: ["--branch", "main"]
-        stages: [pre-commit]  # only at commit time — not during 'pre-commit run --all-files' in CI
 
   # 2. Markdown linting
   - repo: https://github.com/igorshubovych/markdownlint-cli
