@@ -9,7 +9,7 @@ from rich import box
 from rich.table import Table
 from rich.text import Text
 
-from zenzic.core.codes import CORE_SCANNERS
+from zenzic.core.codes import CODE_NAMES, CORE_SCANNERS
 from zenzic.core.scanner import find_repo_root
 from zenzic.core.ui import SentinelPalette
 from zenzic.models.config import ZenzicConfig
@@ -183,6 +183,102 @@ inspect_app.command(
     name="capabilities",
     help="Show all built-in scanners, plugin rules, and engine-specific link bypasses.",
 )(_inspect_capabilities)
+
+
+@inspect_app.command(name="codes")
+def inspect_codes(
+    tier: str = typer.Option(
+        "all",
+        "--tier",
+        help="Filter by tier: core, governance, plugin, custom, or all.",
+        show_default=True,
+    ),
+) -> None:
+    """Show code registry grouped by tier with activation status from config."""
+    from zenzic.core.rules import list_plugin_rules
+
+    tier_normalized = tier.strip().lower()
+    valid_tiers = {"core", "governance", "plugin", "custom", "all"}
+    if tier_normalized not in valid_tiers:
+        _shared.console.print(
+            "[bold red]Error:[/] --tier must be one of: core, governance, plugin, custom, all"
+        )
+        raise typer.Exit(1)
+
+    repo_root = find_repo_root()
+    config, _ = ZenzicConfig.load(repo_root)
+
+    def _badge(active: bool) -> str:
+        return "[bold green][ACTIVE][/bold green]" if active else "[dim][inactive][/dim]"
+
+    rows: dict[str, list[tuple[str, str, str]]] = {
+        "core": [],
+        "governance": [],
+        "plugin": [],
+        "custom": [],
+    }
+
+    # Core + Governance (from canonical registry)
+    for code in sorted(CODE_NAMES.keys(), key=lambda c: int(c[1:])):
+        if code.startswith("Z6"):
+            is_active = True
+            if code == "Z601":
+                is_active = bool(config.governance.brand_obsolescence)
+            elif code == "Z602":
+                is_active = config.governance.i18n_parity
+            rows["governance"].append((code, CODE_NAMES[code], _badge(is_active)))
+        else:
+            rows["core"].append((code, CODE_NAMES[code], _badge(True)))
+
+    # Plugin tier (third-party only; core-origin entry points excluded)
+    plugin_infos = [info for info in list_plugin_rules() if info.origin != "zenzic"]
+    for info in plugin_infos:
+        rows["plugin"].append(
+            (info.rule_id, info.source, _badge(info.source in set(config.plugins)))
+        )
+
+    # Custom tier (local TOML custom rules)
+    for cr in config.custom_rules:
+        rows["custom"].append((cr.id, "custom rule", _badge(True)))
+
+    if tier_normalized == "all":
+        selected_tiers = ["core", "governance", "plugin", "custom"]
+    else:
+        selected_tiers = [tier_normalized]
+
+    table = Table(
+        title=f"[bold {SentinelPalette.BRAND}]Code Registry[/] · tier view",
+        title_justify="left",
+        box=box.ROUNDED,
+        border_style=SentinelPalette.DIM,
+        header_style=SentinelPalette.STYLE_BRAND,
+        pad_edge=True,
+        padding=(0, 1),
+    )
+    table.add_column("Tier", style="bold cyan", min_width=12, no_wrap=True)
+    table.add_column("Code", style="bold", min_width=10, no_wrap=True)
+    table.add_column("Name", min_width=20)
+    table.add_column("Status", min_width=10, no_wrap=True)
+
+    title_map = {
+        "core": "Core",
+        "governance": "Governance",
+        "plugin": "Plugin",
+        "custom": "Custom",
+    }
+    for idx, tier_name in enumerate(selected_tiers):
+        tier_rows = rows[tier_name]
+        if not tier_rows:
+            table.add_row(title_map[tier_name], "—", "No entries", "[dim][inactive][/dim]")
+        else:
+            for code, name, status in tier_rows:
+                table.add_row(title_map[tier_name], code, name, status)
+        if idx < len(selected_tiers) - 1:
+            table.add_section()
+
+    _shared.console.print()
+    _shared.console.print(table)
+    _shared.console.print()
 
 
 @inspect_app.command(name="routes")

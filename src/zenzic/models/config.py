@@ -74,9 +74,11 @@ class ProjectMetadata(BaseModel):
         default="",
         description="Current canonical brand/release name shown in Z905 remediation hints.",
     )
+    # Deprecated in v0.8: canonical source moved to [governance].brand_obsolescence.
+    # Kept for runtime compatibility while scanner migration is completed.
     obsolete_names: list[str] = Field(
         default=[],
-        description="Deprecated brand terms that trigger Z905 when found in docs.",
+        description="Deprecated legacy field; populated from [governance].brand_obsolescence.",
     )
     obsolete_names_exclude_patterns: list[str] = Field(
         default=["CHANGELOG*.md", "CHANGELOG*.archive.md"],
@@ -178,6 +180,25 @@ class I18nConfig(BaseModel):
             "Additional base/targets pairs (e.g. for a second Docusaurus "
             "plugin instance such as 'developers')."
         ),
+    )
+
+
+class GovernanceConfig(BaseModel):
+    """Governance toggles declared in ``[governance]``.
+
+    This section controls opt-in governance checks introduced in v0.8.
+    """
+
+    brand_obsolescence: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Deprecated brand terms that activate Z601 BRAND_OBSOLESCENCE "
+            "when present in docs source."
+        ),
+    )
+    i18n_parity: bool = Field(
+        default=False,
+        description="Activate Z602 I18N_PARITY governance reporting.",
     )
 
 
@@ -462,9 +483,13 @@ class ZenzicConfig(BaseModel):
     )
     project_metadata: ProjectMetadata = Field(
         default_factory=ProjectMetadata,
+        description=("Optional metadata used by remediation messaging and legacy compatibility."),
+    )
+    governance: GovernanceConfig = Field(
+        default_factory=GovernanceConfig,
         description=(
-            "Optional brand-integrity metadata. When obsolete_names is non-empty, "
-            "activates the Z905 BRAND_OBSOLESCENCE rule."
+            "Governance toggles for ADR-012 checks. Prefer this section over "
+            "legacy [project_metadata].obsolete_names."
         ),
     )
     plugins: list[str] = Field(
@@ -525,7 +550,9 @@ class ZenzicConfig(BaseModel):
         # The most common pitfall: writing root-level settings AFTER a [section]
         # header (e.g. `[project]`) causes TOML to nest them under that table,
         # which is then silently dropped because `project` is not a known field.
-        _HANDLED_SECTIONS = frozenset({"build_context", "custom_rules", "project_metadata", "i18n"})
+        _HANDLED_SECTIONS = frozenset(
+            {"build_context", "custom_rules", "project_metadata", "governance", "i18n"}
+        )
         for key in data:
             if key not in known_fields and key not in _HANDLED_SECTIONS:
                 if isinstance(data[key], dict):
@@ -559,9 +586,38 @@ class ZenzicConfig(BaseModel):
                 **{
                     k: v
                     for k, v in data["project_metadata"].items()
-                    if k in ProjectMetadata.model_fields
+                    if k in ProjectMetadata.model_fields and k != "obsolete_names"
                 }
             )
+        if "governance" in data and isinstance(data["governance"], dict):
+            filtered_data["governance"] = GovernanceConfig(
+                **{
+                    k: v
+                    for k, v in data["governance"].items()
+                    if k in GovernanceConfig.model_fields
+                }
+            )
+
+        # Legacy migration path (v0.8): [project_metadata].obsolete_names ->
+        # [governance].brand_obsolescence.
+        legacy_obsolete: list[str] = []
+        if "project_metadata" in data and isinstance(data["project_metadata"], dict):
+            raw_legacy = data["project_metadata"].get("obsolete_names", [])
+            if isinstance(raw_legacy, list):
+                legacy_obsolete = [name for name in raw_legacy if isinstance(name, str)]
+        if legacy_obsolete:
+            _cfg_log.warning("Deprecated in v0.8: moved to [governance].brand_obsolescence")
+            governance_cfg = filtered_data.get("governance", GovernanceConfig())
+            if not governance_cfg.brand_obsolescence:
+                governance_cfg.brand_obsolescence = legacy_obsolete
+            filtered_data["governance"] = governance_cfg
+
+        # Runtime compatibility bridge for current scanner wiring.
+        governance_cfg = filtered_data.get("governance")
+        if governance_cfg is not None and governance_cfg.brand_obsolescence:
+            metadata_cfg = filtered_data.get("project_metadata", ProjectMetadata())
+            metadata_cfg.obsolete_names = list(governance_cfg.brand_obsolescence)
+            filtered_data["project_metadata"] = metadata_cfg
         if "i18n" in data and isinstance(data["i18n"], dict):
             i18n_raw = data["i18n"]
             extra_raw = i18n_raw.get("extra_sources", []) or []
