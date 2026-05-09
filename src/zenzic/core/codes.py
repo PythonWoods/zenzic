@@ -39,6 +39,8 @@ Z4xx — Structure
     Z402  ORPHAN_PAGE          — Markdown file not listed in the site navigation
     Z403  MISSING_ALT          — image element has no alt text
     Z404  CONFIG_ASSET_MISSING — infrastructure asset referenced in engine config not found on disk
+     Z405  UNUSED_ASSET         — asset file not referenced by any documentation page
+     Z406  NAV_CONTRACT         — navigation contract violation
 
 Z5xx — Content Quality
     Z501  PLACEHOLDER          — page contains stub / TODO content
@@ -47,14 +49,14 @@ Z5xx — Content Quality
     Z504  QUALITY_REGRESSION   — Sentinel Scorer detected score drop vs saved baseline
     Z505  UNTAGGED_CODE_BLOCK  — fenced code block has no language specifier
 
+Z6xx — Governance (opt-in)
+     Z601  BRAND_OBSOLESCENCE   — deprecated brand term found in documentation source
+     Z602  I18N_PARITY          — base-language doc lacks mirror in a target language, or frontmatter parity mismatch
+
 Z9xx — Engine / System
     Z901  RULE_ENGINE_ERROR    — plugin rule raised an unexpected exception
     Z902  RULE_TIMEOUT         — plugin rule exceeded the per-file time limit (ReDoS guard)
-    Z903  UNUSED_ASSET         — asset file not referenced by any documentation page
-    Z904  NAV_CONTRACT         — navigation contract violation
-    Z905  BRAND_OBSOLESCENCE   — deprecated brand term found in documentation source
     Z906  NO_FILES_FOUND       — target directory contains no Markdown sources (audit skipped)
-    Z907  I18N_PARITY          — base-language doc lacks mirror in a target language, or frontmatter parity mismatch
 """
 
 from __future__ import annotations
@@ -90,6 +92,37 @@ class ZenzicExitCode:
     SENTINEL: int = 3
 
 
+# ── Stability Contract ────────────────────────────────────────────────────────
+
+FROZEN_CODES: frozenset[str] = frozenset(
+    {
+        "Z000",
+        "Z201",
+        "Z202",
+        "Z203",
+        "Z204",
+    }
+)
+
+NON_SUPPRESSIBLE_CODES: frozenset[str] = frozenset(
+    {
+        "Z201",
+        "Z202",
+        "Z203",
+        "Z204",
+    }
+)
+
+PLUGIN_FORBIDDEN_EXITS: frozenset[int] = frozenset({2, 3})
+
+LEGACY_TO_CODE: dict[str, str] = {
+    "Z903": "Z405",
+    "Z904": "Z406",
+    "Z905": "Z601",
+    "Z907": "Z602",
+}
+
+
 #: Human-readable name for each code (for report headers).
 CODE_NAMES: dict[str, str] = {
     "Z000": "UNSUPPORTED_ENGINE",
@@ -114,18 +147,18 @@ CODE_NAMES: dict[str, str] = {
     "Z402": "ORPHAN_PAGE",
     "Z403": "MISSING_ALT",
     "Z404": "CONFIG_ASSET_MISSING",
+    "Z405": "UNUSED_ASSET",
+    "Z406": "NAV_CONTRACT",
     "Z501": "PLACEHOLDER",
     "Z502": "SHORT_CONTENT",
     "Z503": "SNIPPET_ERROR",
     "Z504": "QUALITY_REGRESSION",
     "Z505": "UNTAGGED_CODE_BLOCK",
+    "Z601": "BRAND_OBSOLESCENCE",
+    "Z602": "I18N_PARITY",
     "Z901": "RULE_ENGINE_ERROR",
     "Z902": "RULE_TIMEOUT",
-    "Z903": "UNUSED_ASSET",
-    "Z904": "NAV_CONTRACT",
-    "Z905": "BRAND_OBSOLESCENCE",
     "Z906": "NO_FILES_FOUND",
-    "Z907": "I18N_PARITY",
 }
 
 #: Short description of each code for SARIF ``shortDescription`` and human display.
@@ -158,20 +191,21 @@ CODE_DESCRIPTIONS: dict[str, str] = {
     "Z402": "Markdown file not listed in the site navigation",
     "Z403": "Image element has no alt text",
     "Z404": "Asset referenced in engine config not found on disk",
+    "Z405": "Asset file not referenced by any documentation page",
+    "Z406": "Navigation contract violation detected",
     # Z5xx — Content Quality
     "Z501": "Page contains placeholder or stub content",
     "Z502": "Page word count is below the minimum threshold",
     "Z503": "Fenced code block contains a syntax error",
     "Z504": "Documentation quality score regressed below the saved baseline",
     "Z505": "Fenced code block has no language specifier",
+    # Z6xx — Governance
+    "Z601": "Deprecated brand term found in documentation source",
+    "Z602": "Translation mirror missing or frontmatter parity violation",
     # Z9xx — Engine / System
     "Z901": "Plugin rule raised an unexpected exception",
     "Z902": "Plugin rule exceeded the per-file time limit (ReDoS guard)",
-    "Z903": "Asset file not referenced by any documentation page",
-    "Z904": "Navigation contract violation detected",
-    "Z905": "Deprecated brand term found in documentation source",
     "Z906": "Target directory contains no Markdown sources — audit skipped",
-    "Z907": "Translation mirror missing or frontmatter parity violation",
 }
 
 #: Default SARIF ``defaultConfiguration.level`` for each code.
@@ -205,6 +239,11 @@ CODE_SARIF_LEVELS: dict[str, str] = {
     "Z402": "warning",
     "Z403": "warning",
     "Z404": "warning",
+    "Z405": "warning",
+    "Z406": "warning",
+    # Z6xx — Governance: warnings
+    "Z601": "warning",
+    "Z602": "warning",
     # Z5xx — Content Quality: warnings
     "Z501": "warning",
     "Z502": "warning",
@@ -214,11 +253,7 @@ CODE_SARIF_LEVELS: dict[str, str] = {
     # Z9xx — Engine / System: warnings (except Z906 which is informational)
     "Z901": "warning",
     "Z902": "warning",
-    "Z903": "warning",
-    "Z904": "warning",
-    "Z905": "warning",
     "Z906": "note",
-    "Z907": "warning",
 }
 
 
@@ -332,7 +367,7 @@ CORE_SCANNERS: list[CoreScanner] = [
         non_suppressible=False,
     ),
     CoreScanner(
-        codes="Z903",
+        codes="Z405",
         name="Asset Sentry",
         capability="Unused images and media files not referenced anywhere in the docs tree",
         primary_exit=1,
@@ -356,22 +391,22 @@ CORE_SCANNERS: list[CoreScanner] = [
         non_suppressible=False,
     ),
     CoreScanner(
-        codes="Z905",
+        codes="Z601",
         name="Brand Integrity Guard",
         capability=(
-            "Deprecated brand term detection \u2014 configurable via [project_metadata], "
-            "suppressed per-line with <!-- zenzic:ignore Z905 --> (Markdown) or {/* zenzic:ignore Z905 */} (MDX)"
+            "Deprecated brand term detection \u2014 configurable via [governance], "
+            "suppressed per-line with <!-- zenzic:ignore Z601 --> (Markdown) or {/* zenzic:ignore Z601 */} (MDX)"
         ),
         primary_exit=1,
         non_suppressible=False,
     ),
     CoreScanner(
-        codes="Z907",
+        codes="Z602",
         name="I18N Parity Guard",
         capability=(
             "Cross-language mirror integrity \u2014 every base-language doc must "
             "have a translation in each configured target root, with matching "
-            "frontmatter keys (opt-in via [i18n] section, language-agnostic)"
+            "frontmatter keys (opt-in via [governance] section, language-agnostic)"
         ),
         primary_exit=1,
         non_suppressible=False,

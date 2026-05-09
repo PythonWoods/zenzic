@@ -130,7 +130,7 @@ zenzic check all  # Audit the current directory
 | Placeholder content | `check placeholders` | Stub pages and forbidden text patterns | 1 |
 | Unused assets | `check assets` | Images and files not referenced anywhere | 1 |
 | Config asset integrity | `check all` | Favicon and OG image paths declared in engine config confirmed on disk (`Z404`) | 1 |
-| Brand integrity | `check all` | Obsolete release codenames (`Z905`) — configurable via `[project_metadata]` | 1 |
+| Brand integrity | `check all` | Obsolete release codenames (`Z601`) — configurable via `[governance]` | 1 |
 | **Credential scanning** | `check references` | **9 credential families** — text, URLs, code blocks | **2** |
 | **Path traversal** | `check links` | System-path escape attempts | **3** |
 | **Enterprise reporting** | `check all --format sarif` | SARIF 2.1.0 output for GitHub Code Scanning — inline PR annotations | 1/2/3 |
@@ -335,7 +335,7 @@ zenzic lab [--act N] [--list]
 ## 📟 Visual Tour
 
 <p align="center">
-  <img src="assets/brand/svg/zenzic-terminal-obsidian.svg" alt="Zenzic Sentinel Report — All checks passed, score 100/100" width="720"><!-- zenzic:ignore Z905 -->
+  <img src="assets/brand/svg/zenzic-terminal-report.svg" alt="Zenzic Sentinel Report — All checks passed, score 100/100" width="720">
 </p>
 
 Visit the [documentation portal][docs-home] for interactive screenshots and rich examples.

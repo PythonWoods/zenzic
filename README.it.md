@@ -80,6 +80,21 @@ zenzic check all  # Analizza la cartella corrente
 
 ---
 
+> 🚀 **CI/CD Ready:** Usa la [Official Zenzic Action](https://github.com/PythonWoods/zenzic-action) per eseguire Zenzic in GitHub Actions — i finding appaiono direttamente in Code Scanning, nelle annotazioni PR e nella tab Security.
+>
+> ```yaml
+> - uses: PythonWoods/zenzic-action@v1
+>   with:
+>     format: sarif
+>     upload-sarif: "true"
+> ```
+
+<p align="center">
+  <img alt="GitHub Code Scanning con finding Zenzic" src="https://raw.githubusercontent.com/PythonWoods/zenzic-action/main/assets/sarif-showcase.svg" width="760">
+</p>
+
+---
+
 ## 🎯 Perché Zenzic?
 
 | Senza Zenzic | Con Zenzic |
@@ -115,7 +130,7 @@ zenzic check all  # Analizza la cartella corrente
 | Contenuto placeholder | `check placeholders` | Pagine stub e pattern di testo vietati | 1 |
 | Asset inutilizzati | `check assets` | Immagini e file non referenziati | 1 |
 | Integrità asset di config | `check all` | Percorsi di favicon e OG image dichiarati nella config del motore verificati su disco (`Z404`) | 1 |
-| Integrità del brand | `check all` | Codename di release obsoleti (`Z905`) — configurabile via `[project_metadata]` | 1 |
+| Integrità del brand | `check all` | Codename di release obsoleti (`Z601`) — configurabile via `[governance]` | 1 |
 | **Scansione credenziali** | `check references` | **9 famiglie di credenziali** — testo, URL, blocchi di codice | **2** |
 | **Path traversal** | `check links` | Tentativi di fuga verso path di sistema | **3** |
 | **Report enterprise** | `check all --format sarif` | Output SARIF 2.1.0 per GitHub Code Scanning — annotazioni inline nella PR | 1/2/3 |
@@ -321,23 +336,9 @@ zenzic lab [--act N] [--list]
 
 ## 📟 Tour Visivo
 
-```text
-╭───────────────────────  🛡  ZENZIC SENTINEL  v0.7.1  ────────────────────────╮
-│                                                                              │
-│  docusaurus • 38 file (18 docs, 20 asset) • 0.9s                             │
-│                                                                              │
-│  ────────────────────── docs/guides/setup.mdx ───────────────────────────  │
-│                                                                              │
-│    ✗ 12:   [Z001]  'quickstart.mdx' non trovato in docs                      │
-│        │                                                                     │
-│    12  │ Leggi la [guida quickstart](quickstart.mdx) prima.                  │
-│        │                                                                     │
-│  ──────────────────────────────────────────────────────────────────────────  │
-│                                                                              │
-│  ✗ 1 errore  • 1 file con risultati • FALLITO                                │
-│                                                                              │
-╰──────────────────────────────────────────────────────────────────────────────╯
-```
+<p align="center">
+  <img src="assets/brand/svg/zenzic-terminal-report.svg" alt="Zenzic Sentinel Report — all checks passed, score 100/100" width="720">
+</p>
 
 Visita il [portale di documentazione][docs-it-home] per screenshot interattivi ed esempi ricchi.
 

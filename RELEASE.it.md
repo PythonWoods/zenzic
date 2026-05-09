@@ -1,20 +1,24 @@
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
-# 💎 Zenzic v0.7.1 — L'Era del Quarzo (Quartz Maturity)
+# 🪨 Zenzic v0.8.0 — Basalto (L'Era delle Fondamenta)
 
-Questa release segna la nascita del Sistema di Conoscenza Sovrano. Dopo l'Epurazione del Quarzo, Zenzic abbandona definitivamente ogni residuo sperimentale per diventare un'infrastruttura deterministica di grado industriale.
+Questo ciclo formalizza il contratto pubblico del namespace dei finding prima
+della scalata dell'ecosistema plugin. Il registro codici è ora strutturato per
+ownership e stabilità: i segnali core/system restano protetti, le regole di
+governance vengono spostate in una banda dedicata, e i finding strutturali
+sono mappati sul dominio corretto. La semantica di sicurezza Exit 2/3 è
+trattata come contratto operativo immutabile, con superfici esplicite
+(`FROZEN_CODES`, `NON_SUPPRESSIBLE_CODES`, `PLUGIN_FORBIDDEN_EXITS`) che
+irrobustiscono la compatibilità CI nel lungo periodo e aprono una traiettoria
+pulita per i plugin di terze parti.
 
-## 🏛️ I Pilastri della v0.7.1
+---
 
-- **Integrità Deterministica**: Assenza integrale di ogni dipendenza o logica probabilistica. Zenzic opera ora esclusivamente su fatti strutturali e invarianti certe.
-- **Sentinel Seal**: Un sistema di validazione a 4 stadi (4-Gates Standard) che garantisce la qualità assoluta prima di ogni push.
-- **Sovranità Cross-Repo**: Implementazione della Branch Parity Rule per una sincronizzazione perfetta tra codice e documentazione.
-- **Machine Silence**: Ottimizzazione dei flussi di analisi per l'integrazione nativa in pipeline CI/CD tramite standard SARIF 2.1.0.
-- **Privacy Gate Sovrano (Z204)**: Il Privacy Gate Enterprise Z204 con `.zenzic.local.toml` garantisce che i termini sensibili del progetto — codename, endpoint interni, PII — non escano mai dalla macchina dello sviluppatore. `.zenzic.dev.toml` è rimosso definitivamente: non esiste più per il motore.
+## � Release Storica — v0.7.1 (Patch Infrastrutturale)
 
-## ⚠️ Nota di Evoluzione (Breaking Changes)
+La v0.7.1 è una patch infrastrutturale silenziosa: allineamento CI/CD, correzione matrice Nox, e enforcement di default Zero-Config. Non porta significato architetturale o narrativo; tutti i risultati fondazionali appartengono esclusivamente a v0.7.0 (Quartz Maturity, Anno Zero).
 
-La v0.7.1 è l'Anno Zero. Le versioni precedenti sono ufficialmente deprecate poiché non seguono l'attuale architettura Diátaxis. Ogni riferimento ai vecchi brand o alle architetture legacy è stato rimosso per far posto a un ecosistema snello e focalizzato sulla purezza della sorgente.
+**Versioni precedenti** a v0.7.0 sono ufficialmente deprecate e non seguono l'attuale architettura Diátaxis.
 
 ## 🚀 Verso il Futuro
 

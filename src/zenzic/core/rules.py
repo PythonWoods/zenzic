@@ -555,14 +555,6 @@ _FENCE_OPEN_RE = re.compile(r"^(?P<fence>[`~]{3,})(?P<info>.*)$")
 #: every file format Zenzic audits.
 _SUPPRESS_RE = re.compile(r"(?:<!--|\{/\*)\s*zenzic:ignore\s+(?P<code>Z\d{3})\s*(?:-->|\*/\})")
 
-#: CEO-152 — The Suppression Manifesto: Inviolability Law.
-#: Security findings are facts, not suggestions.  These codes are permanently
-#: non-suppressible via per-line ``zenzic:ignore`` comments.  The Shield and
-#: Blood Sentinel scanners operate independently of the rule engine and never
-#: consult this function, but this guard future-proofs the contract: even if a
-#: Z2xx finding were ever routed through the rule engine it could not be silenced.
-_INVIOLABLE_CODES: frozenset[str] = frozenset({"Z201", "Z202", "Z203"})
-
 
 def _is_suppressed(line: str, code: str) -> bool:
     """Return ``True`` if *line* carries a ``zenzic:ignore`` comment for *code*.
@@ -571,21 +563,23 @@ def _is_suppressed(line: str, code: str) -> bool:
 
     In ``.md`` files use an HTML comment (invisible in rendered Markdown)::
 
-        Obsidian was the v0.6.x codename. <!-- zenzic:ignore Z905 -->
+        Obsidian was the v0.6.x codename. <!-- zenzic:ignore Z601 -->
 
     In ``.mdx`` files use a JSX comment (invisible in rendered MDX and safe
     for the Docusaurus/React parser)::
 
-        Obsidian was the v0.6.x codename. {/* zenzic:ignore Z905 */}
+        Obsidian was the v0.6.x codename. {/* zenzic:ignore Z601 */}
 
     Each suppression comment silences **only** the specified diagnostic code
     on the tagged line.  To suppress multiple codes, add multiple comments.
 
-    **CEO-152 — Inviolability Law:** Security findings (Z201, Z202, Z203)
+    **CEO-152 — Inviolability Law:** Security findings (Z201, Z202, Z203, Z204)
     always return ``False`` unconditionally.  Security findings are facts,
     not suggestions — a credential leak cannot be declared a false positive.
     """
-    if code in _INVIOLABLE_CODES:
+    from zenzic.core.codes import NON_SUPPRESSIBLE_CODES
+
+    if code in NON_SUPPRESSIBLE_CODES:
         return False
     m = _SUPPRESS_RE.search(line)
     return m is not None and m.group("code") == code
@@ -714,16 +708,16 @@ if TYPE_CHECKING:
 
 
 class BrandObsolescenceRule(BaseRule):
-    """Z905 — Detect deprecated brand terms in documentation source.
+    """Z601 — Detect deprecated brand terms in documentation source.
 
     Activated only when ``[project_metadata] obsolete_names`` is non-empty in
     ``zenzic.toml``.  Emits a warning for each occurrence of an obsolete name
     found in documentation source files.
 
     **Suppression (CEO-142 — Silent Sentinel Protocol):** Add an HTML comment
-    to the end of any line to silence Z905 for that specific occurrence::
+    to the end of any line to silence Z601 for that specific occurrence::
 
-        Obsidian was the v0.6.x codename. <!-- zenzic:ignore Z905 -->
+        Obsidian was the v0.6.x codename. <!-- zenzic:ignore Z601 -->
 
     The comment is invisible in rendered Markdown and MDX output.  The
     deprecated token ``[HISTORICAL]`` is no longer recognised — it is visible
@@ -748,7 +742,7 @@ class BrandObsolescenceRule(BaseRule):
 
     @property
     def rule_id(self) -> str:
-        return "Z905"
+        return "Z601"
 
     def check(self, file_path: Path, text: str) -> list[RuleFinding]:
         if not self._patterns:
@@ -785,7 +779,7 @@ class BrandObsolescenceRule(BaseRule):
                         open_char = ""
                         open_count = 0
                 continue  # skip all body lines inside the fence block
-            if _is_suppressed(line, "Z905"):
+            if _is_suppressed(line, "Z601"):
                 continue
             for pat in self._patterns:
                 for m in pat.finditer(line):
@@ -796,7 +790,7 @@ class BrandObsolescenceRule(BaseRule):
                             rule_id=self.rule_id,
                             message=(
                                 f"Obsolete brand term '{m.group(0)}':{hint} "
-                                "Add <!-- zenzic:ignore Z905 --> to the line to suppress intentional references."
+                                "Add <!-- zenzic:ignore Z601 --> to the line to suppress intentional references."
                             ),
                             severity="warning",
                             matched_line=line,

@@ -1,23 +1,23 @@
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
-# 💎 Zenzic v0.7.1 — The Quartz Era (Quartz Maturity)
+# 🪨 Zenzic v0.8.0 — Basalt (The Age of Foundations)
 
-This release marks the birth of the Sovereign Knowledge System. Following the Quartz Purgation, Zenzic definitively abandons all experimental residues to become a deterministic, industrial-grade infrastructure.
+This cycle establishes the public namespace contract for findings before the
+plugin ecosystem scales. The code registry is now tiered by ownership and
+stability: core/system signals remain protected, governance rules move to a
+dedicated lane, and structural findings are mapped to the correct domain.
+Exit 2/3 security semantics are treated as immutable operational contracts,
+with explicit frozen surfaces (`FROZEN_CODES`, `NON_SUPPRESSIBLE_CODES`, and
+`PLUGIN_FORBIDDEN_EXITS`) that harden long-term CI compatibility while opening
+a clean path for third-party plugins.
 
-## 🏛️ The Pillars of v0.7.1
+---
 
-- **Deterministic Integrity**: Complete absence of any probabilistic dependency or logic. Zenzic now operates exclusively on structural facts and certain invariants.
-- **Sentinel Seal**: A 4-stage validation system (4-Gates Standard) ensuring absolute quality before every push.
-- **Cross-Repo Governance**: Implementation of the Branch Parity Rule for perfect synchronization between code and documentation.
-- **Sovereign Privacy Gate**: The Z204 Enterprise Privacy Gate (`.zenzic.local.toml`) ensures
-  that sensitive project vocabulary — codenames, internal endpoints, PII — never escapes the
-  developer's machine. `.zenzic.dev.toml` is gone; `.zenzic.local.toml` is the only
-  supported local configuration file.
-- **Machine Silence**: Optimization of analysis flows for native CI/CD integration via the SARIF 2.1.0 standard.
+## � Historical Release — v0.7.1 (Infrastructure Patch)
 
-## ⚠️ Evolution Note (Breaking Changes)
+v0.7.1 is a silent infrastructure patch: CI/CD alignment, Nox matrices fix, and Zero-Config default enforcement. It carries no architectural or narrative significance; all foundational achievements belong exclusively to v0.7.0 (Quartz Maturity, Year Zero).
 
-v0.7.1 is Year Zero. Previous versions are officially deprecated as they do not follow the current Diátaxis architecture. Every reference to old brands or legacy architectures has been removed to make way for a lean ecosystem focused on source purity.
+**Previous versions** prior to v0.7.0 are officially deprecated and do not follow the current Diátaxis architecture.
 
 ## 🚀 Towards the Future
 
