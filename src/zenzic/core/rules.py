@@ -1180,11 +1180,36 @@ class PluginRegistry:
 
         loaded: list[BaseRule] = []
         for pid in requested:
-            loaded.append(self._load_entry_point(eps_by_name[pid]))
+            rule = self._load_entry_point(eps_by_name[pid])
+            self._validate_plugin_code(rule, pid)
+            loaded.append(rule)
         return loaded
 
-    @staticmethod
-    def _load_entry_point(ep: EntryPoint) -> BaseRule:
+    def _validate_plugin_code(self, rule: BaseRule, plugin_id: str) -> None:
+        """Enforce third-party plugin code/exit namespace contracts.
+
+        Contract:
+        - Plugins must not emit core ``Zxxx`` namespace codes.
+        - Plugin codes must be prefixed as ``<plugin-id>:<code>``.
+        - Plugins cannot emit security exit codes reserved for core scanners.
+        """
+        from zenzic.core.codes import PLUGIN_FORBIDDEN_EXITS
+        from zenzic.core.exceptions import PluginContractError  # deferred: avoid circular import
+
+        code = getattr(rule, "code", None)
+        if isinstance(code, str):
+            if re.fullmatch(r"Z\d{3}", code):
+                raise PluginContractError(
+                    "Third-party plugins must use '<plugin-id>:<code>' format"
+                )
+            if not code.startswith(f"{plugin_id}:"):
+                raise PluginContractError(f"Plugin code '{code}' must start with '{plugin_id}:'.")
+
+        primary_exit = getattr(rule, "primary_exit", None)
+        if isinstance(primary_exit, int) and primary_exit in PLUGIN_FORBIDDEN_EXITS:
+            raise PluginContractError("Plugins cannot emit Exit 2 or 3")
+
+    def _load_entry_point(self, ep: EntryPoint) -> BaseRule:
         """Load and instantiate one entry-point as a :class:`BaseRule`."""
         from zenzic.core.exceptions import PluginContractError  # deferred: avoid circular import
 
