@@ -30,7 +30,7 @@ from pathlib import Path
 if sys.version_info >= (3, 11):
     import tomllib
 else:
-    import tomli as tomllib  # type: ignore[no-redef]  # PEP 680 backport
+    import tomli as tomllib  # PEP 680 backport
 from typing import TYPE_CHECKING, Any
 
 from zenzic.core.adapters._mkdocs import MkDocsAdapter, _load_doc_config, find_config_file

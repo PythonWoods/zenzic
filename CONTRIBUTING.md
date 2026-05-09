@@ -64,7 +64,7 @@ uvx pre-commit install              # commit-stage: light hooks (ruff, format, h
 uvx pre-commit install -t pre-push  # pre-push: 🛡️ Final Guard runs `just verify`
 ```
 
-The pre-push hook is the atomic gate of EPOCH 4 / v0.7.0: a single
+The pre-push hook is the atomic gate of EPOCH 4 / v0.7.1: a single
 entry-point (`just verify`) runs both locally and in GitHub Actions —
 **locale ≡ remote, no drift**. Pushes are blocked when any of the
 4 Gates (pre-commit hooks, coverage, tests, `zenzic check all`) fails.
@@ -115,6 +115,10 @@ the exact same environment as CI.
 | Test (thorough) | `just test-full` | — | pytest with Hypothesis **ci** profile (500 examples) |
 | Mutation testing | — | `nox -s mutation` | mutmut on `rules.py`, `shield.py`, `reporter.py` |
 | **Final Guard** | **`just verify`** | — | **pre-commit + test-cov + check — runs automatically on `git push`** |
+| Show version | `just version` | — | Print current version from bump-my-version |
+| Release dry-run | `just release-dry patch` | — | Simulate a bump (full diff output) |
+| Release dry-run (compact) | `just release-dry patch --short` | — | Simulate a bump — 3-line summary only |
+| Contract check | `just release-contracts` | — | Verify justfile architectural contracts (run by `verify`) |
 | Clean | `just clean` | — | Remove `dist/`, `.hypothesis/`, caches |
 | Version bump | — | `nox -s bump -- patch` | bump version + commit + tag |
 
@@ -145,7 +149,7 @@ paths in any contribution, use `pathlib.Path` throughout — never string concat
 > Node 24 runner environment. GitHub-hosted runners (`ubuntu-latest`) satisfy this
 > automatically; self-hosted runners must use Node ≥ 24.
 
-### CI Pillar Matrix (v0.7.0)
+### CI Pillar Matrix (v0.7.1)
 
 Zenzic adopts a **Pillar Matrix** strategy — testing the boundaries rather than every
 intermediate version:

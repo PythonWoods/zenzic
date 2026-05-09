@@ -14,7 +14,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "zenzic"
-version = "0.7.0"
+version = "0.7.1"
 description = "Engineering-grade, engine-agnostic linter and security shield for Markdown documentation"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -148,7 +148,7 @@ indent-style = "space"
 # ─── Mypy ─────────────────────────────────────────────────────────────────────
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.10"
 strict = true
 ignore_missing_imports = true
 
@@ -201,11 +201,7 @@ pytest_add_cli_args = ["--import-mode=prepend"]
 # ─── Version bumping ───────────────────────────────────────────────────────────
 
 [tool.bumpversion]
-current_version = "0.7.0"
-commit = true
-tag = true
-tag_name = "v{new_version}"
-message = "release: bump version {current_version} → {new_version}"
+current_version = "0.7.1"
 parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)((?P<pre_l>a|b|rc)(?P<pre_n>\\d+))?"
 serialize = [
     "{major}.{minor}.{patch}{pre_l}{pre_n}",
@@ -280,13 +276,11 @@ search = "v{current_version}"
 replace = "v{new_version}"
 
 [[tool.bumpversion.files]]
-# Requires zenzic-doc checked out as sibling directory: ../zenzic-doc/
-# bump-my-version exits non-zero if the pattern is not found — D077 hardening.
-filename = "../zenzic-doc/static/assets/brand/zenzic-brand-system.html"
+filename = "RELEASE.it.md"
 search = "v{current_version}"
 replace = "v{new_version}"
 
 [[tool.bumpversion.files]]
 filename = ".github/ISSUE_TEMPLATE/security_vulnerability.yml"
-search = '"{current_version}"'
-replace = '"{new_version}"'
+search = 'placeholder: "{current_version}"'
+replace = 'placeholder: "{new_version}"'

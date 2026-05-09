@@ -76,10 +76,69 @@ lint:
 
 # Final Guard: atomic verification invoked by pre-push hook + GHA.
 # Sequence: pre-commit (all hooks) → test-cov (with coverage gate) → zenzic self-check.
-verify:
+verify: _check-hooks release-contracts
     uvx pre-commit run --all-files
     just test-cov
     just check
+
+_check-hooks:
+    #!/usr/bin/env bash
+    if [ ! -f .git/hooks/pre-push ]; then
+        echo -e "\033[33m⚠️  WARNING: Pre-push hook is not installed.\033[0m"
+        echo "Without it, you might accidentally push broken code to GitHub and fail the remote CI."
+        echo "👉 Fix it by running: uvx pre-commit install -t pre-push"
+        echo ""
+    fi
+
+# Enforce release contracts: dirty allowed only in release-dry.
+release-contracts:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    grep -qE '^version:' justfile
+    grep -qE '^release part:' justfile
+    grep -qE '^release-dry part' justfile
+    grep -q -- '--dry-run --allow-dirty --verbose' justfile
+    if sed -n '/^release part:/,/^[^[:space:]].*:/p' justfile | tail -n +2 | grep -q -- '--allow-dirty'; then
+        echo "release-contracts failed: release part must not use --allow-dirty"
+        exit 1
+    fi
+
+# Release orchestration: explicit, transparent, and lockfile-first.
+release part:
+        #!/usr/bin/env bash
+        set -euo pipefail
+        case "{{ part }}" in
+            patch|minor|major) ;;
+            *) echo "Invalid part '{{ part }}'. Use patch|minor|major"; exit 2 ;;
+        esac
+        uv run --active bump-my-version bump {{ part }}
+        uv sync
+        version="$(uv run --active bump-my-version show current_version)"
+        if git rev-parse "v${version}" >/dev/null 2>&1; then
+            echo "Tag v${version} already exists. Aborting."
+            exit 3
+        fi
+        git add -u
+        git commit -m "release: bump version to ${version}"
+        git tag -a "v${version}" -m "Release v${version}"
+
+# Show the current project version
+version:
+    @uv run --active bump-my-version show current_version
+
+# Simulate a release bump without modifying any files
+# Usage: just release-dry patch|minor|major [--short]
+release-dry part *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    _short=false
+    for _arg in {{args}}; do [[ "$_arg" == "--short" ]] && _short=true; done
+    if $_short; then
+        uv run --active bump-my-version bump {{part}} --dry-run --allow-dirty --verbose 2>&1 \
+            | grep -E 'current version|New version will be|Dry run'
+    else
+        uv run --active bump-my-version bump {{part}} --dry-run --allow-dirty --verbose
+    fi
 
 # ─── Cleanup ──────────────────────────────────────────────────────────────
 

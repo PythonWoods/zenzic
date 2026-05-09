@@ -7,6 +7,9 @@ Every finding Zenzic emits carries a stable machine-readable code of the form
 
 Schema
 ------
+Z0xx — Migration & Compatibility
+    Z000  UNSUPPORTED_ENGINE   — unsupported/removed engine identifier; ConfigurationError before analysis
+
 Z1xx — Link Integrity
     Z101  LINK_BROKEN          — target file not found in the Virtual Site Map
     Z102  ANCHOR_MISSING       — fragment target (#anchor) not defined on the page
@@ -89,6 +92,7 @@ class ZenzicExitCode:
 
 #: Human-readable name for each code (for report headers).
 CODE_NAMES: dict[str, str] = {
+    "Z000": "UNSUPPORTED_ENGINE",
     "Z101": "LINK_BROKEN",
     "Z102": "ANCHOR_MISSING",
     "Z103": "ORPHAN_LINK",
@@ -127,6 +131,8 @@ CODE_NAMES: dict[str, str] = {
 #: Short description of each code for SARIF ``shortDescription`` and human display.
 #: Single source of truth — never duplicate these strings in other modules.
 CODE_DESCRIPTIONS: dict[str, str] = {
+    # Z0xx — Migration & Compatibility
+    "Z000": "Unsupported or removed engine identifier in zenzic.toml — configuration guard raised before analysis begins",
     # Z1xx — Link Integrity
     "Z101": "Link target not found in the Virtual Site Map",
     "Z102": "Fragment anchor (#anchor) not defined on the target page",
@@ -172,6 +178,8 @@ CODE_DESCRIPTIONS: dict[str, str] = {
 #: Z1xx/Z2xx → "error" | Z3xx–Z9xx quality → "warning" | Z906 informational → "note"
 #: Individual Finding severity always takes precedence at result level.
 CODE_SARIF_LEVELS: dict[str, str] = {
+    # Z0xx — Migration & Compatibility: fatal error (aborts before analysis begins)
+    "Z000": "error",
     # Z1xx — Link Integrity: errors (broken links block the user experience)
     "Z101": "error",
     "Z102": "error",

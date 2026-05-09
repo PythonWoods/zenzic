@@ -34,7 +34,7 @@ from typing import TYPE_CHECKING
 
 
 if TYPE_CHECKING:
-    from typing import Self  # PEP 673; available at runtime only from Python 3.11+
+    from typing_extensions import Self  # PEP 673; typing.Self requires Python 3.11+
 
 from zenzic.models.config import (
     SYSTEM_EXCLUDED_DIRS,
