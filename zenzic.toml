@@ -87,9 +87,11 @@ message  = "Avoid generic link text. Use a meaningful description for accessibil
 severity = "error"
 
 # ── Brand integrity ──────────────────────────────────────────────────────────
-# Detect deprecated brand terms in documentation source (Z905).
+# Detect deprecated brand terms in documentation source (Z601).
 # CHANGELOG*.md is excluded by default (historical prose allowed).
 # Use [HISTORICAL] inline to suppress intentional references in other files.
 [project_metadata]
 release_name = "Quartz"
-obsolete_names = ["Obsidian", "Ossidiana"]
+
+[governance]
+brand_obsolescence = ["Obsidian", "Ossidiana"]
