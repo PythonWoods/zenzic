@@ -337,3 +337,133 @@ class TestJsonFormatE2E:
         data = json.loads(result.stdout)
         assert data["summary"]["errors"] > 0
         assert len(data["findings"]) > 0
+
+
+class TestSuppressionCapE2E:
+    """Release A CAP contract: 30 allowed, 31 blocks with guidance."""
+
+    @staticmethod
+    def _make_cap_sandbox(tmp_path: Path, inline_count: int, cap: int = 30) -> Path:
+        toml = tmp_path / "zenzic.toml"
+        toml.write_text(
+            textwrap.dedent(
+                """\
+                docs_dir = "docs"
+
+                [build_context]
+                engine = "standalone"
+
+                [governance]
+                suppression_cap = {cap}
+                suppression_cap_fail_hard = true
+                """
+            ).format(cap=cap),
+            encoding="utf-8",
+        )
+
+        suppressions = "\n".join(
+            f"Allowed historical note {i}. <!-- zenzic-ignore: Z601 - test -->"
+            for i in range(1, inline_count + 1)
+        )
+        page = tmp_path / "docs" / "index.md"
+        page.parent.mkdir(parents=True, exist_ok=True)
+        page.write_text(
+            "# CAP test\n\n"
+            "This page exists only to validate suppression CAP behavior under Release A.\n\n"
+            f"{suppressions}\n",
+            encoding="utf-8",
+        )
+        return tmp_path
+
+    def test_cap_30_passes(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Exactly 30 active suppressions must pass."""
+        self._make_cap_sandbox(tmp_path, inline_count=30)
+        monkeypatch.chdir(tmp_path)
+
+        result = runner.invoke(app, ["check", "all"])
+
+        assert result.exit_code == 0, (
+            f"Expected exit 0 at CAP boundary (30/30), got {result.exit_code}.\n"
+            f"Output:\n{result.stdout}"
+        )
+        assert "Suppression Audit:" in result.stdout
+        assert "30/30" in result.stdout
+
+    def test_cap_31_fails_with_playbook_guidance(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """31st suppression must fail hard with a clear remediation link."""
+        self._make_cap_sandbox(tmp_path, inline_count=31)
+        monkeypatch.chdir(tmp_path)
+
+        result = runner.invoke(app, ["check", "all"])
+
+        assert result.exit_code == 1, (
+            f"Expected exit 1 when CAP is exceeded (31/30), got {result.exit_code}.\n"
+            f"Output:\n{result.stdout}"
+        )
+        assert "SUPPRESSION_CAP_EXCEEDED" in result.stdout
+        assert "Total Active Suppressions:" in result.stdout
+        assert "Configured Global CAP:" in result.stdout
+        assert "31" in result.stdout
+        assert "30" in result.stdout
+        assert "release-governance-protocol" in result.stdout
+        assert "HOTSPOTS - Top Offenders" in result.stdout
+
+    def test_extended_debt_tag_visible_when_cap_raised(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """CAP above sovereign default prints EXTENDED DEBT marker in footer."""
+        self._make_cap_sandbox(tmp_path, inline_count=30, cap=45)
+        monkeypatch.chdir(tmp_path)
+
+        result = runner.invoke(app, ["check", "all"])
+
+        assert result.exit_code == 0, (
+            f"Expected exit 0 at 30/45, got {result.exit_code}.\nOutput:\n{result.stdout}"
+        )
+        assert "Suppression Audit:" in result.stdout
+        assert "30/45" in result.stdout
+        assert "[EXTENDED DEBT]" in result.stdout
+
+    def test_per_file_ignores_suppress_targeted_code(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Per-file ignore must suppress matching findings in check all output."""
+        toml = tmp_path / "zenzic.toml"
+        toml.write_text(
+            textwrap.dedent(
+                """\
+                docs_dir = "docs"
+
+                [build_context]
+                engine = "standalone"
+
+                [governance]
+                suppression_cap = 30
+                suppression_cap_fail_hard = true
+
+                [governance.per_file_ignores]
+                "index.md" = ["Z104"]
+                """
+            ),
+            encoding="utf-8",
+        )
+        p = tmp_path / "docs" / "index.md"
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(
+            "# Per-file ignore test\n\n"
+            "This page intentionally has a broken local link to validate suppression.\n\n"
+            "[Broken](missing-page.md)\n",
+            encoding="utf-8",
+        )
+
+        monkeypatch.chdir(tmp_path)
+        result = runner.invoke(app, ["check", "all"])
+
+        assert result.exit_code == 0, (
+            "Expected per-file ignore to suppress Z104 in this file. "
+            f"Got exit {result.exit_code}.\nOutput:\n{result.stdout}"
+        )
+        assert "Suppression Audit:" in result.stdout
+        assert "per-file: 1" in result.stdout

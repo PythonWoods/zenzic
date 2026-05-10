@@ -543,27 +543,34 @@ _FENCE_OPEN_RE = re.compile(r"^(?P<fence>[`~]{3,})(?P<info>.*)$")
 #: CEO-142/143 — Silent Sentinel Protocol (Polymorphic Suppression).
 #: Matches BOTH Markdown HTML comments AND MDX/JSX comments in one pass.
 #:
-#:   Markdown (.md) syntax:  ``<!-- zenzic:ignore Z905 -->``
-#:   MDX (.mdx) syntax:      ``{/* zenzic:ignore Z905 */}``
+#:   Markdown (.md) syntax:  ``<!-- zenzic-ignore: Z905 - reason -->``
+#:   MDX (.mdx) syntax:      ``{/* zenzic-ignore: Z905 - reason */}``
 #:
-#: The regex is intentionally format-agnostic so a single helper works for
-#: every file format Zenzic audits.
-_SUPPRESS_RE = re.compile(r"(?:<!--|\{/\*)\s*zenzic:ignore\s+(?P<code>Z\d{3})\s*(?:-->|\*/\})")
+#: Legacy syntax ``zenzic:ignore Z905`` remains supported for compatibility.
+_SUPPRESS_RE = re.compile(
+    r"(?:<!--|\{/\*)\s*(?:zenzic-ignore\s*:\s*|zenzic:ignore\s+)(?P<code>Z\d{3})(?:[^\n]*?)?(?:-->|\*/\})",
+    re.IGNORECASE,
+)
+
+
+def count_inline_suppressions(text: str) -> int:
+    """Count suppression directives declared in Markdown/MDX source text."""
+    return sum(1 for _ in _SUPPRESS_RE.finditer(text))
 
 
 def _is_suppressed(line: str, code: str) -> bool:
-    """Return ``True`` if *line* carries a ``zenzic:ignore`` comment for *code*.
+    """Return ``True`` if *line* carries a suppression comment for *code*.
 
     **Format-aware suppression (CEO-143 — Polymorphic Suppression Protocol):**
 
     In ``.md`` files use an HTML comment (invisible in rendered Markdown)::
 
-        Obsidian was the v0.6.x codename. <!-- zenzic:ignore Z601 -->
+        Obsidian was the v0.6.x codename. <!-- zenzic-ignore: Z601 - historical reference -->
 
     In ``.mdx`` files use a JSX comment (invisible in rendered MDX and safe
     for the Docusaurus/React parser)::
 
-        Obsidian was the v0.6.x codename. {/* zenzic:ignore Z601 */}
+        Obsidian was the v0.6.x codename. {/* zenzic-ignore: Z601 - historical reference */}
 
     Each suppression comment silences **only** the specified diagnostic code
     on the tagged line.  To suppress multiple codes, add multiple comments.
@@ -576,8 +583,7 @@ def _is_suppressed(line: str, code: str) -> bool:
 
     if code in NON_SUPPRESSIBLE_CODES:
         return False
-    m = _SUPPRESS_RE.search(line)
-    return m is not None and m.group("code") == code
+    return any(m.group("code").upper() == code.upper() for m in _SUPPRESS_RE.finditer(line))
 
 
 def _slugify(text: str) -> str:
@@ -712,7 +718,7 @@ class BrandObsolescenceRule(BaseRule):
     **Suppression (CEO-142 — Silent Sentinel Protocol):** Add an HTML comment
     to the end of any line to silence Z601 for that specific occurrence::
 
-        Obsidian was the v0.6.x codename. <!-- zenzic:ignore Z601 -->
+        Obsidian was the v0.6.x codename. <!-- zenzic-ignore: Z601 - historical reference -->
 
     The comment is invisible in rendered Markdown and MDX output.  The
     deprecated token ``[HISTORICAL]`` is no longer recognised — it is visible
@@ -783,7 +789,7 @@ class BrandObsolescenceRule(BaseRule):
                             rule_id=self.rule_id,
                             message=(
                                 f"Obsolete brand term '{m.group(0)}':{hint} "
-                                "Add <!-- zenzic:ignore Z601 --> to the line to suppress intentional references."
+                                "Add <!-- zenzic-ignore: Z601 - reason --> to the line to suppress intentional references."
                             ),
                             severity="warning",
                             matched_line=line,

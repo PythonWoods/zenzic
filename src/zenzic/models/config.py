@@ -201,6 +201,32 @@ class GovernanceConfig(BaseModel):
         default=False,
         description="Activate Z602 I18N_PARITY governance reporting.",
     )
+    per_file_ignores: dict[str, list[str]] = Field(
+        default_factory=dict,
+        description=(
+            "Per-file suppression map (glob pattern -> finding codes). "
+            "Example: {'blog/*.mdx': ['Z601']}. Security findings remain "
+            "non-suppressible regardless of this map."
+        ),
+    )
+    suppression_cap: int = Field(
+        default=30,
+        ge=0,
+        description=(
+            "Maximum number of active suppressions allowed before hard-failing the check pipeline."
+        ),
+    )
+    suppression_cap_scope: Literal["all"] = Field(
+        default="all",
+        description=(
+            "Suppression CAP scope. 'all' counts inline suppressions plus "
+            "per-file configuration suppressions."
+        ),
+    )
+    suppression_cap_fail_hard: bool = Field(
+        default=True,
+        description=("When True, exceeding suppression_cap causes immediate exit 1."),
+    )
 
 
 # ── System Guardrails ────────────────────────────────────────────────────────
