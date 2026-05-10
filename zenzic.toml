@@ -91,7 +91,7 @@ severity = "error"
 # CHANGELOG*.md is excluded by default (historical prose allowed).
 # Use [HISTORICAL] inline to suppress intentional references in other files.
 [project_metadata]
-release_name = "Quartz"
+release_name = "Basalt"
 
 [governance]
-brand_obsolescence = ["Obsidian", "Ossidiana"]
+brand_obsolescence = ["Obsidian"]
