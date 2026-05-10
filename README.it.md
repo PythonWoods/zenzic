@@ -44,7 +44,7 @@ SPDX-License-Identifier: Apache-2.0
 
 <p align="center">
   <strong>Audit deterministico di strutture documentali con tracciabilità bidirezionale.</strong><br>
-  <em>Ogni finding mappa su un file sorgente e un numero di riga. Ogni URL ha un'origine fisica. Zero stato globale.</em>
+  <em>v0.8.0 Basalt: governance a tier, contratti frozen e scansione deterministica con backend RE2.</em>
 </p>
 
 ---
@@ -72,9 +72,21 @@ integrità dei file.
 
 ```bash
 pip install zenzic
-zenzic lab        # Showroom interattivo — 9 atti, ogni motore, zero configurazione
+zenzic lab        # Showroom interattivo — 21 atti, ogni motore, zero configurazione
 zenzic check all  # Analizza la cartella corrente
+zenzic inspect codes  # Elenca i contratti canonici dei finding
 ```
+
+## 🧠 Proposta di Valore Basalt (v0.8.0)
+
+- **Motore puro e deterministico:** input identici producono finding ed exit identici.
+- **Modello codici a tier:** finding Core, Structure e Governance separati per
+  ownership, con cambi di policy espliciti e auditabili.
+- **Contratti frozen per integrazioni:** `FROZEN_CODES`,
+  `NON_SUPPRESSIBLE_CODES` e `PLUGIN_FORBIDDEN_EXITS` sono superfici stabili
+  per CI e plugin.
+- **Workflow contributori inspect-first:** usare `zenzic inspect codes` prima di
+  aggiornare esempi documentali o note di rilascio.
 
 📖 [Documentazione completa →][docs-it-home] · 🏅 [Badge][docs-it-badges] · 🔄 [Guida CI/CD][docs-it-cicd]
 
@@ -95,16 +107,12 @@ zenzic check all  # Analizza la cartella corrente
 
 ---
 
-## 🎯 Perché Zenzic?
+## 🎯 Perché Zenzic se il mio Static Site Generator (SSG) controlla già i link rotti?
 
-| Senza Zenzic | Con Zenzic |
-| :--- | :--- |
-| ❌ Ancore rotte passano silenziosamente in Docusaurus v3 | ✅ Validazione matematica delle ancore tramite VSM |
-| ❌ Chiavi API esposte nei blocchi di codice committate su git | ✅ **The Shield** — scanner 9 famiglie di credenziali, exit 2 |
-| ❌ Path traversal `../../../../etc/passwd` nei link | ✅ **Blood Sentinel** — exit 3 non sopprimibile |
-| ❌ Pagine orfane irraggiungibili da qualsiasi link di navigazione | ✅ Rilevamento semantico degli orfani — non solo file-exists |
-| ❌ 404 silenziosi che si accumulano in Google Search Console | ✅ Controlli di integrità Directory Index |
-| ❌ Migrazione MkDocs → Zensical con errori sconosciuti | ✅ **Transparent Proxy** — analizza entrambi con un comando |
+1. **Velocità & Shift-Left:** Le build SSG (basate su Node.js, Go o Python) richiedono la compilazione completa del sito e tipicamente girano in loop CI remoti. Zenzic esegue analisi statica locale su testo sorgente e metadati prima della build, con feedback pre-commit in millisecondi.
+2. **Sicurezza:** I controlli nativi degli SSG non bloccano il commit di credenziali esposte o tentativi di path traversal. Zenzic applica finding di sicurezza nel tier `Z2xx` e blocca la pipeline sugli exit di sicurezza.
+3. **Governance:** Gli SSG non applicano contratti di governance come obsolescenza brand (`Z601`), deriva di parità i18n (`Z602`) o asset orfani (`Z405`). Zenzic li tratta come contratti espliciti e auditabili.
+4. **Diagnostica azionabile:** Quando falliscono rotte generate, l'output SSG è in genere un 404/fallimento build generico. Zenzic usa reverse mapping VSM per indicare il file sorgente esatto e il contesto frontmatter che generano la rotta virtuale in errore.
 
 ---
 
@@ -344,7 +352,7 @@ Visita il [portale di documentazione][docs-it-home] per screenshot interattivi e
 
 ---
 
-## 📖 Mappa della Documentazione — La Promessa di Quarzo
+## 📖 Mappa della Documentazione — La Promessa di Quartz
 
 I docs di Zenzic sono pubblicati come **due istanze Docusaurus separate** sotto lo
 stesso dominio. Ciascuna ha la propria sidebar, la propria ricerca e il proprio
@@ -358,7 +366,7 @@ zenzic.dev/
 └── community/      → Brand kit, FAQ, governance
 ```
 
-**La Promessa di Quarzo.** Due istanze, un solo Sentinel. La separazione è
+**La Promessa di Quartz.** Due istanze, un solo Sentinel. La separazione è
 applicata da [ADR 011: Allowlist Cross-Istanza][docs-it-adr-011] — ogni link
 cross-confine è un contratto documentato, mai una soppressione silenziosa. Il
 debito nascosto corrompe la fiducia; il debito dichiarato è ingegneria. Vedi il
@@ -453,7 +461,8 @@ link che puntano a *path* di sistema OS (exit 3). Entrambi non sono sopprimibili
 **Non serve `zenzic.toml`?** Corretto. Zenzic identifica il motore dai file di configurazione presenti e applica i default sicuri.
 Esegui `zenzic init` in qualsiasi momento per generare un file di configurazione pre-compilato.
 
-**Cos'è `zenzic lab`?** Uno showroom interattivo a 9 atti che copre ogni motore e ogni classe di
+**Cos'è `zenzic lab`?** Uno showroom interattivo a 21 atti che copre ogni motore e ogni classe di errori — inclusi Shield (Z2xx), Governance (Z601, Z602) e il Privacy Gate Enterprise (Z204).
+Eseguilo una volta prima di integrare Zenzic in qualsiasi progetto.
 errore. Eseguilo una volta prima di integrare Zenzic in qualsiasi progetto.
 
 ---

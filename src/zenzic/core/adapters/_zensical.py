@@ -22,9 +22,10 @@ Zensical v0.0.31+ uses a single ``[project]`` scope for all settings::
 from __future__ import annotations
 
 import logging
-import re
 import sys
 from pathlib import Path
+
+from zenzic.core import regex as re
 
 
 if sys.version_info >= (3, 11):

@@ -31,7 +31,6 @@ import difflib
 import fnmatch
 import json
 import os
-import re
 import sys
 from collections.abc import Iterator
 
@@ -48,6 +47,7 @@ from urllib.parse import urlsplit
 import httpx
 import yaml
 
+from zenzic.core import regex as re
 from zenzic.core.adapter import get_adapter
 from zenzic.core.discovery import (
     DOC_SUFFIXES,
@@ -114,9 +114,8 @@ _REF_DEF_RE = re.compile(r"^ {0,3}\[([^\]]+)\]:\s+(\S+)")
 # Reference link: [text][id] or [text][] (collapsed reference)
 _REF_LINK_RE = re.compile(r"\[([^\]]*)\]\[([^\]]*)\]")
 
-# Shortcut reference link: [text] NOT followed by [ ( or : (CommonMark §4.7)
-# (?<!\]) prevents matching the second part of [text][id] full/collapsed refs.
-_REF_SHORTCUT_RE = re.compile(r"(?<![!\]])\[([^\]]+)\](?![\[(:])")
+# Shortcut reference link: [text] (semantic filters applied in code).
+_REF_SHORTCUT_RE = re.compile(r"\[([^\]]+)\]")
 
 # URL schemes that are valid syntax but point to non-HTTP targets we skip.
 _SKIP_SCHEMES = ("mailto:", "data:", "ftp:", "tel:", "javascript:", "irc:", "xmpp:")
@@ -181,7 +180,7 @@ class LinkError:
 # Detects hrefs that, after traversal, would reach an OS system directory.
 # Triggering this classifier upgrades a PATH_TRAVERSAL error to a
 # PATH_TRAVERSAL_SUSPICIOUS security incident (Exit Code 3).
-_RE_SYSTEM_PATH: re.Pattern[str] = re.compile(r"/(?:etc|root|var|proc|sys|usr)/")
+_RE_SYSTEM_PATH: re.RegexPattern = re.compile(r"/(?:etc|root|var|proc|sys|usr)/")
 
 
 def _classify_traversal_intent(href: str) -> Literal["suspicious", "boundary"]:
@@ -498,6 +497,11 @@ def extract_ref_links(text: str, ref_map: dict[str, str]) -> list[LinkInfo]:
                 )
         # Shortcut reference links: [text] (CommonMark §4.7)
         for m in _REF_SHORTCUT_RE.finditer(clean):
+            if m.start() > 0 and clean[m.start() - 1] in "!]":
+                continue
+            tail = clean[m.end() : m.end() + 1]
+            if tail in "[:(":
+                continue
             ref_id = m.group(1).lower().strip()
             url = ref_map.get(ref_id)
             if url:

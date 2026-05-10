@@ -13,75 +13,44 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-### ADR-012: The Great Renumbering (Migration Bridge to v0.8.0)
-
-- **Historical policy:** Entries for versions earlier than v0.8.0 remain
-  immutable snapshots and may retain legacy `Z9xx` references where they were
-  true at release time.
-- **Sovereign mapping in v0.8.0:**
-  - `Z903` → `Z405` (`UNUSED_ASSET`)
-  - `Z904` → `Z406` (`NAV_CONTRACT`)
-  - `Z905` → `Z601` (`BRAND_OBSOLESCENCE`)
-  - `Z907` → `Z602` (`I18N_PARITY`)
-- **Breaking change contract:** Runtime/docs/examples in the v0.8.0 line must
-  expose only canonical IDs; legacy IDs may survive only as compatibility
-  anchors or migration diagnostics.
-
-### Changed (Breaking)
-
-- **Namespace refactor for code ownership (ADR-012, Batch 1):** Governance and
-  structure findings have been renumbered to dedicated bands.
-  - `Z903` → `Z405` (`UNUSED_ASSET`)
-  - `Z904` → `Z406` (`NAV_CONTRACT`)
-  - `Z905` → `Z601` (`BRAND_OBSOLESCENCE`)
-  - `Z907` → `Z602` (`I18N_PARITY`)
-  `Z9xx` now remains focused on engine/system diagnostics.
-
 ### Added
 
-- **Stability Contract constants in `codes.py`:** Added
-  `FROZEN_CODES`, `NON_SUPPRESSIBLE_CODES`, and `PLUGIN_FORBIDDEN_EXITS`
-  as explicit, immutable contract surfaces for v0.8.0.
-- **Tier Model formalised in the public registry:** Core/Structure/Governance
-  ownership is now explicit in code mappings and documented for migration.
-- **Legacy migration map for diagnostics:** Added `LEGACY_TO_CODE` mapping so
-  legacy references (`Z903`, `Z904`, `Z905`, `Z907`) can be diagnosed against
-  their canonical v0.8.0 replacements.
-
-### Added
-
-- **`_check-hooks` DX guard:** Added hidden `_check-hooks` recipe as first dependency of
-  `just verify`. Emits a warning if the pre-push Final Guard hook (`pre-commit install
-  -t pre-push`) is not installed locally, without blocking the verification run.
-- **`version` recipe:** `just version` prints the current project version directly from
-  `bump-my-version`. Fast alternative to reading `pyproject.toml` manually.
-- **`release-dry --short` flag:** `just release-dry patch --short` filters the verbose
-  bump-my-version output to three essential lines: current version, new version, and
-  dry-run confirmation. Default behaviour (full verbose diff) is unchanged.
-- **`release-contracts` DX guard:** New recipe enforces architectural contracts on the
-  justfile: mandatory presence of `version`, `release`, and `release-dry` recipes;
-  `--allow-dirty` must appear only in `release-dry`, never in `release`. Wired into
-  `just verify` as a structural pre-flight check that fails fast on violations.
+- **Stability Contract constants in `codes.py`:** Added `FROZEN_CODES`,
+  `NON_SUPPRESSIBLE_CODES`, and `PLUGIN_FORBIDDEN_EXITS` as immutable public
+  contract surfaces for v0.8.0 Basalt.
+- **Tier model formalized in the public registry:** Core/Structure/Governance
+  ownership is explicit in canonical code mappings.
+- **Legacy migration map for diagnostics:** Added `LEGACY_TO_CODE` to map
+  `Z903`→`Z405`, `Z904`→`Z406`, `Z905`→`Z601`, `Z907`→`Z602`.
+- **ADR-013 (Regex ACL) published in developer docs (EN/IT):** Formalizes the
+  anti-corruption regex facade strategy and strict RE2 enforcement.
+- **DX release guardrails:** Added `_check-hooks`, `version`,
+  `release-dry --short`, and `release-contracts` recipes to standardize local
+  release preflight.
 
 ### Changed
 
-- **Test matrix — Boundary Testing (CI parity):** Nox `PYTHONS` updated from
-  `["3.11", "3.12", "3.13"]` to `["3.10", "3.14"]`, mirroring the CI Pillar Matrix
-  (Floor 3.10 / Peak 3.14). Eliminates the local-vs-remote "green divergence".
-- **Fixed-version sessions pinned to Peak 3.14:** `lint`, `format`, `fmt`, `typecheck`,
-  `reuse`, `security`, `mutation`, and `bump` sessions updated from `python="3.11"` to
-  `python="3.14"`.
-- **Mypy floor lowered to 3.10:** `[tool.mypy] python_version` changed from `"3.11"` to
-  `"3.10"`, enforcing compatibility at the declared `requires-python = ">=3.10"` floor.
-  The `tomllib` / `tomli` compatibility guard (`sys.version_info >= (3, 11)`) and the
-  `tomli>=2.0.0; python_version < '3.11'` runtime dependency were already in place.
+- **ADR-012 namespace contract finalized for v0.8.0:** Runtime/docs/examples now
+  use canonical IDs (`Z405`, `Z406`, `Z601`, `Z602`) while preserving legacy
+  anchors only for migration diagnostics.
+- **Boundary-testing CI parity:** Nox `PYTHONS` aligned to floor/peak
+  (`3.10`, `3.14`) and fixed-version sessions pinned to `3.14`.
+- **Mypy compatibility floor aligned to runtime floor:**
+  `[tool.mypy] python_version = "3.10"`.
 
 ### Fixed
 
-- **`Z000` added to code registry (`codes.py`):** `Z000` (UNSUPPORTED_ENGINE) was
-  already documented in the `codes.py` docstring schema and in `finding-codes.mdx`,
-  but was absent from `CODE_NAMES`, `CODE_DESCRIPTIONS`, and `CODE_SARIF_LEVELS`.
-  Registry now complete at 34 canonical codes. The `verify-codes-parity` session
-  counts Z000 as a full encyclopedia entry with `{#z000}` anchor.
+- **Registry parity gap closed for `Z000` (`UNSUPPORTED_ENGINE`):** Added to
+  `CODE_NAMES`, `CODE_DESCRIPTIONS`, and `CODE_SARIF_LEVELS`; canonical
+  registry and docs encyclopedia are now aligned.
+
+### Security
+
+- **ZRT-007 hardening completed in production source:** Standard-library `re`
+  usage removed from runtime paths in favor of the RE2-backed ACL facade.
+- **No-fallback regex policy enforced:** Unsupported constructs now fail
+  explicitly under RE2 instead of silently degrading to stdlib regex runtime.
+- **Lint gate for regex engine policy:** Ruff banned API guard prevents
+  reintroduction of direct `re` imports in protected source surfaces.
 
 ---

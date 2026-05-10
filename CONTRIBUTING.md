@@ -31,6 +31,19 @@ depend on open, auditable source files. We preserve validation continuity across
 changes (MkDocs, Docusaurus, Zensical, and future adapters) so projects keep control over
 their data and quality process regardless of ecosystem churn.
 
+## Basalt Contributor Contract (v0.8.0)
+
+Before proposing rule or docs changes, contributors must validate impact against
+the live code registry and tier ownership model.
+
+- **Tier ownership model:** findings are grouped into Core, Structure, and
+    Governance domains; keep changes in the correct band.
+- **Frozen contract awareness:** do not alter immutable surfaces
+    (`FROZEN_CODES`, `NON_SUPPRESSIBLE_CODES`, `PLUGIN_FORBIDDEN_EXITS`) without
+    an explicit architecture decision.
+- **Inspect-first workflow:** treat `zenzic inspect codes` as the source of
+    truth before editing examples, checks tables, or changelog narratives.
+
 ---
 
 ## Prerequisites
@@ -126,6 +139,12 @@ Run the full pre-push gate with:
 
 ```bash
 just verify
+```
+
+Validate code registry expectations during development with:
+
+```bash
+zenzic inspect codes
 ```
 
 > **Nox — Development Checklist**

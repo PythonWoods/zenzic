@@ -2,14 +2,27 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 # 🪨 Zenzic v0.8.0 — Basalt (The Age of Foundations)
 
-This cycle establishes the public namespace contract for findings before the
-plugin ecosystem scales. The code registry is now tiered by ownership and
-stability: core/system signals remain protected, governance rules move to a
-dedicated lane, and structural findings are mapped to the correct domain.
-Exit 2/3 security semantics are treated as immutable operational contracts,
-with explicit frozen surfaces (`FROZEN_CODES`, `NON_SUPPRESSIBLE_CODES`, and
-`PLUGIN_FORBIDDEN_EXITS`) that harden long-term CI compatibility while opening
-a clean path for third-party plugins.
+Basalt is the governance release that locks the public finding contract before
+ecosystem scale. It closes the migration bridge from legacy namespaces to
+canonical v0.8.0 IDs and makes security exits operationally immutable.
+
+## Basalt Contract Snapshot
+
+- **Namespace Contract (ADR-012):** active runtime and documentation examples
+  use canonical IDs (`Z405`, `Z406`, `Z601`, `Z602`), with legacy IDs retained
+  only as migration anchors.
+- **Frozen Surfaces:** `FROZEN_CODES`, `NON_SUPPRESSIBLE_CODES`, and
+  `PLUGIN_FORBIDDEN_EXITS` are now explicit compatibility contracts.
+- **Security Invariant ZRT-007:** production regex execution is enforced through
+  RE2 with strict no-fallback policy.
+- **Developer Architecture (ADR-013):** Regex ACL is formalized as an
+  anti-corruption boundary between Python ergonomics and RE2 runtime guarantees.
+
+## Operational Consequences
+
+- CI and plugin integrations can treat Basalt code contracts as stable.
+- Security exits remain non-negotiable at enforcement boundaries.
+- Documentation/runtime parity is required for all finding code examples.
 
 ---
 

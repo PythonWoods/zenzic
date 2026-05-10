@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-import re
 import sys
 from pathlib import Path
 
@@ -16,6 +15,8 @@ else:
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
+
+from zenzic.core import regex as re
 
 
 # Severity type shared with the rule engine (avoids a circular import).
@@ -517,10 +518,8 @@ class ZenzicConfig(BaseModel):
             "``.zenzic.local.toml`` so private terms are never committed."
         ),
     )
-    # Pre-compiled regex patterns for placeholder detection.
-    # Populated automatically from placeholder_patterns in model_post_init.
-    # Excluded from serialisation — never written to or read from TOML.
-    placeholder_patterns_compiled: list[re.Pattern[str]] = Field(
+    # Pre-compiled regex patterns (not serializable, runtime only)
+    placeholder_patterns_compiled: list[re.RegexPattern] = Field(
         default_factory=list,
         exclude=True,
         repr=False,

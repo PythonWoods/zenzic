@@ -16,13 +16,13 @@ from __future__ import annotations
 
 import fnmatch
 import posixpath
-import re
 from collections.abc import Generator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from urllib.parse import unquote
 
+from zenzic.core import regex as re
 from zenzic.core.adapter import get_adapter
 from zenzic.core.discovery import (
     DOC_SUFFIXES,
@@ -59,13 +59,11 @@ if TYPE_CHECKING:
 _RE_REF_DEF = re.compile(r"^ {0,3}\[([^\]]+)\]:\s+(\S+)")
 
 # Reference link usage: [text][id] or [text][] (collapsed reference).
-# Negative lookbehind (?<!!) prevents matching image reference links ![alt][id].
-_RE_REF_LINK = re.compile(r"(?<!!)(\[([^\]]*)\]\[([^\]]*)\])")
+_RE_REF_LINK = re.compile(r"(\[([^\]]*)\]\[([^\]]*)\])")
 
-# Shortcut reference link: [text] NOT followed by [ ( or : (CommonMark §4.7).
-# Negative lookbehinds: (?<!!) avoids image refs; (?<!\]) avoids matching the
-# second bracket pair of full/collapsed refs [text][id].
-_RE_REF_SHORTCUT = re.compile(r"(?<![!\]])\[([^\]]+)\](?![\[(:])")
+# Shortcut reference link: [text] with semantic filters applied in code to
+# exclude image refs and full/collapsed ref tails.
+_RE_REF_SHORTCUT = re.compile(r"\[([^\]]+)\]")
 
 # Inline image: ![alt](url)
 _RE_IMAGE_INLINE = re.compile(r"!\[([^\]]*)\]\(([^)]+)\)")
@@ -196,11 +194,11 @@ class PlaceholderFinding:
 
 
 # Strips YAML frontmatter (leading ---...--- block).
-_FRONTMATTER_RE: re.Pattern[str] = re.compile(r"\A\s*---\s*\n.*?\n---\s*\n?", re.DOTALL)
+_FRONTMATTER_RE: re.RegexPattern = re.compile(r"\A\s*---\s*\n.*?\n---\s*\n?", re.DOTALL)
 # Strips MDX comments {/* ... */} — invisible in the rendered page.
-_MDX_COMMENT_RE: re.Pattern[str] = re.compile(r"\{/\*.*?\*/\}", re.DOTALL)
+_MDX_COMMENT_RE: re.RegexPattern = re.compile(r"\{/\*.*?\*/\}", re.DOTALL)
 # Strips HTML comments <!-- ... --> — also invisible.
-_HTML_COMMENT_RE: re.Pattern[str] = re.compile(r"<!--.*?-->", re.DOTALL)
+_HTML_COMMENT_RE: re.RegexPattern = re.compile(r"<!--.*?-->", re.DOTALL)
 
 
 def _first_content_line(text: str) -> int:
@@ -442,11 +440,11 @@ class I18nParityIssue:
     message: str
 
 
-_I18N_IGNORE_RE: re.Pattern[str] = re.compile(
+_I18N_IGNORE_RE: re.RegexPattern = re.compile(
     r"^\s*i18n-ignore\s*:\s*(true|yes|1)\s*$",
     re.IGNORECASE | re.MULTILINE,
 )
-_FM_KV_RE: re.Pattern[str] = re.compile(
+_FM_KV_RE: re.RegexPattern = re.compile(
     r"^\s*([A-Za-z_][\w-]*)\s*:\s*(.*?)\s*$",
     re.MULTILINE,
 )
@@ -1138,6 +1136,8 @@ class ReferenceScanner:
             clean = re.sub(r"`[^`]+`", lambda m: " " * len(m.group()), line)
 
             for m in _RE_REF_LINK.finditer(clean):
+                if m.start() > 0 and clean[m.start() - 1] == "!":
+                    continue
                 text = m.group(2)
                 ref_id = m.group(3) if m.group(3) else text  # collapsed ref
                 url = self.ref_map.resolve(ref_id)
@@ -1157,6 +1157,11 @@ class ReferenceScanner:
 
             # Shortcut reference links: [text] (CommonMark §4.7)
             for m in _RE_REF_SHORTCUT.finditer(clean):
+                if m.start() > 0 and clean[m.start() - 1] in "!]":
+                    continue
+                tail = clean[m.end() : m.end() + 1]
+                if tail in "[:(":
+                    continue
                 ref_id = m.group(1)
                 self.ref_map.resolve(ref_id)  # mark as used if defined
 

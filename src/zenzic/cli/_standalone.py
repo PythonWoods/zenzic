@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 import json
-import re
 from pathlib import Path
 
 import typer
@@ -14,6 +13,7 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
+from zenzic.core import regex as re
 from zenzic.core.exceptions import ConfigurationError
 from zenzic.core.exclusion import LayeredExclusionManager
 from zenzic.core.scanner import (

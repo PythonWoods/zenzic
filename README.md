@@ -44,7 +44,7 @@ SPDX-License-Identifier: Apache-2.0
 
 <p align="center">
   <strong>Deterministic audit of documentation structures with bidirectional traceability.</strong><br>
-  <em>Every finding maps to a source file and a line number. Every URL has a physical origin. Zero global state.</em>
+  <em>v0.8.0 Basalt: tiered code governance, frozen security contracts, and RE2-backed deterministic scanning.</em>
 </p>
 
 ---
@@ -72,9 +72,20 @@ file integrity.
 
 ```bash
 pip install zenzic
-zenzic lab        # Interactive showroom — 9 acts, every engine, zero setup
+zenzic lab        # Interactive showroom — 21 acts, every engine, zero setup
 zenzic check all  # Audit the current directory
+zenzic inspect codes  # List canonical finding contracts
 ```
+
+## 🧠 Basalt Value Proposition (v0.8.0)
+
+- **Pure, deterministic engine:** identical inputs produce identical findings and exits.
+- **Tiered code model:** Core, Structure, and Governance findings are separated by
+  ownership bands to keep policy changes explicit and auditable.
+- **Frozen contracts for integrators:** `FROZEN_CODES`, `NON_SUPPRESSIBLE_CODES`, and
+  `PLUGIN_FORBIDDEN_EXITS` provide stable enforcement surfaces for CI and plugins.
+- **Inspect-first contributor workflow:** use `zenzic inspect codes` to validate live
+  code semantics before touching docs examples or release notes.
 
 📖 [Full docs →][docs-home] · 🏅 [Badges][docs-badges] · 🔄 [CI/CD guide][docs-cicd]
 
@@ -95,16 +106,12 @@ zenzic check all  # Audit the current directory
 
 ---
 
-## 🎯 Why Zenzic?
+## 🎯 Why Zenzic if my Static Site Generator (SSG) already checks for broken links?
 
-| Without Zenzic | With Zenzic |
-| :--- | :--- |
-| ❌ Broken anchors silently 200 OK in Docusaurus v3 | ✅ Mathematical anchor validation via VSM |
-| ❌ Leaked API keys in code blocks committed to git | ✅ **The Shield** — 9-family credential scanner, exit 2 |
-| ❌ Path traversal `../../../../etc/passwd` in links | ✅ **Blood Sentinel** — non-suppressible exit 3 |
-| ❌ Orphan pages unreachable from any nav link | ✅ Semantic orphan detection — not just file-exists |
-| ❌ Silent 404s accumulating in Google Search Console | ✅ Directory Index Integrity checks |
-| ❌ MkDocs → Zensical migration with unknown breakage | ✅ **Transparent Proxy** — lint both with one command |
+1. **Speed & Shift-Left:** SSG builds (Node.js, Go, or Python based) require full site compilation and usually run in remote CI loops. Zenzic runs local static analysis on source text and metadata before build, with pre-commit feedback in milliseconds.
+2. **Security:** Native SSG checks do not block credential leaks or path-traversal attempts at commit time. Zenzic enforces security findings in the `Z2xx` tier and blocks the pipeline on security exits.
+3. **Governance:** SSGs do not enforce governance contracts such as brand obsolescence (`Z601`), i18n parity drift (`Z602`), or orphaned assets (`Z405`). Zenzic tracks these as explicit, auditable contracts.
+4. **Actionable Diagnostics:** When generated routes fail, SSG output is typically a generic 404/build failure. Zenzic uses VSM reverse mapping to report the exact source file and frontmatter context that generated the failing virtual route.
 
 ---
 
@@ -447,7 +454,7 @@ links pointing to OS system *paths* (exit 3). Both are non-suppressible.
 **No `zenzic.toml` needed?** Correct. Zenzic identifies the engine from config files present and applies safe defaults. Run
 `zenzic init` at any time to generate a pre-populated config file.
 
-**What is `zenzic lab`?** A 9-act interactive showroom covering every engine and error class.
+**What is `zenzic lab`?** A 21-act interactive showroom covering every engine and error class — including Shield (Z2xx), Governance (Z601, Z602), and the Enterprise Privacy Gate (Z204).
 Run it once before integrating Zenzic into any project.
 
 ---

@@ -51,6 +51,7 @@ dependencies = [
     # tomllib was added to the stdlib in Python 3.11 (PEP 680).
     # tomli is the identical backport for Python 3.10 (our Floor).
     "tomli>=2.0.0; python_version < '3.11'",
+    "pathspec>=0.12.1",
 ]
 
 [project.scripts]
@@ -133,8 +134,12 @@ line-length = 100
 target-version = "py310"
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "B", "C4", "UP", "A"]
+select = ["E", "F", "W", "I", "B", "C4", "UP", "A", "TID252"]
 ignore = ["E501", "B008"]
+
+# Ban standard re module in src/
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+re = { msg = "Use `re2` (google-re2) instead to prevent ReDoS vulnerability (ZRT-007)." }
 
 [tool.ruff.lint.isort]
 known-first-party = ["zenzic"]

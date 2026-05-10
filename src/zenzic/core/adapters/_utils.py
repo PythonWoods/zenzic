@@ -14,8 +14,9 @@ may use or ignore them as needed.
 from __future__ import annotations
 
 import os
-import re
 from pathlib import Path
+
+from zenzic.core import regex as re
 
 
 def case_sensitive_exists(path: Path) -> bool:

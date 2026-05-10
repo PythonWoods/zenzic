@@ -62,18 +62,13 @@ Zenzic Way compliance
 from __future__ import annotations
 
 import pickle
-import re
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
-# ZRT-007 — DFA Purity Contract: RE2 is the sole regex engine for user-supplied
-# patterns.  google-re2 provides O(n) DFA guarantees, eliminating the entire
-# ReDoS attack surface.  ImportError here is intentional and fatal: non-RE2
-# environments are explicitly unsupported.
-import re2
+from zenzic.core import regex as re
 
 
 if TYPE_CHECKING:
@@ -341,8 +336,8 @@ class CustomRule(BaseRule):
     pattern: str
     message: str
     severity: Severity = "error"
-    # re2.Pattern[str] at runtime; annotated as Any-compatible via the untyped re2 import.
-    _compiled: re2.Pattern[str] = field(init=False, repr=False, compare=False)
+    # Compiled with RE2; typed via the shared RegexPattern alias.
+    _compiled: re.RegexPattern = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         # ZRT-007: compile with RE2 — rejection here means the pattern uses
@@ -352,8 +347,8 @@ class CustomRule(BaseRule):
         from zenzic.core.exceptions import PluginContractError
 
         try:
-            self._compiled = re2.compile(self.pattern)
-        except re2.error as exc:
+            self._compiled = re.compile(self.pattern)
+        except re.error as exc:
             raise PluginContractError(
                 f"CustomRule '{self.id}': pattern {self.pattern!r} is not supported "
                 f"by the RE2 engine (ZRT-007 — DFA Purity Contract). "
@@ -730,11 +725,9 @@ class BrandObsolescenceRule(BaseRule):
     """
 
     def __init__(self, project_metadata: ProjectMetadata) -> None:
-        import re as _re
-
         self._release_name = project_metadata.release_name
-        self._patterns: list[re.Pattern[str]] = [
-            _re.compile(rf"\b{_re.escape(name)}\b", _re.IGNORECASE)
+        self._patterns: list[re.RegexPattern] = [
+            re.compile(rf"\b{re.escape(name)}\b", re.IGNORECASE)
             for name in project_metadata.obsolete_names
             if name.strip()
         ]
@@ -808,6 +801,8 @@ class BrandObsolescenceRule(BaseRule):
 _INLINE_LINK_RE = re.compile(r"!?\[[^\[\]]*\]\(([^)]+)\)")
 # Fenced code block fence marker
 _FENCE_RE = re.compile(r"^(`{3,}|~{3,})")
+# Inline code spans — erased before link extraction to avoid false positives
+_INLINE_CODE_RE = re.compile(r"`[^`]+`")
 
 
 def _extract_inline_links_with_lines(text: str) -> list[tuple[str, int, str]]:
@@ -833,7 +828,7 @@ def _extract_inline_links_with_lines(text: str) -> list[tuple[str, int, str]]:
             if _FENCE_RE.match(stripped):
                 in_block = False
             continue
-        clean = re.sub(r"`[^`]+`", lambda m: " " * len(m.group()), line)
+        clean = _INLINE_CODE_RE.sub(lambda m: " " * len(m.group()), line)
         for m in _INLINE_LINK_RE.finditer(clean):
             raw = m.group(1).strip()
             if not raw:

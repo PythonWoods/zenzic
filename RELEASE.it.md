@@ -1,16 +1,28 @@
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
-# 🪨 Zenzic v0.8.0 — Basalto (L'Era delle Fondamenta)
+# 🪨 Zenzic v0.8.0 — Basalt (L'Era delle Fondamenta)
 
-Questo ciclo formalizza il contratto pubblico del namespace dei finding prima
-della scalata dell'ecosistema plugin. Il registro codici è ora strutturato per
-ownership e stabilità: i segnali core/system restano protetti, le regole di
-governance vengono spostate in una banda dedicata, e i finding strutturali
-sono mappati sul dominio corretto. La semantica di sicurezza Exit 2/3 è
-trattata come contratto operativo immutabile, con superfici esplicite
-(`FROZEN_CODES`, `NON_SUPPRESSIBLE_CODES`, `PLUGIN_FORBIDDEN_EXITS`) che
-irrobustiscono la compatibilità CI nel lungo periodo e aprono una traiettoria
-pulita per i plugin di terze parti.
+Basalt è la release di governance che blocca il contratto pubblico dei finding
+prima della scalata dell'ecosistema. Chiude il ponte di migrazione dai namespace
+legacy agli ID canonici v0.8.0 e rende immutabili gli exit di sicurezza.
+
+## Snapshot del Contratto Basalt
+
+- **Namespace Contract (ADR-012):** runtime ed esempi documentali attivi usano
+ i codici canonici (`Z405`, `Z406`, `Z601`, `Z602`); i codici legacy restano
+ solo come anchor di migrazione.
+- **Superfici Frozen:** `FROZEN_CODES`, `NON_SUPPRESSIBLE_CODES` e
+ `PLUGIN_FORBIDDEN_EXITS` diventano contratti di compatibilità espliciti.
+- **Invariante sicurezza ZRT-007:** l'esecuzione regex in produzione è
+ enforceata su RE2 con policy no-fallback.
+- **Architettura developer (ADR-013):** Regex ACL formalizzato come boundary
+ anti-corruzione tra ergonomia Python e garanzie runtime RE2.
+
+## Conseguenze Operative
+
+- CI e integrazioni plugin possono trattare i contratti Basalt come stabili.
+- Gli exit di sicurezza restano non negoziabili ai confini di enforcement.
+- La parità documentazione/runtime è obbligatoria per gli esempi dei finding.
 
 ---
 
@@ -30,4 +42,7 @@ Con questa release, Zenzic non è più solo un tool, ma una piattaforma di fiduc
 
 ---
 
-> **Nota:** Per le note tecniche dettagliate, vedere il file [RELEASE.md](RELEASE.md).
+## Riferimento operativo
+
+Per dettagli tecnici storici e cronologia estesa, consultare anche
+[RELEASE.md](RELEASE.md).

@@ -1413,7 +1413,7 @@ Z104 nella scansione remota.
 
 ---
 
-### L'Igiene Ossidiana (D063 — 2026-04-25)
+### L'Igiene Obsidian (D063 — 2026-04-25)
 
 #### Modificato
 

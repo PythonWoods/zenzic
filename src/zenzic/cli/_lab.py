@@ -132,7 +132,7 @@ _ACTS: list[_Act] = [
     _Act(
         6,
         "Transparent Proxy",
-        "SENTINEL banner — Zensical bridge with mkdocs.yml only. Z905 brand ref to 'Obsidian' detected",
+        "SENTINEL banner — Zensical bridge with mkdocs.yml only. Z601 BRAND_OBSOLESCENCE ref to 'Obsidian' detected",
         "zensical-bridge",
         expected_pass=False,
     ),
@@ -231,6 +231,15 @@ _ACTS: list[_Act] = [
         "The Base64 Shadow",
         "GitHub PAT offuscata in Base64 nel frontmatter — Shield vede attraverso l'encoding (CEO-194)",
         "scoring/security-base64",
+        expected_pass=False,
+        expected_breach=True,
+    ),
+    # ── Enterprise Gate ───────────────────────────────────────────────────────
+    _Act(
+        20,
+        "Privacy Gate",
+        "Z204 FORBIDDEN_TERM: internal codename in docs triggers exit-2 breach via .zenzic.local.toml",
+        "rules/z204-privacy-gate",
         expected_pass=False,
         expected_breach=True,
     ),

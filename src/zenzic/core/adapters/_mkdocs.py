@@ -11,13 +11,13 @@ from __future__ import annotations
 
 import logging
 import os
-import re
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import yaml
 from yaml.nodes import MappingNode, ScalarNode, SequenceNode
 
+from zenzic.core import regex as re
 from zenzic.core.adapters._utils import case_sensitive_exists, remap_to_default_locale
 from zenzic.core.exceptions import ConfigurationError
 from zenzic.models.config import BuildContext

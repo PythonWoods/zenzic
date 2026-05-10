@@ -32,6 +32,19 @@ continuità della validazione attraverso i cambiamenti di motore (MkDocs, Docusa
 Zensical e futuri adapter) affinché i progetti mantengano il controllo sui propri dati
 e processi di qualità indipendentemente dall'evoluzione dell'ecosistema.
 
+## Contratto Contributori Basalt (v0.8.0)
+
+Prima di proporre modifiche a regole o documentazione, i contributori devono
+validare l'impatto sul registro codici live e sul modello di ownership a tier.
+
+- **Modello ownership a tier:** i finding sono separati in domini Core,
+    Structure e Governance; ogni modifica deve restare nella banda corretta.
+- **Consapevolezza contratti frozen:** non modificare superfici immutabili
+    (`FROZEN_CODES`, `NON_SUPPRESSIBLE_CODES`, `PLUGIN_FORBIDDEN_EXITS`) senza
+    decisione architetturale esplicita.
+- **Workflow inspect-first:** usare `zenzic inspect codes` come fonte di verità
+    prima di toccare esempi, tabelle check e narrativa changelog.
+
 ---
 
 ## Inizio rapido
@@ -70,6 +83,12 @@ Esegui il controllo pre-PR completo con:
 
 ```bash
 just verify
+```
+
+Valida il registro codici durante lo sviluppo con:
+
+```bash
+zenzic inspect codes
 ```
 
 > **Nox — Checklist di Sviluppo**
