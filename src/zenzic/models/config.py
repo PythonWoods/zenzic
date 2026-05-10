@@ -606,7 +606,10 @@ class ZenzicConfig(BaseModel):
             if isinstance(raw_legacy, list):
                 legacy_obsolete = [name for name in raw_legacy if isinstance(name, str)]
         if legacy_obsolete:
-            _cfg_log.warning("Deprecated in v0.8: moved to [governance].brand_obsolescence")
+            _cfg_log.warning(
+                "Deprecated in v0.8: The '[project_metadata].obsolete_names' field is "
+                "deprecated. Please move it to '[governance].brand_obsolescence'."
+            )
             governance_cfg = filtered_data.get("governance", GovernanceConfig())
             if not governance_cfg.brand_obsolescence:
                 governance_cfg.brand_obsolescence = legacy_obsolete

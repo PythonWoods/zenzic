@@ -139,7 +139,7 @@ zenzic check all  # Audit the current directory
 
 **Autofix:** `zenzic clean assets [-y] [--dry-run]` deletes unused images.
 
-> 🚀 **v0.7.1 "Quartz Maturity" (Stable)** — Z104 proactive suggestions, Standalone
+> 🚀 **v0.8.0 "Quartz Maturity" (Stable)** — Z104 proactive suggestions, Standalone
 > Mode truth audit, and Engineering Ledger hardening. See [CHANGELOG.md](CHANGELOG.md).
 
 ---

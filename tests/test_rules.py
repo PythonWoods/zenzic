@@ -1620,7 +1620,7 @@ _ANCHOR_FILE = Path("docs/guide.md")
 
 
 class TestCircularAnchorRule:
-    """18-test suite for built-in Z107, Z505, Z905 rules (D091)."""
+    """18-test suite for built-in Z107, Z505, Z601 rules (D091)."""
 
     def _rule(self) -> CircularAnchorRule:
         return CircularAnchorRule()
@@ -1750,7 +1750,7 @@ class TestUntaggedCodeBlockRule:
         assert findings == []
 
 
-# ─── BrandObsolescenceRule (Z905) ─────────────────────────────────────────────
+# ─── BrandObsolescenceRule (Z601) ─────────────────────────────────────────────
 
 
 def _meta(

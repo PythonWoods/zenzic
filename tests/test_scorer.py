@@ -42,12 +42,12 @@ def test_score_drops_with_issues() -> None:
 
 
 def test_score_is_zero_with_many_issues() -> None:
-    report = compute_score({"Z101": 10, "Z402": 10, "Z503": 10, "Z903": 10})
+    report = compute_score({"Z101": 10, "Z402": 10, "Z503": 10, "Z405": 10})
     assert report.score == 0
 
 
 def test_score_is_bounded_0_to_100() -> None:
-    report = compute_score({"Z101": 100, "Z402": 100, "Z503": 100, "Z903": 100})
+    report = compute_score({"Z101": 100, "Z402": 100, "Z503": 100, "Z405": 100})
     assert 0 <= report.score <= 100
 
 
@@ -84,14 +84,14 @@ def test_untagged_blocks_counted_in_content() -> None:
 
 
 def test_brand_violations_counted_in_brand() -> None:
-    report = compute_score({"Z905": 2})
+    report = compute_score({"Z601": 2})
     brand_cat = next(c for c in report.categories if c.name == "brand")
     assert brand_cat.issues == 2
     assert brand_cat.category_score < 1.0
 
 
 def test_nav_contract_errors_counted_in_brand() -> None:
-    report = compute_score({"Z904": 1, "Z905": 1})
+    report = compute_score({"Z406": 1, "Z601": 1})
     brand_cat = next(c for c in report.categories if c.name == "brand")
     assert brand_cat.issues == 2
 
@@ -170,8 +170,8 @@ def test_unknown_code_contributes_zero_deduction() -> None:
 
 
 def test_to_dict_structure() -> None:
-    # Z101:1 → struct 32; Z503:2 → content 10; Z903:1 → brand 7; nav 20 → total 69
-    report = compute_score({"Z101": 1, "Z503": 2, "Z903": 1})
+    # Z101:1 → struct 32; Z503:2 → content 10; Z405:1 → brand 7; nav 20 → total 69
+    report = compute_score({"Z101": 1, "Z503": 2, "Z405": 1})
     d = report.to_dict()
     assert d["project"] == "zenzic"
     assert "score" in d
@@ -242,7 +242,7 @@ def test_save_snapshot_writes_schema_version(tmp_path: Path) -> None:
 
 
 def test_snapshot_roundtrip_preserves_categories(tmp_path: Path) -> None:
-    report = compute_score({"Z101": 2, "Z402": 1, "Z501": 3, "Z903": 1})
+    report = compute_score({"Z101": 2, "Z402": 1, "Z501": 3, "Z405": 1})
     save_snapshot(tmp_path, report)
     loaded = load_snapshot(tmp_path)
     assert loaded is not None
@@ -272,7 +272,7 @@ def _mock_all_checks_with_issues(
     strict: bool,
 ) -> ScoreReport:
     # structural: 2×8=16 → 24pts; content: 1×10+3×2=16 → 14pts; nav: 1×4=4 → 16pts; brand: 1×3=3 → 7pts → score=61
-    return compute_score({"Z101": 2, "Z402": 1, "Z503": 1, "Z501": 3, "Z903": 1})
+    return compute_score({"Z101": 2, "Z402": 1, "Z503": 1, "Z501": 3, "Z405": 1})
 
 
 @patch("zenzic.cli._standalone.find_repo_root")

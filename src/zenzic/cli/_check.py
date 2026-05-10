@@ -635,7 +635,7 @@ def check_assets(
         Finding(
             rel_path=str(path),
             line_no=0,
-            code="Z903",
+            code="Z405",
             severity="warning",
             message="File not referenced in any documentation page.",
         )
@@ -968,7 +968,7 @@ def _to_findings(results: _AllCheckResults, docs_root: Path) -> list[Finding]:
             Finding(
                 rel_path=str(path),
                 line_no=0,
-                code="Z903",
+                code="Z405",
                 severity="warning",
                 message="File not referenced in any documentation page.",
             )
@@ -979,7 +979,7 @@ def _to_findings(results: _AllCheckResults, docs_root: Path) -> list[Finding]:
             Finding(
                 rel_path="(nav)",
                 line_no=0,
-                code="Z904",
+                code="Z406",
                 severity="error",
                 message=msg,
             )
@@ -991,7 +991,7 @@ def _to_findings(results: _AllCheckResults, docs_root: Path) -> list[Finding]:
             Finding(
                 rel_path=_rel(issue.file_path),
                 line_no=0,
-                code="Z907",
+                code="Z602",
                 severity="error" if _i18n_strict else "warning",
                 message=issue.message,
             )

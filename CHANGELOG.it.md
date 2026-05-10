@@ -13,6 +13,20 @@ Le versioni seguono il [Semantic Versioning](https://semver.org/).
 
 ## [Non Rilasciato]
 
+### ADR-012: The Great Renumbering (Migration Bridge verso v0.8.0)
+
+- **Policy storica:** Le entry delle versioni precedenti alla v0.8.0 restano
+  snapshot immutabili e possono mantenere riferimenti legacy `Z9xx` se veri al
+  momento del rilascio.
+- **Mappatura sovrana in v0.8.0:**
+  - `Z903` → `Z405` (`UNUSED_ASSET`)
+  - `Z904` → `Z406` (`NAV_CONTRACT`)
+  - `Z905` → `Z601` (`BRAND_OBSOLESCENCE`)
+  - `Z907` → `Z602` (`I18N_PARITY`)
+- **Contratto di breaking change:** Runtime/docs/esempi nella linea v0.8.0
+  devono mostrare solo ID canonici; gli ID legacy possono restare solo come
+  anchor di compatibilità o diagnostica di migrazione.
+
 ### Modificato (Breaking)
 
 - **Refactor del namespace per ownership dei codici (ADR-012, Batch 1):** I

@@ -66,7 +66,7 @@ def _run_all_checks(
     placeholders = find_placeholders(docs_root, exclusion_mgr, config=config)
     unused_assets = find_unused_assets(docs_root, exclusion_mgr, config=config)
 
-    # Collect rule findings (Z107, Z505, Z905) and security violations (Z201–Z203)
+    # Collect rule findings (Z107, Z505, Z601) and security violations (Z201–Z203)
     # via the Two-Pass Reference Engine.
     ref_reports, _ = scan_docs_references(
         docs_root,
@@ -88,15 +88,15 @@ def _run_all_checks(
     # Core check aggregates
     findings_counts["Z402"] = findings_counts.get("Z402", 0) + len(orphans)
     findings_counts["Z503"] = findings_counts.get("Z503", 0) + len(snippet_errors)
-    findings_counts["Z903"] = findings_counts.get("Z903", 0) + len(unused_assets)
-    findings_counts["Z904"] = findings_counts.get("Z904", 0) + len(nav_errors)
+    findings_counts["Z405"] = findings_counts.get("Z405", 0) + len(unused_assets)
+    findings_counts["Z406"] = findings_counts.get("Z406", 0) + len(nav_errors)
 
     # Placeholder findings — Z501 (pattern) vs Z502 (short-content) split (CEO-171)
     for pf in placeholders:
         pcode = "Z502" if pf.issue == "Z502" else "Z501"
         findings_counts[pcode] = findings_counts.get(pcode, 0) + 1
 
-    # Rule-engine findings: Z107, Z505, Z905 (rule_id already a Zxxx code)
+    # Rule-engine findings: Z107, Z505, Z601 (rule_id already a Zxxx code)
     for r in ref_reports:
         for rule_f in r.rule_findings:
             findings_counts[rule_f.rule_id] = findings_counts.get(rule_f.rule_id, 0) + 1

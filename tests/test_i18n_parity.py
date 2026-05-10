@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
-"""Z907 I18N_PARITY — unit + Hypothesis stress tests.
+"""Z602 I18N_PARITY — unit + Hypothesis stress tests.
 
 Validates the language-agnostic parity scanner introduced in EPOCH 5
 (v0.7.0 "Quartz Maturity" / "Quarzo").  Covers:
@@ -219,7 +219,7 @@ def test_deep_nesting_detects_missing_mirror(
     rel_dir = Path(*nested_parts)
     base_file = root / "docs" / rel_dir / "page.mdx"
     _write(base_file, _fm(title="T"))
-    # IT mirror intentionally missing — Z907 must fire exactly once.
+    # IT mirror intentionally missing — Z602 must fire exactly once.
 
     config = ZenzicConfig(
         i18n=I18nConfig(

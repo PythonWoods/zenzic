@@ -139,7 +139,7 @@ zenzic check all  # Analizza la cartella corrente
 
 **Correzione automatica:** `zenzic clean assets [-y] [--dry-run]` elimina gli asset inutilizzati.
 
-> 🚀 **v0.7.1 "Quartz Maturity" (Stabile)** — Suggerimenti proattivi Z104, audit di verità
+> 🚀 **v0.8.0 "Quartz Maturity" (Stabile)** — Suggerimenti proattivi Z104, audit di verità
 > Standalone Mode e hardening dell'Engineering Ledger. Vedi [CHANGELOG.md](CHANGELOG.md).
 
 ---

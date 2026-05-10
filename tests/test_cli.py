@@ -220,7 +220,7 @@ def test_check_assets_with_unused(_assets, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "assets"])
     assert result.exit_code == 1
     assert "ZENZIC SENTINEL" in result.stdout
-    assert "Z903" in result.stdout
+    assert "Z405" in result.stdout
 
 
 # ---------------------------------------------------------------------------

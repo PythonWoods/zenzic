@@ -885,10 +885,10 @@ def test_find_unused_assets_symlink_skipped(tmp_path: Path) -> None:
 
 
 def test_find_unused_assets_skips_system_infrastructure_files(tmp_path: Path) -> None:
-    """System infrastructure files must never appear as Z903 findings.
+    """System infrastructure files must never appear as Z405 findings.
 
     Regression (D050): when docs_root == project root, toolchain files like
-    package.json were included in the asset walk and emitted spurious Z903
+    package.json were included in the asset walk and emitted spurious Z405
     warnings. The Level 1a guardrail in find_unused_assets must filter them.
     """
     docs = tmp_path / "docs"
@@ -914,7 +914,7 @@ def test_find_unused_assets_skips_system_infrastructure_files(tmp_path: Path) ->
 def test_find_unused_assets_skips_adapter_metadata_files(tmp_path: Path) -> None:
     """Adapter metadata files must be excluded via the adapter_metadata_files param.
 
-    Regression (D050): docusaurus.config.ts in docs_root triggered Z903 when
+    Regression (D050): docusaurus.config.ts in docs_root triggered Z405 when
     the Docusaurus adapter's metadata files were not passed to find_unused_assets.
     """
     docs = tmp_path / "docs"

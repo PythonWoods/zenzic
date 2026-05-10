@@ -11,7 +11,7 @@ Quartz Weight Matrix (CEO-149/163)
 - structural:   40 pts   Z101, Z102, Z104, Z105, Z106, Z107 — Structural Integrity
 - content:      30 pts   Z501, Z502, Z503, Z505 — Content Excellence
 - navigation:   20 pts   Z402 (Z401 is INFO — immune) — Navigation & SEO
-- brand:        10 pts   Z903, Z904, Z905 — Brand & Assets
+- brand:        10 pts   Z405, Z406, Z601 — Brand & Assets
 
 Scoring formula: total = Σ max(0, cap_i − Σ penalty_code × count_code)
 
@@ -40,7 +40,7 @@ _WEIGHTS: dict[str, float] = {
     "structural": 0.40,  # Z101, Z102, Z104, Z105, Z107 — Structural Integrity
     "content": 0.30,  # Z501, Z502, Z503, Z505 — Content Excellence
     "navigation": 0.20,  # Z402 (Z401 is INFO — immune) — Navigation & SEO
-    "brand": 0.10,  # Z903, Z904, Z905 — Brand & Assets
+    "brand": 0.10,  # Z405, Z406, Z601 — Brand & Assets
 }
 
 # ─── Quartz Penalty Table (CEO-163/170) ─────────────────────────────────────
@@ -63,9 +63,10 @@ _CODE_PENALTY: dict[str, float] = {
     # Navigation & SEO (cap = 20 pts)
     "Z402": 4.0,  # ORPHAN_PAGE
     # Brand & Assets (cap = 10 pts)
-    "Z903": 3.0,  # UNUSED_ASSET
-    "Z904": 2.0,  # DISCOVERY_ERROR (nav contract violation)
-    "Z905": 3.0,  # BRAND_OBSOLESCENCE
+    "Z405": 3.0,  # UNUSED_ASSET
+    "Z406": 2.0,  # NAV_CONTRACT (navigation contract violation)
+    "Z601": 3.0,  # BRAND_OBSOLESCENCE
+    # Z602 (I18N_PARITY) belongs to Governance tier and is not weighted in DQS.
 }
 
 _CODE_CATEGORY: dict[str, str] = {
@@ -80,9 +81,9 @@ _CODE_CATEGORY: dict[str, str] = {
     "Z503": "content",
     "Z505": "content",
     "Z402": "navigation",
-    "Z903": "brand",
-    "Z904": "brand",
-    "Z905": "brand",
+    "Z405": "brand",
+    "Z406": "brand",
+    "Z601": "brand",
 }
 
 # Z2xx codes trigger the Security Override — score collapses to 0.
