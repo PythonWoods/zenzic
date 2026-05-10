@@ -101,6 +101,10 @@ FROZEN_CODES: frozenset[str] = frozenset(
         "Z202",
         "Z203",
         "Z204",
+        "Z405",
+        "Z406",
+        "Z601",
+        "Z602",
     }
 )
 

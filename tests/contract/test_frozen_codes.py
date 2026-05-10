@@ -72,6 +72,26 @@ class TestFrozenCodesContract:
                 "description": "Forbidden project term detected in documentation content",
                 "sarif_level": "error",
             },
+            "Z405": {
+                "name": "UNUSED_ASSET",
+                "description": "Asset file not referenced by any documentation page",
+                "sarif_level": "warning",
+            },
+            "Z406": {
+                "name": "NAV_CONTRACT",
+                "description": "Navigation contract violation detected",
+                "sarif_level": "warning",
+            },
+            "Z601": {
+                "name": "BRAND_OBSOLESCENCE",
+                "description": "Deprecated brand term found in documentation source",
+                "sarif_level": "warning",
+            },
+            "Z602": {
+                "name": "I18N_PARITY",
+                "description": "Translation mirror missing or frontmatter parity violation",
+                "sarif_level": "warning",
+            },
         }
 
         for code, expected_meta in golden_snapshot.items():
