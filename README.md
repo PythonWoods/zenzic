@@ -74,6 +74,9 @@ file integrity.
 pip install zenzic
 zenzic lab        # Interactive showroom — 21 acts, every engine, zero setup
 zenzic check all  # Audit the current directory
+zenzic check all --audit  # Sovereign truth run: ignore suppressions
+zenzic config explain  # Show active config values and origin (local/global/default)
+zenzic guard scan --staged  # Fast pre-commit Secret Guard
 zenzic inspect codes  # List canonical finding contracts
 ```
 

@@ -15,6 +15,12 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Epoch 8 decree:** "Epoch 8: Basalt – The Sovereign Transition. Introducing Suppression CAP, Local Sanctuary, and Avion-Grade Governance."
+- **Phase 2 (The Truth-Seeker) delivered:** Added Sovereign Audit mode via
+  `zenzic check all --audit` (bypasses inline `zenzic-ignore` and
+  `[governance].per_file_ignores` for suppressible findings), plus native
+  Secret Guard commands (`zenzic guard scan`, `zenzic guard init`) powered by
+  Shield signatures for pre-commit enforcement.
 - **Stability Contract constants in `codes.py`:** Added `FROZEN_CODES`,
   `NON_SUPPRESSIBLE_CODES`, and `PLUGIN_FORBIDDEN_EXITS` as immutable public
   contract surfaces for v0.8.0 Basalt.

@@ -14,6 +14,10 @@
 # Rationale: the README is the primary entry point for users; broken links
 # there are indistinguishable from broken links in the documentation itself.
 #
+# 🏛️ LOCAL SOVEREIGNTY (Basalt): keep machine-specific overrides and private
+# credentials in `.zenzic.local.toml` only. Shared `zenzic.toml` is the team
+# constitution and must stay reproducible in CI.
+#
 # 🌿  ZERO-CONFIG NOTE (v0.7.0):
 #   * Universal build / cache directories (`build`, `dist`, `temp`, `tmp`,
 #     `.tox`, `mutants`, plus `.git`, `.venv`, `node_modules`, …) are part

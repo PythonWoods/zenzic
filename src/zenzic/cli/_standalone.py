@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import tomllib
 import typer
 from rich import box
 from rich.panel import Panel
@@ -416,10 +417,7 @@ def init(
     dev: bool = typer.Option(
         False,
         "--dev",
-        help=(
-            "Also scaffold .zenzic.local.toml (Z204 Enterprise Privacy Gate). "
-            "Auto-enabled in editable installs (CEO-275)."
-        ),
+        help=("Deprecated compatibility flag. .zenzic.local.toml is now always scaffolded."),
     ),
     path: str | None = typer.Argument(
         None,
@@ -442,10 +440,10 @@ def init(
     pre-sets ``engine = "zensical"``.  Otherwise the ``[build_context]`` block
     is omitted and the standalone (engine-agnostic) defaults apply.
 
-    Use ``--dev`` to also create ``.zenzic.local.toml`` (Z204 Enterprise Privacy
-    Gate).  In editable installs the local scaffold is created automatically
-    (CEO-275 Conditional Scaffolding).
+    Zenzic always scaffolds ``.zenzic.local.toml`` as the machine-local overlay
+    alongside the shared project config (Local Sovereignty model).
     """
+    _ = dev  # Backward-compatible flag retained intentionally.
     from zenzic import __version__
 
     _shared._ui.print_header(__version__)
@@ -488,11 +486,8 @@ def init(
     else:
         _init_standalone(repo_root, force)
 
-    # CEO-275: Conditional Scaffolding — create .zenzic.local.toml when:
-    #   (a) --dev flag is explicitly passed, or
-    #   (b) running in an editable (developer) install (auto-detection)
-    if dev or _is_editable_install():
-        _scaffold_local_toml(repo_root)
+    # Local Sovereignty Basalt: always scaffold machine-local overlay.
+    _scaffold_local_toml(repo_root)
 
 
 def _is_editable_install() -> bool:
@@ -518,57 +513,104 @@ def _is_editable_install() -> bool:
 
 
 def _scaffold_local_toml(repo_root: Path) -> None:
-    """Create a ``.zenzic.local.toml`` template for the Z204 Privacy Gate.
+    """Create a didactic ``.zenzic.local.toml`` Local Sovereignty template.
 
-    Idempotent — skips creation silently if the file already exists.
-    Patterns are matched verbatim and case-insensitively (no regex).
-    The file is automatically added to ``.gitignore`` when that file exists.
+    Idempotent for content creation, but always ensures Git protection:
+    when the target is a Git repository, ``.zenzic.local.toml`` is enforced in
+    ``.gitignore`` (created if missing) to prevent accidental commits.
     """
     from rich.panel import Panel
 
     local_toml = repo_root / ".zenzic.local.toml"
-    if local_toml.exists():
-        _shared.console.print("[dim]  .zenzic.local.toml already exists — skipped.[/]")
-        return
+    created_now = False
 
-    content = (
-        "# .zenzic.local.toml — Enterprise Privacy Gate (git-ignored)\n"
-        "# This file is local to your machine. DO NOT commit it to version control.\n"
-        "# Use it to define project-specific forbidden terms that trigger Z204 (Exit 2)\n"
-        "# when found in any documentation file scanned by Zenzic.\n"
-        "#\n"
-        "# Patterns are matched verbatim and case-insensitively (no regex).\n"
-        "# Examples: internal code-names, staging hostnames, team aliases.\n"
-        "#\n"
-        '# forbidden_patterns = ["Project Titan", "internal-api.corp", "staging.acme.io"]\n'
-        "forbidden_patterns = []\n"
-    )
-    local_toml.write_text(content, encoding="utf-8")
+    if not local_toml.exists():
+        content = (
+            "# --- ZENZIC LOCAL OVERRIDES ---\n"
+            "# This file is auto-generated and must stay in .gitignore.\n"
+            "# Everything declared here overrides shared zenzic.toml only on your machine.\n"
+            "# Use it for workstation-specific paths, temporary debt-cleanup knobs,\n"
+            "# and private credentials that must never enter version control.\n"
+            "\n"
+            "[core]\n"
+            "# Override docs root when working in an isolated branch layout\n"
+            "# or a non-standard local folder structure.\n"
+            '# docs_dir = "my/custom/path/to/docs"\n'
+            "\n"
+            "# Z204 Privacy Gate (local secret terms, literal and case-insensitive).\n"
+            '# forbidden_patterns = ["Project Titan", "internal-api.corp", "staging.acme.io"]\n'
+            "forbidden_patterns = []\n"
+            "\n"
+            "[build_context]\n"
+            "# Mirrors global structure for safe local overrides only when needed.\n"
+            '# engine = "docusaurus"\n'
+            '# base_url = "/"\n'
+            '# default_locale = "en"\n'
+            "\n"
+            "[project_metadata]\n"
+            "# Optional local branding experiments without touching team config.\n"
+            '# release_name = "Basalt"\n'
+            "\n"
+            "[governance]\n"
+            "# Want to disable fail-hard locally during massive debt cleanup?\n"
+            "# Raise CAP only for your workstation to avoid blocking local experiments.\n"
+            "# Keep shared governance decisions in zenzic.toml.\n"
+            "# suppression_cap = 100\n"
+            "# suppression_cap_fail_hard = false\n"
+            "\n"
+            "[i18n]\n"
+            "# Local i18n experiments (mirrors global section shape).\n"
+            "# enabled = true\n"
+            "\n"
+            "[secrets]\n"
+            "# Store API tokens here (never in shared zenzic.toml).\n"
+            "# Use these credentials in local wrappers for authenticated checks\n"
+            "# (for example API rate limits or private repository URLs).\n"
+            '# github_pat = "ghp_xxxxxxxxxxxxxxxxxxxx"\n'
+            "\n"
+            "[debug]\n"
+            "# Enable granular diagnostics while investigating Sentinel behavior.\n"
+            '# log_level = "DEBUG"\n'
+            "\n"
+            "# --- DEVELOPMENT ENVIRONMENT ---\n"
+            "# Define local environment variables used by your wrappers/scripts.\n"
+            "[env]\n"
+            '# ZENZIC_FORCE_COLOR = "true"\n'
+        )
+        local_toml.write_text(content, encoding="utf-8")
+        created_now = True
 
-    # Auto-append to .gitignore when found and entry not already present.
+    # Ensure local overlay is ignored in Git repositories.
+    is_git_repo = (repo_root / ".git").exists()
     gitignore = repo_root / ".gitignore"
-    gitignore_line = (
-        "[yellow]⚠[/]  Remember to add [bold].zenzic.local.toml[/] to [bold].gitignore[/].\n"
-    )
-    if gitignore.is_file():
-        existing = gitignore.read_text(encoding="utf-8")
+    gitignore_line = ""
+    if is_git_repo:
+        existing = gitignore.read_text(encoding="utf-8") if gitignore.is_file() else ""
         if ".zenzic.local.toml" not in existing:
-            separator = "" if existing.endswith("\n") else "\n"
-            gitignore.write_text(
-                existing + separator + ".zenzic.local.toml\n",
-                encoding="utf-8",
-            )
+            separator = "" if (not existing or existing.endswith("\n")) else "\n"
+            gitignore.write_text(existing + separator + ".zenzic.local.toml\n", encoding="utf-8")
             gitignore_line = (
-                "[green]✔[/] [bold].gitignore[/] updated — .zenzic.local.toml is now git-ignored.\n"
+                "[yellow]🛡️ Security Note:[/] Added [bold].zenzic.local.toml[/] "
+                "to your [bold].gitignore[/] to preserve local sovereignty.\n"
             )
+        else:
+            gitignore_line = "[dim].gitignore already protects .zenzic.local.toml.[/]\n"
+    else:
+        gitignore_line = (
+            "[yellow]⚠[/] No Git repository detected. Keep .zenzic.local.toml private.\n"
+        )
 
     _shared.console.print(
         Panel(
-            "[green]✔[/] [bold].zenzic.local.toml[/] created (Z204 Privacy Gate).\n"
+            (
+                "[green]✔[/] [bold].zenzic.local.toml[/] created (Local Sovereignty overlay).\n"
+                if created_now
+                else "[dim].zenzic.local.toml already exists — preserved.[/]\n"
+            )
             + gitignore_line
-            + "\nEdit [bold cyan]forbidden_patterns[/] with literal strings — "
-            "any match in documentation source triggers [bold red]Exit 2[/].",
-            title="[bold]Privacy Gate[/]",
+            + "\nEdit local overrides safely: this file wins over shared config "
+            "only on your machine.",
+            title="[bold]Local Sanctuary[/]",
             border_style="cyan",
         )
     )
@@ -588,6 +630,98 @@ def _detect_init_engine(repo_root: Path) -> str:
     return discover_engine(repo_root)
 
 
+def _discover_project_name(repo_root: Path) -> str | None:
+    """Discover project name from pyproject.toml or package.json when available."""
+    pyproject = repo_root / "pyproject.toml"
+    if pyproject.is_file():
+        try:
+            data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
+            project = data.get("project")
+            if isinstance(project, dict):
+                name = project.get("name")
+                if isinstance(name, str) and name.strip():
+                    return name.strip()
+        except Exception:
+            pass
+
+    package_json = repo_root / "package.json"
+    if package_json.is_file():
+        try:
+            data = json.loads(package_json.read_text(encoding="utf-8"))
+            name = data.get("name")
+            if isinstance(name, str) and name.strip():
+                return name.strip()
+        except Exception:
+            pass
+
+    return None
+
+
+def _build_governance_ready_toml(*, engine: str, discovered_name: str | None) -> str:
+    """Build Basalt Blueprint template with didactic comments."""
+    hint_name = discovered_name or "My Awesome App"
+    spdx_id_label = "SPDX-License-Identifier"
+    return (
+        "# SPDX-FileCopyrightText: 2026 [Your Name] <[Your Email]>\n"
+        f"# {spdx_id_label}: Apache-2.0\n"
+        "\n"
+        "# --- PROJECT IDENTITY ---\n"
+        "# [project]\n"
+        f'# name = "{hint_name}" # Used for personalized CLI Governance headers\n'
+        "\n"
+        "# --- CORE SETTINGS ---\n"
+        'docs_dir = "docs"\n'
+        "strict = true\n"
+        "fail_under = 100\n"
+        "\n"
+        "# --- ENGINE CONTEXT ---\n"
+        "[build_context]\n"
+        f'engine         = "{engine}" # Supported: docusaurus, mkdocs, zensical, standalone\n'
+        'base_url       = "/"\n'
+        'default_locale = "en"\n'
+        "\n"
+        "# --- BRAND INTEGRITY ---\n"
+        "[project_metadata]\n"
+        'release_name = "Basalt"\n'
+        "\n"
+        "[governance]\n"
+        "# Maximum allowed architectural debt (inline + per-file suppressions).\n"
+        "# Default: 30. Build fails if exceeded.\n"
+        "suppression_cap = 30\n"
+        "suppression_cap_fail_hard = true\n"
+        "\n"
+        "# Terms that should no longer appear in your documentation.\n"
+        'brand_obsolescence = ["OldProduct", "LegacyTerm"]\n'
+        "\n"
+        "# Governance Playbook:\n"
+        "# https://zenzic.dev/developers/how-to/release-governance-protocol\n"
+        "\n"
+        "# --- I18N PARITY (Optional) ---\n"
+        "# [i18n]\n"
+        "# enabled = true\n"
+        '# base_lang = "en"\n'
+        '# base_source = "docs"\n'
+        "# strict_parity = true\n"
+        "# [i18n.targets]\n"
+        '# it = "i18n/it/docusaurus-plugin-content-docs/current"\n'
+        "\n"
+        "# --- GATE 4: CI/CD (GitHub Actions, Optional) ---\n"
+        "# Add this workflow snippet to .github/workflows/zenzic.yml\n"
+        "#\n"
+        "# name: zenzic\n"
+        "# on: [pull_request, push]\n"
+        "# jobs:\n"
+        "#   sentinel:\n"
+        "#     runs-on: ubuntu-latest\n"
+        "#     steps:\n"
+        "#       - uses: actions/checkout@v4\n"
+        "#       - uses: actions/setup-python@v5\n"
+        "#         with:\n"
+        "#           python-version: '3.12'\n"
+        "#       - run: pipx run zenzic check all --strict\n"
+    )
+
+
 def _init_standalone(repo_root: Path, force: bool) -> None:
     """Create a standalone ``zenzic.toml`` configuration file."""
     config_path = repo_root / "zenzic.toml"
@@ -601,41 +735,10 @@ def _init_standalone(repo_root: Path, force: bool) -> None:
         raise typer.Exit(1)
 
     detected_engine = _detect_init_engine(repo_root)
-
-    toml_content = (
-        "# zenzic.toml — The Zenzic Safe Harbor Configuration\n"
-        "# See https://zenzic.dev/docs/reference/configuration/ for full reference.\n"
-        "\n"
-        "# --- CORE SETTINGS ---\n"
-        'docs_dir = "docs"\n'
-        "fail_under = 100  # Strict gate: fail if quality score < 100%\n"
-        "strict = true     # Promote all warnings to blocking errors\n"
-        "\n"
-        "# --- QUALITY THRESHOLDS ---\n"
-        "# placeholder_max_words = 50       # Threshold for Z502 (Short Content)\n"
-        "\n"
-        "# --- EXCLUSIONS ---\n"
-        "# respect_vcs_ignore = false  # uncomment to disable .gitignore integration\n"
-        '# excluded_dirs = ["temp", "drafts", "node_modules"]\n'
-        "# excluded_external_urls = []\n"
-        "\n"
-        "# --- PROJECT IDENTITY ---\n"
-        "[project_metadata]\n"
-        'release_name = "MyProject"\n'
-        '# obsolete_names = ["OldBrand", "LegacyName"]\n'
-        "\n"
-        "# --- ENGINE CONTEXT ---\n"
-        "[build_context]\n"
-        f'engine = "{detected_engine}"   # Pre-aligned via Quartz Auto-Discovery\n'
-        'base_url = "/"\n'
-        'default_locale = "en"\n'
-        "\n"
-        "# --- CUSTOM RULES ---\n"
-        "# [[custom_rules]]\n"
-        '# id = "ZZ-001"\n'
-        '# pattern = "TODO:"\n'
-        '# message = "Incomplete content detected."\n'
-        '# severity = "warning"\n'
+    discovered_name = _discover_project_name(repo_root)
+    toml_content = _build_governance_ready_toml(
+        engine=detected_engine,
+        discovered_name=discovered_name,
     )
 
     config_path.write_text(toml_content, encoding="utf-8")
@@ -645,14 +748,11 @@ def _init_standalone(repo_root: Path, force: bool) -> None:
             f"[green]✔[/] [bold]Sentinel Seal:[/] zenzic.toml created.\n"
             f"[yellow]💡[/] [bold]Auto-discovery:[/] Engine pre-set to "
             f"[bold cyan]{detected_engine}[/].\n\n"
-            "Edit the file, adjust directories, then run "
-            "[bold cyan]zenzic check all[/].",
+            "Run [bold cyan]zenzic check all[/] to see your first Sentinel Seal.",
             title="[bold]Zenzic Init[/]",
             border_style="green",
         )
     )
-    # Always scaffold .zenzic.local.toml alongside zenzic.toml
-    _scaffold_local_toml(repo_root)
 
 
 def _init_pyproject(repo_root: Path, pyproject_path: Path, force: bool) -> None:

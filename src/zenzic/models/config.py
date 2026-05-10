@@ -736,12 +736,18 @@ class ZenzicConfig(BaseModel):
 
     @classmethod
     def _apply_local_toml(cls, config: ZenzicConfig, repo_root: Path) -> None:
-        """Merge ``forbidden_patterns`` from ``.zenzic.local.toml`` into *config*.
+        """Apply machine-local overrides from ``.zenzic.local.toml``.
 
-        The local file is git-ignored and machine-local — it is the canonical
-        home for the Z204 Privacy Gate patterns.  Patterns from the local file
-        are appended to any patterns already declared in the primary config
-        (additive merge, insertion-order preserved, duplicates removed).
+        The local file is git-ignored and machine-local.  It can override a
+        safe subset of the shared configuration (core/build_context/
+        project_metadata/governance/i18n) while preserving the repository
+        sovereign defaults for everyone else.
+
+        Legacy compatibility:
+
+        - Top-level ``forbidden_patterns`` remains supported.
+        - ``[core].forbidden_patterns`` is also supported.
+        - Patterns are merged additively with de-duplication.
 
         ``.zenzic.dev.toml`` is a hard-removed legacy file in v0.7.0: when
         present, configuration loading fails with an explicit migration error.
@@ -767,7 +773,79 @@ class ZenzicConfig(BaseModel):
                 local_data = tomllib.load(f)
         except tomllib.TOMLDecodeError:
             return  # malformed local file — silently skip to avoid hard failures
-        extra = local_data.get("forbidden_patterns", [])
-        if isinstance(extra, list):
-            merged = list(dict.fromkeys([*config.forbidden_patterns, *extra]))
-            config.forbidden_patterns = merged
+
+        core_local = local_data.get("core")
+        if isinstance(core_local, dict):
+            docs_dir = core_local.get("docs_dir")
+            if isinstance(docs_dir, str) and docs_dir.strip():
+                config.docs_dir = Path(docs_dir.strip())
+
+            strict = core_local.get("strict")
+            if isinstance(strict, bool):
+                config.strict = strict
+
+            exit_zero = core_local.get("exit_zero")
+            if isinstance(exit_zero, bool):
+                config.exit_zero = exit_zero
+
+            fail_under = core_local.get("fail_under")
+            if isinstance(fail_under, int):
+                config.fail_under = fail_under
+
+        build_local = local_data.get("build_context")
+        if isinstance(build_local, dict):
+            merged_build = config.build_context.model_dump()
+            for key in BuildContext.model_fields:
+                if key in build_local:
+                    merged_build[key] = build_local[key]
+            try:
+                config.build_context = BuildContext(**merged_build)
+            except Exception:
+                pass
+
+        metadata_local = local_data.get("project_metadata")
+        if isinstance(metadata_local, dict):
+            merged_meta = config.project_metadata.model_dump()
+            for key in ProjectMetadata.model_fields:
+                if key in metadata_local:
+                    merged_meta[key] = metadata_local[key]
+            try:
+                config.project_metadata = ProjectMetadata(**merged_meta)
+            except Exception:
+                pass
+
+        governance_local = local_data.get("governance")
+        if isinstance(governance_local, dict):
+            merged_governance = config.governance.model_dump()
+            for key in GovernanceConfig.model_fields:
+                if key in governance_local:
+                    merged_governance[key] = governance_local[key]
+            try:
+                config.governance = GovernanceConfig(**merged_governance)
+            except Exception:
+                pass
+
+        i18n_local = local_data.get("i18n")
+        if isinstance(i18n_local, dict):
+            merged_i18n = config.i18n.model_dump()
+            for key in I18nConfig.model_fields:
+                if key in i18n_local:
+                    merged_i18n[key] = i18n_local[key]
+            try:
+                config.i18n = I18nConfig(**merged_i18n)
+            except Exception:
+                pass
+
+        merged_forbidden = list(config.forbidden_patterns)
+
+        legacy_extra = local_data.get("forbidden_patterns", [])
+        if isinstance(legacy_extra, list):
+            merged_forbidden.extend(legacy_extra)
+
+        core_forbidden = (
+            core_local.get("forbidden_patterns", []) if isinstance(core_local, dict) else []
+        )
+        if isinstance(core_forbidden, list):
+            merged_forbidden.extend(core_forbidden)
+
+        config.forbidden_patterns = list(dict.fromkeys(merged_forbidden))

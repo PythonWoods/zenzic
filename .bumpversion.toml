@@ -37,8 +37,19 @@ search = "date-released: \\d{{4}}-\\d{{2}}-\\d{{2}}"
 replace = "date-released: {now:%Y-%m-%d}"
 regex = true
 
-# NOTE: CHANGELOG entries are managed manually in this repo (snapshot policy),
-# so they are intentionally excluded from automatic bump replacement.
+# NOTE: CHANGELOG entries managed here (overrides earlier "snapshot policy" comment).
+# In Basalt-Grade governance, version consistency across ALL release surfaces is mandatory.
+[[tool.bumpversion.files]]
+filename = "CHANGELOG.md"
+search = "## [{current_version}]"
+replace = "## [{new_version}]"
+serialize = ["{major}.{minor}.{patch}{pre_l}{pre_n}", "{major}.{minor}.{patch}"]
+
+[[tool.bumpversion.files]]
+filename = "CHANGELOG.it.md"
+search = "## [{current_version}]"
+replace = "## [{new_version}]"
+serialize = ["{major}.{minor}.{patch}{pre_l}{pre_n}", "{major}.{minor}.{patch}"]
 
 [[tool.bumpversion.files]]
 filename = "README.md"
@@ -72,3 +83,11 @@ replace = "v{new_version}"
 filename = ".github/ISSUE_TEMPLATE/security_vulnerability.yml"
 search = 'placeholder: "{current_version}"'
 replace = 'placeholder: "{new_version}"'
+
+[[tool.bumpversion.files]]
+# Phase 2: .pre-commit-hooks.yaml must be bumped atomically with core version.
+# If this file is not updated, users pulling the hook will get a stale rev pointer.
+# Governance Leak Fix (Release A audit): This was missing, forcing manual edits.
+filename = ".pre-commit-hooks.yaml"
+search = "rev: v{current_version}"
+replace = "rev: v{new_version}"

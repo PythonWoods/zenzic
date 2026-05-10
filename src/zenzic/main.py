@@ -16,10 +16,12 @@ from zenzic import __version__
 from zenzic.cli import (
     check_app,
     clean_app,
+    config_app,
     configure_console,
     diff,
     get_console,
     get_ui,
+    guard_app,
     init,
     inspect_app,
     lab,
@@ -85,6 +87,8 @@ def _main(
 
 app.add_typer(check_app, name="check", rich_help_panel="Core")
 app.add_typer(clean_app, name="clean", rich_help_panel="Core")
+app.add_typer(config_app, name="config", rich_help_panel="Introspection")
+app.add_typer(guard_app, name="guard", rich_help_panel="Introspection")
 app.add_typer(inspect_app, name="inspect", rich_help_panel="Introspection")
 app.command(name="lab", rich_help_panel="Core")(lab)
 app.command(name="score", rich_help_panel="Quality")(score)

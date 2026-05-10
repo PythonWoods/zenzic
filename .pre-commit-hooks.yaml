@@ -7,9 +7,10 @@
 #
 #   repos:
 #     - repo: https://github.com/PythonWoods/zenzic
-#       rev: v0.7.0  # Quartz
+#       rev: v0.8.0  # Basalt
 #       hooks:
 #         - id: zenzic-verify    # gate Sentinel — corrisponde a `just verify` lato zenzic
+#         - id: zenzic-guard     # fast staged-file Secret Guard
 #
 # See https://zenzic.dev/ci-cd/ for full integration guide.
 
@@ -19,6 +20,15 @@
     Sentinel gate equivalent of `just verify` (Zenzic portion only — does not
     invoke pytest). Runs all documentation quality checks in --strict posture.
   entry: zenzic check all --strict --quiet
+  language: python
+  types: [markdown]
+  pass_filenames: false
+  require_serial: true
+
+- id: zenzic-guard
+  name: zenzic guard (Secret Guard)
+  description: Fast staged-file Shield scan for Markdown/MDX before commit.
+  entry: zenzic guard scan --staged
   language: python
   types: [markdown]
   pass_filenames: false

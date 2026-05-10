@@ -74,6 +74,9 @@ integrità dei file.
 pip install zenzic
 zenzic lab        # Showroom interattivo — 21 atti, ogni motore, zero configurazione
 zenzic check all  # Analizza la cartella corrente
+zenzic check all --audit  # Run di verità sovrana: ignora le soppressioni
+zenzic config explain  # Mostra valori config attivi e origine (local/global/default)
+zenzic guard scan --staged  # Secret Guard veloce per pre-commit
 zenzic inspect codes  # Elenca i contratti canonici dei finding
 ```
 

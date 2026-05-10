@@ -13,10 +13,8 @@ from pathlib import Path
 
 import typer
 
-from zenzic.core.discovery import iter_markdown_sources
 from zenzic.core.exclusion import LayeredExclusionManager
 from zenzic.core.reporter import Finding, SentinelReporter
-from zenzic.core.rules import count_inline_suppressions
 from zenzic.core.scanner import (
     I18nParityIssue,
     PlaceholderFinding,
@@ -29,6 +27,7 @@ from zenzic.core.scanner import (
     find_unused_assets,
     scan_docs_references,
 )
+from zenzic.core.sovereign_context import get_sovereign_context, sovereign_context
 from zenzic.core.ui import SentinelPalette
 from zenzic.core.validator import (
     LinkError,
@@ -41,6 +40,16 @@ from zenzic.models.config import ZenzicConfig
 from zenzic.models.references import IntegrityReport
 
 from . import _shared
+from ._governance import (
+    SuppressionAudit,
+    build_cap_exceeded_json_payload,
+    build_cap_exceeded_sarif_payload,
+    collect_inline_suppression_stats,
+    count_per_file_ignores,
+    print_governance_cap_failure,
+    print_suppression_audit_footer,
+    resolve_governance_panel_title,
+)
 
 
 check_app = typer.Typer(
@@ -801,80 +810,12 @@ class _AllCheckResults:
         )
 
 
-@dataclass(frozen=True)
-class _SuppressionAudit:
-    inline_count: int
-    per_file_count: int
-    cap: int
-    inline_hotspots: dict[str, int] = field(default_factory=dict)
-
-    @property
-    def total(self) -> int:
-        return self.inline_count + self.per_file_count
-
-    @property
-    def excess(self) -> int:
-        return max(0, self.total - self.cap)
-
-    @property
-    def extended_debt(self) -> bool:
-        return self.cap > 30
-
-    def top_offenders(self, *, limit: int = 5) -> list[tuple[str, int]]:
-        rows = sorted(
-            ((path, count) for path, count in self.inline_hotspots.items() if count > 0),
-            key=lambda item: item[1],
-            reverse=True,
-        )
-        if self.per_file_count > 0:
-            rows.append(("zenzic.toml [per-file]", self.per_file_count))
-        rows.sort(key=lambda item: item[1], reverse=True)
-        return rows[:limit]
-
-
-def _collect_inline_suppression_stats(
-    docs_root: Path,
-    config: ZenzicConfig,
-    exclusion_mgr: LayeredExclusionManager,
-) -> tuple[int, dict[str, int]]:
-    """Count inline suppression directives and hotspot distribution."""
-    total = 0
-    hotspots: dict[str, int] = {}
-    for md_file in iter_markdown_sources(docs_root, config, exclusion_mgr):
-        try:
-            text = md_file.read_text(encoding="utf-8")
-        except OSError:
-            continue
-        count = count_inline_suppressions(text)
-        if count <= 0:
-            continue
-        total += count
-        try:
-            rel = str(md_file.relative_to(docs_root))
-        except ValueError:
-            rel = str(md_file)
-        hotspots[rel] = count
-    return total, hotspots
-
-
-def _count_per_file_ignores(config: ZenzicConfig) -> int:
-    """Count configured per-file suppression entries (pattern+code pairs)."""
-    total = 0
-    for codes in config.governance.per_file_ignores.values():
-        if not isinstance(codes, list):
-            continue
-        normalized_codes = {
-            str(code).upper().strip()
-            for code in codes
-            if isinstance(code, str) and str(code).upper().startswith("Z")
-        }
-        total += len(normalized_codes)
-    return total
-
-
 def _apply_per_file_ignores(findings: list[Finding], config: ZenzicConfig) -> list[Finding]:
     """Filter findings using governance.per_file_ignores patterns."""
     from zenzic.core.codes import NON_SUPPRESSIBLE_CODES
+
+    if get_sovereign_context().force_audit:
+        return findings
 
     if not config.governance.per_file_ignores:
         return findings
@@ -1328,6 +1269,14 @@ def check_all(
         ),
         metavar="PREFIX",
     ),
+    audit: bool = typer.Option(
+        False,
+        "--audit",
+        help=(
+            "Sovereign truth-seeking mode: ignore all suppressible bypasses "
+            "(inline zenzic-ignore and governance.per_file_ignores)."
+        ),
+    ),
 ) -> None:
     """Run all checks: links, orphans, snippets, placeholders, assets, references.
 
@@ -1396,11 +1345,11 @@ def check_all(
     effective_exit_zero = exit_zero if exit_zero is not None else config.exit_zero
 
     t0 = time.monotonic()
-    inline_suppressions, inline_hotspots = _collect_inline_suppression_stats(
+    inline_suppressions, inline_hotspots = collect_inline_suppression_stats(
         docs_root, config, exclusion_mgr
     )
-    per_file_suppressions = _count_per_file_ignores(config)
-    suppression_audit = _SuppressionAudit(
+    per_file_suppressions = count_per_file_ignores(config)
+    suppression_audit = SuppressionAudit(
         inline_count=inline_suppressions,
         per_file_count=per_file_suppressions,
         cap=config.governance.suppression_cap,
@@ -1412,75 +1361,34 @@ def check_all(
         and suppression_audit.total > suppression_audit.cap
     ):
         if output_format == "json":
+            print(json.dumps(build_cap_exceeded_json_payload(suppression_audit), indent=2))
+        elif output_format == "sarif":
+            from zenzic import __version__
+
             print(
                 json.dumps(
-                    {
-                        "error": "SUPPRESSION_CAP_EXCEEDED",
-                        "message": (
-                            f"Suppression cap exceeded: {suppression_audit.total}/{suppression_audit.cap}. "
-                            "Reduce inline/per-file suppressions before release."
-                        ),
-                        "playbook": "https://zenzic.dev/developers/how-to/release-governance-protocol",
-                    },
+                    build_cap_exceeded_sarif_payload(suppression_audit, version=__version__),
                     indent=2,
                 )
             )
         elif output_format == "text":
             if not quiet:
                 _shared.console.print()
-            _shared.console.print(
-                "[bold red]✘ GOVERNANCE_FAILURE: SUPPRESSION_CAP_EXCEEDED[/bold red]"
-            )
-            _shared.console.print(
-                "The current repository exceeds the maximum allowed architectural debt."
-            )
-            _shared.console.print()
-            _shared.console.print("[bold][STATISTICS][/bold]")
-            _shared.console.print(
-                f"  • Total Active Suppressions: [bold]{suppression_audit.total}[/bold]"
-            )
-            _shared.console.print(
-                f"  • Configured Global CAP:     [bold]{suppression_audit.cap}[/bold]"
-            )
-            _shared.console.print(
-                f"  • Excess Debt:               [bold red]+{suppression_audit.excess}[/bold red]"
-            )
-            _shared.console.print()
-            _shared.console.print("[bold][BREAKDOWN][/bold]")
-            _shared.console.print(
-                f"  • Inline Ignores (zenzic-ignore):  [bold]{suppression_audit.inline_count}[/bold]"
-            )
-            _shared.console.print(
-                f"  • Per-File Ignores (config):       [bold]{suppression_audit.per_file_count}[/bold]"
-            )
-            _shared.console.print()
-            _shared.console.print("[bold][HOTSPOTS - Top Offenders][/bold]")
-            for path, count in suppression_audit.top_offenders(limit=5):
-                _shared.console.print(f"  [bold red]{count:>3}[/bold red]  {path}")
-            _shared.console.print()
-            _shared.console.print("[bold][REMEDIATION][/bold]")
-            _shared.console.print(
-                "  1. Review hotspots and resolve underlying issues to remove suppressions."
-            )
-            _shared.console.print(
-                "  2. If debt is intentional, increase 'governance.suppression_cap' in zenzic.toml."
-            )
-            _shared.console.print(
-                "  3. Consult the Playbook: [cyan]https://zenzic.dev/developers/how-to/release-governance-protocol[/cyan]"
-            )
-            _shared.console.print(
-                "[bold red][DEBT_STATUS][/bold red] ✘ FAILED (Fail-Hard Policy Active)"
+            print_governance_cap_failure(
+                suppression_audit,
+                title=resolve_governance_panel_title(repo_root),
             )
         raise typer.Exit(1)
 
-    results = _collect_all_results(
-        repo_root,
-        docs_root,
-        config,
-        exclusion_mgr,
-        strict=effective_strict,
-        check_external=not no_external,
-    )
+    with sovereign_context(force_audit=audit):
+        results = _collect_all_results(
+            repo_root,
+            docs_root,
+            config,
+            exclusion_mgr,
+            strict=effective_strict,
+            check_external=not no_external,
+        )
     elapsed = time.monotonic() - t0
 
     if output_format == "json":
@@ -1515,7 +1423,8 @@ def check_all(
     elif output_format == "sarif":
         from zenzic import __version__
 
-        all_findings = _to_findings(results, docs_root)
+        with sovereign_context(force_audit=audit):
+            all_findings = _to_findings(results, docs_root)
         _shared._output_sarif_findings(all_findings, __version__)
         incidents = sum(1 for f in all_findings if f.severity == "security_incident")
         if incidents:
@@ -1530,8 +1439,9 @@ def check_all(
 
     from zenzic import __version__
 
-    all_findings = _to_findings(results, docs_root)
-    all_findings = _apply_per_file_ignores(all_findings, config)
+    with sovereign_context(force_audit=audit):
+        all_findings = _to_findings(results, docs_root)
+        all_findings = _apply_per_file_ignores(all_findings, config)
 
     if _single_file is not None:
         _sf_rel = str(_single_file.relative_to(docs_root))
@@ -1578,13 +1488,7 @@ def check_all(
         )
 
     if output_format == "text":
-        extended = " [yellow][EXTENDED DEBT][/yellow]" if suppression_audit.extended_debt else ""
-        _shared.console.print(
-            "[dim]Suppression Audit:[/] "
-            f"[bold]{suppression_audit.total}/{suppression_audit.cap}[/bold] "
-            f"(inline: {suppression_audit.inline_count}, per-file: {suppression_audit.per_file_count})"
-            f"{extended}"
-        )
+        print_suppression_audit_footer(suppression_audit, audit_mode=audit)
 
     incidents = sum(1 for f in all_findings if f.severity == "security_incident")
     if incidents:

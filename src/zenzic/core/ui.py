@@ -209,9 +209,10 @@ class SentinelUI:
         Indigo rounded border. Every Zenzic Sentinel output panel must be created
         through this factory to guarantee visual consistency.
         """
+        title_markup = title if "[" in title else f"[{SentinelPalette.STYLE_BRAND}]{title}[/]"
         return Panel(
             content,
-            title=f"[{SentinelPalette.STYLE_BRAND}]{title}[/]",
+            title=title_markup,
             title_align="left",
             subtitle=f"[dim]{subtitle}[/]",
             subtitle_align="right",

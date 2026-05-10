@@ -16,6 +16,8 @@ from ._check import (
     check_app,
 )
 from ._clean import clean_app
+from ._config_explain import config_app
+from ._guard import guard_app
 from ._inspect import inspect_app
 from ._lab import lab
 from ._shared import (
@@ -32,6 +34,8 @@ __all__ = [
     # Typer sub-apps (registered in main.py)
     "check_app",
     "clean_app",
+    "config_app",
+    "guard_app",
     "inspect_app",
     # Standalone commands (registered in main.py)
     "score",

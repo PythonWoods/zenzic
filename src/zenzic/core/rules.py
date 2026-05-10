@@ -69,6 +69,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
 from zenzic.core import regex as re
+from zenzic.core.sovereign_context import get_sovereign_context
 
 
 if TYPE_CHECKING:
@@ -580,6 +581,9 @@ def _is_suppressed(line: str, code: str) -> bool:
     not suggestions — a credential leak cannot be declared a false positive.
     """
     from zenzic.core.codes import NON_SUPPRESSIBLE_CODES
+
+    if get_sovereign_context().force_audit:
+        return False
 
     if code in NON_SUPPRESSIBLE_CODES:
         return False

@@ -770,8 +770,23 @@ def test_init_standalone_creates_zenzic_toml(
     cfg = repo / "zenzic.toml"
     assert cfg.is_file()
     content = cfg.read_text(encoding="utf-8")
-    assert "docs_dir" in content
-    assert "fail_under" in content
+    assert "# --- PROJECT IDENTITY ---" in content
+    assert "[project_metadata]" in content
+    assert 'release_name = "Basalt"' in content
+    assert "suppression_cap = 30" in content
+    assert "suppression_cap_fail_hard = true" in content
+    assert "release-governance-protocol" in content
+
+    local_cfg = repo / ".zenzic.local.toml"
+    assert local_cfg.is_file()
+    local_content = local_cfg.read_text(encoding="utf-8")
+    assert "# --- ZENZIC LOCAL OVERRIDES ---" in local_content
+    assert "This file is auto-generated" in local_content
+    assert "suppression_cap_fail_hard = false" in local_content
+
+    gitignore = repo / ".gitignore"
+    assert gitignore.is_file()
+    assert ".zenzic.local.toml" in gitignore.read_text(encoding="utf-8")
 
 
 def test_init_standalone_detects_mkdocs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -786,7 +801,7 @@ def test_init_standalone_detects_mkdocs(tmp_path: Path, monkeypatch: pytest.Monk
     assert result.exit_code == 0
 
     content = (repo / "zenzic.toml").read_text(encoding="utf-8")
-    assert 'engine = "mkdocs"' in content
+    assert 'engine         = "mkdocs"' in content
 
 
 def test_init_standalone_warns_if_exists(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -814,8 +829,40 @@ def test_init_standalone_force_overwrites(tmp_path: Path, monkeypatch: pytest.Mo
     assert result.exit_code == 0
 
     content = (repo / "zenzic.toml").read_text(encoding="utf-8")
-    assert "zenzic.dev/docs/reference/configuration/" in content
+    assert "# --- GATE 4: CI/CD (GitHub Actions, Optional) ---" in content
     assert "# old" not in content
+
+
+def test_init_standalone_discovers_project_name_from_pyproject(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Init includes discovered project name as commented [project].name hint."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / "pyproject.toml").write_text('[project]\nname = "castle-core"\n', encoding="utf-8")
+    monkeypatch.chdir(repo)
+
+    result = runner.invoke(app, ["init"], input="n\n")
+    assert result.exit_code == 0
+
+    content = (repo / "zenzic.toml").read_text(encoding="utf-8")
+    assert '# name = "castle-core"' in content
+
+
+def test_init_standalone_discovers_project_name_from_package_json(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Init falls back to package.json name when pyproject is absent."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / "package.json").write_text('{"name":"ui-bastion"}', encoding="utf-8")
+    monkeypatch.chdir(repo)
+
+    result = runner.invoke(app, ["init"])
+    assert result.exit_code == 0
+
+    content = (repo / "zenzic.toml").read_text(encoding="utf-8")
+    assert '# name = "ui-bastion"' in content
 
 
 def test_init_pyproject_flag_appends_tool_section(
@@ -834,6 +881,28 @@ def test_init_pyproject_flag_appends_tool_section(
     content = (repo / "pyproject.toml").read_text(encoding="utf-8")
     assert "[tool.zenzic]" in content
     assert 'name = "myapp"' in content  # original content preserved
+
+    assert (repo / ".zenzic.local.toml").is_file()
+    assert ".zenzic.local.toml" in (repo / ".gitignore").read_text(encoding="utf-8")
+
+
+def test_init_preserves_existing_local_file_and_backfills_gitignore(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Existing local overlay is preserved while gitignore protection is enforced."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / ".git").mkdir()
+    (repo / ".gitignore").write_text("# baseline\n", encoding="utf-8")
+    original_local = "[governance]\nsuppression_cap = 123\n"
+    (repo / ".zenzic.local.toml").write_text(original_local, encoding="utf-8")
+    monkeypatch.chdir(repo)
+
+    result = runner.invoke(app, ["init"])
+    assert result.exit_code == 0
+
+    assert (repo / ".zenzic.local.toml").read_text(encoding="utf-8") == original_local
+    assert ".zenzic.local.toml" in (repo / ".gitignore").read_text(encoding="utf-8")
 
 
 def test_init_pyproject_with_mkdocs_engine(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
