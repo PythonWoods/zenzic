@@ -30,25 +30,27 @@ Versions follow [Semantic Versioning](https://semver.org/).
   `Z903`→`Z405`, `Z904`→`Z406`, `Z905`→`Z601`, `Z907`→`Z602`.
 - **ADR-013 (Regex ACL) published in developer docs (EN/IT):** Formalizes the
   anti-corruption regex facade strategy and strict RE2 enforcement.
-- **DX release guardrails:** Added `_check-hooks`, `version`,
-  `release-dry --short`, and `release-contracts` recipes to standardize local
-  release preflight.
 
 ### Changed
 
 - **ADR-012 namespace contract finalized for v0.8.0:** Runtime/docs/examples now
   use canonical IDs (`Z405`, `Z406`, `Z601`, `Z602`) while preserving legacy
   anchors only for migration diagnostics.
-- **Boundary-testing CI parity:** Nox `PYTHONS` aligned to floor/peak
-  (`3.10`, `3.14`) and fixed-version sessions pinned to `3.14`.
-- **Mypy compatibility floor aligned to runtime floor:**
-  `[tool.mypy] python_version = "3.10"`.
 
 ### Fixed
 
 - **Registry parity gap closed for `Z000` (`UNSUPPORTED_ENGINE`):** Added to
   `CODE_NAMES`, `CODE_DESCRIPTIONS`, and `CODE_SARIF_LEVELS`; canonical
   registry and docs encyclopedia are now aligned.
+- **Performance regression in `VSMBrokenLinkRule.check_vsm` fixed (ZRT-007
+  implementation):** The `zenzic.core.regex` RE2 facade has no internal pattern
+  cache; every `re.sub/search` call with a raw string literal recompiled the
+  pattern from scratch. 12 inline call-sites across 5 source files
+  (`rules.py`, `validator.py`, `scanner.py`, `adapters/_docusaurus.py`,
+  `adapters/_utils.py`, `cli/_standalone.py`) replaced with 11 pre-compiled
+  module-level constants. Added fast path in `_to_canonical_url` for plain
+  relative hrefs. `TestAdaptiveRuleEngineTortureTest` (N=10 000 links):
+  `1.18 s → 0.78 s` (threshold < 1.0 s). All 1 500 tests pass.
 
 ### Security
 
