@@ -117,6 +117,14 @@ _REF_LINK_RE = re.compile(r"\[([^\]]*)\]\[([^\]]*)\]")
 # Shortcut reference link: [text] (semantic filters applied in code).
 _REF_SHORTCUT_RE = re.compile(r"\[([^\]]+)\]")
 
+# Inline code span — erased before link extraction to avoid false positives.
+_INLINE_CODE_RE = re.compile(r"`[^`]+`")
+# Strips Markdown link title from href: "url 'title'" → "url".
+_TITLE_STRIP_RE = re.compile(r"""\s+["'].*$""")
+# Slugification helpers used in _slugify_heading().
+_SLUG_NONWORD_RE = re.compile(r"[^\w\s-]")
+_SLUG_SPACES_RE = re.compile(r"\s+")
+
 # URL schemes that are valid syntax but point to non-HTTP targets we skip.
 _SKIP_SCHEMES = ("mailto:", "data:", "ftp:", "tel:", "javascript:", "irc:", "xmpp:")
 
@@ -340,14 +348,14 @@ def extract_links(text: str) -> list[LinkInfo]:
             continue  # always skip lines inside a fenced block
 
         # ── Inline code: blank out `...` spans to prevent false matches ───────
-        clean = re.sub(r"`[^`]+`", lambda m: " " * len(m.group()), line)
+        clean = _INLINE_CODE_RE.sub(lambda m: " " * len(m.group()), line)
 
         for m in _MARKDOWN_LINK_RE.finditer(clean):
             raw = m.group(1).strip()
             if not raw:
                 continue
             # Strip optional title portion: url "title" or url 'title'
-            url = re.sub(r"""\s+["'].*$""", "", raw).strip()
+            url = _TITLE_STRIP_RE.sub("", raw).strip()
             if url:
                 results.append(
                     LinkInfo(
@@ -394,8 +402,8 @@ def slug_heading(heading: str) -> str:
     slug = unicodedata.normalize("NFKD", slug)
     slug = "".join(c for c in slug if not unicodedata.combining(c))
     slug = slug.lower()
-    slug = re.sub(r"[^\w\s-]", "", slug)
-    slug = re.sub(r"\s+", "-", slug).strip("-")
+    slug = _SLUG_NONWORD_RE.sub("", slug)
+    slug = _SLUG_SPACES_RE.sub("-", slug).strip("-")
     return slug
 
 
@@ -478,7 +486,7 @@ def extract_ref_links(text: str, ref_map: dict[str, str]) -> list[LinkInfo]:
             if stripped.startswith("```") or stripped.startswith("~~~"):
                 in_block = False
             continue
-        clean = re.sub(r"`[^`]+`", lambda m: " " * len(m.group()), line)
+        clean = _INLINE_CODE_RE.sub(lambda m: " " * len(m.group()), line)
         for m in _REF_LINK_RE.finditer(clean):
             text_part = m.group(1)
             raw_id = m.group(2) if m.group(2) else text_part

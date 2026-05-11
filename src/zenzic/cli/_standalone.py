@@ -37,6 +37,13 @@ from zenzic.models.config import ZenzicConfig
 from . import _shared
 
 
+# ── Module-level compiled patterns ───────────────────────────────────────────
+# Matches a [tool.zenzic*] TOML section and its body (used in _init_pyproject).
+_ZENZIC_SECTION_RE = re.compile(r"\n?\[tool\.zenzic[^\]]*\][^\[]*")
+# Slugification helpers (plugin name → project slug).
+_SLUG_NONWORD_RE = re.compile(r"[^a-z0-9-]+")
+_SLUG_MULTI_DASH_RE = re.compile(r"-+")
+
 # ── Score helpers ─────────────────────────────────────────────────────────────
 
 
@@ -799,8 +806,7 @@ def _init_pyproject(repo_root: Path, pyproject_path: Path, force: bool) -> None:
     ) + engine_section
 
     if force and "[tool.zenzic]" in existing:
-        existing = re.sub(
-            r"\n?\[tool\.zenzic[^\]]*\][^\[]*",
+        existing = _ZENZIC_SECTION_RE.sub(
             "",
             existing,
         )
@@ -828,8 +834,8 @@ def _scaffold_plugin(repo_root: Path, plugin_name: str, force: bool) -> None:
         _shared.console.print("[red]ERROR:[/] --plugin requires a non-empty name.")
         raise typer.Exit(1)
 
-    project_slug = re.sub(r"[^a-z0-9-]+", "-", raw.lower()).strip("-")
-    project_slug = re.sub(r"-+", "-", project_slug)
+    project_slug = _SLUG_NONWORD_RE.sub("-", raw.lower()).strip("-")
+    project_slug = _SLUG_MULTI_DASH_RE.sub("-", project_slug)
     if not project_slug:
         _shared.console.print(
             "[red]ERROR:[/] Invalid plugin name. Use letters, numbers, and optional dashes."

@@ -190,3 +190,139 @@ def test_load_config_invalid_pyproject_raises(tmp_path: Path) -> None:
     (tmp_path / "pyproject.toml").write_text("invalid [ toml")
     with pytest.raises(ConfigurationError, match="syntax error"):
         ZenzicConfig.load(tmp_path)
+
+
+# ─── _apply_local_toml coverage ──────────────────────────────────────────────
+
+
+def test_apply_local_toml_overrides_core_fields(tmp_path: Path) -> None:
+    """[core] section in .zenzic.local.toml overrides docs_dir, strict, exit_zero, fail_under."""
+    (tmp_path / "zenzic.toml").write_text("docs_dir = 'docs'\n")
+    (tmp_path / ".zenzic.local.toml").write_text(
+        "[core]\ndocs_dir = 'local_docs'\nstrict = true\nexit_zero = true\nfail_under = 42\n"
+    )
+    config, _ = ZenzicConfig.load(tmp_path)
+    assert config.docs_dir.as_posix() == "local_docs"
+    assert config.strict is True
+    assert config.exit_zero is True
+    assert config.fail_under == 42
+
+
+def test_apply_local_toml_overrides_build_context(tmp_path: Path) -> None:
+    """[build_context] in .zenzic.local.toml is merged into config.build_context."""
+
+    (tmp_path / "zenzic.toml").write_text("docs_dir = 'docs'\n")
+    (tmp_path / ".zenzic.local.toml").write_text(
+        "[build_context]\nengine = 'mkdocs'\ndefault_locale = 'it'\n"
+    )
+    config, _ = ZenzicConfig.load(tmp_path)
+    assert config.build_context.engine == "mkdocs"
+    assert config.build_context.default_locale == "it"
+
+
+def test_apply_local_toml_malformed_silently_skipped(tmp_path: Path) -> None:
+    """A malformed .zenzic.local.toml is silently ignored — no exception raised."""
+    (tmp_path / "zenzic.toml").write_text("docs_dir = 'docs'\n")
+    (tmp_path / ".zenzic.local.toml").write_text("invalid [ toml !!!")
+    config, loaded = ZenzicConfig.load(tmp_path)
+    assert config.docs_dir == Path("docs")
+    assert loaded is True
+
+
+def test_apply_local_toml_legacy_dev_toml_raises(tmp_path: Path) -> None:
+    """.zenzic.dev.toml (legacy) must raise ConfigurationError."""
+    (tmp_path / ".zenzic.dev.toml").write_text("# legacy\n")
+    with pytest.raises(ConfigurationError, match="no longer supported"):
+        ZenzicConfig.load(tmp_path)
+
+
+def test_apply_local_toml_forbidden_patterns_merged(tmp_path: Path) -> None:
+    """forbidden_patterns from [core] and top-level are merged additively."""
+    (tmp_path / "zenzic.toml").write_text("forbidden_patterns = ['secret-a']\n")
+    (tmp_path / ".zenzic.local.toml").write_text(
+        "forbidden_patterns = ['secret-b']\n[core]\nforbidden_patterns = ['secret-c']\n"
+    )
+    config, _ = ZenzicConfig.load(tmp_path)
+    assert "secret-a" in config.forbidden_patterns
+    assert "secret-b" in config.forbidden_patterns
+    assert "secret-c" in config.forbidden_patterns
+
+
+def test_apply_local_toml_overrides_governance(tmp_path: Path) -> None:
+    """[governance] in .zenzic.local.toml merges into config.governance."""
+    (tmp_path / "zenzic.toml").write_text("docs_dir = 'docs'\n")
+    (tmp_path / ".zenzic.local.toml").write_text(
+        "[governance]\nbrand_obsolescence = ['OldName']\nsuppression_cap = 10\n"
+    )
+    config, _ = ZenzicConfig.load(tmp_path)
+    assert "OldName" in config.governance.brand_obsolescence
+    assert config.governance.suppression_cap == 10
+
+
+def test_apply_local_toml_overrides_i18n(tmp_path: Path) -> None:
+    """[i18n] in .zenzic.local.toml merges into config.i18n."""
+    (tmp_path / "zenzic.toml").write_text("docs_dir = 'docs'\n")
+    (tmp_path / ".zenzic.local.toml").write_text("[i18n]\nenabled = true\nbase_lang = 'fr'\n")
+    config, _ = ZenzicConfig.load(tmp_path)
+    assert config.i18n.enabled is True
+    assert config.i18n.base_lang == "fr"
+
+
+# ─── _build_from_data coverage ───────────────────────────────────────────────
+
+
+def test_build_from_data_unknown_section_warning(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Unknown dict-valued keys in zenzic.toml emit a warning."""
+    import logging
+
+    (tmp_path / "zenzic.toml").write_text("[unknown_section]\nfoo = 'bar'\n")
+    with caplog.at_level(logging.WARNING, logger="zenzic"):
+        ZenzicConfig.load(tmp_path)
+    assert any("unknown section" in r.message for r in caplog.records)
+
+
+def test_build_from_data_unknown_scalar_key_warning(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Unknown scalar keys in zenzic.toml emit a warning."""
+    import logging
+
+    (tmp_path / "zenzic.toml").write_text("totally_unknown_key = 42\n")
+    with caplog.at_level(logging.WARNING, logger="zenzic"):
+        ZenzicConfig.load(tmp_path)
+    assert any("unknown key" in r.message for r in caplog.records)
+
+
+def test_build_from_data_legacy_obsolete_names_migrated(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """[project_metadata].obsolete_names is migrated to [governance].brand_obsolescence."""
+    import logging
+
+    (tmp_path / "zenzic.toml").write_text(
+        "[project_metadata]\nobsolete_names = ['OldBrand', 'AnotherOld']\n"
+    )
+    with caplog.at_level(logging.WARNING, logger="zenzic"):
+        config, _ = ZenzicConfig.load(tmp_path)
+    assert "OldBrand" in config.governance.brand_obsolescence
+    assert "AnotherOld" in config.governance.brand_obsolescence
+    assert any("Deprecated" in r.message for r in caplog.records)
+
+
+def test_build_from_data_i18n_with_extra_sources(tmp_path: Path) -> None:
+    """[i18n] with extra_sources is parsed correctly."""
+    (tmp_path / "zenzic.toml").write_text(
+        "[i18n]\n"
+        "enabled = true\n"
+        "base_lang = 'en'\n"
+        "[[i18n.extra_sources]]\n"
+        "base_source = 'developers'\n"
+        "[i18n.extra_sources.targets]\n"
+        "it = 'i18n/it/docusaurus-plugin-content-docs-developers/current'\n"
+    )
+    config, _ = ZenzicConfig.load(tmp_path)
+    assert config.i18n.enabled is True
+    assert len(config.i18n.extra_sources) == 1
+    assert config.i18n.extra_sources[0].base_source == Path("developers")

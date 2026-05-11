@@ -61,12 +61,14 @@ Zenzic Way compliance
 
 from __future__ import annotations
 
+import os
 import pickle
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
+from urllib.parse import unquote, urlsplit
 
 from zenzic.core import regex as re
 from zenzic.core.sovereign_context import get_sovereign_context
@@ -813,6 +815,8 @@ _INLINE_LINK_RE = re.compile(r"!?\[[^\[\]]*\]\(([^)]+)\)")
 _FENCE_RE = re.compile(r"^(`{3,}|~{3,})")
 # Inline code spans — erased before link extraction to avoid false positives
 _INLINE_CODE_RE = re.compile(r"`[^`]+`")
+# Strips Markdown link title from href: "url 'title'" → "url"
+_TITLE_STRIP_RE = re.compile(r"""\s+["'].*$""")
 
 
 def _extract_inline_links_with_lines(text: str) -> list[tuple[str, int, str]]:
@@ -843,7 +847,7 @@ def _extract_inline_links_with_lines(text: str) -> list[tuple[str, int, str]]:
             raw = m.group(1).strip()
             if not raw:
                 continue
-            url = re.sub(r"""\s+["'].*$""", "", raw).strip()
+            url = _TITLE_STRIP_RE.sub("", raw).strip()
             if url:
                 results.append((url, lineno, line.strip()))
     return results
@@ -1030,11 +1034,13 @@ class VSMBrokenLinkRule(BaseRule):
         Returns:
             Canonical URL string (leading and trailing ``/``), or ``None``.
         """
-        import os
-        from urllib.parse import unquote, urlsplit
-
-        parsed = urlsplit(href)
-        path = unquote(parsed.path.replace("\\", "/")).rstrip("/")
+        # Fast path: skip urlsplit/unquote for plain relative paths (no encoding,
+        # no query string, no fragment).  This is the common case for internal links.
+        if "%" not in href and "?" not in href and "#" not in href:
+            path = href.replace("\\", "/").rstrip("/")
+        else:
+            parsed = urlsplit(href)
+            path = unquote(parsed.path.replace("\\", "/")).rstrip("/")
         if not path:
             return None
 

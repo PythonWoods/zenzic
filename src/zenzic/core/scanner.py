@@ -74,6 +74,8 @@ _RE_HTML_ALT = re.compile(r'\balt=["\']([^"\']*)["\']', re.IGNORECASE)
 
 
 _MARKDOWN_ASSET_LINK_RE = re.compile(r"!\[.*?\]\((.*?)\)|<img.*?src=[\"'](.*?)[\"'].*?>")
+# Inline code span — erased before link extraction to avoid false positives.
+_INLINE_CODE_RE = re.compile(r"`[^`]+`")
 
 
 def find_repo_root(*, fallback_to_cwd: bool = False, search_from: Path | None = None) -> Path:
@@ -1133,7 +1135,7 @@ class ReferenceScanner:
 
         for lineno, line in _iter_content_lines(self.file_path):
             # Blank out inline code to avoid false matches inside `[code][spans]`
-            clean = re.sub(r"`[^`]+`", lambda m: " " * len(m.group()), line)
+            clean = _INLINE_CODE_RE.sub(lambda m: " " * len(m.group()), line)
 
             for m in _RE_REF_LINK.finditer(clean):
                 if m.start() > 0 and clean[m.start() - 1] == "!":

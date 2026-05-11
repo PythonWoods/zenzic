@@ -109,6 +109,8 @@ _DRAFT_RE = re.compile(r"^draft\s*:\s*(true|false)\s*$", re.MULTILINE | re.IGNOR
 _UNLISTED_RE = re.compile(r"^unlisted\s*:\s*(true|false)\s*$", re.MULTILINE | re.IGNORECASE)
 _TAGS_RE = re.compile(r"^tags\s*:\s*\[([^\]]*)\]\s*$", re.MULTILINE)
 _TAGS_FLOW_RE = re.compile(r"^-\s+(.+)$", re.MULTILINE)
+# Block-style tags key: "tags:\n  - item" (used in extract_frontmatter_tags).
+_TAGS_BLOCK_RE = re.compile(r"^tags\s*:\s*$", re.MULTILINE)
 
 
 def extract_frontmatter_slug(content: str) -> str | None:
@@ -179,7 +181,7 @@ def extract_frontmatter_tags(content: str) -> list[str]:
         return [t.strip().strip("'\"") for t in raw.split(",") if t.strip()]
 
     # Flow syntax: tags:\n- a\n- b
-    tags_start = re.search(r"^tags\s*:\s*$", fm_text, re.MULTILINE)
+    tags_start = _TAGS_BLOCK_RE.search(fm_text)
     if tags_start:
         rest = fm_text[tags_start.end() :]
         return [m.group(1).strip() for m in _TAGS_FLOW_RE.finditer(rest)]

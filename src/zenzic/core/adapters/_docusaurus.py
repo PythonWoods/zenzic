@@ -407,6 +407,9 @@ _SLUG_RE = re.compile(r"^slug\s*:\s*['\"]?([^'\"#\n]+?)['\"]?\s*$", re.MULTILINE
 # When no frontmatter slug is declared, the engine derives the URL slug by
 # stripping the leading date.  Mirror that here.
 _BLOG_DATE_PREFIX_RE = re.compile(r"^\d{4}-\d{2}-\d{2}-")
+# Slugification helpers (tag slugs — ASCII-only, mirrors MkDocs behaviour).
+_SLUG_NONWORD_ASCII_RE = re.compile(r"[^\w\s-]", re.ASCII)
+_SLUG_SPACES_RE = re.compile(r"\s+")
 
 
 def _strip_blog_date_prefix(stem: str) -> str:
@@ -438,8 +441,8 @@ def _slugify_tag(tag: str) -> str:
     slug = unicodedata.normalize("NFKD", tag)
     slug = "".join(c for c in slug if not unicodedata.combining(c))
     slug = slug.lower()
-    slug = re.sub(r"[^\w\s-]", "", slug, flags=re.ASCII)
-    slug = re.sub(r"\s+", "-", slug).strip("-")
+    slug = _SLUG_NONWORD_ASCII_RE.sub("", slug)
+    slug = _SLUG_SPACES_RE.sub("-", slug).strip("-")
     return slug or "untagged"
 
 
