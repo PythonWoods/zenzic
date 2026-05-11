@@ -83,11 +83,20 @@ verify: _check-hooks release-contracts
 
 _check-hooks:
     #!/usr/bin/env bash
+    _missing=0
+    if [ ! -f .git/hooks/pre-commit ]; then
+        echo -e "\033[33m⚠️  WARNING: pre-commit hook is not installed.\033[0m"
+        echo "Without it, linters and type-checks will NOT run automatically on git commit."
+        echo "👉 Fix it by running: uvx pre-commit install"
+        echo ""
+        _missing=1
+    fi
     if [ ! -f .git/hooks/pre-push ]; then
-        echo -e "\033[33m⚠️  WARNING: Pre-push hook is not installed.\033[0m"
+        echo -e "\033[33m⚠️  WARNING: pre-push hook is not installed.\033[0m"
         echo "Without it, you might accidentally push broken code to GitHub and fail the remote CI."
         echo "👉 Fix it by running: uvx pre-commit install -t pre-push"
         echo ""
+        _missing=1
     fi
 
 # Enforce release contracts: dirty allowed only in release-dry.

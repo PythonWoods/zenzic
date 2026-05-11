@@ -14,11 +14,9 @@ Covers:
 from __future__ import annotations
 
 import json
-import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
 from typer.testing import CliRunner
 
 from zenzic.cli._guard import (
@@ -155,8 +153,10 @@ def test_resolve_targets_default_docs_root_scans_dir(tmp_path: Path) -> None:
 
 def test_guard_scan_no_targets_text(tmp_path: Path) -> None:
     """scan with no targets prints informational message and exits 0."""
-    with patch("zenzic.cli._guard.find_repo_root", return_value=tmp_path), \
-         patch("zenzic.cli._guard._resolve_targets", return_value=[]):
+    with (
+        patch("zenzic.cli._guard.find_repo_root", return_value=tmp_path),
+        patch("zenzic.cli._guard._resolve_targets", return_value=[]),
+    ):
         result = runner.invoke(app, ["guard", "scan"])
     assert result.exit_code == 0
     assert "no Markdown" in result.output or result.exit_code == 0
@@ -164,8 +164,10 @@ def test_guard_scan_no_targets_text(tmp_path: Path) -> None:
 
 def test_guard_scan_no_targets_json(tmp_path: Path) -> None:
     """scan --format json with no targets prints JSON with empty findings."""
-    with patch("zenzic.cli._guard.find_repo_root", return_value=tmp_path), \
-         patch("zenzic.cli._guard._resolve_targets", return_value=[]):
+    with (
+        patch("zenzic.cli._guard.find_repo_root", return_value=tmp_path),
+        patch("zenzic.cli._guard._resolve_targets", return_value=[]),
+    ):
         result = runner.invoke(app, ["guard", "scan", "--format", "json"])
     assert result.exit_code == 0
     data = json.loads(result.output)
@@ -177,9 +179,11 @@ def test_guard_scan_clean_text(tmp_path: Path) -> None:
     """scan with no findings exits 0 and prints success message."""
     doc = tmp_path / "index.md"
     doc.write_text("# Clean doc\n")
-    with patch("zenzic.cli._guard.find_repo_root", return_value=tmp_path), \
-         patch("zenzic.cli._guard._resolve_targets", return_value=[doc]), \
-         patch("zenzic.cli._guard._scan_file_for_secrets", return_value=[]):
+    with (
+        patch("zenzic.cli._guard.find_repo_root", return_value=tmp_path),
+        patch("zenzic.cli._guard._resolve_targets", return_value=[doc]),
+        patch("zenzic.cli._guard._scan_file_for_secrets", return_value=[]),
+    ):
         result = runner.invoke(app, ["guard", "scan"])
     assert result.exit_code == 0
 
@@ -197,9 +201,11 @@ def test_guard_scan_with_findings_text_exits_2(tmp_path: Path) -> None:
         url="",
         match_text="sk-abc123",
     )
-    with patch("zenzic.cli._guard.find_repo_root", return_value=tmp_path), \
-         patch("zenzic.cli._guard._resolve_targets", return_value=[doc]), \
-         patch("zenzic.cli._guard._scan_file_for_secrets", return_value=[finding]):
+    with (
+        patch("zenzic.cli._guard.find_repo_root", return_value=tmp_path),
+        patch("zenzic.cli._guard._resolve_targets", return_value=[doc]),
+        patch("zenzic.cli._guard._scan_file_for_secrets", return_value=[finding]),
+    ):
         result = runner.invoke(app, ["guard", "scan"])
     assert result.exit_code == 2
 
@@ -217,9 +223,11 @@ def test_guard_scan_with_findings_json_exits_2(tmp_path: Path) -> None:
         url="",
         match_text="sk-abc123",
     )
-    with patch("zenzic.cli._guard.find_repo_root", return_value=tmp_path), \
-         patch("zenzic.cli._guard._resolve_targets", return_value=[doc]), \
-         patch("zenzic.cli._guard._scan_file_for_secrets", return_value=[finding]):
+    with (
+        patch("zenzic.cli._guard.find_repo_root", return_value=tmp_path),
+        patch("zenzic.cli._guard._resolve_targets", return_value=[doc]),
+        patch("zenzic.cli._guard._scan_file_for_secrets", return_value=[finding]),
+    ):
         result = runner.invoke(app, ["guard", "scan", "--format", "json"])
     assert result.exit_code == 2
     data = json.loads(result.output)
@@ -231,9 +239,11 @@ def test_guard_scan_json_clean_exits_0(tmp_path: Path) -> None:
     """scan --format json with no findings exits 0."""
     doc = tmp_path / "clean.md"
     doc.write_text("# Clean\n")
-    with patch("zenzic.cli._guard.find_repo_root", return_value=tmp_path), \
-         patch("zenzic.cli._guard._resolve_targets", return_value=[doc]), \
-         patch("zenzic.cli._guard._scan_file_for_secrets", return_value=[]):
+    with (
+        patch("zenzic.cli._guard.find_repo_root", return_value=tmp_path),
+        patch("zenzic.cli._guard._resolve_targets", return_value=[doc]),
+        patch("zenzic.cli._guard._scan_file_for_secrets", return_value=[]),
+    ):
         result = runner.invoke(app, ["guard", "scan", "--format", "json"])
     assert result.exit_code == 0
     data = json.loads(result.output)
