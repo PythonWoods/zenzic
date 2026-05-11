@@ -1,16 +1,13 @@
-<!--
-SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
-SPDX-License-Identifier: Apache-2.0
-markdownlint-disable MD003
--->
 ---
-
 name: "🛡️ Gate Bypass Post-Mortem"
 about: "Break-Glass protocol — documented bypass of the `just verify` Final Guard."
 title: "[BYPASS] <short-emergency-description>"
 labels: ["gate-bypass", "priority:critical"]
 assignees: ""
 ---
+<!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<!-- markdownlint-disable MD003 MD041 -->
 
 <!-- markdownlint-disable MD003 -->
 

@@ -21,36 +21,47 @@ Closes #
 
 ## The Zenzic Way — mandatory checklist
 
-Zenzic's Core is built on three non-negotiable design pillars. Every PR that touches `src/`
+Zenzic's Core is built on four non-negotiable design pillars. Every PR that touches `src/`
 must satisfy all that apply.
 
-### 1. Source-first
+### 1. Determinism & Pure Functions
 
-- [ ] This change operates on **raw source files** only — it does not call `mkdocs build`,
-  import a documentation framework, or depend on generated HTML or build artefacts.
+- [ ] Core validation logic is **deterministic and side-effect-free**: same input always
+  produces the same output, with no file I/O, network access, or global state mutations
+  inside pure functions.
+- [ ] I/O is confined to CLI wrappers and scanner edges — never inside validator, checker,
+  or rule modules.
 
-### 2. No subprocesses
+### 2. Zero Subprocess
 
-- [ ] No `subprocess.run`, `os.system`, or equivalent shell calls have been added to the
-  linting path (`src/zenzic/core/`).
-- [ ] Any new parsers use pure Python stdlib (e.g. `tomllib`, `json`, `yaml.safe_load`,
-  `compile()`).
+- [ ] No `subprocess.run`, `os.system`, `os.popen`, or equivalent shell calls have been
+  added anywhere in the linting path (`src/zenzic/core/`).
+- [ ] Any new parsers use pure Python stdlib (e.g. `tomllib`, `json`, `yaml.safe_load`).
 
-### 3. Pure functions
+### 3. ReDoS Immunity
 
-- [ ] Core validation logic is **deterministic and side-effect-free**: no file I/O, no
-  network access, no global state mutations inside pure functions.
-- [ ] I/O is confined to CLI wrappers and scanner edges, not to validator or checker modules.
+- [ ] All new regex patterns use **`zenzic.core.regex`** (the RE2-backed ACL facade) —
+  direct `import re` is forbidden in `src/zenzic/` production paths (enforced by Ruff
+  banned-api rule).
+- [ ] New patterns are pre-compiled as module-level constants (`_NAME_RE = re.compile(...)`);
+  no inline raw-string compilation inside loops or hot paths.
+
+### 4. Namespace Contract
+
+- [ ] New finding codes respect the **Frozen Codes** list (`FROZEN_CODES` in `codes.py`):
+  existing codes are immutable; new codes follow the Tier Model (`Z4xx` Structure,
+  `Z6xx` Governance).
+- [ ] No code previously in `FROZEN_CODES` has been removed, renamed, or had its
+  suppressibility changed.
 
 ---
 
 ## Quality gates
 
-- [ ] `nox -s tests` passes (all existing tests green, coverage ≥ 80%).
+- [ ] `just verify` passes end-to-end (pre-commit + coverage ≥ 80% + `zenzic check all --strict` self-dogfood).
 - [ ] New behaviour is covered by tests — happy path and at least one failure case.
-- [ ] `nox -s lint` and `nox -s typecheck` pass (`ruff check` + `mypy --strict`).
-- [ ] `nox -s preflight` passes end-to-end (includes `zenzic check all --strict` self-dogfood).
-- [ ] REUSE/SPDX headers are present on every new file (`nox -s reuse`).
+- [ ] `nox -s lint` passes (`ruff check` + `mypy --strict`).
+- [ ] REUSE/SPDX headers are present on every new file.
 
 ---
 
