@@ -708,7 +708,7 @@ def find_unused_assets(
             are also scanned when collecting asset reference sets
             (Docusaurus i18n support).
         adapter_metadata_files: Filenames (basename only) that the active adapter
-            consumes as configuration — shielded from Z903 (Level 1b guardrail).
+            consumes as configuration — excluded from Z903 (Level 1b guardrail).
 
     Returns:
         List of Path objects relative to docs_root that are unused.

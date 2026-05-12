@@ -212,7 +212,7 @@ def build_metadata_cache(
     md_contents: dict[Path, str],
     docs_root: Path,
     *,
-    shield_enabled: bool = True,
+    scan_credentials: bool = True,
 ) -> dict[str, FileMetadata]:
     """Build a metadata cache from all loaded Markdown files in one pass.
 
@@ -224,7 +224,7 @@ def build_metadata_cache(
     VSM construction to pre-compute all frontmatter metadata, then pass the
     result to adapter constructors or ``get_route_info()`` implementations.
 
-    When ``shield_enabled`` is ``True`` (default), every frontmatter line is
+    When ``scan_credentials`` is ``True`` (default), every frontmatter line is
     passed through :func:`~zenzic.core.credentials.safe_read_line` before parsing.
     If a secret is detected, :class:`~zenzic.core.credentials.CredentialViolation` is
     raised immediately — the VSM is never constructed.
@@ -232,14 +232,14 @@ def build_metadata_cache(
     Args:
         md_contents: Pre-loaded mapping of absolute ``Path`` → raw content.
         docs_root: Resolved absolute ``docs/`` directory root.
-        shield_enabled: When ``True``, run credential scan on frontmatter lines.
+        scan_credentials: When ``True``, run credential scan on frontmatter lines.
 
     Returns:
         Dict mapping POSIX relative path → :class:`FileMetadata`.
 
     Raises:
         :class:`~zenzic.core.credentials.CredentialViolation`: When a secret is found
-            in frontmatter content (only when ``shield_enabled=True``).
+            in frontmatter content (only when ``scan_credentials=True``).
     """
     cache: dict[str, FileMetadata] = {}
     for abs_path, content in md_contents.items():
@@ -249,7 +249,7 @@ def build_metadata_cache(
             continue
 
         # Credential scanner check on frontmatter lines if enabled.
-        if shield_enabled:
+        if scan_credentials:
             fm_match = _FRONTMATTER_RE.match(content)
             if fm_match:
                 from zenzic.core.credentials import safe_read_line

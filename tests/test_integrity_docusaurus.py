@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
-"""Guardians of Quality — DocusaurusAdapter targeted coverage test suite.
+"""Targeted coverage tests — DocusaurusAdapter (quality check suite).
 
 Closes gaps identified in sprint v0.6.1 coverage audit:
   - set_slug_map: ValueError branch (file outside docs_root)

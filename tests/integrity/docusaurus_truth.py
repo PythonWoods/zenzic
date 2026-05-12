@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
-"""Guardians Truth Gate — DocusaurusAdapter discrepancy validation.
+"""DocusaurusAdapter discrepancy validation —
 
 Each test class below corresponds to one specific discrepancy found by
 auditing the official Docusaurus v3 source code during the v0.6.1 sprint.

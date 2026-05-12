@@ -123,7 +123,7 @@ def bootstrap_unicode() -> None:
         sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 
-def _sentinel_alert(exc: ZenzicError, *, border_style: str, title: str) -> None:
+def _error_panel(exc: ZenzicError, *, border_style: str, title: str) -> None:
     """Render a styled error alert panel for a ZenzicError."""
     _err_ui.print_exception_alert(
         str(exc.message),
@@ -134,7 +134,7 @@ def _sentinel_alert(exc: ZenzicError, *, border_style: str, title: str) -> None:
 
 
 def _print_banner() -> None:
-    """Print the Forge Frame Zenzic banner to stdout (same console as commands)."""
+    """Print the Zenzic Frame banner to stdout (same console as commands)."""
     get_ui().print_header(__version__)
     get_console().print()
 
@@ -163,14 +163,14 @@ def cli_main() -> None:
     except (SystemExit, KeyboardInterrupt):
         raise
     except PluginContractError as exc:
-        _sentinel_alert(
+        _error_panel(
             exc,
             border_style=ZenzicPalette.STYLE_BRAND,
             title="Zenzic Plugin Contract Violation",
         )
         sys.exit(1)
     except ZenzicError as exc:
-        _sentinel_alert(
+        _error_panel(
             exc,
             border_style=ZenzicPalette.STYLE_ERR,
             title="Zenzic Error",

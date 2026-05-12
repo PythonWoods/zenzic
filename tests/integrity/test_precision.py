@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
-"""Guardians — Precision Calibration (Direttiva CEO 055).
+"""Precision Calibration (Direttiva CEO 055).
 
 Two sensor calibration invariants:
 

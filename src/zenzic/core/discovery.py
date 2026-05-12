@@ -110,7 +110,7 @@ def iter_extra_content_markdown_sources(
 ) -> Generator[tuple[Path, Path], None, None]:
     """Yield ``(abs_path, logical_rel)`` for files in an extra content root.
 
-    EPOCH 7a Multi-Root Discovery helper.  Walks a content tree that lives
+    v0.7.x Multi-Root Discovery helper.  Walks a content tree that lives
     outside ``docs_root`` (e.g. Docusaurus's ``blog/`` directory) and yields
     each Markdown file with a *logical* relative path that includes the
     declared URL prefix.  The prefix injection lets the active adapter route

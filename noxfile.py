@@ -121,7 +121,7 @@ def mutation(session: nox.Session) -> None:
 
     Targets (configured in ``[tool.mutmut]`` in ``pyproject.toml``):
     - ``src/zenzic/core/rules.py``    — rule engine and regex canary
-    - ``src/zenzic/core/shield.py``   — secret detection (ZRT-001/ZRT-003)
+    - ``src/zenzic/core/credentials.py``   — secret detection (ZRT-001/ZRT-003)
     - ``src/zenzic/core/reporter.py`` — _obfuscate_secret() masking function
 
     A surviving mutant means a test gap.  Goal: mutation score ≥ 90%.

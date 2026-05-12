@@ -549,7 +549,7 @@ def test_check_all_target_directory(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     assert "other.md" not in result.stdout
 
 
-def test_check_all_external_docs_root_not_blocked_by_sentinel(
+def test_check_all_external_docs_root_not_blocked_by_boundary_check(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:

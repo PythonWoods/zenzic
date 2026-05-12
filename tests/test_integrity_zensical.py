@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
-"""Guardians of Quality — ZensicalAdapter / ZensicalLegacyProxy targeted coverage tests.
+"""Targeted coverage tests — ZensicalAdapter / ZensicalLegacyProxy.
 
 Closes gaps identified in the v0.6.1 coverage audit (74%):
   - find_zensical_config: absent file path

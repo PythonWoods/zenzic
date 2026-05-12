@@ -681,7 +681,7 @@ async def validate_links_async(
                 except OSError:
                     continue
 
-    # ── Pass 1c: include extra content roots (EPOCH 7a Multi-Root Discovery) ──
+    # ── Pass 1c: include extra content roots (v0.7.x Multi-Root Discovery) ──
     # Plugin-managed content trees that live outside docs_root — most notably
     # Docusaurus's blog/ directory.  Loading them here means the VSM, anchor
     # index, and link resolver all see them as first-class content, closing the
@@ -720,7 +720,7 @@ async def validate_links_async(
     )
     # Multi-root allowed list passed to the resolver: docs_root is always in the
     # list; locale roots are added so that cross-locale relative links resolve
-    # within an authorised boundary instead of firing PATH_TRAVERSAL.  EPOCH 7a:
+    # within an authorised boundary instead of firing PATH_TRAVERSAL.  v0.7.x:
     # extra content roots (Docusaurus blog/, …) are also admitted so that
     # in-blog relative links and cross-blog↔docs links resolve as authorised.
     _allowed_roots: list[Path] = [docs_root]
@@ -759,7 +759,7 @@ async def validate_links_async(
     # It is only meaningful when the adapter has a nav (MkDocs with mkdocs.yml);
     # for StandaloneAdapter / Zensical every file is REACHABLE by definition.
     #
-    # EPOCH 7b: populate the adapter's slug map BEFORE building the VSM so that
+    # v0.7.x: populate the adapter's slug map BEFORE building the VSM so that
     # ``map_url()`` resolves frontmatter ``slug:`` overrides correctly.
     # Without this call the slug map is empty and all blog URLs are derived from
     # the physical filename — mismatching the URLs that Docusaurus actually serves.
@@ -788,7 +788,7 @@ async def validate_links_async(
     # ── Phase 2: validate against global indexes ────────────────────────────
     # Pre-compute known relative paths once for Z104 "Did you mean?" hints.
     # No disk I/O — md_contents is already in memory from Pass 1.  Files under
-    # extra content roots (EPOCH 7a) are admitted with their url_prefix injected
+    # extra content roots (v0.7.x) are admitted with their url_prefix injected
     # so suggestions like ``blog/2026-04-12-foo.mdx`` surface for typos.
     def _compute_logical_rel(f: Path) -> str | None:
         if f.is_relative_to(docs_root):

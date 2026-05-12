@@ -122,7 +122,7 @@ _BASE_URL_RE = re.compile(r"""baseUrl\s*:\s*['"]([^'"]+)['"]""")
 
 _ROUTE_BASE_PATH_RE = re.compile(r"""routeBasePath\s*:\s*['"]([^'"]*?)['"]""")
 
-# ── Blog plugin extraction (EPOCH 7a Multi-Root Discovery) ───────────────────
+# ── Blog plugin extraction (v0.7.x Multi-Root Discovery) ───────────────────
 
 # Detects ``blog: false`` (plugin disabled) anywhere in the preset body.
 _BLOG_DISABLED_RE = re.compile(r"""blog\s*:\s*false\b""")
@@ -219,7 +219,7 @@ def _extract_route_base_path(config_path: Path) -> str | None:
     return match.group(1)
 
 
-# ── Blog plugin discovery (EPOCH 7a) ─────────────────────────────────────────
+# ── Blog plugin discovery (v0.7.x) ─────────────────────────────────────────
 
 
 def _extract_blog_config(config_path: Path) -> tuple[str, str] | None:
@@ -403,7 +403,7 @@ def check_config_assets(config_path: Path, repo_root: Path) -> list[tuple[str, s
 _FRONTMATTER_RE = re.compile(r"\A\s*---\s*\n(.*?)\n---", re.DOTALL)
 _SLUG_RE = re.compile(r"^slug\s*:\s*['\"]?([^'\"#\n]+?)['\"]?\s*$", re.MULTILINE)
 
-# EPOCH 7a: Docusaurus blog filename convention is ``YYYY-MM-DD-<slug>.mdx``.
+# v0.7.x: Docusaurus blog filename convention is ``YYYY-MM-DD-<slug>.mdx``.
 # When no frontmatter slug is declared, the engine derives the URL slug by
 # stripping the leading date.  Mirror that here.
 _BLOG_DATE_PREFIX_RE = re.compile(r"^\d{4}-\d{2}-\d{2}-")
@@ -744,7 +744,7 @@ class DocusaurusAdapter:
         # remains a pure aggregator with no I/O.
         self._navbar_paths: frozenset[str] = frozenset()
 
-        # EPOCH 7a Multi-Root Discovery — blog plugin metadata.
+        # v0.7.x Multi-Root Discovery — blog plugin metadata.
         # Set eagerly by ``from_repo()`` when ``<repo>/blog`` exists or the
         # config declares the blog plugin.  ``_blog_root`` is the absolute
         # path to the blog content directory; ``_blog_route_base_path`` is the
@@ -766,7 +766,7 @@ class DocusaurusAdapter:
         Must be called before ``map_url()`` to enable frontmatter slug
         overrides.  Safe to call multiple times (last call wins).
 
-        EPOCH 7a: also handles blog files when ``_blog_root`` is set — the
+        v0.7.x: also handles blog files when ``_blog_root`` is set — the
         slug map key for those files is the blog-prefixed logical path
         (e.g. ``blog/2026-04-12-foo.mdx``) so ``map_url()`` can resolve it
         without a second dispatch.
@@ -885,7 +885,7 @@ class DocusaurusAdapter:
         return True
 
     def get_metadata_files(self) -> frozenset[str]:
-        """Docusaurus configuration and sidebar files — shielded from Z903."""
+        """Docusaurus configuration and sidebar files — excluded from Z903."""
         return frozenset(
             {
                 "docusaurus.config.ts",
@@ -939,7 +939,7 @@ class DocusaurusAdapter:
         """
         rel_posix = rel.as_posix()
 
-        # ── EPOCH 7a: blog plugin routing ──
+        # ── v0.7.x: blog plugin routing ──
         # Blog files arrive with the route_base_path prefix injected by the
         # caller (e.g. ``blog/2026-04-12-foo.mdx``).  Routing rules diverge
         # from docs:
@@ -1071,7 +1071,7 @@ class DocusaurusAdapter:
         if any(part.startswith("_") for part in non_sentinel_parts):
             return "IGNORED"
 
-        # EPOCH 7a: blog posts are always reachable through the blog plugin
+        # v0.7.x: blog posts are always reachable through the blog plugin
         # (paginated index, archive, tags).  No sidebar/nav membership needed.
         if self._blog_root is not None and rel.parts and rel.parts[0] == self._blog_route_base_path:
             return "REACHABLE"
@@ -1122,7 +1122,7 @@ class DocusaurusAdapter:
 
         rel_posix = rel.as_posix()
 
-        # EPOCH 7a: blog files take a dedicated routing fast-path.  Their
+        # v0.7.x: blog files take a dedicated routing fast-path.  Their
         # canonical URL, status, and route_base_path are all derived from
         # the blog plugin metadata, never from the docs sidebar.
         if self._blog_root is not None and rel.parts and rel.parts[0] == self._blog_route_base_path:
@@ -1271,7 +1271,7 @@ class DocusaurusAdapter:
         inst._sidebar_path = sidebar_path
         inst._navbar_paths = navbar_paths
 
-        # ── EPOCH 7a Multi-Root Discovery: blog plugin auto-detection ──
+        # ── v0.7.x Multi-Root Discovery: blog plugin auto-detection ──
         # Resolution order:
         #   1. Static parse of docusaurus.config.* for ``blog: { ... }``.
         #   2. Convention-over-config: if ``<repo>/blog`` exists, assume the
@@ -1371,7 +1371,7 @@ class DocusaurusAdapter:
     def get_extra_content_roots(self, repo_root: Path) -> list[ContentRoot]:
         """Return out-of-tree content roots — currently the Docusaurus blog/.
 
-        EPOCH 7a Multi-Root Discovery.  Honours auto-detection performed in
+        v0.7.x Multi-Root Discovery.  Honours auto-detection performed in
         :meth:`from_repo`: when the blog plugin is active and its content
         directory exists on disk, it is returned as a single
         :class:`ContentRoot`.  Otherwise the list is empty.
@@ -1406,7 +1406,7 @@ class DocusaurusAdapter:
           ``/docs/``; ``''`` means "served at the site root" which yields
           no prefix because every internal link would then start with
           ``/`` and the suppression would be vacuous).
-        - The blog plugin — ``/<blog_route_base_path>/`` when the EPOCH 7a
+        - The blog plugin — ``/<blog_route_base_path>/`` when the v0.7.x
           auto-detection located a blog content directory.
         - Every sibling ``@docusaurus/plugin-content-docs`` instance whose
           ``routeBasePath`` was discovered by ``from_repo`` (static parse
@@ -1441,12 +1441,12 @@ class DocusaurusAdapter:
     def get_virtual_routes(self, md_contents: dict[Path, str]) -> list[object]:
         """Return engine-generated virtual routes derived from blog frontmatter.
 
-        EPOCH 7b Virtual Frontier.  Reads ``tags:`` from every blog post in
+        v0.7.x Virtual Frontier.  Reads ``tags:`` from every blog post in
         ``md_contents``, slugifies each tag value, and emits one
         :class:`~zenzic.core.adapters._base.VirtualRoute` per unique slug plus
         one ``tag_index`` route for the ``/{blog_rbp}/tags/`` listing page.
 
-        Complements :meth:`get_extra_content_roots` (EPOCH 7a): where that
+        Complements :meth:`get_extra_content_roots` (v0.7.x): where that
         method makes the physical blog posts visible to the VSM, this method
         makes the *engine-generated pages* (tag listing pages, etc.) visible
         so that links pointing at them are not incorrectly flagged as broken.

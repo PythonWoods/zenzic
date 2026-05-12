@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
-"""Guardians — i18n Path Integrity (Direttiva CEO 124/125).
+"""i18n Path Integrity checks (Direttiva CEO 124/125).
 
 Three invariants the multi-root credential scanner must enforce simultaneously:
 

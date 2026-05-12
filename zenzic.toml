@@ -99,7 +99,14 @@ release_name = "Basalt"
 
 [governance]
 # brand_obsolescence: project-specific deprecated terms (Z601 BRAND_OBSOLESCENCE).
-# Default is empty — Zenzic ships as a clean slate. Teams configure their own
-# deprecated term lists here or in .zenzic.local.toml (gitignored).
-# Example: brand_obsolescence = ["OldProductName", "LegacyBrand"]
-brand_obsolescence = []
+# Permanent vocabulary guardian — fires if theatrical brand terms reappear in prose.
+# CHANGELOG*.md is excluded by excluded_file_patterns above.
+brand_obsolescence = [
+    "Sentinel",
+    "Blood Sentinel",
+    "Shield",
+    "Epoch",
+    "Forge",
+    "Red Team",
+    "Operation",
+]

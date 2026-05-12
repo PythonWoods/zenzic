@@ -72,7 +72,7 @@ class TestLogging:
     def test_get_logger_with_different_sub_names(self) -> None:
         from zenzic.core.logging import get_logger
 
-        for sub in ("shield", "validator", "rules"):
+        for sub in ("credentials", "validator", "rules"):
             lg = get_logger(sub)
             assert lg.name == f"zenzic.{sub}"
 

@@ -165,7 +165,7 @@ _ACTS: list[_Act] = [
         "zensical-z404",
         expected_pass=False,
     ),
-    # ── Red/Blue Team Matrix ──────────────────────────────────────────────────
+    # ── Security Audit Matrix ──────────────────────────────────────────────────
     _Act(
         11,
         "Unix Security Probe",
@@ -297,7 +297,7 @@ _SECTIONS: list[tuple[str, str, range]] = [
     ("OS & Environment Guardrails", "🛡", range(0, 4)),
     ("Structural & SEO Integrity", "🔗", range(4, 7)),
     ("Enterprise Adapters & Migration", "🏢", range(7, 11)),
-    ("Red/Blue Team Matrix", "🔴", range(11, 17)),
+    ("Security Audit Matrix", "🔴", range(11, 17)),
     ("Scoring Scenarios", "📊", range(17, 20)),
 ]
 
@@ -534,7 +534,7 @@ def _print_act_index() -> None:
         con.print(_make_section_table(section_acts))
     con.print(
         f"\n  [dim]zenzic lab <act>   eg. [bold cyan]zenzic lab 3[/]   "
-        f"{emoji('dot')}   [bold cyan]zenzic lab 11–16[/] Red/Blue   "
+        f"{emoji('dot')}   [bold cyan]zenzic lab 11–16[/] Security Audit   "
         f"{emoji('dot')}   [bold cyan]zenzic lab 17-18[/] Scoring[/]\n"
     )
 
@@ -562,7 +562,7 @@ def lab(
 
         [bold cyan]zenzic lab[/]        — show act menu
         [bold cyan]zenzic lab 3[/]      — run Act 3 (Credential Scanner)
-        [bold cyan]zenzic lab 11-16[/]  — run the Red/Blue Team Matrix
+        [bold cyan]zenzic lab 11-16[/]  — run the Security Audit Matrix
         [bold cyan]zenzic lab all[/]    — run all 17 acts
         [bold cyan]zenzic lab --list[/] — print act index without running
     """
@@ -580,7 +580,7 @@ def lab(
         con.print(
             "\n[bold]Welcome to the Zenzic Lab.[/] Choose an act to see Zenzic in action.\n"
             "  Run [bold cyan]zenzic lab <N>[/] to execute a specific act (e.g. [cyan]zenzic lab 3[/]).\n"
-            "  Run [bold cyan]zenzic lab 11-16[/] for the Red/Blue matrix"
+            "  Run [bold cyan]zenzic lab 11-16[/] for the Security Audit Matrix"
             "  or [bold cyan]zenzic lab all[/] for the full tour.\n"
         )
         return

@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
-"""TEAM RED — Operation Obsidian Stress: security audit tests for v0.6.1rc2.
+"""Adversarial Validation — Obsidian Stress Test: security audit tests for v0.6.1rc2.
 
 Task 1: Path Traversal Guard Jailbreak (path traversal bypass attempts)
 Task 2: Credential Scanner Bypass (credential hiding attempts)
@@ -488,7 +488,7 @@ class TestLookbackBuffer:
 
 
 class TestBase64Bypass:
-    """Base64 speculative decoder: CEO-194 closes the S2 Red Team attack vector.
+    """Base64 speculative decoder: CEO-194 closes the S2 adversarial validation vector.
 
     Canonical test vector (CEO-201, locked):
         Z2hwXzEyMzQ1Njc4OTBhYmNkZWZnaGlqa2xtbm9wcXJzdHV2d3h5eg==
@@ -502,7 +502,7 @@ class TestBase64Bypass:
     def test_base64_github_pat_detected(self) -> None:
         """A Base64-encoded GitHub PAT in a frontmatter field must be flagged.
 
-        Simulates the S2 Red Team attack vector: attacker places the encoded
+        Simulates the S2 adversarial validation vector: attacker places the encoded
         token in a YAML frontmatter field to evade the raw-text scan.
         """
         line = f"token: {self._B64_GITHUB_PAT}"

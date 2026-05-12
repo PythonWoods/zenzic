@@ -36,7 +36,7 @@ class ZenzicPalette:
         WARNING — caution · advisory                  (#f59e0b Amber)
         ERROR   — failure · broken links              (#f43f5e Rose)
         DIM     — muted · secondary text              (#64748b Slate)
-        FATAL   — security breach · path traversal    (#8b0000 Blood)
+        FATAL   — security breach · path traversal    (#8b0000 Critical)
 
     Pre-composed Rich style strings (``STYLE_*``) cover the most common
     combinations — prefer them over constructing ``f"bold {X}"`` inline.
@@ -48,7 +48,7 @@ class ZenzicPalette:
     _AMBER = "#f59e0b"
     _ROSE = "#f43f5e"
     _SLATE = "#64748b"
-    _BLOOD = "#8b0000"  # blood red — security breach / path traversal
+    _CRITICAL = "#8b0000"  # dark red — security breach / path traversal
 
     # ── Semantic colour aliases (the only public interface for the codebase) ─
     BRAND: str = _INDIGO  # Zenzic primary / brand accent
@@ -56,7 +56,7 @@ class ZenzicPalette:
     WARNING: str = _AMBER  # caution · advisory
     ERROR: str = _ROSE  # failure · broken links
     DIM: str = _SLATE  # muted · secondary text
-    FATAL: str = _BLOOD  # security breach · path traversal
+    FATAL: str = _CRITICAL  # security breach · path traversal
 
     # ── Pre-composed Rich style strings ──────────────────────────────────────
     STYLE_BRAND: str = f"bold {_INDIGO}"
@@ -189,7 +189,7 @@ class ZenzicUI:
     """Central UI bridge for all Zenzic CLI output.
 
     All header, seal, telemetry, and alert panels must go through this interface.
-    This ensures consistent Forge Frame styling across all commands.
+    This ensures consistent Zenzic Frame styling across all commands.
     """
 
     def __init__(self, console: Any):
@@ -203,7 +203,7 @@ class ZenzicUI:
         subtitle: str = "Apache-2.0",
         border_style: str | None = None,
     ) -> Panel:
-        """Create a canonical Forge Frame panel.
+        """Create a canonical Zenzic Frame panel.
 
         The frame features a left-aligned title, bottom-right subtitle, and an
         Indigo rounded border. Every Zenzic output panel must be created

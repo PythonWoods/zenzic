@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
-"""Tests for ZRT Red-Team remediation.
+"""Tests for ZRT adversarial validation remediation.
 
 Covers:
 - ZRT-001: Credential scanner must detect secrets in YAML frontmatter
@@ -533,7 +533,7 @@ class TestCredentialScannerReportingIntegrity:
         breach_finding = Finding(
             rel_path="leaky.md",
             line_no=7,
-            code="SHIELD",
+            code="CREDENTIAL",
             severity="security_breach",
             message="Secret detected (stripe-live-key) — rotate immediately.",
             source_line=f"stripe_key: {raw}",

@@ -905,10 +905,10 @@ def test_find_unused_assets_skips_system_infrastructure_files(tmp_path: Path) ->
     unused = find_unused_assets(docs, mgr, config=config)
 
     infra_names = {p.name for p in unused}
-    assert "package.json" not in infra_names, "package.json must be shielded (L1a)"
-    assert "pyproject.toml" not in infra_names, "pyproject.toml must be shielded (L1a)"
-    assert "yarn.lock" not in infra_names, "yarn.lock must be shielded (L1a)"
-    assert "eslint.config.mjs" not in infra_names, "eslint.config.mjs must be shielded (L1a)"
+    assert "package.json" not in infra_names, "package.json must be excluded (L1a)"
+    assert "pyproject.toml" not in infra_names, "pyproject.toml must be excluded (L1a)"
+    assert "yarn.lock" not in infra_names, "yarn.lock must be excluded (L1a)"
+    assert "eslint.config.mjs" not in infra_names, "eslint.config.mjs must be excluded (L1a)"
 
 
 def test_find_unused_assets_skips_adapter_metadata_files(tmp_path: Path) -> None:
@@ -930,6 +930,6 @@ def test_find_unused_assets_skips_adapter_metadata_files(tmp_path: Path) -> None
     unused = find_unused_assets(docs, mgr, config=config, adapter_metadata_files=adapter_meta)
 
     unused_names = {p.name for p in unused}
-    assert "docusaurus.config.ts" not in unused_names, "adapter config must be shielded (L1b)"
-    assert "sidebars.ts" not in unused_names, "adapter sidebar must be shielded (L1b)"
+    assert "docusaurus.config.ts" not in unused_names, "adapter config must be excluded (L1b)"
+    assert "sidebars.ts" not in unused_names, "adapter sidebar must be excluded (L1b)"
     assert "logo.png" in unused_names, "genuine unused asset must still be reported"

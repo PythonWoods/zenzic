@@ -267,15 +267,15 @@ class InMemoryPathResolver:
         _target_nc = os.path.normcase(target_str)
         is_site_alias = path_part.startswith("@site/")
         if is_site_alias:
-            shield_ok = _target_nc == self._repo_root_nc_str or _target_nc.startswith(
+            path_ok = _target_nc == self._repo_root_nc_str or _target_nc.startswith(
                 self._repo_root_nc_prefix
             )
         else:
-            shield_ok = any(
+            path_ok = any(
                 _target_nc == nc_str or _target_nc.startswith(nc_prefix)
                 for nc_str, nc_prefix in self._allowed_root_pairs_nc
             )
-        if not shield_ok:
+        if not path_ok:
             return PathTraversal(raw_href=href)
 
         # ── Lookup: single dict.get() — O(1), zero Path constructions ────────

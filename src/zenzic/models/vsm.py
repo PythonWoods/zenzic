@@ -144,7 +144,7 @@ def build_vsm(
        the builder falls back to calling ``map_url()`` + ``classify_route()``
        separately (backward-compatible with third-party adapters).
 
-    Multi-Root resolution (EPOCH 7a):
+    Multi-Root resolution (v0.7.x):
 
     Files under ``docs_root`` are routed using ``rel = path.relative_to(docs_root)``.
     Files under any of the *extra_content_roots* are routed with the declared

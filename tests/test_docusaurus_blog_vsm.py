@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
-"""EPOCH 7a regression — Docusaurus blog/ files must enter the VSM and link checks.
+"""v0.7.x regression — Docusaurus blog/ files must enter the VSM and link checks.
 
 Pre-fix bug: the VSM only ingested files under ``docs_dir``, so Docusaurus
 blog posts were invisible to ``zenzic check`` and broken links inside the
@@ -74,7 +74,7 @@ def _build_sandbox(
         )
 
     if with_absolute_slug_mismatch:
-        # VSM bypass regression — EPOCH 7b / validator.py fix.
+        # VSM bypass regression — v0.7.x / validator.py fix.
         #
         # The file declares slug: saga-iv-zenzic, so Docusaurus publishes it at
         # /blog/saga-iv-zenzic/.  The log post links to /blog/saga-iv/ (missing
@@ -95,7 +95,7 @@ def _build_sandbox(
 # ── Tests ─────────────────────────────────────────────────────────────────────
 
 
-class TestEpoch7aBlogDiscovery:
+class TestV07xBlogDiscovery:
     """get_extra_content_roots returns blog/ via convention auto-detection."""
 
     def test_blog_directory_advertised_as_content_root(self, tmp_path: Path) -> None:
@@ -118,7 +118,7 @@ class TestEpoch7aBlogDiscovery:
         assert adapter.get_extra_content_roots(tmp_path) == []
 
 
-class TestEpoch7aVsmIngestion:
+class TestV07xVsmIngestion:
     """build_vsm() walks extra content roots and routes blog files correctly."""
 
     def test_blog_file_appears_as_reachable_route(self, tmp_path: Path) -> None:
@@ -143,10 +143,10 @@ class TestEpoch7aVsmIngestion:
         assert "/docs/intro/" in vsm
 
 
-class TestEpoch7aReverseMapping:
+class TestV07xReverseMapping:
     """Traceability invariant: every VSM route resolves back to a real source file.
 
-    Locks the contract that EPOCH 7b virtual routes (tags, pagination,
+    Locks the contract that v0.7.x virtual routes (tags, pagination,
     authors) must also satisfy — a route without a physical origin is a
     validator screaming ``error`` without ever saying ``where``.
     """
@@ -186,7 +186,7 @@ class TestEpoch7aReverseMapping:
             )
 
 
-class TestEpoch7aValidatorClosesTheGap:
+class TestV07xValidatorClosesTheGap:
     """validate_links_async catches broken links inside and across blog/."""
 
     def _run(self, repo: Path, docs: Path) -> list[str]:

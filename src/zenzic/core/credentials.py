@@ -219,7 +219,7 @@ def scan_line_for_secrets(
     * **Normalised** (ZRT-003 fix) — the line after stripping Markdown noise
       tokens (backtick spans, table pipes, concatenation operators) so that
       split-token obfuscation patterns are reconstructed before scanning.
-      See :func:`_normalize_line_for_shield`.
+      See :func:`_normalize_line_for_credential_scan`.
 
     Duplicate findings (same secret type on the same line whether matched by
     the raw or normalised form) are suppressed via a ``seen`` set.
@@ -420,7 +420,7 @@ class CredentialViolation(Exception):
     def __init__(self, finding: SecurityFinding) -> None:
         self.finding = finding
         super().__init__(
-            f"SHIELD VIOLATION: {finding.secret_type} detected in "
+            f"CREDENTIAL VIOLATION: {finding.secret_type} detected in "
             f"{finding.file_path}:{finding.line_no}"
         )
 

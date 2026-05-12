@@ -336,7 +336,7 @@ class ZensicalAdapter:
         return True
 
     def get_metadata_files(self) -> frozenset[str]:
-        """Zensical configuration file — shielded from Z903."""
+        """Zensical configuration file — excluded from Z903."""
         return frozenset({"zensical.toml"})
 
     # ── VSM integration ────────────────────────────────────────────────────────

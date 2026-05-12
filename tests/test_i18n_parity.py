@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Z602 I18N_PARITY — unit + Hypothesis stress tests.
 
-Validates the language-agnostic parity scanner introduced in EPOCH 5
+Validates the language-agnostic parity scanner introduced in v0.5.x
 (v0.7.0 "Quartz Maturity" / "Quarzo").  Covers:
 
 * Missing target mirrors are flagged (single + multi-language).

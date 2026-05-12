@@ -202,11 +202,11 @@ def get_adapter(
     messages = []
     if getattr(adapter, "is_compatibility_mode", False):
         messages.append(
-            "[bold cyan]SENTINEL:[/bold cyan] Zensical engine active via [yellow]mkdocs.yml[/yellow] compatibility bridge."
+            "[bold cyan]NOTICE:[/bold cyan] Zensical engine active via [yellow]mkdocs.yml[/yellow] compatibility bridge."
         )
     if getattr(context, "offline_mode", False):
         messages.append(
-            "[bold cyan]SENTINEL:[/bold cyan] [Offline Mode Active: forcing flat URL structure]"
+            "[bold cyan]NOTICE:[/bold cyan] [Offline mode: forcing flat URL structure]"
         )
 
     if messages:

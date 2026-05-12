@@ -1223,7 +1223,7 @@ class TestAdapterAbsoluteUrlPrefixes:
 
         docs = tmp_path / "docs"
         docs.mkdir()
-        (tmp_path / "blog").mkdir()  # convention-fallback discovery (EPOCH 7a)
+        (tmp_path / "blog").mkdir()  # convention-fallback discovery (v0.7.x)
         adapter = DocusaurusAdapter.from_repo(BuildContext(engine="docusaurus"), docs, tmp_path)
         prefixes = adapter.get_absolute_url_prefixes(tmp_path)
         assert "/blog/" in prefixes

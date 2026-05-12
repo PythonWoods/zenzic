@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Layered Exclusion system: VCS-aware file exclusion with 4-level hierarchy.
 
-This module implements the core exclusion logic for the Zenzic Perimeter
+This module implements the core exclusion logic for the Zenzic exclusion scope
 architecture.  All functions are **pure** — no I/O after construction except
 for the ``VCSIgnoreParser.from_file()`` factory.
 

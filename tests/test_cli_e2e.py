@@ -27,7 +27,7 @@ from zenzic.main import app
 
 runner = CliRunner()
 
-_BLOOD_SANDBOX = Path(__file__).resolve().parent / "sandboxes" / "screenshot_blood"
+_TRAVERSAL_SANDBOX = Path(__file__).resolve().parent / "sandboxes" / "screenshot_traversal"
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────
@@ -65,9 +65,9 @@ class TestPathTraversalGuardE2E:
     def test_path_traversal_guard_sandbox_exits_3(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """check all on the blood sandbox triggers Exit 3."""
-        sandbox = tmp_path / "blood"
-        shutil.copytree(_BLOOD_SANDBOX, sandbox)
+        """check all on the traversal sandbox triggers Exit 3."""
+        sandbox = tmp_path / "traversal"
+        shutil.copytree(_TRAVERSAL_SANDBOX, sandbox)
         monkeypatch.chdir(sandbox)
 
         result = runner.invoke(app, ["check", "all"])
@@ -84,8 +84,8 @@ class TestPathTraversalGuardE2E:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """--exit-zero must NOT suppress Exit 3 — documented contract."""
-        sandbox = tmp_path / "blood"
-        shutil.copytree(_BLOOD_SANDBOX, sandbox)
+        sandbox = tmp_path / "traversal"
+        shutil.copytree(_TRAVERSAL_SANDBOX, sandbox)
         monkeypatch.chdir(sandbox)
 
         result = runner.invoke(app, ["check", "all", "--exit-zero"])
