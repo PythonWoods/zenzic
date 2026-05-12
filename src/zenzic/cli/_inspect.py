@@ -11,7 +11,7 @@ from rich.text import Text
 
 from zenzic.core.codes import CODE_NAMES, CORE_SCANNERS
 from zenzic.core.scanner import find_repo_root
-from zenzic.core.ui import SentinelPalette
+from zenzic.core.ui import ZenzicPalette
 from zenzic.models.config import ZenzicConfig
 
 from . import _shared
@@ -19,7 +19,7 @@ from . import _shared
 
 inspect_app = typer.Typer(
     name="inspect",
-    help=f"[bold {SentinelPalette.BRAND}]Inspect[/] — Introspect the Zenzic scanner arsenal and plugin registry.",
+    help=f"[bold {ZenzicPalette.BRAND}]Inspect[/] — Introspect the Zenzic scanner arsenal and plugin registry.",
     no_args_is_help=True,
     rich_markup_mode="rich",
 )
@@ -29,7 +29,7 @@ def _inspect_capabilities() -> None:
     """Show the full Zenzic scanner arsenal.
 
     **Section A — Core Scanners (Built-in):** seven scanners compiled into
-    Zenzic itself.  The Shield (Z201) and Blood Sentinel (Z202–203) exit with
+    Zenzic itself.  The credential scanner (Z201) and path traversal guard (Z202–203) exit with
     codes 2 and 3 respectively — neither is suppressible with ``--exit-zero``.
 
     **Section B — Extensible Rules (Plugin System):** rules registered via the
@@ -43,11 +43,11 @@ def _inspect_capabilities() -> None:
 
     # ── Section A: Core Scanners ──────────────────────────────────────────
     core_table = Table(
-        title=f"[bold {SentinelPalette.BRAND}]Core Scanners[/]  [dim](built-in)[/dim]",
+        title=f"[bold {ZenzicPalette.BRAND}]Core Scanners[/]  [dim](built-in)[/dim]",
         title_justify="left",
         box=box.ROUNDED,
-        border_style=SentinelPalette.DIM,
-        header_style=SentinelPalette.STYLE_BRAND,
+        border_style=ZenzicPalette.DIM,
+        header_style=ZenzicPalette.STYLE_BRAND,
         pad_edge=True,
         padding=(0, 1),
     )
@@ -67,8 +67,8 @@ def _inspect_capabilities() -> None:
     _shared.console.print()
     _shared.console.print(
         Text.from_markup(
-            f"  [{SentinelPalette.DIM}]\u26a0  Exit 2 and Exit 3 are non-suppressible \u2014 "
-            f"--exit-zero has no effect on Shield or Blood Sentinel.[/{SentinelPalette.DIM}]"
+            f"  [{ZenzicPalette.DIM}]\u26a0  Exit 2 and Exit 3 are non-suppressible \u2014 "
+            f"--exit-zero has no effect on credential scanner or path traversal guard.[/{ZenzicPalette.DIM}]"
         )
     )
     _shared.console.print()
@@ -78,13 +78,13 @@ def _inspect_capabilities() -> None:
 
     rules_table = Table(
         title=(
-            f"[bold {SentinelPalette.BRAND}]Extensible Rules[/]  "
+            f"[bold {ZenzicPalette.BRAND}]Extensible Rules[/]  "
             f"[dim](plugin system \u2014 zenzic.rules entry-point group)[/dim]"
         ),
         title_justify="left",
         box=box.ROUNDED,
-        border_style=SentinelPalette.DIM,
-        header_style=SentinelPalette.STYLE_BRAND,
+        border_style=ZenzicPalette.DIM,
+        header_style=ZenzicPalette.STYLE_BRAND,
         pad_edge=True,
         padding=(0, 1),
     )
@@ -105,8 +105,8 @@ def _inspect_capabilities() -> None:
             "[dim]\u2014[/dim]",
             "[dim]\u2014[/dim]",
             (
-                f"[{SentinelPalette.DIM}]No third-party plugins installed. "
-                f"Register rules via the zenzic.rules entry-point group.[/{SentinelPalette.DIM}]"
+                f"[{ZenzicPalette.DIM}]No third-party plugins installed. "
+                f"Register rules via the zenzic.rules entry-point group.[/{ZenzicPalette.DIM}]"
             ),
         )
 
@@ -116,9 +116,9 @@ def _inspect_capabilities() -> None:
     rule_count = len(rules)
     _shared.console.print(
         Text.from_markup(
-            f"  [{SentinelPalette.DIM}]{len(CORE_SCANNERS)} built-in scanners \u00b7 "
+            f"  [{ZenzicPalette.DIM}]{len(CORE_SCANNERS)} built-in scanners \u00b7 "
             f"{rule_count} extensible rule{'s' if rule_count != 1 else ''} registered"
-            f"[/{SentinelPalette.DIM}]"
+            f"[/{ZenzicPalette.DIM}]"
         )
     )
     _shared.console.print()
@@ -126,13 +126,13 @@ def _inspect_capabilities() -> None:
     # ── Section C: Engine-specific Link Bypasses ──────────────────────────
     bypass_table = Table(
         title=(
-            f"[bold {SentinelPalette.BRAND}]Engine-specific Link Bypasses[/]  "
+            f"[bold {ZenzicPalette.BRAND}]Engine-specific Link Bypasses[/]  "
             f"[dim](Rule R21 \u2014 Protocol Sovereignty)[/dim]"
         ),
         title_justify="left",
         box=box.ROUNDED,
-        border_style=SentinelPalette.DIM,
-        header_style=SentinelPalette.STYLE_BRAND,
+        border_style=ZenzicPalette.DIM,
+        header_style=ZenzicPalette.STYLE_BRAND,
         pad_edge=True,
         padding=(0, 1),
     )
@@ -145,23 +145,23 @@ def _inspect_capabilities() -> None:
             "docusaurus",
             "DocusaurusAdapter",
             Text.from_markup(
-                f"[bold]pathname:[/bold]  [{SentinelPalette.DIM}](static-asset routing escape hatch)[/{SentinelPalette.DIM}]"
+                f"[bold]pathname:[/bold]  [{ZenzicPalette.DIM}](static-asset routing escape hatch)[/{ZenzicPalette.DIM}]"
             ),
         ),
         (
             "mkdocs",
             "MkDocsAdapter",
-            Text.from_markup(f"[{SentinelPalette.DIM}](none)[/{SentinelPalette.DIM}]"),
+            Text.from_markup(f"[{ZenzicPalette.DIM}](none)[/{ZenzicPalette.DIM}]"),
         ),
         (
             "zensical",
             "ZensicalAdapter",
-            Text.from_markup(f"[{SentinelPalette.DIM}](none)[/{SentinelPalette.DIM}]"),
+            Text.from_markup(f"[{ZenzicPalette.DIM}](none)[/{ZenzicPalette.DIM}]"),
         ),
         (
             "standalone",
             "StandaloneAdapter",
-            Text.from_markup(f"[{SentinelPalette.DIM}](none)[/{SentinelPalette.DIM}]"),
+            Text.from_markup(f"[{ZenzicPalette.DIM}](none)[/{ZenzicPalette.DIM}]"),
         ),
     ]
     for _engine, _adapter, _bypasses in _BYPASS_ROWS:
@@ -171,9 +171,9 @@ def _inspect_capabilities() -> None:
     _shared.console.print()
     _shared.console.print(
         Text.from_markup(
-            f"  [{SentinelPalette.DIM}]R21: engine-specific behaviour is declared in the adapter "
+            f"  [{ZenzicPalette.DIM}]R21: engine-specific behaviour is declared in the adapter "
             f"via get_link_scheme_bypasses() \u2014 validator.py never hardcodes engine names."
-            f"[/{SentinelPalette.DIM}]"
+            f"[/{ZenzicPalette.DIM}]"
         )
     )
 
@@ -247,11 +247,11 @@ def inspect_codes(
         selected_tiers = [tier_normalized]
 
     table = Table(
-        title=f"[bold {SentinelPalette.BRAND}]Code Registry[/] · tier view",
+        title=f"[bold {ZenzicPalette.BRAND}]Code Registry[/] · tier view",
         title_justify="left",
         box=box.ROUNDED,
-        border_style=SentinelPalette.DIM,
-        header_style=SentinelPalette.STYLE_BRAND,
+        border_style=ZenzicPalette.DIM,
+        header_style=ZenzicPalette.STYLE_BRAND,
         pad_edge=True,
         padding=(0, 1),
     )
@@ -424,8 +424,8 @@ def inspect_routes(
         title=f"[bold]Site Map[/] · {label}",
         title_justify="left",
         box=box.ROUNDED,
-        border_style=SentinelPalette.DIM,
-        header_style=SentinelPalette.STYLE_BRAND,
+        border_style=ZenzicPalette.DIM,
+        header_style=ZenzicPalette.STYLE_BRAND,
         pad_edge=True,
         padding=(0, 1),
     )

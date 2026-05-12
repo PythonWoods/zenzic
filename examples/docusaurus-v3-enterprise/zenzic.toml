@@ -14,7 +14,7 @@
 docs_dir = "docs"
 fail_under = 90
 
-# Zenzic Shield — built-in credential scanner (always active, no config required).
+# Credential scanner — built-in (always active, no config required).
 # Detected pattern families: openai-api-key, github-token, aws-access-key,
 #   stripe-live-key, slack-token, google-api-key, private-key,
 #   hex-encoded-payload (3+ consecutive \xNN sequences).

@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 """TEAM RED — Operation Obsidian Stress: security audit tests for v0.6.1rc2.
 
-Task 1: Blood Sentinel Jailbreak (path traversal bypass attempts)
-Task 2: Shield Bypass (credential hiding attempts)
+Task 1: Path Traversal Guard Jailbreak (path traversal bypass attempts)
+Task 2: Credential Scanner Bypass (credential hiding attempts)
 Task 3: DoS / Resource Exhaustion
 """
 
@@ -14,19 +14,19 @@ from pathlib import Path
 
 import pytest
 
-from zenzic.core.resolver import InMemoryPathResolver, PathTraversal, Resolved
-from zenzic.core.shield import (
+from zenzic.core.credentials import (
+    CredentialViolation,
     SecurityFinding,
-    ShieldViolation,
-    _normalize_line_for_shield,
+    _normalize_line_for_scan,
     safe_read_line,
     scan_line_for_secrets,
     scan_lines_with_lookback,
 )
+from zenzic.core.resolver import InMemoryPathResolver, PathTraversal, Resolved
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# TASK 1: Blood Sentinel Jailbreak
+# TASK 1: Path Traversal Guard Jailbreak
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
@@ -42,8 +42,8 @@ def _make_resolver(root: str = "/docs") -> InMemoryPathResolver:
     return InMemoryPathResolver(root_dir=root_path, md_contents=md_contents, anchors_cache=anchors)
 
 
-class TestBloodSentinelJailbreak:
-    """Attempt to bypass the Blood Sentinel path traversal detection."""
+class TestPathTraversalGuardJailbreak:
+    """Attempt to bypass the path traversal guard detection."""
 
     def setup_method(self) -> None:
         self.resolver = _make_resolver()
@@ -146,7 +146,7 @@ class TestBloodSentinelJailbreak:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# TASK 2: Shield Bypass
+# TASK 2: Credential Scanner Bypass
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # A real-looking AWS key for testing
@@ -159,14 +159,14 @@ _FAKE_GH_TOKEN = "ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghij"  # ghp_ + 36
 _FAKE_GL_PAT = "glpat-ABCDEFGHIJKLMNOPQRSTUVWXYZab"  # glpat- + 26
 
 
-class TestShieldBypass:
-    """Attempt to hide credentials from the Shield scanner."""
+class TestCredentialScannerBypass:
+    """Attempt to hide credentials from the credential scanner."""
 
     def _has_finding(self, line: str) -> bool:
-        """Return True if the Shield detects a secret in *line*."""
+        """Return True if the credential scanner detects a secret in *line*."""
         return any(True for _ in scan_line_for_secrets(line, Path("test.md"), 1))
 
-    # ── Baseline: Shield catches plain secrets ──
+    # ── Baseline: credential scanner catches plain secrets ──
 
     def test_baseline_aws_key_detected(self) -> None:
         assert self._has_finding(f"key = {_FAKE_AWS_KEY}")
@@ -184,21 +184,21 @@ class TestShieldBypass:
         obfuscated = _FAKE_AWS_KEY[:8] + "\u200d" + _FAKE_AWS_KEY[8:]
         detected = self._has_finding(f"key = {obfuscated}")
         if not detected:
-            pytest.fail(f"BYPASS: ZWJ in AWS key evaded Shield: {obfuscated!r}")
+            pytest.fail(f"BYPASS: ZWJ in AWS key evaded credential scanner: {obfuscated!r}")
 
     def test_zwnj_in_gh_token(self) -> None:
         """Insert zero-width non-joiner U+200C inside token."""
         obfuscated = _FAKE_GH_TOKEN[:10] + "\u200c" + _FAKE_GH_TOKEN[10:]
         detected = self._has_finding(f"token = {obfuscated}")
         if not detected:
-            pytest.fail(f"BYPASS: ZWNJ in GH token evaded Shield: {obfuscated!r}")
+            pytest.fail(f"BYPASS: ZWNJ in GH token evaded credential scanner: {obfuscated!r}")
 
     def test_zwsp_in_gl_pat(self) -> None:
         """Insert zero-width space U+200B inside token."""
         obfuscated = _FAKE_GL_PAT[:10] + "\u200b" + _FAKE_GL_PAT[10:]
         detected = self._has_finding(f"pat = {obfuscated}")
         if not detected:
-            pytest.fail(f"BYPASS: ZWSP in GitLab PAT evaded Shield: {obfuscated!r}")
+            pytest.fail(f"BYPASS: ZWSP in GitLab PAT evaded credential scanner: {obfuscated!r}")
 
     # ── Frontmatter YAML multi-line strings ──
 
@@ -208,7 +208,7 @@ class TestShieldBypass:
         line1 = "api_key: >-"
         line2 = "  AKIA"
         line3 = "  IOSFODNN7EXAMPLE"
-        # Shield scans line by line - only detect if full pattern in one line
+        # Credential scanner runs line by line - only detect if full pattern in one line
         d1 = self._has_finding(line1)
         d2 = self._has_finding(line2)
         d3 = self._has_finding(line3)
@@ -225,7 +225,7 @@ class TestShieldBypass:
         html_key = "&#65;&#75;&#73;&#65;IOSFODNN7EXAMPLE"
         detected = self._has_finding(html_key)
         if not detected:
-            pytest.fail(f"BYPASS: HTML entities evaded Shield: {html_key!r}")
+            pytest.fail(f"BYPASS: HTML entities evaded credential scanner: {html_key!r}")
 
     # ── Base64-encoded tokens in URLs ──
 
@@ -246,7 +246,7 @@ class TestShieldBypass:
         """Split token across table cells with backticks and +."""
         line = "| Key | `AKIA` + `IOSFODNN7EXAMPLE` |"
         detected = self._has_finding(line)
-        assert detected, f"BYPASS: Split token in table evaded Shield: {line!r}"
+        assert detected, f"BYPASS: Split token in table evaded credential scanner: {line!r}"
 
     # ── MDX/JSX comments ──
 
@@ -254,19 +254,19 @@ class TestShieldBypass:
         """Hide token inside JSX comment."""
         line = f"{{/* {_FAKE_AWS_KEY} */}}"
         detected = self._has_finding(line)
-        assert detected, f"BYPASS: JSX comment evaded Shield: {line!r}"
+        assert detected, f"BYPASS: JSX comment evaded credential scanner: {line!r}"
 
     def test_token_in_html_comment(self) -> None:
         """Hide token inside HTML comment."""
         line = f"<!-- {_FAKE_GH_TOKEN} -->"
         detected = self._has_finding(line)
-        assert detected, f"BYPASS: HTML comment evaded Shield: {line!r}"
+        assert detected, f"BYPASS: HTML comment evaded credential scanner: {line!r}"
 
     # ── safe_read_line firewall ──
 
     def test_safe_read_line_blocks_secret(self) -> None:
         """safe_read_line must raise ShieldViolation on detection."""
-        with pytest.raises(ShieldViolation):
+        with pytest.raises(CredentialViolation):
             safe_read_line(f"key = {_FAKE_AWS_KEY}", Path("test.md"), 1)
 
 
@@ -283,17 +283,17 @@ class TestDosResilience:
         big_line = "a" * (10 * 1024 * 1024)
         content = big_line + "\n"
         t0 = time.monotonic()
-        # Test Shield on the big line
+        # Test credential scanner on the big line
         list(scan_line_for_secrets(content, Path("big.md"), 1))
         elapsed = time.monotonic() - t0
         assert elapsed < 30, f"10MB line took {elapsed:.1f}s (>30s limit)"
 
     def test_10mb_line_with_embedded_secret(self) -> None:
-        """Shield should still find secrets in a 10MB line (within 1MiB truncation)."""
+        """Credential scanner should still find secrets in a 10MB line (within 1MiB truncation)."""
         # Place secret near the beginning (within _MAX_LINE_LENGTH)
         big_line = f"prefix {_FAKE_AWS_KEY} " + "a" * (10 * 1024 * 1024)
         findings = list(scan_line_for_secrets(big_line, Path("big.md"), 1))
-        assert len(findings) > 0, "Shield should find secret at start of big line"
+        assert len(findings) > 0, "Credential scanner should find secret at start of big line"
 
     def test_10mb_line_secret_past_truncation(self) -> None:
         """Secret placed past 1MiB truncation limit should be silently missed."""
@@ -348,7 +348,7 @@ class TestDosResilience:
         assert isinstance(outcome, Resolved)
 
     def test_null_bytes_file_content(self) -> None:
-        """Files with only null bytes should not crash the Shield."""
+        """Files with only null bytes should not crash the credential scanner."""
         null_content = "\x00" * 10000
         t0 = time.monotonic()
         list(scan_line_for_secrets(null_content, Path("null.md"), 1))
@@ -360,7 +360,7 @@ class TestDosResilience:
         # Pathological input for regex: many backticks and pipes
         pathological = "`a`|" * 100000
         t0 = time.monotonic()
-        _normalize_line_for_shield(pathological)
+        _normalize_line_for_scan(pathological)
         elapsed = time.monotonic() - t0
         assert elapsed < 10, f"Normalizer on 400K pathological input took {elapsed:.1f}s"
 
@@ -548,7 +548,7 @@ class TestBase64Bypass:
 # ─── Mutant-Killing Tests: _normalize_line_for_shield ────────────────────────
 
 
-class TestNormalizeLineForShieldMutantKill:
+class TestNormalizeLineForCredentialScannerMutantKill:
     """Kill surviving mutants in _normalize_line_for_shield().
 
     Targeted mutants:
@@ -561,7 +561,7 @@ class TestNormalizeLineForShieldMutantKill:
         """MDX comment must be stripped (empty string), not replaced with noise.
         Kills mutmut_22: _MDX_COMMENT_RE.sub('XXXX', normalized)."""
         line = "ghp_ABC{/* comment */}DEF"
-        result = _normalize_line_for_shield(line)
+        result = _normalize_line_for_scan(line)
         assert "XXXX" not in result
         assert "{" not in result
         assert "comment" not in result
@@ -572,7 +572,7 @@ class TestNormalizeLineForShieldMutantKill:
         """Table pipe must become a single space, not 'XX XX' or empty.
         Kills mutmut_40: _TABLE_PIPE_RE.sub('XX XX', normalized)."""
         line = "col1 | col2 | col3"
-        result = _normalize_line_for_shield(line)
+        result = _normalize_line_for_scan(line)
         assert "XX XX" not in result
         assert "|" not in result
         # Pipes replaced by space — after whitespace collapse: "col1 col2 col3"
@@ -584,7 +584,7 @@ class TestNormalizeLineForShieldMutantKill:
         """Final join must use single space ' ', not 'XX XX'.
         Kills mutmut_42: 'XX XX'.join(normalized.split())."""
         line = "  lots   of   spaces  "
-        result = _normalize_line_for_shield(line)
+        result = _normalize_line_for_scan(line)
         assert "XX XX" not in result
         # After " ".join(normalized.split()): single spaces between words
         assert result == "lots of spaces"
@@ -595,7 +595,7 @@ class TestNormalizeLineForShieldMutantKill:
         raw_line = (
             "token: sk-{/* obfuscation */}live_ABCDEFGHIJ1234567890abcdefghijklmnopqrstuvwxyz12"
         )
-        result = _normalize_line_for_shield(raw_line)
+        result = _normalize_line_for_scan(raw_line)
         assert "{" not in result
         assert "obfuscation" not in result
         # The merged token should be present after stripping

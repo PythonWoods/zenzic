@@ -4,7 +4,7 @@
 # broken-docs — Fixture con Errori Intenzionali
 
 Questo esempio attiva intenzionalmente ogni controllo di Zenzic. Esiste per
-dimostrare come appaiono gli errori nel nuovo Sentinel Report e per servire
+dimostrare come appaiono gli errori nel nuovo Zenzic Report e per servire
 come fixture di regressione per il motore di controllo.
 
 ## Cosa dimostra

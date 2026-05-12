@@ -23,7 +23,7 @@ Z1xx — Link Integrity
     Z113  AUTHOR_KEY_COLLISION — duplicate author key across blog author configs
     Z114  LARGE_PAGINATION_SET — blog pagination set exceeds 200-page threshold (info)
 
-Z2xx — Security (Shield)
+Z2xx — Security (Credential Scanner)
     Z201  SHIELD_SECRET        — credential / secret detected (Exit 2)
     Z202  PATH_TRAVERSAL       — path escapes the docs root boundary
     Z203  PATH_TRAVERSAL_FATAL — traversal targeting OS system directories (Exit 3)
@@ -46,7 +46,7 @@ Z5xx — Content Quality
     Z501  PLACEHOLDER          — page contains stub / TODO content
     Z502  SHORT_CONTENT        — page word count below minimum threshold
     Z503  SNIPPET_ERROR        — fenced code block fails syntax validation
-    Z504  QUALITY_REGRESSION   — Sentinel Scorer detected score drop vs saved baseline
+    Z504  QUALITY_REGRESSION   — quality scorer detected score drop vs saved baseline
     Z505  UNTAGGED_CODE_BLOCK  — fenced code block has no language specifier
 
 Z6xx — Governance (opt-in)
@@ -75,21 +75,21 @@ class ZenzicExitCode:
     * ``SUCCESS`` (0) — all checks passed; documentation is clean.
     * ``QUALITY`` (1) — quality findings (broken links, orphans, …);
       suppressible by ``--exit-zero``.
-    * ``SHIELD`` (2) — Shield security breach — credential detected (Z201);
+    * ``CREDENTIAL_LEAK`` (2) — credential detected (Z201);
       **never** suppressible.
-    * ``SENTINEL`` (3) — Blood Sentinel — system path traversal / fatal
-      (Z202/Z203); **never** suppressible.
+    * ``PATH_TRAVERSAL_FATAL`` (3) — system path traversal (Z202/Z203);
+      **never** suppressible.
 
     Usage in CLI layer::
 
         from zenzic.core.codes import ZenzicExitCode
-        raise typer.Exit(ZenzicExitCode.SHIELD)
+        raise typer.Exit(ZenzicExitCode.CREDENTIAL_LEAK)
     """
 
     SUCCESS: int = 0
     QUALITY: int = 1
-    SHIELD: int = 2
-    SENTINEL: int = 3
+    CREDENTIAL_LEAK: int = 2
+    PATH_TRAVERSAL_FATAL: int = 3
 
 
 # ── Stability Contract ────────────────────────────────────────────────────────
@@ -293,13 +293,13 @@ class CoreScanner(NamedTuple):
     """Display code range, e.g. ``"Z201"`` or ``"Z202\u2013203"``."""
 
     name: str
-    """Human-readable scanner name, e.g. ``"The Shield"``."""
+    """Human-readable scanner name, e.g. ``"Credential Scanner"``."""
 
     capability: str
     """One-line capability summary shown in ``zenzic inspect capabilities``."""
 
     primary_exit: int
-    """Primary exit code: 1 (quality), 2 (Shield), or 3 (Blood Sentinel)."""
+    """Primary exit code: 1 (quality), 2 (credential leak), or 3 (path traversal)."""
 
     non_suppressible: bool
     """``True`` when ``--exit-zero`` cannot override this scanner's exit."""
@@ -310,7 +310,7 @@ class CoreScanner(NamedTuple):
 CORE_SCANNERS: list[CoreScanner] = [
     CoreScanner(
         codes="Z201",
-        name="The Shield",
+        name="Credential Scanner",
         capability=(
             "Credential & secret detection \u2014 9 families "
             "(AWS, GitHub, GitLab PAT, Stripe, Slack, OpenAI, Google, PEM, hex)"
@@ -330,7 +330,7 @@ CORE_SCANNERS: list[CoreScanner] = [
     ),
     CoreScanner(
         codes="Z202\u2013203",
-        name="Blood Sentinel",
+        name="Path Traversal Guard",
         capability=(
             "Path-traversal boundary enforcement \u2014 rejects any link escaping the docs/ root"
         ),
@@ -389,7 +389,7 @@ CORE_SCANNERS: list[CoreScanner] = [
     ),
     CoreScanner(
         codes="Z505",
-        name="Code Block Sentinel",
+        name="Code Block Scanner",
         capability="Fenced code blocks without a language specifier (``` or ~~~)",
         primary_exit=1,
         non_suppressible=False,

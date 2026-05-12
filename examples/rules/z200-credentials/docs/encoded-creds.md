@@ -1,12 +1,12 @@
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Shield Extreme — Percent-Encoded Credentials
+# Credential Extreme — Percent-Encoded Credentials
 
 **RED TEAM** objective: percent-encode credential strings so that raw text matching
 misses the `sk-`, `ghp_`, and `AKIA` prefixes.
 
-**BLUE TEAM** response: the Shield URL-decodes content before scanning. Percent-encoded
+**BLUE TEAM** response: the credential scanner URL-decodes content before scanning. Percent-encoded
 credentials are normalised to their plaintext form prior to pattern matching.
 
 ---
@@ -35,6 +35,6 @@ Set `%67%68%70%5f%58%58%58%58%58%58%58%58%58%58%58%58%58%58%58%58%58%58%58%58%58
 
 ---
 
-Expected: Shield fires on percent-encoded credential patterns — exit **2**.
+Expected: Credential scanner fires on percent-encoded credential patterns — exit **2**.
 
 See also: [base64-secrets.md](base64-secrets.md), [mixed-case.md](mixed-case.md).

@@ -1,13 +1,13 @@
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
-<!-- markdownlint-disable MD053 -- credential reference definitions are intentional Shield triggers -->
+<!-- markdownlint-disable MD053 -- credential reference definitions are intentional credential scanner triggers -->
 
 # Unix Security Probe — Credential Obfuscation in Markdown Structure
 
 **RED TEAM** objective: hide credentials inside Markdown structures that naive scanners
 skip — tables, blockquotes, link titles, and URL query parameters.
 
-**BLUE TEAM** response: the Shield scans **every source line**, regardless of structure.
+**BLUE TEAM** response: the credential scanner scans **every source line**, regardless of structure.
 No Markdown element is exempt from inspection.
 
 ---
@@ -48,6 +48,6 @@ No Markdown element is exempt from inspection.
 
 ---
 
-Expected: Shield fires on every technique — exit **2**.
+Expected: Credential scanner fires on every technique — exit **2**.
 
 See also: [deep-traversal.md](deep-traversal.md), [fenced.md](fenced.md).

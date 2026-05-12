@@ -38,7 +38,7 @@ AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
 ```bash
 cd examples/scoring/security-breach
 
-# Shield detects Z201 → exit code 2 (non-suppressible)
+# Credential scanner detects Z201 → exit code 2 (non-suppressible)
 zenzic check references
 
 # Score collapses to 0/100 (security_override = true)

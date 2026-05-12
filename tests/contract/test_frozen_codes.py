@@ -118,8 +118,8 @@ class TestNonSuppressibleCodesContract:
         not_frozen = NON_SUPPRESSIBLE_CODES - FROZEN_CODES
         assert not not_frozen, f"NON_SUPPRESSIBLE_CODES not in FROZEN_CODES: {not_frozen}"
 
-    def test_non_suppressible_contains_shield_and_sentinel(self) -> None:
-        """Shield (Z201, Z204) and Blood Sentinel (Z202, Z203) must be non-suppressible."""
+    def test_non_suppressible_contains_credential_and_traversal(self) -> None:
+        """Credential scanner (Z201, Z204) and path traversal guard (Z202, Z203) must be non-suppressible."""
         required = {"Z201", "Z202", "Z203", "Z204"}
         missing = required - NON_SUPPRESSIBLE_CODES
         assert not missing, f"Required non-suppressible codes missing: {missing}"
@@ -128,10 +128,14 @@ class TestNonSuppressibleCodesContract:
 class TestPluginForbiddenExitsContract:
     """Verify the PLUGIN_FORBIDDEN_EXITS stability contract."""
 
-    def test_plugin_forbidden_exits_contains_shield_and_sentinel(self) -> None:
-        """Exit codes 2 (Shield) and 3 (Blood Sentinel) must be forbidden for plugins."""
-        assert 2 in PLUGIN_FORBIDDEN_EXITS, "Exit 2 (Shield) must be forbidden for plugins"
-        assert 3 in PLUGIN_FORBIDDEN_EXITS, "Exit 3 (Blood Sentinel) must be forbidden for plugins"
+    def test_plugin_forbidden_exits_contains_credential_and_traversal(self) -> None:
+        """Exit codes 2 (credential scanner) and 3 (path traversal guard) must be forbidden for plugins."""
+        assert 2 in PLUGIN_FORBIDDEN_EXITS, (
+            "Exit 2 (credential scanner) must be forbidden for plugins"
+        )
+        assert 3 in PLUGIN_FORBIDDEN_EXITS, (
+            "Exit 3 (path traversal guard) must be forbidden for plugins"
+        )
 
     def test_plugin_forbidden_exits_is_immutable(self) -> None:
         """PLUGIN_FORBIDDEN_EXITS must be a frozenset."""

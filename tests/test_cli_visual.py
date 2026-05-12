@@ -249,7 +249,7 @@ def test_sandbox_zensical_valid_links_clean(monkeypatch: pytest.MonkeyPatch) -> 
     monkeypatch.chdir(_SANDBOX_ZENSICAL)
     result = runner.invoke(app, ["check", "links"])
     # Only index.md has broken links — features.md and api.md must not appear as
-    # section headers (full_rel path shown by the Sentinel Rule separator).
+    # section headers (full_rel path shown by the Rule separator).
     assert "docs/features.md" not in result.stdout
     assert "docs/api.md" not in result.stdout
 

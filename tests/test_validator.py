@@ -1384,15 +1384,15 @@ class TestCheckExternalFlag:
 
         mock_pass3.assert_called_once()
 
-    def test_shield_fires_with_check_external_false(self, tmp_path: Path) -> None:
-        """Shield (Pass 1 via scan_lines_with_lookback) is independent of check_external.
+    def test_credential_scanner_fires_with_check_external_false(self, tmp_path: Path) -> None:
+        """Credential scanner (Pass 1 via scan_lines_with_lookback) is independent of check_external.
 
-        The Shield operates on raw file content and has no concept of check_external.
+        The credential scanner operates on raw file content and has no concept of check_external.
         This test verifies that (a) validate_links_structured still succeeds when
-        check_external=False, and (b) the Shield module independently detects the
+        check_external=False, and (b) the credential scanner module independently detects the
         credential — confirming they are orthogonal systems.
         """
-        from zenzic.core.shield import scan_lines_with_lookback
+        from zenzic.core.credentials import scan_lines_with_lookback
 
         # Construct a fake PAT (Synthetic Test Protocol — D002)
         _prefix = "ghp_"
@@ -1421,9 +1421,9 @@ class TestCheckExternalFlag:
         link_errors = [e for e in errors if e.error_type not in ("SHIELD_SECRET", "Z201")]
         assert link_errors == []
 
-        # Independently: the Shield detects the credential in raw content
+        # Independently: the credential scanner detects the credential in raw content
         numbered_lines = enumerate(file_content.splitlines(keepends=True), start=1)
         shield_findings = list(scan_lines_with_lookback(numbered_lines, file_path=md_file))
         assert len(shield_findings) >= 1, (
-            "Shield must detect the credential independently of check_external"
+            "Credential scanner must detect the credential independently of check_external"
         )

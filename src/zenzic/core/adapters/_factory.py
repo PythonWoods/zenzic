@@ -64,7 +64,7 @@ def discover_engine(repo_root: Path) -> str:
     1. ``zensical.toml``      → ``"zensical"``
     2. ``docusaurus.config.ts`` or ``docusaurus.config.js`` → ``"docusaurus"``
     3. ``mkdocs.yml``         → ``"mkdocs"``
-    4. No marker found        → ``"standalone"`` (universal Safe Harbor)
+    4. No marker found        → ``"standalone"`` (universal fallback mode)
 
     This function is called when ``BuildContext.engine == "auto"`` (the default),
     replacing the previous implicit assumption that the engine was MkDocs.

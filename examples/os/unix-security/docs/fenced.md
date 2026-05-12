@@ -6,7 +6,7 @@
 **RED TEAM** objective: hide credentials inside fenced code blocks, assuming the scanner
 respects Markdown formatting boundaries and skips code examples.
 
-**BLUE TEAM** response: the Shield treats **no line as invisible**. Fenced blocks are
+**BLUE TEAM** response: the credential scanner treats **no line as invisible**. Fenced blocks are
 scanned identically to prose. A credential in a `bash` example is a committed credential.
 
 ---
@@ -51,6 +51,6 @@ MIIEowIBAAKCAQEA0Z3VS5JJcds3xHn/ygWep4mSCiMmiGdFBT0MxRHoMXDCPbWb
 
 ---
 
-Expected: Shield fires on all four blocks — exit **2**.
+Expected: Credential scanner fires on all four blocks — exit **2**.
 
 See also: [deep-traversal.md](deep-traversal.md), [obfuscated.md](obfuscated.md).

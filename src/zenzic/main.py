@@ -29,7 +29,7 @@ from zenzic.cli import (
 )
 from zenzic.core.exceptions import PluginContractError, ZenzicError
 from zenzic.core.logging import setup_cli_logging
-from zenzic.core.ui import SentinelPalette, SentinelUI
+from zenzic.core.ui import ZenzicPalette, ZenzicUI
 
 
 def _version_callback(value: bool) -> None:
@@ -41,7 +41,7 @@ def _version_callback(value: bool) -> None:
 app = typer.Typer(
     name="zenzic",
     help=(
-        f"[bold {SentinelPalette.BRAND}]Zenzic[/] — Engine-agnostic linter and security shield "
+        f"[bold {ZenzicPalette.BRAND}]Zenzic[/] — Engine-agnostic static analyzer and credential scanner "
         "for Markdown documentation.\n\n"
         "Run [bold cyan]zenzic check all[/] for a full audit, or pick individual "
         "checks below."
@@ -49,7 +49,7 @@ app = typer.Typer(
     rich_markup_mode="rich",
     no_args_is_help=True,
     rich_help_panel="Core",
-    epilog=f"[bold {SentinelPalette.BRAND}]PythonWoods[/]  [dim]·  Apache-2.0  ·  https://zenzic.dev[/]",
+    epilog=f"[bold {ZenzicPalette.BRAND}]PythonWoods[/]  [dim]·  Apache-2.0  ·  https://zenzic.dev[/]",
 )
 
 
@@ -105,7 +105,7 @@ _err_console = Console(
     else None,
 )
 
-_err_ui = SentinelUI(_err_console)
+_err_ui = ZenzicUI(_err_console)
 
 
 def bootstrap_unicode() -> None:
@@ -124,7 +124,7 @@ def bootstrap_unicode() -> None:
 
 
 def _sentinel_alert(exc: ZenzicError, *, border_style: str, title: str) -> None:
-    """Render a styled Sentinel Alert panel for a ZenzicError."""
+    """Render a styled error alert panel for a ZenzicError."""
     _err_ui.print_exception_alert(
         str(exc.message),
         context=dict(exc.context) if exc.context else None,
@@ -165,14 +165,14 @@ def cli_main() -> None:
     except PluginContractError as exc:
         _sentinel_alert(
             exc,
-            border_style=SentinelPalette.STYLE_BRAND,
+            border_style=ZenzicPalette.STYLE_BRAND,
             title="Zenzic Plugin Contract Violation",
         )
         sys.exit(1)
     except ZenzicError as exc:
         _sentinel_alert(
             exc,
-            border_style=SentinelPalette.STYLE_ERR,
+            border_style=ZenzicPalette.STYLE_ERR,
             title="Zenzic Error",
         )
         sys.exit(1)

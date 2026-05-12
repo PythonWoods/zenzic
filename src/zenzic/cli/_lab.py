@@ -33,8 +33,8 @@ from zenzic.cli._shared import (
     get_ui,
 )
 from zenzic.core.exclusion import LayeredExclusionManager
-from zenzic.core.reporter import Finding, SentinelReporter
-from zenzic.core.ui import SentinelPalette, emoji
+from zenzic.core.reporter import Finding, ZenzicReporter
+from zenzic.core.ui import ZenzicPalette, emoji
 from zenzic.models.config import ZenzicConfig
 
 
@@ -107,7 +107,7 @@ _ACTS: list[_Act] = [
     ),
     _Act(
         3,
-        "The Shield",
+        "Credential Scanner",
         "Credential exposure detected — security_breach severity",
         "security_lab",
         expected_pass=False,
@@ -132,7 +132,7 @@ _ACTS: list[_Act] = [
     _Act(
         6,
         "Transparent Proxy",
-        "SENTINEL banner — Zensical bridge with mkdocs.yml only. Z601 BRAND_OBSOLESCENCE ref to 'Obsidian' detected",
+        "INFO banner — Zensical bridge with mkdocs.yml only. Z601 BRAND_OBSOLESCENCE ref to 'Obsidian' detected",
         "zensical-bridge",
         expected_pass=False,
     ),
@@ -146,7 +146,7 @@ _ACTS: list[_Act] = [
     _Act(
         8,
         "Standalone Excellence",
-        "Config-free folder: link + Shield + Z401 checks. Z505 untagged block demonstrated",
+        "Config-free folder: link + credential scan + Z401 checks. Z505 untagged block demonstrated",
         "standalone-markdown",
         expected_pass=False,
         show_info=True,
@@ -190,7 +190,7 @@ _ACTS: list[_Act] = [
     ),
     _Act(
         14,
-        "Shield Extreme",
+        "Credential Scan: Obfuscation Patterns",
         "Credential obfuscation: base64, percent-encoded, and mixed-case prefixes",
         "rules/z200-shield",
         expected_pass=False,
@@ -229,7 +229,7 @@ _ACTS: list[_Act] = [
     _Act(
         19,
         "The Base64 Shadow",
-        "GitHub PAT offuscata in Base64 nel frontmatter — Shield vede attraverso l'encoding (CEO-194)",
+        "GitHub PAT obfuscated in Base64 in frontmatter — credential scanner detects through encoding (CEO-194)",
         "scoring/security-base64",
         expected_pass=False,
         expected_breach=True,
@@ -364,7 +364,7 @@ def _run_act(act: _Act, examples_root: Path) -> _ActResult:
     if single_file is not None:
         docs_count, assets_count = 1, 0
 
-    reporter = SentinelReporter(get_console(), docs_root, docs_dir=str(config.docs_dir))
+    reporter = ZenzicReporter(get_console(), docs_root, docs_dir=str(config.docs_dir))
     errors, warnings = reporter.render(
         findings,
         version=__version__,
@@ -408,16 +408,16 @@ def _status_cell(r: _ActResult) -> str:
 
 def _print_summary(results: list[_ActResult]) -> None:
     table = Table(
-        title=f"\n[bold {SentinelPalette.BRAND}]⬡  ZENZIC LAB — Full Run Summary[/]",
+        title=f"\n[bold {ZenzicPalette.BRAND}]⬡  ZENZIC LAB — Full Run Summary[/]",
         box=box.ROUNDED,
         show_header=True,
-        header_style=SentinelPalette.STYLE_BRAND,
+        header_style=ZenzicPalette.STYLE_BRAND,
     )
-    table.add_column("Act", justify="center", style=SentinelPalette.STYLE_BRAND, width=5)
+    table.add_column("Act", justify="center", style=ZenzicPalette.STYLE_BRAND, width=5)
     table.add_column("Title", style="bold", min_width=22)
     table.add_column("Engine", style="cyan", min_width=10)
-    table.add_column("Files", justify="right", style=SentinelPalette.DIM, min_width=7)
-    table.add_column("files/s", justify="right", style=SentinelPalette.DIM, min_width=8)
+    table.add_column("Files", justify="right", style=ZenzicPalette.DIM, min_width=7)
+    table.add_column("files/s", justify="right", style=ZenzicPalette.DIM, min_width=8)
     table.add_column("Result", min_width=26)
     table.add_column("Time", justify="right", style="dim", min_width=7)
 
@@ -438,11 +438,11 @@ def _print_summary(results: list[_ActResult]) -> None:
     con = get_console()
     con.print(table)
 
-    # ── Sentinel Seal footer ──────────────────────────────────────────────────
+    # ── Lab results footer ──────────────────────────────────────────────────
     avg_throughput = total_files / total_elapsed if total_elapsed > 0 else 0.0
     seal_items = [
         Text.from_markup(
-            f"[{SentinelPalette.DIM}]{total_files} files scanned across {len(results)} acts"
+            f"[{ZenzicPalette.DIM}]{total_files} files scanned across {len(results)} acts"
             f" {emoji('dot')} {total_elapsed:.2f}s total"
             f" {emoji('dot')} {avg_throughput:.0f} files/s[/]"
         ),
@@ -451,14 +451,14 @@ def _print_summary(results: list[_ActResult]) -> None:
     if unexpected == 0:
         seal_items.append(
             Text.from_markup(
-                f"[bold {SentinelPalette.SUCCESS}]{emoji('check')} All {len(results)} act(s) met expectations."
+                f"[bold {ZenzicPalette.SUCCESS}]{emoji('check')} All {len(results)} act(s) met expectations."
                 " Quartz Clarity: the audit surface is clean.[/]"
             )
         )
     else:
         seal_items.append(
             Text.from_markup(
-                f"[bold {SentinelPalette.ERROR}]{emoji('cross')} {unexpected}/{len(results)} act(s)"
+                f"[bold {ZenzicPalette.ERROR}]{emoji('cross')} {unexpected}/{len(results)} act(s)"
                 " did not meet expectations.[/]"
             )
         )
@@ -466,9 +466,7 @@ def _print_summary(results: list[_ActResult]) -> None:
     con.print()
     con.print(
         Group(
-            Text.from_markup(
-                f"[bold {SentinelPalette.BRAND}]{emoji('shield')} OBSIDIAN SEAL — Lab Complete[/]"
-            ),
+            Text.from_markup(f"[bold {ZenzicPalette.BRAND}]{emoji('check')} LAB COMPLETE[/]"),
             Text(),
             *seal_items,
         ),
@@ -476,28 +474,28 @@ def _print_summary(results: list[_ActResult]) -> None:
 
 
 def _print_act_seal(r: _ActResult) -> None:
-    """Render a Sentinel Seal footer after a single-act run."""
+    """Render a results footer after a single-act run."""
     files_line = (
         f"{r.total_files} file{'s' if r.total_files != 1 else ''} scanned"
         f" {emoji('dot')} {r.elapsed:.2f}s"
         + (f" {emoji('dot')} {r.throughput:.0f} files/s" if r.total_files else "")
     )
     seal_items: list[Text] = [
-        Text.from_markup(f"[{SentinelPalette.DIM}]{files_line}[/]"),
+        Text.from_markup(f"[{ZenzicPalette.DIM}]{files_line}[/]"),
         Text(),
     ]
     if r.met_expectation:
         verdict = f"{emoji('check')} Act {r.act.id} — {r.act.title} — expectation met."
-        seal_items.append(Text.from_markup(f"[bold {SentinelPalette.SUCCESS}]{verdict}[/]"))
+        seal_items.append(Text.from_markup(f"[bold {ZenzicPalette.SUCCESS}]{verdict}[/]"))
     else:
         verdict = f"{emoji('cross')} Act {r.act.id} — {r.act.title} — expectation NOT met."
-        seal_items.append(Text.from_markup(f"[bold {SentinelPalette.ERROR}]{verdict}[/]"))
+        seal_items.append(Text.from_markup(f"[bold {ZenzicPalette.ERROR}]{verdict}[/]"))
 
     con = get_console()
     con.print()
     con.print(
         Group(
-            Text.from_markup(f"[bold {SentinelPalette.BRAND}]{emoji('shield')} OBSIDIAN SEAL[/]"),
+            Text.from_markup(f"[bold {ZenzicPalette.BRAND}]{emoji('check')} LAB RESULT[/]"),
             Text(),
             *seal_items,
         ),
@@ -508,7 +506,7 @@ def _make_section_table(section_acts: list[_Act]) -> Table:
     table = Table(box=box.ROUNDED, show_header=True, header_style="bold cyan")
     table.add_column("Act", justify="center", style="bold cyan", width=5)
     table.add_column("Title", style="bold", min_width=22)
-    table.add_column("Description", style=SentinelPalette.WARNING)
+    table.add_column("Description", style=ZenzicPalette.WARNING)
     table.add_column("Expects", justify="center", min_width=8)
     for act in section_acts:
         expects = (
@@ -525,14 +523,14 @@ def _make_section_table(section_acts: list[_Act]) -> Table:
 def _print_act_index() -> None:
     con = get_console()
     con.print(
-        Text.from_markup(f"[bold {SentinelPalette.BRAND}]⬡  ZENZIC LAB[/]  [dim]v{__version__}[/]")
+        Text.from_markup(f"[bold {ZenzicPalette.BRAND}]⬡  ZENZIC LAB[/]  [dim]v{__version__}[/]")
     )
     acts_by_id = {a.id: a for a in _ACTS}
     for title, icon, act_range in _SECTIONS:
         section_acts = [acts_by_id[i] for i in act_range if i in acts_by_id]
         if not section_acts:
             continue
-        con.print(Text.from_markup(f"\n  [bold {SentinelPalette.BRAND}]{icon}  {title}[/]"))
+        con.print(Text.from_markup(f"\n  [bold {ZenzicPalette.BRAND}]{icon}  {title}[/]"))
         con.print(_make_section_table(section_acts))
     con.print(
         f"\n  [dim]zenzic lab <act>   eg. [bold cyan]zenzic lab 3[/]   "
@@ -563,7 +561,7 @@ def lab(
     range, or 'all' to execute the corresponding acts:
 
         [bold cyan]zenzic lab[/]        — show act menu
-        [bold cyan]zenzic lab 3[/]      — run Act 3 (The Shield)
+        [bold cyan]zenzic lab 3[/]      — run Act 3 (Credential Scanner)
         [bold cyan]zenzic lab 11-16[/]  — run the Red/Blue Team Matrix
         [bold cyan]zenzic lab all[/]    — run all 17 acts
         [bold cyan]zenzic lab --list[/] — print act index without running
@@ -580,7 +578,7 @@ def lab(
         # No argument: show the menu and instructions, do not run any act.
         _print_act_index()
         con.print(
-            "\n[bold]Welcome to the Zenzic Lab.[/] Choose an act to see the Sentinel in action.\n"
+            "\n[bold]Welcome to the Zenzic Lab.[/] Choose an act to see Zenzic in action.\n"
             "  Run [bold cyan]zenzic lab <N>[/] to execute a specific act (e.g. [cyan]zenzic lab 3[/]).\n"
             "  Run [bold cyan]zenzic lab 11-16[/] for the Red/Blue matrix"
             "  or [bold cyan]zenzic lab all[/] for the full tour.\n"
@@ -606,7 +604,7 @@ def lab(
         lo, hi = acts_to_run[0].id, acts_to_run[-1].id
         con.print(
             Text.from_markup(
-                f"\n  [bold {SentinelPalette.BRAND}]LAB SEQUENCE:[/]"
+                f"\n  [bold {ZenzicPalette.BRAND}]LAB SEQUENCE:[/]"
                 f"  Running Acts {lo} through {hi} …\n"
             )
         )
@@ -616,7 +614,7 @@ def lab(
         con.print()
         con.print(
             Group(
-                Text.from_markup(f"[bold {SentinelPalette.BRAND}]Act {act.id} — {act.title}[/]"),
+                Text.from_markup(f"[bold {ZenzicPalette.BRAND}]Act {act.id} — {act.title}[/]"),
                 Text(),
                 Text.from_markup(f"[bold]{act.description}[/]"),
             )

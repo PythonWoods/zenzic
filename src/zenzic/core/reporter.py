@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
-"""Sentinel Report Engine — Ruff-inspired CLI output for Zenzic."""
+"""Zenzic Report Engine — Ruff-inspired CLI output for Zenzic."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from rich.markup import escape as _esc
 from rich.rule import Rule
 from rich.text import Text
 
-from zenzic.core.ui import SentinelPalette, emoji
+from zenzic.core.ui import ZenzicPalette, emoji
 
 
 @dataclass(slots=True)
@@ -32,11 +32,11 @@ class Finding:
 
 
 _SEVERITY_STYLE: dict[str, str] = {
-    "error": SentinelPalette.STYLE_ERR,
-    "warning": SentinelPalette.STYLE_WARN,
-    "info": SentinelPalette.STYLE_BRAND,
-    "security_breach": f"bold white on {SentinelPalette.ERROR}",
-    "security_incident": f"bold white on {SentinelPalette.FATAL}",
+    "error": ZenzicPalette.STYLE_ERR,
+    "warning": ZenzicPalette.STYLE_WARN,
+    "info": ZenzicPalette.STYLE_BRAND,
+    "security_breach": f"bold white on {ZenzicPalette.ERROR}",
+    "security_incident": f"bold white on {ZenzicPalette.FATAL}",
 }
 
 
@@ -51,7 +51,7 @@ def _obfuscate_secret(raw: str) -> str:
     to be formatted for human consumption.  It **must never** be bypassed.
 
     Args:
-        raw: The raw matched secret string from the Shield.
+        raw: The raw matched secret string from the credential scanner.
 
     Returns:
         A partially-redacted string safe for log output.
@@ -118,15 +118,15 @@ def _render_snippet(
         max_src = max(20, term_cols - 9 - gutter_w)
 
         t = Text()
-        t.append(f"    {num}  ", style=SentinelPalette.DIM)
+        t.append(f"    {num}  ", style=ZenzicPalette.DIM)
         if is_err:
-            t.append("❱  ", style=SentinelPalette.STYLE_ERR)
+            t.append("❱  ", style=ZenzicPalette.STYLE_ERR)
             if len(src) > max_src:
                 t.append(src[: max_src - 1] + "…")
             else:
                 t.append(src)
         else:
-            t.append("│  ", style=SentinelPalette.DIM)
+            t.append("│  ", style=ZenzicPalette.DIM)
             if len(src) > max_src:
                 t.append(src[: max_src - 1] + "…", style="dim")
             else:
@@ -139,15 +139,15 @@ def _render_snippet(
             caret_len = len(match_text)
             if col_start + caret_len <= max_src:
                 ct = Text()
-                ct.append(f"    {' ' * gutter_w}  ", style=SentinelPalette.DIM)
-                ct.append("│  ", style=SentinelPalette.DIM)
-                ct.append(" " * col_start + "^" * caret_len, style=SentinelPalette.STYLE_ERR)
+                ct.append(f"    {' ' * gutter_w}  ", style=ZenzicPalette.DIM)
+                ct.append("│  ", style=ZenzicPalette.DIM)
+                ct.append(" " * col_start + "^" * caret_len, style=ZenzicPalette.STYLE_ERR)
                 result.append(ct)
 
     return result
 
 
-class SentinelReporter:
+class ZenzicReporter:
     """Render check results as a Ruff-inspired grouped report."""
 
     def __init__(self, console: Console, docs_root: Path, *, docs_dir: str = "docs") -> None:
@@ -181,7 +181,7 @@ class SentinelReporter:
         ok_message: str | None = None,
         show_info: bool = False,
     ) -> tuple[int, int]:
-        """Print the full Sentinel Report.
+        """Print the full Zenzic Report.
 
         Breach findings (``severity=="security_breach"``) are rendered as
         dedicated red panels **before** the grouped findings section and are
@@ -222,16 +222,16 @@ class SentinelReporter:
         if target is not None:
             parts.append(target)
         if total:
-            breakdown = f"([{SentinelPalette.BRAND}]{docs_count}[/] docs, [{SentinelPalette.BRAND}]{assets_count}[/] assets)"
+            breakdown = f"([{ZenzicPalette.BRAND}]{docs_count}[/] docs, [{ZenzicPalette.BRAND}]{assets_count}[/] assets)"
             parts.append(
-                f"[{SentinelPalette.BRAND}]{total}[/] file{'s' if total != 1 else ''} {breakdown}"
+                f"[{ZenzicPalette.BRAND}]{total}[/] file{'s' if total != 1 else ''} {breakdown}"
             )
         if elapsed:
-            parts.append(f"[{SentinelPalette.BRAND}]{elapsed:.1f}[/]s")
+            parts.append(f"[{ZenzicPalette.BRAND}]{elapsed:.1f}[/]s")
             if total:
                 throughput = total / elapsed
-                parts.append(f"[{SentinelPalette.BRAND}]{throughput:.0f}[/] files/s")
-        telemetry = Text.from_markup(f"[{SentinelPalette.DIM}]{f' {dot} '.join(parts)}[/]")
+                parts.append(f"[{ZenzicPalette.BRAND}]{throughput:.0f}[/] files/s")
+        telemetry = Text.from_markup(f"[{ZenzicPalette.DIM}]{f' {dot} '.join(parts)}[/]")
 
         # ── Security breach flat output (rendered BEFORE main findings) ──────
         if breach_findings:
@@ -267,24 +267,24 @@ class SentinelReporter:
         if not normal_findings and not breach_findings:
             # ── All-clear panel ───────────────────────────────────────────────
             _ok = ok_message or (
-                f"[bold {SentinelPalette.SUCCESS}]Sentinel Seal:[/bold {SentinelPalette.SUCCESS}]"
-                f" [{SentinelPalette.SUCCESS}]All statically-detectable links, credentials,"
-                f" and references verified.[/{SentinelPalette.SUCCESS}]"
+                f"[bold {ZenzicPalette.SUCCESS}]✓ Analysis complete:[/bold {ZenzicPalette.SUCCESS}]"
+                f" [{ZenzicPalette.SUCCESS}]All statically-detectable links, credentials,"
+                f" and references verified.[/{ZenzicPalette.SUCCESS}]"
             )
             _ok_items: list[RenderableType] = [
                 telemetry,
                 Text(),
-                Rule(style=SentinelPalette.DIM),
+                Rule(style=ZenzicPalette.DIM),
                 Text(),
                 Text.from_markup(f"{emoji('sparkles')} {_ok}")
                 if not ok_message
-                else Text.from_markup(f"[{SentinelPalette.SUCCESS}]{emoji('check')} {_ok}[/]"),
+                else Text.from_markup(f"[{ZenzicPalette.SUCCESS}]{emoji('check')} {_ok}[/]"),
             ]
             if info_count:
                 _ok_items.append(Text())
                 _ok_items.append(
                     Text.from_markup(
-                        f" [{SentinelPalette.DIM}]{emoji('info')} {info_count} info finding"
+                        f" [{ZenzicPalette.DIM}]{emoji('info')} {info_count} info finding"
                         f"{'s' if info_count != 1 else ''} suppressed"
                         f" — use --show-info for details.[/]"
                     )
@@ -341,35 +341,33 @@ class SentinelReporter:
                         # Fallback: file unreadable, use source_line directly
                         gutter_w = len(str(f.line_no))
                         t = Text()
-                        t.append(
-                            f"    {str(f.line_no).rjust(gutter_w)}  ", style=SentinelPalette.DIM
-                        )
-                        t.append("❱  ", style=SentinelPalette.STYLE_ERR)
+                        t.append(f"    {str(f.line_no).rjust(gutter_w)}  ", style=ZenzicPalette.DIM)
+                        t.append("❱  ", style=ZenzicPalette.STYLE_ERR)
                         t.append(f.source_line)
                         renderables.append(t)
 
             renderables.append(Text())  # spacing after file group
 
         # ── Summary (inside the panel) ────────────────────────────────────────
-        renderables.append(Rule(style=SentinelPalette.DIM))
+        renderables.append(Rule(style=ZenzicPalette.DIM))
         renderables.append(Text())  # breathing after Rule
         incidents_count = sum(1 for f in normal_findings if f.severity == "security_incident")
-        summary_parts: list[str] = [f"[{SentinelPalette.DIM}]Summary:[/]"]
+        summary_parts: list[str] = [f"[{ZenzicPalette.DIM}]Summary:[/]"]
         if incidents_count:
             summary_parts.append(
-                f"[bold white on {SentinelPalette.FATAL}]{emoji('cross')} {incidents_count}"
+                f"[bold white on {ZenzicPalette.FATAL}]{emoji('cross')} {incidents_count}"
                 f" security incident{'s' if incidents_count != 1 else ''}[/]"
             )
         summary_parts.append(
-            f"[{SentinelPalette.ERROR}]{emoji('cross')} {errors} error{'s' if errors != 1 else ''}[/]"
+            f"[{ZenzicPalette.ERROR}]{emoji('cross')} {errors} error{'s' if errors != 1 else ''}[/]"
         )
         summary_parts.append(
-            f"[{SentinelPalette.WARNING}]{emoji('warn')} {warnings} warning{'s' if warnings != 1 else ''}[/]"
+            f"[{ZenzicPalette.WARNING}]{emoji('warn')} {warnings} warning{'s' if warnings != 1 else ''}[/]"
         )
-        summary_parts.append(f"[{SentinelPalette.BRAND}]{emoji('info')} {info_total} info[/]")
+        summary_parts.append(f"[{ZenzicPalette.BRAND}]{emoji('info')} {info_total} info[/]")
         n_files = len(grouped)
         summary_parts.append(
-            f"[{SentinelPalette.DIM}]{emoji('dot')} {n_files} file{'s' if n_files != 1 else ''} with findings[/]"
+            f"[{ZenzicPalette.DIM}]{emoji('dot')} {n_files} file{'s' if n_files != 1 else ''} with findings[/]"
         )
         renderables.append(Text.from_markup("  ".join(summary_parts)))
 
@@ -382,41 +380,41 @@ class SentinelReporter:
             if has_hard_failures:
                 renderables.append(
                     Text.from_markup(
-                        f"[bold {SentinelPalette.ERROR}]FAILED:[/]"
+                        f"[bold {ZenzicPalette.ERROR}]FAILED:[/]"
                         " Hard errors detected. Exit code 1 is mandatory."
                     )
                 )
                 if has_strict_failures:
                     renderables.append(
                         Text.from_markup(
-                            f"[bold {SentinelPalette.WARNING}]STRICT MODE:[/]"
+                            f"[bold {ZenzicPalette.WARNING}]STRICT MODE:[/]"
                             " Warnings have been promoted to errors."
                         )
                     )
             else:
                 renderables.append(
                     Text.from_markup(
-                        f"[bold {SentinelPalette.WARNING}]FAILED:[/]"
+                        f"[bold {ZenzicPalette.WARNING}]FAILED:[/]"
                         " Warnings promoted to errors via --strict flag."
                     )
                 )
         else:
             _ok = ok_message or (
-                f"[bold {SentinelPalette.SUCCESS}]Sentinel Seal:[/bold {SentinelPalette.SUCCESS}]"
-                f" [{SentinelPalette.SUCCESS}]All statically-detectable links, credentials,"
-                f" and references verified.[/{SentinelPalette.SUCCESS}]"
+                f"[bold {ZenzicPalette.SUCCESS}]✓ Analysis complete:[/bold {ZenzicPalette.SUCCESS}]"
+                f" [{ZenzicPalette.SUCCESS}]All statically-detectable links, credentials,"
+                f" and references verified.[/{ZenzicPalette.SUCCESS}]"
             )
             renderables.append(
                 Text.from_markup(f"{emoji('sparkles')} {_ok}")
                 if not ok_message
-                else Text.from_markup(f"[{SentinelPalette.SUCCESS}]{emoji('check')} {_ok}[/]")
+                else Text.from_markup(f"[{ZenzicPalette.SUCCESS}]{emoji('check')} {_ok}[/]")
             )
 
         if info_count:
             renderables.append(Text())
             renderables.append(
                 Text.from_markup(
-                    f" [{SentinelPalette.DIM}]{emoji('info')} {info_count} info finding"
+                    f" [{ZenzicPalette.DIM}]{emoji('info')} {info_count} info finding"
                     f"{'s' if info_count != 1 else ''} hidden — use --show-info to display.[/]"
                 )
             )
@@ -430,7 +428,7 @@ class SentinelReporter:
         # ── Usage hint ─────────────────────────────────────────────────────────────
         self._con.print()
         self._con.print(
-            Text.from_markup(f"[{SentinelPalette.DIM}]Try 'zenzic check --help' for options.[/]")
+            Text.from_markup(f"[{ZenzicPalette.DIM}]Try 'zenzic check --help' for options.[/]")
         )
         return errors, warnings
 

@@ -10,7 +10,7 @@ import typer
 from rich.text import Text
 
 from zenzic.core.scanner import find_repo_root, find_unused_assets
-from zenzic.core.ui import SentinelPalette, emoji
+from zenzic.core.ui import ZenzicPalette, emoji
 from zenzic.models.config import ZenzicConfig
 
 from . import _shared
@@ -18,7 +18,7 @@ from . import _shared
 
 clean_app = typer.Typer(
     name="clean",
-    help=f"[bold {SentinelPalette.BRAND}]Clean[/] — Safely remove unused documentation files.",
+    help=f"[bold {ZenzicPalette.BRAND}]Clean[/] — Safely remove unused documentation files.",
     no_args_is_help=True,
     rich_markup_mode="rich",
 )
@@ -107,8 +107,8 @@ def clean_assets(
             _shared.console.print(
                 Text.from_markup(
                     f"{emoji('sparkles')} "
-                    f"[bold {SentinelPalette.SUCCESS}]Sentinel Seal:[/bold {SentinelPalette.SUCCESS}]"
-                    f" [{SentinelPalette.SUCCESS}]No unused assets found \u2014 documentation tree is clean.[/{SentinelPalette.SUCCESS}]"
+                    f"[bold {ZenzicPalette.SUCCESS}]{emoji('check')} Clean:[/bold {ZenzicPalette.SUCCESS}]"
+                    f" [{ZenzicPalette.SUCCESS}]No unused assets found \u2014 documentation tree is clean.[/{ZenzicPalette.SUCCESS}]"
                 )
             )
         return

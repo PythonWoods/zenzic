@@ -31,7 +31,7 @@ export BUILD_DATE := `date -u +'%Y/%m/%d'`
 sync:
     uv sync --all-groups
 
-# Self-linting: run Zenzic on its own documentation (The Sentinel's duty).
+# Self-linting: run Zenzic on its own documentation (core integrity check).
 # ZRT-010 — Sovereign Parity: Pre-Launch Guard inlined; local == CI.
 # Pass extra flags directly: just check --no-external
 check *args:

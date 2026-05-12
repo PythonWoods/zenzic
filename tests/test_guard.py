@@ -190,7 +190,7 @@ def test_guard_scan_clean_text(tmp_path: Path) -> None:
 
 def test_guard_scan_with_findings_text_exits_2(tmp_path: Path) -> None:
     """scan with findings prints table and exits 2 in text mode."""
-    from zenzic.core.shield import SecurityFinding
+    from zenzic.core.credentials import SecurityFinding
 
     doc = tmp_path / "leaky.md"
     doc.write_text("sk-abc123\n")
@@ -212,7 +212,7 @@ def test_guard_scan_with_findings_text_exits_2(tmp_path: Path) -> None:
 
 def test_guard_scan_with_findings_json_exits_2(tmp_path: Path) -> None:
     """scan --format json with findings prints JSON and exits 2."""
-    from zenzic.core.shield import SecurityFinding
+    from zenzic.core.credentials import SecurityFinding
 
     doc = tmp_path / "leaky.md"
     doc.write_text("sk-abc123\n")

@@ -25,7 +25,7 @@ Run `zenzic check all --strict` from this directory to see the full report.
 | Placeholders | `api.md` has only 18 words and a bare task marker — see the file |
 | Assets | `assets/unused.png` is on disk but never referenced |
 
-The path traversal link above (`../../../../etc/passwd`) demonstrates the **Zenzic Shield**:
+The path traversal link above (`../../../../etc/passwd`) demonstrates the **credential scanner**:
 it is classified as `PathTraversal` — not a generic `FileNotFound` — and blocked before any
 filesystem access occurs.
 

@@ -29,7 +29,7 @@ zenzic check references    # EXIT 2 — Z204 fires on docs/index.md
 | `docs/index.md` | 14 | `Z204` | `CODENAME-PHOENIX` — confidential term detected |
 | `docs/index.md` | 17 | `Z204` | `internal-staging.example.corp` — confidential term detected |
 
-Exit code: **2** (security_breach — same severity as Z201 Shield).
+Exit code: **2** (security_breach — same severity as Z201 credential scanner).
 
 ## Why `.zenzic.local.toml`?
 

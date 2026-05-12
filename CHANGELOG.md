@@ -9,13 +9,16 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
-> **Development history (v0.1.0 – v0.7.1):** See the [Changelog Archive](CHANGELOG.archive.md).
+> **Development history (v0.1.0 – v0.7.1):** See the [Historical Archives](./changelogs/README.md).
 
 ## [Unreleased]
 
+---
+
+## [0.8.0] — 2026-05-11
+
 ### Added
 
-- **Epoch 8 decree:** "Epoch 8: Basalt – The Sovereign Transition. Introducing Suppression CAP, Local Sanctuary, and Avion-Grade Governance."
 - **Phase 2 (The Truth-Seeker) delivered:** Added Sovereign Audit mode via
   `zenzic check all --audit` (bypasses inline `zenzic-ignore` and
   `[governance].per_file_ignores` for suppressible findings), plus native
@@ -62,3 +65,5 @@ Versions follow [Semantic Versioning](https://semver.org/).
   reintroduction of direct `re` imports in protected source surfaces.
 
 ---
+
+Looking for older versions? See [Historical Archives](./changelogs/README.md).

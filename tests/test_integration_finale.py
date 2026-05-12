@@ -165,8 +165,8 @@ def test_cli_inspect_capabilities_empty_when_no_rules(monkeypatch: pytest.Monkey
     assert result.exit_code == 0
     # Core scanners section always present
     assert "Core Scanners" in result.output
-    assert "The Shield" in result.output
-    assert "Blood Sentinel" in result.output
+    assert "Credential Scanner" in result.output
+    assert "Path Traversal Guard" in result.output
     # Extensible rules section always present, with placeholder row
     assert "Extensible Rules" in result.output
     assert "No third-party plugins installed" in result.output
@@ -263,7 +263,7 @@ def test_parallel_fail_fast_aborts_pending_on_breach(tmp_path: Path) -> None:
     """
     import concurrent.futures
 
-    from zenzic.core.shield import SecurityFinding
+    from zenzic.core.credentials import SecurityFinding
     from zenzic.models.references import IntegrityReport
 
     n = ADAPTIVE_PARALLEL_THRESHOLD
@@ -348,7 +348,7 @@ def test_parallel_results_sorted_after_fail_fast(tmp_path: Path) -> None:
     """CEO-298: the final reports list is sorted by file_path even with partial scan."""
     import concurrent.futures
 
-    from zenzic.core.shield import SecurityFinding
+    from zenzic.core.credentials import SecurityFinding
     from zenzic.models.references import IntegrityReport
 
     n = ADAPTIVE_PARALLEL_THRESHOLD

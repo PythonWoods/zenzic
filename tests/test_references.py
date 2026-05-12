@@ -11,7 +11,7 @@ ReferenceMap (models/references.py):
   - orphan_definitions property
   - __contains__ and __getitem__ protocol
 
-Shield (core/shield.py):
+Credential Scanner (core/credentials.py):
   - OpenAI, GitHub, AWS secret detection
   - scan_url_for_secrets and scan_line_for_secrets
   - No false positives on clean URLs
@@ -22,7 +22,7 @@ ReferenceScanner (core/scanner.py):
   - Pass 3 (get_integrity_report): DEAD_DEF, duplicate-def, score
   - "Phantom Reference Trap": [text][id] with no definition → DANGLING
   - "Ghost Key Trap": 1000 uses of same ID → one entry in used_ids (dedup)
-  - Shield acting as firewall: Pass 2 skipped when secrets found
+  - Credential scanner acting as firewall: Pass 2 skipped when secrets found
   - Alt-text check: pure function and via harvest events
 
 check_image_alt_text (core/scanner.py):
@@ -41,12 +41,12 @@ from pathlib import Path
 import pytest
 from _helpers import make_mgr
 
+from zenzic.core.credentials import SecurityFinding, scan_line_for_secrets, scan_url_for_secrets
 from zenzic.core.scanner import (
     ReferenceScanner,
     check_image_alt_text,
     scan_docs_references,
 )
-from zenzic.core.shield import SecurityFinding, scan_line_for_secrets, scan_url_for_secrets
 from zenzic.core.validator import LinkValidator
 from zenzic.models.config import ZenzicConfig
 from zenzic.models.references import IntegrityReport, ReferenceMap
@@ -174,11 +174,11 @@ class TestReferenceMap:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# Shield
+# Credential Scanner
 # ══════════════════════════════════════════════════════════════════════════════
 
 
-class TestShield:
+class TestCredentialScanner:
     # ── scan_url_for_secrets ──────────────────────────────────────────────────
 
     def test_openai_key_in_url(self, tmp_path: Path) -> None:
@@ -254,8 +254,8 @@ class TestShield:
         assert findings == []
 
     def test_hex_payload_in_fenced_code_block_detected(self, tmp_path: Path) -> None:
-        """Shield Stream 1 reads all lines raw; hex sequence in a code block must be caught."""
-        from zenzic.core.shield import _SECRETS
+        """Credential scanner stream reads all lines raw; hex sequence in a code block must be caught."""
+        from zenzic.core.credentials import _SECRETS
 
         hex_pattern = next(p for name, p in _SECRETS if name == "hex-encoded-payload")
         payload = r"\x41\x42\x43\x44"
@@ -391,8 +391,8 @@ class TestReferenceScannerHarvest:
         assert scanner.ref_map.resolve("myref") == "https://example.com"
         assert scanner.ref_map.resolve("MYREF") == "https://example.com"
 
-    def test_shield_detects_secret_in_unlabelled_fence(self, tmp_path: Path) -> None:
-        """A credential inside an unlabelled ``` block must be caught by the Shield."""
+    def test_credential_scanner_detects_secret_in_unlabelled_fence(self, tmp_path: Path) -> None:
+        """A credential inside an unlabelled ``` block must be caught by the credential scanner."""
         aws_key = "AKIA" + "Z" * 16
         content = f"Some prose.\n```\nexport AWS_KEY={aws_key}\n```\n"
         md = self._write_md(tmp_path, content)
@@ -402,8 +402,8 @@ class TestReferenceScannerHarvest:
         assert len(secret_events) == 1
         assert secret_events[0][2].secret_type == "aws-access-key"
 
-    def test_shield_detects_secret_in_bash_fence(self, tmp_path: Path) -> None:
-        """A credential inside a ```bash block must be caught by the Shield."""
+    def test_credential_scanner_detects_secret_in_bash_fence(self, tmp_path: Path) -> None:
+        """A credential inside a ```bash block must be caught by the credential scanner."""
         stripe_key = "sk_live_" + "X" * 24
         content = f"Example:\n```bash\nexport STRIPE_KEY={stripe_key}\n```\n"
         md = self._write_md(tmp_path, content)
@@ -413,21 +413,23 @@ class TestReferenceScannerHarvest:
         assert len(secret_events) == 1
         assert secret_events[0][2].secret_type == "stripe-live-key"
 
-    def test_shield_fenced_secret_does_not_create_ref_definition(self, tmp_path: Path) -> None:
-        """A credential inside a fence fires the Shield but must NOT be harvested as a ref-def."""
+    def test_credential_scanner_fenced_secret_does_not_create_ref_definition(
+        self, tmp_path: Path
+    ) -> None:
+        """A credential inside a fence fires the credential scanner but must NOT be harvested as a ref-def."""
         github_token = "ghp_" + "B" * 36
         content = f"```\n[secret_ref]: https://example.com/{github_token}\n```\n"
         md = self._write_md(tmp_path, content)
         scanner = ReferenceScanner(md)
         events = list(scanner.harvest())
-        # Shield must fire
+        # Credential scanner must fire
         secret_events = [e for e in events if e[1] == "SECRET"]
         assert len(secret_events) == 1
         assert secret_events[0][2].secret_type == "github-token"
         # The ref-def must NOT be added to the map (it's inside a fence)
         assert "secret_ref" not in scanner.ref_map
 
-    def test_shield_clean_code_block_no_findings(self, tmp_path: Path) -> None:
+    def test_credential_scanner_clean_code_block_no_findings(self, tmp_path: Path) -> None:
         """A code block with no credentials must not produce SECRET events."""
         content = "```bash\nexport DATABASE_URL=postgres://localhost/mydb\n```\n"
         md = self._write_md(tmp_path, content)
@@ -542,7 +544,7 @@ class TestReferenceScannerIntegrityReport:
         assert report.is_secure is False
         assert len(report.security_findings) == 1
 
-    def test_shield_is_firewall_pass2_skipped(self, tmp_path: Path) -> None:
+    def test_credential_scanner_is_firewall_pass2_skipped(self, tmp_path: Path) -> None:
         """When Pass 1 detects a secret, Pass 2 cross_check must be skipped."""
         openai_key = "sk-" + "J" * 48
         content = (
@@ -896,7 +898,7 @@ class TestLinkValidator:
         assert link_errors == []
 
     def test_scan_docs_references_with_links_secure_files_only(self, tmp_path: Path) -> None:
-        """Files with Shield findings must not have their URLs registered."""
+        """Files with credential scanner findings must not have their URLs registered."""
         docs = tmp_path / "docs"
         docs.mkdir()
         (tmp_path / "mkdocs.yml").touch()

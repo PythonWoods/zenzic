@@ -1,12 +1,12 @@
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Shield Extreme — Base64-Encoded Credentials
+# Credential Extreme — Base64-Encoded Credentials
 
 **RED TEAM** objective: encode credential strings in Base64, betting that the scanner
 only performs raw string matching against known prefixes.
 
-**BLUE TEAM** response: the Shield normalises content before pattern matching. Base64
+**BLUE TEAM** response: the credential scanner normalises content before pattern matching. Base64
 payloads that decode to credential-shaped strings are detected.
 
 ---
@@ -37,6 +37,6 @@ Deploy with `api_key=QUtJQUlPU0ZPRE5ON0VYQU1QTEVLRVY=` to access the endpoint.
 
 ---
 
-Expected: Shield fires on base64-encoded credential patterns — exit **2**.
+Expected: Credential scanner fires on base64-encoded credential patterns — exit **2**.
 
 See also: [encoded-creds.md](encoded-creds.md), [mixed-case.md](mixed-case.md).

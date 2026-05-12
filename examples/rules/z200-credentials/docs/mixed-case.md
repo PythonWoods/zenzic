@@ -1,12 +1,12 @@
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Shield Extreme — Mixed-Case Obfuscation
+# Credential Extreme — Mixed-Case Obfuscation
 
 **RED TEAM** objective: alternate uppercase and lowercase in credential prefixes and
 patterns, bypassing case-sensitive scanners that match `AKIA` but not `AkIa`.
 
-**BLUE TEAM** response: the Shield case-folds all content before pattern matching.
+**BLUE TEAM** response: the credential scanner case-folds all content before pattern matching.
 Mixed-case obfuscation does not evade detection.
 
 ---
@@ -41,6 +41,6 @@ Mixed-case obfuscation does not evade detection.
 
 ---
 
-Expected: Shield fires on every mixed-case pattern — exit **2**.
+Expected: Credential scanner fires on every mixed-case pattern — exit **2**.
 
 See also: [base64-secrets.md](base64-secrets.md), [encoded-creds.md](encoded-creds.md).

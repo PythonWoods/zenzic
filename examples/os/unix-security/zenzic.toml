@@ -3,12 +3,12 @@
 # zenzic.toml — Unix Security Probe (Act 11 — Red Team Matrix)
 #
 # RED TEAM: Complex Unix path traversal probes + credential exposure.
-# BLUE TEAM: Zenzic Shield and Blood Sentinel intercept every vector.
+# BLUE TEAM: Zenzic credential scanner and path traversal guard intercept every vector.
 #
 # Expected results:
 #   zenzic check links       → EXIT 1  (path traversal in deep-traversal.md, obfuscated.md)
-#   zenzic check references  → EXIT 2  (Shield: credentials in all three files)
-#   zenzic check all         → EXIT 2  (Shield takes priority over link errors)
+#   zenzic check references  → EXIT 2  (credential scanner: credentials in all three files)
+#   zenzic check all         → EXIT 2  (credential scanner takes priority over link errors)
 
 docs_dir = "docs"
 fail_under = 0

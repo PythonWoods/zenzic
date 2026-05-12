@@ -402,7 +402,7 @@ class ZenzicConfig(BaseModel):
         default=[],
         description=(
             "Filename glob patterns excluded from all checks (orphan detection, "
-            "placeholder scanning, reference pipeline, and Shield). "
+            "placeholder scanning, reference pipeline, and credential scanner). "
             "Use this for locale-suffixed files managed by i18n plugins "
             "(e.g. '*.it.md', '*.fr.md') or historical prose that contains "
             "intentional examples of secrets or deprecated syntax "

@@ -17,7 +17,7 @@ nav = [
 ```
 
 Once `zensical.toml` is present, the Transparent Proxy is deactivated and
-Zenzic uses the native Zensical engine directly. The Sentinel Banner will no
+Zenzic uses the native Zensical engine directly. The Zenzic Banner will no
 longer appear.
 
 ## Step 2 — Remove `mkdocs.yml`

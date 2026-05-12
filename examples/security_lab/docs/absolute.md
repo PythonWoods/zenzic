@@ -37,7 +37,7 @@ when the site is hosted in a subdirectory
 ```
 
 Note: `/etc/passwd` is caught by the **Portability Enforcement Layer** (absolute path),
-not by the Shield (path traversal). The Shield catches relative escapes (`../../`);
+not by the credential scanner (path traversal). The credential scanner catches relative escapes (`../../`);
 this layer catches environment-dependent absolute roots (`/`).
 
-See also: [traversal.md](traversal.md) for the Shield path traversal demo.
+See also: [traversal.md](traversal.md) for the credential scanner path traversal demo.

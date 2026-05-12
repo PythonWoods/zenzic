@@ -21,7 +21,7 @@ from zenzic.core.adapters import list_adapter_engines
 from zenzic.core.codes import CODE_DESCRIPTIONS, CODE_NAMES, CODE_SARIF_LEVELS, get_sarif_name
 from zenzic.core.exclusion import LayeredExclusionManager
 from zenzic.core.reporter import Finding
-from zenzic.core.ui import SentinelPalette, SentinelUI, emoji
+from zenzic.core.ui import ZenzicPalette, ZenzicUI, emoji
 from zenzic.models.config import ZenzicConfig
 
 
@@ -35,7 +35,7 @@ console = Console(
     else None,
 )
 
-_ui = SentinelUI(console)
+_ui = ZenzicUI(console)
 
 
 def configure_console(*, no_color: bool = False, force_color: bool = False) -> None:
@@ -52,11 +52,11 @@ def configure_console(*, no_color: bool = False, force_color: bool = False) -> N
         console = Console(highlight=False, force_terminal=True)
     # else: keep existing console — no_color=False + force_color=False means "auto",
     # which is already set correctly in the module-level Console (force_terminal=None).
-    _ui = SentinelUI(console)
+    _ui = ZenzicUI(console)
 
 
-def get_ui() -> SentinelUI:
-    """Return the current centralized :class:`~zenzic.ui.SentinelUI` instance.
+def get_ui() -> ZenzicUI:
+    """Return the current centralized :class:`~zenzic.ui.ZenzicUI` instance.
 
     Always performs a live lookup so callers outside this module always receive
     the instance that is current *after* any ``configure_console()`` call.
@@ -294,7 +294,7 @@ def _build_exclusion_manager(
 def _validate_docs_root(repo_root: Path, docs_root: Path) -> None:
     """F4-1: Reject docs_dir paths that escape the repository root.
 
-    Raises :class:`typer.Exit` with code 3 (Blood Sentinel) if
+    Raises :class:`typer.Exit` with code 3 (path traversal guard) if
     ``docs_root.resolve()`` is not under ``repo_root.resolve()``.
     This prevents path-traversal attacks via ``docs_dir = "../../etc"``.
     """
@@ -304,7 +304,7 @@ def _validate_docs_root(repo_root: Path, docs_root: Path) -> None:
         resolved_docs.relative_to(resolved_repo)
     except ValueError:
         console.print(
-            f"[bold {SentinelPalette.FATAL}]BLOOD SENTINEL:[/] docs_dir resolves to "
+            f"[bold {ZenzicPalette.FATAL}]PATH TRAVERSAL:[/] docs_dir resolves to "
             f"[bold]{resolved_docs}[/] which is outside the repository root "
             f"[bold]{resolved_repo}[/]. Path traversal blocked."
         )
@@ -320,7 +320,7 @@ def _count_docs_assets(
     exclusion_mgr: LayeredExclusionManager,
     config: ZenzicConfig | None = None,
 ) -> tuple[int, int]:
-    """Return ``(docs_count, assets_count)`` for the Sentinel telemetry line.
+    """Return ``(docs_count, assets_count)`` for the analysis telemetry line.
 
     When *config* is provided and the adapter exposes ``get_locale_source_roots()``,
     locale translation trees (e.g. Docusaurus ``i18n/``) are counted in

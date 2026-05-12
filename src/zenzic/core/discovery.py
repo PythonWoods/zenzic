@@ -6,7 +6,7 @@ Every module that needs to iterate over documentation source files or asset
 files must use the helpers defined here.  This ensures that ``excluded_dirs``
 (including the ``SYSTEM_EXCLUDED_DIRS`` guardrails merged at config load time)
 and ``excluded_file_patterns`` are applied **universally** — scanner, validator,
-Shield, and orphan-checker all see the exact same file set.
+credential scanner, and orphan-checker all see the exact same file set.
 
 Public API
 ----------

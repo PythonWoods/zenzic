@@ -1,9 +1,9 @@
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Path Traversal — Shield Layer 1
+# Path Traversal — Credential Scanner Layer 1
 
-This file demonstrates a focused path traversal attack. Zenzic Shield classifies
+This file demonstrates a focused path traversal attack. Zenzic classifies
 the link below as `PathTraversal` — not `FileNotFound` — and blocks it before any
 filesystem access occurs.
 

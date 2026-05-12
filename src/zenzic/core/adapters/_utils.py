@@ -225,20 +225,20 @@ def build_metadata_cache(
     result to adapter constructors or ``get_route_info()`` implementations.
 
     When ``shield_enabled`` is ``True`` (default), every frontmatter line is
-    passed through :func:`~zenzic.core.shield.safe_read_line` before parsing.
-    If a secret is detected, :class:`~zenzic.core.shield.ShieldViolation` is
+    passed through :func:`~zenzic.core.credentials.safe_read_line` before parsing.
+    If a secret is detected, :class:`~zenzic.core.credentials.CredentialViolation` is
     raised immediately — the VSM is never constructed.
 
     Args:
         md_contents: Pre-loaded mapping of absolute ``Path`` → raw content.
         docs_root: Resolved absolute ``docs/`` directory root.
-        shield_enabled: When ``True``, invoke the Shield on frontmatter lines.
+        shield_enabled: When ``True``, run credential scan on frontmatter lines.
 
     Returns:
         Dict mapping POSIX relative path → :class:`FileMetadata`.
 
     Raises:
-        :class:`~zenzic.core.shield.ShieldViolation`: When a secret is found
+        :class:`~zenzic.core.credentials.CredentialViolation`: When a secret is found
             in frontmatter content (only when ``shield_enabled=True``).
     """
     cache: dict[str, FileMetadata] = {}
@@ -248,11 +248,11 @@ def build_metadata_cache(
         except ValueError:
             continue
 
-        # Shield check on frontmatter lines if enabled.
+        # Credential scanner check on frontmatter lines if enabled.
         if shield_enabled:
             fm_match = _FRONTMATTER_RE.match(content)
             if fm_match:
-                from zenzic.core.shield import safe_read_line
+                from zenzic.core.credentials import safe_read_line
 
                 fm_text = fm_match.group(1)
                 # Find the line offset of frontmatter start.

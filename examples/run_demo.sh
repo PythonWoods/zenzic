@@ -10,12 +10,12 @@
 #   Act  0 — Linter Demo           : mkdocs-basic — FILE_NOT_FOUND + BROKEN_ANCHOR.
 #   Act  1 — The Gold Standard     : i18n-standard — 100/100 zero findings.
 #   Act  2 — The Broken Docs       : broken-docs — every error class.
-#   Act  3 — The Shield            : security_lab — credential exposure blocked (exit 2).
+#   Act  3 — Credential Scanner            : security_lab — credential exposure blocked (exit 2).
 #
 #   ── Structural & SEO Integrity ───────────────────────────────────────────
 #   Act  4 — Single-File Target    : single-file-target — audit only README.md.
 #   Act  5 — Custom Dir Target     : custom-dir-target — audit content/ at runtime.
-#   Act  6 — Transparent Proxy     : zensical-bridge — SENTINEL banner + bridge.
+#   Act  6 — Transparent Proxy     : zensical-bridge — Zenzic banner + bridge.
 #
 #   ── Enterprise Adapters & Migration ─────────────────────────────────────
 #   Act  7 — The Flagship          : docusaurus-v3-enterprise — versioned + @site/ + i18n.
@@ -27,7 +27,7 @@
 #   Act 11 — Unix Security Probe   : os/unix-security — PATH_TRAVERSAL + credential BREACH.
 #   Act 12 — Windows Path Integrity: os/win-integrity — Z105 ABSOLUTE_LINK on /C:/ + /UNC/.
 #   Act 13 — Link Graph Stress     : rules/z100-link-graph — circular Z102 + Z104 ×2.
-#   Act 14 — Shield Extreme        : rules/z200-shield — base64/pct-enc/mixed-case BREACH.
+#   Act 14 — Credential Extreme        : rules/z200-credentials — base64/pct-enc/mixed-case BREACH.
 #   Act 15 — SEO Coverage          : rules/z400-seo — Z401 ×3 + Z402 ×1.
 #   Act 16 — Quality Gate          : rules/z500-quality — Z501 ×3 + Z503 ×1.
 #   Act 17 — Virtual Routes        : docusaurus-v3 — tag virtual routes validated clean.
@@ -119,20 +119,20 @@ else
     print_result "broken-docs check links" "FAIL"
 fi
 
-# ─── Act 3: The Shield ────────────────────────────────────────────────────────
+# ─── Act 3: Credential Scanner ──────────────────────────────────────────────────
 
-print_header "Act 3 — The Shield (security_lab)"
-echo "  Expected: EXIT 2 — Shield blocks credential exposure (and reports link violations)."
+print_header "Act 3 — Credential Scanner (security_lab)"
+echo "  Expected: EXIT 2 — Credential scanner blocks credential exposure (and reports link violations)."
 echo ""
 
 if (cd "$REPO_ROOT/examples/security_lab" && uv run zenzic check all); then
-    print_result "security_lab Shield" "UNEXPECTED PASS"
+    print_result "security_lab credential scanner" "UNEXPECTED PASS"
 else
     code=$?
     if [ "$code" -eq 2 ]; then
-        print_result "security_lab Shield (exit 2)" "FAIL"
+        print_result "security_lab credential scanner (exit 2)" "FAIL"
     else
-        print_result "security_lab Shield" "UNEXPECTED EXIT $code"
+        print_result "security_lab credential scanner" "UNEXPECTED EXIT $code"
     fi
 fi
 
@@ -168,11 +168,11 @@ fi
 
 print_header "Act 6 — Transparent Proxy (zensical-bridge)"
 echo "  engine = \"zensical\" declared, NO zensical.toml present — only mkdocs.yml."
-echo "  Expected: SENTINEL banner printed + SUCCESS."
+echo "  Expected: Zenzic banner printed + SUCCESS."
 echo ""
 
 if (cd "$REPO_ROOT/examples/zensical-bridge" && uv run zenzic check all); then
-    print_result "zensical-bridge check all (SENTINEL banner + pass)" "PASS"
+    print_result "zensical-bridge check all (Zenzic banner + pass)" "PASS"
 else
     print_result "zensical-bridge check all" "UNEXPECTED FAILURE"
 fi
@@ -282,21 +282,21 @@ else
     print_result "rules/z100-link-graph check all (Z102/Z104 fires)" "FAIL"
 fi
 
-# ─── Act 14: Shield Extreme ──────────────────────────────────────────────────
+# ─── Act 14: Credential Extreme ─────────────────────────────────────────────
 
-print_header "Act 14 — Shield Extreme (rules/z200-shield)"
+print_header "Act 14 — Credential Extreme (rules/z200-credentials)"
 echo "  Base64-encoded, percent-encoded, and mixed-case credential obfuscation."
-echo "  Expected: EXIT 2 (BREACH) — Shield normalises and detects all three techniques."
+echo "  Expected: EXIT 2 (BREACH) — Credential scanner normalises and detects all three techniques."
 echo ""
 
-if (cd "$REPO_ROOT/examples/rules/z200-shield" && uv run zenzic check all); then
-    print_result "rules/z200-shield check all" "UNEXPECTED PASS"
+if (cd "$REPO_ROOT/examples/rules/z200-credentials" && uv run zenzic check all); then
+    print_result "rules/z200-credentials check all" "UNEXPECTED PASS"
 else
     code=$?
     if [ "$code" -eq 2 ]; then
-        print_result "rules/z200-shield check all (exit 2 — BREACH)" "FAIL"
+        print_result "rules/z200-credentials check all (exit 2 — BREACH)" "FAIL"
     else
-        print_result "rules/z200-shield check all" "UNEXPECTED EXIT $code"
+        print_result "rules/z200-credentials check all" "UNEXPECTED EXIT $code"
     fi
 fi
 
@@ -348,7 +348,7 @@ echo "--- All checks ---"
 uv run zenzic check all || true
 echo ""
 
-echo "--- Reference pipeline + Shield ---"
+echo "--- Reference pipeline + Credential Scanner ---"
 uv run zenzic check references || true
 echo ""
 
@@ -365,11 +365,11 @@ echo "  ── OS & Environment Guardrails ────────────�
 echo "  Act  0 (Linter Demo)           : must be red — FILE_NOT_FOUND + BROKEN_ANCHOR shown"
 echo "  Act  1 (Gold Standard)         : must be green"
 echo "  Act  2 (Broken Docs)           : must be red — errors are the feature"
-echo "  Act  3 (Shield)                : must be red (exit 2) — credential BREACH"
+echo "  Act  3 (Credential scanner)         : must be red (exit 2) — credential BREACH"
 echo "  ── Structural & SEO Integrity ───────────────────────────────────────────"
 echo "  Act  4 (Single-File Target)    : must be green — 1 file audited"
 echo "  Act  5 (Custom Dir Target)     : must be green — content/ audited"
-echo "  Act  6 (Transparent Proxy)     : must be green — SENTINEL banner + bridge"
+echo "  Act  6 (Transparent Proxy)     : must be green — Zenzic banner + bridge"
 echo "  ── Enterprise Adapters & Migration ──────────────────────────────────────"
 echo "  Act  7 (Flagship)              : must be green — versioned @site/ + i18n"
 echo "  Act  8 (Standalone Excellence) : must be green — MISSING_DIRECTORY_INDEX fires"
@@ -379,7 +379,7 @@ echo "  ── Red/Blue Team Matrix ──────────────�
 echo "  Act 11 (Unix Security Probe)   : must be red (exit 2) — PATH_TRAVERSAL + BREACH"
 echo "  Act 12 (Windows Path Integrity): must be red — Z105 ABSOLUTE_LINK"
 echo "  Act 13 (Link Graph Stress)     : must be red — Z102 + Z104"
-echo "  Act 14 (Shield Extreme)        : must be red (exit 2) — obfuscated creds BREACH"
+echo "  Act 14 (Credential Extreme)         : must be red (exit 2) — obfuscated creds BREACH"
 echo "  Act 15 (SEO Coverage)          : must be red — Z401 + Z402"
 echo "  Act 16 (Quality Gate)          : must be red — Z501 + Z503"
 echo "  Act 17 (Virtual Routes)        : must be green — tag routes resolved, link clean"

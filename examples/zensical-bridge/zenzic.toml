@@ -7,14 +7,14 @@
 # ZensicalLegacyProxy (Transparent Bridge), delegating all checks to
 # MkDocsAdapter internally.
 #
-# The Sentinel Banner is printed on stdout at runtime:
-#   SENTINEL: Zensical engine active via mkdocs.yml compatibility bridge.
+# The Zenzic Banner is printed on stdout at runtime:
+#   ZENZIC: Zensical engine active via mkdocs.yml compatibility bridge.
 #
 # This is NOT a silent fallback. The banner ensures engine identity is
 # always transparent to the operator.
 #
 # Run: zenzic check all
-# Expected: SENTINEL banner + all checks pass
+# Expected: Zenzic banner + all checks pass
 
 docs_dir = "docs"
 fail_under = 90
@@ -24,9 +24,9 @@ fail_under = 90
 # This fixture intentionally contains one reference in docs/index.md to
 # demonstrate the Z601 finding in ruff-style flat output.
 [governance]
-brand_obsolescence = ["Obsidian"]
+brand_obsolescence = ["OldBrand", "LegacyName", "OldCodename", "PreviousName", "FormerName", "Chronicles"]
 
-# Zenzic Shield — built-in credential scanner (always active, no config required).
+# Credential scanner — built-in credential scanner (always active, no config required).
 # Detected pattern families: openai-api-key, github-token, aws-access-key,
 #   stripe-live-key, slack-token, google-api-key, private-key,
 #   hex-encoded-payload (3+ consecutive \xNN sequences).

@@ -98,4 +98,8 @@ severity = "error"
 release_name = "Basalt"
 
 [governance]
-brand_obsolescence = ["Obsidian"]
+# brand_obsolescence: project-specific deprecated terms (Z601 BRAND_OBSOLESCENCE).
+# Default is empty — Zenzic ships as a clean slate. Teams configure their own
+# deprecated term lists here or in .zenzic.local.toml (gitignored).
+# Example: brand_obsolescence = ["OldProductName", "LegacyBrand"]
+brand_obsolescence = []

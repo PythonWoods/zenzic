@@ -3,7 +3,7 @@
 
 # War Room — Cross-Engine Validation Matrix
 
-The Siege & Shield pattern: two opposing fixtures that prove Zenzic's detection is
+The attack & defense pattern: two opposing fixtures that prove Zenzic's detection is
 engine-agnostic. The same attack vectors fire identically whether the docs are built
 with Standalone, MkDocs, or Zensical.
 
@@ -37,7 +37,7 @@ All three produce identical findings:
 
 Exit code: 2 (SECURITY BREACH)
 
-## The Shield — Obsidian Seal
+## The Defense — Clean Baseline
 
 ```bash
 (cd examples/matrix/blue-team/standalone && uv run zenzic check all)

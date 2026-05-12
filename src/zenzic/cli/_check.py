@@ -14,11 +14,11 @@ from pathlib import Path
 import typer
 
 from zenzic.core.exclusion import LayeredExclusionManager
-from zenzic.core.reporter import Finding, SentinelReporter
+from zenzic.core.reporter import Finding, ZenzicReporter
 from zenzic.core.scanner import (
     I18nParityIssue,
     PlaceholderFinding,
-    _map_shield_to_finding,
+    _map_credential_to_finding,
     find_i18n_parity,
     find_missing_directory_indices,
     find_orphans,
@@ -28,7 +28,7 @@ from zenzic.core.scanner import (
     scan_docs_references,
 )
 from zenzic.core.sovereign_context import get_sovereign_context, sovereign_context
-from zenzic.core.ui import SentinelPalette
+from zenzic.core.ui import ZenzicPalette
 from zenzic.core.validator import (
     LinkError,
     SnippetError,
@@ -54,7 +54,7 @@ from ._governance import (
 
 check_app = typer.Typer(
     name="check",
-    help=f"[bold {SentinelPalette.BRAND}]Check[/] — Run documentation quality checks.",
+    help=f"[bold {ZenzicPalette.BRAND}]Check[/] — Run documentation quality checks.",
     no_args_is_help=True,
     rich_markup_mode="rich",
 )
@@ -81,7 +81,7 @@ def check_links(
         help=(
             "Skip HTTP validation of external URLs (Pass 3). "
             "For air-gapped / offline environments. "
-            "Shield (Z201) always active regardless of this flag."
+            "Credential scanner (Z201) always active regardless of this flag."
         ),
     ),
     exclude_url: list[str] = typer.Option(
@@ -197,7 +197,7 @@ def check_links(
         except ValueError:
             _hint = str(docs_root)
         _shared.console.print(f"[dim]  Scanning: {_hint}[/]\n")
-    reporter = SentinelReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
+    reporter = ZenzicReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
     errors, warnings = reporter.render(
         findings,
         version=__version__,
@@ -211,7 +211,7 @@ def check_links(
     if no_external and output_format == "text":
         _shared.console.print(
             "[dim] 💡 External link validation skipped (--no-external). "
-            "Shield (Z201) remains active.[/dim]\n"
+            "Credential scanner (Z201) remains active.[/dim]\n"
         )
     incidents = sum(1 for f in findings if f.severity == "security_incident")
     if incidents:
@@ -304,7 +304,7 @@ def check_orphans(
         except ValueError:
             _hint = str(docs_root)
         _shared.console.print(f"[dim]  Scanning: {_hint}[/]\n")
-    reporter = SentinelReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
+    reporter = ZenzicReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
     errors, warnings = reporter.render(
         findings,
         version=__version__,
@@ -407,7 +407,7 @@ def check_snippets(
         except ValueError:
             _hint = str(docs_root)
         _shared.console.print(f"[dim]  Scanning: {_hint}[/]\n")
-    reporter = SentinelReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
+    reporter = ZenzicReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
     errors, warnings = reporter.render(
         findings,
         version=__version__,
@@ -448,9 +448,9 @@ def check_references(
         show_default=False,
     ),
 ) -> None:
-    """Run the Two-Pass Reference Pipeline: harvest definitions, check integrity, run Shield.
+    """Run the Two-Pass Reference Pipeline: harvest definitions, check integrity, run credential scan.
 
-    Pass 1 — Harvest: extract [id]: url definitions, detect secrets (Shield).
+    Pass 1 — Harvest: extract [id]: url definitions, detect secrets (credential scanner).
     Pass 2 — Cross-Check: resolve [text][id] links against the ReferenceMap.
     Pass 3 — Report: compute Reference Integrity score, flag Dead Definitions and Dangling References.
 
@@ -534,7 +534,7 @@ def check_references(
                 )
             )
         for sf in report.security_findings:
-            findings.append(_map_shield_to_finding(sf, docs_root))
+            findings.append(_map_credential_to_finding(sf, docs_root))
 
     for err_str in ext_link_errors:
         findings.append(
@@ -576,7 +576,7 @@ def check_references(
         except ValueError:
             _hint = str(docs_root)
         _shared.console.print(f"[dim]  Scanning: {_hint}[/]\n")
-    reporter = SentinelReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
+    reporter = ZenzicReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
     errors, warnings = reporter.render(
         findings,
         version=__version__,
@@ -675,7 +675,7 @@ def check_assets(
         except ValueError:
             _hint = str(docs_root)
         _shared.console.print(f"[dim]  Scanning: {_hint}[/]\n")
-    reporter = SentinelReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
+    reporter = ZenzicReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
     errors, warnings = reporter.render(
         findings,
         version=__version__,
@@ -760,7 +760,7 @@ def check_placeholders(
         except ValueError:
             _hint = str(docs_root)
         _shared.console.print(f"[dim]  Scanning: {_hint}[/]\n")
-    reporter = SentinelReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
+    reporter = ZenzicReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
     errors, warnings = reporter.render(
         findings,
         version=__version__,
@@ -1085,7 +1085,7 @@ def _to_findings(results: _AllCheckResults, docs_root: Path) -> list[Finding]:
                 )
             )
         for sf in report.security_findings:
-            findings.append(_map_shield_to_finding(sf, docs_root))
+            findings.append(_map_credential_to_finding(sf, docs_root))
 
     for dir_path in results.directory_index_issues:
         findings.append(
@@ -1155,7 +1155,7 @@ def _apply_target(
     """Resolve *raw_path* and return ``(patched_config, single_file, docs_root, hint)``.
 
     *single_file* is ``None`` in directory mode; the absolute ``.md`` path in
-    file mode.  *hint* is a short display string for the Sentinel banner.
+    file mode.  *hint* is a short display string for the analysis header.
     """
     target = _resolve_target(repo_root, config, raw_path)
 
@@ -1257,7 +1257,7 @@ def check_all(
         help=(
             "Skip HTTP validation of external URLs (Pass 3). "
             "For air-gapped / offline environments. "
-            "Shield (Z201) always active regardless of this flag."
+            "Credential scanner (Z201) always active regardless of this flag."
         ),
     ),
     exclude_url: list[str] = typer.Option(
@@ -1327,8 +1327,8 @@ def check_all(
 
     docs_root = (repo_root / config.docs_dir).resolve()
     # CEO-043: explicit target may live outside the CWD repo root.
-    # Adopt the target as the sovereign sandbox so Blood Sentinel guards
-    # escapes FROM the target, not the location OF the target.
+    # Adopt the target as the sovereign sandbox so the path traversal guard
+    # rejects escapes FROM the target, not the location OF the target.
     try:
         docs_root.relative_to(repo_root)
     except ValueError:
@@ -1447,7 +1447,7 @@ def check_all(
         _sf_rel = str(_single_file.relative_to(docs_root))
         all_findings = [f for f in all_findings if f.rel_path == _sf_rel]
 
-    reporter = SentinelReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
+    reporter = ZenzicReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
 
     if quiet:
         errors, warnings = reporter.render_quiet(all_findings)
@@ -1484,7 +1484,7 @@ def check_all(
     if no_external and output_format == "text" and not quiet:
         _shared.console.print(
             "[dim] 💡 External link validation skipped (--no-external). "
-            "Shield (Z201) remains active.[/dim]\n"
+            "Credential scanner (Z201) remains active.[/dim]\n"
         )
 
     if output_format == "text":

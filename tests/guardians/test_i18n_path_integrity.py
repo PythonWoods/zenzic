@@ -2,10 +2,10 @@
 # SPDX-License-Identifier: Apache-2.0
 """Guardians — i18n Path Integrity (Direttiva CEO 124/125).
 
-Three invariants the multi-root Shield must enforce simultaneously:
+Three invariants the multi-root credential scanner must enforce simultaneously:
 
   INT-001  Cross-locale relative links (i18n/it/ → i18n/it/) are PASS.
-           The Shield must recognise locale directories as authorised roots
+           The credential scanner must recognise locale directories as authorised roots
            so that a file linking to its sibling translation is not treated
            as a path-traversal attack.
 

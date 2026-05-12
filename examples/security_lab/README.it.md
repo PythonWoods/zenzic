@@ -1,9 +1,9 @@
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# security_lab — Fixture di Test per lo Shield di Zenzic
+# security_lab — Fixture di Test per il Credential Scanner di Zenzic
 
-Questo esempio attiva intenzionalmente lo Shield di Zenzic (rilevamento credenziali)
+Questo esempio attiva intenzionalmente il credential scanner di Zenzic (rilevamento credenziali)
 e il controllo link (path traversal, link assoluti).
 
 ## Cosa dimostra
@@ -22,19 +22,19 @@ cd examples/security_lab
 # Solo controllo link — esce con 1 (path traversal)
 zenzic check links --strict
 
-# Controllo riferimenti — esce con 2 (Shield: credenziali fake)
+# Controllo riferimenti — esce con 2 (credential scanner: credenziali fake)
 zenzic check references
 
-# Suite completa — esce con 2 (Shield ha priorità)
+# Suite completa — esce con 2 (credential scanner ha priorità)
 zenzic check all
 ```
 
-> **Nota:** Il codice di uscita `2` (evento Shield) non è sopprimibile con `--exit-zero`.
+> **Nota:** Il codice di uscita `2` (evento credential scanner) non è sopprimibile con `--exit-zero`.
 
 ## Credenziali
 
 Le credenziali in `attack.md` sono **completamente false** — corrispondono alla forma
-regex di credenziali reali ma non sono token validi. Esistono solo per testare lo Shield.
+regex di credenziali reali ma non sono token validi. Esistono solo per testare il credential scanner.
 
 ## Motore
 

@@ -43,7 +43,7 @@ def test_cli_main_calls_app() -> None:
 def test_cli_help() -> None:
     result = runner.invoke(app, ["--help"])
     assert result.exit_code == 0
-    assert "Engine-agnostic linter" in result.stdout
+    assert "Engine-agnostic" in result.stdout
 
 
 # ---------------------------------------------------------------------------
@@ -57,7 +57,7 @@ def test_cli_help() -> None:
 def test_check_links_ok(_links, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "links"])
     assert result.exit_code == 0
-    assert "ZENZIC SENTINEL" in result.stdout
+    assert "ZENZIC" in result.stdout
     assert "No broken links found." in result.stdout
 
 
@@ -78,7 +78,7 @@ def test_check_links_ok(_links, _cfg, _root) -> None:
 def test_check_links_with_errors(_links, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "links"])
     assert result.exit_code == 1
-    assert "ZENZIC SENTINEL" in result.stdout
+    assert "ZENZIC" in result.stdout
     assert "Z104" in result.stdout or "error" in result.stdout.lower()
 
 
@@ -150,7 +150,7 @@ def test_cli_check_orphans_empty(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     monkeypatch.chdir(repo)
     result = runner.invoke(app, ["check", "orphans"])
     assert result.exit_code == 0
-    assert "ZENZIC SENTINEL" in result.stdout
+    assert "ZENZIC" in result.stdout
     assert "No orphan pages found." in result.stdout
 
 
@@ -160,7 +160,7 @@ def test_cli_check_orphans_empty(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 def test_check_orphans_with_orphans(_orphans, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "orphans"])
     assert result.exit_code == 1
-    assert "ZENZIC SENTINEL" in result.stdout
+    assert "ZENZIC" in result.stdout
     assert "Z402" in result.stdout
 
 
@@ -175,7 +175,7 @@ def test_check_orphans_with_orphans(_orphans, _cfg, _root) -> None:
 def test_check_snippets_ok(_snip, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "snippets"])
     assert result.exit_code == 0
-    assert "ZENZIC SENTINEL" in result.stdout
+    assert "ZENZIC" in result.stdout
     assert "All code snippets are syntactically valid." in result.stdout
 
 
@@ -194,7 +194,7 @@ def test_check_snippets_ok(_snip, _cfg, _root) -> None:
 def test_check_snippets_with_errors(_snip, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "snippets"])
     assert result.exit_code == 1
-    assert "ZENZIC SENTINEL" in result.stdout
+    assert "ZENZIC" in result.stdout
     assert "Z503" in result.stdout
 
 
@@ -209,7 +209,7 @@ def test_check_snippets_with_errors(_snip, _cfg, _root) -> None:
 def test_check_assets_ok(_assets, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "assets"])
     assert result.exit_code == 0
-    assert "ZENZIC SENTINEL" in result.stdout
+    assert "ZENZIC" in result.stdout
     assert "No unused assets found." in result.stdout
 
 
@@ -219,7 +219,7 @@ def test_check_assets_ok(_assets, _cfg, _root) -> None:
 def test_check_assets_with_unused(_assets, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "assets"])
     assert result.exit_code == 1
-    assert "ZENZIC SENTINEL" in result.stdout
+    assert "ZENZIC" in result.stdout
     assert "Z405" in result.stdout
 
 
@@ -234,7 +234,7 @@ def test_check_assets_with_unused(_assets, _cfg, _root) -> None:
 def test_check_placeholders_ok(_ph, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "placeholders"])
     assert result.exit_code == 0
-    assert "ZENZIC SENTINEL" in result.stdout
+    assert "ZENZIC" in result.stdout
     assert "No placeholder stubs found." in result.stdout
 
 
@@ -249,7 +249,7 @@ def test_check_placeholders_ok(_ph, _cfg, _root) -> None:
 def test_check_placeholders_with_findings(_ph, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "placeholders"])
     assert result.exit_code == 1
-    assert "ZENZIC SENTINEL" in result.stdout
+    assert "ZENZIC" in result.stdout
     assert "Z502" in result.stdout
 
 
@@ -325,7 +325,7 @@ def test_check_all_text_ok(
 ) -> None:
     result = runner.invoke(app, ["check", "all"])
     assert result.exit_code == 0
-    assert "Sentinel Seal" in result.stdout or "SUCCESS" in result.stdout
+    assert "Analysis complete" in result.stdout or "No broken links" in result.stdout
 
 
 @patch("zenzic.cli._shared._count_docs_assets", return_value=(5, 2))
@@ -553,10 +553,10 @@ def test_check_all_external_docs_root_not_blocked_by_sentinel(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    """The External Audit (CEO-043): explicit path outside CWD repo root must not trigger Blood Sentinel (Exit 3).
+    """The External Audit (CEO-043): explicit path outside CWD repo root must not trigger path traversal guard (Exit 3).
 
     Simulates: `zenzic check all ../zenzic-doc` from inside a sibling project.
-    The Blood Sentinel must guard escapes FROM the target, not the location OF the target.
+    The path traversal guard must guard escapes FROM the target, not the location OF the target.
     """
     repo = tmp_path / "repo"
     repo.mkdir()
@@ -571,28 +571,28 @@ def test_check_all_external_docs_root_not_blocked_by_sentinel(
     result = runner.invoke(app, ["check", "all", rel])
 
     assert result.exit_code != 3, (
-        f"Blood Sentinel incorrectly blocked an explicit external path.\n{result.output}"
+        f"Path traversal guard incorrectly blocked an explicit external path.\n{result.output}"
     )
 
 
 # ---------------------------------------------------------------------------
-# SentinelReporter unit tests
+# ZenzicReporter unit tests
 # ---------------------------------------------------------------------------
 
 
-class TestSentinelReporter:
-    """Unit tests for the Sentinel Report Engine."""
+class TestZenzicReporter:
+    """Unit tests for the Zenzic Report Engine."""
 
     def test_render_no_findings(self) -> None:
         from io import StringIO
 
         from rich.console import Console
 
-        from zenzic.core.reporter import SentinelReporter
+        from zenzic.core.reporter import ZenzicReporter
 
         buf = StringIO()
         con = Console(file=buf, highlight=False, no_color=True)
-        reporter = SentinelReporter(con, Path("/fake/docs"))
+        reporter = ZenzicReporter(con, Path("/fake/docs"))
         errors, warnings = reporter.render(
             [], version="0.5.0a3", elapsed=1.0, docs_count=6, assets_count=4
         )
@@ -600,14 +600,14 @@ class TestSentinelReporter:
         assert warnings == 0
         output = buf.getvalue()
         assert "auto" in output  # telemetry engine field
-        assert "Sentinel Seal" in output
+        assert "Analysis complete" in output
 
     def test_render_grouped_findings(self) -> None:
         from io import StringIO
 
         from rich.console import Console
 
-        from zenzic.core.reporter import Finding, SentinelReporter
+        from zenzic.core.reporter import Finding, ZenzicReporter
 
         findings = [
             Finding("guide/index.md", 10, "LINK_ERROR", "error", "broken link"),
@@ -616,7 +616,7 @@ class TestSentinelReporter:
         ]
         buf = StringIO()
         con = Console(file=buf, highlight=False, no_color=True)
-        reporter = SentinelReporter(con, Path("/fake/docs"))
+        reporter = ZenzicReporter(con, Path("/fake/docs"))
         errors, warnings = reporter.render(
             findings, version="0.5.0a3", elapsed=0.5, docs_count=5, assets_count=0
         )
@@ -633,11 +633,11 @@ class TestSentinelReporter:
 
         from rich.console import Console
 
-        from zenzic.core.reporter import SentinelReporter
+        from zenzic.core.reporter import ZenzicReporter
 
         buf = StringIO()
         con = Console(file=buf, highlight=False, no_color=True)
-        reporter = SentinelReporter(con, Path("/fake/docs"))
+        reporter = ZenzicReporter(con, Path("/fake/docs"))
         errors, warnings = reporter.render_quiet([])
         assert errors == 0
         assert warnings == 0
@@ -648,7 +648,7 @@ class TestSentinelReporter:
 
         from rich.console import Console
 
-        from zenzic.core.reporter import Finding, SentinelReporter
+        from zenzic.core.reporter import Finding, ZenzicReporter
 
         findings = [
             Finding("x.md", 1, "E001", "error", "bad"),
@@ -656,7 +656,7 @@ class TestSentinelReporter:
         ]
         buf = StringIO()
         con = Console(file=buf, highlight=False, no_color=True)
-        reporter = SentinelReporter(con, Path("/fake/docs"))
+        reporter = ZenzicReporter(con, Path("/fake/docs"))
         errors, warnings = reporter.render_quiet(findings)
         assert errors == 1
         assert warnings == 1
@@ -678,7 +678,7 @@ class TestSentinelReporter:
 def test_check_references_ok(_scan, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "references"])
     assert result.exit_code == 0
-    assert "ZENZIC SENTINEL" in result.stdout
+    assert "ZENZIC" in result.stdout
     assert "All references resolved." in result.stdout
 
 
@@ -1082,10 +1082,10 @@ class TestShowInfoFilter:
     def _make_reporter(buf):  # type: ignore[no-untyped-def]
         from rich.console import Console
 
-        from zenzic.core.reporter import SentinelReporter
+        from zenzic.core.reporter import ZenzicReporter
 
         con = Console(file=buf, highlight=False, markup=True)
-        return SentinelReporter(con, Path("/fake/docs"), docs_dir="docs")
+        return ZenzicReporter(con, Path("/fake/docs"), docs_dir="docs")
 
     @staticmethod
     def _info_finding():  # type: ignore[no-untyped-def]
@@ -1177,8 +1177,8 @@ def test_inspect_capabilities_shows_bypass_table() -> None:
 @patch("zenzic.cli._standalone.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._standalone.ZenzicConfig.load", return_value=(_CFG, False))
 @patch("zenzic.cli._standalone._run_all_checks")
-def test_score_perfect_shows_sentinel_seal(_run: object, _cfg: object, _root: object) -> None:
-    """score at 100/100 must display the Sentinel Seal celebratory panel."""
+def test_score_perfect_shows_audit_complete(_run: object, _cfg: object, _root: object) -> None:
+    """score at 100/100 must display the celebratory completion panel."""
     from zenzic.core.scorer import CategoryScore, ScoreReport
 
     _run.return_value = ScoreReport(  # type: ignore[attr-defined]
@@ -1194,7 +1194,6 @@ def test_score_perfect_shows_sentinel_seal(_run: object, _cfg: object, _root: ob
     result = runner.invoke(app, ["score"])
     assert result.exit_code == 0
     assert "100/100" in result.stdout
-    assert "SENTINEL SEAL" in result.stdout
     assert "Every check passed" in result.stdout
 
 
@@ -1202,7 +1201,7 @@ def test_score_perfect_shows_sentinel_seal(_run: object, _cfg: object, _root: ob
 @patch("zenzic.cli._standalone.ZenzicConfig.load", return_value=(_CFG, False))
 @patch("zenzic.cli._standalone._run_all_checks")
 def test_score_low_uses_error_style(_run: object, _cfg: object, _root: object) -> None:
-    """score below 50 must use red error styling and must NOT show Sentinel Seal."""
+    """score below 50 must use red error styling and must NOT show the completion panel."""
     from zenzic.core.scorer import CategoryScore, ScoreReport
 
     _run.return_value = ScoreReport(  # type: ignore[attr-defined]
@@ -1218,7 +1217,7 @@ def test_score_low_uses_error_style(_run: object, _cfg: object, _root: object) -
     result = runner.invoke(app, ["score"])
     assert result.exit_code == 0
     assert "30/100" in result.stdout
-    assert "SENTINEL SEAL" not in result.stdout
+    assert "Every check passed" not in result.stdout
 
 
 # ---------------------------------------------------------------------------

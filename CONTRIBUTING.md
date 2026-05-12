@@ -2,7 +2,7 @@
 
 Thank you for your interest in contributing to Zenzic!
 
-Zenzic is a documentation quality tool — an engine-agnostic linter and security shield
+Zenzic is a documentation quality tool — an engine-agnostic linter and credential scanner
 for Markdown and MDX documentation. Contributions that improve detection accuracy, add
 new check types, or improve CI/CD integration are especially welcome.
 
@@ -126,7 +126,7 @@ the exact same environment as CI.
 | Test (fast) | `just test` | — | pytest `-n auto`, no coverage (TDD inner loop) |
 | Test (audit) | `just test-cov` | `nox -s tests` | pytest serial + branch coverage XML (matches CI) |
 | Test (thorough) | `just test-full` | — | pytest with Hypothesis **ci** profile (500 examples) |
-| Mutation testing | — | `nox -s mutation` | mutmut on `rules.py`, `shield.py`, `reporter.py` |
+| Mutation testing | — | `nox -s mutation` | mutmut on `rules.py`, `credentials.py`, `reporter.py` |
 | **Final Guard** | **`just verify`** | — | **pre-commit + test-cov + check — runs automatically on `git push`** |
 | Show version | `just version` | — | Print current version from bump-my-version |
 | Release dry-run | `just release-dry patch` | — | Simulate a bump (full diff output) |
@@ -191,7 +191,7 @@ unlikely — the matrix covers the language boundary conditions, not every minor
 - No placeholder text, `TODO`, or stub comments in committed code.
 - Tests must pass with ≥ 80% branch coverage.
 - All PRs must target `main`; direct commits are blocked by pre-commit.
-- Update `CHANGELOG.md` (and `CHANGELOG.it.md`) in the same commit as the code change.
+- Update `CHANGELOG.md` in the same commit as the code change.
 
 ---
 
@@ -478,12 +478,12 @@ a follow-up issue for the refactor.
 ## Security & Compliance
 
 - **Security First:** Any new path resolution MUST be tested against Path Traversal. Use `PathTraversal` logic from `core`.
-- **Shield Obfuscation Tests:** Every new Shield pattern or normalizer rule MUST include obfuscation regression tests: Unicode format characters (category Cf), HTML entity encoding, comment interleaving (HTML `<!-- -->` and MDX `{/* */}`), and cross-line split tokens. See `tests/test_shield_obfuscation.py` for reference.
+- **Credential Scanner Obfuscation Tests:** Every new credential pattern or normalizer rule MUST include obfuscation regression tests: Unicode format characters (category Cf), HTML entity encoding, comment interleaving (HTML `<!-- -->` and MDX `{/* */}`), and cross-line split tokens. See `tests/test_credentials_obfuscation.py` for reference.
 - **Bilingual Parity:** Documentation lives in [zenzic-doc](https://github.com/PythonWoods/zenzic-doc). Refer documentation contributors there.
 
 ---
 
-## The Shield & The Canary
+## Credential Scanner & The Canary
 
 This section documents the **four security obligations** that apply to every
 PR touching `src/zenzic/core/`. A PR that resolves a bug without satisfying
@@ -494,11 +494,9 @@ that four individually reasonable design choices — each correct in isolation �
 composed into four distinct attack vectors. See
 `docs/internal/security/shattered_mirror_report.md` for the full post-mortem.
 
----
-
 ### Obligation 1 — The Security Tax (Worker Timeout)
 
-Every PR that modifies `ProcessPoolExecutor` usage in `scanner.py` must
+Any PR that modifies `ProcessPoolExecutor` usage in `scanner.py` must
 preserve the `future.result(timeout=_WORKER_TIMEOUT_S)` call. The current
 timeout is **30 seconds**.
 
@@ -621,21 +619,21 @@ is well within the acceptable "Security Tax" budget.
 
 ---
 
-### Obligation 3 — The Shield's Dual-Stream Invariant
+### Obligation 3 — The Credential Scanner’s Dual-Stream Invariant
 
-The Shield stream and the Content stream in `ReferenceScanner.harvest()` must
+The credential scanner stream and the Content stream in `ReferenceScanner.harvest()` must
 **never share a generator**. This is the architectural lesson from ZRT-001.
 
 ```python
 # ✅ CORRECT — independent generators, independent filtering contracts
 with file_path.open(encoding="utf-8") as fh:
-    for lineno, line in enumerate(fh, start=1):  # Shield: ALL lines
+    for lineno, line in enumerate(fh, start=1):  # Credential scanner: ALL lines
         list(scan_line_for_secrets(line, file_path, lineno))
 
 for lineno, line in _iter_content_lines(file_path):  # Content: filtered
     ...
 
-# ❌ FORBIDDEN — sharing a generator silently drops frontmatter from Shield
+# ❌ FORBIDDEN — sharing a generator silently drops frontmatter from credential scanner
 with file_path.open(encoding="utf-8") as fh:
     shared = _skip_frontmatter(fh)
     for lineno, line in shared:
@@ -644,15 +642,13 @@ with file_path.open(encoding="utf-8") as fh:
         ...
 ```
 
-**Shield performance:** The dual-scan (raw + normalised line) runs at
+**Credential scanner performance:** The dual-scan (raw + normalised line) runs at
 approximately **235,000 lines/second** (measured: 12.74 ms median for 3,000
 lines over 20 iterations). The normalizer adds one pass per line but the
 `seen` set prevents duplicate findings, keeping output deterministic.
 
 If a PR refactors `harvest()` and the CI benchmark drops below **100,000
 lines/second**, reject and investigate before merging.
-
----
 
 ### Obligation 4 — Mutation Score ≥ 90% for Core Changes
 
@@ -679,7 +675,7 @@ acceptable, confirm that:
 3. Adding a test to kill it would be redundant or trivially circular.
 
 If unsure, add the test. The mutation suite is a living document of the
-Sentinel's threat model.
+detection engine's coverage baseline.
 
 **ResolutionContext pickle validation (Eager Validation 2.0):**
 
@@ -704,22 +700,22 @@ This test already exists in the test suite as of v0.5.0a4.
 
 **Shield Reporting Integrity (The Mutation Gate for Commit 2+):**
 
-The conformance requirement for the mutation score on the Shield is **broader**
+the mutation score on the credential scanner is **broader**
 than detection alone. It also covers the **reporting pipeline**:
 
 > *A secret that is detected but not correctly reported is a CRITICAL bug —
 > indistinguishable from a secret that was never detected at all.*
 
-Any PR that touches the `_map_shield_to_finding()` conversion function,
-the `SECURITY_BREACH` severity path in `SentinelReporter`, or the exit-code
+Any PR that touches the `_map_credentials_to_finding()` conversion function,
+the `SECURITY_BREACH` severity path in `ZenzicReporter`, or the exit-code
 routing in `cli.py` **must kill all three of these mandatory mutants** before
 the PR is accepted:
 
 | Mutant name | What is changed | Test that must kill it |
 |-------------|----------------|------------------------|
-| **The Invisible** | `severity="security_breach"` → `severity="warning"` in `_map_shield_to_finding()` | `test_map_always_emits_security_breach_severity` |
+| **The Invisible** | `severity="security_breach"` → `severity="warning"` in `_map_credentials_to_finding()` | `test_map_always_emits_security_breach_severity` |
 | **The Amnesiac** | `_obfuscate_secret()` returns `raw` instead of the redacted form | `test_obfuscate_never_leaks_raw_secret` |
-| **The Silencer** | `_map_shield_to_finding()` returns `None` instead of a `Finding` | `test_pipeline_appends_breach_finding_to_list` |
+| **The Silencer** | `_map_credentials_to_finding()` returns `None` instead of a `Finding` | `test_pipeline_appends_breach_finding_to_list` |
 
 **Running the mutation gate:**
 
@@ -727,7 +723,7 @@ the PR is accepted:
 nox -s mutation
 ```
 
-The session targets `rules.py`, `shield.py`, and `reporter.py` as configured in
+The session targets `rules.py`, `credentials.py`, and `reporter.py` as configured in
 `[tool.mutmut]` in `pyproject.toml`. No posargs are required.
 
 > **Infrastructure note — `mutmut_pytest.ini`:**
@@ -746,7 +742,7 @@ mapping issue), apply each mutant by hand and confirm the test fails:
 ```bash
 # 1. Apply mutant, run the specific test, confirm FAIL, revert.
 git diff  # verify only one targeted line changed
-pytest tests/test_redteam_remediation.py::TestShieldReportingIntegrity -v
+pytest tests/test_redteam_remediation.py::TestCredentialScannerReportingIntegrity -v
 git checkout -- src/  # revert
 ```
 
@@ -798,7 +794,7 @@ The CLI is organised as a **package** (`src/zenzic/cli/`) rather than a single m
 | `_standalone.py` | `score`, `diff`, and `init` commands + their private helpers |
 | `__init__.py` | Public re-export surface consumed by `main.py` — **do not add logic here** |
 
-### The Visual State Guardian
+**The Visual State Manager**
 
 `_shared.py` is the **sole owner of all console and UI state**. This is the most critical architectural rule in the CLI layer:
 
@@ -905,7 +901,7 @@ This allows you to perform global searches across all repositories simultaneousl
 
 ## Advanced QA: Mutants & Properties
 
-Zenzic uses two advanced testing techniques to ensure the Sentinel's core is battle-hardened.
+Zenzic uses two advanced testing techniques to ensure the core is well-hardened.
 
 ### Property-Based Testing (Hypothesis)
 
@@ -928,7 +924,7 @@ uv run pytest tests/test_properties.py -x -q
 [mutmut](https://mutmut.readthedocs.io/) modifies your source code (e.g. changes `>` to `>=`)
 and checks whether the test suite catches the mutation. A surviving mutant means a test gap.
 
-Target module: `src/zenzic/core/rules.py` — the heart of the Sentinel's detection logic.
+Target module: `src/zenzic/core/rules.py` — the heart of the detection logic.
 
 Run mutation testing:
 

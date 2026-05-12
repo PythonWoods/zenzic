@@ -3,7 +3,7 @@
 A bare Markdown documentation tree — no build engine, no framework, no
 configuration file of any documentation system.
 
-Zenzic runs in Standalone Mode: links, snippets, Shield, and directory index
+Zenzic runs in Standalone Mode: links, snippets, credential scanner, and directory index
 checks all operate without any engine-specific configuration. This makes
 it suitable for Hugo, Sphinx, Astro, or any hand-written project.
 

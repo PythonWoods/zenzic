@@ -15,7 +15,7 @@ build-backend = "hatchling.build"
 [project]
 name = "zenzic"
 version = "0.7.1"
-description = "Engineering-grade, engine-agnostic linter and security shield for Markdown documentation"
+description = "Engineering-grade, engine-agnostic static analyzer and credential scanner for Markdown documentation"
 readme = "README.md"
 requires-python = ">=3.10"
 # PEP 639: SPDX expression string (replaces deprecated `license = { text = "..." }`)
@@ -194,7 +194,7 @@ exclude_lines = [
 [tool.mutmut]
 paths_to_mutate = [
     "src/zenzic/core/rules.py",
-    "src/zenzic/core/shield.py",
+    "src/zenzic/core/credentials.py",
     "src/zenzic/core/reporter.py",
 ]
 # pytest_add_cli_args_test_selection specifies which tests to run (replaces tests_dir).

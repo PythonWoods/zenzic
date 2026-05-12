@@ -65,8 +65,8 @@ just verify    # locale ≡ remote — same command in pre-push hook AND GitHub 
 ```
 
 The 4 Gates: pre-commit hooks → `pytest` with coverage (`fail_under=80`) →
-`zenzic check all --strict` → exit-code parity (Shield Z201 → exit 2,
-Sentinel Z202/Z203 → exit 3, non-suppressible).
+`zenzic check all --strict` → exit-code parity (credential scanner Z201 → exit 2,
+path traversal guard Z202/Z203 → exit 3, non-suppressible).
 
 ### Daily flow
 
@@ -222,7 +222,7 @@ third-party adapters built against the v0.7.1 Protocol.
 2. **VSM** — `build_vsm` resolves every file's logical `rel` from `docs_root` *or* a
    matched extra root, then dispatches to the adapter's `get_route_info(rel)`.
 3. **Validator** — the link checker loads extra-root files into `md_contents`, extends
-   `_allowed_roots` so cross-tree relative links resolve under the Shield, and feeds
+   `_allowed_roots` so cross-tree relative links resolve correctly, and feeds
    the prefixed `rel` into "Did you mean?" suggestions.
 4. **Scanner** — `find_unused_assets` (Z903) and `find_placeholders` iterate extra roots
    when collecting reference sets, so an asset cited only from a blog post is no longer
@@ -369,7 +369,7 @@ The Lab ships **20** documented acts across five thematic sections:
 
 | Section | Acts | Focus |
 | :--- | :---: | :--- |
-| 🛡 OS & Environment Guardrails | 0–3 | Linting, Shield, clean run |
+| 🛡 OS & Environment Guardrails | 0–3 | Linting, credential scanner, clean run |
 | 🔗 Structural & SEO Integrity | 4–6 | Single-file, custom dir, proxy |
 | 🏢 Enterprise Adapters & Migration | 7–10 | MkDocs, Docusaurus, Zensical, Z404 |
 | 🔴 Red/Blue Team Matrix | 11–16 | Attack/defense, obfuscated credentials, stress tests |
@@ -388,14 +388,12 @@ The Core is now 100% engine-agnostic. `validator.py` no longer hardcodes engine 
 engine-specific link-scheme bypasses are declared via `BaseAdapter.get_link_scheme_bypasses()`
 and queried at runtime (Rule R21). The `examples/matrix/` directory ships the living proof:
 identical red-team attack vectors (Z201, Z105, Z502, Z401) produce identical findings across
-standalone, mkdocs, and zensical engines. The blue-team fixtures earn the Sentinel Seal on
-all three. Zero asymmetries.
+standalone, mkdocs, and zensical engines.
 
 ---
 
 ## 🔐 EPOCH 8 — Z204 Enterprise Privacy Gate (Sovereign Local Configuration)
 
-**Sprint D100** is a hard break, not a migration path. `.zenzic.dev.toml` is gone.
 `.zenzic.local.toml` is the only supported machine-local configuration file.
 
 ### Why Hard-Remove, Not Deprecate
@@ -409,7 +407,7 @@ does not exist. The Quartz Maturity standard admits no nostalgia.
 
 | Layer | Component | Behaviour |
 | :---- | :-------- | :-------- |
-| **Shield** | `scan_line_for_forbidden_terms()` in `shield.py` | Scans every documentation line against `forbidden_patterns`; emits a `FORBIDDEN_TERM` signal on match |
+| **Credential Scanner** | `scan_line_for_forbidden_terms()` in `credentials.py` | Scans every documentation line against `forbidden_patterns`; emits a `FORBIDDEN_TERM` signal on match |
 | **Config** | `forbidden_patterns: list[str]` in `ZenzicConfig` | Declared in `zenzic.toml` or additively merged from `.zenzic.local.toml` at load time |
 | **Local file** | `.zenzic.local.toml` | Machine-local, git-ignored sole authority for private patterns; auto-scaffolded by `zenzic init` |
 | **Finding** | **Z204 FORBIDDEN_TERM** | Exit 2; SARIF level `error`; Privacy Gate category |
@@ -417,7 +415,7 @@ does not exist. The Quartz Maturity standard admits no nostalgia.
 ### Architectural Invariants Preserved
 
 - **Zero Subprocess** — `_apply_local_toml()` uses pure Python `tomllib`; no shell calls.
-- **Engine Sovereignty** — Z204 is a core Shield rule, not an engine-specific extension.
+- **Engine Sovereignty** — Z204 is a core credential scanner rule, not an engine-specific extension.
 - **Additive Merge** — patterns from `.zenzic.local.toml` are appended to any patterns already
   declared in `zenzic.toml`; duplicates are removed; insertion order is preserved.
 - **No Silent Failures** — a malformed `.zenzic.local.toml` is skipped gracefully (engine continues).
@@ -426,8 +424,8 @@ does not exist. The Quartz Maturity standard admits no nostalgia.
 
 ## 🛡️ Security
 
-**[D100] Z204 FORBIDDEN_TERM — Brand Integrity Shield (Sprint D100):** Two-layer
-Privacy Gate architecture seals sensitive project vocabulary at the Shield layer (Exit 2).
+**[D100] Z204 FORBIDDEN_TERM — Brand Integrity via Credential Scanner (Sprint D100):** Two-layer
+Privacy Gate architecture seals sensitive project vocabulary at the credential scanner layer (Exit 2).
 Patterns are declared in machine-local, git-ignored `.zenzic.local.toml`.
 `.zenzic.dev.toml` is hard-removed: not scanned, not loaded, not acknowledged.
 Zero Subprocess invariant preserved.
@@ -435,16 +433,16 @@ Zero Subprocess invariant preserved.
 **Sealed 5 critical bypass vectors — including the S2 Red Team attack vector (Base64) — during AI-driven red-team audit.**
 
 The Red/Blue Team Matrix (Acts 11–16) revealed and verified defences against:
-deep `../` path traversal chains targeting OS system directories (Blood Sentinel — exit 3),
+deep `../` path traversal chains targeting OS system directories (path traversal guard — exit 3),
 credential obfuscation via Base64 encoding, percent-encoding, and mixed-case normalization
-(Shield — exit 2), Windows absolute path injection (`C:\`, UNC shares), and cross-line
+(credential scanner — exit 2), Windows absolute path injection (`C:\\`, UNC shares), and cross-line
 credential splitting via the ZRT-007 lookback buffer.
 
-**Base64 Speculative Decoder (v0.7.1 D095):** The Shield now decodes candidate Base64 tokens
+**Base64 Speculative Decoder (v0.7.1 D095):** The credential scanner now decodes candidate Base64 tokens
 and re-scans the decoded text. A GitHub PAT encoded as `Z2hwXzEyMzQ...` in frontmatter
 triggers Z201 and exits 2. Attack vector S2 sealed.
 
-**KL-002 portability fix:** `os.path.normcase` applied to the Blood Sentinel boundary check
+**KL-002 portability fix:** `os.path.normcase` applied to the path traversal guard boundary check
 so that mixed-case paths on APFS/NTFS no longer produce false-positive traversal findings.
 
 **Known limitations:** The ReDoS canary (`_CANARY_STRINGS` / `_assert_regex_canary`) uses
@@ -454,7 +452,7 @@ Deterministic enforcement via a process-based watchdog is planned for v0.8.0 "Ba
 
 Full audit report: [Quartz Tribunal Audit](https://zenzic.dev/docs/explanation/audit-v070-quartz-siege)
 
-**Multi-Root Shield:** Cross-locale relative links no longer trigger false-positive
+**Multi-Root Credential Scanner:** Cross-locale relative links no longer trigger false-positive
 `PATH_TRAVERSAL_SUSPICIOUS` while preserving detection of links that escape every
 authorised root.
 
@@ -462,7 +460,7 @@ authorised root.
 
 ## 📋 What's New at a Glance
 
-- **Z204 FORBIDDEN_TERM — Enterprise Privacy Gate (Sprint D100)**: Shield rule that triggers
+- **Z204 FORBIDDEN_TERM — Enterprise Privacy Gate (Sprint D100)**: Credential scanner rule that triggers
   Exit 2 when a forbidden term appears in any documentation file. Configured exclusively via
   `.zenzic.local.toml` (machine-local, git-ignored). `.zenzic.dev.toml` is hard-removed.
 - **Law of Contemporary Testimony** — code and documentation updated in the same commit;
@@ -472,12 +470,12 @@ authorised root.
 - **`--offline` mode** — flat URL resolution for USB/intranet deployments.
 - **`--quiet` flag** — single-line summary for pre-commit and CI silent builders.
 - **`--no-external` flag** — skips Pass 3 HTTP HEAD requests for air-gapped / offline environments.
-  Shield (Z201) and Blood Sentinel (Z202/Z203) remain fully active regardless of this flag.
+  credential scanner (Z201) and path traversal guard (Z202/Z203) remain fully active regardless of this flag.
 - **Z502 pointer precision** — `❱` arrow skips SPDX licence headers and frontmatter to
   point at the first actual prose word.
 - **1,307 passing tests · 80.28%+ coverage.** REUSE 3.3 compliant. mypy strict. Zero untyped definitions.
 - **`zenzic inspect capabilities`** now shows a third section: Engine-specific Link Bypasses — which engine uses which URI scheme bypass via `get_link_scheme_bypasses()` (Rule R21).
-- **`zenzic score` at 100/100** displays the Sentinel Seal celebratory panel — the same panel as Lab Act 0.
+- **`zenzic score` at 100/100** displays a celebratory completion panel — the same panel as Lab Act 0.
 - **Sibling Automation:** `noxfile.py` + `justfile` for `zenzic-doc` and `zenzic-action`; single-command version bump for the Action (`just bump 0.7.x`).
 - **Engine Guide Parity:** `engines.mdx` (EN+IT) — Zensical Transparent Proxy elevated to first-class migration feature with bridge mapping table; Standalone expanded to full section with use-case guide and limitations; MkDocs route URL resolution documented.
 - **Docusaurus Full-Spec — UX-Discoverability Law:** `DocusaurusAdapter.get_nav_paths()` is now

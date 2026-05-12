@@ -20,7 +20,7 @@ from rich.text import Text
 from zenzic.core.discovery import iter_markdown_sources
 from zenzic.core.exclusion import LayeredExclusionManager
 from zenzic.core.rules import count_inline_suppressions
-from zenzic.core.ui import SentinelPalette, emoji
+from zenzic.core.ui import ZenzicPalette, emoji
 from zenzic.models.config import ZenzicConfig
 
 from . import _shared
@@ -117,7 +117,7 @@ def print_suppression_audit_footer(
     if suppression_audit.extended_debt:
         tags.append("[yellow][EXTENDED DEBT][/yellow]")
     if cap_exceeded:
-        tags.append(f"[{SentinelPalette.ERROR}][CAP_EXCEEDED][/]")
+        tags.append(f"[{ZenzicPalette.ERROR}][CAP_EXCEEDED][/]")
     suffix = f" {' '.join(tags)}" if tags else ""
     _shared.console.print(
         "[dim]Suppression Audit:[/] "
@@ -134,7 +134,7 @@ def print_suppression_audit_footer(
 
 
 def print_governance_cap_failure(suppression_audit: SuppressionAudit, *, title: str) -> None:
-    """Render CAP failure using the canonical Sentinel visual language."""
+    """Render CAP failure panel."""
     label_width = 31
     value_width = 5
 
@@ -142,11 +142,11 @@ def print_governance_cap_failure(suppression_audit: SuppressionAudit, *, title: 
         rendered = f"{sign}{value:>{value_width}}"
         if style:
             rendered = f"[{style}]{rendered}[/]"
-        return Text.from_markup(f"  [{SentinelPalette.DIM}]{label:<{label_width}}[/] {rendered}")
+        return Text.from_markup(f"  [{ZenzicPalette.DIM}]{label:<{label_width}}[/] {rendered}")
 
     _shared.console.print(
         Text.from_markup(
-            f"{emoji('sparkles')} [{SentinelPalette.SUCCESS}]Sentinel Seal: "
+            f"{emoji('sparkles')} [{ZenzicPalette.SUCCESS}]Analysis complete: "
             "All statically-detectable links, credentials, and references verified.[/]"
         )
     )
@@ -154,26 +154,26 @@ def print_governance_cap_failure(suppression_audit: SuppressionAudit, *, title: 
 
     rows: list[Text] = [
         Text.from_markup(
-            f"[bold {SentinelPalette.ERROR}][GOVERNANCE FAILURE][/] "
+            f"[bold {ZenzicPalette.ERROR}][GOVERNANCE FAILURE][/] "
             f"{emoji('cross')} SUPPRESSION_CAP_EXCEEDED"
         ),
         Text.from_markup(
-            f"[{SentinelPalette.DIM}]Architectural debt limit reached. "
+            f"[{ZenzicPalette.DIM}]Architectural debt limit reached. "
             "Build blocked by fail-hard policy.[/]"
         ),
         Text(),
-        Text.from_markup(f"[bold {SentinelPalette.BRAND}][STATISTICS][/]"),
+        Text.from_markup(f"[bold {ZenzicPalette.BRAND}][STATISTICS][/]"),
         _metric_number("Total Active Suppressions:", suppression_audit.total),
         _metric_number("Configured Global CAP:", suppression_audit.cap),
         _metric_number(
-            "Excess Debt:", suppression_audit.excess, sign="+", style=SentinelPalette.ERROR
+            "Excess Debt:", suppression_audit.excess, sign="+", style=ZenzicPalette.ERROR
         ),
         Text(),
-        Text.from_markup(f"[bold {SentinelPalette.BRAND}][BREAKDOWN][/]"),
+        Text.from_markup(f"[bold {ZenzicPalette.BRAND}][BREAKDOWN][/]"),
         _metric_number("Inline Ignores (zenzic-ignore):", suppression_audit.inline_count),
         _metric_number("Per-File Ignores (config):", suppression_audit.per_file_count),
         Text(),
-        Text.from_markup(f"[bold {SentinelPalette.BRAND}][HOTSPOTS - Top Offenders][/]"),
+        Text.from_markup(f"[bold {ZenzicPalette.BRAND}][HOTSPOTS - Top Offenders][/]"),
     ]
 
     offenders = suppression_audit.top_offenders(limit=5)
@@ -181,20 +181,20 @@ def print_governance_cap_failure(suppression_audit: SuppressionAudit, *, title: 
         for path, count in offenders:
             rows.append(
                 Text.from_markup(
-                    f"  [{SentinelPalette.ERROR}]{count:>{value_width}}[/]  "
-                    f"[{SentinelPalette.DIM}]{path}[/]"
+                    f"  [{ZenzicPalette.ERROR}]{count:>{value_width}}[/]  "
+                    f"[{ZenzicPalette.DIM}]{path}[/]"
                 )
             )
     else:
-        rows.append(Text.from_markup(f"  [{SentinelPalette.DIM}]No hotspots detected.[/]"))
+        rows.append(Text.from_markup(f"  [{ZenzicPalette.DIM}]No hotspots detected.[/]"))
 
     rows.extend(
         [
             Text(),
-            Text.from_markup(f"[bold {SentinelPalette.BRAND}][REMEDIATION][/]"),
+            Text.from_markup(f"[bold {ZenzicPalette.BRAND}][REMEDIATION][/]"),
             Text.from_markup(
                 "  Consult the Playbook: "
-                f"[underline {SentinelPalette.BRAND}]"
+                f"[underline {ZenzicPalette.BRAND}]"
                 "https://zenzic.dev/developers/how-to/release-governance-protocol[/]"
             ),
         ]
@@ -203,9 +203,9 @@ def print_governance_cap_failure(suppression_audit: SuppressionAudit, *, title: 
     _shared.console.print(
         _shared._ui.make_panel(
             Group(*rows),
-            title=f"[bold {SentinelPalette.ERROR}]{title}[/]",
+            title=f"[bold {ZenzicPalette.ERROR}]{title}[/]",
             subtitle="Basalt Suppression",
-            border_style=SentinelPalette.ERROR,
+            border_style=ZenzicPalette.ERROR,
         )
     )
     print_suppression_audit_footer(suppression_audit, cap_exceeded=True)

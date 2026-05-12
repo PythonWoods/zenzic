@@ -3,7 +3,7 @@
 
 # Unix Security Probe
 
-Demonstrates the two-layer Zenzic Shield against Unix-style attack vectors using a
+Demonstrates the two-layer Zenzic credential scanner against Unix-style attack vectors using a
 Red/Blue team exercise across three escalating attack documents.
 
 ## Scenario
@@ -23,8 +23,8 @@ prose, tables, blockquotes, link titles, URL query parameters, and fenced code b
 
 ```text
 zenzic check links       # EXIT 1 — Z202 PATH_TRAVERSAL (deep-traversal.md)
-zenzic check references  # EXIT 2 — Z201 SHIELD credentials (all three files)
-zenzic check all         # EXIT 2 — Shield takes priority over link errors
+zenzic check references  # EXIT 2 — Z201 credentials (all three files)
+zenzic check all         # EXIT 2 — credential scanner takes priority over link errors
 ```
 
 ## Files

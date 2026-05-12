@@ -3,7 +3,7 @@
 
 # Unix Security Probe — Overview
 
-This example demonstrates the two-layer Zenzic Shield against Unix-style attack vectors.
+This example demonstrates the two-layer Zenzic credential scanner against Unix-style attack vectors.
 
 **RED TEAM** creates three attack scenarios:
 
@@ -13,11 +13,11 @@ This example demonstrates the two-layer Zenzic Shield against Unix-style attack 
   and URL query parameters
 - [Fenced](fenced.md) — credentials inside `bash`, `yaml`, and unlabelled code blocks
 
-**BLUE TEAM** result: `zenzic check all` exits **2** (Shield credential detection).
+**BLUE TEAM** result: `zenzic check all` exits **2** (credential scanner detection).
 Path traversal links additionally trigger `EXIT 1` via `check links`.
 
 ```bash
 zenzic check links       # EXIT 1 — PATH_TRAVERSAL in deep-traversal.md
-zenzic check references  # EXIT 2 — SHIELD credentials in all three files
-zenzic check all         # EXIT 2 — Shield takes priority
+zenzic check references  # EXIT 2 — credentials in all three files
+zenzic check all         # EXIT 2 — credential scanner takes priority
 ```

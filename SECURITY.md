@@ -9,8 +9,8 @@ SPDX-License-Identifier: Apache-2.0
 
 **Please do not open a public GitHub issue for security vulnerabilities.**
 
-If you discover a security vulnerability in Zenzic — including issues with the **Shield**
-credential scanner, the **path traversal** protection, or any other part of the Core —
+If you discover a security vulnerability in Zenzic — including issues with the credential
+scanner, the path traversal protection, or any other part of the Core —
 report it privately via one of these channels:
 
 - **GitHub Security Advisories** (preferred): [github.com/PythonWoods/zenzic/security/advisories](https://github.com/PythonWoods/zenzic/security/advisories)
@@ -28,11 +28,11 @@ The following areas are in-scope for security reports:
 
 | Area | Description |
 | :--- | :---------- |
-| **Shield bypass** | A credential pattern that passes undetected through the seven-family scanner |
-| **Path traversal bypass** | A crafted link that escapes the `docs/` root without triggering `PathTraversal` |
+| **Scanner bypass** | A credential pattern that passes undetected through the nine-family credential scanner |
+| **Path traversal bypass** | A crafted link that escapes the `docs/` root without triggering the path traversal guard |
 | **Dependency CVE** | A known CVE in a runtime dependency (`typer`, `rich`, `pyyaml`, `pydantic`, `httpx`) |
 | **Code execution** | A crafted Markdown or config file that causes arbitrary code execution during linting |
-| **Exit code suppression** | Any method that prevents exit code `2` from being emitted on a Shield finding |
+| **Exit code suppression** | Any method that prevents exit code `2` from being emitted on a credential scanner finding |
 
 Out-of-scope: documentation content errors, cosmetic output formatting, or issues that
 only affect `nox` development sessions (not the published `zenzic` package).
@@ -44,7 +44,7 @@ files and performs all analysis in pure Python. It does not execute `mkdocs buil
 other build tool during `check`, `score`, or `diff`. The attack surface is limited to:
 
 - **Crafted Markdown files** — Zenzic parses Markdown with a pure state-machine; the path
-  traversal shield rejects any href that resolves outside `docs/`.
+  traversal guard rejects any href that resolves outside `docs/`.
 - **Crafted config files** — `zenzic.toml`, `mkdocs.yml`, and `zensical.toml` are parsed
   as plain data (TOML/YAML). No code is evaluated. Custom rules (`[[custom_rules]]`) are
   plain regex patterns compiled once at load time.

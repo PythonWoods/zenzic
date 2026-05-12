@@ -10,7 +10,7 @@ SPDX-License-Identifier: Apache-2.0
 
 <p align="center">
   <a href="https://pypi.org/project/zenzic/">
-    <img src="https://img.shields.io/pypi/v/zenzic?label=PyPI&color=38bdf8&style=flat-square&cacheBuster=sentinel-a4" alt="PyPI Version">
+    <img src="https://img.shields.io/pypi/v/zenzic?label=PyPI&color=38bdf8&style=flat-square&cacheBuster=v0.8.0" alt="PyPI Version">
   </a>
   <a href="https://pypi.org/project/zenzic/">
     <img src="https://img.shields.io/pypi/pyversions/zenzic?color=10b981&style=flat-square" alt="Python Versions">
@@ -21,17 +21,14 @@ SPDX-License-Identifier: Apache-2.0
 </p>
 
 <p align="center">
-  <a href="https://github.com/PythonWoods/zenzic">
-    <img src="https://img.shields.io/badge/🛡️_zenzic_shield-passing-4f46e5?style=flat-square" alt="Zenzic Shield">
-  </a>
-  <a href="https://github.com/PythonWoods/zenzic">
-    <img src="https://img.shields.io/badge/🛡️_zenzic-100%2F100-4f46e5?style=flat-square" alt="Zenzic Score">
+  <a href="https://zenzic.dev/it/docs/how-to/add-badges/">
+    <img src="https://img.shields.io/badge/zenzic-audit:_passed-success?style=flat-square" alt="Zenzic Audit">
   </a>
   <a href="https://docusaurus.io/">
     <img src="https://img.shields.io/badge/docs_by-Docusaurus-3ECC5F?style=flat-square" alt="Built with Docusaurus">
   </a>
   <a href="https://zenzic.dev/it/developers/explanation/adr-vault">
-    <img src="https://img.shields.io/badge/4--Gates-Sentinel%20Seal-10b981?style=flat-square" alt="4-Gates: Sentinel Seal">
+    <img src="https://img.shields.io/badge/4--Gates-verified-10b981?style=flat-square" alt="4-Gates verified">
   </a>
   <a href="https://reuse.software/">
     <img src="https://img.shields.io/badge/REUSE-3.x%20compliant-0d9488?style=flat-square" alt="REUSE 3.x compliant">
@@ -39,7 +36,7 @@ SPDX-License-Identifier: Apache-2.0
 </p>
 
 <p align="center">
-  <em>Zenzic Shield verifica internamente questo repository per credenziali esposte ad ogni commit.</em>
+  <em>Zenzic verifica internamente questo repository per credenziali esposte ad ogni commit.</em>
 </p>
 
 <p align="center">
@@ -150,23 +147,23 @@ zenzic inspect codes  # Elenca i contratti canonici dei finding
 
 **Correzione automatica:** `zenzic clean assets [-y] [--dry-run]` elimina gli asset inutilizzati.
 
-> 🚀 **v0.8.0 "Quartz Maturity" (Stabile)** — Suggerimenti proattivi Z104, audit di verità
-> Standalone Mode e hardening dell'Engineering Ledger. Vedi [CHANGELOG.md](CHANGELOG.md).
+> 🚀 **v0.8.0 "Basalt" (Stabile)** — Governance a tier, contratti frozen, scansione RE2 deterministica
+> e Sovereign Audit mode. Vedi [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
-## 🛡️ Sicurezza: The Shield & Blood Sentinel
+## 🛡️ Sicurezza: Credential Scanner & Path Traversal Guard
 
 Due livelli di sicurezza sono permanentemente attivi — nessuno è sopprimibile con `--exit-zero`:
 
-**The Shield** scansiona ogni riga — inclusi i blocchi di codice delimitati — alla ricerca di
+**Credential Scanner** scansiona ogni riga — inclusi i blocchi di codice delimitati — alla ricerca di
 credenziali. La normalizzazione Unicode sconfigge l'offuscamento (entità HTML, interposizione
 di commenti, lookback multi-riga). Famiglie rilevate: AWS, GitHub, GitLab PAT, Stripe, Slack, OpenAI,
 Google, intestazioni PEM, payload esadecimali.
 La decodifica speculativa Base64 rileva credenziali offuscate nel frontmatter e nei blocchi di codice.
 **→ Exit 2. Ruota e verifica immediatamente.**
 
-**Blood Sentinel** normalizza ogni link risolto con `os.path.normpath` e rifiuta qualsiasi
+**Path Traversal Guard** normalizza ogni link risolto con `os.path.normpath` e rifiuta qualsiasi
 percorso che sfugge alla root `docs/`. Intercetta tentativi di tipo `../../../../etc/passwd`
 prima di qualsiasi syscall OS.
 **→ Exit 3.**
@@ -355,7 +352,7 @@ Visita il [portale di documentazione][docs-it-home] per screenshot interattivi e
 
 ---
 
-## 📖 Mappa della Documentazione — La Promessa di Quartz
+## 📖 Mappa della Documentazione — Promessa Basalt
 
 I docs di Zenzic sono pubblicati come **due istanze Docusaurus separate** sotto lo
 stesso dominio. Ciascuna ha la propria sidebar, la propria ricerca e il proprio
@@ -369,7 +366,7 @@ zenzic.dev/
 └── community/      → Brand kit, FAQ, governance
 ```
 
-**La Promessa di Quartz.** Due istanze, un solo Sentinel. La separazione è
+**La Promessa Basalt.** Due istanze, un unico motore — contratti AST stabili per i plugin, determinismo totale (input identico → output identico), zero overhead da sottoprocessi. La separazione è
 applicata da [ADR 011: Allowlist Cross-Istanza][docs-it-adr-011] — ogni link
 cross-confine è un contratto documentato, mai una soppressione silenziosa. Il
 debito nascosto corrompe la fiducia; il debito dichiarato è ingegneria. Vedi il
@@ -458,7 +455,7 @@ sono URL validi.
 **Regge migliaia di file?** Sì. Parallelismo adattivo per la scoperta; lookup VSM O(1) per link;
 cache content-addressable (`SHA256(content + config + vsm_snapshot)`) salta i file invariati.
 
-**Shield vs Blood Sentinel?** Shield = segreti *nel* contenuto (exit 2). Blood Sentinel =
+**Credential Scanner vs Path Traversal Guard?** Credential Scanner = segreti *nel* contenuto (exit 2). Path Traversal Guard =
 link che puntano a *path* di sistema OS (exit 3). Entrambi non sono sopprimibili.
 
 **Non serve `zenzic.toml`?** Corretto. Zenzic identifica il motore dai file di configurazione presenti e applica i default sicuri.
@@ -505,18 +502,6 @@ Apache-2.0 — vedi [LICENSE][license].
 
 ---
 
-## 📚 Le Cronache Ossidiane
-
-Zenzic è nato da un percorso tecnico attraverso la fragilità dei moderni ecosistemi di
-documentazione. Scopri la filosofia, l'assedio della sicurezza e l'ingegneria dietro il
-Sentinel nelle [**Engineering Chronicles**](https://zenzic.dev/blog/tags/chronicles) sul blog ufficiale.
-
-La storia della release v0.7.1 — l'assedio red-team guidato dall'IA, 4 vettori di bypass
-chiusi, e la strada verso la parità engine-agnostica — è documentata in
-[**Beyond the Siege: Zenzic v0.7.1**](https://zenzic.dev/blog/beyond-the-siege-zenzic-v070-quartz).
-
----
-
 <div align="center">
   <a href="https://zenzic.dev/it/">
     <img src="assets/brand/pythonwoods-logo.svg" alt="PythonWoods" height="50" />
@@ -548,7 +533,7 @@ chiusi, e la strada verso la parità engine-agnostica — è documentata in
 [docs-it-tech-debt]: https://zenzic.dev/it/developers/governance/technical-debt
 [docs-it-eng-ledger]: https://zenzic.dev/it/developers/explanation/engineering-ledger
 [ci-workflow]:       .github/workflows/ci.yml
-[contributing]:      CONTRIBUTING.it.md
+[contributing]:      CONTRIBUTING.md
 [license]:           LICENSE
 [citation-cff]:      CITATION.cff
 [coc]:               CODE_OF_CONDUCT.md

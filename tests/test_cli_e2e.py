@@ -7,8 +7,8 @@ validator, or reporter.  They verify the documented exit-code contract:
 
     Exit 0 — all checks passed
     Exit 1 — general failures (broken links, syntax errors, …)
-    Exit 2 — Shield credential detection (NEVER suppressed by --exit-zero)
-    Exit 3 — Blood Sentinel system-path traversal (NEVER suppressed)
+    Exit 2 — credential scanner detection (NEVER suppressed by --exit-zero)
+    Exit 3 — path traversal guard system-path traversal (NEVER suppressed)
 
 Gap closed: ``docs/internal/arch_gaps.md`` § "Security Pipeline Coverage".
 """
@@ -56,13 +56,15 @@ def _make_sandbox(tmp_path: Path, files: dict[str, str]) -> Path:
     return tmp_path
 
 
-# ── Blood Sentinel — Exit 3 (system-path traversal) ─────────────────────────
+# ── Path Traversal Guard — Exit 3 (system-path traversal) ────────────────────
 
 
-class TestBloodSentinelE2E:
-    """Blood Sentinel must exit 3 on system-path traversal."""
+class TestPathTraversalGuardE2E:
+    """Path traversal guard must exit 3 on system-path traversal."""
 
-    def test_blood_sandbox_exits_3(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_path_traversal_guard_sandbox_exits_3(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """check all on the blood sandbox triggers Exit 3."""
         sandbox = tmp_path / "blood"
         shutil.copytree(_BLOOD_SANDBOX, sandbox)
@@ -78,7 +80,7 @@ class TestBloodSentinelE2E:
             "PATH_TRAVERSAL" in result.stdout or "Z202" in result.stdout or "Z203" in result.stdout
         )
 
-    def test_blood_exit_3_not_suppressed_by_exit_zero(
+    def test_path_traversal_guard_exit_3_not_suppressed_by_exit_zero(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """--exit-zero must NOT suppress Exit 3 — documented contract."""
@@ -94,11 +96,11 @@ class TestBloodSentinelE2E:
         )
 
 
-# ── Shield Breach — Exit 2 (credential leak) ────────────────────────────────
+# ── Credential Breach — Exit 2 (credential leak) ────────────────────────────────
 
 
-class TestShieldBreachE2E:
-    """Shield must exit 2 when a credential is detected."""
+class TestCredentialBreachE2E:
+    """Credential scanner must exit 2 when a credential is detected."""
 
     _BREACH_DOC = """\
         # Cloud Setup
@@ -114,7 +116,9 @@ class TestShieldBreachE2E:
         [AWS Dashboard](https://console.aws.amazon.com?key=AKIA1234567890ABCDEF)
     """
 
-    def test_shield_breach_exits_2(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_credential_scanner_breach_exits_2(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """check all exits 2 when an AWS key is embedded in a link URL."""
         _make_sandbox(tmp_path, {"docs/index.md": self._BREACH_DOC})
         monkeypatch.chdir(tmp_path)
@@ -124,9 +128,9 @@ class TestShieldBreachE2E:
         assert result.exit_code == 2, (
             f"Expected exit 2 (security_breach), got {result.exit_code}.\nOutput:\n{result.stdout}"
         )
-        assert "ZENZIC SENTINEL" in result.stdout
+        assert "ZENZIC" in result.stdout
 
-    def test_shield_exit_2_not_suppressed_by_exit_zero(
+    def test_credential_scanner_exit_2_not_suppressed_by_exit_zero(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """--exit-zero must NOT suppress Exit 2 — documented contract."""
@@ -203,7 +207,7 @@ class TestExitZeroContractE2E:
         assert result.exit_code == 0, (
             f"Expected exit 0 (clean), got {result.exit_code}.\nOutput:\n{result.stdout}"
         )
-        assert "Sentinel Seal" in result.stdout
+        assert "Analysis complete" in result.stdout
 
 
 # ── Priority: Exit 3 wins over Exit 2 ───────────────────────────────────────
@@ -213,7 +217,7 @@ class TestExitCodePriorityE2E:
     """When both security_incident and security_breach coexist, Exit 3 wins."""
 
     def test_exit_3_beats_exit_2(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-        """Exit 3 (Blood Sentinel) takes priority over Exit 2 (Shield breach)."""
+        """Exit 3 (path traversal guard) takes priority over Exit 2 (credential scanner breach)."""
         _make_sandbox(
             tmp_path,
             {

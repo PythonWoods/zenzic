@@ -1,8 +1,8 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
-"""Zenzic Shield: secret-detection engine integrated into the Pass 1 harvesting phase.
+"""Zenzic credential scanner: secret-detection engine integrated into the Pass 1 harvesting phase.
 
-All functions are pure (no I/O). The Shield is intentionally "lazy but effective":
+All functions are pure (no I/O). The credential scanner is intentionally "lazy but effective":
 regex patterns are pre-compiled once at import time and applied line-by-line via
 the generator pipeline, so secrets are flagged the moment a line is processed —
 never after loading the full file.
@@ -21,7 +21,7 @@ Supported patterns
 Exit code contract
 ------------------
 Any secret detected **must** cause the CLI to exit with **code 2**.
-The Shield itself returns findings; callers are responsible for the exit.
+The credential scanner itself returns findings; callers are responsible for the exit.
 """
 
 from __future__ import annotations
@@ -50,7 +50,7 @@ _HTML_COMMENT_RE = re.compile(r"<!--.*?-->")
 _MDX_COMMENT_RE = re.compile(r"\{/\*.*?\*/\}")
 
 
-def _normalize_line_for_shield(line: str) -> str:
+def _normalize_line_for_scan(line: str) -> str:
     """Strip Markdown noise tokens to reconstruct secrets split by obfuscation.
 
     Applies three transformations in order:
@@ -60,7 +60,7 @@ def _normalize_line_for_shield(line: str) -> str:
        sometimes place between key fragments in documentation tables.
     3. Replace table-pipe separators with spaces and collapse whitespace.
 
-    This allows the Shield to catch split-token patterns such as::
+    This allows the credential scanner to catch split-token patterns such as::
 
         | Key ID | `AKIA` + `1234567890ABCDEF` |
 
@@ -103,7 +103,7 @@ _SECRETS: list[tuple[str, re.RegexPattern]] = [
     ("gitlab-pat", re.compile(r"glpat-[A-Za-z0-9\-_]{20,}")),
 ]
 
-#: Maximum line length the Shield will scan.  Lines exceeding this limit
+#: Maximum line length the credential scanner will scan.  Lines exceeding this limit
 #: are silently truncated before regex matching to prevent ReDoS or
 #: excessive memory consumption from pathological input (F2-1 hardening).
 _MAX_LINE_LENGTH: int = 1_048_576  # 1 MiB
@@ -143,7 +143,7 @@ def _try_decode_base64(token: str) -> str | None:
 
 @dataclass(slots=True)
 class SecurityFinding:
-    """A single secret detected by the Shield during Pass 1 harvesting.
+    """A single secret detected by the credential scanner during Pass 1 harvesting.
 
     Attributes:
         file_path: Path to the file where the secret was found.
@@ -176,7 +176,7 @@ def scan_url_for_secrets(
     """Scan a single URL string for known secret patterns.
 
     Called once per URL discovered during Pass 1 harvesting.  This keeps the
-    detection responsibility inside the Shield module while the scanner drives
+    detection responsibility inside the credential scanner module while the scanner drives
     the iteration.
 
     Args:
@@ -209,7 +209,7 @@ def scan_line_for_secrets(
     """Scan an arbitrary text line for known secret patterns.
 
     Used for defence-in-depth: even if a secret appears outside a URL (e.g. in
-    link text or plain prose), the Shield will catch it.
+    link text or plain prose), the credential scanner will catch it.
 
     Two forms of the line are scanned:
 
@@ -236,7 +236,7 @@ def scan_line_for_secrets(
     # F2-1 hardening: truncate pathologically long lines to prevent ReDoS
     # or excessive memory consumption. The constant is defined above.
     line = line[:_MAX_LINE_LENGTH]
-    normalized = _normalize_line_for_shield(line)
+    normalized = _normalize_line_for_scan(line)
     seen: set[str] = set()
 
     for line_form in (line, normalized):
@@ -375,7 +375,7 @@ def scan_lines_with_lookback(
 
         # 2. Lookback: join previous line tail + current line head (normalised)
         if prev_normalized:
-            current_normalized = _normalize_line_for_shield(raw_line[:_MAX_LINE_LENGTH])
+            current_normalized = _normalize_line_for_scan(raw_line[:_MAX_LINE_LENGTH])
             # Take last 80 chars of prev + first 80 chars of current.
             # Secret patterns are at most ~50 chars; 80 gives generous margin.
             joined = prev_normalized[-80:] + current_normalized[:80]
@@ -397,14 +397,14 @@ def scan_lines_with_lookback(
                     seen_this_line.add(secret_type)
 
         # Rotate buffer
-        prev_normalized = _normalize_line_for_shield(raw_line[:_MAX_LINE_LENGTH])
+        prev_normalized = _normalize_line_for_scan(raw_line[:_MAX_LINE_LENGTH])
         prev_seen = seen_this_line
 
 
-# ─── Shield as IO Middleware ──────────────────────────────────────────────────
+# ─── Credential Scanner as IO Middleware ──────────────────────────────────────────────────
 
 
-class ShieldViolation(Exception):
+class CredentialViolation(Exception):
     """Raised by ``safe_read_line()`` when a secret is detected during IO.
 
     This exception is **intentionally fatal** — it prevents the VSM from
@@ -430,16 +430,16 @@ def safe_read_line(
     file_path: Path | str,
     line_no: int,
 ) -> str:
-    """Shield-guarded line reader — scans before returning.
+    """Credential-scanner-guarded line reader — scans before returning.
 
     Invokes :func:`scan_line_for_secrets` on *line*.  If a secret is found,
-    raises :class:`ShieldViolation` immediately — the line is never returned
+    raises :class:`CredentialViolation` immediately — the line is never returned
     to the caller, preventing the secret from entering any parser (YAML,
     Markdown, Regex).
 
     This function is the **IO Middleware** mandated by the Tech Lead directive:
     every line read during metadata extraction (frontmatter for slug, tags,
-    draft status) must pass through the Shield before any parser sees it.
+    draft status) must pass through the credential scanner before any parser sees it.
 
     Args:
         line: Raw text line from the source file.
@@ -450,8 +450,8 @@ def safe_read_line(
         The original *line* unchanged, if no secret is detected.
 
     Raises:
-        :class:`ShieldViolation`: When any secret pattern matches.
+        :class:`CredentialViolation`: When any secret pattern matches.
     """
     for finding in scan_line_for_secrets(line, file_path, line_no):
-        raise ShieldViolation(finding)
+        raise CredentialViolation(finding)
     return line

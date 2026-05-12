@@ -1,11 +1,11 @@
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
-<!-- markdownlint-disable MD053 -- unused reference definitions are intentional: they are the Shield trigger -->
+<!-- markdownlint-disable MD053 -- unused reference definitions are intentional: they are the credential scanner trigger -->
 
-# Security Lab — Zenzic Shield Test
+# Security Lab — Credential Scanner Test
 
-This file intentionally contains patterns that trigger both layers of the **Zenzic Shield**.
-It exists to verify Shield behaviour before releases. Run from this directory:
+This file intentionally contains patterns that trigger both layers of the **Zenzic credential scanner**.
+It exists to verify credential scanner behaviour before releases. Run from this directory:
 
 ```bash
 zenzic check links --strict          # triggers PathTraversal (exit 1)
@@ -16,7 +16,7 @@ zenzic check references              # triggers credential detection (exit 2)
 
 ## Layer 1 — Path Traversal
 
-The link below attempts to escape the `docs/` root. Zenzic Shield classifies it as
+The link below attempts to escape the `docs/` root. Zenzic classifies it as
 `PathTraversal` — not a generic `FileNotFound` — and blocks it before any filesystem
 access occurs.
 
@@ -33,7 +33,7 @@ Expected output:
 ## Layer 2 — Credential Detection
 
 The reference definitions below embed intentionally fake, credential-shaped patterns.
-They exist **solely to exercise the Shield scanner** during pre-release testing.
+They exist **solely to exercise the credential scanner** during pre-release testing.
 All values are synthetic — they match the regex shape but are not valid credentials
 for any service.
 
@@ -53,13 +53,13 @@ Expected output:
 ║  Secret(s) detected in documentation ║
 ╚══════════════════════════════════════╝
 
-  [SHIELD] attack.md:35 — openai-api-key detected in reference
-  [SHIELD] attack.md:36 — github-token detected in reference
-  [SHIELD] attack.md:37 — aws-access-key detected in URL
-  [SHIELD] attack.md:38 — stripe-live-key detected in reference
-  [SHIELD] attack.md:39 — slack-token detected in reference
-  [SHIELD] attack.md:40 — google-api-key detected in URL
-  [SHIELD] attack.md:41 — private-key detected in reference
+  [CREDENTIAL] attack.md:35 — openai-api-key detected in reference
+  [CREDENTIAL] attack.md:36 — github-token detected in reference
+  [CREDENTIAL] attack.md:37 — aws-access-key detected in URL
+  [CREDENTIAL] attack.md:38 — stripe-live-key detected in reference
+  [CREDENTIAL] attack.md:39 — slack-token detected in reference
+  [CREDENTIAL] attack.md:40 — google-api-key detected in URL
+  [CREDENTIAL] attack.md:41 — private-key detected in reference
 
 Build aborted. Rotate the exposed credential immediately.
 ```
@@ -84,7 +84,7 @@ Exit code: **2**
 
 ## Why exit code 2 is non-suppressible
 
-Shield events use exit code `2` — distinct from `1` (check failures) — so CI pipelines can
+Credential scanner events use exit code `2` — distinct from `1` (check failures) — so CI pipelines can
 treat credential exposure as a hard blocker independently of `--exit-zero`.
 
 ```bash

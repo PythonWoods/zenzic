@@ -4,10 +4,10 @@ This project declares `engine = "zensical"` in `zenzic.toml` but has **no
 `zensical.toml`** — only a `mkdocs.yml`.
 
 When you run `zenzic check all`, the **Transparent Proxy** activates
-automatically and the **Sentinel Banner** is displayed:
+automatically and the **Zenzic Banner** is displayed:
 
 ```text
-SENTINEL: Zensical engine active via mkdocs.yml compatibility bridge.
+ZENZIC: Zensical engine active via mkdocs.yml compatibility bridge.
 ```
 
 This provides a seamless migration path from MkDocs to Zensical without

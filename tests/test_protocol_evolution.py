@@ -7,7 +7,7 @@ This module validates:
 2. ``RouteMetadata`` dataclass invariants.
 3. ``get_route_info()`` contract: every adapter returns valid metadata.
 4. ``build_metadata_cache()`` / ``extract_frontmatter_*()`` correctness.
-5. ``safe_read_line()`` Shield middleware integration.
+5. ``safe_read_line()`` credential scanner middleware integration.
 6. Hypothesis stress tests on ``get_route_info()`` with extreme paths.
 7. Pickle safety: adapter instances survive pickle round-trip.
 """
@@ -32,7 +32,7 @@ from zenzic.core.adapters._utils import (
     extract_frontmatter_unlisted,
 )
 from zenzic.core.adapters._zensical import ZensicalAdapter
-from zenzic.core.shield import ShieldViolation, safe_read_line
+from zenzic.core.credentials import CredentialViolation, safe_read_line
 from zenzic.models.config import BuildContext
 
 
@@ -360,32 +360,32 @@ class TestBuildMetadataCache:
         assert meta.draft is True
         assert meta.tags == ["a", "b"]
 
-    def test_shield_catches_secret_in_frontmatter(self, tmp_path: Path) -> None:
+    def test_credential_scanner_catches_secret_in_frontmatter(self, tmp_path: Path) -> None:
         docs = tmp_path / "docs"
         docs.mkdir()
         # Embed a fake OpenAI key in frontmatter.
         fake_key = "sk-" + "a" * 48
         content = f"---\ntitle: Test\napi_key: {fake_key}\n---\n\nBody"
         md_contents = {docs / "page.md": content}
-        with pytest.raises(ShieldViolation) as exc_info:
+        with pytest.raises(CredentialViolation) as exc_info:
             build_metadata_cache(md_contents, docs, shield_enabled=True)
         assert exc_info.value.finding.secret_type == "openai-api-key"
 
-    def test_shield_disabled_allows_secret(self, tmp_path: Path) -> None:
+    def test_credential_scanner_disabled_allows_secret(self, tmp_path: Path) -> None:
         docs = tmp_path / "docs"
         docs.mkdir()
         fake_key = "sk-" + "a" * 48
         content = f"---\ntitle: Test\napi_key: {fake_key}\n---\n\nBody"
         md_contents = {docs / "page.md": content}
-        # Should NOT raise when Shield is disabled.
+        # Should NOT raise when credential scanner is disabled.
         cache = build_metadata_cache(md_contents, docs, shield_enabled=False)
         assert "page.md" in cache
 
 
-# ── Shield Middleware ────────────────────────────────────────────────────────
+# ── Credential Scanner Middleware ────────────────────────────────────────────────────────
 
 
-class TestShieldMiddleware:
+class TestCredentialScannerMiddleware:
     """safe_read_line() must raise ShieldViolation on secrets."""
 
     def test_clean_line_passes_through(self) -> None:
@@ -394,14 +394,14 @@ class TestShieldMiddleware:
 
     def test_secret_raises_violation(self) -> None:
         fake_key = "sk-" + "a" * 48
-        with pytest.raises(ShieldViolation) as exc_info:
+        with pytest.raises(CredentialViolation) as exc_info:
             safe_read_line(f"key: {fake_key}", Path("test.md"), 5)
         assert exc_info.value.finding.secret_type == "openai-api-key"
         assert exc_info.value.finding.line_no == 5
 
     def test_github_token_raises(self) -> None:
         fake_token = "ghp_" + "a" * 36
-        with pytest.raises(ShieldViolation):
+        with pytest.raises(CredentialViolation):
             safe_read_line(f"token: {fake_token}", Path("test.md"), 1)
 
     def test_normal_frontmatter_safe(self) -> None:

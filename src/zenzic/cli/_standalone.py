@@ -30,7 +30,7 @@ from zenzic.core.scanner import (
     scan_docs_references,
 )
 from zenzic.core.scorer import ScoreReport, compute_score, load_snapshot, save_snapshot
-from zenzic.core.ui import SentinelPalette, emoji
+from zenzic.core.ui import ZenzicPalette, emoji
 from zenzic.core.validator import check_nav_contract, validate_links, validate_snippets
 from zenzic.models.config import ZenzicConfig
 
@@ -192,23 +192,23 @@ def score(
         print(json.dumps(report.to_dict(), indent=2))
     else:
         if report.score >= 80:
-            score_style = SentinelPalette.STYLE_OK
+            score_style = ZenzicPalette.STYLE_OK
         elif report.score >= 50:
             score_style = "bold yellow"
         else:
-            score_style = SentinelPalette.STYLE_ERR
+            score_style = ZenzicPalette.STYLE_ERR
 
         score_summary = Text.from_markup(
             f"{emoji('sparkles')} "
-            f"[bold {SentinelPalette.SUCCESS}]Quality Score:[/bold {SentinelPalette.SUCCESS}]"
+            f"[bold {ZenzicPalette.SUCCESS}]Quality Score:[/bold {ZenzicPalette.SUCCESS}]"
             f" [{score_style}]{report.score}/100[/{score_style}]\n"
         )
 
         table = Table(
             box=box.ROUNDED,
             title="[bold]Quality Breakdown[/]",
-            title_style=SentinelPalette.DIM,
-            border_style=SentinelPalette.DIM,
+            title_style=ZenzicPalette.DIM,
+            border_style=ZenzicPalette.DIM,
             show_lines=False,
             pad_edge=True,
             padding=(0, 1),
@@ -244,12 +244,12 @@ def score(
             _shared.console.print(
                 Group(
                     Text.from_markup(
-                        f"[bold {SentinelPalette.BRAND}]{emoji('shield')} SENTINEL SEAL[/]"
+                        f"[bold {ZenzicPalette.BRAND}]{emoji('check')} Analysis complete[/]"
                     ),
                     Text(),
                     Text.from_markup(
-                        f"[{SentinelPalette.SUCCESS}]{emoji('check')} Every check passed \u2014 "
-                        f"documentation integrity verified.[/{SentinelPalette.SUCCESS}]"
+                        f"[{ZenzicPalette.SUCCESS}]{emoji('check')} Every check passed \u2014 "
+                        f"documentation integrity verified.[/{ZenzicPalette.SUCCESS}]"
                     ),
                 )
             )
@@ -356,9 +356,9 @@ def diff(
         sign = "+" if delta >= 0 else ""
         diff_table = Table(
             box=box.ROUNDED,
-            border_style=SentinelPalette.DIM,
+            border_style=ZenzicPalette.DIM,
             show_header=True,
-            header_style=SentinelPalette.STYLE_BRAND,
+            header_style=ZenzicPalette.STYLE_BRAND,
             pad_edge=True,
             padding=(0, 1),
         )
@@ -581,7 +581,7 @@ def _scaffold_local_toml(repo_root: Path) -> None:
             '# github_pat = "ghp_xxxxxxxxxxxxxxxxxxxx"\n'
             "\n"
             "[debug]\n"
-            "# Enable granular diagnostics while investigating Sentinel behavior.\n"
+            "# Enable granular diagnostics.\n"
             '# log_level = "DEBUG"\n'
             "\n"
             "# --- DEVELOPMENT ENVIRONMENT ---\n"
@@ -723,7 +723,7 @@ def _build_governance_ready_toml(*, engine: str, discovered_name: str | None) ->
         "# name: zenzic\n"
         "# on: [pull_request, push]\n"
         "# jobs:\n"
-        "#   sentinel:\n"
+        "#   audit:\n"
         "#     runs-on: ubuntu-latest\n"
         "#     steps:\n"
         "#       - uses: actions/checkout@v4\n"
@@ -757,10 +757,10 @@ def _init_standalone(repo_root: Path, force: bool) -> None:
 
     _shared.console.print(
         Panel(
-            f"[green]✔[/] [bold]Sentinel Seal:[/] zenzic.toml created.\n"
+            f"[green]✔[/] [bold]zenzic.toml created.[/]\n"
             f"[yellow]💡[/] [bold]Auto-discovery:[/] Engine pre-set to "
             f"[bold cyan]{detected_engine}[/].\n\n"
-            "Run [bold cyan]zenzic check all[/] to see your first Sentinel Seal.",
+            "Run [bold cyan]zenzic check all[/] to verify your documentation.",
             title="[bold]Zenzic Init[/]",
             border_style="green",
         )
@@ -815,8 +815,8 @@ def _init_pyproject(repo_root: Path, pyproject_path: Path, force: bool) -> None:
 
     _shared.console.print(
         Panel(
-            f"[green]✔[/] [bold]Sentinel Seal:[/] [tool.zenzic] added to "
-            f"{pyproject_path.relative_to(repo_root)}.\n"
+            f"[green]✔[/] [bold][tool.zenzic] added to "
+            f"{pyproject_path.relative_to(repo_root)}.[/]\n"
             f"[yellow]💡[/] [bold]Auto-discovery:[/] Engine pre-set to "
             f"[bold cyan]{detected_engine}[/].\n\n"
             "Edit the section, adjust directories, then run "

@@ -1,11 +1,11 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
-"""Sentinel Visual Identity — SentinelPalette, terminal detection, and UI helpers.
+"""Zenzic Visual Identity — ZenzicPalette, terminal detection, and UI helpers.
 
-``SentinelPalette`` is the **sole source of truth** for every colour used in the
+``ZenzicPalette`` is the **sole source of truth** for every colour used in the
 Zenzic terminal output.  Raw hex values live inside the class and **nowhere else**
-in the codebase.  Every other module must import ``SentinelPalette`` and address
-its semantic attributes (e.g. ``SentinelPalette.BRAND``) — never a raw hex string.
+in the codebase.  Every other module must import ``ZenzicPalette`` and address
+its semantic attributes (e.g. ``ZenzicPalette.BRAND``) — never a raw hex string.
 """
 
 from __future__ import annotations
@@ -19,10 +19,10 @@ from rich.console import RenderableType
 from rich.panel import Panel
 
 
-# ── Sentinel Visual Identity System ──────────────────────────────────────────
+# ── Zenzic Visual Identity System ───────────────────────────────────────────
 
 
-class SentinelPalette:
+class ZenzicPalette:
     """Zenzic brand colour system — the only place where hex values are permitted.
 
     Internal (private) attributes store raw hex values.  External code must always
@@ -130,13 +130,13 @@ def make_banner(version: str) -> str:
     """
     shield = emoji("shield")
     lines = [
-        f"[bold white]{shield}  ZENZIC SENTINEL[/]  [{SentinelPalette.DIM}]v{version}[/]",
-        f"[{SentinelPalette.DIM}]Engine-agnostic Markdown integrity & security shield[/]",
+        f"[bold white]{shield}  ZENZIC[/]  [{ZenzicPalette.DIM}]v{version}[/]",
+        f"[{ZenzicPalette.DIM}]Engine-agnostic Markdown static analyzer & credential scanner[/]",
     ]
     return "\n".join(lines)
 
 
-def make_sentinel_header(
+def make_report_header(
     version: str,
     *,
     engine: str = "auto",
@@ -145,9 +145,9 @@ def make_sentinel_header(
     elapsed: float = 0.0,
     target: str | None = None,
 ) -> str:
-    """Return the compact Sentinel Report header for ``check all`` output.
+    """Return the compact Zenzic Report header for ``check all`` output.
 
-    Used by :class:`~zenzic.core.reporter.SentinelReporter` as the top-of-report
+    Used by :class:`~zenzic.core.reporter.ZenzicReporter` as the top-of-report
     banner.  Separate from :func:`make_banner` (which is the CLI startup panel).
 
     Telemetry is unified: *docs_count* (Markdown + engine config files) and
@@ -166,26 +166,26 @@ def make_sentinel_header(
         parts.append(target)
     if total:
         breakdown = (
-            f"([{SentinelPalette.BRAND}]{docs_count}[/] docs, "
-            f"[{SentinelPalette.BRAND}]{assets_count}[/] assets)"
+            f"([{ZenzicPalette.BRAND}]{docs_count}[/] docs, "
+            f"[{ZenzicPalette.BRAND}]{assets_count}[/] assets)"
         )
         parts.append(
-            f"[{SentinelPalette.BRAND}]{total}[/] file{'s' if total != 1 else ''} {breakdown}"
+            f"[{ZenzicPalette.BRAND}]{total}[/] file{'s' if total != 1 else ''} {breakdown}"
         )
     if elapsed:
-        parts.append(f"[{SentinelPalette.BRAND}]{elapsed:.1f}[/]s")
+        parts.append(f"[{ZenzicPalette.BRAND}]{elapsed:.1f}[/]s")
     meta = f" {dot} ".join(parts)
     return (
-        f"[{SentinelPalette.STYLE_BRAND}]{shield}  ZENZIC SENTINEL[/]  "
-        f"[{SentinelPalette.DIM}]v{version}[/]\n"
-        f"[{SentinelPalette.DIM}]{meta}[/]"
+        f"[{ZenzicPalette.STYLE_BRAND}]{shield}  ZENZIC[/]  "
+        f"[{ZenzicPalette.DIM}]v{version}[/]\n"
+        f"[{ZenzicPalette.DIM}]{meta}[/]"
     )
 
 
-# ── SentinelUI: Centralized UI Bridge ───────────────────────────────────────
+# ── ZenzicUI: Centralized UI Bridge ─────────────────────────────────────────
 
 
-class SentinelUI:
+class ZenzicUI:
     """Central UI bridge for all Zenzic CLI output.
 
     All header, seal, telemetry, and alert panels must go through this interface.
@@ -206,17 +206,17 @@ class SentinelUI:
         """Create a canonical Forge Frame panel.
 
         The frame features a left-aligned title, bottom-right subtitle, and an
-        Indigo rounded border. Every Zenzic Sentinel output panel must be created
+        Indigo rounded border. Every Zenzic output panel must be created
         through this factory to guarantee visual consistency.
         """
-        title_markup = title if "[" in title else f"[{SentinelPalette.STYLE_BRAND}]{title}[/]"
+        title_markup = title if "[" in title else f"[{ZenzicPalette.STYLE_BRAND}]{title}[/]"
         return Panel(
             content,
             title=title_markup,
             title_align="left",
             subtitle=f"[dim]{subtitle}[/]",
             subtitle_align="right",
-            border_style=border_style if border_style is not None else SentinelPalette.BRAND,
+            border_style=border_style if border_style is not None else ZenzicPalette.BRAND,
             box=_rich_box.ROUNDED,
             padding=(1, 2),
         )
@@ -237,13 +237,13 @@ class SentinelUI:
         title: str = "Zenzic Error",
         border_style: str | None = None,
     ) -> None:
-        """Render a styled Sentinel Alert panel for an exception.
+        """Render a styled error alert panel for an exception.
 
         Replaces ad-hoc ``Panel()`` calls in error handlers with a branded,
-        consistent layout.  The *border_style* defaults to :data:`SentinelPalette.ERROR`
-        (error); pass ``SentinelPalette.STYLE_BRAND`` for plugin-contract violations.
+        consistent layout.  The *border_style* defaults to :data:`ZenzicPalette.ERROR`
+        (error); pass ``ZenzicPalette.STYLE_BRAND`` for plugin-contract violations.
         """
-        effective_style = border_style if border_style is not None else SentinelPalette.ERROR
+        effective_style = border_style if border_style is not None else ZenzicPalette.ERROR
         lines = [message]
         if context:
             lines.append("")
@@ -260,10 +260,10 @@ class SentinelUI:
 
 
 __all__ = [
-    "SentinelPalette",
-    "SentinelUI",
+    "ZenzicPalette",
+    "ZenzicUI",
     "make_banner",
-    "make_sentinel_header",
+    "make_report_header",
     "emoji",
     "SUPPORTS_COLOR",
     "SUPPORTS_EMOJI",

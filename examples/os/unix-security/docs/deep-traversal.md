@@ -1,6 +1,6 @@
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
-<!-- markdownlint-disable MD053 -- credential reference definitions are intentional Shield triggers -->
+<!-- markdownlint-disable MD053 -- credential reference definitions are intentional credential scanner triggers -->
 
 # Unix Security Probe — Deep Traversal & Credential Exposure
 
@@ -8,7 +8,7 @@
 credential-shaped patterns across reference definitions.
 
 **BLUE TEAM** response: Zenzic raises `PATH_TRAVERSAL` on every escaping link and
-triggers the Shield on every credential reference — `check all` exits with code **2**.
+triggers the credential scanner on every credential reference — `check all` exits with code **2**.
 
 ---
 
@@ -31,7 +31,7 @@ Four-hop escape attempts targeting canonical Unix sensitive files.
 ## Layer 2 — Credential Reference Definitions
 
 Synthetic credential-shaped patterns in Markdown reference definitions.
-All values are fake — they exist solely to exercise the Shield scanner.
+All values are fake — they exist solely to exercise the credential scanner.
 
 [prod-openai-key]: sk-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
@@ -45,6 +45,6 @@ All values are fake — they exist solely to exercise the Shield scanner.
 
 ---
 
-Expected exit: **2** (Shield credential detection takes priority over link errors).
+Expected exit: **2** (credential scanner detection takes priority over link errors).
 
 See [obfuscated.md](obfuscated.md) and [fenced.md](fenced.md).

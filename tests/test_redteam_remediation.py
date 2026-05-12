@@ -3,9 +3,9 @@
 """Tests for ZRT Red-Team remediation.
 
 Covers:
-- ZRT-001: Shield must detect secrets in YAML frontmatter
+- ZRT-001: Credential scanner must detect secrets in YAML frontmatter
 - ZRT-007: CustomRule must reject RE2-incompatible patterns at construction (DFA purity)
-- ZRT-003: Shield normalizer must catch split-token obfuscation in tables
+- ZRT-003: Credential scanner normalizer must catch split-token obfuscation in tables
 - ZRT-004: VSMBrokenLinkRule must resolve relative links with source-file context
 """
 
@@ -26,44 +26,44 @@ from zenzic.core.rules import (
 from zenzic.models.vsm import Route
 
 
-# Shield/Scanner symbols are committed in Commit 2 (shield.py + scanner.py).
+# Credential scanner symbols are committed in Commit 2 (credentials.py + scanner.py).
 # Guard the import so that Commit 1 alone remains test-runnable: the two
-# shield-dependent test classes are skipped until Commit 2 is applied.
+# credential-scanner-dependent test classes are skipped until Commit 2 is applied.
 try:
-    from zenzic.core.reporter import Finding, SentinelReporter, _obfuscate_secret
-    from zenzic.core.scanner import ReferenceScanner, _map_shield_to_finding
-    from zenzic.core.shield import (
+    from zenzic.core.credentials import (
         SecurityFinding,
-        _normalize_line_for_shield,
+        _normalize_line_for_scan,
         scan_line_for_secrets,
     )
+    from zenzic.core.reporter import Finding, ZenzicReporter, _obfuscate_secret
+    from zenzic.core.scanner import ReferenceScanner, _map_credential_to_finding
 
-    _SHIELD_AVAILABLE = True
+    _CREDENTIALS_AVAILABLE = True
 except ImportError:
-    _normalize_line_for_shield = None  # type: ignore[assignment]
+    _normalize_line_for_scan = None  # type: ignore[assignment]
     scan_line_for_secrets = None  # type: ignore[assignment]
     ReferenceScanner = None  # type: ignore[assignment]
-    _map_shield_to_finding = None  # type: ignore[assignment]
+    _map_credential_to_finding = None  # type: ignore[assignment]
     SecurityFinding = None  # type: ignore[assignment]
     Finding = None  # type: ignore[assignment]
-    SentinelReporter = None  # type: ignore[assignment]
+    ZenzicReporter = None  # type: ignore[assignment]
     _obfuscate_secret = None  # type: ignore[assignment]
-    _SHIELD_AVAILABLE = False
+    _CREDENTIALS_AVAILABLE = False
 
-_shield_skip = pytest.mark.skipif(
-    not _SHIELD_AVAILABLE,
-    reason="shield.py normalizer and scanner.py dual-stream not yet committed (Commit 2)",
+_credential_scanner_skip = pytest.mark.skipif(
+    not _CREDENTIALS_AVAILABLE,
+    reason="credentials.py normalizer and scanner.py dual-stream not yet committed (Commit 2)",
 )
 
 
-# ─── ZRT-001: Shield must detect secrets in YAML frontmatter ──────────────────
+# ─── ZRT-001: Credential scanner must detect secrets in YAML frontmatter ──────────────────
 
 
-@_shield_skip
-class TestShieldFrontmatterCoverage:
-    """ZRT-001: The Shield stream must scan ALL lines including frontmatter."""
+@_credential_scanner_skip
+class TestCredentialScannerFrontmatterCoverage:
+    """ZRT-001: The credential scanner stream must scan ALL lines including frontmatter."""
 
-    def test_shield_catches_aws_key_in_yaml_frontmatter(self, tmp_path: Path) -> None:
+    def test_credential_scanner_catches_aws_key_in_yaml_frontmatter(self, tmp_path: Path) -> None:
         """AWS access key inside YAML frontmatter must trigger a SecurityFinding."""
         from zenzic.core.scanner import ReferenceScanner
 
@@ -77,11 +77,13 @@ class TestShieldFrontmatterCoverage:
         )
         scanner = ReferenceScanner(md)
         secrets = [data for _, evt, data in scanner.harvest() if evt == "SECRET"]
-        assert len(secrets) >= 1, "Shield must catch AWS key inside YAML frontmatter"
+        assert len(secrets) >= 1, "Credential scanner must catch AWS key inside YAML frontmatter"
         secret_types = {s.secret_type for s in secrets}
         assert "aws-access-key" in secret_types
 
-    def test_shield_catches_github_token_in_yaml_frontmatter(self, tmp_path: Path) -> None:
+    def test_credential_scanner_catches_github_token_in_yaml_frontmatter(
+        self, tmp_path: Path
+    ) -> None:
         """GitHub PAT inside YAML frontmatter must trigger a SecurityFinding."""
         from zenzic.core.scanner import ReferenceScanner
 
@@ -95,9 +97,11 @@ class TestShieldFrontmatterCoverage:
         )
         scanner = ReferenceScanner(md)
         secrets = [data for _, evt, data in scanner.harvest() if evt == "SECRET"]
-        assert len(secrets) >= 1, "Shield must catch GitHub token inside YAML frontmatter"
+        assert len(secrets) >= 1, (
+            "Credential scanner must catch GitHub token inside YAML frontmatter"
+        )
 
-    def test_shield_does_not_create_false_positive_on_clean_frontmatter(
+    def test_credential_scanner_does_not_create_false_positive_on_clean_frontmatter(
         self, tmp_path: Path
     ) -> None:
         """A doc with only safe frontmatter metadata must emit zero secrets."""
@@ -116,7 +120,9 @@ class TestShieldFrontmatterCoverage:
         secrets = [data for _, evt, data in scanner.harvest() if evt == "SECRET"]
         assert secrets == [], f"Expected 0 secrets, got: {secrets}"
 
-    def test_shield_secret_line_number_is_inside_frontmatter(self, tmp_path: Path) -> None:
+    def test_credential_scanner_secret_line_number_is_inside_frontmatter(
+        self, tmp_path: Path
+    ) -> None:
         """The reported line number of a frontmatter secret must be correct."""
         from zenzic.core.scanner import ReferenceScanner
 
@@ -260,33 +266,33 @@ class TestReDoSCanary:
         assert len(findings) == 2
 
 
-# ─── ZRT-003: Split-token Shield bypass via Markdown table normalizer ──────────
+# ─── ZRT-003: Split-token credential scanner bypass via Markdown table normalizer ──────────
 
 
-@_shield_skip
-class TestShieldNormalizer:
+@_credential_scanner_skip
+class TestCredentialScannerNormalizer:
     """ZRT-003: The pre-scan normalizer must reconstruct split-token secrets."""
 
     def test_normalize_strips_backtick_spans(self) -> None:
         """`AKIA` → AKIA (unwrap inline code)."""
-        result = _normalize_line_for_shield("`AKIA`1234567890ABCDEF")
+        result = _normalize_line_for_scan("`AKIA`1234567890ABCDEF")
         assert "AKIA1234567890ABCDEF" in result
 
     def test_normalize_removes_concat_operator(self) -> None:
         """`AKIA` + `1234567890ABCDEF` → AKIA1234567890ABCDEF."""
-        result = _normalize_line_for_shield("`AKIA` + `1234567890ABCDEF`")
+        result = _normalize_line_for_scan("`AKIA` + `1234567890ABCDEF`")
         assert "AKIA1234567890ABCDEF" in result
 
     def test_normalize_strips_table_pipes(self) -> None:
         """Pipes → spaces so table cells don't break token continuity."""
-        result = _normalize_line_for_shield("| Key | AKIA1234567890ABCDEF |")
+        result = _normalize_line_for_scan("| Key | AKIA1234567890ABCDEF |")
         assert "|" not in result
         assert "AKIA1234567890ABCDEF" in result
 
     def test_normalize_handles_combined_table_and_concat(self) -> None:
         """Full attack vector: table cell with split backtick-concat key."""
         line = "| Access Key | `AKIA` + `1234567890ABCDEF` |"
-        result = _normalize_line_for_shield(line)
+        result = _normalize_line_for_scan(line)
         assert "AKIA1234567890ABCDEF" in result
 
     def test_scan_line_catches_split_token_aws_key(self) -> None:
@@ -436,11 +442,11 @@ class TestVSMContextAwareResolution:
         assert findings == [], f"Expected no findings with context, got: {findings}"
 
 
-# ─── Mutation Gate: Commit 2 — Shield ↔ Reporter bridge integrity ─────────────
+# ─── Mutation Gate: Commit 2 — Credential Scanner ↔ Reporter bridge integrity ─────────────
 
 
-@_shield_skip
-class TestShieldReportingIntegrity:
+@_credential_scanner_skip
+class TestCredentialScannerReportingIntegrity:
     """Mutation Gate: these tests target _map_shield_to_finding() and _obfuscate_secret().
 
     Each test is designed to kill one of the three mandatory mutants defined in
@@ -477,7 +483,7 @@ class TestShieldReportingIntegrity:
         silently downgrading a security breach to an ordinary check failure.
         This test makes that mutant visible.
         """
-        finding = _map_shield_to_finding(self._make_sf(), self._DOCS_ROOT)
+        finding = _map_credential_to_finding(self._make_sf(), self._DOCS_ROOT)
 
         assert finding.severity == "security_breach", (
             f"Expected severity='security_breach', got '{finding.severity}'. "
@@ -522,7 +528,7 @@ class TestShieldReportingIntegrity:
         # ── Integration: raw key must not appear in reporter output ───────────
         buf = StringIO()
         con = Console(file=buf, no_color=True, highlight=False, width=120)
-        reporter = SentinelReporter(con, self._DOCS_ROOT)
+        reporter = ZenzicReporter(con, self._DOCS_ROOT)
 
         breach_finding = Finding(
             rel_path="leaky.md",
@@ -567,13 +573,13 @@ class TestShieldReportingIntegrity:
         This test kills that mutant by asserting count, identity, and field fidelity.
         """
         sf = self._make_sf()
-        result = _map_shield_to_finding(sf, self._DOCS_ROOT)
+        result = _map_credential_to_finding(sf, self._DOCS_ROOT)
 
         # Must return a Finding, never None.
         assert result is not None, "_map_shield_to_finding must never return None."
         assert isinstance(result, Finding), f"Expected Finding, got {type(result).__name__}."
 
-        # Every Shield field must be forwarded with exact fidelity.
+        # Every credential scanner field must be forwarded with exact fidelity.
         assert result.line_no == sf.line_no, "line_no must be forwarded from SecurityFinding."
         assert result.col_start == sf.col_start, "col_start enables surgical caret rendering."
         assert result.match_text == sf.match_text, (
@@ -593,7 +599,7 @@ class TestShieldReportingIntegrity:
         ]
         findings_list: list[Finding] = []
         for each_sf in sfs:
-            findings_list.append(_map_shield_to_finding(each_sf, self._DOCS_ROOT))
+            findings_list.append(_map_credential_to_finding(each_sf, self._DOCS_ROOT))
 
         assert len(findings_list) == 2, (
             f"Expected 2 Finding objects from 2 SecurityFindings, got {len(findings_list)}. "
@@ -604,7 +610,7 @@ class TestShieldReportingIntegrity:
 # ─── Mutant-Killing Tests: _obfuscate_secret boundary conditions ──────────────
 
 
-@_shield_skip
+@_credential_scanner_skip
 class TestObfuscateSecretMutantKill:
     """Kill surviving mutants in _obfuscate_secret().
 

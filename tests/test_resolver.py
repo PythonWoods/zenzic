@@ -4,7 +4,7 @@
 
 Coverage matrix:
 - Happy paths (relative, absolute, implicit .md, directory index)
-- Zenzic Shield: path traversal in all obfuscation variants
+- Credential Scanner: path traversal in all obfuscation variants
 - FileNotFound (missing files, typos)
 - Anchor validation (hit, miss, fuzzing, case-insensitivity)
 - Windows backslash normalisation
@@ -108,7 +108,7 @@ class TestHappyPaths:
         assert isinstance(outcome, Resolved)
 
 
-# ─── Zenzic Shield: path traversal ───────────────────────────────────────────
+# ─── Credential Scanner: path traversal ───────────────────────────────────────────
 
 
 class TestPathTraversal:
@@ -274,7 +274,7 @@ class TestPercentEncoding:
         assert isinstance(outcome, Resolved)
 
     def test_encoded_traversal_via_percent(self, resolver: InMemoryPathResolver) -> None:
-        """%2e%2e/../../../etc/passwd must still be caught by the Shield."""
+        """%2e%2e/../../../etc/passwd must still be caught by the credential scanner."""
         outcome = resolver.resolve(ROOT / "index.md", "%2e%2e/%2e%2e/%2e%2e/etc/passwd")
         assert isinstance(outcome, PathTraversal)
 
@@ -448,7 +448,7 @@ class TestNormcasePortability:
         """Root that starts with an uppercase letter must not produce PathTraversal.
 
         Simulates a project whose docs root is e.g. /Docs (mixed case on APFS).
-        Before the normcase fix, the Shield comparison could fail on Linux if
+        Before the normcase fix, the credential scanner comparison could fail on Linux if
         the os.path.normcase of target != os.path.normcase of root, but on
         Linux normcase is identity so this test also passes there.
         """

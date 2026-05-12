@@ -27,7 +27,7 @@ runner = CliRunner()
 _CFG = ZenzicConfig()
 
 
-# ─── compute_score — pure unit tests (Quartz Penalty API, CEO-163) ─────────────
+# ─── compute_score — pure unit tests (Penalty API, CEO-163) ─────────────
 
 
 def test_perfect_score() -> None:
@@ -121,7 +121,7 @@ def test_no_security_override_when_zero_violations() -> None:
     assert report.security_override is False
 
 
-# ─── Quartz Penalty Table invariants (CEO-163) ────────────────────────────────
+# ─── Penalty Table invariants (CEO-163) ────────────────────────────────
 
 
 def test_z505_category_cap_invariant() -> None:

@@ -6,7 +6,7 @@ This document is part of the **Z204 Privacy Gate** showcase example.
 
 `Z204 FORBIDDEN_TERM` is a Zenzic Enterprise gate that blocks confidential
 terms from leaking into public documentation.  It is the documentation
-equivalent of a secret scanner: instead of credentials (Z201 Shield), it
+equivalent of a secret scanner: instead of credentials (Z201 credential scanner), it
 targets contractual terms, internal project codenames, and PII markers.
 
 ## How it works

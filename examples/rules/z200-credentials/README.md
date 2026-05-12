@@ -1,9 +1,9 @@
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Shield Extreme
+# Credential Extreme
 
-Drives the Shield credential scanner to its limits through three advanced obfuscation
+Drives the credential scanner to its limits through three advanced obfuscation
 techniques: Base64 encoding, percent-encoding, and mixed-case prefix randomisation.
 
 ## What fires
@@ -15,7 +15,7 @@ techniques: Base64 encoding, percent-encoding, and mixed-case prefix randomisati
 ## Expected exits
 
 ```text
-zenzic check references  # EXIT 2 — Z201 SHIELD on every file
+zenzic check references  # EXIT 2 — Z201 credential breach on every file
 zenzic check all         # EXIT 2
 ```
 

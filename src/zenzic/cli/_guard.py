@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
-"""guard sub-commands: fast pre-commit secret guard powered by Shield."""
+"""guard sub-commands: fast pre-commit credential scanner."""
 
 from __future__ import annotations
 
@@ -11,13 +11,13 @@ from pathlib import Path
 import typer
 from rich.table import Table
 
-from zenzic.core.scanner import find_repo_root
-from zenzic.core.shield import (
+from zenzic.core.credentials import (
     SecurityFinding,
     scan_line_for_forbidden_terms,
     scan_line_for_secrets,
 )
-from zenzic.core.ui import SentinelPalette
+from zenzic.core.scanner import find_repo_root
+from zenzic.core.ui import ZenzicPalette
 from zenzic.models.config import ZenzicConfig
 
 from . import _shared
@@ -26,7 +26,7 @@ from . import _shared
 guard_app = typer.Typer(
     name="guard",
     help=(
-        f"[bold {SentinelPalette.BRAND}]Guard[/] — Fast pre-commit secret guard "
+        f"[bold {ZenzicPalette.BRAND}]Guard[/] — Fast pre-commit secret guard "
         "for Markdown/MDX files."
     ),
     no_args_is_help=True,
@@ -125,7 +125,7 @@ def scan(
         help="Output format: text or json.",
     ),
 ) -> None:
-    """Run Secret Guard using Shield signatures and local forbidden patterns."""
+    """Run pre-commit credential scan using built-in signatures and local forbidden patterns."""
     repo_root = find_repo_root(fallback_to_cwd=True)
     config, _ = ZenzicConfig.load(repo_root)
 
@@ -163,13 +163,13 @@ def scan(
         return
 
     table = Table(
-        title=f"[bold {SentinelPalette.BRAND}]Secret Guard[/]",
-        header_style=SentinelPalette.STYLE_BRAND,
-        border_style=SentinelPalette.DIM,
+        title=f"[bold {ZenzicPalette.BRAND}]Secret Guard[/]",
+        header_style=ZenzicPalette.STYLE_BRAND,
+        border_style=ZenzicPalette.DIM,
     )
     table.add_column("File", overflow="fold")
     table.add_column("Line", justify="right", width=6)
-    table.add_column("Type", style=SentinelPalette.ERROR)
+    table.add_column("Type", style=ZenzicPalette.ERROR)
     table.add_column("Match", overflow="fold")
 
     if findings:
@@ -182,20 +182,20 @@ def scan(
             table.add_row(file_cell, str(finding.line_no), finding.secret_type, finding.match_text)
         _shared.console.print(table)
         _shared.console.print(
-            f"[bold {SentinelPalette.ERROR}]Secret Guard blocked commit:[/] "
+            f"[bold {ZenzicPalette.ERROR}]Secret Guard blocked commit:[/] "
             f"{len(findings)} finding(s) across {len(targets)} file(s)."
         )
         raise typer.Exit(2)
 
     _shared.console.print(
-        f"[bold {SentinelPalette.SUCCESS}]Secret Guard clean:[/] "
+        f"[bold {ZenzicPalette.SUCCESS}]Secret Guard clean:[/] "
         f"{len(targets)} file(s) scanned, no secrets detected."
     )
 
 
 _GUARD_HOOK_BLOCK = """- id: zenzic-guard
   name: zenzic guard (Secret Guard)
-  description: Fast staged-file Shield scan for Markdown/MDX before commit.
+  description: Fast staged-file credential scan for Markdown/MDX before commit.
   entry: zenzic guard scan --staged
   language: python
   types: [markdown]
@@ -235,6 +235,4 @@ def init_guard(
         )
 
     target.write_text(content, encoding="utf-8")
-    _shared.console.print(
-        f"[bold {SentinelPalette.SUCCESS}]Secret Guard hook installed:[/] {target}"
-    )
+    _shared.console.print(f"[bold {ZenzicPalette.SUCCESS}]Secret Guard hook installed:[/] {target}")

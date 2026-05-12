@@ -24,6 +24,12 @@ from urllib.parse import unquote
 
 from zenzic.core import regex as re
 from zenzic.core.adapter import get_adapter
+from zenzic.core.credentials import (
+    SecurityFinding,
+    scan_line_for_forbidden_terms,
+    scan_lines_with_lookback,
+    scan_url_for_secrets,
+)
 from zenzic.core.discovery import (
     DOC_SUFFIXES,
     iter_extra_content_markdown_sources,
@@ -33,12 +39,6 @@ from zenzic.core.discovery import (
 )
 from zenzic.core.reporter import Finding
 from zenzic.core.rules import AdaptiveRuleEngine, BaseRule
-from zenzic.core.shield import (
-    SecurityFinding,
-    scan_line_for_forbidden_terms,
-    scan_lines_with_lookback,
-    scan_url_for_secrets,
-)
 from zenzic.core.validator import LinkValidator
 from zenzic.models.config import (
     SYSTEM_EXCLUDED_FILE_NAMES,
@@ -55,7 +55,7 @@ if TYPE_CHECKING:
 # ─── Reference pipeline regexes ───────────────────────────────────────────────
 
 # Reference definition: [id]: url  (up to 3 leading spaces per CommonMark §4.7)
-# Optional title on the same line is ignored (we only need the URL for Shield scan).
+# Optional title on the same line is ignored (we only need the URL for credential scan).
 _RE_REF_DEF = re.compile(r"^ {0,3}\[([^\]]+)\]:\s+(\S+)")
 
 # Reference link usage: [text][id] or [text][] (collapsed reference).
@@ -135,26 +135,26 @@ def calculate_orphans(all_md: set[str], nav_paths: set[str] | frozenset[str]) ->
     return sorted(all_md - nav_paths)
 
 
-def _map_shield_to_finding(sf: SecurityFinding, docs_root: Path) -> Finding:
+def _map_credential_to_finding(sf: SecurityFinding, docs_root: Path) -> Finding:
     """Convert a :class:`SecurityFinding` into a reporter :class:`Finding`.
 
-    This is the **sole authorised bridge** between the Shield detection layer
-    and the SentinelReporter.  It is extracted as a standalone pure function so
+    This is the **sole authorised bridge** between the credential detection layer
+    and the ZenzicReporter.  It is extracted as a standalone pure function so
     that mutation testing can target it directly (see the Mutation Gate in
     ``CONTRIBUTING.md``, Obligation 4 — "The Invisible", "The Amnesiac", and
     "The Silencer" mutants must all be killed here).
 
     Args:
-        sf: A secret detection result from :func:`~zenzic.core.shield.scan_line_for_secrets`,
-            :func:`~zenzic.core.shield.scan_url_for_secrets`, or
-            :func:`~zenzic.core.shield.scan_line_for_forbidden_terms`.
+        sf: A secret detection result from :func:`~zenzic.core.credentials.scan_line_for_secrets`,
+            :func:`~zenzic.core.credentials.scan_url_for_secrets`, or
+            :func:`~zenzic.core.credentials.scan_line_for_forbidden_terms`.
         docs_root: Absolute path to the docs root directory used to compute
             a project-relative display path.
 
     Returns:
-        A :class:`~zenzic.core.reporter.Finding` ready for the SentinelReporter
+        A :class:`~zenzic.core.reporter.Finding` ready for the ZenzicReporter
         pipeline.  Z204 FORBIDDEN_TERM findings use ``severity="security_breach"``
-        with code ``"Z204"``; all other Shield findings use ``"Z201"``.
+        with code ``"Z204"``; all other credential scanner findings use ``"Z201"``.
     """
     try:
         rel = str(sf.file_path.relative_to(docs_root))
@@ -859,7 +859,7 @@ def find_missing_directory_indices(
 # (lineno, "DUPLICATE_DEF", (ref_id_norm, url))      — duplicate ignored
 # (lineno, "IMG",           (alt_text, url))          — image found
 # (lineno, "MISSING_ALT",   url)                      — image without alt-text
-# (lineno, "SECRET",        SecurityFinding)          — secret detected by Shield
+# (lineno, "SECRET",        SecurityFinding)          — secret detected by credential scanner
 
 HarvestEvent = tuple[int, str, Any]
 
@@ -871,7 +871,7 @@ def _skip_frontmatter(
 
     Frontmatter is a leading ``---`` block that ends with ``---`` or ``...``.
     Every other line — including lines inside fenced code blocks — is yielded.
-    This is the raw stream used by the Shield so that secrets embedded inside
+    This is the raw stream used by the credential scanner so that secrets embedded inside
     code examples are never invisible.
 
     Args:
@@ -915,7 +915,7 @@ def _iter_content_lines(
     * **Fenced code blocks**: Lines inside ``` or ~~~ fences are skipped so that
       example URLs inside code never trigger false positives.
 
-    Use :func:`_skip_frontmatter` when the Shield needs to scan every line,
+    Use :func:`_skip_frontmatter` when the credential scanner needs to scan every line,
     including lines inside fenced blocks.
 
     Args:
@@ -1027,10 +1027,10 @@ class ReferenceScanner:
         self.ref_map: ReferenceMap = ReferenceMap()
         self._config = config or ZenzicConfig()
 
-    # ── Pass 1: Harvesting & Shield ────────────────────────────────────────────
+    # ── Pass 1: Harvesting & Credential Scanner ────────────────────────────────
 
     def harvest(self) -> Generator[HarvestEvent, None, None]:
-        """Pass 1: stream the file, extract reference definitions, run the Shield.
+        """Pass 1: stream the file, extract reference definitions, run the credential scanner.
 
         Populates ``self.ref_map.definitions`` as a side effect.  Security
         findings are yielded immediately as ``("SECRET", SecurityFinding)``
@@ -1038,33 +1038,33 @@ class ReferenceScanner:
 
         Uses two independent line streams from the same file:
 
-        * **Shield stream** — every line except YAML frontmatter, including lines
+        * **Credential stream** — every line except YAML frontmatter, including lines
           inside fenced code blocks.  Ensures that credentials in ``bash`` or
-          unlabelled code examples are never invisible to the Shield.
+          unlabelled code examples are never invisible to the credential scanner.
         * **Content stream** — lines outside fenced blocks (``_iter_content_lines``).
           Used for reference-definition harvesting and alt-text detection so that
           example URLs inside code blocks never produce false positives.
 
         Reference definitions (``[id]: url``) are always outside fenced blocks by
         CommonMark §4.7 convention, so scanning them on the content stream is
-        sufficient.  The Shield additionally scans every definition URL via
+        sufficient.  The credential scanner additionally scans every definition URL via
         ``scan_url_for_secrets`` to catch embedded secrets in reference URLs.
 
         Yields:
             ``(lineno, event_type, data)`` tuples.  See module-level type alias
             ``HarvestEvent`` for the full list of event types and data shapes.
         """
-        # ── 1.a Shield pass: scan EVERY line including YAML frontmatter ──────────
-        # ZRT-001 fix: the Shield must have priority over ALL content, including
+        # ── 1.a Credential scanner pass: scan EVERY line including YAML frontmatter ─
+        # ZRT-001 fix: the credential scanner must have priority over ALL content, including
         # YAML frontmatter.  Frontmatter values (aws_key, api_token, ...) are
         # real secrets — we use raw enumerate() so no line is ever skipped.
         # The Content Stream (1.b below) still uses _iter_content_lines which
         # skips frontmatter correctly to avoid false-positive ref-def hits.
         secret_line_nos: set[int] = set()
-        shield_events: list[HarvestEvent] = []
+        credential_events: list[HarvestEvent] = []
         with self.file_path.open(encoding="utf-8") as fh:
             for finding in scan_lines_with_lookback(enumerate(fh, start=1), self.file_path):
-                shield_events.append((finding.line_no, "SECRET", finding))
+                credential_events.append((finding.line_no, "SECRET", finding))
                 secret_line_nos.add(finding.line_no)
 
         # ── 1.a.2 Privacy Gate: scan for Z204 FORBIDDEN_TERM ─────────────────
@@ -1081,7 +1081,7 @@ class ReferenceScanner:
                     for finding in scan_line_for_forbidden_terms(
                         raw_line, fp, self.file_path, lineno
                     ):
-                        shield_events.append((finding.line_no, "SECRET", finding))
+                        credential_events.append((finding.line_no, "SECRET", finding))
                         secret_line_nos.add(finding.line_no)
 
         # ── 1.b Content pass: harvest ref-defs and alt-text (fences skipped) ─
@@ -1096,12 +1096,12 @@ class ReferenceScanner:
                 if accepted:
                     content_events.append((lineno, "DEF", (norm_id, url)))
 
-                    # ── 1.c Shield: scan URL for secrets ─────────────────────
+                    # ── 1.c Credential scanner: scan URL for secrets ──────────────
                     for finding in scan_url_for_secrets(url, self.file_path, lineno):
                         # Only emit if scan_line_for_secrets hasn't already
                         # emitted a SECRET for this line (avoid duplicates).
                         if lineno not in secret_line_nos:
-                            shield_events.append((lineno, "SECRET", finding))
+                            credential_events.append((lineno, "SECRET", finding))
                             secret_line_nos.add(lineno)
                 else:
                     content_events.append((lineno, "DUPLICATE_DEF", (norm_id, url)))
@@ -1117,7 +1117,7 @@ class ReferenceScanner:
                     content_events.append((lineno, "MISSING_ALT", url))
 
         # Yield all events in line-number order
-        yield from sorted(shield_events + content_events, key=lambda e: e[0])
+        yield from sorted(credential_events + content_events, key=lambda e: e[0])
 
     # ── Pass 2: Cross-Check & Validation ──────────────────────────────────────
 
@@ -1181,7 +1181,7 @@ class ReferenceScanner:
         Args:
             cross_check_findings: Findings from :meth:`cross_check` (dangling
                 refs).  Pass ``None`` or omit to skip.
-            security_findings: Shield findings collected during
+            security_findings: Credential scanner findings collected during
                 :meth:`harvest`.  Pass ``None`` or omit to skip.
 
         Returns:
@@ -1251,7 +1251,7 @@ def _scan_single_file(
             rule pass is skipped entirely.
 
     Returns:
-        ``(report, scanner)`` where ``scanner`` is ``None`` when the Shield
+        ``(report, scanner)`` where ``scanner`` is ``None`` when the credential scanner
         detected secrets (no external URLs should be registered from such files).
     """
     scanner = ReferenceScanner(md_file, config)
@@ -1262,7 +1262,7 @@ def _scan_single_file(
         if event_type == "SECRET":
             security_findings.append(data)
 
-    # Pass 2 — cross-check (only if no secrets; Shield is a firewall)
+    # Pass 2 — cross-check (only if no secrets; credential scanner is a firewall)
     cross_findings: list[ReferenceFinding] = []
     if not security_findings:
         cross_findings = scanner.cross_check()
@@ -1278,7 +1278,7 @@ def _scan_single_file(
         report.rule_findings = rule_engine.run(md_file, text)
 
     # Return scanner only when the file is secure — callers must not register
-    # URLs from files that failed the Shield (they may embed leaked credentials).
+    # URLs from files that failed the credential scanner (they may embed leaked credentials).
     secure_scanner: ReferenceScanner | None = None if security_findings else scanner
     return report, secure_scanner
 
@@ -1413,13 +1413,13 @@ def scan_docs_references(
     **Determinism guarantee:** results are always sorted by ``file_path``
     regardless of execution mode.
 
-    **Shield behaviour:** enforced per-worker in parallel mode; per-file in
+    **Credential scanner behaviour:** enforced per-worker in parallel mode; per-file in
     sequential mode.  Files with security findings are excluded from link
     validation in both modes.
 
     **Read behaviour:** total I/O remains :math:`O(N)` in the number of files,
     but individual files may be read multiple times.  In sequential mode the
-    scanner typically performs separate Shield and content passes, and some
+    scanner typically performs separate credential and content passes, and some
     rules may trigger an additional ``read_text()`` call.  In parallel mode the
     same per-worker behaviour applies; when ``validate_links=True`` an extra
     lightweight sequential pass in the main process registers external URLs
@@ -1553,7 +1553,7 @@ def scan_docs_references(
         # Phase B in main process: lightweight sequential pass for URL
         # registration.  Workers discard scanners; we re-collect ref_maps here
         # for deduplication.  This is an additional O(N) read but preserves the
-        # Shield-as-firewall guarantee (no URLs from compromised files).
+        # credential-scanner-as-firewall guarantee (no URLs from compromised files).
         secure_scanners_b: list[ReferenceScanner] = []
         for md_file in md_files:
             _report_b, secure_scanner_b = _scan_single_file(md_file, config, None)

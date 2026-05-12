@@ -299,9 +299,9 @@ class TestTruth004SiteAliasResolvesToRepoRoot:
     """@site/ alias must resolve to repo_root, not escape via `../`.
 
     The original implementation built `root_str + "/.." + path`, causing the
-    Shield to reject all @site/ non-docs links as PathTraversal.
+    Credential scanner to reject all @site/ non-docs links as PathTraversal.
 
-    With explicit repo_root, the Shield accepts @site/ paths within repo_root.
+    With explicit repo_root, the credential scanner accepts @site/ paths within repo_root.
     """
 
     def _make_resolver(self, repo_root: Path | None = None) -> InMemoryPathResolver:
@@ -355,7 +355,7 @@ class TestTruth004SiteAliasResolvesToRepoRoot:
         )
 
     def test_site_alias_traversal_still_blocked(self) -> None:
-        """@site/../../etc/passwd is still blocked by the Shield."""
+        """@site/../../etc/passwd is still blocked by the credential scanner."""
         resolver = self._make_resolver(repo_root=REPO_ROOT)
         result = resolver.resolve(
             REPO_ROOT / "docs" / "index.md",
@@ -373,7 +373,7 @@ class TestTruth004SiteAliasResolvesToRepoRoot:
         assert isinstance(result, Resolved)
 
     def test_repo_root_stored_correctly(self) -> None:
-        """repo_root is stored and accessible for Shield boundary checks."""
+        """repo_root is stored and accessible for credential scanner boundary checks."""
         resolver = self._make_resolver(repo_root=REPO_ROOT)
         assert resolver._repo_root_str == str(REPO_ROOT)  # noqa: SLF001
 

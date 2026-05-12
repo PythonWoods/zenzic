@@ -20,7 +20,7 @@ from rich.table import Table
 from rich.text import Text
 
 from zenzic.core.scanner import find_repo_root
-from zenzic.core.ui import SentinelPalette, emoji
+from zenzic.core.ui import ZenzicPalette, emoji
 from zenzic.models.config import (
     BuildContext,
     GovernanceConfig,
@@ -34,7 +34,7 @@ from . import _shared
 config_app = typer.Typer(
     name="config",
     help=(
-        f"[bold {SentinelPalette.BRAND}]Config[/] — Inspect the active Zenzic "
+        f"[bold {ZenzicPalette.BRAND}]Config[/] — Inspect the active Zenzic "
         "configuration and the origin of each value."
     ),
     no_args_is_help=True,
@@ -46,14 +46,14 @@ config_app = typer.Typer(
 
 _SOURCE_BADGE: dict[str, tuple[str, str]] = {
     "local": (
-        f"[bold {SentinelPalette.WARNING}]local[/]",
-        f"[{SentinelPalette.WARNING}].zenzic.local.toml (Override)[/]",
+        f"[bold {ZenzicPalette.WARNING}]local[/]",
+        f"[{ZenzicPalette.WARNING}].zenzic.local.toml (Override)[/]",
     ),
     "global": (
-        f"[bold {SentinelPalette.BRAND}]global[/]",
-        f"[{SentinelPalette.BRAND}]zenzic.toml[/]",
+        f"[bold {ZenzicPalette.BRAND}]global[/]",
+        f"[{ZenzicPalette.BRAND}]zenzic.toml[/]",
     ),
-    "default": (f"[{SentinelPalette.DIM}]default[/]", f"[{SentinelPalette.DIM}]built-in[/]"),
+    "default": (f"[{ZenzicPalette.DIM}]default[/]", f"[{ZenzicPalette.DIM}]built-in[/]"),
 }
 
 
@@ -116,11 +116,11 @@ def _value_repr(value: Any, *, max_len: int = 60) -> str:
 
 def _make_table(title: str) -> Table:
     return Table(
-        title=f"[bold {SentinelPalette.BRAND}]{title}[/]",
+        title=f"[bold {ZenzicPalette.BRAND}]{title}[/]",
         title_justify="left",
         box=box.ROUNDED,
-        border_style=SentinelPalette.DIM,
-        header_style=SentinelPalette.STYLE_BRAND,
+        border_style=ZenzicPalette.DIM,
+        header_style=ZenzicPalette.STYLE_BRAND,
         pad_edge=True,
         padding=(0, 1),
         expand=False,
@@ -188,15 +188,14 @@ def explain(
     global_file = repo_root / "zenzic.toml"
     local_file = repo_root / ".zenzic.local.toml"
     global_status = (
-        f"[{SentinelPalette.SUCCESS}]{global_file.name}[/] "
-        f"[{SentinelPalette.DIM}]({global_file})[/]"
+        f"[{ZenzicPalette.SUCCESS}]{global_file.name}[/] [{ZenzicPalette.DIM}]({global_file})[/]"
         if global_file.is_file()
-        else f"[{SentinelPalette.DIM}]not found — using built-in defaults[/]"
+        else f"[{ZenzicPalette.DIM}]not found — using built-in defaults[/]"
     )
     local_status = (
-        f"[{SentinelPalette.WARNING}]{local_file.name}[/] [{SentinelPalette.DIM}]({local_file})[/]"
+        f"[{ZenzicPalette.WARNING}]{local_file.name}[/] [{ZenzicPalette.DIM}]({local_file})[/]"
         if local_file.is_file()
-        else f"[{SentinelPalette.DIM}]not found — no local overrides active[/]"
+        else f"[{ZenzicPalette.DIM}]not found — no local overrides active[/]"
     )
     console.print(f"  {emoji('info')}  [bold]Global config:[/] {global_status}")
     console.print(f"  {emoji('info')}  [bold]Local overlay:[/] {local_status}")

@@ -543,7 +543,7 @@ _ANCHOR_LINK_RE = re.compile(r"\[([^\[\]]+)\]\(#([^)]+)\)")
 #: (CommonMark invariant — a closing fence never has an info string).
 _FENCE_OPEN_RE = re.compile(r"^(?P<fence>[`~]{3,})(?P<info>.*)$")
 
-#: CEO-142/143 — Silent Sentinel Protocol (Polymorphic Suppression).
+#: CEO-142/143 — Silent Suppression Protocol (Polymorphic Suppression).
 #: Matches BOTH Markdown HTML comments AND MDX/JSX comments in one pass.
 #:
 #:   Markdown (.md) syntax:  ``<!-- zenzic-ignore: Z905 - reason -->``
@@ -721,7 +721,7 @@ class BrandObsolescenceRule(BaseRule):
     ``zenzic.toml``.  Emits a warning for each occurrence of an obsolete name
     found in documentation source files.
 
-    **Suppression (CEO-142 — Silent Sentinel Protocol):** Add an HTML comment
+    **Suppression (CEO-142 — Silent Suppression Protocol):** Add an HTML comment
     to the end of any line to silence Z601 for that specific occurrence::
 
         Obsidian was the v0.6.x codename. <!-- zenzic-ignore: Z601 - historical reference -->
@@ -1053,7 +1053,7 @@ class VSMBrokenLinkRule(BaseRule):
             raw_target = os.path.normpath(str(source_dir) + os.sep + path.replace("/", os.sep))
             root_str = str(docs_root)
             if not (raw_target == root_str or raw_target.startswith(root_str + os.sep)):
-                return None  # path escapes docs_root — Shield territory, skip
+                return None  # path escapes docs_root — credential scanner territory, skip
             try:
                 rel = str(Path(raw_target).relative_to(docs_root)).replace(os.sep, "/")
             except ValueError:

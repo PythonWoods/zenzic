@@ -13,7 +13,7 @@ and whether a link is resolvable within a given in-memory file tree.
 Performance contract: 5 000 ``resolve()`` calls must complete in < 100 ms.
 This is achieved by keeping the hot path free of ``pathlib.Path`` allocations:
 
-- The Zenzic Shield uses a string prefix check (O(1), no Path decomposition).
+- The credential scanner uses a string prefix check (O(1), no Path decomposition).
 - File lookup uses a flat pre-computed ``dict[str, Path]`` (one ``dict.get``
   replaces three ``Path`` constructions and three membership tests).
 - ``_build_target`` returns a plain ``str`` via ``os.path.normpath`` (pure
@@ -50,7 +50,7 @@ from urllib.parse import unquote, urlsplit
 
 
 class PathTraversal(NamedTuple):
-    """The resolved path escapes the documentation root — Shield rejection.
+    """The resolved path escapes the documentation root — credential scanner rejection.
 
     This outcome is produced whenever ``..`` segments (or an absolute href)
     cause the normalised target to land outside ``root_dir``.
@@ -119,7 +119,7 @@ class InMemoryPathResolver:
     1. **Zero I/O** — no filesystem calls after construction.
     2. **Windows normalisation** — backslash separators in hrefs are
        converted to ``/`` before any processing.
-    3. **Zenzic Shield** — any href whose normalised path resolves outside
+    3. **Credential Scanner** — any href whose normalised path resolves outside
        ``root_dir`` produces :class:`PathTraversal`.
 
     **Performance design:** the ``resolve()`` hot path allocates zero
@@ -130,7 +130,7 @@ class InMemoryPathResolver:
     Args:
         root_dir: Absolute, canonical root of the documentation tree.
             Must contain no ``..`` segments and must not be a symlink —
-            the Shield relies on this boundary being trustworthy.
+            the credential scanner relies on this boundary being trustworthy.
         md_contents: Mapping of absolute resolved ``Path`` → raw Markdown text.
         anchors_cache: Mapping of absolute resolved ``Path`` → set of anchor
             slugs pre-computed from headings.
@@ -162,11 +162,11 @@ class InMemoryPathResolver:
         self._root_dir: Path = self._coerce_path(root_dir)
 
         # Pre-compute string forms of root_dir once so the hot path never
-        # touches pathlib during the Shield check.
+        # touches pathlib during the credential scanner check.
         self._root_str: str = str(self._root_dir)
         self._root_prefix: str = self._root_str + os.sep
 
-        # Multi-root Shield: the primary docs_root is always authorised.
+        # Multi-root: the primary docs_root is always authorised.
         # Additional roots (e.g. i18n locale directories passed by the
         # validator) extend the boundary so that cross-locale relative links
         # are validated rather than mis-classified as PathTraversal.
@@ -184,7 +184,7 @@ class InMemoryPathResolver:
         # Normcase variants for the portability fix (KL-002 / CEO-203):
         # os.path.normcase maps paths to the filesystem's canonical case form
         # (lowercase on NTFS/APFS, identity on Linux).  Used only in the
-        # Shield boundary check so that mixed-case legitimate paths on
+        # Boundary check so that mixed-case legitimate paths on
         # case-insensitive filesystems are not mis-classified as traversals.
         self._allowed_root_pairs_nc: tuple[tuple[str, str], ...] = tuple(
             (os.path.normcase(s), os.path.normcase(p)) for s, p in self._allowed_root_pairs
@@ -254,7 +254,7 @@ class InMemoryPathResolver:
         # _build_target returns a str — no Path allocation in the hot path.
         target_str = self._build_target(source_file, path_part)
 
-        # ── Shield: O(1) normcase string prefix check ──────────────────────────
+        # ── Credential scanner: O(1) normcase string prefix check ──────────────────────────
         # @site/ links resolve relative to repo_root; all other links must stay
         # within an authorised root.  For @site/ we keep the single repo_root
         # boundary; for regular links we check all allowed_roots (docs_root +
@@ -339,7 +339,7 @@ class InMemoryPathResolver:
 
         ``os.path.normpath`` is pure C string arithmetic — no ``stat()``,
         no ``readlink()``, no kernel calls.  It collapses all ``.`` and ``..``
-        segments, which is what makes the Shield work: ``../../../../etc/passwd``
+        segments, which is what makes the credential scanner work: ``../../../../etc/passwd``
         is reduced to ``/etc/passwd`` before the prefix check, so the traversal
         is always caught.
 

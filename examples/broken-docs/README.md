@@ -68,7 +68,7 @@ zenzic check all
 zenzic check all --exit-zero
 ```
 
-Expected exit code: **1** (check failures; no Shield events).
+Expected exit code: **1** (check failures; no credential scanner events).
 
 ## Engine
 

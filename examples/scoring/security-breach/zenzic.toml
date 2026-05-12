@@ -3,7 +3,7 @@
 # zenzic.toml — Scoring Demo: Security Override (Score 0/100)
 #
 # This fixture contains a fake AWS access key in README.md.
-# Zenzic Shield detects it as Z201 SHIELD_SECRET.
+# The credential scanner detects it as Z201 CREDENTIAL_SECRET.
 #
 # Security Override invariant: ANY Z2xx finding collapses the score to 0/100
 # regardless of how clean the rest of the documentation is.
