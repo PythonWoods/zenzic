@@ -150,7 +150,7 @@ def test_get_adapter_vanilla_engine_raises_configuration_error(tmp_path: Path) -
 
 
 def test_discover_engine_empty_dir_returns_standalone(tmp_path: Path) -> None:
-    """No engine config files → 'standalone' (universal Safe Harbor)."""
+    """No engine config files → 'standalone' (universal Privacy Gate)."""
     assert discover_engine(tmp_path) == "standalone"
 
 

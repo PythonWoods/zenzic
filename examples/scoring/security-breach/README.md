@@ -7,7 +7,7 @@ Yet the score collapses to **0/100** because a single credential is present.
 
 ## Why a perfect project can score zero
 
-The Zenzic Safe Harbor guarantee is unconditional:
+The Zenzic Privacy Gate guarantee is unconditional:
 
 > *A documentation portal that leaks credentials is not safe — regardless of
 > how beautifully structured it is.*

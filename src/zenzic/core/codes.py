@@ -24,7 +24,7 @@ Z1xx — Link Integrity
     Z114  LARGE_PAGINATION_SET — blog pagination set exceeds 200-page threshold (info)
 
 Z2xx — Security (Credential Scanner)
-    Z201  SHIELD_SECRET        — credential / secret detected (Exit 2)
+    Z201  CREDENTIAL_SECRET    — credential / secret detected (Exit 2)
     Z202  PATH_TRAVERSAL       — path escapes the docs root boundary
     Z203  PATH_TRAVERSAL_FATAL — traversal targeting OS system directories (Exit 3)
     Z204  FORBIDDEN_TERM       — project-specific forbidden term in documentation content (Exit 2)
@@ -140,7 +140,7 @@ CODE_NAMES: dict[str, str] = {
     "Z111": "VIRTUAL_ROUTE_BROKEN",
     "Z113": "AUTHOR_KEY_COLLISION",
     "Z114": "LARGE_PAGINATION_SET",
-    "Z201": "SHIELD_SECRET",
+    "Z201": "CREDENTIAL_SECRET",
     "Z202": "PATH_TRAVERSAL",
     "Z203": "PATH_TRAVERSAL_FATAL",
     "Z204": "FORBIDDEN_TERM",

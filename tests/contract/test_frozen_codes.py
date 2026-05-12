@@ -53,7 +53,7 @@ class TestFrozenCodesContract:
                 "sarif_level": "error",
             },
             "Z201": {
-                "name": "SHIELD_SECRET",
+                "name": "CREDENTIAL_SECRET",
                 "description": "Potential credential or secret detected in documentation content",
                 "sarif_level": "error",
             },

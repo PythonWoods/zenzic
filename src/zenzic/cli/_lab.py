@@ -214,7 +214,7 @@ _ACTS: list[_Act] = [
     _Act(
         17,
         "Score 0/100 — Security Override",
-        "Fake AWS credential \u2192 Z201 SHIELD_SECRET \u2192 score collapses to 0 regardless of other quality",
+        "Fake AWS credential \u2192 Z201 CREDENTIAL_SECRET \u2192 score collapses to 0 regardless of other quality",
         "scoring/security-breach",
         expected_pass=False,
         expected_breach=True,

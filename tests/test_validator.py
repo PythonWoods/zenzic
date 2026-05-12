@@ -1418,7 +1418,7 @@ class TestCheckExternalFlag:
             check_external=False,
         )
         # No link errors — the PAT is in an external URL, not a broken internal link
-        link_errors = [e for e in errors if e.error_type not in ("SHIELD_SECRET", "Z201")]
+        link_errors = [e for e in errors if e.error_type not in ("CREDENTIAL_SECRET", "Z201")]
         assert link_errors == []
 
         # Independently: the credential scanner detects the credential in raw content

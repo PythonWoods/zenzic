@@ -104,7 +104,7 @@ def test_z906_sarif_level_is_note() -> None:
     ("code", "expected"),
     [
         ("Z101", "LinkBroken"),
-        ("Z201", "ShieldSecret"),
+        ("Z201", "CredentialSecret"),
         ("Z402", "OrphanPage"),
         ("Z505", "UntaggedCodeBlock"),
         ("Z906", "NoFilesFound"),

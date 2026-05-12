@@ -589,7 +589,7 @@ class TestCredentialScannerReportingIntegrity:
             "secret_type must appear in the Finding message for operator triage."
         )
         assert result.code == "Z201", (
-            "code must be 'Z201' (SHIELD_SECRET) so the CLI runner identifies breach findings for Exit 2."
+            "code must be 'Z201' (CREDENTIAL_SECRET) so the CLI runner identifies breach findings for Exit 2."
         )
 
         # Pipeline test: N SecurityFindings → exactly N breach Findings.
