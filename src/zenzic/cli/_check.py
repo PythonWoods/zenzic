@@ -68,7 +68,7 @@ def check_links(
         False,
         "--strict",
         "-s",
-        help="Promote warnings to fatal policy (exit non-zero on any warning).",
+        help="Treat warnings as errors (exit non-zero on any warning).",
     ),
     output_format: str = typer.Option(
         "text", "--format", "-f", help="Output format: text, json, or sarif."
@@ -99,7 +99,7 @@ def check_links(
     ),
     path: str | None = typer.Argument(
         None,
-        help="Limit to a directory or file. Accepts paths relative to repo root or docs dir.",
+        help="Limit to a directory or file. Accepts paths relative to repository root or docs directory.",
         show_default=False,
     ),
 ) -> None:
@@ -246,7 +246,7 @@ def check_orphans(
     ),
     path: str | None = typer.Argument(
         None,
-        help="Limit to a directory or file. Accepts paths relative to repo root or docs dir.",
+        help="Limit to a directory or file. Accepts paths relative to repository root or docs directory.",
         show_default=False,
     ),
 ) -> None:
@@ -337,7 +337,7 @@ def check_snippets(
     ),
     path: str | None = typer.Argument(
         None,
-        help="Limit to a directory or file. Accepts paths relative to repo root or docs dir.",
+        help="Limit to a directory or file. Accepts paths relative to repository root or docs directory.",
         show_default=False,
     ),
 ) -> None:
@@ -436,7 +436,7 @@ def check_references(
         False,
         "--strict",
         "-s",
-        help="Promote warnings to fatal policy (exit non-zero on any warning).",
+        help="Treat warnings as errors (exit non-zero on any warning).",
     ),
     links: bool = typer.Option(
         False,
@@ -452,7 +452,7 @@ def check_references(
     ),
     path: str | None = typer.Argument(
         None,
-        help="Limit to a directory or file. Accepts paths relative to repo root or docs dir.",
+        help="Limit to a directory or file. Accepts paths relative to repository root or docs directory.",
         show_default=False,
     ),
 ) -> None:
@@ -615,7 +615,7 @@ def check_assets(
     ),
     path: str | None = typer.Argument(
         None,
-        help="Limit to a directory or file. Accepts paths relative to repo root or docs dir.",
+        help="Limit to a directory or file. Accepts paths relative to repository root or docs directory.",
         show_default=False,
     ),
 ) -> None:
@@ -708,7 +708,7 @@ def check_placeholders(
     ),
     path: str | None = typer.Argument(
         None,
-        help="Limit to a directory or file. Accepts paths relative to repo root or docs dir.",
+        help="Limit to a directory or file. Accepts paths relative to repository root or docs directory.",
         show_default=False,
     ),
 ) -> None:
@@ -1248,10 +1248,10 @@ def check_all(
         None,
         help=(
             "Limit audit to a single Markdown file or an entire directory. "
-            "Accepts paths relative to the repo root or to the docs directory. "
+            "Accepts paths relative to the repository root or to the docs directory. "
             "File examples: README.md, docs/index.md. "
             "Directory examples: content/, docs/guide/. "
-            "When a directory is given, docs_dir is patched to that path and all "
+            "When a directory is given, the configured docs directory is patched to that path and all "
             "Markdown files inside it are audited."
         ),
         show_default=False,

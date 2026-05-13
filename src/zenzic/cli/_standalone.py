@@ -147,14 +147,14 @@ def _run_all_checks(
 def score(
     path: str | None = typer.Argument(
         None,
-        help="Project root or docs directory to score (default: configured docs_dir).",
+        help="Repository root or docs directory to score (default: configured docs directory).",
         show_default=False,
     ),
     strict: bool | None = typer.Option(
         None,
         "--strict",
         "-s",
-        help="Promote warnings to fatal policy (exit 1 unless the score is 100).",
+        help="Treat warnings as errors (exit non-zero unless the score is 100).",
     ),
     output_format: str = typer.Option(
         "text", "--format", "-f", help="Output format: text or json."
@@ -300,14 +300,14 @@ def score(
 def diff(
     path: str | None = typer.Argument(
         None,
-        help="Project root or docs directory to compare (default: configured docs_dir).",
+        help="Repository root or docs directory to compare (default: configured docs directory).",
         show_default=False,
     ),
     strict: bool | None = typer.Option(
         None,
         "--strict",
         "-s",
-        help="Promote warnings to fatal policy (exit 1 unless the score is 100).",
+        help="Treat warnings as errors (exit non-zero unless the score is 100).",
     ),
     output_format: str = typer.Option(
         "text", "--format", "-f", help="Output format: text or json."
@@ -480,7 +480,7 @@ def explain(
     path: str | None = typer.Option(
         None,
         "--path",
-        help="Project root to resolve config genealogy (default: cwd).",
+        help="Project root to resolve config genealogy (default: current working directory).",
         show_default=False,
     ),
 ) -> None:
@@ -684,7 +684,7 @@ def init(
     ),
     path: str | None = typer.Argument(
         None,
-        help="Directory to initialize (default: current project root or CWD).",
+        help="Directory to initialize (default: current project root or current working directory).",
         show_default=False,
     ),
 ) -> None:

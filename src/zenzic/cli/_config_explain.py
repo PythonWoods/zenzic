@@ -147,7 +147,7 @@ def explain(
         ".",
         "--path",
         "-p",
-        help="Repository root to inspect (defaults to current directory).",
+        help="Repository root to inspect (default: current working directory).",
         show_default=True,
     ),
 ) -> None:

@@ -31,7 +31,7 @@ depend on open, auditable source files. We preserve validation continuity across
 changes (MkDocs, Docusaurus, Zensical, and future adapters) so projects keep control over
 their data and quality process regardless of ecosystem churn.
 
-## Contributor Contract (v0.8.0)
+## Contributor Contract
 
 Before proposing rule or docs changes, contributors must validate impact against
 the live code registry and tier ownership model.
@@ -77,8 +77,8 @@ uvx pre-commit install              # commit-stage: light hooks (ruff, format, h
 uvx pre-commit install -t pre-push  # pre-push: 🛡️ Final Guard runs `just verify`
 ```
 
-The pre-push hook is the atomic gate of the 4-Gates Standard (v0.7.1): a single
-entry-point (`just verify`) runs both locally and in GitHub Actions —
+The pre-push hook is the atomic gate of the 4-Gates Standard: a single
+enforcement point (`just verify`) runs both locally and in GitHub Actions —
 **locale ≡ remote, no drift**. Pushes are blocked when any of the
 4 Gates (pre-commit hooks, coverage, tests, `zenzic check all`) fails.
 
@@ -168,7 +168,7 @@ paths in any contribution, use `pathlib.Path` throughout — never string concat
 > Node 24 runner environment. GitHub-hosted runners (`ubuntu-latest`) satisfy this
 > automatically; self-hosted runners must use Node ≥ 24.
 
-### CI Pillar Matrix (v0.7.1)
+### CI Pillar Matrix
 
 Zenzic adopts a **Pillar Matrix** strategy — testing the boundaries rather than every
 intermediate version:
@@ -798,7 +798,8 @@ The CLI is organised as a **package** (`src/zenzic/cli/`) rather than a single m
 | `_shared.py` | `console` singleton, `_ui` singleton, `configure_console()`, and all cross-command utilities (`_build_exclusion_manager`, `_output_json_findings`, `_render_link_error`, etc.) |
 | `_check.py` | `check_app` Typer sub-app + seven `check *` commands and their private helpers |
 | `_clean.py` | `clean_app` Typer sub-app + `clean assets` command |
-| `_plugins.py` | `plugins_app` Typer sub-app + `plugins list` command |
+| `_inspect.py` | `inspect_app` Typer sub-app + `capabilities`, `codes`, and `routes` commands |
+| `_lab.py` | `lab` command + interactive scenario showcase |
 | `_standalone.py` | `score`, `diff`, and `init` commands + their private helpers |
 | `__init__.py` | Public re-export surface consumed by `main.py` — **do not add logic here** |
 

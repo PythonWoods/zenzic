@@ -16,7 +16,7 @@
 Before tagging, every item must be green:
 
 - [ ] `just verify` — exits 0 (pre-commit hooks → pytest → `zenzic check all --strict`)
-- [ ] `zenzic check .` — zero findings in the repo root
+- [ ] `zenzic check all .` — zero findings in the repo root
 - [ ] `pyproject.toml` version matches the tag (`0.8.0`)
 - [ ] `CITATION.cff` version and date updated
 - [ ] `CHANGELOG.md` — `[Unreleased]` section moved to the new version heading
