@@ -292,6 +292,9 @@ class ZenzicReporter:
             self._con.print()
             for _item in _ok_items:
                 self._con.print(_item)
+            self._con.print(
+                Text.from_markup(f"[{ZenzicPalette.DIM}]Try 'zenzic check --help' for options.[/]")
+            )
             return 0, 0
 
         # ── Grouped findings (non-breach only) ───────────────────────────────
@@ -425,7 +428,7 @@ class ZenzicReporter:
         self._con.print()
         for _r in renderables:
             self._con.print(_r)
-        # ── Usage hint (compact: no blank before — consistent with all-clear path) ──
+        # ── Usage hint — always shown, both all-clear and findings paths ──────
         self._con.print(
             Text.from_markup(f"[{ZenzicPalette.DIM}]Try 'zenzic check --help' for options.[/]")
         )
