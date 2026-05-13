@@ -50,7 +50,7 @@ app = typer.Typer(
     rich_markup_mode="rich",
     no_args_is_help=True,
     rich_help_panel="Core",
-    epilog=f"[bold {ZenzicPalette.BRAND}]PythonWoods[/]  [dim]·  Apache-2.0  ·  https://zenzic.dev[/]",
+    epilog=f"[bold {ZenzicPalette.BRAND}]PythonWoods[/]  [{ZenzicPalette.DIM}]·  Apache-2.0  ·  https://zenzic.dev[/]",
 )
 
 

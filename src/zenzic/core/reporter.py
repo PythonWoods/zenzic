@@ -128,9 +128,9 @@ def _render_snippet(
         else:
             t.append("│  ", style=ZenzicPalette.DIM)
             if len(src) > max_src:
-                t.append(src[: max_src - 1] + "…", style="dim")
+                t.append(src[: max_src - 1] + "…", style=ZenzicPalette.DIM)
             else:
-                t.append(src, style="dim")
+                t.append(src, style=ZenzicPalette.DIM)
         result.append(t)
 
         # Surgical caret: render only when the checker provided native position data
@@ -313,7 +313,7 @@ class ZenzicReporter:
                     if f.severity == "warning"
                     else emoji("info")
                 )
-                style = _SEVERITY_STYLE.get(f.severity, "dim")
+                style = _SEVERITY_STYLE.get(f.severity, ZenzicPalette.DIM)
                 msg = _strip_prefix(f.rel_path, f.line_no, f.message)
                 # Bold-cyan clickable location prefix (ruff-style, CEO-169)
                 loc = self._full_rel(f.rel_path)

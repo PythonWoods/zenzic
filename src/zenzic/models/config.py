@@ -17,6 +17,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 from zenzic.core import regex as re
+from zenzic.core.ui import ZenzicPalette
 
 
 # Severity type shared with the rule engine (avoids a circular import).
@@ -703,7 +704,7 @@ class ZenzicConfig(BaseModel):
             except tomllib.TOMLDecodeError as exc:
                 raise ConfigurationError(
                     f"[bold red]zenzic.toml[/] contains a syntax error and cannot be loaded.\n"
-                    f"  [dim]{zenzic_toml}[/]\n\n"
+                    f"  [{ZenzicPalette.DIM}]{zenzic_toml}[/]\n\n"
                     f"  [red]{exc}[/]\n\n"
                     "Fix the TOML syntax error and re-run Zenzic.",
                     context={"config_path": str(zenzic_toml)},
@@ -721,7 +722,7 @@ class ZenzicConfig(BaseModel):
             except tomllib.TOMLDecodeError as exc:
                 raise ConfigurationError(
                     f"[bold red]pyproject.toml[/] contains a syntax error and cannot be loaded.\n"
-                    f"  [dim]{pyproject_toml}[/]\n\n"
+                    f"  [{ZenzicPalette.DIM}]{pyproject_toml}[/]\n\n"
                     f"  [red]{exc}[/]\n\n"
                     "Fix the TOML syntax error and re-run Zenzic.",
                     context={"config_path": str(pyproject_toml)},
@@ -764,7 +765,7 @@ class ZenzicConfig(BaseModel):
 
             raise ConfigurationError(
                 "Legacy local config [bold].zenzic.dev.toml[/] is no longer supported in v0.7.0.\n"
-                f"  [dim]{legacy_toml}[/]\n\n"
+                f"  [{ZenzicPalette.DIM}]{legacy_toml}[/]\n\n"
                 "Migrate to [bold].zenzic.local.toml[/] and remove the legacy file.\n"
                 "Run [bold cyan]zenzic init[/] to scaffold the new local template."
             )

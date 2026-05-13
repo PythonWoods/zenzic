@@ -43,7 +43,7 @@ def _inspect_capabilities() -> None:
 
     # ── Section A: Core Scanners ──────────────────────────────────────────
     core_table = Table(
-        title=f"[bold {ZenzicPalette.BRAND}]Core Scanners[/]  [dim](built-in)[/dim]",
+        title=f"[bold {ZenzicPalette.BRAND}]Core Scanners[/]  [{ZenzicPalette.DIM}](built-in)[/]",
         title_justify="left",
         box=box.ROUNDED,
         border_style=ZenzicPalette.DIM,
@@ -79,7 +79,7 @@ def _inspect_capabilities() -> None:
     rules_table = Table(
         title=(
             f"[bold {ZenzicPalette.BRAND}]Extensible Rules[/]  "
-            f"[dim](plugin system \u2014 zenzic.rules entry-point group)[/dim]"
+            f"[{ZenzicPalette.DIM}](plugin system — zenzic.rules entry-point group)[/]"
         ),
         title_justify="left",
         box=box.ROUNDED,
@@ -91,7 +91,7 @@ def _inspect_capabilities() -> None:
     rules_table.add_column("Rule", style="bold cyan", min_width=14)
     rules_table.add_column("Code", style="bold", min_width=6)
     rules_table.add_column("Origin", min_width=8)
-    rules_table.add_column("Class", style="dim")
+    rules_table.add_column("Class", style=ZenzicPalette.DIM)
 
     if rules:
         for info in rules:
@@ -101,9 +101,9 @@ def _inspect_capabilities() -> None:
             rules_table.add_row(info.source, info.rule_id, origin_badge, info.class_name)
     else:
         rules_table.add_row(
-            "[dim]\u2014[/dim]",
-            "[dim]\u2014[/dim]",
-            "[dim]\u2014[/dim]",
+            f"[{ZenzicPalette.DIM}]\u2014[/]",
+            f"[{ZenzicPalette.DIM}]\u2014[/]",
+            f"[{ZenzicPalette.DIM}]\u2014[/]",
             (
                 f"[{ZenzicPalette.DIM}]No third-party plugins installed. "
                 f"Register rules via the zenzic.rules entry-point group.[/{ZenzicPalette.DIM}]"
@@ -127,7 +127,7 @@ def _inspect_capabilities() -> None:
     bypass_table = Table(
         title=(
             f"[bold {ZenzicPalette.BRAND}]Engine-specific Link Bypasses[/]  "
-            f"[dim](Rule R21 \u2014 Protocol Sovereignty)[/dim]"
+            f"[{ZenzicPalette.DIM}](Rule R21 — Protocol Sovereignty)[/]"
         ),
         title_justify="left",
         box=box.ROUNDED,
@@ -209,7 +209,9 @@ def inspect_codes(
     config, _ = ZenzicConfig.load(repo_root)
 
     def _badge(active: bool) -> str:
-        return "[bold green][ACTIVE][/bold green]" if active else "[dim][inactive][/dim]"
+        return (
+            "[bold green][ACTIVE][/bold green]" if active else f"[{ZenzicPalette.DIM}][inactive][/]"
+        )
 
     rows: dict[str, list[tuple[str, str, str]]] = {
         "core": [],
@@ -269,7 +271,9 @@ def inspect_codes(
     for idx, tier_name in enumerate(selected_tiers):
         tier_rows = rows[tier_name]
         if not tier_rows:
-            table.add_row(title_map[tier_name], "—", "No entries", "[dim][inactive][/dim]")
+            table.add_row(
+                title_map[tier_name], "—", "No entries", f"[{ZenzicPalette.DIM}][inactive][/]"
+            )
         else:
             for code, name, status in tier_rows:
                 table.add_row(title_map[tier_name], code, name, status)
@@ -432,7 +436,7 @@ def inspect_routes(
     table.add_column("URL", style="bold cyan", no_wrap=True)
     table.add_column("Kind", min_width=10)
     table.add_column("Source Files")
-    table.add_column("Digest", style="dim", min_width=12, no_wrap=True)
+    table.add_column("Digest", style=ZenzicPalette.DIM, min_width=12, no_wrap=True)
 
     for rec in records:
         table.add_row(

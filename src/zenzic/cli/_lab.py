@@ -419,7 +419,7 @@ def _print_summary(results: list[_ActResult]) -> None:
     table.add_column("Files", justify="right", style=ZenzicPalette.DIM, min_width=7)
     table.add_column("files/s", justify="right", style=ZenzicPalette.DIM, min_width=8)
     table.add_column("Result", min_width=26)
-    table.add_column("Time", justify="right", style="dim", min_width=7)
+    table.add_column("Time", justify="right", style=ZenzicPalette.DIM, min_width=7)
 
     unexpected = sum(1 for r in results if not r.met_expectation)
     total_files = sum(r.total_files for r in results)
@@ -523,7 +523,9 @@ def _make_section_table(section_acts: list[_Act]) -> Table:
 def _print_act_index() -> None:
     con = get_console()
     con.print(
-        Text.from_markup(f"[bold {ZenzicPalette.BRAND}]⬡  ZENZIC LAB[/]  [dim]v{__version__}[/]")
+        Text.from_markup(
+            f"[bold {ZenzicPalette.BRAND}]⧡  ZENZIC LAB[/]  [{ZenzicPalette.DIM}]v{__version__}[/]"
+        )
     )
     acts_by_id = {a.id: a for a in _ACTS}
     for title, icon, act_range in _SECTIONS:
@@ -533,7 +535,7 @@ def _print_act_index() -> None:
         con.print(Text.from_markup(f"\n  [bold {ZenzicPalette.BRAND}]{icon}  {title}[/]"))
         con.print(_make_section_table(section_acts))
     con.print(
-        f"\n  [dim]zenzic lab <act>   eg. [bold cyan]zenzic lab 3[/]   "
+        f"\n  [{ZenzicPalette.DIM}]zenzic lab <act>   eg. [bold cyan]zenzic lab 3[/]   "
         f"{emoji('dot')}   [bold cyan]zenzic lab 11–16[/] Security Audit   "
         f"{emoji('dot')}   [bold cyan]zenzic lab 17-18[/] Scoring[/]\n"
     )

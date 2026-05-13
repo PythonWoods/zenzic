@@ -134,7 +134,9 @@ def scan(
         if output_format == "json":
             print(json.dumps({"targets": 0, "findings": []}, indent=2))
         else:
-            _shared.console.print("[dim]Secret Guard: no Markdown/MDX targets found.[/]")
+            _shared.console.print(
+                f"[{ZenzicPalette.DIM}]Secret Guard: no Markdown/MDX targets found.[/]"
+            )
         return
 
     findings: list[SecurityFinding] = []
@@ -220,7 +222,9 @@ def init_guard(
         existing = target.read_text(encoding="utf-8")
 
     if "- id: zenzic-guard" in existing:
-        _shared.console.print("[dim]Secret Guard hook already present; no changes applied.[/]")
+        _shared.console.print(
+            f"[{ZenzicPalette.DIM}]Secret Guard hook already present; no changes applied.[/]"
+        )
         return
 
     if existing.strip():

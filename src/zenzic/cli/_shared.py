@@ -244,9 +244,9 @@ def _render_link_error(err: object, docs_root: Path) -> None:
     assert isinstance(err, LinkError)
     try:
         rel = err.file_path.relative_to(docs_root)
-        location = f"[dim]{rel}:{err.line_no}[/]"
+        location = f"[{ZenzicPalette.DIM}]{rel}:{err.line_no}[/]"
     except ValueError:
-        location = f"[dim]{err.file_path.name}:{err.line_no}[/]"
+        location = f"[{ZenzicPalette.DIM}]{err.file_path.name}:{err.line_no}[/]"
 
     raw_msg = err.message
     prefix = f"{err.file_path.relative_to(docs_root).as_posix() if err.file_path != docs_root else ''}:{err.line_no}: "
@@ -257,7 +257,7 @@ def _render_link_error(err: object, docs_root: Path) -> None:
     console.print(header)
 
     if err.source_line:
-        console.print(f"    [dim]│[/] [italic]{err.source_line}[/]")
+        console.print(f"    [{ZenzicPalette.DIM}]│[/] [italic]{err.source_line}[/]")
 
 
 # ── Exclusion manager factory ─────────────────────────────────────────────────

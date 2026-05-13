@@ -196,7 +196,7 @@ def check_links(
             _hint = str(docs_root.relative_to(Path.cwd()))
         except ValueError:
             _hint = str(docs_root)
-        _shared.console.print(f"[dim]  Scanning: {_hint}[/]\n")
+        _shared.console.print(f"[{ZenzicPalette.DIM}]  Scanning: {_hint}[/]\n")
     reporter = ZenzicReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
     errors, warnings = reporter.render(
         findings,
@@ -303,7 +303,7 @@ def check_orphans(
             _hint = str(docs_root.relative_to(Path.cwd()))
         except ValueError:
             _hint = str(docs_root)
-        _shared.console.print(f"[dim]  Scanning: {_hint}[/]\n")
+        _shared.console.print(f"[{ZenzicPalette.DIM}]  Scanning: {_hint}[/]\n")
     reporter = ZenzicReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
     errors, warnings = reporter.render(
         findings,
@@ -406,7 +406,7 @@ def check_snippets(
             _hint = str(docs_root.relative_to(Path.cwd()))
         except ValueError:
             _hint = str(docs_root)
-        _shared.console.print(f"[dim]  Scanning: {_hint}[/]\n")
+        _shared.console.print(f"[{ZenzicPalette.DIM}]  Scanning: {_hint}[/]\n")
     reporter = ZenzicReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
     errors, warnings = reporter.render(
         findings,
@@ -575,7 +575,7 @@ def check_references(
             _hint = str(docs_root.relative_to(Path.cwd()))
         except ValueError:
             _hint = str(docs_root)
-        _shared.console.print(f"[dim]  Scanning: {_hint}[/]\n")
+        _shared.console.print(f"[{ZenzicPalette.DIM}]  Scanning: {_hint}[/]\n")
     reporter = ZenzicReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
     errors, warnings = reporter.render(
         findings,
@@ -674,7 +674,7 @@ def check_assets(
             _hint = str(docs_root.relative_to(Path.cwd()))
         except ValueError:
             _hint = str(docs_root)
-        _shared.console.print(f"[dim]  Scanning: {_hint}[/]\n")
+        _shared.console.print(f"[{ZenzicPalette.DIM}]  Scanning: {_hint}[/]\n")
     reporter = ZenzicReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
     errors, warnings = reporter.render(
         findings,
@@ -759,7 +759,7 @@ def check_placeholders(
             _hint = str(docs_root.relative_to(Path.cwd()))
         except ValueError:
             _hint = str(docs_root)
-        _shared.console.print(f"[dim]  Scanning: {_hint}[/]\n")
+        _shared.console.print(f"[{ZenzicPalette.DIM}]  Scanning: {_hint}[/]\n")
     reporter = ZenzicReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
     errors, warnings = reporter.render(
         findings,

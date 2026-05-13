@@ -193,7 +193,7 @@ def score(
                 _hint = str(docs_root.relative_to(Path.cwd()))
             except ValueError:
                 _hint = str(docs_root)
-            _shared.console.print(f"[dim]  Scoring: {_hint}[/]")
+            _shared.console.print(f"[{ZenzicPalette.DIM}]  Scoring: {_hint}[/]")
         _shared.console.print()
 
     exclusion_mgr = _shared._build_exclusion_manager(config, repo_root, docs_root)
@@ -205,7 +205,7 @@ def score(
     if save:
         report.threshold = effective_threshold
         snapshot_path = save_snapshot(repo_root, report)
-        _shared.console.print(f"[dim]Snapshot saved to {snapshot_path}[/]")
+        _shared.console.print(f"[{ZenzicPalette.DIM}]Snapshot saved to {snapshot_path}[/]")
 
     if output_format == "json":
         print(json.dumps(report.to_dict(), indent=2))
@@ -235,8 +235,8 @@ def score(
         table.add_column(emoji("dot"), justify="center", width=4, no_wrap=True)
         table.add_column("Category", min_width=14, style="bold")
         table.add_column("Issues", justify="right")
-        table.add_column("Weight", justify="right", style="dim")
-        table.add_column("Score", justify="right", style="dim")
+        table.add_column("Weight", justify="right", style=ZenzicPalette.DIM)
+        table.add_column("Score", justify="right", style=ZenzicPalette.DIM)
 
         for cat in report.categories:
             if cat.issues == 0:
@@ -438,7 +438,7 @@ def diff(
                 _hint = str(docs_root.relative_to(Path.cwd()))
             except ValueError:
                 _hint = str(docs_root)
-            _shared.console.print(f"[dim]  Comparing: {_hint}[/]")
+            _shared.console.print(f"[{ZenzicPalette.DIM}]  Comparing: {_hint}[/]")
         _shared.console.print()
         _shared.console.print(body)
         _shared.console.print(diff_table)
@@ -494,7 +494,7 @@ def explain(
     is_security = rule_id in _SECURITY_CODES
 
     meta_table = RTable.grid(padding=(0, 2))
-    meta_table.add_column(style="dim", min_width=20)
+    meta_table.add_column(style=ZenzicPalette.DIM, min_width=20)
     meta_table.add_column()
     meta_table.add_row("Rule", f"[bold cyan]{rule_id}[/] — {name}")
     meta_table.add_row("Description", description)
@@ -509,7 +509,7 @@ def explain(
         meta_table.add_row("Scoring Tier", f"{bucket} (weight {weight:.0%}, cap {cap:.0f} pts)")
         meta_table.add_row("Penalty", penalty_str)
     else:
-        meta_table.add_row("Scoring Tier", "[dim]not included in DQS[/]")
+        meta_table.add_row("Scoring Tier", f"[{ZenzicPalette.DIM}]not included in DQS[/]")
 
     _shared.console.print(meta_table)
     _shared.console.print()
@@ -546,14 +546,18 @@ def explain(
         genealogy_rows.append(
             (
                 f"Global ({global_toml.name})",
-                "[green]Loaded[/]" if global_toml.is_file() else "[dim]Not found[/]",
+                "[green]Loaded[/]"
+                if global_toml.is_file()
+                else f"[{ZenzicPalette.DIM}]Not found[/]",
                 str(global_toml) if global_toml.is_file() else "Using pyproject.toml or defaults.",
             )
         )
         genealogy_rows.append(
             (
                 "Local (.zenzic.local.toml)",
-                "[green]Loaded[/]" if local_toml.is_file() else "[dim]Not present[/]",
+                "[green]Loaded[/]"
+                if local_toml.is_file()
+                else f"[{ZenzicPalette.DIM}]Not present[/]",
                 str(local_toml)
                 if local_toml.is_file()
                 else "No local overlay — shared config applies.",
@@ -581,7 +585,11 @@ def explain(
                         )
                     else:
                         genealogy_rows.append(
-                            (f"  {label}", "[dim]empty[/]", "Rule fires on default patterns.")
+                            (
+                                f"  {label}",
+                                f"[{ZenzicPalette.DIM}]empty[/]",
+                                "Rule fires on default patterns.",
+                            )
                         )
 
         # Per-file suppression status for this rule
@@ -609,13 +617,17 @@ def explain(
 
     except (RuntimeError, ConfigurationError):
         genealogy_rows.append(
-            ("Config", "[dim]not resolved[/]", "Run from a project root to see genealogy.")
+            (
+                "Config",
+                f"[{ZenzicPalette.DIM}]not resolved[/]",
+                "Run from a project root to see genealogy.",
+            )
         )
 
     g_table = RTable(
         show_header=True, header_style="bold", box=None, pad_edge=False, padding=(0, 2)
     )
-    g_table.add_column("Layer", style="dim", min_width=30)
+    g_table.add_column("Layer", style=ZenzicPalette.DIM, min_width=30)
     g_table.add_column("Status", min_width=14)
     g_table.add_column("Detail")
     for layer, status, detail in genealogy_rows:
@@ -690,7 +702,7 @@ def init(
             _hint = str(repo_root.relative_to(Path.cwd()))
         except ValueError:
             _hint = str(repo_root)
-        _shared.console.print(f"[dim]  Target: {_hint}[/]\n")
+        _shared.console.print(f"[{ZenzicPalette.DIM}]  Target: {_hint}[/]\n")
     else:
         repo_root = find_repo_root(fallback_to_cwd=True)
 
@@ -828,7 +840,9 @@ def _scaffold_local_toml(repo_root: Path) -> None:
                 "to your [bold].gitignore[/] to preserve local sovereignty.\n"
             )
         else:
-            gitignore_line = "[dim].gitignore already protects .zenzic.local.toml.[/]\n"
+            gitignore_line = (
+                f"[{ZenzicPalette.DIM}].gitignore already protects .zenzic.local.toml.[/]\n"
+            )
     else:
         gitignore_line = (
             "[yellow]⚠[/] No Git repository detected. Keep .zenzic.local.toml private.\n"
@@ -839,7 +853,7 @@ def _scaffold_local_toml(repo_root: Path) -> None:
             (
                 "[green]✔[/] [bold].zenzic.local.toml[/] created (Local Sovereignty overlay).\n"
                 if created_now
-                else "[dim].zenzic.local.toml already exists — preserved.[/]\n"
+                else f"[{ZenzicPalette.DIM}].zenzic.local.toml already exists — preserved.[/]\n"
             )
             + gitignore_line
             + "\nEdit local overrides safely: this file wins over shared config "
@@ -977,7 +991,7 @@ def _init_standalone(repo_root: Path, force: bool) -> None:
     if config_path.is_file() and not force:
         _shared.console.print(
             f"[yellow]WARNING:[/] [bold]zenzic.toml[/] already exists at "
-            f"[dim]{config_path}[/]\n"
+            f"[{ZenzicPalette.DIM}]{config_path}[/]\n"
             "Use [bold cyan]--force[/] to overwrite."
         )
         raise typer.Exit(1)
@@ -1008,7 +1022,7 @@ def _init_pyproject(repo_root: Path, pyproject_path: Path, force: bool) -> None:
     if not pyproject_path.is_file():
         _shared.console.print(
             "[red]ERROR:[/] No [bold]pyproject.toml[/] found at "
-            f"[dim]{pyproject_path}[/]\n"
+            f"[{ZenzicPalette.DIM}]{pyproject_path}[/]\n"
             "Use [bold cyan]zenzic init[/] without --pyproject to create a standalone zenzic.toml."
         )
         raise typer.Exit(1)
@@ -1018,7 +1032,7 @@ def _init_pyproject(repo_root: Path, pyproject_path: Path, force: bool) -> None:
     if "[tool.zenzic]" in existing and not force:
         _shared.console.print(
             "[yellow]WARNING:[/] [bold][tool.zenzic][/] already exists in "
-            f"[dim]{pyproject_path}[/]\n"
+            f"[{ZenzicPalette.DIM}]{pyproject_path}[/]\n"
             "Use [bold cyan]--force[/] to overwrite the section."
         )
         raise typer.Exit(1)
@@ -1087,7 +1101,7 @@ def _scaffold_plugin(repo_root: Path, plugin_name: str, force: bool) -> None:
     if target.exists() and not force:
         _shared.console.print(
             f"[yellow]WARNING:[/] [bold]{project_slug}[/] already exists at "
-            f"[dim]{target}[/]\nUse [bold cyan]--force[/] to overwrite scaffold files."
+            f"[{ZenzicPalette.DIM}]{target}[/]\nUse [bold cyan]--force[/] to overwrite scaffold files."
         )
         raise typer.Exit(1)
 
@@ -1188,8 +1202,8 @@ plugins = ["{project_slug}"]
 
     _shared.console.print(
         f"\n[green]Created plugin scaffold[/] [bold]{project_slug}[/]\n"
-        f"  Path: [dim]{target.relative_to(repo_root)}[/]\n"
-        f"  Entry-point: [bold]{project_slug}[/] -> [dim]{module_name}.rules:{class_name}[/]\n"
+        f"  Path: [{ZenzicPalette.DIM}]{target.relative_to(repo_root)}[/]\n"
+        f"  Entry-point: [bold]{project_slug}[/] -> [{ZenzicPalette.DIM}]{module_name}.rules:{class_name}[/]\n"
         "\nNext steps:\n"
         f"  1. [bold]cd {project_slug}[/]\n"
         "  2. [bold]uv pip install -e .[/]\n"

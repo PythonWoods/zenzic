@@ -215,7 +215,7 @@ class ZenzicUI:
             content,
             title=title_markup,
             title_align="left",
-            subtitle=f"[dim]{subtitle}[/]",
+            subtitle=f"[{ZenzicPalette.DIM}]{subtitle}[/]",
             subtitle_align="right",
             border_style=border_style if border_style is not None else ZenzicPalette.BRAND,
             box=_rich_box.ROUNDED,
@@ -249,7 +249,7 @@ class ZenzicUI:
         if context:
             lines.append("")
             for k, v in context.items():
-                lines.append(f"  [dim]{k}:[/] {v}")
+                lines.append(f"  [{ZenzicPalette.DIM}]{k}:[/] {v}")
         panel = Panel(
             "\n".join(lines),
             title=f"[{effective_style}]{title}[/]",

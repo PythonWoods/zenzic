@@ -116,7 +116,7 @@ def clean_assets(
     if not quiet:
         _shared.console.print(f"\n[yellow]Found {len(unused)} unused asset(s):[/]")
         for asset in unused:
-            _shared.console.print(f"  [dim]{asset}[/]")
+            _shared.console.print(f"  [{ZenzicPalette.DIM}]{asset}[/]")
 
     if dry_run:
         if not quiet:
