@@ -425,8 +425,7 @@ class ZenzicReporter:
         self._con.print()
         for _r in renderables:
             self._con.print(_r)
-        # ── Usage hint ─────────────────────────────────────────────────────────────
-        self._con.print()
+        # ── Usage hint (compact: no blank before — consistent with all-clear path) ──
         self._con.print(
             Text.from_markup(f"[{ZenzicPalette.DIM}]Try 'zenzic check --help' for options.[/]")
         )

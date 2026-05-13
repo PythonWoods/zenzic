@@ -193,6 +193,13 @@ unlikely — the matrix covers the language boundary conditions, not every minor
 - All PRs must target `main`; direct commits are blocked by pre-commit.
 - Update `CHANGELOG.md` in the same commit as the code change.
 
+### UI / Rich output conventions
+
+- **Always use `ZenzicPalette.DIM`** (from `zenzic.core.ui`) for dim/secondary text — never the raw Rich tag `[dim]`. `ZenzicPalette.DIM` is the single chromatic authority for Slate (`#64748b`).
+- **Vertical spacing: compact (Ruff-style).** No blank lines between individual footer lines (hints, notices, audit summary). Use `Rule()` separators only to divide major report sections (body vs. footer).
+- **Horizontal spacing:** no leading spaces before emoji/icon characters in info lines. Let Rich handle margin via panel or indent where needed.
+- **Emoji registration:** new symbols must be added to `_EMOJI` in `zenzic/core/ui.py` before use — never inline Unicode literals in CLI output strings.
+
 ---
 
 ## Core Laws (non-negotiable)

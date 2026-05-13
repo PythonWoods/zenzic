@@ -31,7 +31,7 @@ assignees: ""
 
 ## 🔍 3. Root Cause Analysis
 
-- [ ] **False positive** (Blood Sentinel / Shield flagged a legitimate value)
+- [ ] **False positive** (Z201 Credential Scanner / Path Traversal Gate flagged a legitimate value)
 - [ ] **Flakiness** (pytest-xdist timeout, `uv sync` failure, network)
 - [ ] **Infrastructure** (GitHub Actions / local runner offline)
 - [ ] **Technical debt** (coverage dropped below 80% on emergency code)
