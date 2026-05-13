@@ -29,7 +29,13 @@ from zenzic.core.scanner import (
     find_unused_assets,
     scan_docs_references,
 )
-from zenzic.core.scorer import ScoreReport, compute_score, load_snapshot, save_snapshot
+from zenzic.core.scorer import (
+    CategoryScore,
+    ScoreReport,
+    compute_score,
+    load_snapshot,
+    save_snapshot,
+)
 from zenzic.core.ui import ZenzicPalette, emoji
 from zenzic.core.validator import check_nav_contract, validate_links, validate_snippets
 from zenzic.models.config import ZenzicConfig
@@ -57,7 +63,7 @@ def _run_all_checks(
     """Run all checks and return a ScoreReport. Used by score and diff.
 
     Builds a ``findings_counts`` dict (Zxxx → count) from all check results
-    and passes it to the Quartz Penalty Scorer (CEO-163).
+    and passes it to the Zenzic Penalty Scorer.
     """
     from zenzic.core.adapters import get_adapter
 
@@ -90,7 +96,7 @@ def _run_all_checks(
     )
     nav_errors = check_nav_contract(repo_root, exclusion_mgr)
 
-    # ── Build findings_counts dict (Quartz Penalty Scorer, CEO-163) ───────────────
+    # ── Build findings_counts dict (Zenzic Penalty Scorer) ───────────────────────
     findings_counts: dict[str, int] = {}
 
     # Link errors — split by Zxxx code derived from error_type
@@ -119,7 +125,20 @@ def _run_all_checks(
     if security_violations > 0:
         findings_counts["Z201"] = findings_counts.get("Z201", 0) + security_violations
 
-    return compute_score(findings_counts)
+    # Suppression Debt: count all active suppressions (inline + per-file config).
+    # Each suppression is a technical debt entry that reduces the final score.
+    from zenzic.cli._governance import collect_inline_suppression_stats, count_per_file_ignores
+
+    inline_suppressions, _ = collect_inline_suppression_stats(docs_root, config, exclusion_mgr)
+    per_file_suppressions = count_per_file_ignores(config)
+    total_suppressions = inline_suppressions + per_file_suppressions
+    suppression_cap = (
+        config.governance.suppression_cap if hasattr(config.governance, "suppression_cap") else 30
+    )
+
+    return compute_score(
+        findings_counts, suppression_count=total_suppressions, suppression_cap=suppression_cap
+    )
 
 
 # ── score command ─────────────────────────────────────────────────────────────
@@ -237,6 +256,12 @@ def score(
         _shared.console.print(score_summary)
         _shared.console.print(table)
 
+        if report.suppression_debt_pts > 0:
+            _shared.console.print(
+                f"  [yellow]![/] [bold]Technical Debt (Suppressions):[/]"
+                f" [red]-{report.suppression_debt_pts} pts[/]"
+            )
+
         if report.score == 100:
             from rich.console import Group
 
@@ -284,10 +309,17 @@ def diff(
         "--threshold",
         help="Exit non-zero only if score dropped by more than this many points (0 = any drop).",
     ),
+    base: str | None = typer.Option(
+        None,
+        "--base",
+        help="Path to a JSON report file to use as baseline instead of the saved snapshot.",
+        show_default=False,
+    ),
 ) -> None:
     """Compare current documentation score against the saved snapshot.
 
-    Requires a previous snapshot created by ``zenzic score --save``.
+    Requires a previous snapshot created by ``zenzic score --save``,
+    or an explicit JSON report passed via ``--base <file>``.
     Exits non-zero if the score dropped by more than ``--threshold`` points.
     """
     # CEO-056 "Universal Path Awareness": derive repo_root from the explicit
@@ -312,15 +344,31 @@ def diff(
     exclusion_mgr = _shared._build_exclusion_manager(config, repo_root, docs_root)
     effective_strict = strict if strict is not None else config.strict
 
+    baseline: ScoreReport | None = None
     try:
-        baseline = load_snapshot(repo_root)
+        if base is not None:
+            # Load baseline from an explicit JSON report file (--base <file>).
+            try:
+                base_path = Path(base).resolve()
+                raw = json.loads(base_path.read_text(encoding="utf-8"))
+                baseline_categories = [CategoryScore(**c) for c in raw.get("categories", [])]
+                baseline = ScoreReport(
+                    score=int(raw.get("score", 0)),
+                    threshold=int(raw.get("threshold", 0)),
+                    categories=baseline_categories,
+                )
+            except (OSError, json.JSONDecodeError, TypeError, KeyError) as exc:
+                typer.echo(f"ERROR: Cannot read baseline file '{base}': {exc}", err=True)
+                raise typer.Exit(1) from exc
+        else:
+            baseline = load_snapshot(repo_root)
     except ConfigurationError as exc:
         _shared.get_ui().print_exception_alert(str(exc))
         raise typer.Exit(1) from exc
     if baseline is None:
         _shared.console.print(
             "[yellow]WARNING:[/] no snapshot found. "
-            "Run 'zenzic score --save' first to establish a baseline."
+            "Run 'zenzic score --save' first, or pass a JSON report with --base."
         )
         raise typer.Exit(1)
 
@@ -402,6 +450,180 @@ def diff(
             f"\n[red]REGRESSION:[/] score dropped by {dropped} point(s) (threshold: {threshold})."
         )
         raise typer.Exit(1)
+
+
+# ── explain command ────────────────────────────────────────────────────────────
+
+
+def explain(
+    rule_id: str = typer.Argument(
+        ...,
+        help="Rule code to explain (e.g. Z101, Z601).",
+        metavar="RULE_ID",
+    ),
+    path: str | None = typer.Option(
+        None,
+        "--path",
+        help="Project root to resolve config genealogy (default: cwd).",
+        show_default=False,
+    ),
+) -> None:
+    """Show rule metadata, scoring weight, and config genealogy for a rule code.
+
+    Displays which config file (Default / Global TOML / Local TOML) controls
+    the rule, and whether it is currently enabled or suppressed.
+    """
+    from rich.table import Table as RTable
+
+    from zenzic import __version__
+    from zenzic.core.codes import CODE_DESCRIPTIONS, CODE_NAMES, CODE_SARIF_LEVELS
+    from zenzic.core.scorer import _CODE_CATEGORY, _CODE_PENALTY, _SECURITY_CODES, _WEIGHTS
+
+    rule_id = rule_id.upper()
+
+    _shared._ui.print_header(__version__)
+    _shared.console.print()
+
+    # ── Rule metadata ─────────────────────────────────────────────────────────
+    name = CODE_NAMES.get(rule_id, "UNKNOWN")
+    description = CODE_DESCRIPTIONS.get(rule_id, "No description available.")
+    severity = CODE_SARIF_LEVELS.get(rule_id, "unknown")
+    bucket = _CODE_CATEGORY.get(rule_id, "—")
+    penalty = _CODE_PENALTY.get(rule_id)
+    weight = _WEIGHTS.get(bucket, 0.0)
+    is_security = rule_id in _SECURITY_CODES
+
+    meta_table = RTable.grid(padding=(0, 2))
+    meta_table.add_column(style="dim", min_width=20)
+    meta_table.add_column()
+    meta_table.add_row("Rule", f"[bold cyan]{rule_id}[/] — {name}")
+    meta_table.add_row("Description", description)
+    meta_table.add_row("Severity", f"[{'red' if severity == 'error' else 'yellow'}]{severity}[/]")
+    if is_security:
+        meta_table.add_row(
+            "Scoring Tier", "[bold red]SECURITY GATE[/] — score collapses to 0 on any occurrence"
+        )
+    elif bucket != "—":
+        cap = weight * 100
+        penalty_str = f"{penalty:.1f} pt/occurrence" if penalty else "not penalised"
+        meta_table.add_row("Scoring Tier", f"{bucket} (weight {weight:.0%}, cap {cap:.0f} pts)")
+        meta_table.add_row("Penalty", penalty_str)
+    else:
+        meta_table.add_row("Scoring Tier", "[dim]not included in DQS[/]")
+
+    _shared.console.print(meta_table)
+    _shared.console.print()
+
+    # ── Config genealogy ──────────────────────────────────────────────────────
+    _search_from: Path | None = None
+    if path is not None:
+        _search_from = Path(path).resolve()
+
+    genealogy_rows: list[tuple[str, str, str]] = []
+    try:
+        repo_root = find_repo_root(search_from=_search_from)
+        config, _ = ZenzicConfig.load(repo_root)
+
+        # Rule-specific config keys to inspect
+        _RULE_CONFIG_MAP: dict[str, list[tuple[str, str]]] = {
+            "Z601": [("governance.brand_obsolescence", "brand_obsolescence list")],
+            "Z204": [("governance.forbidden_patterns", "forbidden_patterns list")],
+            "Z501": [("placeholder_patterns", "placeholder_patterns list")],
+            "Z502": [("short_content_threshold", "short_content_threshold")],
+            "Z402": [("excluded_dirs", "excluded_dirs (removes pages from nav scope)")],
+        }
+        # Global: zenzic.toml presence
+        global_toml = repo_root / "zenzic.toml"
+        local_toml = repo_root / ".zenzic.local.toml"
+
+        genealogy_rows.append(
+            (
+                "Default",
+                "[green]Active[/]",
+                "Built-in Zenzic defaults apply unless overridden.",
+            )
+        )
+        genealogy_rows.append(
+            (
+                f"Global ({global_toml.name})",
+                "[green]Loaded[/]" if global_toml.is_file() else "[dim]Not found[/]",
+                str(global_toml) if global_toml.is_file() else "Using pyproject.toml or defaults.",
+            )
+        )
+        genealogy_rows.append(
+            (
+                "Local (.zenzic.local.toml)",
+                "[green]Loaded[/]" if local_toml.is_file() else "[dim]Not present[/]",
+                str(local_toml)
+                if local_toml.is_file()
+                else "No local overlay — shared config applies.",
+            )
+        )
+
+        # Rule-specific config notes
+        if rule_id in _RULE_CONFIG_MAP:
+            for key_path, label in _RULE_CONFIG_MAP[rule_id]:
+                parts = key_path.split(".")
+                val: object = config
+                for part in parts:
+                    val = getattr(val, part, None)
+                    if val is None:
+                        break
+                if isinstance(val, list):
+                    if val:
+                        genealogy_rows.append(
+                            (
+                                f"  {label}",
+                                f"[yellow]{len(val)} entries[/]",
+                                ", ".join(f'"{v}"' for v in val[:3])
+                                + (" …" if len(val) > 3 else ""),
+                            )
+                        )
+                    else:
+                        genealogy_rows.append(
+                            (f"  {label}", "[dim]empty[/]", "Rule fires on default patterns.")
+                        )
+
+        # Per-file suppression status for this rule
+        suppressed_patterns = [
+            pat for pat, codes in config.governance.per_file_ignores.items() if rule_id in codes
+        ]
+        if suppressed_patterns:
+            genealogy_rows.append(
+                (
+                    "  Per-file Ignores",
+                    "[yellow]Suppressed[/]",
+                    "Via governance.per_file_ignores for: "
+                    + ", ".join(f'"{p}"' for p in suppressed_patterns[:3])
+                    + (" …" if len(suppressed_patterns) > 3 else ""),
+                )
+            )
+        else:
+            genealogy_rows.append(
+                (
+                    "  Per-file Ignores",
+                    "[green]Active[/]",
+                    "Rule is not suppressed in any file glob.",
+                )
+            )
+
+    except (RuntimeError, ConfigurationError):
+        genealogy_rows.append(
+            ("Config", "[dim]not resolved[/]", "Run from a project root to see genealogy.")
+        )
+
+    g_table = RTable(
+        show_header=True, header_style="bold", box=None, pad_edge=False, padding=(0, 2)
+    )
+    g_table.add_column("Layer", style="dim", min_width=30)
+    g_table.add_column("Status", min_width=14)
+    g_table.add_column("Detail")
+    for layer, status, detail in genealogy_rows:
+        g_table.add_row(layer, status, detail)
+
+    _shared.console.print("[bold]Config Genealogy[/]")
+    _shared.console.print(g_table)
+    _shared.console.print()
 
 
 # ── init command ──────────────────────────────────────────────────────────────
@@ -498,7 +720,7 @@ def init(
     else:
         _init_standalone(repo_root, force)
 
-    # Local Sovereignty Basalt: always scaffold machine-local overlay.
+    # Local Sovereignty: always scaffold machine-local overlay.
     _scaffold_local_toml(repo_root)
 
 
@@ -670,7 +892,7 @@ def _discover_project_name(repo_root: Path) -> str | None:
 
 
 def _build_governance_ready_toml(*, engine: str, discovered_name: str | None) -> str:
-    """Build Basalt Blueprint template with didactic comments."""
+    """Build governance configuration template with didactic comments."""
     hint_name = discovered_name or "My Awesome App"
     spdx_id_label = "SPDX-License-Identifier"
     return (
@@ -705,8 +927,22 @@ def _build_governance_ready_toml(*, engine: str, discovered_name: str | None) ->
         "# Terms that should no longer appear in your documentation.\n"
         'brand_obsolescence = ["OldProduct", "LegacyTerm"]\n'
         "\n"
+        "# Per-file suppression map: silence a rule for specific file globs.\n"
+        "# WARNING: Every entry increases your Technical Debt Score.\n"
+        "#   Cost: min(n,30)×1 pt + max(0,n-30)×2 pt  (escalates past the cap).\n"
+        "# Run 'zenzic explain ZXXX' to see the exact penalty for any rule.\n"
+        "# [governance.per_file_ignores]\n"
+        '# "docs/legacy/**"      = ["Z601"]  # intentional brand refs → -1 pt\n'
+        '# "docs/migration/*.md" = ["Z101"]  # known broken links → -1 pt\n'
+        "\n"
         "# Governance Playbook:\n"
         "# https://zenzic.dev/developers/how-to/release-governance-protocol\n"
+        "\n"
+        "# --- EXCLUSION ZONES (Full bypass — use sparingly) ---\n"
+        "# Paths listed here are INVISIBLE to Zenzic: no findings, no audit trail.\n"
+        "# Prefer [governance.per_file_ignores] for targeted suppression with an audit trail.\n"
+        '# excluded_dirs = ["legacy/", "third-party/"]\n'
+        '# excluded_file_patterns = ["CHANGELOG*.md"]\n'
         "\n"
         "# --- I18N PARITY (Optional) ---\n"
         "# [i18n]\n"
@@ -791,7 +1027,7 @@ def _init_pyproject(repo_root: Path, pyproject_path: Path, force: bool) -> None:
 
     engine_section = (
         "\n[tool.zenzic.build_context]\n"
-        f'engine = "{detected_engine}"   # Pre-aligned via Quartz Auto-Discovery\n'
+        f'engine = "{detected_engine}"   # Pre-aligned via engine auto-discovery\n'
         'base_url = "/"\n'
         'default_locale = "en"\n'
     )

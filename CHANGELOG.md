@@ -23,10 +23,10 @@ Versions follow [Semantic Versioning](https://semver.org/).
   `zenzic check all --audit` (bypasses inline `zenzic-ignore` and
   `[governance].per_file_ignores` for suppressible findings), plus native
   Secret Guard commands (`zenzic guard scan`, `zenzic guard init`) powered by
-  Shield signatures for pre-commit enforcement.
+  Credential Scanner signatures for pre-commit enforcement.
 - **Stability Contract constants in `codes.py`:** Added `FROZEN_CODES`,
   `NON_SUPPRESSIBLE_CODES`, and `PLUGIN_FORBIDDEN_EXITS` as immutable public
-  contract surfaces for v0.8.0 Basalt.
+  contract surfaces for v0.8.0 Basalt.<!-- zenzic-ignore: Z601 - release codename -->
 - **Tier model formalized in the public registry:** Core/Structure/Governance
   ownership is explicit in canonical code mappings.
 - **Legacy migration map for diagnostics:** Added `LEGACY_TO_CODE` to map

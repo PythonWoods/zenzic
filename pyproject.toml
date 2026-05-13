@@ -5,7 +5,7 @@
 # Zenzic ships zero AI/ML inference dependencies. Pure Python + AST + regex.
 # Adversarial AI testing happens externally; no runtime LLM call exists in
 # any code path. Reintroducing such a dependency violates the v0.7.0
-# "Quartz Maturity" purity contract.
+# purity contract.
 # ───────────────────────────────────────────────────────────────────────
 
 [build-system]
@@ -189,7 +189,7 @@ exclude_lines = [
     "\\.\\.\\.",
 ]
 
-# ─── Mutation testing (Sentinel Rigor) ────────────────────────────────────────
+# ─── Mutation testing (Mutation Gate) ────────────────────────────────────────
 
 [tool.mutmut]
 paths_to_mutate = [

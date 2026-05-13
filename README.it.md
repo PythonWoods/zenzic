@@ -41,7 +41,7 @@ SPDX-License-Identifier: Apache-2.0
 
 <p align="center">
   <strong>Audit deterministico di strutture documentali con tracciabilità bidirezionale.</strong><br>
-  <em>v0.8.0 Basalt: governance a tier, contratti frozen e scansione deterministica con backend RE2.</em>
+  <em>v0.8.0: governance a tier, contratti frozen e scansione deterministica con backend RE2.</em>
 </p>
 
 ---
@@ -77,7 +77,7 @@ zenzic guard scan --staged  # Secret Guard veloce per pre-commit
 zenzic inspect codes  # Elenca i contratti canonici dei finding
 ```
 
-## 🧠 Proposta di Valore Basalt (v0.8.0)
+## 🧠 Proposta di Valore v0.8.0
 
 - **Motore puro e deterministico:** input identici producono finding ed exit identici.
 - **Modello codici a tier:** finding Core, Structure e Governance separati per
@@ -147,7 +147,7 @@ zenzic inspect codes  # Elenca i contratti canonici dei finding
 
 **Correzione automatica:** `zenzic clean assets [-y] [--dry-run]` elimina gli asset inutilizzati.
 
-> 🚀 **v0.8.0 "Basalt" (Stabile)** — Governance a tier, contratti frozen, scansione RE2 deterministica
+> 🚀 **v0.8.0 (Stabile)** — Governance a tier, contratti frozen, scansione RE2 deterministica
 > e Sovereign Audit mode. Vedi [CHANGELOG.md](CHANGELOG.md).
 
 ---
@@ -197,7 +197,7 @@ Vedi la [Guida Developer][docs-it-arch] per le API degli adapter.
 
 Docusaurus genera pagine URL prive di sorgente Markdown fisica: le pagine di elenco tag
 (`/blog/tags/python/`), gli indici paginati del blog (`/blog/page/2/`) e le pagine autore
-(`/blog/authors/alice/`). Prima di EPOCH 7b, Zenzic non era consapevole di queste rotte,
+(`/blog/authors/alice/`). Prima di v0.7.0, Zenzic non era consapevole di queste rotte,
 e qualsiasi link che le referenziava veniva erroneamente segnalato come link interrotto.
 
 `DocusaurusAdapter` costruisce ora una **mappa di Virtual Route** derivata dai metadati
@@ -272,7 +272,7 @@ steps:
 ### Zero-install con `uvx`
 
 ```yaml
-- name: 🛡️ Zenzic Sentinel
+- name: 🛡️ Zenzic Quality Gate
   run: uvx zenzic check all --strict
   # Exit 1 = qualità · Exit 2 = credenziale esposta · Exit 3 = path traversal
   # Exit 2 e 3 non sono mai sopprimibili.
@@ -284,7 +284,7 @@ steps:
 ```
 
 Per automazione badge e gate di regressione, vedi la [guida CI/CD][docs-it-cicd].
-Workflow completo: [`.github/workflows/ci.yml`][ci-workflow]
+[![CI](https://github.com/PythonWoods/zenzic/actions/workflows/ci.yml/badge.svg)](https://github.com/PythonWoods/zenzic/actions/workflows/ci.yml)
 
 ---
 
@@ -345,14 +345,14 @@ zenzic lab [--act N] [--list]
 ## 📟 Tour Visivo
 
 <p align="center">
-  <img src="assets/brand/svg/zenzic-terminal-report.svg" alt="Zenzic Sentinel Report — all checks passed, score 100/100" width="720">
+  <img src="assets/brand/svg/zenzic-terminal-report.svg" alt="Zenzic Analysis Report — all checks passed, score 100/100" width="720">
 </p>
 
 Visita il [portale di documentazione][docs-it-home] per screenshot interattivi ed esempi ricchi.
 
 ---
 
-## 📖 Mappa della Documentazione — Promessa Basalt
+## 📖 Mappa della Documentazione — La Promessa di Integrità
 
 I docs di Zenzic sono pubblicati come **due istanze Docusaurus separate** sotto lo
 stesso dominio. Ciascuna ha la propria sidebar, la propria ricerca e il proprio
@@ -366,7 +366,7 @@ zenzic.dev/
 └── community/      → Brand kit, FAQ, governance
 ```
 
-**La Promessa Basalt.** Due istanze, un unico motore — contratti AST stabili per i plugin, determinismo totale (input identico → output identico), zero overhead da sottoprocessi. La separazione è
+**La Promessa di Integrità.** Due istanze, un unico motore — contratti AST stabili per i plugin, determinismo totale (input identico → output identico), zero overhead da sottoprocessi. La separazione è
 applicata da [ADR 011: Allowlist Cross-Istanza][docs-it-adr-011] — ogni link
 cross-confine è un contratto documentato, mai una soppressione silenziosa. Il
 debito nascosto corrompe la fiducia; il debito dichiarato è ingegneria. Vedi il
@@ -461,7 +461,7 @@ link che puntano a *path* di sistema OS (exit 3). Entrambi non sono sopprimibili
 **Non serve `zenzic.toml`?** Corretto. Zenzic identifica il motore dai file di configurazione presenti e applica i default sicuri.
 Esegui `zenzic init` in qualsiasi momento per generare un file di configurazione pre-compilato.
 
-**Cos'è `zenzic lab`?** Uno showroom interattivo a 21 atti che copre ogni motore e ogni classe di errori — inclusi Shield (Z2xx), Governance (Z601, Z602) e il Privacy Gate Enterprise (Z204).
+**Cos'è `zenzic lab`?** Uno showroom interattivo a 21 atti che copre ogni motore e ogni classe di errori — inclusi Credential Scanner (Z2xx), Governance (Z601, Z602) e il Privacy Gate Enterprise (Z204).
 Eseguilo una volta prima di integrare Zenzic in qualsiasi progetto.
 errore. Eseguilo una volta prima di integrare Zenzic in qualsiasi progetto.
 
@@ -508,7 +508,7 @@ Apache-2.0 — vedi [LICENSE][license].
   </a>
   <p>
     <strong>Ingegnerizzato con precisione da PythonWoods in Italia 🇮🇹</strong><br/>
-    <em>"Costruiamo il Porto Sicuro per la conoscenza tecnica."</em>
+    <em>"Costruiamo lo Standard per l'Integrità della Documentazione Tecnica."</em>
   </p>
   <p>
     <a href="https://zenzic.dev/it/"><strong>Documentazione</strong></a> &middot;
@@ -532,7 +532,6 @@ Apache-2.0 — vedi [LICENSE][license].
 [docs-it-adr-011]:   https://zenzic.dev/it/developers/explanation/adr-cross-instance-allowlist
 [docs-it-tech-debt]: https://zenzic.dev/it/developers/governance/technical-debt
 [docs-it-eng-ledger]: https://zenzic.dev/it/developers/explanation/engineering-ledger
-[ci-workflow]:       .github/workflows/ci.yml
 [contributing]:      CONTRIBUTING.md
 [license]:           LICENSE
 [citation-cff]:      CITATION.cff

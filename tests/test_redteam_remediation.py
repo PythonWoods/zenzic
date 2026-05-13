@@ -447,7 +447,7 @@ class TestVSMContextAwareResolution:
 
 @_credential_scanner_skip
 class TestCredentialScannerReportingIntegrity:
-    """Mutation Gate: these tests target _map_shield_to_finding() and _obfuscate_secret().
+    """Mutation Gate: these tests target _map_credential_to_finding() and _obfuscate_secret().
 
     Each test is designed to kill one of the three mandatory mutants defined in
     the Mutation Gate (CONTRIBUTING.md, Obligation 4).
@@ -476,7 +476,7 @@ class TestCredentialScannerReportingIntegrity:
         )
 
     def test_map_always_emits_security_breach_severity(self) -> None:
-        """The Invisible: _map_shield_to_finding() must set severity='security_breach'.
+        """The Invisible: _map_credential_to_finding() must set severity='security_breach'.
 
         A mutant that changes ``severity='security_breach'`` to ``severity='error'``
         or ``severity='warning'`` causes the CLI runner to exit 1 instead of 2,
@@ -565,7 +565,7 @@ class TestCredentialScannerReportingIntegrity:
         assert "leaky.md:7" in output, "Reporter must display 'file:line' for breach localisation."
 
     def test_pipeline_appends_breach_finding_to_list(self) -> None:
-        """The Silencer: _map_shield_to_finding() must return a non-None Finding.
+        """The Silencer: _map_credential_to_finding() must return a non-None Finding.
 
         A mutant that replaces the ``return Finding(...)`` with ``return None``,
         or wraps the caller's ``findings.append(f)`` in a no-op condition,
@@ -576,7 +576,7 @@ class TestCredentialScannerReportingIntegrity:
         result = _map_credential_to_finding(sf, self._DOCS_ROOT)
 
         # Must return a Finding, never None.
-        assert result is not None, "_map_shield_to_finding must never return None."
+        assert result is not None, "_map_credential_to_finding must never return None."
         assert isinstance(result, Finding), f"Expected Finding, got {type(result).__name__}."
 
         # Every credential scanner field must be forwarded with exact fidelity.

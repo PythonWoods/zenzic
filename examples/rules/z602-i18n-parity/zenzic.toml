@@ -1,0 +1,21 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# zenzic.toml — I18N Parity (Z602)
+#
+# Exercises Z602 I18N_PARITY: sections present in the default locale (EN)
+# but absent from the non-default locale (IT) trigger a parity violation.
+#
+# Expected results:
+#   zenzic check i18n   → EXIT 1  (Z602 ×1)
+#   zenzic check all    → EXIT 1
+
+docs_dir = "docs"
+fail_under = 0
+
+[build_context]
+engine       = "standalone"
+default_locale = "en"
+locales      = ["it"]
+
+[i18n]
+enabled = true

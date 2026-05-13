@@ -192,7 +192,7 @@ _ACTS: list[_Act] = [
         14,
         "Credential Scan: Obfuscation Patterns",
         "Credential obfuscation: base64, percent-encoded, and mixed-case prefixes",
-        "rules/z200-shield",
+        "rules/z201-credential-leak",
         expected_pass=False,
         expected_breach=True,
     ),
@@ -210,7 +210,7 @@ _ACTS: list[_Act] = [
         "rules/z500-quality",
         expected_pass=False,
     ),
-    # \u2500\u2500 Scoring Scenarios (Quartz Penalty Table, CEO-163) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+    # \u2500\u2500 Scoring Scenarios (Zenzic Penalty Table) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
     _Act(
         17,
         "Score 0/100 — Security Override",
@@ -452,7 +452,7 @@ def _print_summary(results: list[_ActResult]) -> None:
         seal_items.append(
             Text.from_markup(
                 f"[bold {ZenzicPalette.SUCCESS}]{emoji('check')} All {len(results)} act(s) met expectations."
-                " Quartz Clarity: the audit surface is clean.[/]"
+                " Zenzic: the audit surface is clean.[/]"
             )
         )
     else:

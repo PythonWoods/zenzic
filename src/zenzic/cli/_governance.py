@@ -204,7 +204,7 @@ def print_governance_cap_failure(suppression_audit: SuppressionAudit, *, title: 
         _shared._ui.make_panel(
             Group(*rows),
             title=f"[bold {ZenzicPalette.ERROR}]{title}[/]",
-            subtitle="Basalt Suppression",
+            subtitle="Suppression Audit",
             border_style=ZenzicPalette.ERROR,
         )
     )

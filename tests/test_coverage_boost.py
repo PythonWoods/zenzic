@@ -116,7 +116,7 @@ class TestLogging:
 
 
 class TestUI:
-    """Cover uncovered branches in ``emoji``, ``make_sentinel_header``,
+    """Cover uncovered branches in ``emoji``, ``make_report_header``,
     ``print_exception_alert``, and ``_detect_capabilities``."""
 
     # ── emoji() ───────────────────────────────────────────────────────────────
@@ -183,23 +183,23 @@ class TestUI:
         assert isinstance(result, tuple)
         assert len(result) == 2
 
-    # ── make_sentinel_header() ────────────────────────────────────────────────
+    # ── make_report_header() ─────────────────────────────────────────────────
 
-    def test_make_sentinel_header_minimal(self) -> None:
+    def test_make_report_header_minimal(self) -> None:
         from zenzic.core.ui import make_report_header
 
         result = make_report_header("1.0")
         assert "ZENZIC" in result
         assert "1.0" in result
 
-    def test_make_sentinel_header_with_target(self) -> None:
+    def test_make_report_header_with_target(self) -> None:
         """Cover the ``if target is not None:`` branch."""
         from zenzic.core.ui import make_report_header
 
         result = make_report_header("1.0", engine="mkdocs", target="/docs/guide")
         assert "/docs/guide" in result
 
-    def test_make_sentinel_header_with_files(self) -> None:
+    def test_make_report_header_with_files(self) -> None:
         """Cover the ``if total:`` branch including singular file."""
         from zenzic.core.ui import make_report_header
 
@@ -213,14 +213,14 @@ class TestUI:
         assert "file" in result_single
         assert "1" in result_single
 
-    def test_make_sentinel_header_with_elapsed(self) -> None:
+    def test_make_report_header_with_elapsed(self) -> None:
         """Cover the ``if elapsed:`` branch."""
         from zenzic.core.ui import make_report_header
 
         result = make_report_header("1.0", elapsed=2.3)
         assert "2.3" in result
 
-    def test_make_sentinel_header_all_branches(self) -> None:
+    def test_make_report_header_all_branches(self) -> None:
         """Hit all optional branches in one call."""
         from zenzic.core.ui import make_report_header
 

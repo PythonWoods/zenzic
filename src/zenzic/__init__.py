@@ -3,3 +3,4 @@
 """Zenzic — engine-agnostic static analyzer and credential scanner for Markdown documentation."""
 
 __version__ = "0.7.1"
+__version_name__ = "Basalt"  # Release codename — single source of truth (ADR-036)

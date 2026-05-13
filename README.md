@@ -41,7 +41,7 @@ SPDX-License-Identifier: Apache-2.0
 
 <p align="center">
   <strong>Deterministic audit of documentation structures with bidirectional traceability.</strong><br>
-  <em>v0.8.0 Basalt: tiered code governance, frozen security contracts, and RE2-backed deterministic scanning.</em>
+  <em>v0.8.0: tiered code governance, frozen security contracts, and RE2-backed deterministic scanning.</em>
 </p>
 
 ---
@@ -77,7 +77,7 @@ zenzic guard scan --staged  # Fast pre-commit Secret Guard
 zenzic inspect codes  # List canonical finding contracts
 ```
 
-## 🧠 Basalt Value Proposition (v0.8.0)
+## 🧠 v0.8.0 Value Proposition
 
 - **Pure, deterministic engine:** identical inputs produce identical findings and exits.
 - **Tiered code model:** Core, Structure, and Governance findings are separated by
@@ -146,7 +146,7 @@ zenzic inspect codes  # List canonical finding contracts
 
 **Autofix:** `zenzic clean assets [-y] [--dry-run]` deletes unused images.
 
-> 🚀 **v0.8.0 "Basalt" (Stable)** — Tiered code governance, frozen security contracts, RE2-backed
+> 🚀 **v0.8.0 (Stable)** — Tiered code governance, frozen security contracts, RE2-backed
 > deterministic scanning, and Sovereign Audit mode. See [CHANGELOG.md](CHANGELOG.md).
 
 ---
@@ -194,7 +194,7 @@ See the [Developer Guide][docs-arch] for the adapter API.
 
 Docusaurus generates URL pages that have no physical Markdown source: tag listing pages
 (`/blog/tags/python/`), paginated blog indexes (`/blog/page/2/`), and author pages
-(`/blog/authors/alice/`). Before EPOCH 7b, Zenzic had no knowledge of these routes, so
+(`/blog/authors/alice/`). Before v0.7.0, Zenzic had no knowledge of these routes, so
 any link pointing at them was incorrectly flagged as a broken link.
 
 `DocusaurusAdapter` now builds a **Virtual Route map** derived from frontmatter metadata
@@ -269,7 +269,7 @@ steps:
 ### Zero-install with `uvx`
 
 ```yaml
-- name: 🛡️ Zenzic Sentinel
+- name: 🛡️ Zenzic Quality Gate
   run: uvx zenzic check all --strict
   # Exit 1 = quality · Exit 2 = leaked credential · Exit 3 = path traversal
   # Exits 2 and 3 are never suppressible.
@@ -281,7 +281,7 @@ steps:
 ```
 
 For badge automation and regression gates, see the [CI/CD guide][docs-cicd].
-Full workflow: [`.github/workflows/ci.yml`][ci-workflow]
+[![CI](https://github.com/PythonWoods/zenzic/actions/workflows/ci.yml/badge.svg)](https://github.com/PythonWoods/zenzic/actions/workflows/ci.yml)
 
 ---
 
@@ -342,14 +342,14 @@ zenzic lab [--act N] [--list]
 ## 📟 Visual Tour
 
 <p align="center">
-  <img src="assets/brand/svg/zenzic-terminal-report.svg" alt="Zenzic Sentinel Report — All checks passed, score 100/100" width="720">
+  <img src="assets/brand/svg/zenzic-terminal-report.svg" alt="Zenzic Analysis Report — All checks passed, score 100/100" width="720">
 </p>
 
 Visit the [documentation portal][docs-home] for interactive screenshots and rich examples.
 
 ---
 
-## 📖 Documentation Map — Basalt Promise
+## 📖 Documentation Map — The Integrity Promise
 
 Zenzic's docs ship as **two separate Docusaurus instances** under the same domain.
 Each has its own sidebar, search, and audience — never mixed.
@@ -362,7 +362,7 @@ zenzic.dev/
 └── community/      → Brand kit, FAQs, governance
 ```
 
-**The Basalt Promise.** Two instances, one engine — stable AST contracts for plugins, total determinism (identical input → identical output), zero subprocess overhead. The split is enforced by [ADR 011: Cross-Instance Allowlist][docs-adr-011] — every cross-boundary link is a documented contract, never a silent suppression. Hidden debt corrupts trust; declared debt is engineering. See the [Technical Debt Ledger][docs-tech-debt] for what we deferred and why.
+**The Integrity Promise.** Two instances, one engine — stable AST contracts for plugins, total determinism (identical input → identical output), zero subprocess overhead. The split is enforced by [ADR 011: Cross-Instance Allowlist][docs-adr-011] — every cross-boundary link is a documented contract, never a silent suppression. Hidden debt corrupts trust; declared debt is engineering. See the [Technical Debt Ledger][docs-tech-debt] for what we deferred and why.
 
 **Entry points:**
 
@@ -450,7 +450,7 @@ links pointing to OS system *paths* (exit 3). Both are non-suppressible.
 **No `zenzic.toml` needed?** Correct. Zenzic identifies the engine from config files present and applies safe defaults. Run
 `zenzic init` at any time to generate a pre-populated config file.
 
-**What is `zenzic lab`?** A 21-act interactive showroom covering every engine and error class — including Shield (Z2xx), Governance (Z601, Z602), and the Enterprise Privacy Gate (Z204).
+**What is `zenzic lab`?** A 21-act interactive showroom covering every engine and error class — including Credential Scanner (Z2xx), Governance (Z601, Z602), and the Enterprise Privacy Gate (Z204).
 Run it once before integrating Zenzic into any project.
 
 ---
@@ -496,7 +496,7 @@ Apache-2.0 — see [LICENSE][license].
   </a>
   <p>
     <strong>Engineered with precision by PythonWoods in Italy 🇮🇹</strong><br/>
-    <em>"Building the Safe Harbor for technical knowledge."</em>
+    <em>"Building the Standard for Technical Document Integrity."</em>
   </p>
   <p>
     <a href="https://zenzic.dev"><strong>Documentation</strong></a> &middot;
@@ -520,7 +520,6 @@ Apache-2.0 — see [LICENSE][license].
 [docs-adr-011]:      https://zenzic.dev/developers/explanation/adr-cross-instance-allowlist
 [docs-tech-debt]:    https://zenzic.dev/developers/governance/technical-debt
 [docs-eng-ledger]:   https://zenzic.dev/developers/explanation/engineering-ledger
-[ci-workflow]:       .github/workflows/ci.yml
 [contributing]:      CONTRIBUTING.md
 [license]:           LICENSE
 [citation-cff]:      CITATION.cff

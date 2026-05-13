@@ -1,0 +1,45 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# zenzic.toml — Scoring Demo: Suppression Debt in Action
+#
+# This fixture shows how active suppressions reduce the quality score.
+# Suppressions are not free. Each one is a Technical Debt entry.
+#
+# This demo creates 7 active suppressions:
+#   - 5 inline (<!-- zenzic:ignore Z601 --> in docs/inline-examples.md)
+#   - 2 per-file (governance.per_file_ignores below)
+#
+# Scoring impact (default cap = 30, all within linear tier):
+#   debt = min(7, 30) × 1 pt = 7 pts
+#   score = 100 - 7 = 93/100
+#
+# Expected CLI output:
+#   Score: 93/100
+#   ! Technical Debt (Suppressions): -7 pts
+#   Suppression Audit: 7/30 (inline: 5, per-file: 2)
+#
+# Run: zenzic score
+# Run with audit: zenzic check all --audit   (bypasses all suppressions)
+
+docs_dir = "docs"
+
+[build_context]
+engine = "standalone"
+
+[project_metadata]
+release_name = "Basalt"
+
+[governance]
+# Suppression CAP: hard build failure when total suppressions exceed this value.
+# Cost formula: min(n,30)×1 pt + max(0,n-30)×2 pt (escalates after cap).
+suppression_cap = 30
+suppression_cap_fail_hard = true
+
+# AncientBrand fires Z601 BRAND_OBSOLESCENCE when found in documentation.
+brand_obsolescence = ["AncientBrand"]
+
+# Per-file suppression map: silence a rule for specific file globs.
+# Each entry below costs 1 pt from the quality score.
+[governance.per_file_ignores]
+"legacy-reference.md" = ["Z601"]  # intentional brand mention in legacy page → -1 pt
+"migration-guide.md"  = ["Z601"]  # brand mention in migration context → -1 pt

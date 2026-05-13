@@ -7,7 +7,7 @@
 | Field    | Value      |
 | :------- | :--------- |
 | Version  | v0.8.0     |
-| Codename | Basalt     |
+| Codename | Basalt<!-- zenzic-ignore: Z601 - release codename -->     |
 | Date     | 2026-05-12 |
 | Status   | Stable     |
 
@@ -20,14 +20,14 @@ Before tagging, every item must be green:
 - [ ] `pyproject.toml` version matches the tag (`0.8.0`)
 - [ ] `CITATION.cff` version and date updated
 - [ ] `CHANGELOG.md` — `[Unreleased]` section moved to the new version heading
-- [ ] Bilingual sync verified — `Z907 I18N_PARITY` clean on `zenzic-doc`
+- [ ] Bilingual sync verified — `Z602 I18N_PARITY` clean on `zenzic-doc`
 - [ ] `zenzic-doc` and `zenzic-action` RELEASE.md updated to match this version
 
 ## Build & Distribute
 
 ```bash
 # Bump version
-uv run bump-my-version bump minor   # or patch / major
+uv run bump-my-version bump minor
 
 # Build wheel + sdist
 python -m build
@@ -51,4 +51,4 @@ Create a GitHub Release from the tag. Copy the `## v0.8.0` section from
 ## Changelog Reference
 
 For a detailed list of changes, see [CHANGELOG.md](./CHANGELOG.md).
-Full history: [CHANGELOG.archive.md](./CHANGELOG.archive.md).
+For full history, see [Historical Archives](./changelogs/README.md).

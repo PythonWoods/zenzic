@@ -6,22 +6,35 @@ Computes a deterministic 0–100 score from the results of all Zenzic checks.
 Each category carries a fixed weight; per-code penalties are deducted up to a
 category cap so that minor issues never collapse the entire score.
 
-Quartz Weight Matrix (CEO-149/163)
------------------------------------
-- structural:   40 pts   Z101, Z102, Z104, Z105, Z106, Z107 — Structural Integrity
-- content:      30 pts   Z501, Z502, Z503, Z505 — Content Excellence
-- navigation:   20 pts   Z402 (Z401 is INFO — immune) — Navigation & SEO
-- brand:        10 pts   Z405, Z406, Z601 — Brand & Assets
+Zenzic Weight Matrix (5-Tier)
+------------------------------------------
+Tier            Codes          Weight   Notes
+─────────────── ────────────── ──────── ──────────────────────────────────────
+Security Gate   Z2xx           CRITICAL Score collapses to 0. Non-suppressible.
+Structural      Z1xx           30 pts   Link graph and reference integrity.
+Navigation      Z3xx, Z4xx     25 pts   Ref-graph logic and page navigation.
+Content         Z5xx           20 pts   Text quality and code block accuracy.
+Governance      Z4xx (Z405,    25 pts   Brand compliance and asset hygiene.
+                Z406), Z6xx
 
 Scoring formula: total = Σ max(0, cap_i − Σ penalty_code × count_code)
 
-Category Cap Invariant (CEO-163):
-  1000 × Z505 (1.0 pt each) caps the content category at 30 pts deducted,
-  leaving structural (40) + navigation (20) + brand (10) = 70 / 100.
+Governance Escalation (Z6xx threshold = 10):
+  Z6xx violations beyond 10 trigger exponential amplification on the
+  governance bucket — doubling every 5 excess findings — until 0.
+
+Suppression Debt (Phase 26):
+  Every inline zenzic:ignore or per-file ignore entry is not free.
+  Each suppression subtracts 1 pt from the total (up to the suppression_cap).
+  Suppressions beyond the cap incur 2 pts each (escalation tier).
+
+  debt_pts = min(n, cap) × 1 + max(0, n − cap) × 2
 
 Security Override (Zero-Tolerance Floor)
 -----------------------------------------
 If any Z2xx finding is present, the score collapses to 0 unconditionally.
+Z204 (FORBIDDEN_TERM) is included: confidential-term exposure is a binary
+failure condition — no quality score is meaningful for such a document.
 """
 
 from __future__ import annotations
@@ -37,36 +50,39 @@ from zenzic.core.exceptions import ConfigurationError
 # ─── Weights ──────────────────────────────────────────────────────────────────
 
 _WEIGHTS: dict[str, float] = {
-    "structural": 0.40,  # Z101, Z102, Z104, Z105, Z107 — Structural Integrity
-    "content": 0.30,  # Z501, Z502, Z503, Z505 — Content Excellence
-    "navigation": 0.20,  # Z402 (Z401 is INFO — immune) — Navigation & SEO
-    "brand": 0.10,  # Z405, Z406, Z601 — Brand & Assets
+    "structural": 0.30,  # Z101, Z102, Z104, Z105, Z106, Z107 — Structural Integrity
+    "navigation": 0.25,  # Z301–303 (Ref-Graph) + Z402 — Navigation & Logic
+    "content": 0.20,  # Z501, Z502, Z503, Z505 — Content Quality
+    "brand": 0.25,  # Z405, Z406, Z601 — Governance & Brand
 }
 
-# ─── Quartz Penalty Table (CEO-163/170) ─────────────────────────────────────
+# ─── Zenzic Penalty Table ───────────────────────────────────────────────
 # Points deducted per occurrence of each finding code.
-# Category cap = weight × 100  (e.g. structural cap = 40 pts).
+# Category cap = weight × 100  (e.g. structural cap = 30 pts).
 # Formula per category:  max(0, cap − Σ penalty_i × count_i)
 _CODE_PENALTY: dict[str, float] = {
-    # Structural Integrity (cap = 40 pts)
+    # Structural Integrity (cap = 30 pts)
     "Z101": 8.0,  # LINK_BROKEN
     "Z102": 5.0,  # ANCHOR_MISSING
     "Z104": 8.0,  # FILE_NOT_FOUND
     "Z105": 2.0,  # ABSOLUTE_PATH
     "Z106": 1.0,  # CIRCULAR_LINK (validator-level)
     "Z107": 1.0,  # CIRCULAR_ANCHOR (rule-engine level)
-    # Content Excellence (cap = 30 pts)
+    # Navigation & Logic (cap = 25 pts)
+    "Z301": 4.0,  # DANGLING_REF — reference link uses an undefined ID
+    "Z302": 1.0,  # DEAD_DEF — reference definition never used
+    "Z303": 3.0,  # DUPLICATE_DEF — reference ID defined more than once
+    "Z402": 4.0,  # ORPHAN_PAGE
+    # Content Quality (cap = 20 pts)
     "Z501": 2.0,  # PLACEHOLDER — TODO / stub patterns
     "Z502": 1.0,  # SHORT_CONTENT — below minimum word count
     "Z503": 10.0,  # SNIPPET_ERROR — syntax error in code block
     "Z505": 1.0,  # UNTAGGED_CODE_BLOCK
-    # Navigation & SEO (cap = 20 pts)
-    "Z402": 4.0,  # ORPHAN_PAGE
-    # Brand & Assets (cap = 10 pts)
+    # Governance & Brand (cap = 25 pts)
     "Z405": 3.0,  # UNUSED_ASSET
     "Z406": 2.0,  # NAV_CONTRACT (navigation contract violation)
-    "Z601": 3.0,  # BRAND_OBSOLESCENCE
-    # Z602 (I18N_PARITY) belongs to Governance tier and is not weighted in DQS.
+    "Z601": 2.0,  # BRAND_OBSOLESCENCE (escalates exponentially beyond threshold)
+    # Z602 (I18N_PARITY) is a Governance gate — not weighted in the DQS bucket.
 }
 
 _CODE_CATEGORY: dict[str, str] = {
@@ -76,18 +92,28 @@ _CODE_CATEGORY: dict[str, str] = {
     "Z105": "structural",
     "Z106": "structural",
     "Z107": "structural",
+    "Z301": "navigation",
+    "Z302": "navigation",
+    "Z303": "navigation",
+    "Z402": "navigation",
     "Z501": "content",
     "Z502": "content",
     "Z503": "content",
     "Z505": "content",
-    "Z402": "navigation",
     "Z405": "brand",
     "Z406": "brand",
     "Z601": "brand",
 }
 
 # Z2xx codes trigger the Security Override — score collapses to 0.
-_SECURITY_CODES: frozenset[str] = frozenset({"Z201", "Z202", "Z203"})
+# Z204 (FORBIDDEN_TERM / Privacy Gate) is included: a document exposing
+# confidential terms has no meaningful documentation quality score.
+_SECURITY_CODES: frozenset[str] = frozenset({"Z201", "Z202", "Z203", "Z204"})
+
+# Governance escalation: Z6xx violations above this threshold trigger exponential
+# penalty on the brand bucket — doubles every 5 excess findings until 0.
+_Z6XX_GOVERNANCE_THRESHOLD: int = 10
+_Z6XX_CODES: frozenset[str] = frozenset({"Z601"})
 
 
 # ─── Data structures ──────────────────────────────────────────────────────────
@@ -111,6 +137,8 @@ class ScoreReport:
     score: int  # 0–100 (rounded)
     threshold: int = 0  # fail_under value at save time; 0 means no threshold
     security_override: bool = False  # True when score collapsed to 0 by a security violation
+    security_findings: int = 0  # count of Z2xx findings triggering the Security Gate
+    suppression_debt_pts: int = 0  # points deducted for inline/per-file suppressions
     categories: list[CategoryScore] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, object]:
@@ -130,51 +158,88 @@ class ScoreReport:
         }
         if self.security_override:
             d["security_override"] = True
+        if self.security_findings > 0:
+            d["security_findings"] = self.security_findings
+        if self.suppression_debt_pts > 0:
+            d["suppression_debt_pts"] = self.suppression_debt_pts
         return d
 
 
 # ─── Pure scoring logic ───────────────────────────────────────────────────────
 
 
-def compute_score(findings_counts: dict[str, int]) -> ScoreReport:
-    """Compute a 0–100 documentation quality score using the Quartz Penalty Table.
+def compute_score(
+    findings_counts: dict[str, int],
+    suppression_count: int = 0,
+    suppression_cap: int = 30,
+) -> ScoreReport:
+    """Compute a 0–100 documentation quality score using the Zenzic Penalty Table.
 
     Each finding code carries a per-occurrence point deduction.  Deductions are
     accumulated per category and capped at the category's maximum contribution
-    (Structural 40, Content 30, Navigation 20, Brand 10).  Total score is the
+    (Structural 30, Navigation 25, Content 20, Brand 25).  Total score is the
     sum of remaining category points (0–100).
 
     Security Override: any Z2xx finding collapses the score to 0 unconditionally.
 
-    Category Cap Invariant (CEO-163): 1 000 occurrences of Z505 (1.0 pt each)
-    cap out the content category at 30 pts deducted, leaving structural (40)
-    + navigation (20) + brand (10) = **70 / 100**.
+    Category Cap Invariant: 1 000 occurrences of Z505 (1.0 pt each) cap out
+    the content category at 20 pts deducted, leaving structural (30)
+    + navigation (25) + brand (25) = **80 / 100** before Gravity Cap.
+
+    Governance Escalation: Z6xx violations beyond 10 trigger an exponential
+    multiplier on brand bucket deductions (doubles every 5 excess findings).
+
+    Gravity Cap (ADR-031): if the brand category score reaches 0.00, total
+    score is capped at 70 — a document with uncontrolled governance violations
+    cannot score above 70/100.
+
+    Suppression Debt: every inline or per-file suppression is not free.
+    Suppressions up to ``suppression_cap`` (default 30) cost 1 pt each.
+    Suppressions beyond ``suppression_cap`` cost 2 pts each (escalation tier).
+    Debt is applied after all category calculations and after the Gravity Cap.
 
     Args:
         findings_counts: Mapping of ``Zxxx`` code → occurrence count.
             Unknown codes contribute zero deduction.
+        suppression_count: Total number of active suppressions (inline + per-file).
+        suppression_cap: Threshold above which suppression cost doubles (default 30).
 
     Returns:
         A :class:`ScoreReport` with the total 0–100 score and per-category breakdown.
     """
     # Security override: any Z2xx finding collapses the score to 0.
-    if any(findings_counts.get(code, 0) > 0 for code in _SECURITY_CODES):
+    sec_count = sum(findings_counts.get(code, 0) for code in _SECURITY_CODES)
+    if sec_count > 0:
         categories = [
             CategoryScore(name=n, weight=w, issues=0, category_score=0.0, contribution=0.0)
             for n, w in _WEIGHTS.items()
         ]
-        return ScoreReport(score=0, security_override=True, categories=categories)
+        return ScoreReport(
+            score=0,
+            security_override=True,
+            security_findings=sec_count,
+            categories=categories,
+        )
 
     categories: list[CategoryScore] = []  # type: ignore[no-redef]
     total_pts = 0.0
 
     for name, weight in _WEIGHTS.items():
-        cap_pts = weight * 100  # e.g. structural: 40.0
+        cap_pts = weight * 100  # e.g. structural: 35.0
         deduction = sum(
             _CODE_PENALTY.get(code, 0.0) * count
             for code, count in findings_counts.items()
             if _CODE_CATEGORY.get(code) == name and count > 0
         )
+        # Governance Escalation: Z6xx violations beyond the threshold receive
+        # exponential amplification on the brand bucket — doubling every 5
+        # excess findings until the bucket is fully zeroed.
+        if name == "brand":
+            z6xx_total = sum(findings_counts.get(c, 0) for c in _Z6XX_CODES)
+            if z6xx_total > _Z6XX_GOVERNANCE_THRESHOLD:
+                excess = z6xx_total - _Z6XX_GOVERNANCE_THRESHOLD
+                z6xx_multiplier = 2.0 ** (excess / 5.0)
+                deduction = min(cap_pts, deduction * z6xx_multiplier)
         cat_pts = max(0.0, cap_pts - deduction)
         cat_score_norm = cat_pts / cap_pts  # 0.0–1.0
         issues = sum(
@@ -193,7 +258,22 @@ def compute_score(findings_counts: dict[str, int]) -> ScoreReport:
             )
         )
 
-    return ScoreReport(score=round(total_pts), categories=categories)
+    # Gravity Cap (ADR-031): a fully zeroed brand bucket limits total to 70/100.
+    # A document with uncontrolled governance violations cannot score above 70.
+    brand_cat = next((c for c in categories if c.name == "brand"), None)
+    if brand_cat is not None and brand_cat.category_score == 0.0:
+        total_pts = min(total_pts, 70.0)
+
+    # Suppression Debt: suppressions are not free. Each suppress directive
+    # deducts 1 pt (within cap) or 2 pts (beyond cap) from the final score.
+    debt_pts = 0
+    if suppression_count > 0:
+        within = min(suppression_count, suppression_cap)
+        excess_supp = max(0, suppression_count - suppression_cap)
+        debt_pts = within * 1 + excess_supp * 2
+        total_pts = max(0.0, total_pts - debt_pts)
+
+    return ScoreReport(score=round(total_pts), suppression_debt_pts=debt_pts, categories=categories)
 
 
 # ─── Snapshot persistence ─────────────────────────────────────────────────────
@@ -208,7 +288,7 @@ def save_snapshot(repo_root: Path, report: ScoreReport) -> Path:
     """
     snapshot_path = repo_root / _SNAPSHOT_FILENAME
     data = report.to_dict()
-    data["schema_version"] = 2  # D092 — Quartz Penalty Scorer
+    data["schema_version"] = 2  # D092 — Zenzic Penalty Scorer
     snapshot_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
     return snapshot_path
 
@@ -218,7 +298,7 @@ def load_snapshot(repo_root: Path) -> ScoreReport | None:
 
     Returns ``None`` if no snapshot file is present or the file cannot be parsed.
     Raises ``ConfigurationError`` if the snapshot was written by Zenzic v0.6.x
-    (decay model, schema_version < 2) and is incompatible with the Quartz scorer.
+    (decay model, schema_version < 2) and is incompatible with the Zenzic scorer.
     """
     snapshot_path = repo_root / _SNAPSHOT_FILENAME
     if not snapshot_path.is_file():
@@ -228,7 +308,7 @@ def load_snapshot(repo_root: Path) -> ScoreReport | None:
         if data.get("schema_version", 1) < 2:
             raise ConfigurationError(
                 "Incompatible baseline (v0.6.x decay model). "
-                "Run 'zenzic score --save' to create a Quartz Maturity baseline."
+                "Run 'zenzic score --save' to create a Zenzic baseline."
             )
         categories = [CategoryScore(**c) for c in data.get("categories", [])]
         score = int(data.get("score", 0))

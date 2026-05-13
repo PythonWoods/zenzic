@@ -19,6 +19,7 @@ from zenzic.cli import (
     config_app,
     configure_console,
     diff,
+    explain,
     get_console,
     get_ui,
     guard_app,
@@ -93,6 +94,7 @@ app.add_typer(inspect_app, name="inspect", rich_help_panel="Introspection")
 app.command(name="lab", rich_help_panel="Core")(lab)
 app.command(name="score", rich_help_panel="Quality")(score)
 app.command(name="diff", rich_help_panel="Quality")(diff)
+app.command(name="explain", rich_help_panel="Quality")(explain)
 app.command(name="init", rich_help_panel="SDK & Plugins")(init)
 
 

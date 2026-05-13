@@ -62,8 +62,8 @@ class ProjectMetadata(BaseModel):
     TOML example::
 
         [project_metadata]
-        release_name = "Quartz"
-        obsolete_names = ["Obsidian"]
+        release_name = "MyRelease"
+        obsolete_names = ["PreviousRelease"]
         # ADR files contain intentional historical references
         obsolete_names_exclude_patterns = [
             "CHANGELOG*.md",
@@ -301,6 +301,8 @@ SYSTEM_EXCLUDED_FILE_NAMES: frozenset[str] = frozenset(
         ".gitattributes",
         ".coverage",
         "coverage.xml",
+        # Zenzic native files — never documentation assets (ADR-039.1)
+        ".zenzic.local.toml.example",
     }
 )
 
@@ -309,6 +311,8 @@ SYSTEM_EXCLUDED_FILE_PATTERNS: tuple[str, ...] = (
     ".prettierrc*",
     ".editorconfig",
     "*.lock",
+    # Shell scripts are infrastructure, not documentation assets (ADR-039.1)
+    "*.sh",
     # Project metadata / build manifests promoted to Layer 1 in v0.7.0.
     # Honours Zero-Config for "Prose-only Maintenance" repos (engine = standalone)
     # whose docs_root is the repository root: every TOML/YAML/JSON config file

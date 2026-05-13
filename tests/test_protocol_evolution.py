@@ -353,7 +353,7 @@ class TestBuildMetadataCache:
         docs.mkdir()
         content = "---\nslug: /custom\ndraft: true\ntags: [a, b]\n---\n\nBody"
         md_contents = {docs / "page.md": content}
-        cache = build_metadata_cache(md_contents, docs, shield_enabled=False)
+        cache = build_metadata_cache(md_contents, docs, scan_credentials=False)
         assert "page.md" in cache
         meta = cache["page.md"]
         assert meta.slug == "/custom"
@@ -368,7 +368,7 @@ class TestBuildMetadataCache:
         content = f"---\ntitle: Test\napi_key: {fake_key}\n---\n\nBody"
         md_contents = {docs / "page.md": content}
         with pytest.raises(CredentialViolation) as exc_info:
-            build_metadata_cache(md_contents, docs, shield_enabled=True)
+            build_metadata_cache(md_contents, docs, scan_credentials=True)
         assert exc_info.value.finding.secret_type == "openai-api-key"
 
     def test_credential_scanner_disabled_allows_secret(self, tmp_path: Path) -> None:
@@ -378,7 +378,7 @@ class TestBuildMetadataCache:
         content = f"---\ntitle: Test\napi_key: {fake_key}\n---\n\nBody"
         md_contents = {docs / "page.md": content}
         # Should NOT raise when credential scanner is disabled.
-        cache = build_metadata_cache(md_contents, docs, shield_enabled=False)
+        cache = build_metadata_cache(md_contents, docs, scan_credentials=False)
         assert "page.md" in cache
 
 
@@ -386,7 +386,7 @@ class TestBuildMetadataCache:
 
 
 class TestCredentialScannerMiddleware:
-    """safe_read_line() must raise ShieldViolation on secrets."""
+    """safe_read_line() must raise CredentialViolation on secrets."""
 
     def test_clean_line_passes_through(self) -> None:
         result = safe_read_line("slug: /custom-path", Path("test.md"), 1)

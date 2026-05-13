@@ -7,14 +7,14 @@
 # nav-awareness.  The full documentation site lives in the separate
 # zenzic-doc repository, which uses engine = "docusaurus".
 #
-# ⚠️  PERIMETER INVARIANT (v0.6.2): docs_dir = "." ensures that README.md
-# and README.it.md are ALWAYS inside the validation perimeter.
+# ⚠️  SCAN SCOPE INVARIANT (v0.6.2): docs_dir = "." ensures that README.md
+# and README.it.md are ALWAYS inside the validation scope.
 # Do NOT change docs_dir to a subdirectory without explicitly re-adding
 # README.md and README.it.md via an include_files entry.
 # Rationale: the README is the primary entry point for users; broken links
 # there are indistinguishable from broken links in the documentation itself.
 #
-# 🏛️ LOCAL SOVEREIGNTY (Basalt): keep machine-specific overrides and private
+# 🏛️ LOCAL SOVEREIGNTY: keep machine-specific overrides and private
 # credentials in `.zenzic.local.toml` only. Shared `zenzic.toml` is the team
 # constitution and must stay reproducible in CI.
 #
@@ -41,16 +41,10 @@ excluded_dirs = [
     ".redteam",
 ]
 
-# Historical changelogs contain example secrets and deprecated syntax
-# snippets that would trigger Shield and Snippet false positives.
-excluded_file_patterns = ["CHANGELOG*.md"]
-
-# Cross-repo documentation links and CHANGELOG history that are still
-# referenced as link targets — suppress FILE_NOT_FOUND for them.
-excluded_build_artifacts = [
-    "CHANGELOG*.md",
-    ".github/workflows/*.yml",
-]
+# ADR-039.1: .zenzic.local.toml.example and *.sh are now in SYSTEM_EXCLUDED_FILE_NAMES /
+# SYSTEM_EXCLUDED_FILE_PATTERNS — no user-level exclusions needed.
+# ADR-039.2: CHANGELOG*.md and RELEASE*.md are clean prose — scanned without exclusion.
+# ROADMAP.md is clean — scanned without exclusion.
 
 # External URLs excluded from the broken-link check (applies only with --strict).
 # The GitHub repository URL returns 429 in CI (rate-limited).
@@ -92,15 +86,26 @@ severity = "error"
 
 # ── Brand integrity ──────────────────────────────────────────────────────────
 # Detect deprecated brand terms in documentation source (Z601).
-# CHANGELOG*.md is excluded by default (historical prose allowed).
-# Use [HISTORICAL] inline to suppress intentional references in other files.
+# Use zenzic-ignore inline to suppress intentional references (e.g. release codenames).
 [project_metadata]
 release_name = "Basalt"
 
 [governance]
+# Suppression CAP: hard build failure when total suppressions exceed this value.
+# Each suppression within the cap costs 1 pt; beyond the cap, 2 pt each.
+# Cost formula: min(n,30)×1 pt + max(0,n-30)×2 pt.
+# Run 'zenzic explain ZXXX' to see the exact penalty for any rule.
+suppression_cap = 30
+suppression_cap_fail_hard = true
+
+# Per-file suppression map: silence a rule for specific file globs.
+# WARNING: Every entry increases your Technical Debt Score (see formula above).
+# Use 'zenzic check --audit' to see what would be flagged without suppressions.
+# [governance.per_file_ignores]
+# "docs/legacy/**" = ["Z601"]   # intentional brand refs → -1 pt
+
 # brand_obsolescence: project-specific deprecated terms (Z601 BRAND_OBSOLESCENCE).
 # Permanent vocabulary guardian — fires if theatrical brand terms reappear in prose.
-# CHANGELOG*.md is excluded by excluded_file_patterns above.
 brand_obsolescence = [
     "Sentinel",
     "Blood Sentinel",
@@ -109,4 +114,12 @@ brand_obsolescence = [
     "Forge",
     "Red Team",
     "Operation",
+    "Quartz",
+    "Obsidian",
+    "ObsidianUI",
+    "Safe Harbor",
+    "Porto Sicuro",
+    "Basalt",
+    "Chronicles",
+    "Siege",
 ]

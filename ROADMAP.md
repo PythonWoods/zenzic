@@ -12,7 +12,7 @@ For the current release history, see [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
-## v0.8.x — Basalt (current)
+## v0.8.x (current)
 
 **Theme:** Tiered code governance, frozen security contracts, Sovereign Audit mode.
 
@@ -108,4 +108,4 @@ These constraints apply across every future release:
 
 ---
 
-*Roadmap last updated: 2026-05-11*
+Roadmap last updated: 2026-05-11

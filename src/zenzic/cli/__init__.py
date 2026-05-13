@@ -27,7 +27,7 @@ from ._shared import (
     get_console,
     get_ui,
 )
-from ._standalone import diff, init, score
+from ._standalone import diff, explain, init, score
 
 
 __all__ = [
@@ -40,6 +40,7 @@ __all__ = [
     # Standalone commands (registered in main.py)
     "score",
     "diff",
+    "explain",
     "init",
     "lab",
     # Console control (called from main.py @app.callback)

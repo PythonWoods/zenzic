@@ -31,7 +31,7 @@ depend on open, auditable source files. We preserve validation continuity across
 changes (MkDocs, Docusaurus, Zensical, and future adapters) so projects keep control over
 their data and quality process regardless of ecosystem churn.
 
-## Basalt Contributor Contract (v0.8.0)
+## Contributor Contract (v0.8.0)
 
 Before proposing rule or docs changes, contributors must validate impact against
 the live code registry and tier ownership model.
@@ -77,7 +77,7 @@ uvx pre-commit install              # commit-stage: light hooks (ruff, format, h
 uvx pre-commit install -t pre-push  # pre-push: 🛡️ Final Guard runs `just verify`
 ```
 
-The pre-push hook is the atomic gate of EPOCH 4 / v0.7.1: a single
+The pre-push hook is the atomic gate of the 4-Gates Standard (v0.7.1): a single
 entry-point (`just verify`) runs both locally and in GitHub Actions —
 **locale ≡ remote, no drift**. Pushes are blocked when any of the
 4 Gates (pre-commit hooks, coverage, tests, `zenzic check all`) fails.
@@ -203,7 +203,7 @@ A PR that violates any of them will be rejected regardless of test coverage.
 ### Zero I/O in the hot path
 
 `src/zenzic/core/` **must never call** `Path.exists()`, `Path.is_file()`, `open()`,
-or any other filesystem or subprocess operation inside a per-link or per-file loop.
+or any other filesystem or subprocess operation inside a per-link or per-file loop. <!-- zenzic-ignore: Z601 - technical programming term, not brand usage -->
 
 The two permitted I/O phases are:
 
@@ -406,7 +406,7 @@ the ZRT-005 amendment history.
 
 All file discovery in `src/zenzic/core/` flows through a single entry point:
 `iter_markdown_sources()` in `discovery.py`. Direct calls to `Path.rglob()`,
-`os.walk()`, or `Path.iterdir()` from scanner, validator, or Shield code are
+`os.walk()`, or `Path.iterdir()` from scanner, validator, or credential scanner code are
 prohibited by design.
 
 Every function in `scanner.py` and `validator.py` that touches the filesystem
@@ -480,6 +480,7 @@ a follow-up issue for the refactor.
 - **Security First:** Any new path resolution MUST be tested against Path Traversal. Use `PathTraversal` logic from `core`.
 - **Credential Scanner Obfuscation Tests:** Every new credential pattern or normalizer rule MUST include obfuscation regression tests: Unicode format characters (category Cf), HTML entity encoding, comment interleaving (HTML `<!-- -->` and MDX `{/* */}`), and cross-line split tokens. See `tests/test_credentials_obfuscation.py` for reference.
 - **Bilingual Parity:** Documentation lives in [zenzic-doc](https://github.com/PythonWoods/zenzic-doc). Refer documentation contributors there.
+- **Machine-Local Config:** Project-specific secrets (forbidden terms for Z204) go in `.zenzic.local.toml` — never committed. Copy [`.zenzic.local.toml.example`](.zenzic.local.toml.example) as a starting template.
 
 ---
 
@@ -698,7 +699,7 @@ def test_resolution_context_is_pickleable():
 
 This test already exists in the test suite as of v0.5.0a4.
 
-**Shield Reporting Integrity (The Mutation Gate for Commit 2+):**
+**Credential Scanner Reporting Integrity (The Mutation Gate for Commit 2+):**
 
 the mutation score on the credential scanner is **broader**
 than detection alone. It also covers the **reporting pipeline**:
@@ -734,7 +735,7 @@ The session targets `rules.py`, `credentials.py`, and `reporter.py` as configure
 > `pythonpath = src`) used exclusively by the `nox -s mutation` session.
 > The main `pyproject.toml` pytest config is not affected.
 
-**Fallback — Manual Mutation Verification (The Sentinel's Trial):**
+**Fallback — Manual Mutation Verification (The Mutation Gate, Manual Mode):**
 
 If the automated tool cannot report a score (e.g. due to an editable-install
 mapping issue), apply each mutant by hand and confirm the test fails:
@@ -794,11 +795,11 @@ The CLI is organised as a **package** (`src/zenzic/cli/`) rather than a single m
 | `_standalone.py` | `score`, `diff`, and `init` commands + their private helpers |
 | `__init__.py` | Public re-export surface consumed by `main.py` — **do not add logic here** |
 
-**The Visual State Manager**
+### The Visual State Manager
 
 `_shared.py` is the **sole owner of all console and UI state**. This is the most critical architectural rule in the CLI layer:
 
-> **PROHIBITION:** No command module may instantiate `Console()` or `ObsidianUI()` directly. All output must go through `get_ui()` and `get_console()` from `_shared.py`.
+> **PROHIBITION:** No command module may instantiate `Console()` or a custom UI class directly. All output must go through `get_ui()` and `get_console()` from `_shared.py`.
 
 ```python
 # ✅ Correct — in any _check.py / _clean.py / _standalone.py command
@@ -808,12 +809,12 @@ _shared.get_console().print("output")
 
 # ❌ FORBIDDEN — never do this in a command module
 from rich.console import Console
-from zenzic.ui import ObsidianUI
-console = Console(...)      # breaks shared state
-ui = ObsidianUI(console)    # creates an orphaned instance
+from mypackage.ui import LegacyInterfaceV1
+console = Console(...)          # breaks shared state
+ui = LegacyInterfaceV1(console) # creates an orphaned instance
 ```
 
-This rule exists because `configure_console()` replaces the module-level `console` and `_ui` singletons when `--no-color` or `--force-color` is passed. Any locally-created `Console` or `ObsidianUI` instance will be frozen at the pre-flag state and will ignore the user's color preference.
+This rule exists because `configure_console()` replaces the module-level `console` and `_ui` singletons when `--no-color` or `--force-color` is passed. Any locally-created `Console` or UI instance will be frozen at the pre-flag state and will ignore the user's color preference.
 
 The `force_terminal` parameter of the module-level `Console` is always `None` (auto-detect via `sys.stdout.isatty()`), never `False` (which would explicitly disable color). Setting `force_terminal=False` is a silent bug that strips all ANSI styling even in interactive terminals.
 

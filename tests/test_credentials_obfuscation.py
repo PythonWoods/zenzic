@@ -265,7 +265,7 @@ class TestCredentialScannerBypass:
     # ── safe_read_line firewall ──
 
     def test_safe_read_line_blocks_secret(self) -> None:
-        """safe_read_line must raise ShieldViolation on detection."""
+        """safe_read_line must raise CredentialViolation on detection."""
         with pytest.raises(CredentialViolation):
             safe_read_line(f"key = {_FAKE_AWS_KEY}", Path("test.md"), 1)
 
@@ -545,11 +545,11 @@ class TestBase64Bypass:
         assert findings == [], f"Expected no findings for innocent Base64 content; got {findings}"
 
 
-# ─── Mutant-Killing Tests: _normalize_line_for_shield ────────────────────────
+# ─── Mutant-Killing Tests: _normalize_line_for_scan ─────────────────────────
 
 
 class TestNormalizeLineForCredentialScannerMutantKill:
-    """Kill surviving mutants in _normalize_line_for_shield().
+    """Kill surviving mutants in _normalize_line_for_scan().
 
     Targeted mutants:
     - mutmut_22: MDX comment sub → "XXXX" instead of ""

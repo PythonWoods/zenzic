@@ -59,7 +59,7 @@ _BUILTIN_ADAPTERS: dict[str, type[Any]] = {
 def discover_engine(repo_root: Path) -> str:
     """Probe *repo_root* for known engine config files and return the canonical engine name.
 
-    Priority order (Quartz Discovery Logic):
+    Priority order (Engine Discovery Logic):
 
     1. ``zensical.toml``      → ``"zensical"``
     2. ``docusaurus.config.ts`` or ``docusaurus.config.js`` → ``"docusaurus"``
@@ -172,7 +172,7 @@ def get_adapter(
             discovered adapter's ``from_repo`` raises one (e.g.
             ``ZensicalAdapter`` raises when ``zensical.toml`` is absent).
     """
-    # Quartz Discovery: resolve "auto" to a concrete engine name by probing
+    # Engine auto-discovery: resolve "auto" to a concrete engine name by probing
     # repo_root for known engine config files.  Mutating context.engine here
     # propagates to the reporter (telemetry line) and _collect_all_results
     # (Z404 config-asset checks) without any additional wiring.
@@ -205,9 +205,7 @@ def get_adapter(
             "[bold cyan]NOTICE:[/bold cyan] Zensical engine active via [yellow]mkdocs.yml[/yellow] compatibility bridge."
         )
     if getattr(context, "offline_mode", False):
-        messages.append(
-            "[bold cyan]NOTICE:[/bold cyan] [Offline mode: forcing flat URL structure]"
-        )
+        messages.append("[bold cyan]NOTICE:[/bold cyan] [Offline mode: forcing flat URL structure]")
 
     if messages:
         from rich.console import Console
