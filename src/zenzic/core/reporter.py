@@ -267,7 +267,7 @@ class ZenzicReporter:
         if not normal_findings and not breach_findings:
             # ── All-clear panel ───────────────────────────────────────────────
             _ok = ok_message or (
-                f"[bold {ZenzicPalette.SUCCESS}]✓ Analysis complete:[/bold {ZenzicPalette.SUCCESS}]"
+                f"[bold {ZenzicPalette.SUCCESS}]Analysis complete:[/bold {ZenzicPalette.SUCCESS}]"
                 f" [{ZenzicPalette.SUCCESS}]All statically-detectable links, credentials,"
                 f" and references verified.[/{ZenzicPalette.SUCCESS}]"
             )
@@ -400,7 +400,7 @@ class ZenzicReporter:
                 )
         else:
             _ok = ok_message or (
-                f"[bold {ZenzicPalette.SUCCESS}]✓ Analysis complete:[/bold {ZenzicPalette.SUCCESS}]"
+                f"[bold {ZenzicPalette.SUCCESS}]Analysis complete:[/bold {ZenzicPalette.SUCCESS}]"
                 f" [{ZenzicPalette.SUCCESS}]All statically-detectable links, credentials,"
                 f" and references verified.[/{ZenzicPalette.SUCCESS}]"
             )
@@ -414,7 +414,7 @@ class ZenzicReporter:
             renderables.append(Text())
             renderables.append(
                 Text.from_markup(
-                    f" [{ZenzicPalette.DIM}]{emoji('info')} {info_count} info finding"
+                    f"[{ZenzicPalette.DIM}]{emoji('info')} {info_count} info finding"
                     f"{'s' if info_count != 1 else ''} hidden — use --show-info to display.[/]"
                 )
             )

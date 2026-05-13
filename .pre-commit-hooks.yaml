@@ -9,15 +9,15 @@
 #     - repo: https://github.com/PythonWoods/zenzic
 #       rev: v0.8.0  # Basalt
 #       hooks:
-#         - id: zenzic-verify    # gate Sentinel — corrisponde a `just verify` lato zenzic
-#         - id: zenzic-guard     # fast staged-file Secret Guard
+#         - id: zenzic-verify    # quality gate — corrisponde a `just verify` lato zenzic
+#         - id: zenzic-guard     # fast staged-file credential scan
 #
 # See https://zenzic.dev/ci-cd/ for full integration guide.
 
 - id: zenzic-verify
-  name: zenzic verify (Sentinel gate)
+  name: zenzic verify (quality gate)
   description: >-
-    Sentinel gate equivalent of `just verify` (Zenzic portion only — does not
+    Quality gate equivalent of `just verify` (Zenzic portion only — does not
     invoke pytest). Runs all documentation quality checks in --strict posture.
   entry: zenzic check all --strict --quiet
   language: python
