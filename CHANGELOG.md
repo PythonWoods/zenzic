@@ -15,42 +15,30 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- **`"lock"` emoji registered in `_EMOJI`:** `emoji('lock')` now resolves to
-  🔒 in the emoji registry (`zenzic.core.ui`); was silently rendering the
-  literal string `"lock"`.
-- **UI/Rich output conventions in CONTRIBUTING.md:** Documented the compact
-  (Ruff-style) vertical spacing rule, `ZenzicPalette.DIM` mandate, and emoji
-  registration requirement.
+- `emoji('lock')` registered in `_EMOJI` (`zenzic.core.ui`); was silently
+  rendering the literal string `"lock"` instead of 🔒.
+- UI output conventions documented in `CONTRIBUTING.md`: compact (Ruff-style)
+  vertical spacing, `ZenzicPalette.DIM` mandate, emoji registration rule.
 
 ### Changed
 
-- **Chromatic DRY compliance — all raw `[dim]` replaced with
-  `ZenzicPalette.DIM`** across the entire `src/` tree: `reporter.py`, `ui.py`,
-  `main.py`, `cli/_shared.py`, `cli/_clean.py`, `cli/_guard.py`,
-  `cli/_check.py`, `cli/_inspect.py`, `cli/_standalone.py`, `cli/_lab.py`,
-  `models/config.py`. `ZenzicPalette.DIM` (#64748b Slate) is now the sole
-  chromatic authority for secondary/dim text. Added `ZenzicPalette` import to
-  `models/config.py`.
-- **Compact footer spacing (Ruff-style):** Removed the spurious blank line
-  before `Try 'zenzic check --help'` in the findings path (`reporter.py`),
-  aligning the findings footer layout with the all-clear footer layout.
-- **Issue template bonifica:** Replaced "Blood Sentinel / Shield" with
-  "Z201 Credential Scanner / Path Traversal Gate" in
-  `gate-bypass-postmortem.md`.
-- **Deprecated "Sentinel" terms removed** from `.pre-commit-hooks.yaml`
-  (`Sentinel gate` → `quality gate`) and GitHub issue templates
-  (`bug_report.yml`, `security_vulnerability.yml`).
+- All raw Rich `[dim]` tags replaced with `ZenzicPalette.DIM` across `src/`
+  (`reporter.py`, `ui.py`, `main.py`, all `cli/` modules, `models/config.py`).
+  `ZenzicPalette.DIM` is now the sole chromatic authority for secondary text.
+- Deprecated "Sentinel" terms removed from `.pre-commit-hooks.yaml` and GitHub
+  issue templates (`bug_report.yml`, `security_vulnerability.yml`,
+  `gate-bypass-postmortem.md`).
 
 ### Fixed
 
-- **Double icon `✨ ✓ Analysis complete:`** removed — the `✓` was redundant
-  with the sparkles emoji; both all-clear paths in `reporter.py` corrected.
-- **Leading space before 💡 in the no-external notice** removed: the
-  `[dim] 💡...` string had a leading space that produced misaligned output.
-- **Trailing `\n` in no-external notice** removed, which was causing a spurious
-  blank line before the Suppression Audit footer.
-- **Spurious blank line before `🔒 Suppression Audit`** removed from
-  `print_suppression_audit_footer()` in `cli/_governance.py`.
+- `reporter.render()`: usage hint (`Try 'zenzic check --help'`) now shown in
+  both all-clear and findings paths; was missing from the all-clear path.
+- `reporter.render()`: removed duplicate `✓` icon in `✨ Analysis complete:`.
+- Spurious blank lines caused by inline `\n` in `console.print()` strings
+  removed across `_check.py` (6 Scanning hints), `_standalone.py` (REGRESSION,
+  Target hint), `_clean.py` (Found/DRY RUN/SUCCESS), `_governance.py`
+  (Suppression Audit footer), `reporter.py` (findings/all-clear footer).
+- Leading space before 💡 in the no-external notice removed.
 
 ---
 
