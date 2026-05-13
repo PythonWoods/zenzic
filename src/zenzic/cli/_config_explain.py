@@ -29,16 +29,12 @@ from zenzic.models.config import (
 )
 
 from . import _shared
+from ._metadata import COMMAND_BY_NAME
 
 
-config_app = typer.Typer(
+config_app = _shared.create_app(
     name="config",
-    help=(
-        f"[bold {ZenzicPalette.BRAND}]Config[/] — Inspect the active Zenzic "
-        "configuration and the origin of each value."
-    ),
-    no_args_is_help=True,
-    rich_markup_mode="rich",
+    long_help=(f"[bold {ZenzicPalette.BRAND}]Config[/] — {COMMAND_BY_NAME['config'].long_help}"),
 )
 
 
@@ -292,3 +288,4 @@ def explain(
         _add_row(i18n_table, field, value, source)
     console.print(i18n_table)
     console.print()
+    _shared.print_footer_hint("config")

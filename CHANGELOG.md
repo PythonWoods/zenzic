@@ -15,30 +15,27 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- `emoji('lock')` registered in `_EMOJI` (`zenzic.core.ui`); was silently
-  rendering the literal string `"lock"` instead of 🔒.
-- UI output conventions documented in `CONTRIBUTING.md`: compact (Ruff-style)
-  vertical spacing, `ZenzicPalette.DIM` mandate, emoji registration rule.
+- **CLI metadata registry (`_metadata.py`) introduced:** command name, help
+  surface, panel placement, and canonical usage hints are now centralized in a
+  single source of truth.
+- **Shared CLI app factory (`create_app`) introduced:** sub-app construction is
+  now uniform across `check`, `clean`, `config`, `guard`, and `inspect`.
 
 ### Changed
 
-- All raw Rich `[dim]` tags replaced with `ZenzicPalette.DIM` across `src/`
-  (`reporter.py`, `ui.py`, `main.py`, all `cli/` modules, `models/config.py`).
-  `ZenzicPalette.DIM` is now the sole chromatic authority for secondary text.
-- Deprecated "Sentinel" terms removed from `.pre-commit-hooks.yaml` and GitHub
-  issue templates (`bug_report.yml`, `security_vulnerability.yml`,
-  `gate-bypass-postmortem.md`).
+- **Top-level command registration is now registry-driven:** `main.py` consumes
+  centralized metadata and no longer hardcodes per-command help entries.
+- **Reporter footer contract modularized:** `ZenzicReporter.render()` now
+  accepts caller-provided `FooterNotice`; command-specific navigation hints are
+  emitted by callers instead of hardcoded in the report engine.
+- **`--strict` policy normalized for Basalt semantics in `check`, `score`, and
+  `diff`:** strict mode is now documented and handled as warning-promotion to
+  fatal exit policy.
 
 ### Fixed
 
-- `reporter.render()`: usage hint (`Try 'zenzic check --help'`) now shown in
-  both all-clear and findings paths; was missing from the all-clear path.
-- `reporter.render()`: removed duplicate `✓` icon in `✨ Analysis complete:`.
-- Spurious blank lines caused by inline `\n` in `console.print()` strings
-  removed across `_check.py` (6 Scanning hints), `_standalone.py` (REGRESSION,
-  Target hint), `_clean.py` (Found/DRY RUN/SUCCESS), `_governance.py`
-  (Suppression Audit footer), `reporter.py` (findings/all-clear footer).
-- Leading space before 💡 in the no-external notice removed.
+- **Header channel split hardened:** command headers are emitted via stderr UI,
+  preserving clean stdout payloads for machine-readable flows.
 
 ---
 
@@ -46,7 +43,7 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- **Phase 2 (The Truth-Seeker) delivered:** Added Sovereign Audit mode via
+- **Sovereign Audit mode and Secret Guard delivered:** Added Sovereign Audit mode via
   `zenzic check all --audit` (bypasses inline `zenzic-ignore` and
   `[governance].per_file_ignores` for suppressible findings), plus native
   Secret Guard commands (`zenzic guard scan`, `zenzic guard init`) powered by

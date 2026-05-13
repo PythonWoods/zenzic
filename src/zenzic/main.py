@@ -7,7 +7,8 @@ from __future__ import annotations
 import io
 import os
 import sys
-from typing import Annotated
+from collections.abc import Callable
+from typing import Annotated, Any, cast
 
 import typer
 from rich.console import Console
@@ -28,6 +29,7 @@ from zenzic.cli import (
     lab,
     score,
 )
+from zenzic.cli._metadata import COMMANDS, ROOT_EPILOG, ROOT_HELP
 from zenzic.core.exceptions import PluginContractError, ZenzicError
 from zenzic.core.logging import setup_cli_logging
 from zenzic.core.ui import ZenzicPalette, ZenzicUI
@@ -41,16 +43,11 @@ def _version_callback(value: bool) -> None:
 
 app = typer.Typer(
     name="zenzic",
-    help=(
-        f"[bold {ZenzicPalette.BRAND}]Zenzic[/] — Engine-agnostic static analyzer and credential scanner "
-        "for Markdown documentation.\n\n"
-        "Run [bold cyan]zenzic check all[/] for a full audit, or pick individual "
-        "checks below."
-    ),
+    help=ROOT_HELP,
     rich_markup_mode="rich",
     no_args_is_help=True,
     rich_help_panel="Core",
-    epilog=f"[bold {ZenzicPalette.BRAND}]PythonWoods[/]  [{ZenzicPalette.DIM}]·  Apache-2.0  ·  https://zenzic.dev[/]",
+    epilog=ROOT_EPILOG,
 )
 
 
@@ -86,16 +83,37 @@ def _main(
     configure_console(no_color=no_color, force_color=force_color)
 
 
-app.add_typer(check_app, name="check", rich_help_panel="Core")
-app.add_typer(clean_app, name="clean", rich_help_panel="Core")
-app.add_typer(config_app, name="config", rich_help_panel="Introspection")
-app.add_typer(guard_app, name="guard", rich_help_panel="Introspection")
-app.add_typer(inspect_app, name="inspect", rich_help_panel="Introspection")
-app.command(name="lab", rich_help_panel="Core")(lab)
-app.command(name="score", rich_help_panel="Quality")(score)
-app.command(name="diff", rich_help_panel="Quality")(diff)
-app.command(name="explain", rich_help_panel="Quality")(explain)
-app.command(name="init", rich_help_panel="SDK & Plugins")(init)
+_SUB_APPS = {
+    "check": check_app,
+    "clean": clean_app,
+    "config": config_app,
+    "guard": guard_app,
+    "inspect": inspect_app,
+}
+
+_STANDALONE_COMMANDS = {
+    "lab": lab,
+    "score": score,
+    "diff": diff,
+    "explain": explain,
+    "init": init,
+}
+
+for cmd in COMMANDS:
+    if cmd.name in _SUB_APPS:
+        app.add_typer(
+            _SUB_APPS[cmd.name],
+            name=cmd.name,
+            rich_help_panel=cmd.panel,
+            help=cmd.short_help,
+        )
+    elif cmd.name in _STANDALONE_COMMANDS:
+        _handler = cast(Callable[..., Any], _STANDALONE_COMMANDS[cmd.name])
+        app.command(
+            name=cmd.name,
+            rich_help_panel=cmd.panel,
+            help=cmd.short_help,
+        )(_handler)
 
 
 _err_console = Console(

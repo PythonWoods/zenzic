@@ -50,13 +50,12 @@ from ._governance import (
     print_suppression_audit_footer,
     resolve_governance_panel_title,
 )
+from ._metadata import COMMAND_BY_NAME
 
 
-check_app = typer.Typer(
+check_app = _shared.create_app(
     name="check",
-    help=f"[bold {ZenzicPalette.BRAND}]Check[/] — Run documentation quality checks.",
-    no_args_is_help=True,
-    rich_markup_mode="rich",
+    long_help=(f"[bold {ZenzicPalette.BRAND}]Check[/] — {COMMAND_BY_NAME['check'].long_help}"),
 )
 
 
@@ -65,7 +64,12 @@ check_app = typer.Typer(
 
 @check_app.command(name="links")
 def check_links(
-    strict: bool = typer.Option(False, "--strict", "-s", help="Exit non-zero on any warning."),
+    strict: bool = typer.Option(
+        False,
+        "--strict",
+        "-s",
+        help="Promote warnings to fatal policy (exit non-zero on any warning).",
+    ),
     output_format: str = typer.Option(
         "text", "--format", "-f", help="Output format: text, json, or sarif."
     ),
@@ -99,7 +103,7 @@ def check_links(
         show_default=False,
     ),
 ) -> None:
-    """Check for broken internal links. Pass --strict to also validate external URLs."""
+    """Check for broken internal links and enforce strict warning policy when requested."""
     from zenzic import __version__
 
     _search_from: Path | None = None
@@ -144,7 +148,7 @@ def check_links(
         exclusion_mgr,
         repo_root=repo_root,
         config=config,
-        strict=strict,
+        strict=False,
         locale_roots=locale_roots,
         check_external=not no_external,
     )
@@ -198,6 +202,12 @@ def check_links(
             _hint = str(docs_root)
         _shared.console.print(f"[{ZenzicPalette.DIM}]  Scanning: {_hint}[/]")
     reporter = ZenzicReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
+    footer_lines = [f"[{ZenzicPalette.DIM}]Try 'zenzic check links --help' for options.[/]"]
+    if no_external and output_format == "text":
+        footer_lines.append(
+            f"[{ZenzicPalette.DIM}]💡 External link validation skipped (--no-external). "
+            f"Credential scanner (Z201) remains active.[/]"
+        )
     errors, warnings = reporter.render(
         findings,
         version=__version__,
@@ -207,16 +217,12 @@ def check_links(
         engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
         ok_message="No broken links found.",
         show_info=show_info,
+        footer_notice=_shared.make_footer_notice(*footer_lines),
     )
-    if no_external and output_format == "text":
-        _shared.console.print(
-            f"[{ZenzicPalette.DIM}]💡 External link validation skipped (--no-external). "
-            f"Credential scanner (Z201) remains active.[/]"
-        )
     incidents = sum(1 for f in findings if f.severity == "security_incident")
     if incidents:
         raise typer.Exit(3)
-    if errors:
+    if errors or (strict and warnings):
         raise typer.Exit(1)
 
 
@@ -315,6 +321,7 @@ def check_orphans(
         strict=True,
         ok_message="No orphan pages found.",
         show_info=show_info,
+        footer_notice=_shared.make_footer_notice(_shared.footer_hint("check")),
     )
     if errors or warnings:
         raise typer.Exit(1)
@@ -417,6 +424,7 @@ def check_snippets(
         engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
         ok_message="All code snippets are syntactically valid.",
         show_info=show_info,
+        footer_notice=_shared.make_footer_notice(_shared.footer_hint("check")),
     )
     if errors:
         raise typer.Exit(1)
@@ -428,7 +436,7 @@ def check_references(
         False,
         "--strict",
         "-s",
-        help="Treat Dead Definitions and duplicate defs as errors (not warnings).",
+        help="Promote warnings to fatal policy (exit non-zero on any warning).",
     ),
     links: bool = typer.Option(
         False,
@@ -587,6 +595,7 @@ def check_references(
         strict=strict,
         ok_message="All references resolved.",
         show_info=show_info,
+        footer_notice=_shared.make_footer_notice(_shared.footer_hint("check")),
     )
 
     breaches = sum(1 for f in findings if f.severity == "security_breach")
@@ -686,6 +695,7 @@ def check_assets(
         strict=True,
         ok_message="No unused assets found.",
         show_info=show_info,
+        footer_notice=_shared.make_footer_notice(_shared.footer_hint("check")),
     )
     if errors or warnings:
         raise typer.Exit(1)
@@ -771,6 +781,7 @@ def check_placeholders(
         strict=True,
         ok_message="No placeholder stubs found.",
         show_info=show_info,
+        footer_notice=_shared.make_footer_notice(_shared.footer_hint("check")),
     )
     if errors or warnings:
         raise typer.Exit(1)
@@ -902,7 +913,7 @@ def _collect_all_results(
             exclusion_mgr,
             repo_root=repo_root,
             config=config,
-            strict=strict,
+            strict=False,
             locale_roots=locale_roots,
             check_external=check_external,
         ),
@@ -1469,6 +1480,13 @@ def check_all(
             )
             return
 
+        _footer_lines = [_shared.footer_hint("check")]
+        if no_external:
+            _footer_lines.append(
+                f"[{ZenzicPalette.DIM}]💡 External link validation skipped (--no-external). "
+                f"Credential scanner (Z201) remains active.[/]"
+            )
+
         errors, warnings = reporter.render(
             all_findings,
             version=__version__,
@@ -1479,12 +1497,7 @@ def check_all(
             target=_target_hint,
             strict=effective_strict,
             show_info=show_info,
-        )
-
-    if no_external and output_format == "text" and not quiet:
-        _shared.console.print(
-            f"[{ZenzicPalette.DIM}]💡 External link validation skipped (--no-external). "
-            f"Credential scanner (Z201) remains active.[/]"
+            footer_notice=_shared.make_footer_notice(*_footer_lines),
         )
 
     if output_format == "text":

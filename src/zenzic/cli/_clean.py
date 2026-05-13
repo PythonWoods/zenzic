@@ -14,13 +14,12 @@ from zenzic.core.ui import ZenzicPalette, emoji
 from zenzic.models.config import ZenzicConfig
 
 from . import _shared
+from ._metadata import COMMAND_BY_NAME
 
 
-clean_app = typer.Typer(
+clean_app = _shared.create_app(
     name="clean",
-    help=f"[bold {ZenzicPalette.BRAND}]Clean[/] — Safely remove unused documentation files.",
-    no_args_is_help=True,
-    rich_markup_mode="rich",
+    long_help=(f"[bold {ZenzicPalette.BRAND}]Clean[/] — {COMMAND_BY_NAME['clean'].long_help}"),
 )
 
 
@@ -111,6 +110,7 @@ def clean_assets(
                     f" [{ZenzicPalette.SUCCESS}]No unused assets found \u2014 documentation tree is clean.[/{ZenzicPalette.SUCCESS}]"
                 )
             )
+            _shared.print_footer_hint("clean", quiet=quiet)
         return
 
     if not quiet:
@@ -123,6 +123,7 @@ def clean_assets(
         if not quiet:
             _shared.console.print()
             _shared.console.print("[blue]DRY RUN:[/] No files were deleted.")
+            _shared.print_footer_hint("clean", quiet=quiet)
         return
 
     if not yes:
@@ -141,3 +142,4 @@ def clean_assets(
     if not quiet:
         _shared.console.print()
         _shared.console.print(f"[green]SUCCESS:[/] Deleted {len(unused)} unused asset(s).")
+        _shared.print_footer_hint("clean", quiet=quiet)

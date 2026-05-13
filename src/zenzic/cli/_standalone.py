@@ -78,7 +78,7 @@ def _run_all_checks(
         exclusion_mgr,
         repo_root=repo_root,
         config=config,
-        strict=strict,
+        strict=False,
     )
     orphans = find_orphans(docs_root, exclusion_mgr, repo_root=repo_root, config=config)
     snippet_errors = validate_snippets(docs_root, exclusion_mgr, config=config)
@@ -154,7 +154,7 @@ def score(
         None,
         "--strict",
         "-s",
-        help="Also validate external HTTP/HTTPS links (slower; requires network).",
+        help="Promote warnings to fatal policy (exit 1 unless the score is 100).",
     ),
     output_format: str = typer.Option(
         "text", "--format", "-f", help="Output format: text or json."
@@ -198,7 +198,7 @@ def score(
 
     exclusion_mgr = _shared._build_exclusion_manager(config, repo_root, docs_root)
     effective_strict = strict if strict is not None else config.strict
-    report = _run_all_checks(repo_root, docs_root, config, exclusion_mgr, strict=effective_strict)
+    report = _run_all_checks(repo_root, docs_root, config, exclusion_mgr, strict=config.strict)
 
     effective_threshold = fail_under if fail_under > 0 else config.fail_under
 
@@ -285,6 +285,14 @@ def score(
         )
         raise typer.Exit(1)
 
+    if effective_strict and report.score < 100:
+        _shared.console.print(
+            "[red]FAILED:[/] strict mode enabled — warnings are treated as fatal until score is 100."
+        )
+        raise typer.Exit(1)
+
+    _shared.print_footer_hint("score", output_format=output_format)
+
 
 # ── diff command ──────────────────────────────────────────────────────────────
 
@@ -299,7 +307,7 @@ def diff(
         None,
         "--strict",
         "-s",
-        help="Also validate external HTTP/HTTPS links (slower; requires network).",
+        help="Promote warnings to fatal policy (exit 1 unless the score is 100).",
     ),
     output_format: str = typer.Option(
         "text", "--format", "-f", help="Output format: text or json."
@@ -372,7 +380,7 @@ def diff(
         )
         raise typer.Exit(1)
 
-    current = _run_all_checks(repo_root, docs_root, config, exclusion_mgr, strict=effective_strict)
+    current = _run_all_checks(repo_root, docs_root, config, exclusion_mgr, strict=config.strict)
     delta = current.score - baseline.score
 
     if output_format == "json":
@@ -450,6 +458,14 @@ def diff(
             f"[red]REGRESSION:[/] score dropped by {dropped} point(s) (threshold: {threshold})."
         )
         raise typer.Exit(1)
+
+    if effective_strict and current.score < 100:
+        _shared.console.print(
+            "[red]FAILED:[/] strict mode enabled — warnings are treated as fatal until score is 100."
+        )
+        raise typer.Exit(1)
+
+    _shared.print_footer_hint("diff", output_format=output_format)
 
 
 # ── explain command ────────────────────────────────────────────────────────────
@@ -636,6 +652,7 @@ def explain(
     _shared.console.print("[bold]Config Genealogy[/]")
     _shared.console.print(g_table)
     _shared.console.print()
+    _shared.print_footer_hint("explain")
 
 
 # ── init command ──────────────────────────────────────────────────────────────
@@ -734,6 +751,7 @@ def init(
 
     # Local Sovereignty: always scaffold machine-local overlay.
     _scaffold_local_toml(repo_root)
+    _shared.print_footer_hint("init")
 
 
 def _is_editable_install() -> bool:

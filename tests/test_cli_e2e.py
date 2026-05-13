@@ -128,7 +128,7 @@ class TestCredentialBreachE2E:
         assert result.exit_code == 2, (
             f"Expected exit 2 (security_breach), got {result.exit_code}.\nOutput:\n{result.stdout}"
         )
-        assert "ZENZIC" in result.stdout
+        assert "ZENZIC" in (result.stdout + result.stderr)
 
     def test_credential_scanner_exit_2_not_suppressed_by_exit_zero(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch

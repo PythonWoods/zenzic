@@ -15,13 +15,12 @@ from zenzic.core.ui import ZenzicPalette
 from zenzic.models.config import ZenzicConfig
 
 from . import _shared
+from ._metadata import COMMAND_BY_NAME
 
 
-inspect_app = typer.Typer(
+inspect_app = _shared.create_app(
     name="inspect",
-    help=f"[bold {ZenzicPalette.BRAND}]Inspect[/] — Introspect the Zenzic scanner arsenal and plugin registry.",
-    no_args_is_help=True,
-    rich_markup_mode="rich",
+    long_help=(f"[bold {ZenzicPalette.BRAND}]Inspect[/] — {COMMAND_BY_NAME['inspect'].long_help}"),
 )
 
 
@@ -176,6 +175,7 @@ def _inspect_capabilities() -> None:
             f"[/{ZenzicPalette.DIM}]"
         )
     )
+    _shared.print_footer_hint("inspect")
 
 
 # Canonical command
@@ -283,6 +283,7 @@ def inspect_codes(
     _shared.console.print()
     _shared.console.print(table)
     _shared.console.print()
+    _shared.print_footer_hint("inspect")
 
 
 @inspect_app.command(name="routes")
@@ -449,3 +450,4 @@ def inspect_routes(
     _shared.console.print()
     _shared.console.print(table)
     _shared.console.print()
+    _shared.print_footer_hint("inspect")

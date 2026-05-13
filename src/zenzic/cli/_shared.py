@@ -16,13 +16,16 @@ from pathlib import Path
 import typer
 from rich.console import Console
 from rich.panel import Panel
+from rich.text import Text
 
 from zenzic.core.adapters import list_adapter_engines
 from zenzic.core.codes import CODE_DESCRIPTIONS, CODE_NAMES, CODE_SARIF_LEVELS, get_sarif_name
 from zenzic.core.exclusion import LayeredExclusionManager
-from zenzic.core.reporter import Finding
+from zenzic.core.reporter import Finding, FooterNotice
 from zenzic.core.ui import ZenzicPalette, ZenzicUI, emoji
 from zenzic.models.config import ZenzicConfig
+
+from ._metadata import COMMAND_BY_NAME
 
 
 # ── Console singleton & UI gateway ───────────────────────────────────────────
@@ -35,7 +38,16 @@ console = Console(
     else None,
 )
 
-_ui = ZenzicUI(console)
+stderr_console = Console(
+    stderr=True,
+    highlight=False,
+    no_color=os.environ.get("NO_COLOR") is not None,
+    force_terminal=True
+    if os.environ.get("FORCE_COLOR") and not os.environ.get("NO_COLOR")
+    else None,
+)
+
+_ui = ZenzicUI(stderr_console)
 
 
 def configure_console(*, no_color: bool = False, force_color: bool = False) -> None:
@@ -45,14 +57,16 @@ def configure_console(*, no_color: bool = False, force_color: bool = False) -> N
     CLI flags take priority over environment variables.  Also rebuilds ``_ui``
     so all subsequent command output uses the reconfigured console.
     """
-    global console, _ui
+    global console, stderr_console, _ui
     if no_color:
         console = Console(highlight=False, no_color=True)
+        stderr_console = Console(stderr=True, highlight=False, no_color=True)
     elif force_color:
         console = Console(highlight=False, force_terminal=True)
+        stderr_console = Console(stderr=True, highlight=False, force_terminal=True)
     # else: keep existing console — no_color=False + force_color=False means "auto",
     # which is already set correctly in the module-level Console (force_terminal=None).
-    _ui = ZenzicUI(console)
+    _ui = ZenzicUI(stderr_console)
 
 
 def get_ui() -> ZenzicUI:
@@ -67,6 +81,41 @@ def get_ui() -> ZenzicUI:
 def get_console() -> Console:
     """Return the current centralized :class:`rich.console.Console` instance."""
     return console
+
+
+def make_footer_notice(*lines: str) -> FooterNotice:
+    """Return a normalized footer notice contract for text-mode command footers."""
+    return FooterNotice(lines=tuple(line for line in lines if line))
+
+
+def footer_hint(command_name: str) -> str:
+    """Return the canonical usage hint line for a top-level command name."""
+    meta = COMMAND_BY_NAME.get(command_name)
+    if meta is None:
+        return f"[{ZenzicPalette.DIM}]Try 'zenzic --help' for options.[/]"
+    return f"[{ZenzicPalette.DIM}]{meta.usage_hint}[/]"
+
+
+def print_footer_hint(
+    command_name: str,
+    *,
+    output_format: str = "text",
+    quiet: bool = False,
+) -> None:
+    """Emit a canonical footer navigation hint for human-readable command output."""
+    if output_format != "text" or quiet:
+        return
+    console.print(Text.from_markup(footer_hint(command_name)))
+
+
+def create_app(*, name: str, long_help: str) -> typer.Typer:
+    """Create a Typer sub-app with the standard Zenzic CLI defaults."""
+    return typer.Typer(
+        name=name,
+        help=long_help,
+        no_args_is_help=True,
+        rich_markup_mode="rich",
+    )
 
 
 # ── Info hint panel ──────────────────────────────────────────────────────────

@@ -31,6 +31,13 @@ class Finding:
     match_text: str = ""
 
 
+@dataclass(slots=True, frozen=True)
+class FooterNotice:
+    """Declarative footer contract appended after the rendered report body."""
+
+    lines: tuple[str, ...] = ()
+
+
 _SEVERITY_STYLE: dict[str, str] = {
     "error": ZenzicPalette.STYLE_ERR,
     "warning": ZenzicPalette.STYLE_WARN,
@@ -180,6 +187,7 @@ class ZenzicReporter:
         strict: bool = False,
         ok_message: str | None = None,
         show_info: bool = False,
+        footer_notice: FooterNotice | None = None,
     ) -> tuple[int, int]:
         """Print the full Zenzic Report.
 
@@ -292,9 +300,9 @@ class ZenzicReporter:
             self._con.print()
             for _item in _ok_items:
                 self._con.print(_item)
-            self._con.print(
-                Text.from_markup(f"[{ZenzicPalette.DIM}]Try 'zenzic check --help' for options.[/]")
-            )
+            if footer_notice is not None:
+                for line in footer_notice.lines:
+                    self._con.print(Text.from_markup(line))
             return 0, 0
 
         # ── Grouped findings (non-breach only) ───────────────────────────────
@@ -428,10 +436,9 @@ class ZenzicReporter:
         self._con.print()
         for _r in renderables:
             self._con.print(_r)
-        # ── Usage hint — always shown, both all-clear and findings paths ──────
-        self._con.print(
-            Text.from_markup(f"[{ZenzicPalette.DIM}]Try 'zenzic check --help' for options.[/]")
-        )
+        if footer_notice is not None:
+            for line in footer_notice.lines:
+                self._con.print(Text.from_markup(line))
         return errors, warnings
 
     # ── Quiet mode (pre-commit) ──────────────────────────────────────────────

@@ -21,16 +21,12 @@ from zenzic.core.ui import ZenzicPalette
 from zenzic.models.config import ZenzicConfig
 
 from . import _shared
+from ._metadata import COMMAND_BY_NAME
 
 
-guard_app = typer.Typer(
+guard_app = _shared.create_app(
     name="guard",
-    help=(
-        f"[bold {ZenzicPalette.BRAND}]Guard[/] — Fast pre-commit secret guard "
-        "for Markdown/MDX files."
-    ),
-    no_args_is_help=True,
-    rich_markup_mode="rich",
+    long_help=(f"[bold {ZenzicPalette.BRAND}]Guard[/] — {COMMAND_BY_NAME['guard'].long_help}"),
 )
 
 
@@ -137,6 +133,7 @@ def scan(
             _shared.console.print(
                 f"[{ZenzicPalette.DIM}]Secret Guard: no Markdown/MDX targets found.[/]"
             )
+            _shared.print_footer_hint("guard")
         return
 
     findings: list[SecurityFinding] = []
@@ -193,6 +190,7 @@ def scan(
         f"[bold {ZenzicPalette.SUCCESS}]Secret Guard clean:[/] "
         f"{len(targets)} file(s) scanned, no secrets detected."
     )
+    _shared.print_footer_hint("guard")
 
 
 _GUARD_HOOK_BLOCK = """- id: zenzic-guard
@@ -225,6 +223,7 @@ def init_guard(
         _shared.console.print(
             f"[{ZenzicPalette.DIM}]Secret Guard hook already present; no changes applied.[/]"
         )
+        _shared.print_footer_hint("guard")
         return
 
     if existing.strip():
@@ -240,3 +239,4 @@ def init_guard(
 
     target.write_text(content, encoding="utf-8")
     _shared.console.print(f"[bold {ZenzicPalette.SUCCESS}]Secret Guard hook installed:[/] {target}")
+    _shared.print_footer_hint("guard")

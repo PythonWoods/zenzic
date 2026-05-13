@@ -68,7 +68,7 @@ def test_visual_snippet_rendered_when_source_line_present() -> None:
         error_type="FILE_NOT_FOUND",
     )
     result = _invoke_with_errors([err])
-    assert "│" in result.stdout
+    assert "❱" in result.stdout
     assert "foo.md" in result.stdout
 
 
@@ -172,8 +172,8 @@ def test_sandbox_mkdocs_expected_error_types(monkeypatch: pytest.MonkeyPatch) ->
     assert "Z105" in result.stdout  # ABSOLUTE_PATH
     assert "Z101" in result.stdout  # UNREACHABLE_LINK / LINK_BROKEN
     assert "Z104" in result.stdout  # FILE_NOT_FOUND
-    # Each error must have a │ snippet
-    assert "│" in result.stdout
+    # Each error must have a snippet marker
+    assert "❱" in result.stdout
 
 
 @pytest.mark.skipif(
@@ -225,7 +225,7 @@ def test_sandbox_zensical_private_dir_unreachable(monkeypatch: pytest.MonkeyPatc
     assert result.exit_code == 1
     assert "UNREACHABLE_LINK" in result.stdout
     assert "_private/notes.md" in result.stdout
-    assert "│" in result.stdout
+    assert "❱" in result.stdout
 
 
 @pytest.mark.skipif(

@@ -57,7 +57,7 @@ def test_cli_help() -> None:
 def test_check_links_ok(_links, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "links"])
     assert result.exit_code == 0
-    assert "ZENZIC" in result.stdout
+    assert "ZENZIC" in (result.stdout + result.stderr)
     assert "No broken links found." in result.stdout
 
 
@@ -78,7 +78,7 @@ def test_check_links_ok(_links, _cfg, _root) -> None:
 def test_check_links_with_errors(_links, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "links"])
     assert result.exit_code == 1
-    assert "ZENZIC" in result.stdout
+    assert "ZENZIC" in (result.stdout + result.stderr)
     assert "Z104" in result.stdout or "error" in result.stdout.lower()
 
 
@@ -92,7 +92,7 @@ def test_check_links_strict_passes_flag(mock_links, _cfg, _root) -> None:
         ANY,
         repo_root=_ROOT,
         config=_CFG,
-        strict=True,
+        strict=False,
         locale_roots=None,
         check_external=True,
     )
@@ -150,7 +150,7 @@ def test_cli_check_orphans_empty(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     monkeypatch.chdir(repo)
     result = runner.invoke(app, ["check", "orphans"])
     assert result.exit_code == 0
-    assert "ZENZIC" in result.stdout
+    assert "ZENZIC" in (result.stdout + result.stderr)
     assert "No orphan pages found." in result.stdout
 
 
@@ -160,7 +160,7 @@ def test_cli_check_orphans_empty(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 def test_check_orphans_with_orphans(_orphans, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "orphans"])
     assert result.exit_code == 1
-    assert "ZENZIC" in result.stdout
+    assert "ZENZIC" in (result.stdout + result.stderr)
     assert "Z402" in result.stdout
 
 
@@ -175,7 +175,7 @@ def test_check_orphans_with_orphans(_orphans, _cfg, _root) -> None:
 def test_check_snippets_ok(_snip, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "snippets"])
     assert result.exit_code == 0
-    assert "ZENZIC" in result.stdout
+    assert "ZENZIC" in (result.stdout + result.stderr)
     assert "All code snippets are syntactically valid." in result.stdout
 
 
@@ -194,7 +194,7 @@ def test_check_snippets_ok(_snip, _cfg, _root) -> None:
 def test_check_snippets_with_errors(_snip, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "snippets"])
     assert result.exit_code == 1
-    assert "ZENZIC" in result.stdout
+    assert "ZENZIC" in (result.stdout + result.stderr)
     assert "Z503" in result.stdout
 
 
@@ -209,7 +209,7 @@ def test_check_snippets_with_errors(_snip, _cfg, _root) -> None:
 def test_check_assets_ok(_assets, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "assets"])
     assert result.exit_code == 0
-    assert "ZENZIC" in result.stdout
+    assert "ZENZIC" in (result.stdout + result.stderr)
     assert "No unused assets found." in result.stdout
 
 
@@ -219,7 +219,7 @@ def test_check_assets_ok(_assets, _cfg, _root) -> None:
 def test_check_assets_with_unused(_assets, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "assets"])
     assert result.exit_code == 1
-    assert "ZENZIC" in result.stdout
+    assert "ZENZIC" in (result.stdout + result.stderr)
     assert "Z405" in result.stdout
 
 
@@ -234,7 +234,7 @@ def test_check_assets_with_unused(_assets, _cfg, _root) -> None:
 def test_check_placeholders_ok(_ph, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "placeholders"])
     assert result.exit_code == 0
-    assert "ZENZIC" in result.stdout
+    assert "ZENZIC" in (result.stdout + result.stderr)
     assert "No placeholder stubs found." in result.stdout
 
 
@@ -249,7 +249,7 @@ def test_check_placeholders_ok(_ph, _cfg, _root) -> None:
 def test_check_placeholders_with_findings(_ph, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "placeholders"])
     assert result.exit_code == 1
-    assert "ZENZIC" in result.stdout
+    assert "ZENZIC" in (result.stdout + result.stderr)
     assert "Z502" in result.stdout
 
 
@@ -678,7 +678,7 @@ class TestZenzicReporter:
 def test_check_references_ok(_scan, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "references"])
     assert result.exit_code == 0
-    assert "ZENZIC" in result.stdout
+    assert "ZENZIC" in (result.stdout + result.stderr)
     assert "All references resolved." in result.stdout
 
 
