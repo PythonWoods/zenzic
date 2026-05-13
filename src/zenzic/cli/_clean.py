@@ -114,13 +114,15 @@ def clean_assets(
         return
 
     if not quiet:
-        _shared.console.print(f"\n[yellow]Found {len(unused)} unused asset(s):[/]")
+        _shared.console.print()
+        _shared.console.print(f"[yellow]Found {len(unused)} unused asset(s):[/]")
         for asset in unused:
             _shared.console.print(f"  [{ZenzicPalette.DIM}]{asset}[/]")
 
     if dry_run:
         if not quiet:
-            _shared.console.print("\n[blue]DRY RUN:[/] No files were deleted.")
+            _shared.console.print()
+            _shared.console.print("[blue]DRY RUN:[/] No files were deleted.")
         return
 
     if not yes:
@@ -137,4 +139,5 @@ def clean_assets(
         abs_path.unlink(missing_ok=True)
 
     if not quiet:
-        _shared.console.print(f"\n[green]SUCCESS:[/] Deleted {len(unused)} unused asset(s).")
+        _shared.console.print()
+        _shared.console.print(f"[green]SUCCESS:[/] Deleted {len(unused)} unused asset(s).")

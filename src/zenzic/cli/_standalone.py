@@ -447,7 +447,7 @@ def diff(
     dropped = -delta
     if dropped > threshold:
         _shared.console.print(
-            f"\n[red]REGRESSION:[/] score dropped by {dropped} point(s) (threshold: {threshold})."
+            f"[red]REGRESSION:[/] score dropped by {dropped} point(s) (threshold: {threshold})."
         )
         raise typer.Exit(1)
 
@@ -702,7 +702,7 @@ def init(
             _hint = str(repo_root.relative_to(Path.cwd()))
         except ValueError:
             _hint = str(repo_root)
-        _shared.console.print(f"[{ZenzicPalette.DIM}]  Target: {_hint}[/]\n")
+        _shared.console.print(f"[{ZenzicPalette.DIM}]  Target: {_hint}[/]")
     else:
         repo_root = find_repo_root(fallback_to_cwd=True)
 
