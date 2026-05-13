@@ -394,6 +394,24 @@ class TestSystemFileGuardrails:
         mgr = LayeredExclusionManager(ZenzicConfig(), docs_root=docs)
         assert mgr.should_exclude_file(docs / "custom.lock", docs)
 
+    def test_l1a_zenzic_local_template_excluded(self, tmp_path: Path) -> None:
+        """.zenzic.local.toml.example is always excluded from asset checks."""
+        from zenzic.core.exclusion import LayeredExclusionManager
+
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        mgr = LayeredExclusionManager(ZenzicConfig(), docs_root=docs)
+        assert mgr.should_exclude_file(docs / ".zenzic.local.toml.example", docs)
+
+    def test_l1a_shell_wrapper_pattern_excluded(self, tmp_path: Path) -> None:
+        """Shell wrapper scripts are infrastructure and must be excluded."""
+        from zenzic.core.exclusion import LayeredExclusionManager
+
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        mgr = LayeredExclusionManager(ZenzicConfig(), docs_root=docs)
+        assert mgr.should_exclude_file(docs / "zenzic-action-wrapper.sh", docs)
+
     def test_l1b_adapter_metadata_excluded(self, tmp_path: Path) -> None:
         """Adapter metadata files (L1b) are excluded when passed to __init__."""
         from zenzic.core.exclusion import LayeredExclusionManager
