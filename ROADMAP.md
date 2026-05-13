@@ -68,6 +68,15 @@ For the current release history, see [CHANGELOG.md](CHANGELOG.md).
   (e.g. `required_fields: [title, description]`). New finding tier `Z7xx`.
 - **i18n schema parity**: Z907 extended to enforce frontmatter key parity between
   base and target language files (not just file existence).
+- **Enhanced i18n Link Discovery (GAP-003)**: The Virtual Site Map (VSM) currently
+  resolves links against the primary locale (EN). Translation files in `i18n/` that
+  introduce links absent from their EN counterpart are not validated by Zenzic —
+  only the Docusaurus build engine catches them at compile time. The planned fix
+  extends the Docusaurus adapter to recurse into all locales declared in
+  `docusaurus.config.ts` and cross-validate locale-specific links against the full
+  multi-locale VSM. Structurally divergent links (present in IT but not EN) will
+  raise a new `Z602 I18N_STRUCTURAL_DRIFT` finding. Identified in ADR-048 (v0.8.0
+  cycle, Phase 40.2).
 - **Configurable finding tiers**: allow projects to promote/demote finding severity
   via `[governance]` TOML section, with audit log of all overrides.
 
@@ -108,4 +117,4 @@ These constraints apply across every future release:
 
 ---
 
-Roadmap last updated: 2026-05-11
+Roadmap last updated: 2026-05-13
