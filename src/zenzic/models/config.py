@@ -303,7 +303,10 @@ SYSTEM_EXCLUDED_FILE_NAMES: frozenset[str] = frozenset(
         ".coverage",
         "coverage.xml",
         # Zenzic native files — never documentation assets (ADR-039.1)
+        ".zenzic.local.toml",
         ".zenzic.local.toml.example",
+        # Action wrapper infrastructure file (explicit safeguard for docs_dir='.')
+        "zenzic-action-wrapper.sh",
     }
 )
 
