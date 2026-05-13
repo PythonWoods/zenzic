@@ -119,8 +119,9 @@ def print_suppression_audit_footer(
     if cap_exceeded:
         tags.append(f"[{ZenzicPalette.ERROR}][CAP_EXCEEDED][/]")
     suffix = f" {' '.join(tags)}" if tags else ""
+    _shared.console.print()
     _shared.console.print(
-        "[dim]Suppression Audit:[/] "
+        f"{emoji('lock')} [dim]Suppression Audit:[/] "
         f"{suppression_audit.total}/{suppression_audit.cap} "
         f"(inline: {suppression_audit.inline_count}, per-file: {suppression_audit.per_file_count})"
         f"{suffix}"

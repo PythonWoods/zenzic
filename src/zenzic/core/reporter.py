@@ -284,7 +284,7 @@ class ZenzicReporter:
                 _ok_items.append(Text())
                 _ok_items.append(
                     Text.from_markup(
-                        f" [{ZenzicPalette.DIM}]{emoji('info')} {info_count} info finding"
+                        f"[{ZenzicPalette.DIM}]{emoji('info')} {info_count} info finding"
                         f"{'s' if info_count != 1 else ''} suppressed"
                         f" — use --show-info for details.[/]"
                     )
