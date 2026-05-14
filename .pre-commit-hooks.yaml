@@ -7,7 +7,7 @@
 #
 #   repos:
 #     - repo: https://github.com/PythonWoods/zenzic
-#       rev: v0.8.0  # Basalt
+#       rev: v0.7.1
 #       hooks:
 #         - id: zenzic-verify    # quality gate — corrisponde a `just verify` lato zenzic
 #         - id: zenzic-guard     # fast staged-file credential scan
@@ -26,8 +26,8 @@
   require_serial: true
 
 - id: zenzic-guard
-  name: zenzic guard (Secret Guard)
-  description: Fast staged-file Shield scan for Markdown/MDX before commit.
+  name: zenzic guard (Credential Scanner Guard)
+  description: Fast staged-file credential scan for Markdown/MDX before commit.
   entry: zenzic guard scan --staged
   language: python
   types: [markdown]
@@ -44,7 +44,7 @@
 
 - id: zenzic-check-references
   name: zenzic check references
-  description: Run the Two-Pass Reference Pipeline and Zenzic Shield (credential detection).
+  description: Run the Two-Pass Reference Pipeline and credential detection.
   entry: zenzic check references
   language: python
   types: [markdown]

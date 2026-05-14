@@ -37,47 +37,10 @@ search = "date-released: \\d{{4}}-\\d{{2}}-\\d{{2}}"
 replace = "date-released: {now:%Y-%m-%d}"
 regex = true
 
-# NOTE: CHANGELOG entries managed here (overrides earlier "snapshot policy" comment).
-# In Basalt-Grade governance, version consistency across ALL release surfaces is mandatory.
-[[tool.bumpversion.files]]
-filename = "CHANGELOG.md"
-search = "## [{current_version}]"
-replace = "## [{new_version}]"
-serialize = ["{major}.{minor}.{patch}{pre_l}{pre_n}", "{major}.{minor}.{patch}"]
-
-[[tool.bumpversion.files]]
-filename = "CHANGELOG.it.md"
-search = "## [{current_version}]"
-replace = "## [{new_version}]"
-serialize = ["{major}.{minor}.{patch}{pre_l}{pre_n}", "{major}.{minor}.{patch}"]
-
-[[tool.bumpversion.files]]
-filename = "README.md"
-search = "v{current_version}"
-replace = "v{new_version}"
-serialize = ["{major}.{minor}.{patch}{pre_l}{pre_n}", "{major}.{minor}.{patch}"]
-
-[[tool.bumpversion.files]]
-filename = "README.it.md"
-search = "v{current_version}"
-replace = "v{new_version}"
-serialize = ["{major}.{minor}.{patch}{pre_l}{pre_n}", "{major}.{minor}.{patch}"]
-
-[[tool.bumpversion.files]]
-filename = "CONTRIBUTING.md"
-search = "v{current_version}"
-replace = "v{new_version}"
-serialize = ["{major}.{minor}.{patch}{pre_l}{pre_n}", "{major}.{minor}.{patch}"]
-
-[[tool.bumpversion.files]]
-filename = "RELEASE.md"
-search = "v{current_version}"
-replace = "v{new_version}"
-
-[[tool.bumpversion.files]]
-filename = "RELEASE.it.md"
-search = "v{current_version}"
-replace = "v{new_version}"
+# NOTE: Manual Versioning - CHANGELOG.md is the SSOT for release notes.
+# Bump tools must ignore CHANGELOG.md and all manually curated release/docs
+# surfaces to preserve human review and ADR-044 compliance.
+# Automated bump targets are limited to system or automation-owned files.
 
 [[tool.bumpversion.files]]
 filename = ".github/ISSUE_TEMPLATE/security_vulnerability.yml"
