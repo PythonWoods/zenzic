@@ -40,7 +40,36 @@ regex = true
 # NOTE: Manual Versioning - CHANGELOG.md is the SSOT for release notes.
 # Bump tools must ignore CHANGELOG.md and all manually curated release/docs
 # surfaces to preserve human review and ADR-044 compliance.
-# Automated bump targets are limited to system or automation-owned files.
+# CHANGELOG.md remains excluded, but versioned docs surfaces are tracked here.
+
+[[tool.bumpversion.files]]
+filename = "README.md"
+search = "v{current_version}"
+replace = "v{new_version}"
+serialize = ["{major}.{minor}.{patch}{pre_l}{pre_n}", "{major}.{minor}.{patch}"]
+
+[[tool.bumpversion.files]]
+filename = "README.it.md"
+search = "v{current_version}"
+replace = "v{new_version}"
+serialize = ["{major}.{minor}.{patch}{pre_l}{pre_n}", "{major}.{minor}.{patch}"]
+
+[[tool.bumpversion.files]]
+filename = "CONTRIBUTING.md"
+search = "v{current_version}"
+replace = "v{new_version}"
+serialize = ["{major}.{minor}.{patch}{pre_l}{pre_n}", "{major}.{minor}.{patch}"]
+
+[[tool.bumpversion.files]]
+filename = "RELEASE.md"
+search = "v{current_version}"
+replace = "v{new_version}"
+
+[[tool.bumpversion.files]]
+filename = "RELEASE.md"
+search = '(?m)^(\| Date\s+\|\s+)\d{{4}}-\d{{2}}-\d{{2}}(\s*\|)$'
+replace = '| Date     | {now:%Y-%m-%d} |'
+regex = true
 
 [[tool.bumpversion.files]]
 filename = ".github/ISSUE_TEMPLATE/security_vulnerability.yml"

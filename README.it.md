@@ -10,7 +10,7 @@ SPDX-License-Identifier: Apache-2.0
 
 <p align="center">
   <a href="https://pypi.org/project/zenzic/">
-    <img src="https://img.shields.io/pypi/v/zenzic?label=PyPI&color=38bdf8&style=flat-square&cacheBuster=v0.8.0" alt="PyPI Version">
+    <img src="https://img.shields.io/pypi/v/zenzic?label=PyPI&color=38bdf8&style=flat-square&cacheBuster=v0.7.1" alt="PyPI Version">
   </a>
   <a href="https://pypi.org/project/zenzic/">
     <img src="https://img.shields.io/pypi/pyversions/zenzic?color=10b981&style=flat-square" alt="Python Versions">
@@ -41,7 +41,7 @@ SPDX-License-Identifier: Apache-2.0
 
 <p align="center">
   <strong>Audit deterministico di strutture documentali con tracciabilità bidirezionale.</strong><br>
-  <em>v0.8.0: governance a tier, contratti frozen e scansione deterministica con backend RE2.</em>
+  <em>v0.7.1: governance a tier, contratti frozen e scansione deterministica con backend RE2.</em>
 </p>
 
 ---
@@ -77,7 +77,7 @@ zenzic guard scan --staged  # Secret Guard veloce per pre-commit
 zenzic inspect codes  # Elenca i contratti canonici dei finding
 ```
 
-## 🧠 Proposta di Valore v0.8.0
+## 🧠 Proposta di Valore v0.7.1
 
 - **Motore puro e deterministico:** input identici producono finding ed exit identici.
 - **Modello codici a tier:** finding Core, Structure e Governance separati per
@@ -147,7 +147,7 @@ zenzic inspect codes  # Elenca i contratti canonici dei finding
 
 **Correzione automatica:** `zenzic clean assets [-y] [--dry-run]` elimina gli asset inutilizzati.
 
-> 🚀 **v0.8.0 (Stabile)** — Governance a tier, contratti frozen, scansione RE2 deterministica
+> 🚀 **v0.7.1 (Stabile)** — Governance a tier, contratti frozen, scansione RE2 deterministica
 > e Sovereign Audit mode. Vedi [CHANGELOG.md](CHANGELOG.md).
 
 ---
@@ -244,7 +244,7 @@ severity = "warning"
 
 Le regole si attivano identicamente su tutti gli adapter. Nessuna modifica richiesta dopo la migrazione del motore.
 
-> **Garanzia DFA** (v0.8.0+): I pattern delle custom rule devono essere compatibili con RE2 —
+> **Garanzia DFA** (v0.7.1+): I pattern delle custom rule devono essere compatibili con RE2 —
 > backreference, lookahead e lookbehind vengono rifiutati al caricamento. Consulta
 > [Architettura › Garanzia DFA](https://zenzic.dev/it/docs/explanation/architecture#dfa-guarantee).
 

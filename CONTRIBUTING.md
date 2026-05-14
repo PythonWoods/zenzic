@@ -960,7 +960,7 @@ reports surviving mutants in `rules.py`, add targeted tests before merging.
 
 ---
 
-## Release procedure (maintainers only)
+## Maintainer Only: Release Procedure
 
 Releases are **semi-automated**: the developer decides the bump type, one command does the rest.
 
@@ -976,6 +976,25 @@ nox -s bump -- major     # 0.1.0 → 1.0.0  (breaking change)
 # 3. Push — this triggers the release workflow
 git push && git push --tags
 ```
+
+### Bump Verification
+
+Current release baseline: `v0.7.1`.
+
+Before executing the final bump, maintainers must run a dry-run to identify
+hardcoded version strings that are not covered by the automation:
+
+```bash
+just release-dry patch  # or minor/major
+```
+
+Review the diff output. If a file containing a version string (for example a
+README example or `SECURITY.md`) is missing from the dry-run diff, it must be
+added to the bump configuration before proceeding.
+
+Note on `CHANGELOG.md`: the changelog is excluded from automatic bumping.
+Maintainers must manually update the version header and date in the log as the
+final act of semantic governance.
 
 The `release.yml` workflow then:
 
