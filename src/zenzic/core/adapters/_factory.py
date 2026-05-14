@@ -87,19 +87,7 @@ def _load_adapter_class(engine: str) -> type[Any] | None:
     1. ``zenzic.adapters`` entry-point group (allows third-party overrides).
     2. Built-in adapter registry (always available regardless of install state).
 
-    Raises:
-        :class:`~zenzic.core.exceptions.ConfigurationError`: when *engine* is
-            ``"vanilla"`` (removed in v0.6.1 — use ``"standalone"`` instead).
     """
-    from zenzic.core.exceptions import ConfigurationError  # deferred: avoid circular import
-
-    # Permanent guard: engine = "vanilla" was removed in v0.6.1 and replaced by
-    # "standalone". Raise a descriptive error instead of silently falling back.
-    if engine == "vanilla":
-        raise ConfigurationError(
-            "[Z000] Engine 'vanilla' has been removed. "
-            'Update your zenzic.toml: set engine = "standalone" instead.'
-        )
     eps = entry_points(group="zenzic.adapters")
     for ep in eps:
         if ep.name == engine:

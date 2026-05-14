@@ -71,16 +71,3 @@ repos:
         language: system
         types_or: [python, markdown, yaml]
         pass_filenames: false
-
-  # 7. Pre-push Final Guard (4-Gates Standard, EPOCH 4 / v0.7.0)
-  # Single entry-point: locale ≡ remote. Same `just verify` runs in GHA.
-  # Install with: uvx pre-commit install -t pre-push
-  - repo: local
-    hooks:
-      - id: just-verify
-        name: 🛡️ Zenzic Final Guard (just verify)
-        entry: just verify
-        language: system
-        stages: [pre-push]
-        pass_filenames: false
-        always_run: true

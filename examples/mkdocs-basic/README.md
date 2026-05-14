@@ -9,34 +9,34 @@ This fixture intentionally models the official MkDocs nav patterns:
 - external nav links
 - configuration tags like `!ENV` and `!relative`
 
-It also demonstrates the `zenzic.integrations.mkdocs` plugin — a native MkDocs
-plugin that fires `zenzic check all` automatically during every `mkdocs build`.
+It demonstrates `MkDocsAdapter` against a real MkDocs 1.x project layout while
+keeping the quality gate in the standalone Zenzic CLI.
 
 ## Prerequisites
 
-Install Zenzic with the optional MkDocs integration extra:
+Install Zenzic in your environment:
 
 ```bash
-pip install "zenzic[mkdocs]"
+pip install zenzic
 ```
 
-This installs both `zenzic` and `mkdocs>=1.6.1`. Without this extra, the
-`zenzic` plugin entry in `mkdocs.yml` will cause `mkdocs build` to abort with
-an "Unknown plugin" error.
+Install MkDocs separately only if you want to build the site fixture itself:
 
-## Plugin Configuration
+```bash
+pip install "mkdocs>=1.6.1"
+```
 
-The `mkdocs.yml` in this example registers the plugin with zero configuration:
+## Build Configuration
+
+The `mkdocs.yml` in this example is consumed statically by `MkDocsAdapter`:
 
 ```yaml
 plugins:
   - search
-  - zenzic          # drop-in — no config block required
 ```
 
-The plugin is auto-discovered via the `mkdocs.plugins` entry point registered
-in Zenzic's `pyproject.toml`. You do **not** need to install or configure
-anything beyond `pip install "zenzic[mkdocs]"`.
+Zenzic reads the navigation and i18n shape from `mkdocs.yml` without importing
+or executing MkDocs.
 
 ## Run
 
@@ -47,7 +47,7 @@ zenzic check all
 
 Expected exit code: 0.
 
-Or trigger through MkDocs (runs Zenzic as part of the build pipeline):
+Or build MkDocs separately after the Zenzic audit passes:
 
 ```bash
 mkdocs build --strict
@@ -72,5 +72,5 @@ engine = "mkdocs"
 
 - Validates that `MkDocsAdapter` remains compatible with MkDocs 1.6.x config shapes.
 - Demonstrates that Zenzic parses `mkdocs.yml` statically without calling MkDocs.
-- Demonstrates the `zenzic.integrations.mkdocs` plugin as a build-time quality gate.
+- Demonstrates a migration-safe MkDocs baseline validated by the standalone Zenzic CLI.
 - Provides a migration-safe baseline before moving projects to Zensical.

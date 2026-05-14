@@ -12,7 +12,7 @@ if sys.version_info >= (3, 11):
     import tomllib
 else:
     import tomli as tomllib  # PEP 680 backport
-from typing import Any, Literal
+from typing import Any, Final, Literal
 
 from pydantic import BaseModel, Field
 
@@ -234,7 +234,7 @@ class GovernanceConfig(BaseModel):
 # Directories that Zenzic ALWAYS ignores.  These are merged into
 # ``excluded_dirs`` unconditionally in ``model_post_init``.  User entries
 # in ``zenzic.toml`` are additive — they cannot remove these guardrails.
-SYSTEM_EXCLUDED_DIRS: frozenset[str] = frozenset(
+SYSTEM_EXCLUDED_DIRS: Final[frozenset[str]] = frozenset(
     {
         # VCS and CI/CD
         ".git",
@@ -270,7 +270,7 @@ SYSTEM_EXCLUDED_DIRS: frozenset[str] = frozenset(
 # Files that Zenzic ALWAYS excludes from asset checks — universal development
 # toolchain files that are never documentation content.  Adapters may declare
 # additional files via ``BaseAdapter.get_metadata_files()`` (L1b).
-SYSTEM_EXCLUDED_FILE_NAMES: frozenset[str] = frozenset(
+SYSTEM_EXCLUDED_FILE_NAMES: Final[frozenset[str]] = frozenset(
     {
         # JavaScript / Node.js
         "package.json",
@@ -310,7 +310,7 @@ SYSTEM_EXCLUDED_FILE_NAMES: frozenset[str] = frozenset(
     }
 )
 
-SYSTEM_EXCLUDED_FILE_PATTERNS: tuple[str, ...] = (
+SYSTEM_EXCLUDED_FILE_PATTERNS: Final[tuple[str, ...]] = (
     "eslint.config.*",
     ".prettierrc*",
     ".editorconfig",

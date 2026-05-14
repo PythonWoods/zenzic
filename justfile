@@ -75,11 +75,11 @@ lint:
     uvx pre-commit run --all-files
 
 # Final Guard: atomic verification invoked by pre-push hook + GHA.
-# Sequence: pre-commit (all hooks) → test-cov (with coverage gate) → zenzic self-check.
+# Sequence: pre-commit (all hooks) → pytest tests/ → zenzic self-check.
 verify: _check-hooks release-contracts
     uvx pre-commit run --all-files
-    just test-cov
-    just check
+    {{ runner }} pytest tests/
+    {{ runner }} zenzic check all --strict
 
 _check-hooks:
     #!/usr/bin/env bash

@@ -798,10 +798,18 @@ The CLI is organised as a **package** (`src/zenzic/cli/`) rather than a single m
 | `_shared.py` | `console` singleton, `_ui` singleton, `configure_console()`, and all cross-command utilities (`_build_exclusion_manager`, `_output_json_findings`, `_render_link_error`, etc.) |
 | `_check.py` | `check_app` Typer sub-app + seven `check *` commands and their private helpers |
 | `_clean.py` | `clean_app` Typer sub-app + `clean assets` command |
+| `_config_explain.py` | `explain` command + config genealogy / rule introspection surface |
+| `_governance.py` | `config_app` Typer sub-app + governance profile commands |
+| `_guard.py` | `guard_app` Typer sub-app + `scan` / `init` commands for the fast secret guard |
 | `_inspect.py` | `inspect_app` Typer sub-app + `capabilities`, `codes`, and `routes` commands |
 | `_lab.py` | `lab` command + interactive scenario showcase |
+| `_metadata.py` | Single source of truth for root help panels, command grouping, and short help text |
 | `_standalone.py` | `score`, `diff`, and `init` commands + their private helpers |
 | `__init__.py` | Public re-export surface consumed by `main.py` — **do not add logic here** |
+
+`main.py` is the unified Typer registration factory. New top-level commands and
+sub-apps must be registered there, and root help metadata must stay aligned
+with `_metadata.py`.
 
 ### The Visual State Manager
 
@@ -835,14 +843,16 @@ def check_metadata(path: Path = ...) -> None:
     ...
 ```
 
-No changes to `__init__.py` or `main.py` are required — Typer discovers the new sub-command automatically.
+No changes to `__init__.py`, `main.py`, or `_metadata.py` are required — the
+existing Typer sub-app already owns this command surface.
 
 ### Adding a new top-level sub-app
 
 1. Create `src/zenzic/cli/_myfeature.py` with `myfeature_app = typer.Typer(...)` and your commands.
 2. Export `myfeature_app` from `src/zenzic/cli/__init__.py`.
 3. Register in `src/zenzic/main.py`: `app.add_typer(myfeature_app, name="myfeature", rich_help_panel="...")`.
-4. If the sub-app uses `no_args_is_help=True`, add `"myfeature"` to the `_SUBAPPS_WITH_MENU` frozenset in `cli_main()` so the Zenzic banner appears when the sub-app is invoked with no arguments.
+4. Add a `CommandMeta(...)` entry in `src/zenzic/cli/_metadata.py` so root help panels and short help stay authoritative.
+5. If the sub-app uses `no_args_is_help=True`, add `"myfeature"` to the `_SUBAPPS_WITH_MENU` frozenset in `cli_main()` so the Zenzic banner appears when the sub-app is invoked with no arguments.
 
 ---
 

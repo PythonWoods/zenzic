@@ -416,7 +416,7 @@ class TestCredentialScannerMiddleware:
             assert result == line
 
 
-# ── Vanilla Adapter — No Spurious Warnings ───────────────────────────────────
+# ── Standalone Adapter — No Spurious Warnings ───────────────────────────────
 
 
 class TestStandaloneNoSpuriousWarnings:

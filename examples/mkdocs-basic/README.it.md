@@ -4,33 +4,34 @@
 # mkdocs-basic — Fixture di Riferimento MkDocs 1.6.1
 
 Un progetto MkDocs 1.x minimale e pulito, usato come baseline stabile per Zenzic.
-Dimostra anche il plugin `zenzic.integrations.mkdocs` — un plugin MkDocs nativo
-che attiva automaticamente `zenzic check all` durante ogni esecuzione di `mkdocs build`.
+Dimostra `MkDocsAdapter` su un layout reale MkDocs 1.x mantenendo il quality gate
+nella CLI standalone di Zenzic.
 
 ## Prerequisiti
 
-Installa Zenzic con l'extra opzionale per l'integrazione MkDocs:
+Installa Zenzic nel tuo ambiente:
 
 ```bash
-pip install "zenzic[mkdocs]"
+pip install zenzic
 ```
 
-Questo installa sia `zenzic` che `mkdocs>=1.6.1`. Senza questo extra, il plugin
-`zenzic` dichiarato in `mkdocs.yml` causerà l'errore "Unknown plugin" durante
-`mkdocs build`.
+Installa MkDocs separatamente solo se vuoi buildare la fixture del sito:
 
-## Configurazione del Plugin
+```bash
+pip install "mkdocs>=1.6.1"
+```
 
-Il `mkdocs.yml` in questo esempio registra il plugin senza configurazione:
+## Configurazione di Build
+
+Il `mkdocs.yml` in questo esempio viene consumato staticamente da `MkDocsAdapter`:
 
 ```yaml
 plugins:
   - search
-  - zenzic          # drop-in — nessun blocco di configurazione richiesto
 ```
 
-Il plugin viene scoperto automaticamente tramite l'entry point `mkdocs.plugins`
-registrato nel `pyproject.toml` di Zenzic.
+Zenzic legge navigazione e forma i18n da `mkdocs.yml` senza importare né
+eseguire MkDocs.
 
 ## Eseguire
 
@@ -41,7 +42,7 @@ zenzic check all
 
 Codice di uscita atteso: **0**.
 
-O tramite MkDocs (esegue Zenzic come parte della pipeline di build):
+Oppure esegui la build MkDocs separatamente dopo che l'audit Zenzic è passato:
 
 ```bash
 mkdocs build --strict
@@ -66,5 +67,5 @@ engine = "mkdocs"
 
 - Valida la compatibilità di `MkDocsAdapter` con MkDocs 1.6.x.
 - Dimostra che Zenzic analizza `mkdocs.yml` staticamente senza eseguire MkDocs.
-- Dimostra il plugin `zenzic.integrations.mkdocs` come gate di qualità durante la build.
+- Dimostra una baseline MkDocs sicura per la migrazione, validata dalla CLI standalone di Zenzic.
 - Fornisce una baseline sicura per la migrazione a Zensical.

@@ -8,7 +8,7 @@ Covers:
 * get_adapter engine routing (Multi-Engine Matrix)
 * Zensical Identity Violation — ConfigurationError when zensical.toml is absent
 * find_orphans integration for standalone and Zensical repos
-* Z000 migration guard — engine = "vanilla" raises ConfigurationError
+* Legacy aliases and unknown engines fall back to StandaloneAdapter
 """
 
 from __future__ import annotations
@@ -139,11 +139,11 @@ def test_get_adapter_unknown_engine_falls_back_to_standalone(tmp_path: Path) -> 
     assert isinstance(adapter, StandaloneAdapter)
 
 
-def test_get_adapter_vanilla_engine_raises_configuration_error(tmp_path: Path) -> None:
-    """Z000 Migration Guard: engine = 'vanilla' must raise ConfigurationError."""
-    context = BuildContext(engine="vanilla")
-    with pytest.raises(ConfigurationError, match="Z000"):
-        get_adapter(context, tmp_path / "docs", tmp_path)
+def test_get_adapter_legacy_standalone_alias_falls_back_to_standalone(tmp_path: Path) -> None:
+    """Legacy alias strings fall back safely to StandaloneAdapter."""
+    context = BuildContext(engine="legacy-standalone")
+    adapter = get_adapter(context, tmp_path / "docs", tmp_path)
+    assert isinstance(adapter, StandaloneAdapter)
 
 
 # ── discover_engine: Quartz Discovery Logic ───────────────────────────────────
