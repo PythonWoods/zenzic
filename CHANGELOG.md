@@ -15,7 +15,7 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- Initial work on Plugin SDK architecture (planned for v0.9.0).
+- Initial work on Plugin SDK architecture.
 
 ---
 

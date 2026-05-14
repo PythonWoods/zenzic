@@ -70,17 +70,21 @@ just sync
 
 `just sync` installs all dependency groups via `uv sync --all-groups`.
 
-Install BOTH pre-commit hook stages immediately after sync (mandatory):
+Install the pre-commit hooks immediately after sync (mandatory):
 
 ```bash
 uvx pre-commit install              # commit-stage: light hooks (ruff, format, hygiene)
-uvx pre-commit install -t pre-push  # pre-push: 🛡️ Final Guard runs `just verify`
 ```
 
-The pre-push hook is the atomic gate of the 4-Gates Standard: a single
-enforcement point (`just verify`) runs both locally and in GitHub Actions —
-**locale ≡ remote, no drift**. Pushes are blocked when any of the
-4 Gates (pre-commit hooks, coverage, tests, `zenzic check all`) fails.
+Run the full verification gate before pushing:
+
+```bash
+just verify
+```
+
+`just verify` is the canonical entry point: pre-commit on all files → `pytest tests/` →
+`zenzic check all --strict`. The same sequence runs in GitHub Actions —
+**locale ≡ remote, no drift**.
 
 ---
 
@@ -93,7 +97,7 @@ entry-point. The same `just verify` runs in three places:
 |:------|:--------|:----------|:------|
 | **TDD inner loop** | `just test` | `pytest -n auto` (no coverage, parallel) | ⚡ instant |
 | **Commit** | `git commit` | Light hooks (ruff, format, file hygiene) | < 5 s |
-| **Push (Final Guard)** | `git push` (pre-push hook) | `just verify` = pre-commit + `test-cov` + `zenzic check all` | < 60 s |
+| **Final Guard** | `just verify` (manual or CI) | pre-commit → `pytest tests/` → `zenzic check all --strict` | < 60 s |
 | **CI** | GitHub Actions | `just verify` (identical) | matches local |
 
 ### Emergency & Break-Glass Protocol
@@ -127,7 +131,7 @@ the exact same environment as CI.
 | Test (audit) | `just test-cov` | `nox -s tests` | pytest serial + branch coverage XML (matches CI) |
 | Test (thorough) | `just test-full` | — | pytest with Hypothesis **ci** profile (500 examples) |
 | Mutation testing | — | `nox -s mutation` | mutmut on `rules.py`, `credentials.py`, `reporter.py` |
-| **Final Guard** | **`just verify`** | — | **pre-commit + test-cov + check — runs automatically on `git push`** |
+| **Final Guard** | **`just verify`** | — | **pre-commit → `pytest tests/` → `zenzic check all --strict`** |
 | Show version | `just version` | — | Print current version from bump-my-version |
 | Release dry-run | `just release-dry patch` | — | Simulate a bump (full diff output) |
 | Release dry-run (compact) | `just release-dry patch --short` | — | Simulate a bump — 3-line summary only |
