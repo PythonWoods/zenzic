@@ -8,7 +8,7 @@
 | :------- | :--------- |
 | Version  | v0.7.1     |
 | Codename | Basalt<!-- zenzic-ignore: Z601 - release codename -->     |
-| Date     | 2026-05-12 |
+| Date     | 2026-05-14 |
 | Status   | Stable     |
 
 ## Release Checklist
