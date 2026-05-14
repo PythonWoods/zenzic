@@ -35,16 +35,25 @@ def _normalize_help(raw: str) -> str:
 
 def _capture_help(args: list[str]) -> str:
     env = dict(os.environ)
-    env.update({"NO_COLOR": "1", "COLUMNS": "220"})
+    env.update(
+        {
+            "NO_COLOR": "1",
+            "COLUMNS": "220",
+            "PYTHONUTF8": "1",
+            "PYTHONIOENCODING": "utf-8",
+        }
+    )
     proc = subprocess.run(
         ["uv", "run", "zenzic", *args],
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         check=False,
         env=env,
     )
     assert proc.returncode == 0, proc.stderr
-    return proc.stdout + proc.stderr
+    return (proc.stdout or "") + (proc.stderr or "")
 
 
 def _extract_contract(normalized: str, snippets: list[str]) -> str:
