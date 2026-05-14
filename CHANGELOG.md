@@ -15,42 +15,33 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- **CLI metadata registry (`_metadata.py`) introduced:** command name, help
-  surface, panel placement, and canonical usage hints are now centralized in a
-  single source of truth.
-- **Shared CLI app factory (`create_app`) introduced:** sub-app construction is
-  now uniform across `check`, `clean`, `config`, `guard`, and `inspect`.
-
-### Changed
-
-- **Top-level command registration is now registry-driven:** `main.py` consumes
-  centralized metadata and no longer hardcodes per-command help entries.
-- **Reporter footer contract modularized:** `ZenzicReporter.render()` now
-  accepts caller-provided `FooterNotice`; command-specific navigation hints are
-  emitted by callers instead of hardcoded in the report engine.
-- **`--strict` policy normalized for Basalt semantics in `check`, `score`, and
-  `diff`:** strict mode is now documented and handled as warning-promotion to
-  fatal exit policy.
-
-### Fixed
-
-- **Header channel split hardened:** command headers are emitted via stderr UI,
-  preserving clean stdout payloads for machine-readable flows.
+- Initial work on Plugin SDK architecture (planned for v0.9.0).
 
 ---
 
-## [0.8.0] — 2026-05-11
+## [0.8.0] — 2026-05-12 <!-- zenzic:ignore: Z601 historical release codename -->
 
 ### Added
 
-- **Sovereign Audit mode and Secret Guard delivered:** Added Sovereign Audit mode via
-  `zenzic check all --audit` (bypasses inline `zenzic-ignore` and
-  `[governance].per_file_ignores` for suppressible findings), plus native
-  Secret Guard commands (`zenzic guard scan`, `zenzic guard init`) powered by
-  Credential Scanner signatures for pre-commit enforcement.
+- **Scoring Engine 2.0:** Implemented mathematical quality assessment using
+  tiered weights and Technical Debt penalties.
+- **Integrity Regression Check (`zenzic diff`):** New command to compare
+  documentation state between branches; exits with code 4 on quality
+  regression.
+- **Config Genealogy (`zenzic explain`):** New introspection command to trace
+  the origin and priority of active rules.
+- **Audit Mode (`--audit`):** Global flag to bypass all suppressions
+  (`zenzic:ignore`) for unfiltered repository inspection.
+- **Core Hardening:** Native exclusion of system-critical files
+  (`.zenzic.local.toml.example`, `*.sh`, `LICENSE`) from unused asset
+  detection (Z405).
+- **CLI Metadata Registry:** Centralized command definitions in `_metadata.py`
+  and unified app factory (`create_app`) for consistent CLI behavior.
+- **Privacy Gate (Z204):** Support for `.zenzic.local.toml` to enforce
+  local-only forbidden patterns without repository leakage.
 - **Stability Contract constants in `codes.py`:** Added `FROZEN_CODES`,
   `NON_SUPPRESSIBLE_CODES`, and `PLUGIN_FORBIDDEN_EXITS` as immutable public
-  contract surfaces for v0.8.0 Basalt.<!-- zenzic-ignore: Z601 - release codename -->
+  contract surfaces.
 - **Tier model formalized in the public registry:** Core/Structure/Governance
   ownership is explicit in canonical code mappings.
 - **Legacy migration map for diagnostics:** Added `LEGACY_TO_CODE` to map
@@ -60,31 +51,44 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
-- **ADR-012 namespace contract finalized for v0.8.0:** Runtime/docs/examples now
-  use canonical IDs (`Z405`, `Z406`, `Z601`, `Z602`) while preserving legacy
-  anchors only for migration diagnostics.
+- **Total Rebranding:** Eradication of theatrical terminology across source
+  code, documentation, and CLI.
+- **Execution Mode Normalization:** "Vanilla Mode" renamed to
+  **"Standalone Mode"**.
+- **CLI Output Standard:** Implemented "Ruff-style" UI with stderr-only headers
+  and clean stdout for machine-readable payloads (JSON/SARIF).
+- **Namespace Finalization:** Formalized Tier Model (Z1xx–Z6xx) as the stable
+  public API for violation codes; runtime/docs/examples now use canonical IDs
+  (`Z405`, `Z406`, `Z601`, `Z602`) while preserving legacy anchors only for
+  migration diagnostics.
+- **Documentation Strategy:** Transitioned to "Agnostic Prose" (ADR-037);
+  release codenames are now treated as external identifiers only.
+- **`--strict` policy normalized in `check`, `score`, and `diff`:** strict mode
+  is now documented and handled as warning-promotion to fatal exit policy.
+- **Reporter footer contract modularized:** `ZenzicReporter.render()` now
+  accepts caller-provided `FooterNotice`; command-specific navigation hints are
+  emitted by callers instead of hardcoded in the report engine.
 
 ### Fixed
 
-- **Registry parity gap closed for `Z000` (`UNSUPPORTED_ENGINE`):** Added to
-  `CODE_NAMES`, `CODE_DESCRIPTIONS`, and `CODE_SARIF_LEVELS`; canonical
-  registry and docs encyclopedia are now aligned.
-- **Performance regression in `VSMBrokenLinkRule.check_vsm` fixed (ZRT-007
-  implementation):** The `zenzic.core.regex` RE2 facade has no internal pattern
-  cache; every `re.sub/search` call with a raw string literal recompiled the
-  pattern from scratch. 12 inline call-sites across 5 source files
-  (`rules.py`, `validator.py`, `scanner.py`, `adapters/_docusaurus.py`,
-  `adapters/_utils.py`, `cli/_standalone.py`) replaced with 11 pre-compiled
-  module-level constants. Added fast path in `_to_canonical_url` for plain
-  relative hrefs. `TestAdaptiveRuleEngineTortureTest` (N=10 000 links):
-  `1.18 s → 0.78 s` (threshold < 1.0 s). All 1 500 tests pass.
+- **Performance Optimization (ZRT-007):** Pre-compiled module-level RE2
+  patterns reduced regex overhead in large-scale scans (N=10,000 links:
+  1.18s → 0.78s).
+- **Z000 Registry Gap:** Added `UNSUPPORTED_ENGINE` to `CODE_NAMES`,
+  `CODE_DESCRIPTIONS`, and `CODE_SARIF_LEVELS`; canonical registry and
+  documentation encyclopedia are now aligned.
+- **Link Resolution:** Fixed Z104 false positives on infrastructure paths by
+  implementing badge-standard for GitHub Actions.
+- **Header channel split hardened:** command headers are emitted via stderr UI,
+  preserving clean stdout payloads for machine-readable flows.
 
 ### Security
 
-- **ZRT-007 hardening completed in production source:** Standard-library `re`
-  usage removed from runtime paths in favor of the RE2-backed ACL facade.
-- **No-fallback regex policy enforced:** Unsupported constructs now fail
-  explicitly under RE2 instead of silently degrading to stdlib regex runtime.
+- **DFA-Pure Runtime:** Completed removal of standard-library `re` module from
+  production paths in favor of the RE2 Anti-Corruption Layer; unsupported
+  constructs now fail explicitly instead of silently degrading to stdlib regex.
+- **Z204 Criticality:** Security findings now force a Quality Score of 0/100,
+  bypassing standard weight calculations.
 - **Lint gate for regex engine policy:** Ruff banned API guard prevents
   reintroduction of direct `re` imports in protected source surfaces.
 
