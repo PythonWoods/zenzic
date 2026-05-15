@@ -37,15 +37,17 @@ from zenzic.core.scorer import (
     save_snapshot,
 )
 from zenzic.core.ui import ZenzicPalette, emoji
-from zenzic.core.validator import check_nav_contract, validate_links, validate_snippets
+from zenzic.core.validator import (
+    check_nav_contract,
+    validate_links_structured,
+    validate_snippets,
+)
 from zenzic.models.config import ZenzicConfig
 
 from . import _shared
 
 
 # ── Module-level compiled patterns ───────────────────────────────────────────
-# Matches a [tool.zenzic*] TOML section and its body (used in _init_pyproject).
-_ZENZIC_SECTION_RE = re.compile(r"\n?\[tool\.zenzic[^\]]*\][^\[]*")
 # Slugification helpers (plugin name → project slug).
 _SLUG_NONWORD_RE = re.compile(r"[^a-z0-9-]+")
 _SLUG_MULTI_DASH_RE = re.compile(r"-+")
@@ -73,12 +75,14 @@ def _run_all_checks(
         _roots = adapter.get_locale_source_roots(repo_root)
         locale_roots = _roots if _roots else None
 
-    link_errors = validate_links(
+    link_errors = validate_links_structured(
         docs_root,
         exclusion_mgr,
         repo_root=repo_root,
         config=config,
         strict=False,
+        locale_roots=locale_roots,
+        check_external=True,
     )
     orphans = find_orphans(docs_root, exclusion_mgr, repo_root=repo_root, config=config)
     snippet_errors = validate_snippets(docs_root, exclusion_mgr, config=config)
@@ -101,7 +105,7 @@ def _run_all_checks(
 
     # Link errors — split by Zxxx code derived from error_type
     for err in link_errors:
-        code = err.code  # type: ignore[attr-defined]
+        code = err.code
         findings_counts[code] = findings_counts.get(code, 0) + 1
 
     # Core check aggregates
@@ -670,7 +674,10 @@ def init(
         False,
         "--force",
         "-f",
-        help="Overwrite an existing zenzic.toml without prompting.",
+        help=(
+            "Overwrite an existing plugin scaffold when used with --plugin. "
+            "Not supported for configuration initialization."
+        ),
     ),
     pyproject: bool = typer.Option(
         False,
@@ -735,6 +742,21 @@ def init(
         _scaffold_plugin(repo_root, plugin, force)
         return
 
+    if force:
+        _shared.console.print(
+            "[red]✘ ERROR:[/] --force is not supported for configuration initialization. "
+            "Manual editing is required to modify existing settings."
+        )
+        raise typer.Exit(1)
+
+    config_path = repo_root / "zenzic.toml"
+    local_path = repo_root / ".zenzic.local.toml"
+    # Atomic guard for the dual-file init contract: do not allow partial re-init.
+    if config_path.exists():
+        _raise_existing_configuration_error(config_path)
+    if local_path.exists():
+        _raise_existing_configuration_error(local_path)
+
     use_pyproject = pyproject
     pyproject_path = repo_root / "pyproject.toml"
 
@@ -745,9 +767,9 @@ def init(
         )
 
     if use_pyproject:
-        _init_pyproject(repo_root, pyproject_path, force)
+        _init_pyproject(repo_root, pyproject_path)
     else:
-        _init_standalone(repo_root, force)
+        _init_standalone(repo_root)
 
     # Local Sovereignty: always scaffold machine-local overlay.
     _scaffold_local_toml(repo_root)
@@ -776,6 +798,16 @@ def _is_editable_install() -> bool:
         return False
 
 
+def _raise_existing_configuration_error(existing_path: Path) -> None:
+    """Abort init when a pre-existing configuration asset is found."""
+    _shared.console.print(
+        "[red]✘ ERROR:[/] Configuration already exists at "
+        f"[{ZenzicPalette.DIM}]{existing_path}[/]. "
+        "Manual editing is required to modify existing settings."
+    )
+    raise typer.Exit(1)
+
+
 def _scaffold_local_toml(repo_root: Path) -> None:
     """Create a didactic ``.zenzic.local.toml`` Local Sovereignty template.
 
@@ -792,7 +824,7 @@ def _scaffold_local_toml(repo_root: Path) -> None:
         content = (
             "# --- ZENZIC LOCAL OVERRIDES ---\n"
             "# This file is auto-generated and must stay in .gitignore.\n"
-            "# Everything declared here overrides shared zenzic.toml only on your machine.\n"
+            "# Precedence: .zenzic.local.toml overrides zenzic.toml on this machine only.\n"
             "# Use it for workstation-specific paths, temporary debt-cleanup knobs,\n"
             "# and private credentials that must never enter version control.\n"
             "\n"
@@ -931,6 +963,9 @@ def _build_governance_ready_toml(*, engine: str, discovered_name: str | None) ->
         "# SPDX-FileCopyrightText: 2026 [Your Name] <[Your Email]>\n"
         f"# {spdx_id_label}: Apache-2.0\n"
         "\n"
+        "# Precedence: zenzic.toml is shared baseline; .zenzic.local.toml overrides locally.\n"
+        "# Keep secrets and workstation-only values in .zenzic.local.toml.\n"
+        "\n"
         "# --- PROJECT IDENTITY ---\n"
         "# [project]\n"
         f'# name = "{hint_name}" # Used for personalized CLI Governance headers\n'
@@ -957,7 +992,9 @@ def _build_governance_ready_toml(*, engine: str, discovered_name: str | None) ->
         "suppression_cap_fail_hard = true\n"
         "\n"
         "# Terms that should no longer appear in your documentation.\n"
-        'brand_obsolescence = ["OldProduct", "LegacyTerm"]\n'
+        "# Keep empty until your governance policy defines deprecated brand terms.\n"
+        "brand_obsolescence = []\n"
+        "# Canonical path reference: [zenzic.governance].brand_obsolescence = []\n"
         "\n"
         "# Per-file suppression map: silence a rule for specific file globs.\n"
         "# WARNING: Every entry increases your Technical Debt Score.\n"
@@ -974,7 +1011,7 @@ def _build_governance_ready_toml(*, engine: str, discovered_name: str | None) ->
         "# Paths listed here are INVISIBLE to Zenzic: no findings, no audit trail.\n"
         "# Prefer [governance.per_file_ignores] for targeted suppression with an audit trail.\n"
         '# excluded_dirs = ["legacy/", "third-party/"]\n'
-        '# excluded_file_patterns = ["CHANGELOG*.md"]\n'
+        '# excluded_file_patterns = ["*.tmp", "*.log"]\n'
         "\n"
         "# --- I18N PARITY (Optional) ---\n"
         "# [i18n]\n"
@@ -1002,17 +1039,15 @@ def _build_governance_ready_toml(*, engine: str, discovered_name: str | None) ->
     )
 
 
-def _init_standalone(repo_root: Path, force: bool) -> None:
+def _init_standalone(repo_root: Path) -> None:
     """Create a standalone ``zenzic.toml`` configuration file."""
     config_path = repo_root / "zenzic.toml"
+    local_path = repo_root / ".zenzic.local.toml"
 
-    if config_path.is_file() and not force:
-        _shared.console.print(
-            f"[yellow]WARNING:[/] [bold]zenzic.toml[/] already exists at "
-            f"[{ZenzicPalette.DIM}]{config_path}[/]\n"
-            "Use [bold cyan]--force[/] to overwrite."
-        )
-        raise typer.Exit(1)
+    if config_path.exists():
+        _raise_existing_configuration_error(config_path)
+    if local_path.exists():
+        _raise_existing_configuration_error(local_path)
 
     detected_engine = _detect_init_engine(repo_root)
     discovered_name = _discover_project_name(repo_root)
@@ -1035,7 +1070,7 @@ def _init_standalone(repo_root: Path, force: bool) -> None:
     )
 
 
-def _init_pyproject(repo_root: Path, pyproject_path: Path, force: bool) -> None:
+def _init_pyproject(repo_root: Path, pyproject_path: Path) -> None:
     """Append a ``[tool.zenzic]`` section to an existing ``pyproject.toml``."""
     if not pyproject_path.is_file():
         _shared.console.print(
@@ -1047,13 +1082,8 @@ def _init_pyproject(repo_root: Path, pyproject_path: Path, force: bool) -> None:
 
     existing = pyproject_path.read_text(encoding="utf-8")
 
-    if "[tool.zenzic]" in existing and not force:
-        _shared.console.print(
-            "[yellow]WARNING:[/] [bold][tool.zenzic][/] already exists in "
-            f"[{ZenzicPalette.DIM}]{pyproject_path}[/]\n"
-            "Use [bold cyan]--force[/] to overwrite the section."
-        )
-        raise typer.Exit(1)
+    if "[tool.zenzic]" in existing:
+        _raise_existing_configuration_error(pyproject_path)
 
     detected_engine = _detect_init_engine(repo_root)
 
@@ -1072,12 +1102,6 @@ def _init_pyproject(repo_root: Path, pyproject_path: Path, force: bool) -> None:
         "strict = true     # Promote all warnings to blocking errors\n"
         "# excluded_dirs = []\n"
     ) + engine_section
-
-    if force and "[tool.zenzic]" in existing:
-        existing = _ZENZIC_SECTION_RE.sub(
-            "",
-            existing,
-        )
 
     pyproject_path.write_text(existing.rstrip("\n") + "\n" + section, encoding="utf-8")
 
@@ -1138,7 +1162,7 @@ version = "0.1.0"
 description = "Custom Zenzic plugin rule package"
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = ["zenzic>=0.5.0a3"]
+dependencies = ["zenzic>=0.7.1"]
 
 [project.entry-points."zenzic.rules"]
 {project_slug} = "{module_name}.rules:{class_name}"

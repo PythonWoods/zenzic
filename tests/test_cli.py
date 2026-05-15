@@ -805,7 +805,7 @@ def test_init_standalone_detects_mkdocs(tmp_path: Path, monkeypatch: pytest.Monk
 
 
 def test_init_standalone_warns_if_exists(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Refuse to overwrite existing zenzic.toml without --force."""
+    """Refuse re-initialization when zenzic.toml already exists."""
     repo = tmp_path / "repo"
     repo.mkdir()
     (repo / ".git").mkdir()
@@ -814,23 +814,20 @@ def test_init_standalone_warns_if_exists(tmp_path: Path, monkeypatch: pytest.Mon
 
     result = runner.invoke(app, ["init"])
     assert result.exit_code == 1
-    assert "already exists" in result.stdout
+    assert "Configuration already exists" in result.stdout
+    assert "Manual editing is required" in result.stdout
 
 
-def test_init_standalone_force_overwrites(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """--force overwrites an existing zenzic.toml."""
+def test_init_standalone_force_is_rejected(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """--force is blocked for configuration initialization."""
     repo = tmp_path / "repo"
     repo.mkdir()
     (repo / ".git").mkdir()
-    (repo / "zenzic.toml").write_text("# old\n", encoding="utf-8")
     monkeypatch.chdir(repo)
 
     result = runner.invoke(app, ["init", "--force"])
-    assert result.exit_code == 0
-
-    content = (repo / "zenzic.toml").read_text(encoding="utf-8")
-    assert "# --- GATE 4: CI/CD (GitHub Actions, Optional) ---" in content
-    assert "# old" not in content
+    assert result.exit_code == 1
+    assert "--force is not supported" in result.stdout
 
 
 def test_init_standalone_discovers_project_name_from_pyproject(
@@ -889,7 +886,7 @@ def test_init_pyproject_flag_appends_tool_section(
 def test_init_preserves_existing_local_file_and_backfills_gitignore(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Existing local overlay is preserved while gitignore protection is enforced."""
+    """Init aborts atomically when .zenzic.local.toml already exists."""
     repo = tmp_path / "repo"
     repo.mkdir()
     (repo / ".git").mkdir()
@@ -898,11 +895,14 @@ def test_init_preserves_existing_local_file_and_backfills_gitignore(
     (repo / ".zenzic.local.toml").write_text(original_local, encoding="utf-8")
     monkeypatch.chdir(repo)
 
+    gitignore_before = (repo / ".gitignore").read_text(encoding="utf-8")
     result = runner.invoke(app, ["init"])
-    assert result.exit_code == 0
+    assert result.exit_code == 1
+    assert "Configuration already exists" in result.stdout
 
     assert (repo / ".zenzic.local.toml").read_text(encoding="utf-8") == original_local
-    assert ".zenzic.local.toml" in (repo / ".gitignore").read_text(encoding="utf-8")
+    assert (repo / ".gitignore").read_text(encoding="utf-8") == gitignore_before
+    assert not (repo / "zenzic.toml").exists()
 
 
 def test_init_pyproject_with_mkdocs_engine(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -937,13 +937,12 @@ def test_init_pyproject_warns_if_section_exists(
 
     result = runner.invoke(app, ["init", "--pyproject"])
     assert result.exit_code == 1
-    assert "already exists" in result.stdout
+    assert "Configuration already exists" in result.stdout
+    assert "Manual editing is required" in result.stdout
 
 
-def test_init_pyproject_force_replaces_section(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """--pyproject --force replaces an existing [tool.zenzic] section."""
+def test_init_pyproject_force_is_rejected(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """--pyproject --force is rejected in hardened init mode."""
     repo = tmp_path / "repo"
     repo.mkdir()
     (repo / ".git").mkdir()
@@ -954,12 +953,8 @@ def test_init_pyproject_force_replaces_section(
     monkeypatch.chdir(repo)
 
     result = runner.invoke(app, ["init", "--pyproject", "--force"])
-    assert result.exit_code == 0
-
-    content = (repo / "pyproject.toml").read_text(encoding="utf-8")
-    assert "[tool.zenzic]" in content
-    assert "fail_under = 80" not in content  # old section removed
-    assert 'name = "x"' in content  # project section preserved
+    assert result.exit_code == 1
+    assert "--force is not supported" in result.stdout
 
 
 def test_init_pyproject_no_file_errors(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

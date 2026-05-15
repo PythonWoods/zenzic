@@ -23,6 +23,9 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Atomic initialization protection (`zenzic init`):** initialization now aborts
+  with Exit 1 when configuration assets already exist, preventing accidental
+  overwrite of user settings.
 - **Scoring Engine 2.0:** Implemented mathematical quality assessment using
   tiered weights and Technical Debt penalties.
 - **Integrity Regression Check (`zenzic diff`):** New command to compare
@@ -51,6 +54,8 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **`--force` scope narrowed:** disabled for configuration initialization and
+  kept only for plugin scaffolding (`zenzic init --plugin ... --force`).
 - **Total Rebranding:** Eradication of theatrical terminology across source
   code, documentation, and CLI.
 - **Execution Mode Normalization:** "Vanilla Mode" renamed to

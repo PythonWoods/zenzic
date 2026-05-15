@@ -22,6 +22,8 @@ Before tagging, every item must be green:
 - [ ] `CHANGELOG.md` — `[Unreleased]` section moved to the new version heading
 - [ ] Bilingual sync verified — `Z602 I18N_PARITY` clean on `zenzic-doc`
 - [ ] `zenzic-doc` and `zenzic-action` RELEASE.md updated to match this version
+- [ ] Verification of `zenzic init` atomic protection (`EXIT 1` on existing config)
+- [ ] Verification of `zenzic init` template didactic comments and Z601 empty baseline
 
 ## Build & Distribute
 

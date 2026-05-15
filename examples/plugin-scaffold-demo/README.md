@@ -17,6 +17,7 @@ This is the reference example for writing custom Zenzic rule plugins.
 ```bash
 uv sync
 uv pip install -e .
+zenzic check all
 zenzic inspect capabilities
 ```
 

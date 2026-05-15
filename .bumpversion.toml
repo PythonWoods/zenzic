@@ -37,10 +37,24 @@ search = "date-released: \\d{{4}}-\\d{{2}}-\\d{{2}}"
 replace = "date-released: {now:%Y-%m-%d}"
 regex = true
 
-# NOTE: Manual Versioning - CHANGELOG.md is the SSOT for release notes.
-# Bump tools must ignore CHANGELOG.md and all manually curated release/docs
-# surfaces to preserve human review and ADR-044 compliance.
-# CHANGELOG.md remains excluded, but versioned docs surfaces are tracked here.
+[[tool.bumpversion.files]]
+filename = "src/zenzic/cli/_standalone.py"
+search = 'dependencies = ["zenzic>=0.7.1"]'
+replace = 'dependencies = ["zenzic>=0.8.0"]'
+
+
+# Historical versioned documentation is tracked here so the release bump
+# updates the current release marker consistently across the fleet.
+
+[[tool.bumpversion.files]]
+filename = "CHANGELOG.md"
+search = "v{current_version}"
+replace = "v{new_version}"
+
+[[tool.bumpversion.files]]
+filename = "ROADMAP.md"
+search = "v{current_version}"
+replace = "v{new_version}"
 
 [[tool.bumpversion.files]]
 filename = "README.md"

@@ -19,6 +19,7 @@ Questo è l'esempio di riferimento per scrivere plugin di regole custom per Zenz
 ```bash
 uv sync
 uv pip install -e .
+zenzic check all
 zenzic inspect capabilities
 ```
 
