@@ -43,7 +43,13 @@ class SuppressionAudit:
 
     @property
     def extended_debt(self) -> bool:
-        return self.cap > 30
+        """True when the suppression count equals or exceeds the cap threshold."""
+        return self.total >= self.cap and self.cap > 0
+
+    @property
+    def managed_debt(self) -> bool:
+        """True when suppressions are in use but within the configured cap."""
+        return self.total > 0 and not self.extended_debt
 
     def top_offenders(self, *, limit: int = 5) -> list[tuple[str, int]]:
         rows = sorted(
@@ -116,6 +122,8 @@ def print_suppression_audit_footer(
     tags: list[str] = []
     if suppression_audit.extended_debt:
         tags.append("[yellow][EXTENDED DEBT][/yellow]")
+    elif suppression_audit.managed_debt:
+        tags.append("[cyan][MANAGED DEBT][/cyan]")
     if cap_exceeded:
         tags.append(f"[{ZenzicPalette.ERROR}][CAP_EXCEEDED][/]")
     suffix = f" {' '.join(tags)}" if tags else ""
@@ -170,7 +178,7 @@ def print_governance_cap_failure(suppression_audit: SuppressionAudit, *, title: 
         ),
         Text(),
         Text.from_markup(f"[bold {ZenzicPalette.BRAND}][BREAKDOWN][/]"),
-        _metric_number("Inline Ignores (zenzic-ignore):", suppression_audit.inline_count),
+        _metric_number("Inline Ignores (zenzic:ignore):", suppression_audit.inline_count),
         _metric_number("Per-File Ignores (config):", suppression_audit.per_file_count),
         Text(),
         Text.from_markup(f"[bold {ZenzicPalette.BRAND}][HOTSPOTS - Top Offenders][/]"),
