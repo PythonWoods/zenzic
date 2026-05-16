@@ -91,11 +91,10 @@ severity = "error"
 release_name = "Basalt"
 
 [governance]
-# Suppression CAP: hard build failure when total suppressions exceed this value.
-# Each suppression within the cap costs 1 pt; beyond the cap, 2 pt each.
-# Cost formula: min(n,30)×1 pt + max(0,n-30)×2 pt.
+# Suppression CAP (ADR-061): allowance of governance-approved exemptions.
+# Suppressions up to this value do not reduce score. Only excess deducts points.
 # Run 'zenzic explain ZXXX' to see the exact penalty for any rule.
-suppression_cap = 30
+suppression_cap = 7
 suppression_cap_fail_hard = true
 
 # Per-file suppression map: silence a rule for specific file globs.

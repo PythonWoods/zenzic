@@ -12,6 +12,7 @@ import yaml
 from _helpers import make_mgr
 
 from zenzic.core.adapter import _extract_i18n_locale_dirs, _extract_i18n_locale_patterns
+from zenzic.core.rules import BrandObsolescenceRule
 from zenzic.core.scanner import (
     check_placeholder_content,
     find_orphans,
@@ -19,7 +20,7 @@ from zenzic.core.scanner import (
     find_repo_root,
     find_unused_assets,
 )
-from zenzic.models.config import ZenzicConfig
+from zenzic.models.config import ProjectMetadata, ZenzicConfig
 
 
 def test_find_repo_root_success(tmp_path: Path) -> None:
@@ -326,6 +327,34 @@ LICENZA
         f"short-content finding points at line {short[0].line_no} — "
         "expected a line past the frontmatter block"
     )
+
+
+def test_jsx_suppression_is_respected_for_z601() -> None:
+    """MDX-native JSX suppression marker must silence Z601 on the tagged line."""
+    rule = BrandObsolescenceRule(
+        ProjectMetadata(
+            release_name="Basalt",
+            obsolete_names=["Obsidian"],
+            obsolete_names_exclude_patterns=[],
+        )
+    )
+    text = "Obsidian codename {/* zenzic:ignore: Z601 release codename */}\n"
+    findings = rule.check(Path("docs/page.mdx"), text)
+    assert findings == []
+
+
+def test_html_suppression_still_works_for_z601() -> None:
+    """Legacy/standard HTML suppression marker remains backward compatible."""
+    rule = BrandObsolescenceRule(
+        ProjectMetadata(
+            release_name="Basalt",
+            obsolete_names=["Obsidian"],
+            obsolete_names_exclude_patterns=[],
+        )
+    )
+    text = "Obsidian codename <!-- zenzic:ignore: Z601 release codename -->\n"
+    findings = rule.check(Path("docs/page.md"), text)
+    assert findings == []
 
 
 def test_short_content_pointer_skips_spdx_comments() -> None:

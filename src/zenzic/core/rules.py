@@ -549,9 +549,10 @@ _FENCE_OPEN_RE = re.compile(r"^(?P<fence>[`~]{3,})(?P<info>.*)$")
 #:   Markdown (.md) syntax:  ``<!-- zenzic-ignore: Z905 - reason -->``
 #:   MDX (.mdx) syntax:      ``{/* zenzic-ignore: Z905 - reason */}``
 #:
-#: Legacy syntax ``zenzic:ignore Z905`` remains supported for compatibility.
+#: Legacy syntax ``zenzic:ignore Z905`` and ADR-062 form
+#: ``zenzic:ignore: Z905`` remain supported for compatibility.
 _SUPPRESS_RE = re.compile(
-    r"(?:<!--|\{/\*)\s*(?:zenzic-ignore\s*:\s*|zenzic:ignore\s+)(?P<code>Z\d{3})(?:[^\n]*?)?(?:-->|\*/\})",
+    r"(?:<!--|\{/\*)\s*(?:zenzic-ignore\s*:\s*|zenzic:ignore\s*:?\s*)(?P<code>Z\d{3})(?:[^\n]*?)?(?:-->|\*/\})",
     re.IGNORECASE,
 )
 
@@ -721,10 +722,11 @@ class BrandObsolescenceRule(BaseRule):
     ``zenzic.toml``.  Emits a warning for each occurrence of an obsolete name
     found in documentation source files.
 
-    **Suppression (CEO-142 — Silent Suppression Protocol):** Add an HTML comment
-    to the end of any line to silence Z601 for that specific occurrence::
+    **Suppression (ADR-063 — MDX-native protocol):** Add an inline suppression
+    marker to the end of any line to silence Z601 for that specific occurrence::
 
-        Obsidian was the v0.6.x codename. <!-- zenzic-ignore: Z601 - historical reference -->
+        Obsidian was the v0.6.x codename. <!-- zenzic:ignore: Z601 historical reference -->
+        Obsidian was the v0.6.x codename. {/* zenzic:ignore: Z601 historical reference */}
 
     The comment is invisible in rendered Markdown and MDX output.  The
     deprecated token ``[HISTORICAL]`` is no longer recognised — it is visible
@@ -795,7 +797,7 @@ class BrandObsolescenceRule(BaseRule):
                             rule_id=self.rule_id,
                             message=(
                                 f"Obsolete brand term '{m.group(0)}':{hint} "
-                                "Add <!-- zenzic-ignore: Z601 - reason --> to the line to suppress intentional references."
+                                "Add <!-- zenzic:ignore: Z601 reason --> (Markdown/HTML) or {/* zenzic:ignore: Z601 reason */} (MDX/JSX) to suppress intentional references."
                             ),
                             severity="warning",
                             matched_line=line,

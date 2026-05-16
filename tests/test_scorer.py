@@ -70,8 +70,23 @@ def test_single_link_error_drops_structural_category() -> None:
     assert structural_cat.issues == 1
 
 
+def test_circular_links_are_informational_and_not_scored() -> None:
+    report = compute_score({"Z106": 4})
+    structural_cat = next(c for c in report.categories if c.name == "structural")
+    assert report.score == 100
+    assert structural_cat.issues == 0
+    assert structural_cat.category_score == 1.0
+
+
 def test_circular_anchors_counted_in_structural() -> None:
     report = compute_score({"Z107": 2})
+    structural_cat = next(c for c in report.categories if c.name == "structural")
+    assert structural_cat.issues == 2
+    assert structural_cat.category_score < 1.0
+
+
+def test_empty_link_text_counts_in_structural() -> None:
+    report = compute_score({"Z108": 2})
     structural_cat = next(c for c in report.categories if c.name == "structural")
     assert structural_cat.issues == 2
     assert structural_cat.category_score < 1.0

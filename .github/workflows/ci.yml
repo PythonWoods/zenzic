@@ -5,26 +5,20 @@ name: CI
 
 on:
   push:
-    branches:
-      - main
-      - 'release/**'
+    branches: [main, 'release/**']
     paths:
       - 'src/**'
       - 'tests/**'
       - 'pyproject.toml'
       - 'uv.lock'
-      - 'noxfile.py'
       - '.github/workflows/ci.yml'
   pull_request:
-    branches:
-      - main
-      - 'release/**'
+    branches: [main, 'release/**']
     paths:
       - 'src/**'
       - 'tests/**'
       - 'pyproject.toml'
       - 'uv.lock'
-      - 'noxfile.py'
       - '.github/workflows/ci.yml'
 
 permissions:
@@ -32,37 +26,43 @@ permissions:
 
 jobs:
   verify:
-    name: Verify (${{ matrix.os }})
+    name: Verify (Py ${{ matrix.python-version }} on ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        # Pillar Matrix: test the boundaries (Floor/Peak) on Linux
+        # and use a stable anchor for Windows/macOS.
+        os: [ubuntu-latest]
+        python-version: ["3.10", "3.12", "3.14"]
+        include:
+          - os: windows-latest
+            python-version: "3.12"
+          - os: macos-latest
+            python-version: "3.12"
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
 
       - name: Install just
         uses: taiki-e/install-action@just
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v8.1.0
+        uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
 
-      - name: Set up Python 3.11
-        run: uv python install 3.11
+      - name: Set up Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
 
       - name: Sync dependencies
         run: uv sync --all-groups
 
       - name: Run unified verification
+        shell: bash
         env:
-          # Pre-Launch Guard Pattern: runtime exclusion for pre-launch assets.
-          # zenzic.dev and the v0.7.0 GitHub release tag are not yet publicly
-          # reachable at CI time. Injected at runtime — zenzic.toml stays clean.
-          # Remove after GA deploy when all URLs resolve.
-          ZENZIC_EXTRA_ARGS: >-
-            --exclude-url https://zenzic.dev/
-            --exclude-url https://github.com/PythonWoods/zenzic/releases/tag/v0.7.0
+          # ZENZIC_EXTRA_ARGS: Injects runtime flags into 'just verify'.
+          # Example: "--no-external" to skip network-dependent link checks.
+          # Default: Empty (full strictness).
+          ZENZIC_EXTRA_ARGS: ""
         run: just verify

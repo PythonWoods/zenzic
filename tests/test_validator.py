@@ -939,6 +939,34 @@ class TestRefLinkValidation:
         assert validate_links(docs_root, mgr, repo_root=tmp_path, config=config) == []
 
 
+class TestEmptyLinkTextValidation:
+    """Integration: empty link labels are reported as Z108."""
+
+    def test_empty_inline_link_text_emits_z108(self, tmp_path: Path) -> None:
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        (docs / "index.md").write_text("[](guide.md)\n\n# Home\n")
+        (docs / "guide.md").write_text("# Guide\n")
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        errors = validate_links_structured(docs_root, mgr, repo_root=tmp_path, config=config)
+        z108 = [e for e in errors if e.error_type == "Z108"]
+        assert len(z108) == 1
+
+    def test_empty_reference_link_text_emits_z108(self, tmp_path: Path) -> None:
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        (docs / "index.md").write_text("[][guide]\n\n[guide]: guide.md\n")
+        (docs / "guide.md").write_text("# Guide\n")
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        errors = validate_links_structured(docs_root, mgr, repo_root=tmp_path, config=config)
+        z108 = [e for e in errors if e.error_type == "Z108"]
+        assert len(z108) == 1
+
+
 # ─── External link validation (httpx mocked via _ping_url) ───────────────────
 
 

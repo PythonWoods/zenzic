@@ -23,12 +23,12 @@ Governance Escalation (Z6xx threshold = 10):
   Z6xx violations beyond 10 trigger exponential amplification on the
   governance bucket — doubling every 5 excess findings — until 0.
 
-Suppression Debt (Phase 26):
-  Every inline zenzic:ignore or per-file ignore entry is not free.
-  Each suppression subtracts 1 pt from the total (up to the suppression_cap).
-  Suppressions beyond the cap incur 2 pts each (escalation tier).
+Suppression Debt (ADR-061):
+    Inline/per-file suppressions are allowance-based.
+    Up to suppression_cap, suppressions are governance-approved exemptions and
+    do not reduce score. Only excess suppressions count as technical debt.
 
-  debt_pts = min(n, cap) × 1 + max(0, n − cap) × 2
+    debt_pts = max(0, n − cap)
 
 Security Override (Zero-Tolerance Floor)
 -----------------------------------------
@@ -50,7 +50,7 @@ from zenzic.core.exceptions import ConfigurationError
 # ─── Weights ──────────────────────────────────────────────────────────────────
 
 _WEIGHTS: dict[str, float] = {
-    "structural": 0.30,  # Z101, Z102, Z104, Z105, Z106, Z107 — Structural Integrity
+    "structural": 0.30,  # Z101, Z102, Z104, Z105, Z107, Z108 — Structural Integrity
     "navigation": 0.25,  # Z301–303 (Ref-Graph) + Z402 — Navigation & Logic
     "content": 0.20,  # Z501, Z502, Z503, Z505 — Content Quality
     "brand": 0.25,  # Z405, Z406, Z601 — Governance & Brand
@@ -66,8 +66,8 @@ _CODE_PENALTY: dict[str, float] = {
     "Z102": 5.0,  # ANCHOR_MISSING
     "Z104": 8.0,  # FILE_NOT_FOUND
     "Z105": 2.0,  # ABSOLUTE_PATH
-    "Z106": 1.0,  # CIRCULAR_LINK (validator-level)
     "Z107": 1.0,  # CIRCULAR_ANCHOR (rule-engine level)
+    "Z108": 1.0,  # EMPTY_LINK_TEXT
     # Navigation & Logic (cap = 25 pts)
     "Z301": 4.0,  # DANGLING_REF — reference link uses an undefined ID
     "Z302": 1.0,  # DEAD_DEF — reference definition never used
@@ -90,8 +90,8 @@ _CODE_CATEGORY: dict[str, str] = {
     "Z102": "structural",
     "Z104": "structural",
     "Z105": "structural",
-    "Z106": "structural",
     "Z107": "structural",
+    "Z108": "structural",
     "Z301": "navigation",
     "Z302": "navigation",
     "Z303": "navigation",
@@ -193,9 +193,9 @@ def compute_score(
     score is capped at 70 — a document with uncontrolled governance violations
     cannot score above 70/100.
 
-    Suppression Debt: every inline or per-file suppression is not free.
-    Suppressions up to ``suppression_cap`` (default 30) cost 1 pt each.
-    Suppressions beyond ``suppression_cap`` cost 2 pts each (escalation tier).
+    Suppression Debt (ADR-061): suppressions are allowance-based.
+    Suppressions up to ``suppression_cap`` (default 30) are governance-approved
+    exemptions and cost 0 points. Only excess suppressions deduct 1 point each.
     Debt is applied after all category calculations and after the Gravity Cap.
 
     Args:
@@ -264,13 +264,11 @@ def compute_score(
     if brand_cat is not None and brand_cat.category_score == 0.0:
         total_pts = min(total_pts, 70.0)
 
-    # Suppression Debt: suppressions are not free. Each suppress directive
-    # deducts 1 pt (within cap) or 2 pts (beyond cap) from the final score.
+    # Suppression Debt (ADR-061): allowance-based governance exemptions.
+    # Suppressions within cap do not reduce score; only excess deducts 1 pt.
     debt_pts = 0
     if suppression_count > 0:
-        within = min(suppression_count, suppression_cap)
-        excess_supp = max(0, suppression_count - suppression_cap)
-        debt_pts = within * 1 + excess_supp * 2
+        debt_pts = max(0, suppression_count - suppression_cap)
         total_pts = max(0.0, total_pts - debt_pts)
 
     return ScoreReport(score=round(total_pts), suppression_debt_pts=debt_pts, categories=categories)

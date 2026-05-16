@@ -89,6 +89,11 @@ _PermissiveSafeLoader.add_multi_constructor("", lambda loader, tag_suffix, node:
 # Does NOT match reference-style links [text][id] or auto-links <url>.
 _MARKDOWN_LINK_RE = re.compile(r"!?\[[^\[\]]*\]\(([^)]+)\)")
 
+# Empty link-label detectors used for Z108. Images are excluded; Z403 covers
+# missing image alt text separately.
+_EMPTY_INLINE_LINK_TEXT_RE = re.compile(r"\[\s*\]\(([^)]*)\)")
+_EMPTY_REF_LINK_TEXT_RE = re.compile(r"\[\s*\]\[[^\]]*\]")
+
 
 class LinkInfo(NamedTuple):
     """Extracted link with source position for surgical caret rendering."""
@@ -365,6 +370,43 @@ def extract_links(text: str) -> list[LinkInfo]:
                         match_text=m.group(0),
                     )
                 )
+
+    return results
+
+
+def _extract_empty_link_texts(text: str) -> list[tuple[int, int, str]]:
+    """Return empty-text Markdown links for Z108 detection.
+
+    The helper skips fenced code blocks and inline code spans, mirroring the
+    main link extractor, but only reports link syntaxes whose label is empty or
+    whitespace-only. Images are intentionally excluded from this rule.
+    """
+    results: list[tuple[int, int, str]] = []
+    in_block = False
+
+    for lineno, line in enumerate(text.splitlines(), start=1):
+        stripped = line.strip()
+        if not in_block:
+            if stripped.startswith("```") or stripped.startswith("~~~"):
+                in_block = True
+                continue
+        else:
+            if stripped.startswith("```") or stripped.startswith("~~~"):
+                in_block = False
+            continue
+
+        clean = _INLINE_CODE_RE.sub(lambda m: " " * len(m.group()), line)
+        for pattern in (_EMPTY_INLINE_LINK_TEXT_RE, _EMPTY_REF_LINK_TEXT_RE):
+            for m in pattern.finditer(clean):
+                # Skip image links (![](url)); those are covered by Z403.
+                if m.start() > 0 and clean[m.start() - 1] == "!":
+                    continue
+                # Only report if the bracket is also empty in the original line.
+                # This prevents false positives from labels like [`code`][ref]
+                # whose inline code was stripped to spaces by the cleaner above.
+                if not pattern.match(line[m.start() :]):
+                    continue
+                results.append((lineno, m.start(), line.strip()))
 
     return results
 
@@ -834,6 +876,21 @@ async def validate_links_async(
             if md_file.is_relative_to(docs_root)
             else str(md_file.relative_to(repo_root))
         )
+        raw_text = md_contents[md_file]
+
+        for lineno, col_start, source_line in _extract_empty_link_texts(raw_text):
+            internal_errors.append(
+                LinkError(
+                    file_path=md_file,
+                    line_no=lineno,
+                    message=f"{label}:{lineno}: link label is empty or whitespace-only",
+                    source_line=source_line,
+                    error_type="Z108",
+                    col_start=col_start,
+                    match_text=source_line,
+                )
+            )
+
         all_links = links_cache.get(md_file, [])
 
         for link in all_links:

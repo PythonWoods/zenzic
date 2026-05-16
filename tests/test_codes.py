@@ -60,10 +60,10 @@ def test_sarif_levels_are_valid_values() -> None:
 
 
 # ── Severity policy: Z1xx/Z2xx must be 'error', Z906/Z114 must be 'note' ───────
-# Z114 LARGE_PAGINATION_SET is intentionally informational within the Z1xx
-# range — it reports a threshold metric, not a broken link. It is the only
-# Z1xx code exempt from the 'error' invariant.
-_Z1XX_NOTE_EXCEPTIONS: frozenset[str] = frozenset({"Z114"})
+# Z106 CIRCULAR_LINK is informational; Z114 LARGE_PAGINATION_SET is also
+# informational within the Z1xx range because it reports a threshold metric,
+# not a broken link.
+_Z1XX_NOTE_EXCEPTIONS: frozenset[str] = frozenset({"Z106", "Z114"})
 
 
 @pytest.mark.parametrize(

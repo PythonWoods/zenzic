@@ -50,7 +50,7 @@ repos:
     hooks:
       - id: reuse
 
-  # 6. Local: type checking, tests, zenzic self-check
+  # 6. Local: type checking
   - repo: local
     hooks:
       - id: mypy
@@ -62,12 +62,4 @@ repos:
         entry: uv run mypy src/
         language: system
         types: [python]
-        pass_filenames: false
-
-      - id: zenzic
-        name: 🔍 Zenzic Check (self-audit)
-        # --no-external: dev machine may be offline; CI pipelines omit this flag for full validation
-        entry: uv run zenzic check all --strict --no-external
-        language: system
-        types_or: [python, markdown, yaml]
         pass_filenames: false

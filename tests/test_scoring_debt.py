@@ -1,9 +1,9 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
-"""Tests for Suppression Debt scoring logic (Phase 26).
+"""Tests for Suppression Debt scoring logic (ADR-061).
 
-Validates that active suppressions (inline zenzic:ignore + per-file config)
-deduct from the final quality score, with escalation beyond the cap.
+Validates allowance-based debt: suppressions up to suppression_cap are free,
+only excess suppressions deduct from final quality score.
 """
 
 from __future__ import annotations
@@ -21,45 +21,45 @@ def test_zero_suppressions_no_debt() -> None:
     assert report.score == 100
 
 
-# ─── Linear tier: 1 – suppression_cap ────────────────────────────────────────
+# ─── Allowance tier: 0 – suppression_cap ─────────────────────────────────────
 
 
-def test_single_suppression_costs_one_point() -> None:
-    """Each suppression within the cap costs exactly 1 pt."""
+def test_single_suppression_within_cap_costs_zero() -> None:
+    """Each suppression within the cap is allowance and costs 0."""
     report = compute_score({}, suppression_count=1)
+    assert report.suppression_debt_pts == 0
+    assert report.score == 100
+
+
+def test_ten_suppressions_within_cap_cost_zero() -> None:
+    """10 suppressions (within cap=30) → no debt."""
+    report = compute_score({}, suppression_count=10)
+    assert report.suppression_debt_pts == 0
+    assert report.score == 100
+
+
+def test_at_cap_costs_zero_points() -> None:
+    """Suppressions exactly at cap are fully exempt."""
+    report = compute_score({}, suppression_count=30)
+    assert report.suppression_debt_pts == 0
+    assert report.score == 100
+
+
+# ─── Debt tier: beyond cap ────────────────────────────────────────────────────
+
+
+def test_one_suppression_beyond_cap_costs_one_point() -> None:
+    """31 suppressions with cap=30 -> 1 debt point."""
+    report = compute_score({}, suppression_count=31)
     assert report.suppression_debt_pts == 1
     assert report.score == 99
 
 
-def test_ten_suppressions_cost_ten_points() -> None:
-    """10 suppressions (within cap=30) → -10 pts."""
-    report = compute_score({}, suppression_count=10)
-    assert report.suppression_debt_pts == 10
-    assert report.score == 90
-
-
-def test_at_cap_costs_exactly_cap_points() -> None:
-    """30 suppressions at default cap → -30 pts, score = 70."""
-    report = compute_score({}, suppression_count=30)
-    assert report.suppression_debt_pts == 30
-    assert report.score == 70
-
-
-# ─── Escalation tier: beyond cap ─────────────────────────────────────────────
-
-
-def test_one_suppression_beyond_cap_costs_two_extra() -> None:
-    """31 suppressions: 30 × 1 + 1 × 2 = 32 pts debt."""
-    report = compute_score({}, suppression_count=31)
-    assert report.suppression_debt_pts == 32
-    assert report.score == 68
-
-
 def test_five_suppressions_beyond_cap() -> None:
-    """35 suppressions: 30 × 1 + 5 × 2 = 40 pts debt → score capped at 0."""
+    """35 suppressions with cap=30 -> 5 debt points."""
     report = compute_score({}, suppression_count=35)
-    assert report.suppression_debt_pts == 40
-    assert report.score == 60
+    assert report.suppression_debt_pts == 5
+    assert report.score == 95
 
 
 def test_excess_suppressions_cannot_go_below_zero() -> None:
@@ -75,22 +75,22 @@ def test_violations_and_suppressions_stack() -> None:
     """Suppression debt is applied after bucket deductions.
 
     Z503 × 1 = 10 pts from content (cap 20) → score 90 before debt.
-    5 suppressions = 5 pts debt → final score 85.
+    5 suppressions are within cap=30 -> no debt -> final score 90.
     """
     report = compute_score({"Z503": 1}, suppression_count=5)
-    assert report.suppression_debt_pts == 5
-    assert report.score == 85
+    assert report.suppression_debt_pts == 0
+    assert report.score == 90
 
 
 def test_gravity_cap_then_debt_applied() -> None:
     """Gravity Cap fires first, then suppression debt reduces further.
 
     11 × Z601 → governance escalation → brand = 0 → Gravity Cap → max 70.
-    Then 5 suppressions → -5 pts → score 65.
+    Then 5 suppressions (within cap) → no debt → score stays 70.
     """
     report = compute_score({"Z601": 11}, suppression_count=5)
-    assert report.score == 65
-    assert report.suppression_debt_pts == 5
+    assert report.score == 70
+    assert report.suppression_debt_pts == 0
 
 
 # ─── Security override ────────────────────────────────────────────────────────
@@ -108,20 +108,20 @@ def test_security_override_ignores_suppression_debt() -> None:
 # ─── Custom cap ──────────────────────────────────────────────────────────────
 
 
-def test_custom_cap_changes_escalation_threshold() -> None:
-    """A project with suppression_cap=10 escalates earlier."""
-    # 15 suppressions: 10 × 1 + 5 × 2 = 20 pts
+def test_custom_cap_changes_debt_threshold() -> None:
+    """A project with suppression_cap=10 accrues debt only above 10."""
+    # 15 suppressions: max(0, 15-10) = 5 pts
     report = compute_score({}, suppression_count=15, suppression_cap=10)
-    assert report.suppression_debt_pts == 20
-    assert report.score == 80
+    assert report.suppression_debt_pts == 5
+    assert report.score == 95
 
 
-def test_zero_cap_all_suppressions_double_cost() -> None:
-    """suppression_cap=0 → every suppression costs 2 pts (full escalation)."""
-    # 5 suppressions: 0 × 1 + 5 × 2 = 10 pts
+def test_zero_cap_all_suppressions_cost_one_each() -> None:
+    """suppression_cap=0 -> every suppression counts as 1 debt point."""
+    # 5 suppressions: max(0, 5-0) = 5 pts
     report = compute_score({}, suppression_count=5, suppression_cap=0)
-    assert report.suppression_debt_pts == 10
-    assert report.score == 90
+    assert report.suppression_debt_pts == 5
+    assert report.score == 95
 
 
 # ─── ScoreReport.to_dict() ───────────────────────────────────────────────────
@@ -129,7 +129,7 @@ def test_zero_cap_all_suppressions_double_cost() -> None:
 
 def test_debt_pts_in_to_dict_when_nonzero() -> None:
     """suppression_debt_pts appears in to_dict() output when > 0."""
-    report = compute_score({}, suppression_count=5)
+    report = compute_score({}, suppression_count=35)
     d = report.to_dict()
     assert "suppression_debt_pts" in d
     assert d["suppression_debt_pts"] == 5

@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
 #
-# just — interactive developer workflow (4-Gates Standard, EPOCH 4 / v0.7.0).
+# just — interactive developer workflow (Standard Documentation Workflow).
 #
 # Single source of truth for the quality pipeline. `just verify` is the
 # atomic entry-point invoked by the pre-push hook AND by GitHub Actions:
@@ -24,6 +24,8 @@ runner     := "uv run --active"
 nox_runner := "uv run nox -s"
 # Keep BUILD_DATE deterministic across Ubuntu and Git Bash on Windows runners.
 export BUILD_DATE := `date -u +'%Y/%m/%d'`
+# ZENZIC_EXTRA_ARGS: allow runtime flag injection (e.g. --no-external)
+ZENZIC_EXTRA_ARGS := env_var_or_default("ZENZIC_EXTRA_ARGS", "")
 
 # ─── Workflow ─────────────────────────────────────────────────────────────────
 
@@ -41,7 +43,7 @@ check *args:
     GUARD=(
       --exclude-url "https://www.contributor-covenant.org/version/2/1/code_of_conduct.html"
     )
-    {{ runner }} zenzic check all --strict "${GUARD[@]}" {{ args }}
+    {{ runner }} zenzic check all --strict "${GUARD[@]}" {{ ZENZIC_EXTRA_ARGS }} {{ args }}
 
 # Inner loop: ultra-fast, parallel, no coverage (TDD feedback).
 # Pillar 3 (Pure Functions) guarantees pytest-xdist worker isolation.
@@ -72,14 +74,14 @@ test-full *args:
 
 # Fast linter pass: run all pre-commit hooks without the full test suite.
 lint:
-    uvx pre-commit run --all-files
+    {{ runner }} pre-commit run --all-files
 
 # Final Guard: atomic verification invoked by pre-push hook + GHA.
 # Sequence: pre-commit (all hooks) → pytest tests/ → zenzic self-check.
 verify: _check-hooks release-contracts
-    uvx pre-commit run --all-files
+    {{ runner }} pre-commit run --all-files
     {{ runner }} pytest tests/
-    {{ runner }} zenzic check all --strict
+    {{ runner }} zenzic check all --strict {{ ZENZIC_EXTRA_ARGS }}
 
 _check-hooks:
     #!/usr/bin/env bash
@@ -87,14 +89,14 @@ _check-hooks:
     if [ ! -f .git/hooks/pre-commit ]; then
         echo -e "\033[33m⚠️  WARNING: pre-commit hook is not installed.\033[0m"
         echo "Without it, linters and type-checks will NOT run automatically on git commit."
-        echo "👉 Fix it by running: uvx pre-commit install"
+        echo "👉 Fix it by running: uv run --active pre-commit install"
         echo ""
         _missing=1
     fi
     if [ ! -f .git/hooks/pre-push ]; then
         echo -e "\033[33m⚠️  WARNING: pre-push hook is not installed.\033[0m"
         echo "Without it, you might accidentally push broken code to GitHub and fail the remote CI."
-        echo "👉 Fix it by running: uvx pre-commit install -t pre-push"
+        echo "👉 Fix it by running: uv run --active pre-commit install -t pre-push"
         echo ""
         _missing=1
     fi
