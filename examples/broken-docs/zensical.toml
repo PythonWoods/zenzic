@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
-# zensical.toml — Zensical v0.0.31+ schema.
+# zensical.toml — Zensical schema.
 # api.md is intentionally absent from [project].nav to demonstrate the orphan check.
 
 [project]
@@ -11,7 +11,4 @@ docs_dir = "docs"
 [project.theme]
 name = "material"
 
-nav = [
-  "index.md",
-  {"Tutorial" = "tutorial.md"}
-]
+nav = ["index.md", { "Tutorial" = "tutorial.md" }]

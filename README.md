@@ -69,7 +69,7 @@ file integrity.
 
 ```bash
 pip install zenzic
-zenzic lab        # Interactive showroom — 21 acts, every engine, zero setup
+zenzic lab        # Interactive showroom — 22 acts, every engine, zero setup
 zenzic check all  # Audit the current directory
 zenzic check all --audit  # Sovereign truth run: ignore suppressions
 zenzic config explain  # Show active config values and origin (local/global/default)
@@ -349,6 +349,16 @@ Visit the [documentation portal][docs-home] for interactive screenshots and rich
 
 ---
 
+## 🧪 Examples
+
+The `examples/` directory is an executable specification library.
+
+| Fixture | Description |
+| :--- | :--- |
+| `examples/rules/z108-empty-link/` | Demonstrates `Z108 (EMPTY_LINK_TEXT)` detection on empty link text |
+
+---
+
 ## 📖 Documentation Map — The Integrity Promise
 
 Zenzic's docs ship as **two separate Docusaurus instances** under the same domain.
@@ -450,7 +460,7 @@ links pointing to OS system *paths* (exit 3). Both are non-suppressible.
 **No `zenzic.toml` needed?** Correct. Zenzic identifies the engine from config files present and applies safe defaults. Run
 `zenzic init` at any time to generate a pre-populated config file.
 
-**What is `zenzic lab`?** A 21-act interactive showroom covering every engine and error class — including Credential Scanner (Z2xx), Governance (Z601, Z602), and the Enterprise Privacy Gate (Z204).
+**What is `zenzic lab`?** A 22-act interactive showroom covering every engine and error class — including Credential Scanner (Z2xx), Governance (Z601, Z602), and the Enterprise Privacy Gate (Z204).
 Run it once before integrating Zenzic into any project.
 
 ---

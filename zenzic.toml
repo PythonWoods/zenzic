@@ -7,7 +7,7 @@
 # nav-awareness.  The full documentation site lives in the separate
 # zenzic-doc repository, which uses engine = "docusaurus".
 #
-# ⚠️  SCAN SCOPE INVARIANT (v0.6.2): docs_dir = "." ensures that README.md
+# ⚠️  SCAN SCOPE INVARIANT: docs_dir = "." ensures that README.md
 # and README.it.md are ALWAYS inside the validation scope.
 # Do NOT change docs_dir to a subdirectory without explicitly re-adding
 # README.md and README.it.md via an include_files entry.
@@ -18,7 +18,7 @@
 # credentials in `.zenzic.local.toml` only. Shared `zenzic.toml` is the team
 # constitution and must stay reproducible in CI.
 #
-# 🌿  ZERO-CONFIG NOTE (v0.7.0):
+# 🌿  ZERO-CONFIG NOTE:
 #   * Universal build / cache directories (`build`, `dist`, `temp`, `tmp`,
 #     `.tox`, `mutants`, plus `.git`, `.venv`, `node_modules`, …) are part
 #     of `SYSTEM_EXCLUDED_DIRS` — never repeat them here.
@@ -41,16 +41,15 @@ excluded_dirs = [
     ".redteam",
 ]
 
-# ADR-039.1: .zenzic.local.toml.example and *.sh are now in SYSTEM_EXCLUDED_FILE_NAMES /
-# SYSTEM_EXCLUDED_FILE_PATTERNS — no user-level exclusions needed.
-# ADR-039.2: CHANGELOG*.md and RELEASE*.md are clean prose — scanned without exclusion.
-# ROADMAP.md is clean — scanned without exclusion.
+# ADR-039.1: .zenzic.local.toml.example and *.sh are in SYSTEM_EXCLUDED_FILE_NAMES /
+# SYSTEM_EXCLUDED_FILE_PATTERNS. No user-level exclusions needed.
+# ADR-039.2: CHANGELOG*.md and RELEASE*.md are scanned without exclusion.
+# ROADMAP.md is scanned without exclusion.
 
 # External URLs excluded from the broken-link check (applies only with --strict).
 # The GitHub repository URL returns 429 in CI (rate-limited).
 # The settings/tokens URL requires authentication (403 for bots).
-# NOTE: the previous blanket https://zenzic.dev/ exclusion has been REMOVED (v0.6.2).
-# All zenzic.dev/* links are now subject to --strict validation.
+# All zenzic.dev/* links are subject to --strict validation.
 # If a CI runner cannot reach zenzic.dev, pass --exclude-url https://zenzic.dev/
 # as a runtime flag rather than encoding the bypass in the config file.
 excluded_external_urls = [
@@ -73,15 +72,15 @@ engine = "standalone"
 # Markdown prose (README, CONTRIBUTING, CHANGELOG, etc.) with no nav contract.
 # The actual documentation site lives in the separate zenzic-doc repository,
 # which uses engine = "docusaurus" with i18n locale roots auto-authorised by the
-# Multi-Root Safe Harbor (v0.7.0+).  No locales key is needed here.
+# Multi-Root Exclusion Scope. No locales key is needed here.
 
 # ── Internal dogfood rules ────────────────────────────────────────────────────
 # Minimal rule set for root-level prose files.
 
 [[custom_rules]]
-id       = "ZZ-NOCLICKHERE"
-pattern  = "(?i)\\bclick here\\b|\\bclicca qui\\b"
-message  = "Avoid generic link text. Use a meaningful description for accessibility."
+id = "ZZ-NOCLICKHERE"
+pattern = "(?i)\\bclick here\\b|\\bclicca qui\\b"
+message = "Avoid generic link text. Use a meaningful description for accessibility."
 severity = "error"
 
 # ── Brand integrity ──────────────────────────────────────────────────────────

@@ -243,6 +243,13 @@ _ACTS: list[_Act] = [
         expected_pass=False,
         expected_breach=True,
     ),
+    _Act(
+        21,
+        "Empty Link Detection",
+        "Z108 EMPTY_LINK_TEXT detected. Demonstrates structural penalty applied to Quality Score.",
+        "rules/z108-empty-link",
+        expected_pass=False,
+    ),
 ]
 
 
@@ -280,14 +287,14 @@ def parse_act_range(raw: str) -> list[int]:
             raise ValueError(f"Invalid range '{raw}': start ({lo}) must be ≤ end ({hi}).")
         ids = [i for i in range(lo, hi + 1) if i in _VALID_IDS]
         if not ids:
-            raise ValueError(f"Range '{raw}' contains no valid act numbers. Valid range: 0–19.")
+            raise ValueError(f"Range '{raw}' contains no valid act numbers. Valid range: 0–21.")
         return ids
     try:
         n = int(raw)
     except ValueError as exc:
         raise ValueError(f"Invalid act '{raw}': expected an integer, N-M range, or 'all'.") from exc
     if n not in _VALID_IDS:
-        raise ValueError(f"Act {n} does not exist. Valid acts: 0–19.")
+        raise ValueError(f"Act {n} does not exist. Valid acts: 0–21.")
     return [n]
 
 
@@ -299,6 +306,7 @@ _SECTIONS: list[tuple[str, str, range]] = [
     ("Enterprise Adapters & Migration", "🏢", range(7, 11)),
     ("Security Audit Matrix", "🔴", range(11, 17)),
     ("Scoring Scenarios", "📊", range(17, 20)),
+    ("Enterprise Gate & Specialized Rules", "🚨", range(20, 22)),
 ]
 
 

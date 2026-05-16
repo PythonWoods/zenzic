@@ -23,14 +23,22 @@
 #   Act  9 — MkDocs Favicon Guard  : mkdocs-z404 — Z404 for theme.favicon + theme.logo.
 #   Act 10 — Zensical Logo Guard   : zensical-z404 — Z404 for project.favicon + project.logo.
 #
-#   ── Red/Blue Team Matrix ─────────────────────────────────────────────────
+#   ── Security Audit Matrix ─────────────────────────────────────────────────
 #   Act 11 — Unix Security Probe   : os/unix-security — PATH_TRAVERSAL + credential BREACH.
 #   Act 12 — Windows Path Integrity: os/win-integrity — Z105 ABSOLUTE_LINK on /C:/ + /UNC/.
 #   Act 13 — Link Graph Stress     : rules/z100-link-graph — circular Z102 + Z104 ×2.
-#   Act 14 — Credential Extreme        : rules/z200-credentials — base64/pct-enc/mixed-case BREACH.
+#   Act 14 — Credential Leak       : rules/z201-credential-leak — base64/pct-enc/mixed-case BREACH.
 #   Act 15 — SEO Coverage          : rules/z400-seo — Z401 ×3 + Z402 ×1.
 #   Act 16 — Quality Gate          : rules/z500-quality — Z501 ×3 + Z503 ×1.
-#   Act 17 — Virtual Routes        : docusaurus-v3 — tag virtual routes validated clean.
+#
+#   ── Scoring Scenarios ────────────────────────────────────────────────────
+#   Act 17 — Score 0/100           : scoring/security-breach — Z201 triggers score collapse.
+#   Act 18 — Score 70/100          : scoring/content-spam — 100x Z505 capped at 70.
+#   Act 19 — The Base64 Shadow     : scoring/security-base64 — base64 obfuscated credential.
+#
+#   ── Enterprise Gate & Specialized Rules ──────────────────────────────────
+#   Act 20 — Privacy Gate          : rules/z204-privacy-gate — internal codename triggers EXIT 2.
+#   Act 21 — Empty Link Detection  : rules/z108-empty-link — Z108 EMPTY_LINK_TEXT failure.
 #
 # Usage (from repo root):
 #   bash examples/run_demo.sh
@@ -233,9 +241,9 @@ else
     print_result "zensical-z404 check all (Z404 fires)" "FAIL"
 fi
 
-# ─── Red/Blue Team Matrix ─────────────────────────────────────────────────────
+# ─── Security Audit Matrix ─────────────────────────────────────────────────────
 
-print_section "Red/Blue Team Matrix  (Acts 11–16)"
+print_section "Security Audit Matrix  (Acts 11–16)"
 
 # ─── Act 11: Unix Security Probe ─────────────────────────────────────────────
 
@@ -282,21 +290,21 @@ else
     print_result "rules/z100-link-graph check all (Z102/Z104 fires)" "FAIL"
 fi
 
-# ─── Act 14: Credential Extreme ─────────────────────────────────────────────
+# ─── Act 14: Credential Leak ─────────────────────────────────────────────
 
-print_header "Act 14 — Credential Extreme (rules/z200-credentials)"
+print_header "Act 14 — Credential Leak (rules/z201-credential-leak)"
 echo "  Base64-encoded, percent-encoded, and mixed-case credential obfuscation."
 echo "  Expected: EXIT 2 (BREACH) — Credential scanner normalises and detects all three techniques."
 echo ""
 
-if (cd "$REPO_ROOT/examples/rules/z200-credentials" && uv run zenzic check all); then
-    print_result "rules/z200-credentials check all" "UNEXPECTED PASS"
+if (cd "$REPO_ROOT/examples/rules/z201-credential-leak" && uv run zenzic check all); then
+    print_result "rules/z201-credential-leak check all" "UNEXPECTED PASS"
 else
     code=$?
     if [ "$code" -eq 2 ]; then
-        print_result "rules/z200-credentials check all (exit 2 — BREACH)" "FAIL"
+        print_result "rules/z201-credential-leak check all (exit 2 — BREACH)" "FAIL"
     else
-        print_result "rules/z200-credentials check all" "UNEXPECTED EXIT $code"
+        print_result "rules/z201-credential-leak check all" "UNEXPECTED EXIT $code"
     fi
 fi
 
@@ -326,18 +334,90 @@ else
     print_result "rules/z500-quality check all (Z501/Z503 fires)" "FAIL"
 fi
 
-# ─── Act 17: Virtual Routes ───────────────────────────────────────────────────
+# ─── Scoring Scenarios ────────────────────────────────────────────────────────
+print_section "Scoring Scenarios  (Acts 17–19)"
 
-print_header "Act 17 — Virtual Routes (docusaurus-v3)"
-echo "  Blog posts generate tag virtual routes. A docs link to /blog/tags/tutorial/"
-echo "  is validated against the tag virtual route map — no Node.js build required."
-echo "  Expected: PASS — all virtual routes present, link resolves cleanly."
+# ─── Act 17: Score 0/100 ──────────────────────────────────────────────────────
+
+print_header "Act 17 — Score 0/100 (scoring/security-breach)"
+echo "  Fake AWS credential → Z201 CREDENTIAL_SECRET → score collapses to 0."
+echo "  Expected: EXIT 2 (BREACH)."
 echo ""
 
-if (cd "$REPO_ROOT/examples/docusaurus-v3" && uv run zenzic check all); then
-    print_result "docusaurus-v3 check all (Virtual Routes)" "PASS"
+if (cd "$REPO_ROOT/examples/scoring/security-breach" && uv run zenzic check all); then
+    print_result "scoring/security-breach check all" "UNEXPECTED PASS"
 else
-    print_result "docusaurus-v3 check all" "UNEXPECTED FAIL"
+    code=$?
+    if [ "$code" -eq 2 ]; then
+        print_result "scoring/security-breach check all (exit 2 — BREACH)" "FAIL"
+    else
+        print_result "scoring/security-breach check all" "UNEXPECTED EXIT $code"
+    fi
+fi
+
+# ─── Act 18: Score 70/100 ─────────────────────────────────────────────────────
+
+print_header "Act 18 — Score 70/100 (scoring/content-spam)"
+echo "  100 × Z505 UNTAGGED_CODE_BLOCK: content zeroed (30 pts) but total floors at 70/100."
+echo "  Expected: FAILURE."
+echo ""
+
+if (cd "$REPO_ROOT/examples/scoring/content-spam" && uv run zenzic check all); then
+    print_result "scoring/content-spam check all" "UNEXPECTED PASS"
+else
+    print_result "scoring/content-spam check all (Z505 floors score)" "FAIL"
+fi
+
+# ─── Act 19: The Base64 Shadow ────────────────────────────────────────────────
+
+print_header "Act 19 — The Base64 Shadow (scoring/security-base64)"
+echo "  GitHub PAT obfuscated in Base64 in frontmatter."
+echo "  Expected: EXIT 2 (BREACH)."
+echo ""
+
+if (cd "$REPO_ROOT/examples/scoring/security-base64" && uv run zenzic check all); then
+    print_result "scoring/security-base64 check all" "UNEXPECTED PASS"
+else
+    code=$?
+    if [ "$code" -eq 2 ]; then
+        print_result "scoring/security-base64 check all (exit 2 — BREACH)" "FAIL"
+    else
+        print_result "scoring/security-base64 check all" "UNEXPECTED EXIT $code"
+    fi
+fi
+
+# ─── Enterprise Gate & Specialized Rules ──────────────────────────────────────
+print_section "Enterprise Gate & Specialized Rules  (Acts 20–21)"
+
+# ─── Act 20: Privacy Gate ─────────────────────────────────────────────────────
+
+print_header "Act 20 — Privacy Gate (rules/z204-privacy-gate)"
+echo "  Z204 FORBIDDEN_TERM: internal codename triggers exit 2."
+echo "  Expected: EXIT 2 (BREACH)."
+echo ""
+
+if (cd "$REPO_ROOT/examples/rules/z204-privacy-gate" && uv run zenzic check all); then
+    print_result "rules/z204-privacy-gate check all" "UNEXPECTED PASS"
+else
+    code=$?
+    if [ "$code" -eq 2 ]; then
+        print_result "rules/z204-privacy-gate check all (exit 2 — BREACH)" "FAIL"
+    else
+        print_result "rules/z204-privacy-gate check all" "UNEXPECTED EXIT $code"
+    fi
+fi
+
+# ─── Act 21: Empty Link Detection ──────────────────────────────────────────────
+
+print_header "Act 21 — Empty Link Detection (rules/z108-empty-link)"
+echo "  Empty link text triggers Z108 EMPTY_LINK_TEXT."
+echo "  Expected: FAILURE — Z108."
+echo ""
+
+if (cd "$REPO_ROOT/examples/rules/z108-empty-link" && uv run zenzic check all); then
+    print_result "rules/z108-empty-link check all" "UNEXPECTED PASS"
+else
+    print_result "rules/z108-empty-link check all (Z108 fires)" "FAIL"
 fi
 
 # ─── Self-audit + score snapshot ──────────────────────────────────────────────
@@ -375,12 +455,18 @@ echo "  Act  7 (Flagship)              : must be green — versioned @site/ + i1
 echo "  Act  8 (Standalone Excellence) : must be green — MISSING_DIRECTORY_INDEX fires"
 echo "  Act  9 (MkDocs Favicon Guard)  : must be red — Z404 for theme.favicon + theme.logo"
 echo "  Act 10 (Zensical Logo Guard)   : must be red — Z404 for project.favicon + project.logo"
-echo "  ── Red/Blue Team Matrix ─────────────────────────────────────────────────"
+echo "  ── Security Audit Matrix ─────────────────────────────────────────────────"
 echo "  Act 11 (Unix Security Probe)   : must be red (exit 2) — PATH_TRAVERSAL + BREACH"
 echo "  Act 12 (Windows Path Integrity): must be red — Z105 ABSOLUTE_LINK"
 echo "  Act 13 (Link Graph Stress)     : must be red — Z102 + Z104"
-echo "  Act 14 (Credential Extreme)         : must be red (exit 2) — obfuscated creds BREACH"
+echo "  Act 14 (Credential Leak)       : must be red (exit 2) — obfuscated creds BREACH"
 echo "  Act 15 (SEO Coverage)          : must be red — Z401 + Z402"
 echo "  Act 16 (Quality Gate)          : must be red — Z501 + Z503"
-echo "  Act 17 (Virtual Routes)        : must be green — tag routes resolved, link clean"
+echo "  ── Scoring Scenarios ────────────────────────────────────────────────────"
+echo "  Act 17 (Score 0/100)           : must be red (exit 2) — score collapses"
+echo "  Act 18 (Score 70/100)          : must be red — capped at 70"
+echo "  Act 19 (The Base64 Shadow)     : must be red (exit 2) — BREACH"
+echo "  ── Enterprise Gate & Specialized Rules ──────────────────────────────────"
+echo "  Act 20 (Privacy Gate)          : must be red (exit 2) — BREACH"
+echo "  Act 21 (Empty Link Detection)  : must be red — Z108"
 echo ""

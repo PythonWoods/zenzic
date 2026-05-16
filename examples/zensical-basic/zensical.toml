@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
 #
-# zensical.toml — minimal Zensical v0.0.31+ project configuration.
+# zensical.toml — minimal Zensical project configuration.
 #
 # All settings live under the [project] scope.
 # Navigation supports three entry forms, freely mixed:
@@ -17,14 +17,14 @@
 
 [project]
 site_name = "Zensical Basic Example"
-site_url  = "https://example.com/"
-docs_dir  = "docs"
+site_url = "https://example.com/"
+docs_dir = "docs"
 
 nav = [
     "index.md",
-    {"Guide"    = "guide.md"},
-    {"API"      = [
+    { "Guide" = "guide.md" },
+    { "API" = [
         "api/index.md",
-        {"Endpoints" = "api/endpoints.md"},
-    ]},
+        { "Endpoints" = "api/endpoints.md" },
+    ] },
 ]

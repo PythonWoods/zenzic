@@ -496,12 +496,28 @@ def check_references(
         except ValueError:
             return str(path)
 
+    from zenzic.core.adapters import get_adapter
+
+    adapter = get_adapter(config.build_context, docs_root, repo_root)
+
+    locale_roots: list[tuple[Path, str]] | None = None
+    if hasattr(adapter, "get_locale_source_roots"):
+        _roots = adapter.get_locale_source_roots(repo_root)
+        locale_roots = _roots if _roots else None
+
+    extra_content_roots: list[tuple[Path, str]] | None = None
+    if hasattr(adapter, "get_extra_content_roots"):
+        _roots = adapter.get_extra_content_roots(repo_root)
+        extra_content_roots = [(cr.path, cr.url_prefix) for cr in _roots] if _roots else None
+
     t0 = time.monotonic()
     reports, ext_link_errors = scan_docs_references(
         docs_root,
         exclusion_mgr,
         config=config,
         validate_links=links,
+        locale_roots=locale_roots,
+        extra_content_roots=extra_content_roots,
     )
     elapsed = time.monotonic() - t0
 
@@ -878,12 +894,18 @@ def _collect_all_results(
         _roots = adapter.get_locale_source_roots(repo_root)
         locale_roots = _roots if _roots else None
 
+    extra_content_roots: list[tuple[Path, str]] | None = None
+    if hasattr(adapter, "get_extra_content_roots"):
+        _roots = adapter.get_extra_content_roots(repo_root)
+        extra_content_roots = [(cr.path, cr.url_prefix) for cr in _roots] if _roots else None
+
     ref_reports, _ = scan_docs_references(
         docs_root,
         exclusion_mgr,
         config=config,
         validate_links=False,
         locale_roots=locale_roots,
+        extra_content_roots=extra_content_roots,
     )
     security_events = sum(len(r.security_findings) for r in ref_reports)
 
@@ -1144,10 +1166,10 @@ def _resolve_target(repo_root: Path, config: ZenzicConfig, raw: str) -> Path:
         if candidate.is_dir():
             return candidate.resolve()
         if candidate.is_file():
-            if candidate.suffix.lower() != ".md":
+            if candidate.suffix.lower() not in (".md", ".mdx"):
                 _shared.console.print(
                     f"[red]ERROR:[/] [bold]{raw}[/] is not a Markdown file "
-                    f"(expected .md, got '{candidate.suffix}')."
+                    f"(expected .md or .mdx, got '{candidate.suffix}')."
                 )
                 raise typer.Exit(1)
             return candidate.resolve()

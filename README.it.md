@@ -69,7 +69,7 @@ integrità dei file.
 
 ```bash
 pip install zenzic
-zenzic lab        # Showroom interattivo — 21 atti, ogni motore, zero configurazione
+zenzic lab        # Showroom interattivo — 22 atti, ogni motore, zero configurazione
 zenzic check all  # Analizza la cartella corrente
 zenzic check all --audit  # Run di verità sovrana: ignora le soppressioni
 zenzic config explain  # Mostra valori config attivi e origine (local/global/default)
@@ -352,6 +352,16 @@ Visita il [portale di documentazione][docs-it-home] per screenshot interattivi e
 
 ---
 
+## 🧪 Examples
+
+La directory `examples/` è una libreria di specifiche eseguibili.
+
+| Esempio | Descrizione |
+| :--- | :--- |
+| `examples/rules/z108-empty-link/` | Dimostra il rilevamento di `Z108 (EMPTY_LINK_TEXT)` su testi di link vuoti |
+
+---
+
 ## 📖 Mappa della Documentazione — La Promessa di Integrità
 
 I docs di Zenzic sono pubblicati come **due istanze Docusaurus separate** sotto lo
@@ -461,7 +471,7 @@ link che puntano a *path* di sistema OS (exit 3). Entrambi non sono sopprimibili
 **Non serve `zenzic.toml`?** Corretto. Zenzic identifica il motore dai file di configurazione presenti e applica i default sicuri.
 Esegui `zenzic init` in qualsiasi momento per generare un file di configurazione pre-compilato.
 
-**Cos'è `zenzic lab`?** Uno showroom interattivo a 21 atti che copre ogni motore e ogni classe di errori — inclusi Credential Scanner (Z2xx), Governance (Z601, Z602) e il Privacy Gate Enterprise (Z204).
+**Cos'è `zenzic lab`?** Uno showroom interattivo a 22 atti che copre ogni motore e ogni classe di errori — inclusi Credential Scanner (Z2xx), Governance (Z601, Z602) e il Privacy Gate Enterprise (Z204).
 Eseguilo una volta prima di integrare Zenzic in qualsiasi progetto.
 errore. Eseguilo una volta prima di integrare Zenzic in qualsiasi progetto.
 

@@ -1389,6 +1389,7 @@ def scan_docs_references(
     workers: int | None = 1,
     verbose: bool = False,
     locale_roots: list[tuple[Path, str]] | None = None,
+    extra_content_roots: list[tuple[Path, str]] | None = None,
 ) -> tuple[list[IntegrityReport], list[str]]:
     """Run the Three-Phase Pipeline over every .md file in docs/.
 
@@ -1469,6 +1470,14 @@ def scan_docs_references(
         for locale_root, locale_name in locale_roots:
             for abs_path, logical_rel in iter_locale_markdown_sources(
                 locale_root, locale_name, config, exclusion_manager
+            ):
+                _locale_path_remap[abs_path] = docs_root / logical_rel
+                md_files.append(abs_path)
+
+    if extra_content_roots:
+        for content_root, url_prefix in extra_content_roots:
+            for abs_path, logical_rel in iter_extra_content_markdown_sources(
+                content_root, url_prefix, config, exclusion_manager
             ):
                 _locale_path_remap[abs_path] = docs_root / logical_rel
                 md_files.append(abs_path)
