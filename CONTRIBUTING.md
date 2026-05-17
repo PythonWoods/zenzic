@@ -493,6 +493,24 @@ a follow-up issue for the refactor.
 - **Bilingual Parity:** Documentation lives in [zenzic-doc](https://github.com/PythonWoods/zenzic-doc). Refer documentation contributors there.
 - **Machine-Local Config:** Project-specific secrets (forbidden terms for Z204) go in `.zenzic.local.toml` — never committed. Copy [`.zenzic.local.toml.example`](.zenzic.local.toml.example) as a starting template.
 
+### Supply-chain Requirements
+
+Every GitHub Action introduced or modified in this repository must be pinned to
+an immutable commit SHA.
+
+Required format:
+
+```yaml
+- uses: owner/action-name@0123456789abcdef0123456789abcdef01234567 # vX
+```
+
+Mandatory rules:
+
+- Never use floating refs (`@v4`, `@main`, `@master`, `@latest`) in tracked workflow files.
+- Keep the version hint comment (`# vX` or `# vX.Y.Z`) for human-readable reviews.
+- Dependabot (`package-ecosystem: github-actions`) is the automation authority for SHA refresh.
+- PRs that touch workflows must preserve SHA pinning and mention supply-chain impact in the PR description.
+
 ---
 
 ## Credential Scanner & The Canary

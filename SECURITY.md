@@ -51,6 +51,32 @@ other build tool during `check`, `score`, or `diff`. The attack surface is limit
 - **Dependencies** — run `nox -s security` (pip-audit) regularly to detect known CVEs in
   the dependency tree.
 
+## Supply-chain assurance (SLSA-aligned)
+
+Zenzic distribution workflows enforce a SLSA-aligned integrity baseline for
+build and release operations:
+
+- GitHub Actions in release-critical workflows are pinned to immutable commit SHAs.
+- Dependency synchronization uses `uv.lock` with frozen resolution (`uv sync --frozen`).
+- Release artifacts are produced with build provenance attestations.
+
+This model provides deterministic builds and verifiable provenance for published
+release assets.
+
+### Provenance verification for end users
+
+End users can verify provenance for downloaded release artifacts with GitHub
+Artifact Attestations.
+
+1. Download the artifact from the release page (for example, `*.whl` or `*.tar.gz`).
+1. Verify the attestation against the repository:
+
+```bash
+gh attestation verify ./zenzic-<version>-py3-none-any.whl --repo PythonWoods/zenzic
+```
+
+1. Accept the artifact only when attestation verification succeeds.
+
 ## Supported versions
 
 | Version | Support status |

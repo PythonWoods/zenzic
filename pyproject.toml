@@ -138,7 +138,7 @@ target-version = "py310"
 select = ["E", "F", "W", "I", "B", "C4", "UP", "A", "TID252"]
 ignore = ["E501", "B008"]
 
-# Ban standard re module in src/
+# Ban standard re module in governed paths (src/ + tests/)
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 re = { msg = "Use `re2` (google-re2) instead to prevent ReDoS vulnerability (ZRT-007)." }
 
@@ -206,6 +206,6 @@ pytest_add_cli_args = ["--import-mode=prepend"]
 
 # ─── Version bumping ───────────────────────────────────────────────────────────
 # CONSOLIDATED IN .bumpversion.toml (primary source of truth for bump-my-version).
-# This section removed to prevent Split Brain governance leak.
+# This section removed to prevent governance duplication across version sources.
 # All version bump config now maintained in single .bumpversion.toml file.
 # ────────────────────────────────────────────────────────────────────────────────

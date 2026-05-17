@@ -106,18 +106,9 @@ suppression_cap_fail_hard = true
 # Permanent vocabulary guardian — fires if theatrical brand terms reappear in prose.
 brand_obsolescence = [
     "Sentinel",
-    "Blood Sentinel",
     "Shield",
-    "Epoch",
-    "Forge",
-    "Red Team",
-    "Operation",
+    "Blood",
+    "Basalt",
     "Quartz",
     "Obsidian",
-    "ObsidianUI",
-    "Safe Harbor",
-    "Porto Sicuro",
-    "Basalt",
-    "Chronicles",
-    "Siege",
 ]

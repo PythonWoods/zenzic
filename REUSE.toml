@@ -11,11 +11,6 @@ SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
 SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
-path = ".vscode/mcp.json"
-SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
-SPDX-License-Identifier = "Apache-2.0"
-
-[[annotations]]
 path = "zenzic.code-workspace"
 SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
 SPDX-License-Identifier = "Apache-2.0"

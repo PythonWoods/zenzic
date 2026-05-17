@@ -23,6 +23,8 @@ updates:
           - "patch"
 
   # GitHub Actions
+  # Workflows use immutable commit SHAs in `uses:` entries.
+  # Dependabot is the automation channel that refreshes those pinned SHAs.
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
@@ -36,6 +38,8 @@ updates:
       - "github-actions"
     groups:
       actions-all:
+        patterns:
+          - "*"
         update-types:
           - "minor"
           - "patch"

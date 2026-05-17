@@ -41,8 +41,8 @@ must satisfy all that apply.
 ### 3. ReDoS Immunity
 
 - [ ] All new regex patterns use **`zenzic.core.regex`** (the RE2-backed ACL facade) —
-  direct `import re` is forbidden in `src/zenzic/` production paths (enforced by Ruff
-  banned-api rule).
+  direct `import re` is forbidden in governed paths (`src/zenzic/` and `tests/`),
+  and family-repository tooling must preserve the same ACL contract.
 - [ ] New patterns are pre-compiled as module-level constants (`_NAME_RE = re.compile(...)`);
   no inline raw-string compilation inside loops or hot paths.
 

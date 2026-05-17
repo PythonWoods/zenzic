@@ -42,13 +42,13 @@ jobs:
             python-version: "3.12"
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Install just
-        uses: taiki-e/install-action@just
+        uses: taiki-e/install-action@ea85faa6acd705ad6d40586db99f1a70b09c2929 # just
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
         with:
           enable-cache: true
 
@@ -56,13 +56,11 @@ jobs:
         run: uv python install ${{ matrix.python-version }}
 
       - name: Sync dependencies
-        run: uv sync --all-groups
+        run: uv sync --all-groups --frozen
 
       - name: Run unified verification
         shell: bash
         env:
-          # ZENZIC_EXTRA_ARGS: Injects runtime flags into 'just verify'.
-          # Example: "--no-external" to skip network-dependent link checks.
-          # Default: Empty (full strictness).
-          ZENZIC_EXTRA_ARGS: ""
+          # Runtime-only injection point for local isolation checks in CI.
+          ZENZIC_EXTRA_ARGS: ${{ secrets.ZENZIC_EXTRA_ARGS }}
         run: just verify

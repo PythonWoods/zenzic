@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import re
 import subprocess
 import sys
 from pathlib import Path
@@ -15,6 +14,7 @@ from unittest.mock import patch
 import pytest
 from typer.testing import CliRunner
 
+from zenzic.core import regex as re
 from zenzic.main import app
 
 
