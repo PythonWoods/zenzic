@@ -6,7 +6,7 @@
 # Suppressions are not free. Each one is a Technical Debt entry.
 #
 # This demo creates 7 active suppressions:
-#   - 5 inline (<!-- zenzic:ignore Z601 --> in docs/inline-examples.md)
+#   - 5 inline (<!-- zenzic:ignore: Z601 historical reference --> in docs/inline-examples.md)
 #   - 2 per-file (governance.per_file_ignores below)
 #
 # Scoring impact (default cap = 30, all within linear tier):

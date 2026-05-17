@@ -7,11 +7,11 @@ Five violations are suppressed here — each costs 1 pt of Technical Debt.
 
 Append the ignore comment at the end of the line containing the violation:
 
-1. AncientBrand was the original name of this product. <!-- zenzic:ignore Z601 -->
-2. The AncientBrand SDK is still referenced in internal docs. <!-- zenzic:ignore Z601 -->
-3. AncientBrand 2.0 was the last version released under the old name. <!-- zenzic:ignore Z601 -->
-4. Migration from AncientBrand requires a configuration update. <!-- zenzic:ignore Z601 -->
-5. AncientBrand users should follow the migration guide below. <!-- zenzic:ignore Z601 -->
+1. AncientBrand was the original name of this product. <!-- zenzic:ignore: Z601 historical reference -->
+2. The AncientBrand SDK is still referenced in internal docs. <!-- zenzic:ignore: Z601 historical reference -->
+3. AncientBrand 2.0 was the last version released under the old name. <!-- zenzic:ignore: Z601 historical reference -->
+4. Migration from AncientBrand requires a configuration update. <!-- zenzic:ignore: Z601 historical reference -->
+5. AncientBrand users should follow the migration guide below. <!-- zenzic:ignore: Z601 historical reference -->
 
 ## Why Inline Suppression Costs Points
 

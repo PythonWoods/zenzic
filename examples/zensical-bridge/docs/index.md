@@ -19,9 +19,9 @@ This project previously used the **Obsidian** documentation platform before migr
 Zensical. All pages have been ported. The Obsidian export scripts are archived in
 `scripts/obsidian-migration/`.
 
-> **Note (Quartz Z905):** The word "Obsidian" in this section is flagged as a brand
+> **Note (Z601):** The word "Obsidian" in this section is flagged as a brand
 > obsolescence violation. In a real project, replace references with the current brand name
-> or use `<!-- zenzic:ignore Z905 -->` for intentional historical references.
+> or use `<!-- zenzic:ignore: Z601 historical reference -->` for intentional historical references.
 
 ## Navigation
 
