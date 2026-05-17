@@ -1787,7 +1787,7 @@ class TestBrandObsolescenceRule:
     def test_z601_suppress_md_html_comment(self) -> None:
         """CEO-143: HTML comment suppression (Markdown .md syntax)."""
         rule = self._rule(_meta(obsolete=["OldBrand"]))
-        text = "OldBrand was the old name. <!-- zenzic:ignore Z601 -->\n"
+        text = "OldBrand was the old name. <!-- zenzic:ignore: Z601 -->\n"
         findings = rule.check(_ANCHOR_FILE, text)
         assert findings == []
 
@@ -1795,14 +1795,14 @@ class TestBrandObsolescenceRule:
         """CEO-143: JSX comment suppression (MDX .mdx syntax)."""
         rule = self._rule(_meta(obsolete=["OldBrand"]))
         mdx_file = Path("docs/guide/history.mdx")
-        text = "The OldBrand era defined our foundations. {/* zenzic:ignore Z601 */}\n"
+        text = "The OldBrand era defined our foundations. {/* zenzic:ignore: Z601 */}\n"
         findings = rule.check(mdx_file, text)
         assert findings == []
 
     def test_z601_suppress_only_correct_code(self) -> None:
         """CEO-143: A suppression comment for a different code does NOT suppress Z601."""
         rule = self._rule(_meta(obsolete=["OldBrand"]))
-        text = "OldBrand was the old name. <!-- zenzic:ignore Z107 -->\n"
+        text = "OldBrand was the old name. <!-- zenzic:ignore: Z107 -->\n"
         findings = rule.check(_ANCHOR_FILE, text)
         assert len(findings) == 1
         assert findings[0].rule_id == "Z601"

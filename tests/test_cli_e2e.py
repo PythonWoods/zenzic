@@ -374,6 +374,11 @@ class TestSuppressionCapE2E:
         page.write_text(
             "# CAP test\n\n"
             "This page exists only to validate suppression CAP behavior under Release A.\n\n"
+            "This fixture includes a long neutral paragraph so quality checks stay stable across "
+            "runs and the assertions focus only on governance behavior. The paragraph explains "
+            "that the document is synthetic, contains no external links, and exists only for test "
+            "determinism. It intentionally uses ordinary language and avoids reserved keywords "
+            "that might be interpreted as unfinished documentation markers.\n\n"
             f"{suppressions}\n",
             encoding="utf-8",
         )
@@ -413,6 +418,43 @@ class TestSuppressionCapE2E:
         assert "30" in result.stdout
         assert "release-governance-protocol" in result.stdout
         assert "HOTSPOTS - Top Offenders" in result.stdout
+
+    def test_check_all_json_exposes_suppression_contract(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """JSON output must always include mandatory suppression contract fields."""
+        self._make_cap_sandbox(tmp_path, inline_count=0)
+        monkeypatch.chdir(tmp_path)
+
+        result = runner.invoke(app, ["check", "all", "--format", "json"])
+
+        assert result.exit_code == 0
+        import json
+
+        data = json.loads(result.stdout)
+        assert data["suppression_count"] == 0
+        assert data["suppression_cap"] == 30
+        assert data["suppression_debt_pts"] == 0
+        assert data["debt_status"] == "CLEAN"
+
+    def test_cap_exceeded_json_exposes_suppression_contract(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """CAP fail-hard JSON must include the same suppression contract fields."""
+        self._make_cap_sandbox(tmp_path, inline_count=31)
+        monkeypatch.chdir(tmp_path)
+
+        result = runner.invoke(app, ["check", "all", "--format", "json"])
+
+        assert result.exit_code == 1
+        import json
+
+        data = json.loads(result.stdout)
+        assert data["error"] == "SUPPRESSION_CAP_EXCEEDED"
+        assert data["suppression_count"] == 31
+        assert data["suppression_cap"] == 30
+        assert data["suppression_debt_pts"] == 1
+        assert data["debt_status"] == "CRITICAL"
 
     def test_extended_debt_tag_visible_when_cap_raised(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -471,3 +513,54 @@ class TestSuppressionCapE2E:
         )
         assert "Suppression Audit:" in result.stdout
         assert "per-file: 1" in result.stdout
+
+    def test_directory_policies_filter_findings_zero_debt(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """directory_policies must filter matching findings with zero suppression debt."""
+        toml = tmp_path / "zenzic.toml"
+        toml.write_text(
+            textwrap.dedent(
+                """\
+                docs_dir = "docs"
+
+                [build_context]
+                engine = "standalone"
+
+                [governance]
+                suppression_cap = 30
+                suppression_cap_fail_hard = true
+                brand_obsolescence = ["OldBrand"]
+
+                [governance.directory_policies]
+                "index.md" = ["Z601"]
+                """
+            ),
+            encoding="utf-8",
+        )
+        p = tmp_path / "docs" / "index.md"
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(
+            "# Directory policy test\n\n"
+            "This page mentions OldBrand which triggers Z601.\n\n"
+            "It also contains enough words to avoid triggering Z502 short-content warnings. "
+            "The directory_policies feature introduced in ADR-084 allows strategic exemptions "
+            "with zero suppression debt cost, unlike per_file_ignores which costs one point. "
+            "This is the primary difference between the two governance mechanisms.\n",
+            encoding="utf-8",
+        )
+
+        monkeypatch.chdir(tmp_path)
+        result = runner.invoke(app, ["check", "all", "--format", "json"])
+
+        assert result.exit_code == 0, (
+            "Expected directory_policy to suppress Z601 finding. "
+            f"Got exit {result.exit_code}.\nOutput:\n{result.stdout}"
+        )
+        import json
+
+        data = json.loads(result.stdout)
+        # Finding must be absent (dropped silently)
+        assert data["suppression_count"] == 0, (
+            f"directory_policies must contribute 0 debt, got {data['suppression_count']}"
+        )

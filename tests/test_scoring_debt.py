@@ -18,6 +18,9 @@ def test_zero_suppressions_no_debt() -> None:
     """Zero suppressions → suppression_debt_pts is 0, score unaffected."""
     report = compute_score({}, suppression_count=0)
     assert report.suppression_debt_pts == 0
+    assert report.suppression_count == 0
+    assert report.suppression_cap == 30
+    assert report.debt_status == "CLEAN"
     assert report.score == 100
 
 
@@ -28,6 +31,7 @@ def test_single_suppression_within_cap_costs_zero() -> None:
     """Each suppression within the cap is allowance and costs 0."""
     report = compute_score({}, suppression_count=1)
     assert report.suppression_debt_pts == 0
+    assert report.debt_status == "MANAGED"
     assert report.score == 100
 
 
@@ -52,6 +56,7 @@ def test_one_suppression_beyond_cap_costs_one_point() -> None:
     """31 suppressions with cap=30 -> 1 debt point."""
     report = compute_score({}, suppression_count=31)
     assert report.suppression_debt_pts == 1
+    assert report.debt_status == "CRITICAL"
     assert report.score == 99
 
 
@@ -113,6 +118,7 @@ def test_custom_cap_changes_debt_threshold() -> None:
     # 15 suppressions: max(0, 15-10) = 5 pts
     report = compute_score({}, suppression_count=15, suppression_cap=10)
     assert report.suppression_debt_pts == 5
+    assert report.debt_status == "CRITICAL"
     assert report.score == 95
 
 
@@ -122,6 +128,14 @@ def test_zero_cap_all_suppressions_cost_one_each() -> None:
     report = compute_score({}, suppression_count=5, suppression_cap=0)
     assert report.suppression_debt_pts == 5
     assert report.score == 95
+
+
+def test_raised_cap_marks_extended_debt_status() -> None:
+    """CAP above sovereign default marks debt posture as EXTENDED."""
+    report = compute_score({}, suppression_count=5, suppression_cap=45)
+    assert report.suppression_debt_pts == 0
+    assert report.debt_status == "EXTENDED"
+    assert report.score == 100
 
 
 # ─── ScoreReport.to_dict() ───────────────────────────────────────────────────
@@ -135,8 +149,12 @@ def test_debt_pts_in_to_dict_when_nonzero() -> None:
     assert d["suppression_debt_pts"] == 5
 
 
-def test_debt_pts_absent_from_to_dict_when_zero() -> None:
-    """suppression_debt_pts is omitted from to_dict() when 0 (clean reports)."""
+def test_debt_pts_present_in_to_dict_when_zero() -> None:
+    """suppression_debt_pts is always present for machine-contract stability."""
     report = compute_score({})
     d = report.to_dict()
-    assert "suppression_debt_pts" not in d
+    assert "suppression_debt_pts" in d
+    assert d["suppression_debt_pts"] == 0
+    assert d["suppression_count"] == 0
+    assert d["suppression_cap"] == 30
+    assert d["debt_status"] == "CLEAN"

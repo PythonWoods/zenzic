@@ -275,7 +275,15 @@ def test_cli_check_all_json_empty(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
         "unused_assets",
         "nav_contract",
         "references",
+        "suppression_count",
+        "suppression_cap",
+        "suppression_debt_pts",
+        "debt_status",
     }
+    assert data["suppression_count"] == 0
+    assert data["suppression_cap"] == 30
+    assert data["suppression_debt_pts"] == 0
+    assert data["debt_status"] == "CLEAN"
 
 
 @patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
@@ -815,7 +823,7 @@ def test_init_standalone_warns_if_exists(tmp_path: Path, monkeypatch: pytest.Mon
     result = runner.invoke(app, ["init"])
     assert result.exit_code == 1
     assert "Configuration already exists" in result.stdout
-    assert "Manual editing is required" in result.stdout
+    assert "Manual editing is required" in result.stdout.replace("\n", " ")
 
 
 def test_init_standalone_force_is_rejected(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -938,7 +946,7 @@ def test_init_pyproject_warns_if_section_exists(
     result = runner.invoke(app, ["init", "--pyproject"])
     assert result.exit_code == 1
     assert "Configuration already exists" in result.stdout
-    assert "Manual editing is required" in result.stdout
+    assert "Manual editing is required" in result.stdout.replace("\n", " ")
 
 
 def test_init_pyproject_force_is_rejected(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

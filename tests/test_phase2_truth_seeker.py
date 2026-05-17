@@ -8,9 +8,9 @@ from pathlib import Path
 
 from typer.testing import CliRunner
 
-from zenzic.cli._check import _apply_per_file_ignores
+from zenzic.cli._check import _apply_directory_policies, _apply_per_file_ignores
 from zenzic.core.reporter import Finding
-from zenzic.core.rules import _is_suppressed
+from zenzic.core.rules import _is_suppressed, count_inline_suppressions
 from zenzic.core.sovereign_context import sovereign_context
 from zenzic.main import app
 from zenzic.models.config import GovernanceConfig, ZenzicConfig
@@ -89,3 +89,74 @@ def test_guard_init_writes_hook_and_is_idempotent(tmp_path: Path, monkeypatch) -
     assert second.exit_code == 0, second.output
     content_after = hooks.read_text(encoding="utf-8")
     assert content_after.count("- id: zenzic-guard") == 1
+
+
+# ── ADR-084: Fence-aware count_inline_suppressions ────────────────────────────
+
+
+def test_count_inline_suppressions_skips_fenced_code_blocks() -> None:
+    """Suppressions inside triple-backtick fences must not be counted."""
+    text = (
+        "Here is an example:\n"
+        "```markdown\n"
+        "<!-- zenzic:ignore: Z601 - inside fence -->\n"
+        "{/* zenzic:ignore: Z601 - also inside fence */}\n"
+        "```\n"
+        "Normal prose continues here.\n"
+    )
+    assert count_inline_suppressions(text) == 0
+
+
+def test_count_inline_suppressions_skips_inline_code_spans() -> None:
+    """Suppressions inside backtick inline code spans must not be counted."""
+    text = "Use `<!-- zenzic:ignore: Z601 -->` or `{/* zenzic:ignore: Z601 */}` in your file.\n"
+    assert count_inline_suppressions(text) == 0
+
+
+def test_count_inline_suppressions_counts_active_prose() -> None:
+    """Bare suppression directives in prose must be counted."""
+    text = (
+        "Obsidian was the v0.6.x codename. <!-- zenzic:ignore: Z601 - historical -->\n"
+        "Another line without suppression.\n"
+    )
+    assert count_inline_suppressions(text) == 1
+
+
+# ── ADR-084: _apply_directory_policies ────────────────────────────────────────
+
+
+def _make_finding(rel_path: str, code: str = "Z601") -> Finding:
+    return Finding(
+        rel_path=rel_path,
+        line_no=1,
+        code=code,
+        severity="warning",
+        message="test finding",
+    )
+
+
+def test_apply_directory_policies_filters_findings_normal_mode() -> None:
+    """Exempt findings are silently dropped in normal mode — zero debt."""
+    findings = [_make_finding("blog/post.mdx", "Z601")]
+    config = ZenzicConfig(governance=GovernanceConfig(directory_policies={"blog/**": ["Z601"]}))
+    result = _apply_directory_policies(findings, config)
+    assert result == []
+
+
+def test_apply_directory_policies_shows_policy_exemption_label_in_audit_mode() -> None:
+    """In audit mode, exempt findings are kept with [POLICY_EXEMPTION] prefix."""
+    findings = [_make_finding("blog/post.mdx", "Z601")]
+    config = ZenzicConfig(governance=GovernanceConfig(directory_policies={"blog/**": ["Z601"]}))
+    with sovereign_context(force_audit=True):
+        result = _apply_directory_policies(findings, config)
+    assert len(result) == 1
+    assert result[0].message.startswith("[POLICY_EXEMPTION]")
+
+
+def test_apply_directory_policies_never_suppresses_security_codes() -> None:
+    """Security findings (Z201-Z204) must bypass directory_policies unconditionally."""
+    findings = [_make_finding("blog/post.mdx", "Z201")]
+    config = ZenzicConfig(governance=GovernanceConfig(directory_policies={"blog/**": ["Z201"]}))
+    result = _apply_directory_policies(findings, config)
+    assert len(result) == 1
+    assert result[0].code == "Z201"

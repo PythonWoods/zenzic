@@ -1451,7 +1451,7 @@ class TestCheckExternalFlag:
 
         # Independently: the credential scanner detects the credential in raw content
         numbered_lines = enumerate(file_content.splitlines(keepends=True), start=1)
-        shield_findings = list(scan_lines_with_lookback(numbered_lines, file_path=md_file))
-        assert len(shield_findings) >= 1, (
+        credential_findings = list(scan_lines_with_lookback(numbered_lines, file_path=md_file))
+        assert len(credential_findings) >= 1, (
             "Credential scanner must detect the credential independently of check_external"
         )

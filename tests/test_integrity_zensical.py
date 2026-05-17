@@ -1,12 +1,11 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
-"""Targeted coverage tests — ZensicalAdapter / ZensicalLegacyProxy.
+"""Targeted coverage tests — ZensicalAdapter.
 
 Closes gaps identified in the v0.6.1 coverage audit (74%):
   - find_zensical_config: absent file path
   - _load_zensical_config: missing config, parse exception
   - _extract_nav_paths: nested section, external URL, plain-string non-md
-  - ZensicalLegacyProxy: every protocol method delegate
   - ZensicalAdapter.map_url: offline mode (flat URLs), README.md collapsing
   - ZensicalAdapter.classify_route: _-prefix ignored, explicit-nav orphan
   - ZensicalAdapter.get_route_info: ignored status, orphan status
@@ -18,13 +17,12 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from typing import Any
 
 import pytest
 
-from zenzic.core.adapters._mkdocs import MkDocsAdapter
 from zenzic.core.adapters._zensical import (
     ZensicalAdapter,
-    ZensicalLegacyProxy,
     _extract_nav_paths,
     _load_zensical_config,
     find_zensical_config,
@@ -52,7 +50,7 @@ def _ctx(
 
 def _adapter(
     docs_root: Path,
-    zensical_config: dict | None = None,
+    zensical_config: dict[str, Any] | None = None,
     *,
     locales: list[str] | None = None,
     offline: bool = False,
@@ -142,76 +140,6 @@ class TestExtractNavPaths:
         ]
         result = _extract_nav_paths(nav)
         assert result == {"index.md", "guide.md", "api/index.md", "api/sub.md"}
-
-
-# ── ZensicalLegacyProxy ───────────────────────────────────────────────────────
-
-
-class TestZensicalLegacyProxy:
-    """Every protocol method on ZensicalLegacyProxy delegates to MkDocsAdapter."""
-
-    def _make_proxy(self, tmp_path: Path) -> ZensicalLegacyProxy:
-        ctx = _ctx()
-        docs_root = tmp_path / "docs"
-        docs_root.mkdir(parents=True)
-        inner = MkDocsAdapter(ctx, docs_root, {}, config_file_found=True)
-        return ZensicalLegacyProxy(inner)
-
-    def test_is_compatibility_mode_true(self, tmp_path: Path) -> None:
-        proxy = self._make_proxy(tmp_path)
-        assert proxy.is_compatibility_mode is True
-
-    def test_is_locale_dir_delegates(self, tmp_path: Path) -> None:
-        proxy = self._make_proxy(tmp_path)
-        assert proxy.is_locale_dir("en") is False
-
-    def test_resolve_asset_delegates_none_when_no_fallback(self, tmp_path: Path) -> None:
-        proxy = self._make_proxy(tmp_path)
-        result = proxy.resolve_asset(tmp_path / "missing.png", tmp_path / "docs")
-        # No locale dirs configured → fallback lookup returns None
-        assert result is None
-
-    def test_resolve_anchor_delegates(self, tmp_path: Path) -> None:
-        proxy = self._make_proxy(tmp_path)
-        result = proxy.resolve_anchor(tmp_path / "page.md", "anchor", {}, tmp_path / "docs")
-        assert isinstance(result, bool)
-
-    def test_is_shadow_of_nav_page_delegates(self, tmp_path: Path) -> None:
-        proxy = self._make_proxy(tmp_path)
-        result = proxy.is_shadow_of_nav_page(Path("guide.md"), frozenset())
-        assert isinstance(result, bool)
-
-    def test_get_ignored_patterns_delegates(self, tmp_path: Path) -> None:
-        proxy = self._make_proxy(tmp_path)
-        result = proxy.get_ignored_patterns()
-        assert isinstance(result, set)
-
-    def test_get_nav_paths_delegates(self, tmp_path: Path) -> None:
-        proxy = self._make_proxy(tmp_path)
-        result = proxy.get_nav_paths()
-        assert isinstance(result, frozenset)
-
-    def test_has_engine_config_delegates(self, tmp_path: Path) -> None:
-        proxy = self._make_proxy(tmp_path)
-        assert proxy.has_engine_config() is True
-
-    def test_map_url_delegates(self, tmp_path: Path) -> None:
-        proxy = self._make_proxy(tmp_path)
-        url = proxy.map_url(Path("guide/install.md"))
-        assert isinstance(url, str)
-        assert url.startswith("/")
-
-    def test_classify_route_delegates(self, tmp_path: Path) -> None:
-        proxy = self._make_proxy(tmp_path)
-        status = proxy.classify_route(Path("guide.md"), frozenset())
-        assert status in ("REACHABLE", "ORPHAN_BUT_EXISTING", "IGNORED")
-
-    def test_get_route_info_delegates(self, tmp_path: Path) -> None:
-        from zenzic.core.adapters._base import RouteMetadata
-
-        proxy = self._make_proxy(tmp_path)
-        meta = proxy.get_route_info(Path("guide.md"))
-        assert isinstance(meta, RouteMetadata)
 
 
 # ── ZensicalAdapter.map_url ───────────────────────────────────────────────────
@@ -334,19 +262,18 @@ class TestZensicalFromRepo:
         assert isinstance(adapter, ZensicalAdapter)
 
     def test_falls_back_to_mkdocs_yml(self, tmp_path: Path) -> None:
-        """from_repo returns ZensicalLegacyProxy when only mkdocs.yml exists."""
+        """from_repo returns ZensicalAdapter when only mkdocs.yml exists."""
         docs_root = tmp_path / "docs"
         docs_root.mkdir()
         (tmp_path / "mkdocs.yml").write_text("site_name: Test\n", encoding="utf-8")
         ctx = _ctx()
         adapter = ZensicalAdapter.from_repo(ctx, docs_root, tmp_path)
-        assert isinstance(adapter, ZensicalLegacyProxy)
-        assert adapter.is_compatibility_mode is True
+        assert isinstance(adapter, ZensicalAdapter)
 
     def test_unsupported_mkdocs_keys_emit_warning(
         self, tmp_path: Path, caplog: pytest.LogCaptureFixture
     ) -> None:
-        """Unsupported MkDocs keys emit a warning during legacy proxy construction."""
+        """Unsupported MkDocs keys emit a warning during bridge construction."""
         docs_root = tmp_path / "docs"
         docs_root.mkdir()
         (tmp_path / "mkdocs.yml").write_text(

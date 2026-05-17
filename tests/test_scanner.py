@@ -308,7 +308,7 @@ def test_short_content_pointer_skips_frontmatter() -> None:
     """
     text = """\
 ---
-icon: ShieldCheck
+icon: SafetyCheck
 sidebar_label: Licenza
 title: Licenza Apache 2.0
 description: Informazioni sulla licenza.

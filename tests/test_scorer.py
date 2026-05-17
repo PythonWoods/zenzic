@@ -233,8 +233,15 @@ def test_to_dict_structure() -> None:
     assert d["status"] in ("success", "failing", "security_breach")
     assert "timestamp" in d
     assert "categories" in d
-    assert len(d["categories"]) == 4
-    for cat in d["categories"]:
+    assert d["suppression_count"] == 0
+    assert d["suppression_cap"] == 30
+    assert d["suppression_debt_pts"] == 0
+    assert d["debt_status"] == "CLEAN"
+    categories = d["categories"]
+    assert isinstance(categories, list)
+    assert len(categories) == 4
+    for cat in categories:
+        assert isinstance(cat, dict)
         assert "name" in cat
         assert "issues" in cat
         assert "weight" in cat
@@ -243,11 +250,15 @@ def test_to_dict_structure() -> None:
 
 
 def test_to_dict_security_override_status() -> None:
-    report = compute_score({"Z201": 1})
+    report = compute_score({"Z201": 1}, suppression_count=31)
     d = report.to_dict()
     assert d["status"] == "security_breach"
     assert d["security_override"] is True
     assert d["score"] == 0
+    assert d["suppression_count"] == 31
+    assert d["suppression_cap"] == 30
+    assert d["suppression_debt_pts"] == 0
+    assert d["debt_status"] == "CRITICAL"
 
 
 # ─── Snapshot persistence ─────────────────────────────────────────────────────
@@ -353,6 +364,10 @@ def test_score_json_output(mock_run, mock_load, mock_root, tmp_path: Path) -> No
     assert data["project"] == "zenzic"
     assert data["status"] == "success"
     assert "timestamp" in data
+    assert data["suppression_count"] == 0
+    assert data["suppression_cap"] == 30
+    assert data["suppression_debt_pts"] == 0
+    assert data["debt_status"] == "CLEAN"
     assert len(data["categories"]) == 4
 
 

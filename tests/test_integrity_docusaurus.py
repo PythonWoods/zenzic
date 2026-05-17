@@ -7,9 +7,9 @@ Closes gaps identified in sprint v0.6.1 coverage audit:
   - resolve_asset: fallback exists on disk
   - resolve_anchor: anchor found via i18n fallback
   - is_shadow_of_nav_page: default_abs is None
-  - map_url: double-extension stem edge case, locale prefix, version sentinel,
+    - map_url: double-extension stem edge case, locale prefix, version marker,
              index collapsing, empty route_base_path, offline mode
-  - classify_route: _version_ sentinel reachability, locale ghost entry point
+    - classify_route: _version_ marker reachability, locale ghost entry point
   - get_route_info: proxy locale entry point flag, version field extraction
   - get_locale_source_roots: versioned docs + translated versioned docs on disk
 """
@@ -207,14 +207,14 @@ class TestMapUrl:
         url = adapter.map_url(Path("it/guide/install.mdx"))
         assert url == "/it/docs/guide/install/"
 
-    def test_version_sentinel_produces_versioned_url(self, tmp_path: Path) -> None:
+    def test_version_marker_produces_versioned_url(self, tmp_path: Path) -> None:
         """Non-latest versioned files get the version label in the URL."""
         # Use two versions so 1.0 is NOT the latest (2.0 is).
         adapter = _adapter(tmp_path, versions=["2.0", "1.0"])
         url = adapter.map_url(Path("_version_/1.0/guide/install.mdx"))
         assert url == "/docs/1.0/guide/install/"
 
-    def test_version_sentinel_index_collapses(self, tmp_path: Path) -> None:
+    def test_version_marker_index_collapses(self, tmp_path: Path) -> None:
         """Non-latest version index.mdx collapses to /{rbp}/{ver}/."""
         # Use two versions so 2.0 is NOT the latest (3.0 is).
         adapter = _adapter(tmp_path, versions=["3.0", "2.0"])
@@ -266,16 +266,16 @@ class TestMapUrl:
 
 
 class TestClassifyRoute:
-    """classify_route() covers version sentinel and locale ghost routes."""
+    """classify_route() covers version marker and locale ghost routes."""
 
-    def test_version_sentinel_is_reachable(self, tmp_path: Path) -> None:
+    def test_version_marker_is_reachable(self, tmp_path: Path) -> None:
         """Files under _version_/<label>/ are always REACHABLE."""
         adapter = _adapter(tmp_path, versions=["1.0"])
         status = adapter.classify_route(Path("_version_/1.0/guide/install.mdx"), frozenset())
         assert status == "REACHABLE"
 
     def test_underscore_in_version_path_is_not_ignored(self, tmp_path: Path) -> None:
-        """_version_ sentinel exemption: only _version_ is exempt from IGNORED rule."""
+        """_version_ marker exemption: only _version_ is exempt from IGNORED rule."""
         adapter = _adapter(tmp_path, versions=["1.0"])
         # A real user dir starting with _ inside the version path should be IGNORED
         status = adapter.classify_route(Path("_version_/1.0/_private/page.mdx"), frozenset())
@@ -373,7 +373,7 @@ class TestGetLocaleSourceRoots:
         return versioned, translated, locale_current
 
     def test_versioned_docs_included(self, tmp_path: Path) -> None:
-        """versioned_docs/version-<X>/ appears in result with sentinel label."""
+        """versioned_docs/version-<X>/ appears in result with marker label."""
         docs_root = tmp_path / "docs"
         docs_root.mkdir()
         versioned, _, _ = self._setup_versioned_repo(tmp_path, "it", "1.0")
