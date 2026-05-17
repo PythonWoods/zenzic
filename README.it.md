@@ -69,7 +69,8 @@ integrità dei file.
 
 ```bash
 pip install zenzic
-zenzic lab        # Showroom interattivo — 22 atti, ogni motore, zero configurazione
+cd il-mio-repo-docs
+zenzic init       # Stabilisce il perimetro del workspace (crea zenzic.toml)
 zenzic check all  # Analizza la cartella corrente
 zenzic check all --audit  # Run di verità sovrana: ignora le soppressioni
 zenzic config explain  # Mostra valori config attivi e origine (local/global/default)
@@ -139,6 +140,7 @@ zenzic inspect codes  # Elenca i contratti canonici dei finding
 | Asset inutilizzati | `check assets` | Immagini e file non referenziati | 1 |
 | Integrità asset di config | `check all` | Percorsi di favicon e OG image dichiarati nella config del motore verificati su disco (`Z404`) | 1 |
 | Integrità del brand | `check all` | Codename di release obsoleti (`Z601`) — configurabile via `[governance]` | 1 |
+| **Prosa pulita** | `check all` | [`directory_policies`][docs-it-governance] concede esenzioni zero-debt a pattern di percorso (es. `blog/**`), mantenendo i file storici puliti senza consumare il suppression cap | — |
 | **Scansione credenziali** | `check references` | **9 famiglie di credenziali** — testo, URL, blocchi di codice | **2** |
 | **Path traversal** | `check links` | Tentativi di fuga verso path di sistema | **3** |
 | **Report enterprise** | `check all --format sarif` | Output SARIF 2.1.0 per GitHub Code Scanning — annotazioni inline nella PR | 1/2/3 |
@@ -536,6 +538,7 @@ Apache-2.0 — vedi [LICENSE][license].
 [docs-it-home]:      https://zenzic.dev/it/docs/
 [docs-it-badges]:    https://zenzic.dev/it/docs/how-to/add-badges/
 [docs-it-cicd]:      https://zenzic.dev/it/docs/how-to/configure-ci-cd/
+[docs-it-governance]: https://zenzic.dev/it/docs/reference/governance/
 [docs-it-arch]:      https://zenzic.dev/it/developers/explanation/engineering-ledger
 [docs-it-developers]: https://zenzic.dev/it/developers/
 [docs-it-adr-vault]: https://zenzic.dev/it/developers/explanation/adr-vault

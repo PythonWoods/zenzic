@@ -69,7 +69,8 @@ file integrity.
 
 ```bash
 pip install zenzic
-zenzic lab        # Interactive showroom — 22 acts, every engine, zero setup
+cd my-docs-repo
+zenzic init       # Establish the workspace boundary (creates zenzic.toml)
 zenzic check all  # Audit the current directory
 zenzic check all --audit  # Sovereign truth run: ignore suppressions
 zenzic config explain  # Show active config values and origin (local/global/default)
@@ -138,6 +139,7 @@ zenzic inspect codes  # List canonical finding contracts
 | Unused assets | `check assets` | Images and files not referenced anywhere | 1 |
 | Config asset integrity | `check all` | Favicon and OG image paths declared in engine config confirmed on disk (`Z404`) | 1 |
 | Brand integrity | `check all` | Obsolete release codenames (`Z601`) — configurable via `[governance]` | 1 |
+| **Clean prose** | `check all` | [`directory_policies`][docs-governance] grants zero-debt exemptions to path patterns (e.g. `blog/**`), keeping historical files clean without consuming suppression cap | — |
 | **Credential scanning** | `check references` | **9 credential families** — text, URLs, code blocks | **2** |
 | **Path traversal** | `check links` | System-path escape attempts | **3** |
 | **Enterprise reporting** | `check all --format sarif` | SARIF 2.1.0 output for GitHub Code Scanning — inline PR annotations | 1/2/3 |
@@ -524,6 +526,7 @@ Apache-2.0 — see [LICENSE][license].
 [docs-home]:         https://zenzic.dev/docs/
 [docs-badges]:       https://zenzic.dev/docs/how-to/add-badges/
 [docs-cicd]:         https://zenzic.dev/docs/how-to/configure-ci-cd/
+[docs-governance]:   https://zenzic.dev/docs/reference/governance/
 [docs-arch]:         https://zenzic.dev/developers/explanation/engineering-ledger
 [docs-developers]:   https://zenzic.dev/developers/
 [docs-adr-vault]:    https://zenzic.dev/developers/explanation/adr-vault
