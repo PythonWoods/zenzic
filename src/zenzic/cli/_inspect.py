@@ -316,6 +316,7 @@ def inspect_routes(
 
     from zenzic.core.adapters import get_adapter
     from zenzic.core.discovery import (
+        build_content_mounts,
         iter_extra_content_markdown_sources,
         iter_markdown_sources,
     )
@@ -348,19 +349,24 @@ def inspect_routes(
             continue
 
     # ── Pass 1c: include extra content roots (blog/, etc.) ────────────────────
-    extra_content_roots: list[tuple[Path, str]] = []
-    if hasattr(adapter, "get_extra_content_roots"):
-        for content_root in adapter.get_extra_content_roots(repo_root):
-            extra_content_roots.append((content_root.path, content_root.url_prefix))
-            for abs_path, _ in iter_extra_content_markdown_sources(
-                content_root.path, content_root.url_prefix, config, exclusion_mgr
-            ):
-                try:
-                    md_contents[abs_path.resolve()] = abs_path.read_text(encoding="utf-8")
-                except OSError:
-                    continue
+    extra_content_roots = adapter.get_extra_content_roots(repo_root)
+    extra_content_mounts = build_content_mounts(extra_content_roots, repo_root=repo_root)
+    for content_root, url_prefix in extra_content_mounts:
+        for abs_path, _ in iter_extra_content_markdown_sources(
+            content_root, url_prefix, config, exclusion_mgr
+        ):
+            try:
+                md_contents[abs_path.resolve()] = abs_path.read_text(encoding="utf-8")
+            except OSError:
+                continue
 
-    vsm = build_vsm(adapter, docs_root, md_contents, extra_content_roots=extra_content_roots)
+    vsm = build_vsm(
+        adapter,
+        docs_root,
+        md_contents,
+        extra_content_roots=extra_content_roots,
+        repo_root=repo_root,
+    )
 
     # ── Virtual route kind lookup (call once; idempotent with build_vsm's call) ─
     virtual_kind_map: dict[str, str] = {}
@@ -373,7 +379,7 @@ def inspect_routes(
     # Docs-root files are relative to docs/, so prepend docs_dir to make them
     # repo-relative (e.g. "intro.md" → "docs/intro.md").
     _extra_prefixes: frozenset[str] = frozenset(
-        prefix.rstrip("/") for _, prefix in extra_content_roots if prefix
+        prefix.rstrip("/") for _, prefix in extra_content_mounts if prefix
     )
     _docs_prefix = config.docs_dir.as_posix().rstrip("/")
 

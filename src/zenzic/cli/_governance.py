@@ -26,6 +26,9 @@ from zenzic.models.config import ZenzicConfig
 from . import _shared
 
 
+_SOVEREIGN_SUPPRESSION_CAP = 30
+
+
 @dataclass(frozen=True)
 class SuppressionAudit:
     inline_count: int
@@ -43,13 +46,24 @@ class SuppressionAudit:
 
     @property
     def extended_debt(self) -> bool:
-        """True when the suppression count equals or exceeds the cap threshold."""
-        return self.total >= self.cap and self.cap > 0
+        """True when suppressions run under an expanded CAP above sovereign default."""
+        return self.total > 0 and self.cap > _SOVEREIGN_SUPPRESSION_CAP
 
     @property
     def managed_debt(self) -> bool:
         """True when suppressions are in use but within the configured cap."""
         return self.total > 0 and not self.extended_debt
+
+    @property
+    def debt_status(self) -> str:
+        """Machine-readable debt status for JSON contracts."""
+        if self.total <= 0:
+            return "CLEAN"
+        if self.total > self.cap:
+            return "CRITICAL"
+        if self.extended_debt:
+            return "EXTENDED"
+        return "MANAGED"
 
     def top_offenders(self, *, limit: int = 5) -> list[tuple[str, int]]:
         rows = sorted(
@@ -254,6 +268,10 @@ def build_cap_exceeded_json_payload(suppression_audit: SuppressionAudit) -> dict
             f"Suppression cap exceeded: {suppression_audit.total}/{suppression_audit.cap}. "
             "Architectural debt limit reached."
         ),
+        "suppression_count": suppression_audit.total,
+        "suppression_cap": suppression_audit.cap,
+        "suppression_debt_pts": suppression_audit.excess,
+        "debt_status": suppression_audit.debt_status,
         "statistics": {
             "active_suppressions": suppression_audit.total,
             "configured_global_cap": suppression_audit.cap,

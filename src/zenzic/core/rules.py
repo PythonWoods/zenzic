@@ -549,17 +549,53 @@ _FENCE_OPEN_RE = re.compile(r"^(?P<fence>[`~]{3,})(?P<info>.*)$")
 #:   Markdown (.md) syntax:  ``<!-- zenzic-ignore: Z905 - reason -->``
 #:   MDX (.mdx) syntax:      ``{/* zenzic-ignore: Z905 - reason */}``
 #:
-#: Legacy syntax ``zenzic:ignore Z905`` and ADR-062 form
+#: Legacy syntax ``zenzic:ignore: Z905`` and ADR-062 form
 #: ``zenzic:ignore: Z905`` remain supported for compatibility.
 _SUPPRESS_RE = re.compile(
     r"(?:<!--|\{/\*)\s*(?:zenzic-ignore\s*:\s*|zenzic:ignore\s*:?\s*)(?P<code>Z\d{3})(?:[^\n]*?)?(?:-->|\*/\})",
     re.IGNORECASE,
 )
 
+#: ADR-084 — Strip backtick inline code spans before counting suppressions.
+#: Prevents didactic examples like `<!-- zenzic:ignore: Z601 -->` from
+#: being counted as active suppression directives.
+#: Alternation ``double first | single`` handles RST-style `````.md````` spans
+#: without backreferences (RE2 engine does not support backreferences).
+_INLINE_CODE_STRIP_RE = re.compile(r"``[^`\n]+``|`[^`\n]+`")
+
 
 def count_inline_suppressions(text: str) -> int:
-    """Count suppression directives declared in Markdown/MDX source text."""
-    return sum(1 for _ in _SUPPRESS_RE.finditer(text))
+    """Count suppression directives declared in Markdown/MDX source text.
+
+    Fence-aware (ADR-084): lines inside triple-backtick/tilde fenced code
+    blocks are skipped entirely.  Backtick inline code spans are stripped
+    before the suppression regex is applied on each prose line.
+    """
+    total = 0
+    inside_fence = False
+    open_char = ""
+    open_count = 0
+    for line in text.splitlines():
+        fm = _FENCE_OPEN_RE.match(line)
+        if not inside_fence:
+            if fm:
+                fence = fm.group("fence")
+                inside_fence = True
+                open_char = fence[0]
+                open_count = len(fence)
+            else:
+                stripped = _INLINE_CODE_STRIP_RE.sub("", line)
+                total += sum(1 for _ in _SUPPRESS_RE.finditer(stripped))
+        else:
+            if fm:
+                fence = fm.group("fence")
+                info = fm.group("info").strip()
+                if fence[0] == open_char and len(fence) >= open_count and not info:
+                    inside_fence = False
+                    open_char = ""
+                    open_count = 0
+            # Inside fence: skip the line entirely (no counting)
+    return total
 
 
 def _is_suppressed(line: str, code: str) -> bool:

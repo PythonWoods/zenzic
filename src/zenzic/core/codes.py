@@ -403,7 +403,7 @@ CORE_SCANNERS: list[CoreScanner] = [
         name="Brand Integrity Guard",
         capability=(
             "Deprecated brand term detection \u2014 configurable via [governance], "
-            "suppressed per-line with <!-- zenzic:ignore Z601 --> (Markdown) or {/* zenzic:ignore Z601 */} (MDX)"
+            "suppressed per-line with <!-- zenzic:ignore: Z601 --> (Markdown) or {/* zenzic:ignore: Z601 */} (MDX)"
         ),
         primary_exit=1,
         non_suppressible=False,

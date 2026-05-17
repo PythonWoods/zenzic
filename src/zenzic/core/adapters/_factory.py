@@ -35,10 +35,11 @@ from __future__ import annotations
 import threading
 from importlib.metadata import entry_points
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from zenzic.models.config import BuildContext
 
+from ._base import BaseAdapter
 from ._docusaurus import DocusaurusAdapter
 from ._mkdocs import MkDocsAdapter
 from ._standalone import StandaloneAdapter
@@ -108,7 +109,7 @@ def list_adapter_engines() -> list[str]:
 # execution model uses ProcessPoolExecutor (each worker has its own cache).
 # This eliminates the risk of double-instantiation if a future caller uses
 # ThreadPoolExecutor without requiring a code-level change here.
-_adapter_cache: dict[tuple[str, Path, Path], Any] = {}
+_adapter_cache: dict[tuple[str, Path, Path], BaseAdapter] = {}
 _adapter_cache_lock: threading.Lock = threading.Lock()
 
 
@@ -126,7 +127,7 @@ def get_adapter(
     context: BuildContext,
     docs_root: Path,
     repo_root: Path,
-) -> Any:
+) -> BaseAdapter:
     """Return the adapter for the declared build engine via entry-point discovery.
 
     Resolution order:
@@ -174,13 +175,31 @@ def get_adapter(
 
     adapter_class = _load_adapter_class(context.engine)
 
+    if adapter_class is not None:
+        try:
+            if not issubclass(adapter_class, BaseAdapter):
+                raise TypeError(
+                    f"Adapter class for engine {context.engine!r} must subclass BaseAdapter"
+                )
+        except TypeError as exc:
+            if "issubclass" in str(exc):
+                raise TypeError(
+                    f"Adapter entry-point for engine {context.engine!r} did not resolve to a class"
+                ) from exc
+            raise
+
     if adapter_class is None or adapter_class is StandaloneAdapter:
-        adapter: Any = StandaloneAdapter()
+        adapter: BaseAdapter = StandaloneAdapter()
     elif hasattr(adapter_class, "from_repo"):
         # Prefer the richer from_repo constructor when available.
-        adapter = adapter_class.from_repo(context, docs_root, repo_root)
+        adapter = cast(Any, adapter_class).from_repo(context, docs_root, repo_root)
     else:
-        adapter = adapter_class(context, docs_root)
+        adapter = cast(Any, adapter_class)(context, docs_root)
+
+    if not isinstance(adapter, BaseAdapter):
+        raise TypeError(
+            f"Adapter instance for engine {context.engine!r} must be a BaseAdapter subclass"
+        )
 
     # If the adapter found no engine config and no locale information, fall
     # back to StandaloneAdapter so nav-dependent checks are skipped cleanly.
@@ -188,10 +207,6 @@ def get_adapter(
         adapter = StandaloneAdapter()
 
     messages = []
-    if getattr(adapter, "is_compatibility_mode", False):
-        messages.append(
-            "[bold cyan]NOTICE:[/bold cyan] Zensical engine active via [yellow]mkdocs.yml[/yellow] compatibility bridge."
-        )
     if getattr(context, "offline_mode", False):
         messages.append("[bold cyan]NOTICE:[/bold cyan] [Offline mode: forcing flat URL structure]")
 

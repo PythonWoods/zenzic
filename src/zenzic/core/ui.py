@@ -104,7 +104,7 @@ _EMOJI: dict[str, tuple[str, str]] = {
     "warn": ("\u26a0", "!"),  # ⚠
     "info": ("\U0001f4a1", "i"),  # 💡
     "lock": ("\U0001f512", "["),  # 🔒
-    "shield": ("\U0001f6e1", "#"),  # 🛡
+    "brand": ("\U0001f6e1", "#"),  # 🛡
     "bolt": ("\u26a1", ">"),  # ⚡
     "dot": ("\u2022", "-"),  # •
     "arrow": ("\u279c", "->"),  # ➜
@@ -129,9 +129,9 @@ def make_banner(version: str) -> str:
     The banner is wrapped inside a :class:`rich.panel.Panel` by the caller —
     this function only builds the *content* string.
     """
-    shield = emoji("shield")
+    brand_icon = emoji("brand")
     lines = [
-        f"[bold white]{shield}  ZENZIC[/]  [{ZenzicPalette.DIM}]v{version}[/]",
+        f"[bold white]{brand_icon}  ZENZIC[/]  [{ZenzicPalette.DIM}]v{version}[/]",
         f"[{ZenzicPalette.DIM}]Engine-agnostic Markdown static analyzer & credential scanner[/]",
     ]
     return "\n".join(lines)
@@ -159,7 +159,7 @@ def make_report_header(
     When *target* is set (a custom file or directory was passed on the CLI),
     it is shown in the meta line so the user can confirm what is being scanned.
     """
-    shield = emoji("shield")
+    brand_icon = emoji("brand")
     dot = emoji("dot")
     total = docs_count + assets_count
     parts = [engine]
@@ -177,7 +177,7 @@ def make_report_header(
         parts.append(f"[{ZenzicPalette.BRAND}]{elapsed:.1f}[/]s")
     meta = f" {dot} ".join(parts)
     return (
-        f"[{ZenzicPalette.STYLE_BRAND}]{shield}  ZENZIC[/]  "
+        f"[{ZenzicPalette.STYLE_BRAND}]{brand_icon}  ZENZIC[/]  "
         f"[{ZenzicPalette.DIM}]v{version}[/]\n"
         f"[{ZenzicPalette.DIM}]{meta}[/]"
     )

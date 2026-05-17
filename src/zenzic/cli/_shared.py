@@ -402,11 +402,10 @@ def _count_docs_assets(
         from zenzic.core.adapters import get_adapter
 
         adapter = get_adapter(config.build_context, docs_root, repo_root)
-        if hasattr(adapter, "get_locale_source_roots"):
-            for locale_root, _ in adapter.get_locale_source_roots(repo_root):
-                docs_count += sum(
-                    1
-                    for p in walk_files(locale_root, SYSTEM_EXCLUDED_DIRS, exclusion_mgr)
-                    if p.suffix.lower() in _DOC_EXT
-                )
+        for locale_root, _ in adapter.get_locale_source_roots(repo_root):
+            docs_count += sum(
+                1
+                for p in walk_files(locale_root, SYSTEM_EXCLUDED_DIRS, exclusion_mgr)
+                if p.suffix.lower() in _DOC_EXT
+            )
     return docs_count, assets_count

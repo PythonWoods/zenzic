@@ -82,6 +82,10 @@ def clean_assets(
     docs_root = (repo_root / config.docs_dir).resolve()
     adapter = get_adapter(config.build_context, docs_root, repo_root)
     adapter_meta = adapter.get_metadata_files()
+    _locale_roots = adapter.get_locale_source_roots(repo_root)
+    locale_roots: list[tuple[Path, str]] | None = _locale_roots if _locale_roots else None
+    _content_roots = adapter.get_extra_content_roots(repo_root)
+    content_roots: list[Path] | None = _content_roots if _content_roots else None
     exclusion_mgr = _shared._build_exclusion_manager(
         config,
         repo_root,
@@ -95,7 +99,8 @@ def clean_assets(
         docs_root,
         exclusion_mgr,
         config=config,
-        repo_root=repo_root,
+        locale_roots=locale_roots,
+        content_roots=content_roots,
         adapter_metadata_files=adapter_meta,
     )
     if not unused:

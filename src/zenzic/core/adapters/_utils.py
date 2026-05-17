@@ -19,6 +19,20 @@ from pathlib import Path
 from zenzic.core import regex as re
 
 
+def dedupe_roots(roots: list[Path]) -> list[Path]:
+    """Return roots de-duplicated by resolved absolute path, preserving order."""
+    seen: set[str] = set()
+    out: list[Path] = []
+    for root in roots:
+        resolved = root.resolve()
+        key = resolved.as_posix()
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(resolved)
+    return out
+
+
 def case_sensitive_exists(path: Path) -> bool:
     """Return ``True`` only when *path* exists with an exact case-sensitive match.
 

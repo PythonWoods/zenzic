@@ -57,8 +57,8 @@ class ProjectMetadata(BaseModel):
     brand term found in documentation source files.  Lines carrying a
     ``zenzic:ignore`` comment are silently skipped so intentional historical
     references (e.g. in CHANGELOG files or ADR entries) are not flagged.
-    Use ``<!-- zenzic:ignore Z905 -->`` in ``.md`` files and
-    ``{/* zenzic:ignore Z905 */}`` in ``.mdx`` files.
+    Use ``<!-- zenzic:ignore: Z905 -->`` in ``.md`` files and
+    ``{/* zenzic:ignore: Z905 */}`` in ``.mdx`` files.
 
     TOML example::
 
@@ -208,6 +208,16 @@ class GovernanceConfig(BaseModel):
             "Per-file suppression map (glob pattern -> finding codes). "
             "Example: {'blog/*.mdx': ['Z601']}. Security findings remain "
             "non-suppressible regardless of this map."
+        ),
+    )
+    directory_policies: dict[str, list[str]] = Field(
+        default_factory=dict,
+        description=(
+            "Strategic directory-level policy exemptions (glob pattern -> finding codes). "
+            "Matched findings are removed before display with ZERO suppression debt cost. "
+            "In --audit mode, exempted findings appear with a [POLICY_EXEMPTION] label. "
+            "Intended for historical archives, SSOT registries, and blog directories. "
+            "Security findings (Z201-Z204) bypass this exemption unconditionally."
         ),
     )
     suppression_cap: int = Field(

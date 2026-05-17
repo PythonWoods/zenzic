@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import os
 import time
@@ -99,7 +100,7 @@ def check_links(
     ),
     path: str | None = typer.Argument(
         None,
-        help="Limit to a directory or file. Accepts paths relative to repository root or docs directory.",
+        help="Limit to a directory or file. Accepts paths relative to repository root or docs directory. The path must be inside a project with a .git/ directory or zenzic.toml (root marker); run 'zenzic init' first if no marker exists.",
         show_default=False,
     ),
 ) -> None:
@@ -138,10 +139,8 @@ def check_links(
     from zenzic.core.adapters import get_adapter
 
     adapter = get_adapter(config.build_context, docs_root, repo_root)
-    locale_roots: list[tuple[Path, str]] | None = None
-    if hasattr(adapter, "get_locale_source_roots"):
-        _roots = adapter.get_locale_source_roots(repo_root)
-        locale_roots = _roots if _roots else None
+    _roots = adapter.get_locale_source_roots(repo_root)
+    locale_roots: list[tuple[Path, str]] | None = _roots if _roots else None
 
     link_errors = validate_links_structured(
         docs_root,
@@ -246,7 +245,7 @@ def check_orphans(
     ),
     path: str | None = typer.Argument(
         None,
-        help="Limit to a directory or file. Accepts paths relative to repository root or docs directory.",
+        help="Limit to a directory or file. Accepts paths relative to repository root or docs directory. The path must be inside a project with a .git/ directory or zenzic.toml (root marker); run 'zenzic init' first if no marker exists.",
         show_default=False,
     ),
 ) -> None:
@@ -274,8 +273,21 @@ def check_orphans(
         docs_root = (repo_root / config.docs_dir).resolve()
     exclusion_mgr = _shared._build_exclusion_manager(config, repo_root, docs_root)
 
+    from zenzic.core.adapters import get_adapter
+
+    adapter = get_adapter(config.build_context, docs_root, repo_root)
+
     t0 = time.monotonic()
-    orphans = find_orphans(docs_root, exclusion_mgr, repo_root=repo_root, config=config)
+    orphans = find_orphans(
+        docs_root,
+        exclusion_mgr,
+        config=config,
+        has_engine_config=adapter.has_engine_config(),
+        nav_paths=adapter.get_nav_paths(),
+        is_locale_dir=adapter.is_locale_dir,
+        ignored_patterns=adapter.get_ignored_patterns(),
+        classify_route=adapter.classify_route,
+    )
     elapsed = time.monotonic() - t0
 
     findings = [
@@ -337,7 +349,7 @@ def check_snippets(
     ),
     path: str | None = typer.Argument(
         None,
-        help="Limit to a directory or file. Accepts paths relative to repository root or docs directory.",
+        help="Limit to a directory or file. Accepts paths relative to repository root or docs directory. The path must be inside a project with a .git/ directory or zenzic.toml (root marker); run 'zenzic init' first if no marker exists.",
         show_default=False,
     ),
 ) -> None:
@@ -452,7 +464,7 @@ def check_references(
     ),
     path: str | None = typer.Argument(
         None,
-        help="Limit to a directory or file. Accepts paths relative to repository root or docs directory.",
+        help="Limit to a directory or file. Accepts paths relative to repository root or docs directory. The path must be inside a project with a .git/ directory or zenzic.toml (root marker); run 'zenzic init' first if no marker exists.",
         show_default=False,
     ),
 ) -> None:
@@ -500,15 +512,11 @@ def check_references(
 
     adapter = get_adapter(config.build_context, docs_root, repo_root)
 
-    locale_roots: list[tuple[Path, str]] | None = None
-    if hasattr(adapter, "get_locale_source_roots"):
-        _roots = adapter.get_locale_source_roots(repo_root)
-        locale_roots = _roots if _roots else None
+    _locale_roots = adapter.get_locale_source_roots(repo_root)
+    locale_roots: list[tuple[Path, str]] | None = _locale_roots if _locale_roots else None
 
-    extra_content_roots: list[tuple[Path, str]] | None = None
-    if hasattr(adapter, "get_extra_content_roots"):
-        _roots = adapter.get_extra_content_roots(repo_root)
-        extra_content_roots = [(cr.path, cr.url_prefix) for cr in _roots] if _roots else None
+    _content_roots = adapter.get_extra_content_roots(repo_root)
+    content_roots: list[Path] | None = _content_roots if _content_roots else None
 
     t0 = time.monotonic()
     reports, ext_link_errors = scan_docs_references(
@@ -517,7 +525,7 @@ def check_references(
         config=config,
         validate_links=links,
         locale_roots=locale_roots,
-        extra_content_roots=extra_content_roots,
+        content_roots=content_roots,
     )
     elapsed = time.monotonic() - t0
 
@@ -631,7 +639,7 @@ def check_assets(
     ),
     path: str | None = typer.Argument(
         None,
-        help="Limit to a directory or file. Accepts paths relative to repository root or docs directory.",
+        help="Limit to a directory or file. Accepts paths relative to repository root or docs directory. The path must be inside a project with a .git/ directory or zenzic.toml (root marker); run 'zenzic init' first if no marker exists.",
         show_default=False,
     ),
 ) -> None:
@@ -658,13 +666,22 @@ def check_assets(
 
     adapter = get_adapter(config.build_context, docs_root, repo_root)
     adapter_meta = adapter.get_metadata_files()
+    _locale_roots = adapter.get_locale_source_roots(repo_root)
+    locale_roots: list[tuple[Path, str]] | None = _locale_roots if _locale_roots else None
+    _content_roots = adapter.get_extra_content_roots(repo_root)
+    content_roots: list[Path] | None = _content_roots if _content_roots else None
     exclusion_mgr = _shared._build_exclusion_manager(
         config, repo_root, docs_root, adapter_metadata_files=adapter_meta
     )
 
     t0 = time.monotonic()
     unused = find_unused_assets(
-        docs_root, exclusion_mgr, config=config, adapter_metadata_files=adapter_meta
+        docs_root,
+        exclusion_mgr,
+        config=config,
+        locale_roots=locale_roots,
+        content_roots=content_roots,
+        adapter_metadata_files=adapter_meta,
     )
     elapsed = time.monotonic() - t0
 
@@ -724,7 +741,7 @@ def check_placeholders(
     ),
     path: str | None = typer.Argument(
         None,
-        help="Limit to a directory or file. Accepts paths relative to repository root or docs directory.",
+        help="Limit to a directory or file. Accepts paths relative to repository root or docs directory. The path must be inside a project with a .git/ directory or zenzic.toml (root marker); run 'zenzic init' first if no marker exists.",
         show_default=False,
     ),
 ) -> None:
@@ -749,8 +766,22 @@ def check_placeholders(
         docs_root = (repo_root / config.docs_dir).resolve()
     exclusion_mgr = _shared._build_exclusion_manager(config, repo_root, docs_root)
 
+    from zenzic.core.adapters import get_adapter
+
+    adapter = get_adapter(config.build_context, docs_root, repo_root)
+    _locale_roots = adapter.get_locale_source_roots(repo_root)
+    locale_roots: list[tuple[Path, str]] | None = _locale_roots if _locale_roots else None
+    _content_roots = adapter.get_extra_content_roots(repo_root)
+    content_roots: list[Path] | None = _content_roots if _content_roots else None
+
     t0 = time.monotonic()
-    raw_findings = find_placeholders(docs_root, exclusion_mgr, config=config)
+    raw_findings = find_placeholders(
+        docs_root,
+        exclusion_mgr,
+        config=config,
+        locale_roots=locale_roots,
+        content_roots=content_roots,
+    )
     elapsed = time.monotonic() - t0
 
     findings: list[Finding] = []
@@ -877,6 +908,59 @@ def _apply_per_file_ignores(findings: list[Finding], config: ZenzicConfig) -> li
     return filtered
 
 
+def _apply_directory_policies(findings: list[Finding], config: ZenzicConfig) -> list[Finding]:
+    """Filter or label findings using governance.directory_policies patterns (ADR-084).
+
+    In normal mode, matched findings are silently dropped with ZERO suppression
+    debt cost.  In --audit (sovereign) mode, they are kept but prefixed with
+    ``[POLICY_EXEMPTION]`` so reviewers can see what is strategically exempt.
+    Security findings (NON_SUPPRESSIBLE_CODES) always bypass this filter.
+    """
+    from zenzic.core.codes import NON_SUPPRESSIBLE_CODES
+
+    if not config.governance.directory_policies:
+        return findings
+
+    normalized_map: dict[str, set[str]] = {}
+    for pattern, codes in config.governance.directory_policies.items():
+        if not isinstance(pattern, str) or not isinstance(codes, list):
+            continue
+        normalized_codes = {
+            str(code).upper().strip()
+            for code in codes
+            if isinstance(code, str) and str(code).upper().startswith("Z")
+        }
+        if normalized_codes:
+            normalized_map[pattern] = normalized_codes
+
+    if not normalized_map:
+        return findings
+
+    audit_mode = get_sovereign_context().force_audit
+    filtered: list[Finding] = []
+    for finding in findings:
+        code = finding.code.upper().strip()
+        if code in NON_SUPPRESSIBLE_CODES:
+            filtered.append(finding)
+            continue
+        is_exempt = any(
+            fnmatch(finding.rel_path, pattern) and code in codes
+            for pattern, codes in normalized_map.items()
+        )
+        if is_exempt:
+            if audit_mode:
+                filtered.append(
+                    dataclasses.replace(
+                        finding,
+                        message=f"[POLICY_EXEMPTION] {finding.message}",
+                    )
+                )
+            # else: silently drop (zero debt)
+        else:
+            filtered.append(finding)
+    return filtered
+
+
 def _collect_all_results(
     repo_root: Path,
     docs_root: Path,
@@ -889,15 +973,11 @@ def _collect_all_results(
     from zenzic.core.adapters import get_adapter
 
     adapter = get_adapter(config.build_context, docs_root, repo_root)
-    locale_roots: list[tuple[Path, str]] | None = None
-    if hasattr(adapter, "get_locale_source_roots"):
-        _roots = adapter.get_locale_source_roots(repo_root)
-        locale_roots = _roots if _roots else None
+    _locale_roots = adapter.get_locale_source_roots(repo_root)
+    locale_roots: list[tuple[Path, str]] | None = _locale_roots if _locale_roots else None
 
-    extra_content_roots: list[tuple[Path, str]] | None = None
-    if hasattr(adapter, "get_extra_content_roots"):
-        _roots = adapter.get_extra_content_roots(repo_root)
-        extra_content_roots = [(cr.path, cr.url_prefix) for cr in _roots] if _roots else None
+    _content_roots = adapter.get_extra_content_roots(repo_root)
+    content_roots: list[Path] | None = _content_roots if _content_roots else None
 
     ref_reports, _ = scan_docs_references(
         docs_root,
@@ -905,7 +985,7 @@ def _collect_all_results(
         config=config,
         validate_links=False,
         locale_roots=locale_roots,
-        extra_content_roots=extra_content_roots,
+        content_roots=content_roots,
     )
     security_events = sum(len(r.security_findings) for r in ref_reports)
 
@@ -939,23 +1019,40 @@ def _collect_all_results(
             locale_roots=locale_roots,
             check_external=check_external,
         ),
-        orphans=find_orphans(docs_root, exclusion_mgr, repo_root=repo_root, config=config),
+        orphans=find_orphans(
+            docs_root,
+            exclusion_mgr,
+            config=config,
+            has_engine_config=adapter.has_engine_config(),
+            nav_paths=adapter.get_nav_paths(),
+            is_locale_dir=adapter.is_locale_dir,
+            ignored_patterns=adapter.get_ignored_patterns(),
+            classify_route=adapter.classify_route,
+        ),
         snippet_errors=validate_snippets(docs_root, exclusion_mgr, config=config),
         placeholders=find_placeholders(
-            docs_root, exclusion_mgr, config=config, repo_root=repo_root
+            docs_root,
+            exclusion_mgr,
+            config=config,
+            locale_roots=locale_roots,
+            content_roots=content_roots,
         ),
         unused_assets=find_unused_assets(
             docs_root,
             exclusion_mgr,
             config=config,
-            repo_root=repo_root,
+            locale_roots=locale_roots,
+            content_roots=content_roots,
             adapter_metadata_files=adapter.get_metadata_files(),
         ),
         nav_contract_errors=check_nav_contract(repo_root, exclusion_mgr),
         reference_reports=ref_reports,
         security_events=security_events,
         directory_index_issues=find_missing_directory_indices(
-            docs_root, exclusion_mgr, repo_root=repo_root, config=config
+            docs_root,
+            exclusion_mgr,
+            config=config,
+            provides_index=adapter.provides_index,
         ),
         config_asset_issues=config_asset_issues,
         i18n_parity_issues=find_i18n_parity(repo_root, config=config),
@@ -1448,6 +1545,10 @@ def check_all(
             "unused_assets": [str(p) for p in results.unused_assets],
             "nav_contract": results.nav_contract_errors,
             "references": ref_errors,
+            "suppression_count": suppression_audit.total,
+            "suppression_cap": suppression_audit.cap,
+            "suppression_debt_pts": suppression_audit.excess,
+            "debt_status": suppression_audit.debt_status,
         }
         print(json.dumps(report, indent=2))
         if results.failed and not effective_exit_zero:
@@ -1475,6 +1576,7 @@ def check_all(
     with sovereign_context(force_audit=audit):
         all_findings = _to_findings(results, docs_root)
         all_findings = _apply_per_file_ignores(all_findings, config)
+        all_findings = _apply_directory_policies(all_findings, config)
 
     if _single_file is not None:
         _sf_rel = str(_single_file.relative_to(docs_root))

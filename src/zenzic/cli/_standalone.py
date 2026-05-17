@@ -70,10 +70,10 @@ def _run_all_checks(
     from zenzic.core.adapters import get_adapter
 
     adapter = get_adapter(config.build_context, docs_root, repo_root)
-    locale_roots: list[tuple[Path, str]] | None = None
-    if hasattr(adapter, "get_locale_source_roots"):
-        _roots = adapter.get_locale_source_roots(repo_root)
-        locale_roots = _roots if _roots else None
+    _locale_roots = adapter.get_locale_source_roots(repo_root)
+    locale_roots: list[tuple[Path, str]] | None = _locale_roots if _locale_roots else None
+    _content_roots = adapter.get_extra_content_roots(repo_root)
+    content_roots: list[Path] | None = _content_roots if _content_roots else None
 
     link_errors = validate_links_structured(
         docs_root,
@@ -84,10 +84,32 @@ def _run_all_checks(
         locale_roots=locale_roots,
         check_external=True,
     )
-    orphans = find_orphans(docs_root, exclusion_mgr, repo_root=repo_root, config=config)
+    orphans = find_orphans(
+        docs_root,
+        exclusion_mgr,
+        config=config,
+        has_engine_config=adapter.has_engine_config(),
+        nav_paths=adapter.get_nav_paths(),
+        is_locale_dir=adapter.is_locale_dir,
+        ignored_patterns=adapter.get_ignored_patterns(),
+        classify_route=adapter.classify_route,
+    )
     snippet_errors = validate_snippets(docs_root, exclusion_mgr, config=config)
-    placeholders = find_placeholders(docs_root, exclusion_mgr, config=config)
-    unused_assets = find_unused_assets(docs_root, exclusion_mgr, config=config)
+    placeholders = find_placeholders(
+        docs_root,
+        exclusion_mgr,
+        config=config,
+        locale_roots=locale_roots,
+        content_roots=content_roots,
+    )
+    unused_assets = find_unused_assets(
+        docs_root,
+        exclusion_mgr,
+        config=config,
+        locale_roots=locale_roots,
+        content_roots=content_roots,
+        adapter_metadata_files=adapter.get_metadata_files(),
+    )
 
     # Collect rule findings (Z107, Z505, Z601) and security violations (Z201–Z203)
     # via the Two-Pass Reference Engine.
@@ -97,6 +119,7 @@ def _run_all_checks(
         config=config,
         validate_links=False,
         locale_roots=locale_roots,
+        content_roots=content_roots,
     )
     nav_errors = check_nav_contract(repo_root, exclusion_mgr)
 
@@ -119,10 +142,39 @@ def _run_all_checks(
         pcode = "Z502" if pf.issue == "Z502" else "Z501"
         findings_counts[pcode] = findings_counts.get(pcode, 0) + 1
 
-    # Rule-engine findings: Z107, Z505, Z601 (rule_id already a Zxxx code)
+    # Rule-engine findings: Z107, Z505, Z601 (rule_id already a Zxxx code).
+    # ADR-084: apply directory_policies filter (zero-debt exemptions) so that
+    # `zenzic score` honours the same exemptions as `zenzic check`.
+    # IMPORTANT: use r.file_path (IntegrityReport — locale-remapped virtual path),
+    # NOT rule_f.file_path (RuleFinding — raw absolute path on disk).
+    from fnmatch import fnmatch as _fnmatch
+
+    from zenzic.core.codes import NON_SUPPRESSIBLE_CODES
+
+    _dir_policies = (
+        config.governance.directory_policies
+        if hasattr(config.governance, "directory_policies")
+        else {}
+    )
     for r in ref_reports:
+        # Derive the display-relative path once per report (mirrors _check.py logic).
+        try:
+            _rel = str(r.file_path.relative_to(docs_root))
+        except ValueError:
+            try:
+                _rel = str(r.file_path.relative_to(repo_root))
+            except ValueError:
+                _rel = str(r.file_path)
         for rule_f in r.rule_findings:
-            findings_counts[rule_f.rule_id] = findings_counts.get(rule_f.rule_id, 0) + 1
+            code = rule_f.rule_id
+            if code in NON_SUPPRESSIBLE_CODES:
+                findings_counts[code] = findings_counts.get(code, 0) + 1
+                continue
+            if _dir_policies and any(
+                _fnmatch(_rel, pat) and code in codes for pat, codes in _dir_policies.items()
+            ):
+                continue  # policy exemption — zero debt cost
+            findings_counts[code] = findings_counts.get(code, 0) + 1
 
     # Security violations (Z2xx) — any breach triggers score override
     security_violations = sum(len(r.security_findings) for r in ref_reports)
@@ -1003,6 +1055,15 @@ def _build_governance_ready_toml(*, engine: str, discovered_name: str | None) ->
         "# [governance.per_file_ignores]\n"
         '# "docs/legacy/**"      = ["Z601"]  # intentional brand refs → -1 pt\n'
         '# "docs/migration/*.md" = ["Z101"]  # known broken links → -1 pt\n'
+        "\n"
+        "# Directory Policy (Invisible Exemptions — 0 pt debt):\n"
+        "# Strategic exemptions for entire directory trees or specific files.\n"
+        "# Matched findings are silently dropped — no debt added to your score.\n"
+        "# Hierarchy: Directory Policy (0 pt) > Per-file ignore (1 pt) > Inline tag (1 pt)\n"
+        "# In --audit mode, exempted findings are shown with a [POLICY_EXEMPTION] label.\n"
+        "# [governance.directory_policies]\n"
+        '# "blog/**"                         = ["Z601"]  # historical blog archive — brand refs exempt\n'
+        '# "docs/explanation/registry.mdx"   = ["Z601"]  # SSOT codename registry\n'
         "\n"
         "# Governance Playbook:\n"
         "# https://zenzic.dev/developers/how-to/release-governance-protocol\n"

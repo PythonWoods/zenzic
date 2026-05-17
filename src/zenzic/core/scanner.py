@@ -16,14 +16,13 @@ from __future__ import annotations
 
 import fnmatch
 import posixpath
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from urllib.parse import unquote
 
 from zenzic.core import regex as re
-from zenzic.core.adapter import get_adapter
 from zenzic.core.credentials import (
     SecurityFinding,
     scan_line_for_forbidden_terms,
@@ -32,6 +31,7 @@ from zenzic.core.credentials import (
 )
 from zenzic.core.discovery import (
     DOC_SUFFIXES,
+    build_content_mounts,
     iter_extra_content_markdown_sources,
     iter_locale_markdown_sources,
     iter_markdown_sources,
@@ -380,16 +380,27 @@ def find_orphans(
     docs_root: Path,
     exclusion_manager: LayeredExclusionManager,
     *,
-    repo_root: Path,
     config: ZenzicConfig,
+    has_engine_config: bool | None = None,
+    nav_paths: frozenset[str] | None = None,
+    is_locale_dir: Callable[[str], bool] | None = None,
+    ignored_patterns: set[str] | None = None,
+    classify_route: Callable[[Path, frozenset[str]], str] | None = None,
+    repo_root: Path | None = None,
 ) -> list[Path]:
     """Return docs/*.md files whose adapter status is ORPHAN_BUT_EXISTING.
 
     Args:
         docs_root: Resolved path to the documentation root.
         exclusion_manager: Layered exclusion manager (mandatory).
-        repo_root: Path to the repository root (for adapter creation).
         config: Zenzic configuration model.
+        has_engine_config: ``True`` when nav-based checks are meaningful.
+        nav_paths: Nav-listed markdown paths (adapter-provided).
+        is_locale_dir: Callback that identifies locale directory names.
+        ignored_patterns: Adapter-specific filename patterns to skip.
+        classify_route: Adapter route classifier callback.
+        repo_root: Optional repository root used to derive adapter callbacks
+            when callback arguments are omitted.
 
     Returns:
         List of Path objects relative to docs_root that are not in the nav.
@@ -397,22 +408,48 @@ def find_orphans(
     if not docs_root.exists() or not docs_root.is_dir():
         return []
 
-    adapter = get_adapter(config.build_context, docs_root, repo_root)
+    if (
+        has_engine_config is None
+        or nav_paths is None
+        or is_locale_dir is None
+        or ignored_patterns is None
+        or classify_route is None
+    ):
+        if repo_root is None:
+            raise TypeError(
+                "find_orphans requires adapter callbacks or repo_root for adapter discovery"
+            )
+        from zenzic.core.adapters._factory import get_adapter
 
-    if not adapter.has_engine_config():
+        adapter = get_adapter(config.build_context, docs_root, repo_root)
+        if has_engine_config is None:
+            has_engine_config = adapter.has_engine_config()
+        if nav_paths is None:
+            nav_paths = adapter.get_nav_paths()
+        if is_locale_dir is None:
+            is_locale_dir = adapter.is_locale_dir
+        if ignored_patterns is None:
+            ignored_patterns = adapter.get_ignored_patterns()
+        if classify_route is None:
+            classify_route = adapter.classify_route
+
+    assert nav_paths is not None
+    assert is_locale_dir is not None
+    assert ignored_patterns is not None
+    assert classify_route is not None
+    assert has_engine_config is not None
+
+    if not has_engine_config:
         return []
-
-    nav_paths = adapter.get_nav_paths()
-    adapter_ignored = adapter.get_ignored_patterns()
 
     orphans: list[Path] = []
     for md_file in iter_markdown_sources(docs_root, config, exclusion_manager):
         rel = md_file.relative_to(docs_root)
-        if rel.parts and adapter.is_locale_dir(rel.parts[0]):
+        if rel.parts and is_locale_dir(rel.parts[0]):
             continue
-        if any(fnmatch.fnmatch(md_file.name, pat) for pat in adapter_ignored):
+        if any(fnmatch.fnmatch(md_file.name, pat) for pat in ignored_patterns):
             continue
-        if adapter.classify_route(rel, nav_paths) == "ORPHAN_BUT_EXISTING":
+        if classify_route(rel, nav_paths) == "ORPHAN_BUT_EXISTING":
             orphans.append(rel)
 
     return orphans
@@ -644,7 +681,8 @@ def find_placeholders(
     exclusion_manager: LayeredExclusionManager,
     *,
     config: ZenzicConfig,
-    repo_root: Path | None = None,
+    locale_roots: list[tuple[Path, str]] | None = None,
+    content_roots: list[Path] | None = None,
 ) -> list[PlaceholderFinding]:
     """Scan docs for placeholder/stub patterns and short word counts.
 
@@ -652,9 +690,8 @@ def find_placeholders(
         docs_root: Resolved path to the documentation root.
         exclusion_manager: Layered exclusion manager (mandatory).
         config: Zenzic configuration model.
-        repo_root: Optional repository root.  When provided and the adapter
-            exposes ``get_locale_source_roots()``, locale translation trees
-            are also scanned (Docusaurus i18n support).
+        locale_roots: Optional locale translation roots injected by caller.
+        content_roots: Optional external markdown roots injected by caller.
 
     Returns:
         List of PlaceholderFinding instances detailing the issues found.
@@ -669,22 +706,21 @@ def find_placeholders(
         content = md_file.read_text(encoding="utf-8")
         findings.extend(check_placeholder_content(content, rel_path, config))
 
-    if repo_root is not None:
-        adapter = get_adapter(config.build_context, docs_root, repo_root)
-        if hasattr(adapter, "get_locale_source_roots"):
-            for locale_root, locale_name in adapter.get_locale_source_roots(repo_root):
-                for md_file, logical_rel in iter_locale_markdown_sources(
-                    locale_root, locale_name, config, exclusion_manager
-                ):
-                    content = md_file.read_text(encoding="utf-8")
-                    findings.extend(check_placeholder_content(content, logical_rel, config))
-        if hasattr(adapter, "get_extra_content_roots"):
-            for content_root in adapter.get_extra_content_roots(repo_root):
-                for md_file, logical_rel in iter_extra_content_markdown_sources(
-                    content_root.path, content_root.url_prefix, config, exclusion_manager
-                ):
-                    content = md_file.read_text(encoding="utf-8")
-                    findings.extend(check_placeholder_content(content, logical_rel, config))
+    if locale_roots:
+        for locale_root, locale_name in locale_roots:
+            for md_file, logical_rel in iter_locale_markdown_sources(
+                locale_root, locale_name, config, exclusion_manager
+            ):
+                content = md_file.read_text(encoding="utf-8")
+                findings.extend(check_placeholder_content(content, logical_rel, config))
+
+    if content_roots:
+        for content_root, url_prefix in build_content_mounts(content_roots):
+            for md_file, logical_rel in iter_extra_content_markdown_sources(
+                content_root, url_prefix, config, exclusion_manager
+            ):
+                content = md_file.read_text(encoding="utf-8")
+                findings.extend(check_placeholder_content(content, logical_rel, config))
 
     return findings
 
@@ -694,7 +730,8 @@ def find_unused_assets(
     exclusion_manager: LayeredExclusionManager,
     *,
     config: ZenzicConfig,
-    repo_root: Path | None = None,
+    locale_roots: list[tuple[Path, str]] | None = None,
+    content_roots: list[Path] | None = None,
     adapter_metadata_files: frozenset[str] = frozenset(),
 ) -> list[Path]:
     """Return asset files in docs/ that are not referenced by any markdown file.
@@ -703,10 +740,8 @@ def find_unused_assets(
         docs_root: Resolved path to the documentation root.
         exclusion_manager: Layered exclusion manager (mandatory).
         config: Zenzic configuration model.
-        repo_root: Optional repository root.  When provided and the adapter
-            exposes ``get_locale_source_roots()``, locale translation trees
-            are also scanned when collecting asset reference sets
-            (Docusaurus i18n support).
+        locale_roots: Optional locale translation roots injected by caller.
+        content_roots: Optional external markdown roots injected by caller.
         adapter_metadata_files: Filenames (basename only) that the active adapter
             consumes as configuration — excluded from Z903 (Level 1b guardrail).
 
@@ -767,28 +802,27 @@ def find_unused_assets(
         used_assets |= check_asset_references(content, page_dir)
 
     # Also collect asset references cited from locale translation trees.
-    if repo_root is not None:
-        adapter = get_adapter(config.build_context, docs_root, repo_root)
-        if hasattr(adapter, "get_locale_source_roots"):
-            for locale_root, locale_name in adapter.get_locale_source_roots(repo_root):
-                for md_file, logical_rel in iter_locale_markdown_sources(
-                    locale_root, locale_name, config, exclusion_manager
-                ):
-                    content = md_file.read_text(encoding="utf-8")
-                    page_dir = logical_rel.parent.as_posix()
-                    if page_dir == ".":
-                        page_dir = ""
-                    used_assets |= check_asset_references(content, page_dir)
-        if hasattr(adapter, "get_extra_content_roots"):
-            for content_root in adapter.get_extra_content_roots(repo_root):
-                for md_file, logical_rel in iter_extra_content_markdown_sources(
-                    content_root.path, content_root.url_prefix, config, exclusion_manager
-                ):
-                    content = md_file.read_text(encoding="utf-8")
-                    page_dir = logical_rel.parent.as_posix()
-                    if page_dir == ".":
-                        page_dir = ""
-                    used_assets |= check_asset_references(content, page_dir)
+    if locale_roots:
+        for locale_root, locale_name in locale_roots:
+            for md_file, logical_rel in iter_locale_markdown_sources(
+                locale_root, locale_name, config, exclusion_manager
+            ):
+                content = md_file.read_text(encoding="utf-8")
+                page_dir = logical_rel.parent.as_posix()
+                if page_dir == ".":
+                    page_dir = ""
+                used_assets |= check_asset_references(content, page_dir)
+
+    if content_roots:
+        for content_root, url_prefix in build_content_mounts(content_roots):
+            for md_file, logical_rel in iter_extra_content_markdown_sources(
+                content_root, url_prefix, config, exclusion_manager
+            ):
+                content = md_file.read_text(encoding="utf-8")
+                page_dir = logical_rel.parent.as_posix()
+                if page_dir == ".":
+                    page_dir = ""
+                used_assets |= check_asset_references(content, page_dir)
 
     return [Path(p) for p in calculate_unused_assets(all_assets, used_assets)]
 
@@ -797,17 +831,14 @@ def find_missing_directory_indices(
     docs_root: Path,
     exclusion_manager: LayeredExclusionManager,
     *,
-    repo_root: Path,
     config: ZenzicConfig,
+    provides_index: Callable[[Path], bool],
 ) -> list[Path]:
     """Return directories that contain ``.md`` / ``.mdx`` source files but no
     engine-provided index page, indicating a potential 404 at the directory URL.
 
-    The check is engine-aware: it delegates to
-    :meth:`~zenzic.core.adapters._base.BaseAdapter.provides_index` on the
-    resolved adapter so that each engine's index-page conventions are respected
-    (Docusaurus ``index.mdx`` / ``_category_.json``, MkDocs ``README.md``,
-    Zensical strict ``index.md``, etc.).
+    The check is engine-aware via the injected ``provides_index`` callback so
+    the scanner stays independent from adapter resolution.
 
     The docs root itself is excluded — a missing ``docs/index.*`` is reported
     only when it actually causes a 404 visible to end-users (i.e. sub-dirs).
@@ -818,8 +849,8 @@ def find_missing_directory_indices(
     Args:
         docs_root: Resolved absolute path to the documentation root.
         exclusion_manager: Mandatory layered exclusion manager.
-        repo_root: Repository root used to instantiate the adapter.
         config: Zenzic configuration model.
+        provides_index: Callback that answers whether a directory has an index.
 
     Returns:
         List of :class:`~pathlib.Path` objects relative to *docs_root*,
@@ -827,8 +858,6 @@ def find_missing_directory_indices(
     """
     if not docs_root.exists() or not docs_root.is_dir():
         return []
-
-    adapter = get_adapter(config.build_context, docs_root, repo_root)
 
     # Collect the set of unique parent directories that contain at least one
     # Markdown source file (excluding docs_root itself — the root index is a
@@ -843,7 +872,7 @@ def find_missing_directory_indices(
 
     missing: list[Path] = []
     for dir_abs in sorted(dirs_with_docs):
-        if not adapter.provides_index(dir_abs):
+        if not provides_index(dir_abs):
             try:
                 missing.append(dir_abs.relative_to(docs_root))
             except ValueError:
@@ -1389,7 +1418,7 @@ def scan_docs_references(
     workers: int | None = 1,
     verbose: bool = False,
     locale_roots: list[tuple[Path, str]] | None = None,
-    extra_content_roots: list[tuple[Path, str]] | None = None,
+    content_roots: list[Path] | None = None,
 ) -> tuple[list[IntegrityReport], list[str]]:
     """Run the Three-Phase Pipeline over every .md file in docs/.
 
@@ -1427,7 +1456,7 @@ def scan_docs_references(
     after workers complete (workers discard scanners).
 
     Args:
-        repo_root:      Repository root (must contain ``docs/``).
+        docs_root:      Documentation root to scan.
         config:         Optional Zenzic configuration.
         validate_links: When ``True``, perform async HTTP validation of all
                         external reference URLs found across the docs tree.
@@ -1441,6 +1470,8 @@ def scan_docs_references(
                         after the scan completes.  Shows the engine mode, worker
                         count, elapsed time, and estimated speedup (parallel
                         mode only).  Defaults to ``False``.
+        locale_roots:   Optional locale trees injected by caller.
+        content_roots:  Optional extra markdown roots injected by caller.
 
     Returns:
         A ``(reports, link_errors)`` tuple where:
@@ -1474,8 +1505,8 @@ def scan_docs_references(
                 _locale_path_remap[abs_path] = docs_root / logical_rel
                 md_files.append(abs_path)
 
-    if extra_content_roots:
-        for content_root, url_prefix in extra_content_roots:
+    if content_roots:
+        for content_root, url_prefix in build_content_mounts(content_roots):
             for abs_path, logical_rel in iter_extra_content_markdown_sources(
                 content_root, url_prefix, config, exclusion_manager
             ):
@@ -1496,7 +1527,7 @@ def scan_docs_references(
         actual_workers = workers if workers is not None else os.cpu_count() or 1
         work_items = [(f, config, rule_engine) for f in md_files]
         # GA-1 fix: use actual_workers for the executor (not the raw `workers`
-        # sentinel) so max_workers always matches what telemetry reports.
+        # marker) so max_workers always matches what telemetry reports.
         with concurrent.futures.ProcessPoolExecutor(max_workers=actual_workers) as executor:
             # CEO-298 fail-fast + ZRT-002: use wait(FIRST_COMPLETED) to process
             # results in completion order and cancel queued tasks immediately on

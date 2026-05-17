@@ -20,6 +20,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
 
+from zenzic.core.adapters._base import BaseAdapter
+from zenzic.core.discovery import build_content_mounts
+
 
 _log = logging.getLogger(__name__)
 
@@ -121,12 +124,13 @@ def _detect_collisions(routes: list[Route]) -> None:
 
 
 def build_vsm(
-    adapter: object,
+    adapter: BaseAdapter,
     docs_root: Path,
     md_contents: dict[Path, str],
     *,
     anchors_cache: dict[Path, set[str]] | None = None,
-    extra_content_roots: list[tuple[Path, str]] | None = None,
+    extra_content_roots: list[Path] | None = None,
+    repo_root: Path | None = None,
 ) -> VSM:
     """Build the Virtual Site Map from a pre-loaded file map.
 
@@ -134,24 +138,11 @@ def build_vsm(
     ``md_contents`` by the caller (``validate_links_async``).  No disk reads
     occur here.
 
-    Routing resolution strategy (v0.6.0a1+):
+     Routing strategy is strict metadata-driven: every file is dispatched via
+     ``adapter.get_route_info(rel)``.
 
-    1. **Metadata-Driven** — when the adapter implements ``get_route_info()``,
-       the builder calls it once per file to obtain :class:`RouteMetadata`
-       containing canonical URL, status, slug, and proxy flag in a single
-       dispatch — eliminating the double-call overhead.
-    2. **Legacy File-to-URL** — when ``get_route_info()`` is not available,
-       the builder falls back to calling ``map_url()`` + ``classify_route()``
-       separately (backward-compatible with third-party adapters).
-
-    Multi-Root resolution (v0.7.x):
-
-    Files under ``docs_root`` are routed using ``rel = path.relative_to(docs_root)``.
-    Files under any of the *extra_content_roots* are routed with the declared
-    ``url_prefix`` injected as the first ``rel`` segment, so the active adapter
-    can disambiguate (e.g. Docusaurus blog posts) without a separate dispatch.
-    Files outside both sets (locale translations) carry no canonical URL and
-    are skipped — they are validated for link integrity only.
+     Multi-root resolution accepts external content trees as ``list[Path]``.
+     URL prefixes are derived deterministically from filesystem topology.
 
     Workflow:
 
@@ -161,48 +152,32 @@ def build_vsm(
     4. Build and return the ``VSM`` dict.
 
     Args:
-        adapter:             Build-engine adapter.  Must implement either
-                             ``get_route_info(rel)`` or the legacy
-                             ``map_url(rel)`` + ``classify_route(rel, nav_paths)``
-                             + ``get_nav_paths()``.
+        adapter:             Build-engine adapter implementing ``get_route_info(rel)``.
         docs_root:           Resolved absolute path to the ``docs/`` directory.
         md_contents:         Pre-loaded mapping of absolute ``Path`` → raw Markdown.
         anchors_cache:       Pre-computed ``Path`` → anchor slug set.  When
                              ``None``, anchors are left as empty sets.
-        extra_content_roots: Optional list of ``(root_path, url_prefix)`` pairs
-                             from the adapter's ``get_extra_content_roots()``.
-                             Files under these roots are admitted to the VSM
-                             with the prefix injected at the front of their
-                             relative path.
+        extra_content_roots: Optional external markdown roots injected by caller.
+        repo_root:           Optional repository root used for stable prefix
+                     derivation when building external content mounts.
 
     Returns:
         ``VSM`` mapping canonical URL → ``Route`` (IGNORED entries omitted).
     """
     ac = anchors_cache or {}
-    extra_roots: list[tuple[Path, str]] = list(extra_content_roots or [])
-
-    # Detect which routing API the adapter supports.
-    use_metadata_api = hasattr(adapter, "get_route_info") and callable(
-        getattr(adapter, "get_route_info", None)
-    )
-
-    # Legacy path needs nav_paths pre-computed once.
-    nav_paths: frozenset[str] = frozenset()
-    if not use_metadata_api:
-        nav_paths = adapter.get_nav_paths()  # type: ignore[attr-defined]
+    extra_mounts = build_content_mounts(list(extra_content_roots or []), repo_root=repo_root)
 
     routes: list[Route] = []
     for abs_path, _content in md_contents.items():
         # ── Resolve the logical rel and source label ────────────────────────
-        # Files under docs_root use their ordinary relative path.  Files under
-        # an extra content root carry the URL prefix as their first segment so
-        # the adapter can disambiguate.  Anything else (locale translations)
-        # carries no canonical URL — skipped here, validated elsewhere.
+        # Files under docs_root use their ordinary relative path. Files under
+        # external content roots carry a deterministic prefix segment derived
+        # from the content mount.
         if abs_path.is_relative_to(docs_root):
             rel = abs_path.relative_to(docs_root)
         else:
             matched_root: tuple[Path, str] | None = None
-            for root, prefix in extra_roots:
+            for root, prefix in extra_mounts:
                 if abs_path.is_relative_to(root):
                     matched_root = (root, prefix)
                     break
@@ -213,13 +188,9 @@ def build_vsm(
             rel = (Path(prefix) / inner) if prefix else inner
         rel_posix = rel.as_posix()
 
-        if use_metadata_api:
-            meta = adapter.get_route_info(rel)  # type: ignore[attr-defined]
-            url = meta.canonical_url
-            status: RouteStatus = meta.status
-        else:
-            url = adapter.map_url(rel)  # type: ignore[attr-defined]
-            status = adapter.classify_route(rel, nav_paths)  # type: ignore[attr-defined]
+        meta = adapter.get_route_info(rel)
+        url = meta.canonical_url
+        status: RouteStatus = meta.status
 
         route = Route(
             url=url,

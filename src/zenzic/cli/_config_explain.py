@@ -258,7 +258,7 @@ def explain(
 
     # ── Section C: Governance ─────────────────────────────────────────────
     gov = config.governance
-    gov_table = _make_table(f"{emoji('shield')}  Governance")
+    gov_table = _make_table(f"{emoji('brand')}  Governance")
     gov_table.add_column("Field", style="bold", min_width=24, no_wrap=True)
     gov_table.add_column("Active Value", min_width=24)
     gov_table.add_column("Source", min_width=8, justify="center")

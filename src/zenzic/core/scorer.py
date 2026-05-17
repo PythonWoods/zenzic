@@ -115,6 +115,20 @@ _SECURITY_CODES: frozenset[str] = frozenset({"Z201", "Z202", "Z203", "Z204"})
 _Z6XX_GOVERNANCE_THRESHOLD: int = 10
 _Z6XX_CODES: frozenset[str] = frozenset({"Z601"})
 
+_SOVEREIGN_SUPPRESSION_CAP: int = 30
+_DEBT_STATUS_VALUES: frozenset[str] = frozenset({"CLEAN", "MANAGED", "EXTENDED", "CRITICAL"})
+
+
+def classify_suppression_debt_status(suppression_count: int, suppression_cap: int) -> str:
+    """Classify suppression debt posture for machine-readable contract consumers."""
+    if suppression_count <= 0:
+        return "CLEAN"
+    if suppression_count > suppression_cap:
+        return "CRITICAL"
+    if suppression_cap > _SOVEREIGN_SUPPRESSION_CAP:
+        return "EXTENDED"
+    return "MANAGED"
+
 
 # ─── Data structures ──────────────────────────────────────────────────────────
 
@@ -138,6 +152,9 @@ class ScoreReport:
     threshold: int = 0  # fail_under value at save time; 0 means no threshold
     security_override: bool = False  # True when score collapsed to 0 by a security violation
     security_findings: int = 0  # count of Z2xx findings triggering the Security Gate
+    suppression_count: int = 0
+    suppression_cap: int = _SOVEREIGN_SUPPRESSION_CAP
+    debt_status: str = "CLEAN"
     suppression_debt_pts: int = 0  # points deducted for inline/per-file suppressions
     categories: list[CategoryScore] = field(default_factory=list)
 
@@ -155,13 +172,15 @@ class ScoreReport:
             "status": status,
             "timestamp": datetime.now(tz=timezone.utc).isoformat(timespec="seconds"),
             "categories": [asdict(c) for c in self.categories],
+            "suppression_count": self.suppression_count,
+            "suppression_cap": self.suppression_cap,
+            "suppression_debt_pts": self.suppression_debt_pts,
+            "debt_status": self.debt_status,
         }
         if self.security_override:
             d["security_override"] = True
         if self.security_findings > 0:
             d["security_findings"] = self.security_findings
-        if self.suppression_debt_pts > 0:
-            d["suppression_debt_pts"] = self.suppression_debt_pts
         return d
 
 
@@ -202,11 +221,19 @@ def compute_score(
         findings_counts: Mapping of ``Zxxx`` code → occurrence count.
             Unknown codes contribute zero deduction.
         suppression_count: Total number of active suppressions (inline + per-file).
-        suppression_cap: Threshold above which suppression cost doubles (default 30).
+        suppression_cap: Allowance threshold (default 30).
+            Only suppressions above this value deduct 1 point each.
 
     Returns:
         A :class:`ScoreReport` with the total 0–100 score and per-category breakdown.
     """
+    normalized_suppression_count = max(0, suppression_count)
+    normalized_suppression_cap = max(0, suppression_cap)
+    debt_status = classify_suppression_debt_status(
+        normalized_suppression_count,
+        normalized_suppression_cap,
+    )
+
     # Security override: any Z2xx finding collapses the score to 0.
     sec_count = sum(findings_counts.get(code, 0) for code in _SECURITY_CODES)
     if sec_count > 0:
@@ -218,6 +245,9 @@ def compute_score(
             score=0,
             security_override=True,
             security_findings=sec_count,
+            suppression_count=normalized_suppression_count,
+            suppression_cap=normalized_suppression_cap,
+            debt_status=debt_status,
             categories=categories,
         )
 
@@ -267,11 +297,18 @@ def compute_score(
     # Suppression Debt (ADR-061): allowance-based governance exemptions.
     # Suppressions within cap do not reduce score; only excess deducts 1 pt.
     debt_pts = 0
-    if suppression_count > 0:
-        debt_pts = max(0, suppression_count - suppression_cap)
+    if normalized_suppression_count > 0:
+        debt_pts = max(0, normalized_suppression_count - normalized_suppression_cap)
         total_pts = max(0.0, total_pts - debt_pts)
 
-    return ScoreReport(score=round(total_pts), suppression_debt_pts=debt_pts, categories=categories)
+    return ScoreReport(
+        score=round(total_pts),
+        suppression_count=normalized_suppression_count,
+        suppression_cap=normalized_suppression_cap,
+        debt_status=debt_status,
+        suppression_debt_pts=debt_pts,
+        categories=categories,
+    )
 
 
 # ─── Snapshot persistence ─────────────────────────────────────────────────────
@@ -311,7 +348,28 @@ def load_snapshot(repo_root: Path) -> ScoreReport | None:
         categories = [CategoryScore(**c) for c in data.get("categories", [])]
         score = int(data.get("score", 0))
         threshold = int(data.get("threshold", 0))
-        return ScoreReport(score=score, threshold=threshold, categories=categories)
+        suppression_count = int(data.get("suppression_count", 0))
+        suppression_cap = int(data.get("suppression_cap", _SOVEREIGN_SUPPRESSION_CAP))
+        debt_status = str(
+            data.get(
+                "debt_status",
+                classify_suppression_debt_status(suppression_count, suppression_cap),
+            )
+        ).upper()
+        if debt_status not in _DEBT_STATUS_VALUES:
+            debt_status = classify_suppression_debt_status(suppression_count, suppression_cap)
+        suppression_debt_pts = int(
+            data.get("suppression_debt_pts", max(0, suppression_count - suppression_cap))
+        )
+        return ScoreReport(
+            score=score,
+            threshold=threshold,
+            suppression_count=suppression_count,
+            suppression_cap=suppression_cap,
+            debt_status=debt_status,
+            suppression_debt_pts=suppression_debt_pts,
+            categories=categories,
+        )
     except ConfigurationError:
         raise
     except Exception:

@@ -33,6 +33,41 @@ if TYPE_CHECKING:
 DOC_SUFFIXES: frozenset[str] = frozenset({".md", ".mdx"})
 
 
+def derive_content_root_prefix(content_root: Path, repo_root: Path | None = None) -> str:
+    """Derive a stable logical URL prefix for an external content root.
+
+    The prefix is inferred from filesystem topology so scanner/validator/VSM can
+    consume ``list[Path]`` roots without adapter-specific wrappers.
+    """
+    root = content_root.resolve()
+
+    if repo_root is not None:
+        try:
+            rel = root.relative_to(repo_root.resolve())
+        except ValueError:
+            rel = None
+        if rel is not None and rel.parts:
+            if rel.parts[-1] in {"docs", "current"} and len(rel.parts) >= 2:
+                return rel.parts[-2]
+            return rel.parts[0]
+
+    if root.name in {"docs", "current"} and root.parent.name:
+        return root.parent.name
+    return root.name
+
+
+def build_content_mounts(
+    content_roots: list[Path],
+    *,
+    repo_root: Path | None = None,
+) -> list[tuple[Path, str]]:
+    """Return ``(content_root, url_prefix)`` mounts from ``list[Path]`` roots."""
+    return [
+        (root.resolve(), derive_content_root_prefix(root, repo_root=repo_root))
+        for root in content_roots
+    ]
+
+
 def walk_files(
     root: Path,
     excluded_dirs: set[str] | frozenset[str],
@@ -127,8 +162,7 @@ def iter_extra_content_markdown_sources(
 
     Args:
         content_root:      Absolute path to the extra content root.
-        url_prefix:        URL prefix declared by the adapter
-                           (:attr:`ContentRoot.url_prefix`).
+        url_prefix:        URL prefix injected for this mounted root.
         config:            Loaded Zenzic configuration.
         exclusion_manager: Layered exclusion manager.
 

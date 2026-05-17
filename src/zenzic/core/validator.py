@@ -51,6 +51,7 @@ from zenzic.core import regex as re
 from zenzic.core.adapter import get_adapter
 from zenzic.core.discovery import (
     DOC_SUFFIXES,
+    build_content_mounts,
     iter_extra_content_markdown_sources,
     iter_locale_markdown_sources,
     iter_markdown_sources,
@@ -693,11 +694,7 @@ async def validate_links_async(
     # duplicate Docusaurus routing into ``zenzic.toml``; the adapter inspects
     # its own engine's config and reports ownership.  Adapters that don't host
     # multi-instance plugins return ``frozenset()``.
-    _project_absolute_prefixes: frozenset[str] = (
-        adapter.get_absolute_url_prefixes(repo_root)
-        if hasattr(adapter, "get_absolute_url_prefixes")
-        else frozenset()
-    )
+    _project_absolute_prefixes: tuple[str, ...] = tuple(adapter.get_absolute_url_prefixes())
 
     # ── Pass 1: read all .md/.mdx files + map all non-doc assets into memory ──
     md_contents: dict[Path, str] = {}
@@ -728,17 +725,16 @@ async def validate_links_async(
     # Docusaurus's blog/ directory.  Loading them here means the VSM, anchor
     # index, and link resolver all see them as first-class content, closing the
     # gap between ``zenzic check`` and the engine's own build-time link check.
-    extra_content_roots: list[tuple[Path, str]] = []
-    if hasattr(adapter, "get_extra_content_roots"):
-        for content_root in adapter.get_extra_content_roots(repo_root):
-            extra_content_roots.append((content_root.path, content_root.url_prefix))
-            for abs_path, _logical_rel in iter_extra_content_markdown_sources(
-                content_root.path, content_root.url_prefix, config, exclusion_manager
-            ):
-                try:
-                    md_contents[abs_path.resolve()] = abs_path.read_text(encoding="utf-8")
-                except OSError:
-                    continue
+    extra_content_roots: list[Path] = adapter.get_extra_content_roots(repo_root)
+    extra_content_mounts = build_content_mounts(extra_content_roots, repo_root=repo_root)
+    for content_root, url_prefix in extra_content_mounts:
+        for abs_path, _logical_rel in iter_extra_content_markdown_sources(
+            content_root, url_prefix, config, exclusion_manager
+        ):
+            try:
+                md_contents[abs_path.resolve()] = abs_path.read_text(encoding="utf-8")
+            except OSError:
+                continue
 
     # Build the asset map once — eliminates all Path.exists() calls from Pass 2.
     # Scanning repo_root (not just docs_root) ensures that @site/static/ assets
@@ -768,8 +764,8 @@ async def validate_links_async(
     _allowed_roots: list[Path] = [docs_root]
     if locale_roots:
         _allowed_roots.extend(locale_root for locale_root, _ in locale_roots)
-    if extra_content_roots:
-        _allowed_roots.extend(root for root, _ in extra_content_roots)
+    if extra_content_mounts:
+        _allowed_roots.extend(root for root, _ in extra_content_mounts)
 
     # ── Phase 1: parallel index (anchors + resolved links) ────────────────
     # Workers return immutable payloads. The main process only merges maps
@@ -817,6 +813,7 @@ async def validate_links_async(
         md_contents,
         anchors_cache=anchors_cache,
         extra_content_roots=extra_content_roots,
+        repo_root=repo_root,
     )
 
     # ── Phase 1.5: cycle registry (requires resolver + links_cache) ───────────
@@ -835,7 +832,7 @@ async def validate_links_async(
     def _compute_logical_rel(f: Path) -> str | None:
         if f.is_relative_to(docs_root):
             return f.relative_to(docs_root).as_posix()
-        for root, prefix in extra_content_roots:
+        for root, prefix in extra_content_mounts:
             if f.is_relative_to(root):
                 inner = f.relative_to(root).as_posix()
                 return f"{prefix}/{inner}" if prefix else inner
