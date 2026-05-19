@@ -792,6 +792,32 @@ class ZenzicConfig(BaseModel):
         except tomllib.TOMLDecodeError:
             return  # malformed local file — silently skip to avoid hard failures
 
+        # Strict key validation: reject unknown top-level keys in .zenzic.local.toml.
+        # Prevents silent-drop of mis-spelled or unsupported sections.
+        # Note: Z108 in the public finding registry is EMPTY_LINK_TEXT (structural
+        # integrity). This is a ConfigurationError raised before scanning begins —
+        # not a scanner finding code.
+        _ALLOWED_LOCAL_KEYS: Final[frozenset[str]] = frozenset({
+            "core",
+            "build_context",
+            "project_metadata",
+            "governance",
+            "i18n",
+            "forbidden_patterns",
+        })
+        unknown_keys = set(local_data.keys()) - _ALLOWED_LOCAL_KEYS
+        if unknown_keys:
+            from zenzic.core.exceptions import ConfigurationError
+            pretty = ", ".join(f"'{k}'" for k in sorted(unknown_keys))
+            raise ConfigurationError(
+                f"[LOCAL-TOML-STRICT] .zenzic.local.toml contains unsupported top-level "
+                f"key(s): {pretty}.\n"
+                "Allowed sections: core, build_context, project_metadata, governance, i18n, "
+                "forbidden_patterns.\n"
+                "Remove the unknown key(s) or check the .zenzic.local.toml.example template.",
+                context={"unknown_keys": sorted(unknown_keys), "file": str(local_toml)},
+            )
+
         core_local = local_data.get("core")
         if isinstance(core_local, dict):
             docs_dir = core_local.get("docs_dir")

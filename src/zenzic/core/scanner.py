@@ -52,6 +52,36 @@ if TYPE_CHECKING:
     from zenzic.core.exclusion import LayeredExclusionManager
 
 
+# ─── Code-asset suffix guard (Z405 exemption) ────────────────────────────────
+# Source code files are never documentation assets. When docs_dir is the repo
+# root (standalone mode), walking src/ would otherwise produce Z405 findings
+# for every .py/.ts file not referenced by any Markdown page. These files are
+# logically application code — exempt from unused-asset enforcement.
+# Discovery still walks them so the InMemoryPathResolver can resolve links
+# that cross the docs/source boundary (e.g. README linking to a source file).
+CODE_ASSET_SUFFIXES: frozenset[str] = frozenset(
+    {
+        # Python
+        ".py", ".pyi",
+        # TypeScript / JavaScript variants not already in SYSTEM_EXCLUDED_FILE_PATTERNS
+        ".ts", ".tsx", ".jsx", ".mjs", ".cjs",
+        # Systems languages
+        ".rs", ".go", ".c", ".cpp", ".cc", ".cxx", ".h", ".hpp", ".hh",
+        ".cs", ".swift",
+        # JVM
+        ".java", ".kt", ".kts", ".scala",
+        # Scripting
+        ".rb", ".php", ".lua", ".pl", ".pm",
+        # Functional
+        ".ex", ".exs", ".hs", ".lhs",
+        # Data / query
+        ".sql",
+        # Build / infra
+        ".nix", ".tf",
+    }
+)
+
+
 # ─── Reference pipeline regexes ───────────────────────────────────────────────
 
 # Reference definition: [id]: url  (up to 3 leading spaces per CommonMark §4.7)
@@ -768,6 +798,8 @@ def find_unused_assets(
             continue
         rel_path = file_path.relative_to(docs_root)
         if rel_path.suffix in {".css", ".js", ".yml", ".sarif", ".license", ".j2"}:
+            continue
+        if rel_path.suffix in CODE_ASSET_SUFFIXES:
             continue
         if any(part in config.excluded_asset_dirs for part in rel_path.parts):
             continue

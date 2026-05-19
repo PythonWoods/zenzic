@@ -38,7 +38,7 @@ excluded_dirs = [
     "examples",
     "assets",
     "LICENSES",
-    ".redteam",
+    ".adversarial",
 ]
 
 # ADR-039.1: .zenzic.local.toml.example and *.sh are in SYSTEM_EXCLUDED_FILE_NAMES /
@@ -81,6 +81,15 @@ engine = "standalone"
 id = "ZZ-NOCLICKHERE"
 pattern = "(?i)\\bclick here\\b|\\bclicca qui\\b"
 message = "Avoid generic link text. Use a meaningful description for accessibility."
+severity = "error"
+
+# ADR-075 — Inconsapevolezza Radicale: intercept the term 'ai' with word-boundary
+# to avoid the false-positive flood that literal substring match would cause.
+# (Literal 'ai' in forbidden_patterns would fire on 'main', 'mail', 'said', etc.)
+[[custom_rules]]
+id = "ZZ-ADR075-AI"
+pattern = "(?i)\\bai\\b"
+message = "Il termine 'ai' viola ADR-075 (Inconsapevolezza Radicale). Zenzic \u00e8 un Analizzatore Statico della Documentazione agnostico rispetto a qualsiasi tecnologia di inferenza."
 severity = "error"
 
 # ── Brand integrity ──────────────────────────────────────────────────────────
