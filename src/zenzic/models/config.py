@@ -249,6 +249,10 @@ SYSTEM_EXCLUDED_DIRS: Final[frozenset[str]] = frozenset(
         # VCS and CI/CD
         ".git",
         ".github",
+        # Zenzic family dogfooding: sibling core checkout used by self-check CI
+        # (ZRT-010 Sovereign Parity). Excluding at L1 eliminates the need for
+        # every family repo to declare it in excluded_dirs.
+        "_zenzic_core",
         # Virtual environments and package managers
         ".venv",
         "node_modules",

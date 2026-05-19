@@ -324,7 +324,12 @@ def test_parallel_zrt002_deadlock_guard_emits_z902(tmp_path: Path) -> None:
     _hang_event = threading.Event()
 
     def _hanging_worker(args):  # noqa: ANN001
-        _hang_event.wait(timeout=60)  # block until released by test cleanup
+        # Block long enough to outlast _WORKER_TIMEOUT_S (set to 1 s below),
+        # but release promptly once the event fires so executor.shutdown(wait=True)
+        # does not stall the entire test suite.  Using timeout=2 here means the
+        # worst-case extra wait after Z902 is emitted is ~1 s (2 s total –
+        # 1 s already elapsed when the scanner detected the stall).
+        _hang_event.wait(timeout=2)
         md_file, _, _ = args
         return IntegrityReport(file_path=md_file, score=100.0)
 
@@ -337,7 +342,7 @@ def test_parallel_zrt002_deadlock_guard_emits_z902(tmp_path: Path) -> None:
                 reports, _ = scan_docs_references(docs_root, mgr, config=config, workers=2)
     finally:
         scanner_mod._WORKER_TIMEOUT_S = original_timeout
-        _hang_event.set()  # unblock any lingering threads
+        _hang_event.set()  # unblock any threads still waiting (belt-and-suspenders)
 
     # ZRT-002: every stalled file must produce a Z902 finding.
     z902_reports = [r for r in reports if any(f.rule_id == "Z902" for f in r.rule_findings)]

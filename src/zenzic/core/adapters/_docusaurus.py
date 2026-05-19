@@ -970,10 +970,16 @@ class DocusaurusAdapter(BaseAdapter):
         mapped_slug = self._slug_map.get(rel_posix)
         if mapped_slug is not None:
             if mapped_slug.startswith("/"):
-                # Absolute slug: always prefixed with routeBasePath.
-                # Docusaurus: permalink = normalizeUrl([versionMetadata.path, docSlug])
-                # where versionMetadata.path IS the routeBasePath.
+                # Absolute slug: prefixed with the effective routeBasePath.
+                # For files from sibling content-docs plugin instances (extra
+                # content roots), use that plugin's routeBasePath rather than
+                # the default docs prefix (instance-aware routing).
                 rbp = self._route_base_path if self._route_base_path is not None else "docs"
+                if rel.parts and self._content_docs_instances:
+                    for _inst_id, _inst_rbp in self._content_docs_instances:
+                        if rel.parts[0] == _inst_id:
+                            rbp = _inst_rbp
+                            break
                 url = mapped_slug.rstrip("/") or ""
                 if rbp:
                     return "/" + rbp + url + "/"
@@ -1020,7 +1026,25 @@ class DocusaurusAdapter(BaseAdapter):
         if locale:
             url_parts.append(locale)
 
-        rbp = self._route_base_path if self._route_base_path is not None else "docs"
+        # ── Instance-aware routing (sibling content-docs plugin support) ──
+        # When the first remaining path segment matches a sibling plugin
+        # instance_id, use that plugin's routeBasePath and strip the
+        # filesystem-organiser prefix from the URL segments.
+        # Example: developers/explanation/foo.mdx → /developers/explanation/foo/
+        # instead of /docs/developers/explanation/foo/ (the False Trust Bug).
+        instance_rbp: str | None = None
+        if parts and self._content_docs_instances:
+            first_seg = parts[0]
+            for _inst_id, _inst_rbp in self._content_docs_instances:
+                if first_seg == _inst_id:
+                    parts = parts[1:]
+                    instance_rbp = _inst_rbp
+                    break
+        rbp = (
+            instance_rbp
+            if instance_rbp is not None
+            else (self._route_base_path if self._route_base_path is not None else "docs")
+        )
         if rbp:
             # Note: root routeBasePath is empty string
             url_parts.append(rbp)
