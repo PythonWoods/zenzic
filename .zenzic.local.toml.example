@@ -2,8 +2,19 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 # .zenzic.local.toml.example — Copy to .zenzic.local.toml and add to .gitignore.
-# Local Override > Global Config (zenzic.toml). Additive merge for list fields.
 # This file is a committed template. The actual .zenzic.local.toml is NEVER committed.
+#
+# MERGE SEMANTICS (as implemented in _apply_local_toml):
+#   [core]              — scalar overrides + forbidden_patterns is ADDITIVE (de-duplicated)
+#   [build_context]     — per-key replacement merge
+#   [project_metadata]  — per-key replacement merge
+#   [governance]        — per-key REPLACEMENT merge (e.g. brand_obsolescence REPLACES the
+#                         global list; repeat inherited terms if you want to keep them)
+#   [i18n]              — per-key replacement merge
+#   forbidden_patterns  — top-level ADDITIVE shorthand (legacy; prefer [core].forbidden_patterns)
+#
+# Z108 STRICT VALIDATION: unknown top-level keys raise a ConfigurationError.
+# Allowed sections: core, build_context, project_metadata, governance, i18n, forbidden_patterns.
 #
 # Usage:
 #   cp .zenzic.local.toml.example .zenzic.local.toml
@@ -13,13 +24,24 @@
 # Override the documentation root when working in a non-standard local layout.
 # docs_dir = "my/custom/path/to/docs"
 
-[governance]
-# Confidential terms that must not appear in public documentation (Z204 Privacy Gate).
-# Patterns are matched case-insensitively. RE2 DFA syntax is supported.
+[core]
+# forbidden_patterns: ADDITIVE merge with global config. Literal case-insensitive match.
+# Use for confidential terms that must not appear in public documentation (Z204 Privacy Gate).
+# Patterns are matched as literal substrings — NOT as regex. For regex, use [[custom_rules]]
+# in zenzic.toml (not supported in .zenzic.local.toml).
 # forbidden_patterns = [
 #     "INTERNAL-CODENAME",
 #     "staging.example.corp",
 #     "acme-internal-api",
+# ]
+
+[governance]
+# brand_obsolescence: REPLACEMENT merge (not additive). If defined here, this list
+# REPLACES the global [governance].brand_obsolescence list entirely.
+# Repeat all inherited terms you want to preserve.
+# brand_obsolescence = [
+#     "Sentinel", "Shield", "Blood",   # ← repeat global terms to preserve them
+#     "MY-DEPRECATED-TERM",            # ← add new local terms here
 # ]
 
 [build_context]
@@ -31,9 +53,9 @@
 # Local release name experiments — does not affect CI.
 # release_name = "Basalt"
 
-[governance]
-# Raise suppression cap locally during large debt cleanup.
-# suppression_cap           = 100
+# [governance] additional override examples (per-key replacement merge):
+# [governance]
+# suppression_cap           = 100   # raise cap locally during large debt cleanup
 # suppression_cap_fail_hard = false
 
 [i18n]

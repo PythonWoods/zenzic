@@ -177,7 +177,7 @@ prima di qualsiasi syscall OS.
 | **`2`** | **SICUREZZA — credenziale esposta rilevata** |
 | **`3`** | **SICUREZZA — path traversal di sistema rilevato** |
 
-> Aggiungi `zenzic check references` ai tuoi hook pre-commit per bloccare le fughe prima della history git.
+> Aggiungi `zenzic check references` per i tuoi hook pre-commit per bloccare le fughe prima della history git.
 
 ---
 
@@ -204,7 +204,7 @@ e qualsiasi link che le referenziava veniva erroneamente segnalato come link int
 
 `DocusaurusAdapter` costruisce ora una **mappa di Virtual Route** derivata dai metadati
 del frontmatter — senza eseguire alcun build, senza Node.js. Ogni virtual route porta un
-insieme `source_files` che la ricollega ai file fisici che la generano, soddisfacendo
+insieme `source_files` che la ricollega nei file fisici che la generano, soddisfacendo
 l'**Invariante di Reverse-Mapping**: ogni URL nella VSM ha un'origine fisica non ambigua.
 Un `VirtualRoute` con `source_files=frozenset()` solleva `ValueError` alla costruzione —
 nessun URL non tracciato può raggiungere la VSM.

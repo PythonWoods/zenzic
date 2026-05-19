@@ -16,6 +16,8 @@ Versions follow [Semantic Versioning](https://semver.org/).
 ### Added
 
 - Initial work on Plugin SDK architecture.
+- **Domain-Aware Discovery (`CODE_ASSET_SUFFIXES`):** Source code files (`.py`, `.pyi`, `.ts`, `.tsx`, `.rs`, `.go`, and 20+ other code extensions) are now natively exempt from Z405 `UNUSED_ASSET` enforcement in `find_unused_assets`. Files are still indexed by the discovery engine for link resolution across the docs/source boundary. No configuration change is required.
+- **Strict Local TOML Parsing:** `.zenzic.local.toml` now rejects unknown top-level keys with a fatal `ConfigurationError` (`LOCAL-TOML-STRICT`). Previously, unrecognised keys were silently discarded. Allowed sections: `core`, `build_context`, `project_metadata`, `governance`, `i18n`, `forbidden_patterns`.
 
 ---
 
