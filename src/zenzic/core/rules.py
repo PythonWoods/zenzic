@@ -605,12 +605,12 @@ def _is_suppressed(line: str, code: str) -> bool:
 
     In ``.md`` files use an HTML comment (invisible in rendered Markdown)::
 
-        Obsidian was the v0.6.x codename. <!-- zenzic-ignore: Z601 - historical reference -->
+        v0.6.x was the previous codename. <!-- zenzic-ignore: Z601 - historical reference -->
 
     In ``.mdx`` files use a JSX comment (invisible in rendered MDX and safe
     for the Docusaurus/React parser)::
 
-        Obsidian was the v0.6.x codename. {/* zenzic-ignore: Z601 - historical reference */}
+        v0.6.x was the previous codename. {/* zenzic-ignore: Z601 - historical reference */}
 
     Each suppression comment silences **only** the specified diagnostic code
     on the tagged line.  To suppress multiple codes, add multiple comments.
@@ -761,8 +761,8 @@ class BrandObsolescenceRule(BaseRule):
     **Suppression (ADR-063 — MDX-native protocol):** Add an inline suppression
     marker to the end of any line to silence Z601 for that specific occurrence::
 
-        Obsidian was the v0.6.x codename. <!-- zenzic:ignore: Z601 historical reference -->
-        Obsidian was the v0.6.x codename. {/* zenzic:ignore: Z601 historical reference */}
+        v0.6.x was the previous codename. <!-- zenzic:ignore: Z601 historical reference -->
+        v0.6.x was the previous codename. {/* zenzic:ignore: Z601 historical reference */}
 
     The comment is invisible in rendered Markdown and MDX output.  The
     deprecated token ``[HISTORICAL]`` is no longer recognised — it is visible

@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
-"""Adversarial Validation — Obsidian Stress Test: security audit tests for v0.6.1rc2.
+"""Adversarial Validation — Security Stress Test: security audit tests for v0.6.1rc2.
 
 Task 1: Path Traversal Guard Jailbreak (path traversal bypass attempts)
 Task 2: Credential Scanner Bypass (credential hiding attempts)

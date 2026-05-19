@@ -780,7 +780,7 @@ def test_init_standalone_creates_zenzic_toml(
     content = cfg.read_text(encoding="utf-8")
     assert "# --- PROJECT IDENTITY ---" in content
     assert "[project_metadata]" in content
-    assert 'release_name = "Basalt"' in content
+    assert 'release_name = "v0.8.0"' in content
     assert "suppression_cap = 30" in content
     assert "suppression_cap_fail_hard = true" in content
     assert "release-governance-protocol" in content

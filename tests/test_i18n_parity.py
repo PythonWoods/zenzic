@@ -3,7 +3,7 @@
 """Z602 I18N_PARITY — unit + Hypothesis stress tests.
 
 Validates the language-agnostic parity scanner introduced in v0.5.x
-(v0.7.0 "Quartz Maturity" / "Quarzo").  Covers:
+(v0.7.0 / "Quarzo").  Covers:
 
 * Missing target mirrors are flagged (single + multi-language).
 * ``i18n-ignore: true`` frontmatter escape hatch suppresses findings.

@@ -132,7 +132,7 @@ _ACTS: list[_Act] = [
     _Act(
         6,
         "Transparent Proxy",
-        "INFO banner — Zensical bridge with mkdocs.yml only. Z601 BRAND_OBSOLESCENCE ref to 'Obsidian' detected",
+        "INFO banner — Zensical bridge with mkdocs.yml only. Z601 BRAND_OBSOLESCENCE ref to 'v0.6.x' detected",
         "zensical-bridge",
         expected_pass=False,
     ),

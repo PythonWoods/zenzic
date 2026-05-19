@@ -897,7 +897,7 @@ def _scaffold_local_toml(repo_root: Path) -> None:
             "\n"
             "[project_metadata]\n"
             "# Optional local branding experiments without touching team config.\n"
-            '# release_name = "Basalt"\n'
+            '# release_name = "v0.8.0"\n'
             "\n"
             "[governance]\n"
             "# Want to disable fail-hard locally during massive debt cleanup?\n"
@@ -1035,7 +1035,7 @@ def _build_governance_ready_toml(*, engine: str, discovered_name: str | None) ->
         "\n"
         "# --- BRAND INTEGRITY ---\n"
         "[project_metadata]\n"
-        'release_name = "Basalt"\n'
+        'release_name = "v0.8.0"\n'
         "\n"
         "[governance]\n"
         "# Maximum allowed architectural debt (inline + per-file suppressions).\n"

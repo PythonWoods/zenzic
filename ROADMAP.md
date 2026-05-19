@@ -113,7 +113,7 @@ These constraints apply across every future release:
 | Pure Functions | The analysis engine has zero global state. |
 | DFA Guarantee | All regex matching backed by RE2. O(n) complexity. |
 | Exit Code Contract | Exit 2 = credential; Exit 3 = traversal. Never renumbered. |
-| No Inference | Zero AI/ML runtime dependencies declared in `pyproject.toml`. |
+| No Inference | Zero inference-engine runtime dependencies declared in `pyproject.toml`. |
 
 ---
 

@@ -167,7 +167,7 @@ def test_get_adapter_legacy_standalone_alias_falls_back_to_standalone(tmp_path: 
     assert isinstance(adapter, StandaloneAdapter)
 
 
-# ── discover_engine: Quartz Discovery Logic ───────────────────────────────────
+# ── discover_engine: Engine Discovery Logic ───────────────────────────────────
 
 
 def test_discover_engine_empty_dir_returns_standalone(tmp_path: Path) -> None:

@@ -333,12 +333,12 @@ def test_jsx_suppression_is_respected_for_z601() -> None:
     """MDX-native JSX suppression marker must silence Z601 on the tagged line."""
     rule = BrandObsolescenceRule(
         ProjectMetadata(
-            release_name="Basalt",
-            obsolete_names=["Obsidian"],
+            release_name="v0.8.0",
+            obsolete_names=["v0.6.x"],
             obsolete_names_exclude_patterns=[],
         )
     )
-    text = "Obsidian codename {/* zenzic:ignore: Z601 release codename */}\n"
+    text = "v0.6.x codename {/* zenzic:ignore: Z601 release codename */}\n"
     findings = rule.check(Path("docs/page.mdx"), text)
     assert findings == []
 
@@ -347,12 +347,12 @@ def test_html_suppression_still_works_for_z601() -> None:
     """Legacy/standard HTML suppression marker remains backward compatible."""
     rule = BrandObsolescenceRule(
         ProjectMetadata(
-            release_name="Basalt",
-            obsolete_names=["Obsidian"],
+            release_name="v0.8.0",
+            obsolete_names=["v0.6.x"],
             obsolete_names_exclude_patterns=[],
         )
     )
-    text = "Obsidian codename <!-- zenzic:ignore: Z601 release codename -->\n"
+    text = "v0.6.x codename <!-- zenzic:ignore: Z601 release codename -->\n"
     findings = rule.check(Path("docs/page.md"), text)
     assert findings == []
 
