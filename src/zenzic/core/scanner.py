@@ -62,22 +62,47 @@ if TYPE_CHECKING:
 CODE_ASSET_SUFFIXES: frozenset[str] = frozenset(
     {
         # Python
-        ".py", ".pyi",
+        ".py",
+        ".pyi",
         # TypeScript / JavaScript variants not already in SYSTEM_EXCLUDED_FILE_PATTERNS
-        ".ts", ".tsx", ".jsx", ".mjs", ".cjs",
+        ".ts",
+        ".tsx",
+        ".jsx",
+        ".mjs",
+        ".cjs",
         # Systems languages
-        ".rs", ".go", ".c", ".cpp", ".cc", ".cxx", ".h", ".hpp", ".hh",
-        ".cs", ".swift",
+        ".rs",
+        ".go",
+        ".c",
+        ".cpp",
+        ".cc",
+        ".cxx",
+        ".h",
+        ".hpp",
+        ".hh",
+        ".cs",
+        ".swift",
         # JVM
-        ".java", ".kt", ".kts", ".scala",
+        ".java",
+        ".kt",
+        ".kts",
+        ".scala",
         # Scripting
-        ".rb", ".php", ".lua", ".pl", ".pm",
+        ".rb",
+        ".php",
+        ".lua",
+        ".pl",
+        ".pm",
         # Functional
-        ".ex", ".exs", ".hs", ".lhs",
+        ".ex",
+        ".exs",
+        ".hs",
+        ".lhs",
         # Data / query
         ".sql",
         # Build / infra
-        ".nix", ".tf",
+        ".nix",
+        ".tf",
     }
 )
 

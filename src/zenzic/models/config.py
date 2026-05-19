@@ -797,17 +797,20 @@ class ZenzicConfig(BaseModel):
         # Note: Z108 in the public finding registry is EMPTY_LINK_TEXT (structural
         # integrity). This is a ConfigurationError raised before scanning begins —
         # not a scanner finding code.
-        _ALLOWED_LOCAL_KEYS: Final[frozenset[str]] = frozenset({
-            "core",
-            "build_context",
-            "project_metadata",
-            "governance",
-            "i18n",
-            "forbidden_patterns",
-        })
+        _ALLOWED_LOCAL_KEYS: Final[frozenset[str]] = frozenset(
+            {
+                "core",
+                "build_context",
+                "project_metadata",
+                "governance",
+                "i18n",
+                "forbidden_patterns",
+            }
+        )
         unknown_keys = set(local_data.keys()) - _ALLOWED_LOCAL_KEYS
         if unknown_keys:
             from zenzic.core.exceptions import ConfigurationError
+
             pretty = ", ".join(f"'{k}'" for k in sorted(unknown_keys))
             raise ConfigurationError(
                 f"[LOCAL-TOML-STRICT] .zenzic.local.toml contains unsupported top-level "
