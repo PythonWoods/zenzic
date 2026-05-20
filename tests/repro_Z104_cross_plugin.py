@@ -87,7 +87,7 @@ class TestReproA_MapUrl:
         # Simulate how build_vsm constructs `rel` for extra content root files:
         # prefix="developers", inner=Path("existing-page.md")
         rel = Path("developers") / "existing-page.md"
-        url = adapter.map_url(rel)
+        url = adapter.get_route_info(rel).canonical_url
 
         assert url == "/developers/existing-page/", (
             f"False Trust Bug: expected '/developers/existing-page/', got '{url}'. "
@@ -101,7 +101,7 @@ class TestReproA_MapUrl:
 
         adapter = DocusaurusAdapter.from_repo(BuildContext(engine="docusaurus"), docs, repo_root)
 
-        url = adapter.map_url(Path("guide.md"))
+        url = adapter.get_route_info(Path("guide.md")).canonical_url
         assert url == "/docs/guide/", (
             f"Regression: docs/guide.md must still map to /docs/guide/, got '{url}'."
         )

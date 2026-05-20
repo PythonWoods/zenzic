@@ -204,61 +204,61 @@ class TestMapUrl:
     def test_locale_prefix_stripped_from_url_and_reinjected(self, tmp_path: Path) -> None:
         """Files with a locale prefix produce /{locale}/docs/.../ URL."""
         adapter = _adapter(tmp_path, locales=["it"])
-        url = adapter.map_url(Path("it/guide/install.mdx"))
+        url = adapter.get_route_info(Path("it/guide/install.mdx")).canonical_url
         assert url == "/it/docs/guide/install/"
 
     def test_version_marker_produces_versioned_url(self, tmp_path: Path) -> None:
         """Non-latest versioned files get the version label in the URL."""
         # Use two versions so 1.0 is NOT the latest (2.0 is).
         adapter = _adapter(tmp_path, versions=["2.0", "1.0"])
-        url = adapter.map_url(Path("_version_/1.0/guide/install.mdx"))
+        url = adapter.get_route_info(Path("_version_/1.0/guide/install.mdx")).canonical_url
         assert url == "/docs/1.0/guide/install/"
 
     def test_version_marker_index_collapses(self, tmp_path: Path) -> None:
         """Non-latest version index.mdx collapses to /{rbp}/{ver}/."""
         # Use two versions so 2.0 is NOT the latest (3.0 is).
         adapter = _adapter(tmp_path, versions=["3.0", "2.0"])
-        url = adapter.map_url(Path("_version_/2.0/index.mdx"))
+        url = adapter.get_route_info(Path("_version_/2.0/index.mdx")).canonical_url
         assert url == "/docs/2.0/"
 
     def test_index_collapses_to_parent(self, tmp_path: Path) -> None:
         """guide/index.mdx maps to /docs/guide/."""
         adapter = _adapter(tmp_path)
-        assert adapter.map_url(Path("guide/index.mdx")) == "/docs/guide/"
+        assert adapter.get_route_info(Path("guide/index.mdx")).canonical_url == "/docs/guide/"
 
     def test_root_index_collapses_to_slash(self, tmp_path: Path) -> None:
         """index.mdx at docs root collapses to /docs/."""
         adapter = _adapter(tmp_path)
-        assert adapter.map_url(Path("index.mdx")) == "/docs/"
+        assert adapter.get_route_info(Path("index.mdx")).canonical_url == "/docs/"
 
     def test_empty_route_base_path(self, tmp_path: Path) -> None:
         """routeBasePath='' serves docs at site root."""
         adapter = _adapter(tmp_path, route_base_path="")
-        url = adapter.map_url(Path("guide/install.mdx"))
+        url = adapter.get_route_info(Path("guide/install.mdx")).canonical_url
         assert url == "/guide/install/"
 
     def test_custom_route_base_path(self, tmp_path: Path) -> None:
         """routeBasePath='reference' prefixes URL accordingly."""
         adapter = _adapter(tmp_path, route_base_path="reference")
-        url = adapter.map_url(Path("api.mdx"))
+        url = adapter.get_route_info(Path("api.mdx")).canonical_url
         assert url == "/reference/api/"
 
     def test_offline_mode_produces_html_extension(self, tmp_path: Path) -> None:
         """With offline_mode=True, URLs end in .html instead of /."""
         adapter = _adapter(tmp_path, offline=True)
-        url = adapter.map_url(Path("guide/install.mdx"))
+        url = adapter.get_route_info(Path("guide/install.mdx")).canonical_url
         assert url == "/docs/guide/install.html"
 
     def test_offline_mode_empty_url_parts_returns_index_html(self, tmp_path: Path) -> None:
         """With offline_mode and empty routeBasePath, root index → /index.html."""
         adapter = _adapter(tmp_path, route_base_path="", offline=True)
-        url = adapter.map_url(Path("index.mdx"))
+        url = adapter.get_route_info(Path("index.mdx")).canonical_url
         assert url == "/index.html"
 
     def test_locale_with_empty_rbp_offline(self, tmp_path: Path) -> None:
         """Locale + empty rbp + offline = /{locale}/page.html."""
         adapter = _adapter(tmp_path, locales=["fr"], route_base_path="", offline=True)
-        url = adapter.map_url(Path("fr/page.mdx"))
+        url = adapter.get_route_info(Path("fr/page.mdx")).canonical_url
         assert url == "/fr/page.html"
 
 
@@ -271,41 +271,27 @@ class TestClassifyRoute:
     def test_version_marker_is_reachable(self, tmp_path: Path) -> None:
         """Files under _version_/<label>/ are always REACHABLE."""
         adapter = _adapter(tmp_path, versions=["1.0"])
-        status = adapter.classify_route(Path("_version_/1.0/guide/install.mdx"), frozenset())
+        status = adapter.get_route_info(Path("_version_/1.0/guide/install.mdx")).status
         assert status == "REACHABLE"
 
     def test_underscore_in_version_path_is_not_ignored(self, tmp_path: Path) -> None:
         """_version_ marker exemption: only _version_ is exempt from IGNORED rule."""
         adapter = _adapter(tmp_path, versions=["1.0"])
         # A real user dir starting with _ inside the version path should be IGNORED
-        status = adapter.classify_route(Path("_version_/1.0/_private/page.mdx"), frozenset())
+        status = adapter.get_route_info(Path("_version_/1.0/_private/page.mdx")).status
         assert status == "IGNORED"
 
     def test_locale_index_is_ghost_route_reachable(self, tmp_path: Path) -> None:
         """Locale entry point index.mdx is a ghost route → REACHABLE even without nav."""
         adapter = _adapter(tmp_path, locales=["it"])
-        nav = frozenset({"intro.mdx"})  # it/index.mdx not listed
-        status = adapter.classify_route(Path("it/index.mdx"), nav)
+        status = adapter.get_route_info(Path("it/index.mdx")).status
         assert status == "REACHABLE"
 
     def test_locale_index_md_also_ghost_route(self, tmp_path: Path) -> None:
         """index.md (not .mdx) also qualifies as a ghost locale route."""
         adapter = _adapter(tmp_path, locales=["fr"])
-        nav = frozenset({"intro.mdx"})
-        status = adapter.classify_route(Path("fr/index.md"), nav)
+        status = adapter.get_route_info(Path("fr/index.md")).status
         assert status == "REACHABLE"
-
-    def test_orphan_when_explicit_nav_and_not_listed(self, tmp_path: Path) -> None:
-        """File present but not in explicit nav → ORPHAN_BUT_EXISTING.
-
-        Note: DocusaurusAdapter always returns empty frozenset from get_nav_paths()
-        (autogenerated sidebar mode), but classify_route still handles explicit nav
-        when nav_paths is passed from external callers.
-        """
-        adapter = _adapter(tmp_path)
-        nav = frozenset({"listed.mdx"})
-        status = adapter.classify_route(Path("unlisted.mdx"), nav)
-        assert status == "ORPHAN_BUT_EXISTING"
 
 
 # ── get_route_info ────────────────────────────────────────────────────────────

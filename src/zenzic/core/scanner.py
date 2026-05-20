@@ -49,6 +49,7 @@ from zenzic.models.references import IntegrityReport, ReferenceFinding, Referenc
 
 
 if TYPE_CHECKING:
+    from zenzic.core.adapters._base import BaseAdapter
     from zenzic.core.exclusion import LayeredExclusionManager
 
 
@@ -440,7 +441,7 @@ def find_orphans(
     nav_paths: frozenset[str] | None = None,
     is_locale_dir: Callable[[str], bool] | None = None,
     ignored_patterns: set[str] | None = None,
-    classify_route: Callable[[Path, frozenset[str]], str] | None = None,
+    adapter: BaseAdapter | None = None,
     repo_root: Path | None = None,
 ) -> list[Path]:
     """Return docs/*.md files whose adapter status is ORPHAN_BUT_EXISTING.
@@ -453,9 +454,9 @@ def find_orphans(
         nav_paths: Nav-listed markdown paths (adapter-provided).
         is_locale_dir: Callback that identifies locale directory names.
         ignored_patterns: Adapter-specific filename patterns to skip.
-        classify_route: Adapter route classifier callback.
-        repo_root: Optional repository root used to derive adapter callbacks
-            when callback arguments are omitted.
+        adapter: Adapter instance used for route classification.
+        repo_root: Optional repository root used to build the adapter
+            when adapter and other callbacks are omitted.
 
     Returns:
         List of Path objects relative to docs_root that are not in the nav.
@@ -464,19 +465,18 @@ def find_orphans(
         return []
 
     if (
-        has_engine_config is None
+        adapter is None
+        or has_engine_config is None
         or nav_paths is None
         or is_locale_dir is None
         or ignored_patterns is None
-        or classify_route is None
     ):
-        if repo_root is None:
-            raise TypeError(
-                "find_orphans requires adapter callbacks or repo_root for adapter discovery"
-            )
-        from zenzic.core.adapters._factory import get_adapter
+        if adapter is None:
+            if repo_root is None:
+                raise TypeError("find_orphans requires adapter or repo_root for adapter discovery")
+            from zenzic.core.adapters._factory import get_adapter
 
-        adapter = get_adapter(config.build_context, docs_root, repo_root)
+            adapter = get_adapter(config.build_context, docs_root, repo_root)
         if has_engine_config is None:
             has_engine_config = adapter.has_engine_config()
         if nav_paths is None:
@@ -485,13 +485,11 @@ def find_orphans(
             is_locale_dir = adapter.is_locale_dir
         if ignored_patterns is None:
             ignored_patterns = adapter.get_ignored_patterns()
-        if classify_route is None:
-            classify_route = adapter.classify_route
 
+    assert adapter is not None
     assert nav_paths is not None
     assert is_locale_dir is not None
     assert ignored_patterns is not None
-    assert classify_route is not None
     assert has_engine_config is not None
 
     if not has_engine_config:
@@ -504,7 +502,7 @@ def find_orphans(
             continue
         if any(fnmatch.fnmatch(md_file.name, pat) for pat in ignored_patterns):
             continue
-        if classify_route(rel, nav_paths) == "ORPHAN_BUT_EXISTING":
+        if adapter.get_route_info(rel).status == "ORPHAN_BUT_EXISTING":
             orphans.append(rel)
 
     return orphans

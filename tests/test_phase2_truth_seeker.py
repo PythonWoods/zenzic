@@ -20,7 +20,7 @@ runner = CliRunner()
 
 
 def test_inline_suppression_is_ignored_in_sovereign_audit_mode() -> None:
-    line = "Legacy name <!-- zenzic-ignore: Z601 - historical -->"
+    line = "Legacy name <!-- zenzic:ignore: Z601 - historical -->"
     assert _is_suppressed(line, "Z601") is True
 
     with sovereign_context(force_audit=True):

@@ -6,8 +6,8 @@ Closes gaps identified in the v0.6.1 coverage audit (74%):
   - find_zensical_config: absent file path
   - _load_zensical_config: missing config, parse exception
   - _extract_nav_paths: nested section, external URL, plain-string non-md
-  - ZensicalAdapter.map_url: offline mode (flat URLs), README.md collapsing
-  - ZensicalAdapter.classify_route: _-prefix ignored, explicit-nav orphan
+  - ZensicalAdapter._map_url: offline mode (flat URLs), README.md collapsing
+  - ZensicalAdapter._classify_route: _-prefix ignored, explicit-nav orphan
   - ZensicalAdapter.get_route_info: ignored status, orphan status
   - ZensicalAdapter.from_repo: zensical.toml present, mkdocs.yml fallback,
     unsupported-key warning, ConfigurationError when neither exists
@@ -148,40 +148,40 @@ class TestExtractNavPaths:
 class TestZensicalAdapterMapUrl:
     def test_directory_url_mode(self, tmp_path: Path) -> None:
         adapter = _adapter(tmp_path)
-        assert adapter.map_url(Path("guide/install.md")) == "/guide/install/"
+        assert adapter.get_route_info(Path("guide/install.md")).canonical_url == "/guide/install/"
 
     def test_readme_collapses_to_parent(self, tmp_path: Path) -> None:
         """README.md collapses to the parent directory URL."""
         adapter = _adapter(tmp_path)
-        assert adapter.map_url(Path("guide/README.md")) == "/guide/"
+        assert adapter.get_route_info(Path("guide/README.md")).canonical_url == "/guide/"
 
     def test_index_collapses_to_parent(self, tmp_path: Path) -> None:
         adapter = _adapter(tmp_path)
-        assert adapter.map_url(Path("guide/index.md")) == "/guide/"
+        assert adapter.get_route_info(Path("guide/index.md")).canonical_url == "/guide/"
 
     def test_root_index_collapses_to_slash(self, tmp_path: Path) -> None:
         adapter = _adapter(tmp_path)
-        assert adapter.map_url(Path("index.md")) == "/"
+        assert adapter.get_route_info(Path("index.md")).canonical_url == "/"
 
     def test_root_readme_collapses_to_slash(self, tmp_path: Path) -> None:
         adapter = _adapter(tmp_path)
-        assert adapter.map_url(Path("README.md")) == "/"
+        assert adapter.get_route_info(Path("README.md")).canonical_url == "/"
 
     def test_offline_mode_flat_url(self, tmp_path: Path) -> None:
         """With offline_mode=True (use_directory_urls=False), path is preserved."""
         adapter = _adapter(tmp_path, offline=True)
-        assert adapter.map_url(Path("guide/install.md")) == "/guide/install.md"
+        assert adapter.get_route_info(Path("guide/install.md")).canonical_url == "/guide/install.md"
 
     def test_offline_mode_index_not_collapsed(self, tmp_path: Path) -> None:
         """In offline mode, index.md is NOT collapsed (flat URL mode)."""
         adapter = _adapter(tmp_path, offline=True)
-        assert adapter.map_url(Path("guide/index.md")) == "/guide/index.md"
+        assert adapter.get_route_info(Path("guide/index.md")).canonical_url == "/guide/index.md"
 
     def test_use_directory_urls_false_via_config(self, tmp_path: Path) -> None:
         """use_directory_urls=false in zensical.toml disables directory collapsing."""
         config = {"project": {"use_directory_urls": False}}
         adapter = _adapter(tmp_path, config)
-        assert adapter.map_url(Path("page.md")) == "/page.md"
+        assert adapter.get_route_info(Path("page.md")).canonical_url == "/page.md"
 
     def test_empty_parts_returns_slash(self, tmp_path: Path) -> None:
         """Edge case: a path with no parts maps to /."""
@@ -189,7 +189,7 @@ class TestZensicalAdapterMapUrl:
         # Pathlib won't produce an empty Path naturally, but we can fake it
         # by using a path that after stripping yields empty parts.
         # index.md at root → already covered; test stem stripping:
-        url = adapter.map_url(Path("index.md"))
+        url = adapter.get_route_info(Path("index.md")).canonical_url
         assert url == "/"
 
 
@@ -199,26 +199,25 @@ class TestZensicalAdapterMapUrl:
 class TestZensicalAdapterClassifyRoute:
     def test_underscore_prefix_ignored(self, tmp_path: Path) -> None:
         adapter = _adapter(tmp_path)
-        assert adapter.classify_route(Path("_private/page.md"), frozenset()) == "IGNORED"
+        assert adapter.get_route_info(Path("_private/page.md")).status == "IGNORED"
 
     def test_nested_underscore_ignored(self, tmp_path: Path) -> None:
         adapter = _adapter(tmp_path)
-        assert adapter.classify_route(Path("guide/_draft.md"), frozenset()) == "IGNORED"
+        assert adapter.get_route_info(Path("guide/_draft.md")).status == "IGNORED"
 
     def test_reachable_when_no_explicit_nav(self, tmp_path: Path) -> None:
         adapter = _adapter(tmp_path, {})
-        assert adapter.classify_route(Path("page.md"), frozenset()) == "REACHABLE"
+        assert adapter.get_route_info(Path("page.md")).status == "REACHABLE"
 
     def test_reachable_when_in_nav(self, tmp_path: Path) -> None:
         config = {"project": {"nav": ["page.md"]}}
         adapter = _adapter(tmp_path, config)
-        assert adapter.classify_route(Path("page.md"), frozenset({"page.md"})) == "REACHABLE"
+        assert adapter.get_route_info(Path("page.md")).status == "REACHABLE"
 
     def test_orphan_when_explicit_nav_and_not_listed(self, tmp_path: Path) -> None:
         config = {"project": {"nav": ["index.md"]}}
         adapter = _adapter(tmp_path, config)
-        nav = adapter.get_nav_paths()
-        assert adapter.classify_route(Path("unlisted.md"), nav) == "ORPHAN_BUT_EXISTING"
+        assert adapter.get_route_info(Path("unlisted.md")).status == "ORPHAN_BUT_EXISTING"
 
 
 # ── ZensicalAdapter.get_route_info ────────────────────────────────────────────

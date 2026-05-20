@@ -366,7 +366,7 @@ class TestSuppressionCapE2E:
         )
 
         suppressions = "\n".join(
-            f"Allowed historical note {i}. <!-- zenzic-ignore: Z601 - test -->"
+            f"Allowed historical note {i}. <!-- zenzic:ignore: Z601 - test -->"
             for i in range(1, inline_count + 1)
         )
         page = tmp_path / "docs" / "index.md"

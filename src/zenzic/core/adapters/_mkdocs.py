@@ -595,7 +595,7 @@ class MkDocsAdapter(BaseAdapter):
 
     # ── VSM integration ────────────────────────────────────────────────────────
 
-    def map_url(self, rel: Path) -> str:
+    def _map_url(self, rel: Path) -> str:
         """Map a physical source path to its MkDocs canonical URL.
 
         Applies the MkDocs ``use_directory_urls`` rule (default ``true``):
@@ -633,7 +633,7 @@ class MkDocsAdapter(BaseAdapter):
             return "/" + "/".join(parts) + "/"
         return "/" + "/".join(parts) + ".html"
 
-    def classify_route(self, rel: Path, nav_paths: frozenset[str]) -> RouteStatus:
+    def _classify_route(self, rel: Path, nav_paths: frozenset[str]) -> RouteStatus:
         """Classify a MkDocs route as REACHABLE, ORPHAN_BUT_EXISTING, or IGNORED.
 
         Classification rules (in priority order):
@@ -693,7 +693,7 @@ class MkDocsAdapter(BaseAdapter):
     def get_route_info(self, rel: Path) -> RouteMetadata:
         """Return unified routing metadata for a MkDocs source file.
 
-        Delegates to ``map_url()`` and ``classify_route()`` internally,
+        Delegates to ``_map_url()`` and ``_classify_route()`` internally,
         wrapping the results in :class:`RouteMetadata`.
 
         MkDocs does not support frontmatter ``slug:`` — the slug field is
@@ -703,8 +703,8 @@ class MkDocsAdapter(BaseAdapter):
         from zenzic.core.adapters._base import RouteMetadata
 
         nav_paths = self.get_nav_paths()
-        canonical_url = self.map_url(rel)
-        status = self.classify_route(rel, nav_paths)
+        canonical_url = self._map_url(rel)
+        status = self._classify_route(rel, nav_paths)
 
         # Detect proxy routes: reconfigure_material auto-generates locale
         # entry points that have no physical nav entry.

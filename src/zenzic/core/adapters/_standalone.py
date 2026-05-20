@@ -12,7 +12,6 @@ from zenzic.core.adapters._base import BaseAdapter
 
 if TYPE_CHECKING:
     from zenzic.core.adapters._base import RouteMetadata
-    from zenzic.models.vsm import RouteStatus
 
 
 class StandaloneAdapter(BaseAdapter):
@@ -67,8 +66,8 @@ class StandaloneAdapter(BaseAdapter):
         """StandaloneAdapter has no engine config file."""
         return frozenset()
 
-    def map_url(self, rel: Path) -> str:  # noqa: ARG002
-        """Fallback URL mapping: same clean-URL rule as Zensical."""
+    def _map_url(self, rel: Path) -> str:
+        """Filesystem-derived clean URL — same rule as Zensical."""
         stem = rel.with_suffix("")
         parts = list(stem.parts)
         if not parts:
@@ -79,14 +78,6 @@ class StandaloneAdapter(BaseAdapter):
             return "/"
         return "/" + "/".join(parts) + "/"
 
-    def classify_route(  # noqa: ARG002
-        self,
-        rel: Path,
-        nav_paths: frozenset[str],
-    ) -> RouteStatus:
-        """Always ``REACHABLE`` — no nav to compare against."""
-        return "REACHABLE"
-
     def get_route_info(self, rel: Path) -> RouteMetadata:
         """Return route metadata derived purely from the filesystem.
 
@@ -96,7 +87,7 @@ class StandaloneAdapter(BaseAdapter):
         from zenzic.core.adapters._base import RouteMetadata
 
         return RouteMetadata(
-            canonical_url=self.map_url(rel),
+            canonical_url=self._map_url(rel),
             status="REACHABLE",
         )
 

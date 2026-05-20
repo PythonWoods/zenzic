@@ -108,7 +108,7 @@ def iter_locale_markdown_sources(
 
         i18n/it/.../current/architecture.mdx  →  (abs_path, Path("it/architecture.mdx"))
 
-    The locale prefix makes ``map_url(logical_rel)`` produce the correct
+    The locale prefix makes ``_map_url(logical_rel)`` produce the correct
     locale-prefixed URL (e.g. ``/it/architecture/``) without any special-casing
     in the adapter.
 

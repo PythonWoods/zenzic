@@ -422,12 +422,6 @@ class TestCredentialScannerMiddleware:
 class TestStandaloneNoSpuriousWarnings:
     """StandaloneAdapter must not emit warnings on pure Markdown repos."""
 
-    def test_no_warnings_on_classify(self, capsys: pytest.CaptureFixture[str]) -> None:
-        adapter = StandaloneAdapter()
-        adapter.classify_route(Path("page.md"), frozenset())
-        captured = capsys.readouterr()
-        assert captured.err == ""
-
     def test_no_warnings_on_get_route_info(self, capsys: pytest.CaptureFixture[str]) -> None:
         adapter = StandaloneAdapter()
         adapter.get_route_info(Path("page.md"))

@@ -1119,7 +1119,7 @@ async def validate_links_async(
                         except ValueError:
                             pass  # target outside docs_root — already handled by credential scanner
                         else:
-                            target_url = adapter.map_url(target_rel)
+                            target_url = adapter.get_route_info(target_rel).canonical_url
                             route = vsm.get(target_url)
                             if route is not None and route.status in (
                                 "ORPHAN_BUT_EXISTING",

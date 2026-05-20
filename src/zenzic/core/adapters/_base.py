@@ -102,14 +102,6 @@ class BaseAdapter(ABC):
     def get_route_info(self, rel: Path) -> RouteMetadata:
         """Return canonical URL and route status metadata for ``rel``."""
 
-    def map_url(self, rel: Path) -> str:
-        """Route mapping API backed by :meth:`get_route_info`."""
-        return self.get_route_info(rel).canonical_url
-
-    def classify_route(self, rel: Path, nav_paths: frozenset[str]) -> RouteStatus:  # noqa: ARG002
-        """Route classification API backed by :meth:`get_route_info`."""
-        return self.get_route_info(rel).status
-
     @abstractmethod
     def provides_index(self, directory_path: Path) -> bool:
         """Return whether the engine serves a landing page for ``directory_path``."""

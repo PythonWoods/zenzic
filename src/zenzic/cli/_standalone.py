@@ -92,7 +92,7 @@ def _run_all_checks(
         nav_paths=adapter.get_nav_paths(),
         is_locale_dir=adapter.is_locale_dir,
         ignored_patterns=adapter.get_ignored_patterns(),
-        classify_route=adapter.classify_route,
+        adapter=adapter,
     )
     snippet_errors = validate_snippets(docs_root, exclusion_mgr, config=config)
     placeholders = find_placeholders(

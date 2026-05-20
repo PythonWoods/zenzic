@@ -60,18 +60,14 @@ def _run_find_orphans(
     config: ZenzicConfig,
     mgr: LayeredExclusionManager,
 ) -> list[Path]:
-    """Execute find_orphans using strict adapter callbacks."""
+    """Execute find_orphans via adapter."""
     docs_root = repo_root / config.docs_dir
     adapter = get_adapter(config.build_context, docs_root, repo_root)
     return find_orphans(
         docs_root,
         mgr,
         config=config,
-        has_engine_config=adapter.has_engine_config(),
-        nav_paths=adapter.get_nav_paths(),
-        is_locale_dir=adapter.is_locale_dir,
-        ignored_patterns=adapter.get_ignored_patterns(),
-        classify_route=adapter.classify_route,
+        adapter=adapter,
     )
 
 

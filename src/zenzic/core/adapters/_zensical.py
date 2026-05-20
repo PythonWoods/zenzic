@@ -302,7 +302,7 @@ class ZensicalAdapter(BaseAdapter):
 
     # ── VSM integration ────────────────────────────────────────────────────────
 
-    def map_url(self, rel: Path) -> str:
+    def _map_url(self, rel: Path) -> str:
         """Map a physical source path to its Zensical canonical URL.
 
         Zensical always serves clean directory-style URLs.  Both ``index.md``
@@ -323,7 +323,7 @@ class ZensicalAdapter(BaseAdapter):
             index.md       → /index.html
 
         Files inside ``_private``-prefixed path segments are mapped normally
-        here; ``classify_route()`` marks them ``IGNORED``.
+        here; ``_classify_route()`` marks them ``IGNORED``.
 
         Args:
             rel: Path of the source file relative to ``docs_root``.
@@ -345,7 +345,7 @@ class ZensicalAdapter(BaseAdapter):
             return "/"
         return "/" + "/".join(parts) + "/"
 
-    def classify_route(self, rel: Path, nav_paths: frozenset[str]) -> RouteStatus:
+    def _classify_route(self, rel: Path, nav_paths: frozenset[str]) -> RouteStatus:
         """Classify a Zensical route by filesystem and nav rules.
 
         Priority chain:
@@ -392,8 +392,8 @@ class ZensicalAdapter(BaseAdapter):
 
         nav_paths = self.get_nav_paths()
         return RouteMetadata(
-            canonical_url=self.map_url(rel),
-            status=self.classify_route(rel, nav_paths),
+            canonical_url=self._map_url(rel),
+            status=self._classify_route(rel, nav_paths),
         )
 
     def provides_index(self, directory_path: Path) -> bool:

@@ -117,8 +117,8 @@ def test_mkdocs_adapter_is_pickleable_for_parallel_execution() -> None:
     restored = pickle.loads(data)
 
     assert isinstance(restored, MkDocsAdapter)
-    assert restored.map_url(Path("guide.md")) == "/guide.html"
-    assert restored.classify_route(Path("it/index.md"), frozenset({"index.md"})) == "REACHABLE"
+    assert restored.get_route_info(Path("guide.md")).canonical_url == "/guide.html"
+    assert restored.get_route_info(Path("it/index.md")).status == "REACHABLE"
 
 
 def test_loader_remains_tolerant_of_unknown_custom_tags(tmp_path: Path) -> None:

@@ -94,7 +94,7 @@ class TestTruth001LatestVersionIsRoot:
     def test_latest_version_produces_no_version_prefix(self) -> None:
         """versioned_docs/version-1.1.0/hello.md (latest) → /docs/hello/."""
         adapter = _adapter(versions=["1.1.0", "1.0.0"])
-        url = adapter.map_url(Path("_version_/1.1.0/hello.md"))
+        url = adapter.get_route_info(Path("_version_/1.1.0/hello.md")).canonical_url
         assert url == "/docs/hello/", (
             "Latest version must NOT include version label in URL. "
             f"Got: {url} — expected: /docs/hello/"
@@ -103,7 +103,7 @@ class TestTruth001LatestVersionIsRoot:
     def test_older_version_produces_version_prefix(self) -> None:
         """versioned_docs/version-1.0.0/hello.md (older) → /docs/1.0.0/hello/."""
         adapter = _adapter(versions=["1.1.0", "1.0.0"])
-        url = adapter.map_url(Path("_version_/1.0.0/hello.md"))
+        url = adapter.get_route_info(Path("_version_/1.0.0/hello.md")).canonical_url
         assert url == "/docs/1.0.0/hello/", (
             "Non-latest version MUST include version label in URL. "
             f"Got: {url} — expected: /docs/1.0.0/hello/"
@@ -112,31 +112,31 @@ class TestTruth001LatestVersionIsRoot:
     def test_single_version_is_treated_as_latest(self) -> None:
         """With only one version in versions.json, it is the latest."""
         adapter = _adapter(versions=["2.0.0"])
-        url = adapter.map_url(Path("_version_/2.0.0/intro.md"))
+        url = adapter.get_route_info(Path("_version_/2.0.0/intro.md")).canonical_url
         assert url == "/docs/intro/"
 
     def test_no_versions_list_is_unaffected(self) -> None:
         """Adapter with no versions list is not impacted."""
         adapter = _adapter(versions=[])
-        url = adapter.map_url(Path("intro.md"))
+        url = adapter.get_route_info(Path("intro.md")).canonical_url
         assert url == "/docs/intro/"
 
     def test_latest_version_nested_path(self) -> None:
         """Latest version preserves subdirectory structure without version label."""
         adapter = _adapter(versions=["3.0.0", "2.0.0", "1.0.0"])
-        url = adapter.map_url(Path("_version_/3.0.0/guides/setup.md"))
+        url = adapter.get_route_info(Path("_version_/3.0.0/guides/setup.md")).canonical_url
         assert url == "/docs/guides/setup/"
 
     def test_older_version_nested_path(self) -> None:
         """Older versions retain their version label even for nested files."""
         adapter = _adapter(versions=["3.0.0", "2.0.0", "1.0.0"])
-        url = adapter.map_url(Path("_version_/2.0.0/guides/setup.md"))
+        url = adapter.get_route_info(Path("_version_/2.0.0/guides/setup.md")).canonical_url
         assert url == "/docs/2.0.0/guides/setup/"
 
     def test_latest_version_index_collapse(self) -> None:
         """Latest version index.md collapses to routeBasePath root."""
         adapter = _adapter(versions=["1.1.0", "1.0.0"])
-        url = adapter.map_url(Path("_version_/1.1.0/index.md"))
+        url = adapter.get_route_info(Path("_version_/1.1.0/index.md")).canonical_url
         assert url == "/docs/"
 
     def test_latest_version_attribute_stored(self) -> None:
@@ -165,7 +165,7 @@ class TestTruth002AbsoluteSlugWithRouteBasePath:
         """slug: /bonjour + routeBasePath=docs → /docs/bonjour/."""
         adapter = _adapter(route_base_path="docs")
         adapter.set_slug_map({DOCS_ROOT / "tutorial.md": "---\nslug: /bonjour\n---\n# T"})
-        url = adapter.map_url(Path("tutorial.md"))
+        url = adapter.get_route_info(Path("tutorial.md")).canonical_url
         assert url == "/docs/bonjour/", (
             "Absolute slug must be prefixed with routeBasePath. "
             f"Got: {url} — expected: /docs/bonjour/"
@@ -175,35 +175,35 @@ class TestTruth002AbsoluteSlugWithRouteBasePath:
         """slug: /bonjour + routeBasePath='' → /bonjour/ (docs at site root)."""
         adapter = _adapter(route_base_path="")
         adapter.set_slug_map({DOCS_ROOT / "tutorial.md": "---\nslug: /bonjour\n---\n# T"})
-        url = adapter.map_url(Path("tutorial.md"))
+        url = adapter.get_route_info(Path("tutorial.md")).canonical_url
         assert url == "/bonjour/"
 
     def test_absolute_slug_custom_route_base_path(self) -> None:
         """slug: /abc + routeBasePath=reference → /reference/abc/."""
         adapter = _adapter(route_base_path="reference")
         adapter.set_slug_map({DOCS_ROOT / "api.md": "---\nslug: /abc\n---\n# A"})
-        url = adapter.map_url(Path("api.md"))
+        url = adapter.get_route_info(Path("api.md")).canonical_url
         assert url == "/reference/abc/"
 
     def test_absolute_slug_nested_path(self) -> None:
         """slug: /custom/deep/path + routeBasePath=docs → /docs/custom/deep/path/."""
         adapter = _adapter(route_base_path="docs")
         adapter.set_slug_map({DOCS_ROOT / "page.md": "---\nslug: /custom/deep/path\n---\n# P"})
-        url = adapter.map_url(Path("page.md"))
+        url = adapter.get_route_info(Path("page.md")).canonical_url
         assert url == "/docs/custom/deep/path/"
 
     def test_relative_slug_unchanged(self) -> None:
         """Relative slugs (no leading /) still replace the last path segment only."""
         adapter = _adapter(route_base_path="docs")
         adapter.set_slug_map({DOCS_ROOT / "guide/install.md": "---\nslug: setup\n---\n# S"})
-        url = adapter.map_url(Path("guide/install.md"))
+        url = adapter.get_route_info(Path("guide/install.md")).canonical_url
         assert url == "/guide/setup/"
 
     def test_default_route_base_path_used_when_none(self) -> None:
         """When route_base_path is None, Docusaurus default 'docs' is used."""
         adapter = _adapter(route_base_path=None)
         adapter.set_slug_map({DOCS_ROOT / "page.md": "---\nslug: /hello\n---\n# H"})
-        url = adapter.map_url(Path("page.md"))
+        url = adapter.get_route_info(Path("page.md")).canonical_url
         assert url == "/docs/hello/"
 
 
@@ -220,75 +220,75 @@ class TestTruth003SmartIndexCollapsing:
     def test_readme_md_collapses_to_parent(self) -> None:
         """guides/README.md → /docs/guides/ (not /docs/guides/readme/)."""
         adapter = _adapter()
-        url = adapter.map_url(Path("guides/README.md"))
+        url = adapter.get_route_info(Path("guides/README.md")).canonical_url
         assert url == "/docs/guides/"
 
     def test_readme_mdx_collapses_to_parent(self) -> None:
         """guides/README.mdx collapses identically to README.md."""
         adapter = _adapter()
-        url = adapter.map_url(Path("guides/README.mdx"))
+        url = adapter.get_route_info(Path("guides/README.mdx")).canonical_url
         assert url == "/docs/guides/"
 
     def test_readme_case_insensitive(self) -> None:
         """readme.md (lowercase) also collapses."""
         adapter = _adapter()
-        url = adapter.map_url(Path("guides/readme.md"))
+        url = adapter.get_route_info(Path("guides/readme.md")).canonical_url
         assert url == "/docs/guides/"
 
     def test_index_uppercase_collapses(self) -> None:
         """INDEX.md (uppercase) collapses case-insensitively."""
         adapter = _adapter()
-        url = adapter.map_url(Path("guides/INDEX.md"))
+        url = adapter.get_route_info(Path("guides/INDEX.md")).canonical_url
         assert url == "/docs/guides/"
 
     def test_same_name_as_folder_collapses(self) -> None:
         """Guides/Guides.md collapses to /docs/Guides/ (FolderName == FileName)."""
         adapter = _adapter()
-        url = adapter.map_url(Path("Guides/Guides.md"))
+        url = adapter.get_route_info(Path("Guides/Guides.md")).canonical_url
         assert url == "/docs/Guides/"
 
     def test_same_name_as_folder_case_insensitive(self) -> None:
         """guides/GUIDES.md collapses case-insensitively."""
         adapter = _adapter()
-        url = adapter.map_url(Path("guides/GUIDES.md"))
+        url = adapter.get_route_info(Path("guides/GUIDES.md")).canonical_url
         assert url == "/docs/guides/"
 
     def test_same_name_lowercase(self) -> None:
         """guides/guides.md collapses to /docs/guides/."""
         adapter = _adapter()
-        url = adapter.map_url(Path("guides/guides.md"))
+        url = adapter.get_route_info(Path("guides/guides.md")).canonical_url
         assert url == "/docs/guides/"
 
     def test_non_matching_name_does_not_collapse(self) -> None:
         """guides/intro.md does NOT collapse (intro != guides)."""
         adapter = _adapter()
-        url = adapter.map_url(Path("guides/intro.md"))
+        url = adapter.get_route_info(Path("guides/intro.md")).canonical_url
         assert url == "/docs/guides/intro/"
 
     def test_standard_index_still_collapses(self) -> None:
         """Original index.md collapse still works after the smart expansion."""
         adapter = _adapter()
-        url = adapter.map_url(Path("guides/index.md"))
+        url = adapter.get_route_info(Path("guides/index.md")).canonical_url
         assert url == "/docs/guides/"
 
     def test_readme_at_root_collapses_to_root(self) -> None:
         """A top-level README.md collapses to the routeBasePath root."""
         adapter = _adapter()
-        url = adapter.map_url(Path("README.md"))
+        url = adapter.get_route_info(Path("README.md")).canonical_url
         # No parent folder → parts = [] after collapse → /docs/
         assert url == "/docs/"
 
     def test_deep_nested_readme_collapses(self) -> None:
         """api/v2/README.md → /docs/api/v2/."""
         adapter = _adapter()
-        url = adapter.map_url(Path("api/v2/README.md"))
+        url = adapter.get_route_info(Path("api/v2/README.md")).canonical_url
         assert url == "/docs/api/v2/"
 
     def test_same_name_does_not_apply_at_root_level(self) -> None:
         """At root level there is no parent folder — same-name cannot match."""
         adapter = _adapter()
         # "guides.md" at root: parts[-1]="guides", no parts[-2] → no collapse
-        url = adapter.map_url(Path("guides.md"))
+        url = adapter.get_route_info(Path("guides.md")).canonical_url
         assert url == "/docs/guides/"
 
 

@@ -286,7 +286,7 @@ def check_orphans(
         nav_paths=adapter.get_nav_paths(),
         is_locale_dir=adapter.is_locale_dir,
         ignored_patterns=adapter.get_ignored_patterns(),
-        classify_route=adapter.classify_route,
+        adapter=adapter,
     )
     elapsed = time.monotonic() - t0
 
@@ -1027,7 +1027,7 @@ def _collect_all_results(
             nav_paths=adapter.get_nav_paths(),
             is_locale_dir=adapter.is_locale_dir,
             ignored_patterns=adapter.get_ignored_patterns(),
-            classify_route=adapter.classify_route,
+            adapter=adapter,
         ),
         snippet_errors=validate_snippets(docs_root, exclusion_mgr, config=config),
         placeholders=find_placeholders(
