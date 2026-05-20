@@ -237,15 +237,16 @@ def test_apply_local_toml_legacy_dev_toml_raises(tmp_path: Path) -> None:
 
 
 def test_apply_local_toml_forbidden_patterns_merged(tmp_path: Path) -> None:
-    """forbidden_patterns from [core] and top-level are merged additively."""
+    """forbidden_patterns from [core], [governance], and top-level are merged additively."""
     (tmp_path / "zenzic.toml").write_text("forbidden_patterns = ['secret-a']\n")
     (tmp_path / ".zenzic.local.toml").write_text(
-        "forbidden_patterns = ['secret-b']\n[core]\nforbidden_patterns = ['secret-c']\n"
+        "forbidden_patterns = ['secret-b']\n[core]\nforbidden_patterns = ['secret-c']\n[governance]\nforbidden_patterns = ['secret-d']\n"
     )
     config, _ = ZenzicConfig.load(tmp_path)
     assert "secret-a" in config.forbidden_patterns
     assert "secret-b" in config.forbidden_patterns
     assert "secret-c" in config.forbidden_patterns
+    assert "secret-d" in config.forbidden_patterns
 
 
 def test_apply_local_toml_overrides_governance(tmp_path: Path) -> None:

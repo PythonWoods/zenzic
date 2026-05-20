@@ -14,7 +14,7 @@
 #   forbidden_patterns  — top-level ADDITIVE shorthand (legacy; prefer [core].forbidden_patterns)
 #
 # Z108 STRICT VALIDATION: unknown top-level keys raise a ConfigurationError.
-# Allowed sections: core, build_context, project_metadata, governance, i18n, forbidden_patterns.
+# Allowed sections: core, build_context, project_metadata, governance, i18n, forbidden_patterns, secrets, debug, env.
 #
 # Usage:
 #   cp .zenzic.local.toml.example .zenzic.local.toml

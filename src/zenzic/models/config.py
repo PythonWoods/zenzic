@@ -809,6 +809,9 @@ class ZenzicConfig(BaseModel):
                 "governance",
                 "i18n",
                 "forbidden_patterns",
+                "secrets",
+                "debug",
+                "env",
             }
         )
         unknown_keys = set(local_data.keys()) - _ALLOWED_LOCAL_KEYS
@@ -820,7 +823,7 @@ class ZenzicConfig(BaseModel):
                 f"[LOCAL-TOML-STRICT] .zenzic.local.toml contains unsupported top-level "
                 f"key(s): {pretty}.\n"
                 "Allowed sections: core, build_context, project_metadata, governance, i18n, "
-                "forbidden_patterns.\n"
+                "forbidden_patterns, secrets, debug, env.\n"
                 "Remove the unknown key(s) or check the .zenzic.local.toml.example template.",
                 context={"unknown_keys": sorted(unknown_keys), "file": str(local_toml)},
             )
@@ -898,5 +901,13 @@ class ZenzicConfig(BaseModel):
         )
         if isinstance(core_forbidden, list):
             merged_forbidden.extend(core_forbidden)
+
+        gov_forbidden = (
+            governance_local.get("forbidden_patterns", [])
+            if isinstance(governance_local, dict)
+            else []
+        )
+        if isinstance(gov_forbidden, list):
+            merged_forbidden.extend(gov_forbidden)
 
         config.forbidden_patterns = list(dict.fromkeys(merged_forbidden))

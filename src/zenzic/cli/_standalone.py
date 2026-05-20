@@ -1026,12 +1026,23 @@ def _build_governance_ready_toml(*, engine: str, discovered_name: str | None) ->
         'docs_dir = "docs"\n'
         "strict = true\n"
         "fail_under = 100\n"
+        "# exit_zero = false\n"
+        "# respect_vcs_ignore = true\n"
+        "# validate_same_page_anchors = true\n"
+        "\n"
+        "# External URLs excluded from the broken-link check (applies only with --strict)\n"
+        '# excluded_external_urls = ["https://github.com/YourOrg/YourRepo"]\n'
         "\n"
         "# --- ENGINE CONTEXT ---\n"
         "[build_context]\n"
         f'engine         = "{engine}" # Supported: docusaurus, mkdocs, zensical, standalone\n'
         'base_url       = "/"\n'
         'default_locale = "en"\n'
+        "\n"
+        "# --- PLACEHOLDERS & CODE SNIPPETS (Optional) ---\n"
+        '# placeholder_patterns = ["coming soon", "work in progress", "wip", "todo"]\n'
+        "# placeholder_max_words = 50\n"
+        "# snippet_min_lines = 1\n"
         "\n"
         "# --- BRAND INTEGRITY ---\n"
         "[project_metadata]\n"
@@ -1073,6 +1084,22 @@ def _build_governance_ready_toml(*, engine: str, discovered_name: str | None) ->
         "# Prefer [governance.per_file_ignores] for targeted suppression with an audit trail.\n"
         '# excluded_dirs = ["legacy/", "third-party/"]\n'
         '# excluded_file_patterns = ["*.tmp", "*.log"]\n'
+        '# excluded_assets = ["favicon.ico"]\n'
+        '# excluded_asset_dirs = ["theme/"]\n'
+        '# excluded_build_artifacts = ["pdf/*.pdf"]\n'
+        "# included_dirs = []\n"
+        "# included_file_patterns = []\n"
+        "\n"
+        "# --- PLUGINS (Optional) ---\n"
+        "# plugins = []\n"
+        "\n"
+        "# --- CUSTOM RULES (Optional) ---\n"
+        "# Declares project-specific regex-based lint rules applied line-by-line.\n"
+        "# [[custom_rules]]\n"
+        '# id       = "ZZ-NOCLICKHERE"\n'
+        '# pattern  = "(?i)\\\\bclick here\\\\b"\n'
+        '# message  = "Avoid generic link text. Use a meaningful description."\n'
+        '# severity = "error"\n'
         "\n"
         "# --- I18N PARITY (Optional) ---\n"
         "# [i18n]\n"

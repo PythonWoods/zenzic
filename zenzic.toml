@@ -89,7 +89,7 @@ severity = "error"
 [[custom_rules]]
 id = "ZZ-ADR075-AI"
 pattern = "(?i)\\bai\\b"
-message = "Il termine 'ai' viola ADR-075 (Inconsapevolezza Radicale). Zenzic \u00e8 un Analizzatore Statico della Documentazione agnostico rispetto a qualsiasi tecnologia di inferenza."
+message = "Il termine 'ai' viola ADR-075 (Inconsapevolezza Radicale). Zenzic è un Analizzatore Statico della Documentazione agnostico rispetto a qualsiasi tecnologia di inferenza."
 severity = "error"
 
 # ── Brand integrity ──────────────────────────────────────────────────────────
