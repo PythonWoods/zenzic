@@ -543,17 +543,13 @@ _ANCHOR_LINK_RE = re.compile(r"\[([^\[\]]+)\]\(#([^)]+)\)")
 #: (CommonMark invariant — a closing fence never has an info string).
 _FENCE_OPEN_RE = re.compile(r"^(?P<fence>[`~]{3,})(?P<info>.*)$")
 
-#: CEO-142/143 — Silent Suppression Protocol (Polymorphic Suppression).
-#: Matches BOTH Markdown HTML comments AND MDX/JSX comments in one pass.
+#: Strict suppression protocol: only exact ``zenzic:ignore:`` directives are valid.
+#: Matches both Markdown HTML comments and MDX/JSX comments.
 #:
-#:   Markdown (.md) syntax:  ``<!-- zenzic-ignore: Z905 - reason -->``
-#:   MDX (.mdx) syntax:      ``{/* zenzic-ignore: Z905 - reason */}``
-#:
-#: Legacy syntax ``zenzic:ignore: Z905`` and ADR-062 form
-#: ``zenzic:ignore: Z905`` remain supported for compatibility.
+#:   Markdown (.md) syntax:  ``<!-- zenzic:ignore: Z905 - reason -->``
+#:   MDX (.mdx) syntax:      ``{/* zenzic:ignore: Z905 - reason */}``
 _SUPPRESS_RE = re.compile(
-    r"(?:<!--|\{/\*)\s*(?:zenzic-ignore\s*:\s*|zenzic:ignore\s*:?\s*)(?P<code>Z\d{3})(?:[^\n]*?)?(?:-->|\*/\})",
-    re.IGNORECASE,
+    r"(?:<!--|\{/\*)\s*zenzic:ignore:\s*(?P<code>Z\d{3})(?:[^\n]*?)?(?:-->|\*/\})",
 )
 
 #: ADR-084 — Strip backtick inline code spans before counting suppressions.
@@ -605,12 +601,12 @@ def _is_suppressed(line: str, code: str) -> bool:
 
     In ``.md`` files use an HTML comment (invisible in rendered Markdown)::
 
-        v0.6.x was the previous codename. <!-- zenzic-ignore: Z601 - historical reference -->
+        v0.6.x was the previous codename. <!-- zenzic:ignore: Z601 - historical reference -->
 
     In ``.mdx`` files use a JSX comment (invisible in rendered MDX and safe
     for the Docusaurus/React parser)::
 
-        v0.6.x was the previous codename. {/* zenzic-ignore: Z601 - historical reference */}
+        v0.6.x was the previous codename. {/* zenzic:ignore: Z601 - historical reference */}
 
     Each suppression comment silences **only** the specified diagnostic code
     on the tagged line.  To suppress multiple codes, add multiple comments.
@@ -799,7 +795,6 @@ class BrandObsolescenceRule(BaseRule):
                 return []
 
         findings: list[RuleFinding] = []
-        hint = f" use '{self._release_name}' instead." if self._release_name else ""
         # Fence-tracking state — body lines inside code blocks are not brand
         # claims and must not trigger Z905 (CEO-152).
         inside_fence: bool = False
@@ -832,8 +827,8 @@ class BrandObsolescenceRule(BaseRule):
                             line_no=line_no,
                             rule_id=self.rule_id,
                             message=(
-                                f"Obsolete brand term '{m.group(0)}':{hint} "
-                                "Add <!-- zenzic:ignore: Z601 reason --> (Markdown/HTML) or {/* zenzic:ignore: Z601 reason */} (MDX/JSX) to suppress intentional references."
+                                f"[Z601] Obsolete or unauthorized brand term '{m.group(0)}' detected. "
+                                "Use semantic versioning (e.g., 'vX.Y.Z') in active prose, or suppress if this is a historical ledger."
                             ),
                             severity="warning",
                             matched_line=line,

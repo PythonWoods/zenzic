@@ -13,8 +13,8 @@ For the current release history, see the [main Changelog](../CHANGELOG.md).
 | v0.3.x | — | 2026-03-24 | [v0.3.md](./v0.3.md) |
 | v0.4.x | — | 2026-03-26 | [v0.4.md](./v0.4.md) |
 | v0.5.x | — | 2026-04-02 | [v0.5.md](./v0.5.md) |
-| v0.6.x | Obsidian<!-- zenzic-ignore: Z601 - release codename --> | 2026-04-12 | [v0.6.md](./v0.6.md) |
-| v0.7.x | Quartz<!-- zenzic-ignore: Z601 - release codename --> | 2026-05-07 | [v0.7.md](./v0.7.md) |
+| v0.6.x | Obsidian<!-- zenzic:ignore: Z601 - release codename --> | 2026-04-12 | [v0.6.md](./v0.6.md) |
+| v0.7.x | Quartz<!-- zenzic:ignore: Z601 - release codename --> | 2026-05-07 | [v0.7.md](./v0.7.md) |
 
 Archives follow [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format.
 All dates are git-tag verified for v0.4.0-rc2 and later.

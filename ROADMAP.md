@@ -29,7 +29,7 @@ For the current release history, see [CHANGELOG.md](CHANGELOG.md).
   and lookaheads rejected at load time.
 - `zenzic inspect codes`: live canonical code registry with tier, ownership, and
   non-suppressibility flag.
-- Legacy migration map: `LEGACY_TO_CODE` for transparent `Z903→Z405`, `Z904→Z406`,
+- Code migration map: `LEGACY_TO_CODE` for transparent `Z903→Z405`, `Z904→Z406`,
   `Z905→Z601`, `Z907→Z602` diagnostics.
 
 ### Planned for v0.8.x patch releases

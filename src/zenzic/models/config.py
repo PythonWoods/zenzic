@@ -871,8 +871,17 @@ class ZenzicConfig(BaseModel):
         governance_local = local_data.get("governance")
         if isinstance(governance_local, dict):
             merged_governance = config.governance.model_dump()
+            # brand_obsolescence uses ADDITIVE merge — local extends global;
+            # global terms cannot be removed by an unversioned local file.
+            if "brand_obsolescence" in governance_local:
+                local_terms = governance_local.get("brand_obsolescence", [])
+                if isinstance(local_terms, list):
+                    existing = merged_governance.get("brand_obsolescence", [])
+                    merged_governance["brand_obsolescence"] = list(
+                        dict.fromkeys(existing + [t for t in local_terms if t not in existing])
+                    )
             for key in GovernanceConfig.model_fields:
-                if key in governance_local:
+                if key in governance_local and key != "brand_obsolescence":
                     merged_governance[key] = governance_local[key]
             try:
                 config.governance = GovernanceConfig(**merged_governance)

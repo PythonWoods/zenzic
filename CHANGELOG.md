@@ -19,6 +19,15 @@ Versions follow [Semantic Versioning](https://semver.org/).
 - **Domain-Aware Discovery (`CODE_ASSET_SUFFIXES`):** Source code files (`.py`, `.pyi`, `.ts`, `.tsx`, `.rs`, `.go`, and 20+ other code extensions) are now natively exempt from Z405 `UNUSED_ASSET` enforcement in `find_unused_assets`. Files are still indexed by the discovery engine for link resolution across the docs/source boundary. No configuration change is required.
 - **Strict Local TOML Parsing:** `.zenzic.local.toml` now rejects unknown top-level keys with a fatal `ConfigurationError` (`LOCAL-TOML-STRICT`). Previously, unrecognised keys were silently discarded. Allowed sections: `core`, `build_context`, `project_metadata`, `governance`, `i18n`, `forbidden_patterns`, `secrets`, `debug`, `env`.
 
+### Changed
+
+- **Governance hardening — `brand_obsolescence` ADDITIVE merge:** `[governance].brand_obsolescence` in `.zenzic.local.toml` now uses additive semantics. Local terms extend the global list; they can never remove globally-configured protected terms. This prevents a non-versioned local override from silently disabling brand protection policy.
+
+### Removed
+
+- **Breaking change — `map_url()` and `classify_route()` removed from `BaseAdapter` protocol.** Custom adapters that implement these methods instead of `get_route_info()` must be updated. Migration: `adapter.map_url(rel)` → `adapter.get_route_info(rel).canonical_url`; `adapter.classify_route(rel, nav_paths)` → `adapter.get_route_info(rel).status`.
+- **Breaking change — `find_orphans()` callback API removed.** The `classify_route` callback parameter is replaced by `adapter: BaseAdapter | None`.
+
 ---
 
 ## [0.8.0] — 2026-05-15 <!-- zenzic:ignore: Z601 release codename -->

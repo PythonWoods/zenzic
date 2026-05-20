@@ -251,13 +251,30 @@ def test_apply_local_toml_forbidden_patterns_merged(tmp_path: Path) -> None:
 
 def test_apply_local_toml_overrides_governance(tmp_path: Path) -> None:
     """[governance] in .zenzic.local.toml merges into config.governance."""
-    (tmp_path / "zenzic.toml").write_text("docs_dir = 'docs'\n")
+    (tmp_path / "zenzic.toml").write_text(
+        "docs_dir = 'docs'\n[governance]\nbrand_obsolescence = ['GlobalTerm']\n"
+    )
     (tmp_path / ".zenzic.local.toml").write_text(
         "[governance]\nbrand_obsolescence = ['OldName']\nsuppression_cap = 10\n"
     )
     config, _ = ZenzicConfig.load(tmp_path)
     assert "OldName" in config.governance.brand_obsolescence
+    assert "GlobalTerm" in config.governance.brand_obsolescence  # ADDITIVE: global preserved
     assert config.governance.suppression_cap == 10
+
+
+def test_apply_local_toml_brand_obsolescence_additive(tmp_path: Path) -> None:
+    """Local brand_obsolescence extends global — cannot remove global terms."""
+    (tmp_path / "zenzic.toml").write_text(
+        "docs_dir = 'docs'\n[governance]\nbrand_obsolescence = ['TermA', 'TermB']\n"
+    )
+    (tmp_path / ".zenzic.local.toml").write_text("[governance]\nbrand_obsolescence = ['TermC']\n")
+    config, _ = ZenzicConfig.load(tmp_path)
+    assert "TermA" in config.governance.brand_obsolescence
+    assert "TermB" in config.governance.brand_obsolescence
+    assert "TermC" in config.governance.brand_obsolescence
+    # No duplicates
+    assert config.governance.brand_obsolescence.count("TermA") == 1
 
 
 def test_apply_local_toml_overrides_i18n(tmp_path: Path) -> None:

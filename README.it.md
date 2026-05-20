@@ -310,7 +310,7 @@ pip install zenzic
 funzionano con qualsiasi percorso di hosting. Gli URL esterni `https://` non sono mai interessati.
 
 **Compatibilità Python:** Zenzic richiede Python 3.10+. In CI, ogni rilascio viene validato
-ufficialmente su **Python 3.10** (Floor — compatibilità legacy) e **Python 3.14**
+ufficialmente su **Python 3.10** (Floor — compatibilità con le versioni precedenti) e **Python 3.14**
 (Peak — performance e preparazione al futuro). Qualsiasi versione intermedia funziona.
 
 ---

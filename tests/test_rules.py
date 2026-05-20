@@ -1782,7 +1782,7 @@ class TestBrandObsolescenceRule:
         assert findings[0].rule_id == "Z601"
         assert findings[0].severity == "warning"
         assert "OldBrand" in findings[0].message
-        assert "NextRelease" in findings[0].message
+        assert "semantic versioning" in findings[0].message
 
     def test_z601_suppress_md_html_comment(self) -> None:
         """CEO-143: HTML comment suppression (Markdown .md syntax)."""
