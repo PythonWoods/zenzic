@@ -40,7 +40,7 @@
 # REPLACES the global [governance].brand_obsolescence list entirely.
 # Repeat all inherited terms you want to preserve.
 # brand_obsolescence = [
-#     "Sentinel", "Shield", "Blood",   # ← repeat global terms to preserve them
+#     "Shield", "Blood",   # ← repeat global terms to preserve them
 #     "MY-DEPRECATED-TERM",            # ← add new local terms here
 # ]
 
@@ -51,7 +51,7 @@
 
 [project_metadata]
 # Local release name experiments — does not affect CI.
-# release_name = "Basalt"
+# release_name = "v0.8.0"
 
 # [governance] additional override examples (per-key replacement merge):
 # [governance]
