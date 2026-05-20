@@ -83,12 +83,12 @@
   </text>
 
   <!-- ══════════════════════════════════════════════════════════ -->
-  <!-- BASALT PANEL  x=24  w=672  y=258→348                     -->
+  <!-- QUARTZ PANEL  x=24  w=672  y=258→348                     -->
   <!-- ══════════════════════════════════════════════════════════ -->
   <rect x="24" y="258" width="672" height="90" rx="8"
         fill="#1e1b4b" stroke="#4f46e5" stroke-width="1.5"/>
   <text class="mono" x="360" y="292" text-anchor="middle"
-        font-size="13" fill="#a5b4fc" letter-spacing="0.5">✦  Basalt Release</text>
+        font-size="13" fill="#a5b4fc" letter-spacing="0.5">✦  Quartz Release</text>
   <text class="mono" x="360" y="316" text-anchor="middle"
         font-size="12" fill="#e0e7ff">All statically-detectable links, credentials, and references verified.</text>
 
