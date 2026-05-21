@@ -1,6 +1,10 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
 
+# Segregate stage execution: linters run at commit-time only.
+# Any pre-push orchestrator must declare `stages: [pre-push]` explicitly.
+default_stages: [pre-commit]
+
 repos:
   # 1. Generic file hygiene
   - repo: https://github.com/pre-commit/pre-commit-hooks
