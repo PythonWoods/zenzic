@@ -978,6 +978,43 @@ reports surviving mutants in `rules.py`, add targeted tests before merging.
 
 ---
 
+---
+
+## Maintainer Only: Workflow Hardening
+
+### Immutable Pre-Commit Hooks (ADR-089)
+
+All `rev:` keys in `.pre-commit-config.yaml` must point to a **40-char commit
+hash**, never to a semantic tag (`v1.2.3`). Git tags are mutable: an upstream
+maintainer (or an attacker who compromises one) can move a tag silently,
+poisoning the local Gate 2 without any diff in this repository.
+
+This is an **internal CI policy for the Zenzic project**, not a public Zenzic
+linter rule: it constrains how *we* develop Zenzic, not how Zenzic users
+develop their own documentation. The orchestrator-level enforcement lives in
+`just check-pinning` (dependency of `just verify`); violations raise
+`[ADR-089] FATAL` at pre-push.
+
+**Threat-model note.** The local risk is strictly smaller than the GHA one
+because `pre-commit` clones each hook repo into `~/.cache/pre-commit/` and
+freezes it until the user runs `pre-commit autoupdate` or `pre-commit clean`.
+GitHub Actions instead re-resolves the ref on every workflow run. Pinning is
+still mandatory locally for (a) new-clone safety, (b) architectural parity
+with the remote ADR-089 enforcement, (c) auditability.
+
+**Updating pinned hooks.** The naive `pre-commit autoupdate` rewrites SHAs
+back to mutable tags, undoing the hardening. Always use:
+
+```bash
+uvx pre-commit autoupdate --freeze
+```
+
+`--freeze` resolves each tag to its commit SHA and preserves the `# vX.Y.Z`
+annotation comment automatically. Commit the diff and verify with
+`just check-pinning`.
+
+---
+
 ## Maintainer Only: Release Procedure
 
 Releases are **semi-automated**: the developer decides the bump type, one command does the rest.
