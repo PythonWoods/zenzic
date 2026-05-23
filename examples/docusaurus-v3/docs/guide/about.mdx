@@ -19,4 +19,5 @@ When a documentation linter assumes that all URLs are derived from the filesyste
 slug overrides break link validation. Zenzic handles this correctly by:
 
 1. Pre-computing a slug map from all loaded files (`set_slug_map()`).
-2. Checking slug overrides **before** filesystem derivation in `map_url()`.
+2. Resolving route metadata through `get_route_info()` so frontmatter slug
+	overrides win over filesystem-derived defaults.
