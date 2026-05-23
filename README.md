@@ -54,14 +54,9 @@ Got a folder of Markdown files? Run an instant security and link audit using [`u
 uvx zenzic check all ./your-folder
 ```
 
-Zenzic will identify your engine via its configuration files or default to **Standalone Mode**
+Zenzic identifies your engine via its configuration files or defaults to **Standalone Mode**
 for plain Markdown folders — providing immediate protection for links, credentials, and
 file integrity.
-
-> **Note:** In Standalone Mode there is no declared navigation contract, so orphan-page
-> detection (`Z402`) is disabled. What you get: full link validation (`Z101`/`Z104`),
-> credential scanning (`Z201`), path-traversal blocking (`Z202`), and directory-index
-> integrity checks (`Z401`).
 
 ---
 
@@ -72,21 +67,14 @@ pip install zenzic
 cd my-docs-repo
 zenzic init       # Establish the workspace boundary (creates zenzic.toml)
 zenzic check all  # Audit the current directory
-zenzic check all --audit  # Sovereign truth run: ignore suppressions
-zenzic config explain  # Show active config values and origin (local/global/default)
-zenzic guard scan --staged  # Fast pre-commit Secret Guard
-zenzic inspect codes  # List canonical finding contracts
 ```
 
-## 🧠 Value Proposition
+## 🧠 Core Pillars
 
 - **Pure, deterministic engine:** identical inputs produce identical findings and exits.
-- **Tiered code model:** Core, Structure, and Governance findings are separated by
-  ownership bands to keep policy changes explicit and auditable.
-- **Frozen contracts for integrators:** `FROZEN_CODES`, `NON_SUPPRESSIBLE_CODES`, and
-  `PLUGIN_FORBIDDEN_EXITS` provide stable enforcement surfaces for CI and plugins.
-- **Inspect-first contributor workflow:** use `zenzic inspect codes` to validate live
-  code semantics before touching docs examples or release notes.
+- **Tiered code model:** Core, Structure, and Governance findings separated by ownership bands.
+- **Frozen contracts for integrators:** `FROZEN_CODES`, `NON_SUPPRESSIBLE_CODES`, and `PLUGIN_FORBIDDEN_EXITS` provide stable enforcement surfaces for CI and plugins.
+- **Inspect-first workflow:** use `zenzic inspect codes` to validate live code semantics before touching docs or release notes.
 
 📖 [Full docs →][docs-home] · 🏅 [Badges][docs-badges] · 🔄 [CI/CD guide][docs-cicd]
 
@@ -107,183 +95,39 @@ zenzic inspect codes  # List canonical finding contracts
 
 ---
 
-## 🎯 Why Zenzic if my Static Site Generator (SSG) already checks for broken links?
-
-1. **Speed & Shift-Left:** SSG builds (Node.js, Go, or Python based) require full site compilation and usually run in remote CI loops. Zenzic runs local static analysis on source text and metadata before build, with pre-commit feedback in milliseconds.
-2. **Security:** Native SSG checks do not block credential leaks or path-traversal attempts at commit time. Zenzic enforces security findings in the `Z2xx` tier and blocks the pipeline on security exits.
-3. **Governance:** SSGs do not enforce governance contracts such as brand obsolescence (`Z601`), i18n parity drift (`Z602`), or orphaned assets (`Z405`). Zenzic tracks these as explicit, auditable contracts.
-4. **Actionable Diagnostics:** When generated routes fail, SSG output is typically a generic 404/build failure. Zenzic uses VSM reverse mapping to report the exact source file and frontmatter context that generated the failing virtual route.
-
----
-
-## 🧩 What Zenzic is NOT
-
-- **Not a site generator.** It audits source; it never builds HTML.
-- **Not a build wrapper.** Zero-Trust Execution: no subprocesses, no `mkdocs` or `docusaurus` binaries invoked.
-- **Not a spell checker.** Structure and security — not prose.
-- **Not an HTTP crawler.** All validation is local and file-based.
-- **Not a blackbox.** Every finding carries a code, a source file, and a line number. Absolute traceability — no finding without a physical origin.
-
----
-
-## 📋 Capability Matrix
-
-| Capability | Command | Detects | Exit |
-| :--- | :--- | :--- | :---: |
-| Link integrity | `check links` | Broken links, dead anchors | 1 |
-| Circular anchors | `check all` | Self-referential anchor links (`Z107`) | 1 |
-| Orphan detection | `check orphans` | Files absent from `nav` — invisible after build | 1 |
-| Code snippets | `check snippets` | Syntax errors in Python / YAML / JSON / TOML blocks | 1 |
-| Untagged code blocks | `check all` | Fenced blocks with no language specifier (`Z505`) | 1 |
-| Placeholder content | `check placeholders` | Stub pages and forbidden text patterns | 1 |
-| Unused assets | `check assets` | Images and files not referenced anywhere | 1 |
-| Config asset integrity | `check all` | Favicon and OG image paths declared in engine config confirmed on disk (`Z404`) | 1 |
-| Brand integrity | `check all` | Obsolete release codenames (`Z601`) — configurable via `[governance]` | 1 |
-| **Clean prose** | `check all` | [`directory_policies`][docs-governance] grants zero-debt exemptions to path patterns (e.g. `blog/**`), keeping historical files clean without consuming suppression cap | — |
-| **Credential scanning** | `check references` | **9 credential families** — text, URLs, code blocks | **2** |
-| **Path traversal** | `check links` | System-path escape attempts | **3** |
-| **Enterprise reporting** | `check all --format sarif` | SARIF 2.1.0 output for GitHub Code Scanning — inline PR annotations | 1/2/3 |
-| Quality score | `score` | Deterministic 0–100 composite metric | — |
-| Regression detection | `diff` | Score drop vs saved baseline — CI-friendly | 1 |
-
-**Autofix:** `zenzic clean assets [-y] [--dry-run]` deletes unused images.
-
-> 🚀 **Core Features** — Tiered code governance, frozen security contracts, RE2-backed
-> deterministic scanning, and Sovereign Audit mode. See [CHANGELOG.md](CHANGELOG.md).
-
----
-
-## 🛡️ Security: Credential Scanner & Path Traversal Guard
-
-Two security layers are permanently active — neither is suppressible by `--exit-zero`:
-
-**Credential Scanner** scans every line — including fenced code blocks — for credentials. Unicode
-normalization defeats obfuscation (HTML entities, comment interleaving, cross-line lookback).
-Detected families: AWS, GitHub, GitLab PAT, Stripe, Slack, OpenAI, Google, PEM headers, hex payloads.
-Base64 speculative decoding catches obfuscated credentials in frontmatter and code blocks.
-**→ Exit 2. Rotate and audit immediately.**
-
-**Path Traversal Guard** normalizes every resolved link with `os.path.normpath` and rejects any path
-escaping the `docs/` root. Catches `../../../../etc/passwd`-style traversal before any OS syscall.
-**→ Exit 3.**
-
-| Exit | Meaning |
-| :---: | :--- |
-| `0` | All checks passed |
-| `1` | Quality issues found |
-| **`2`** | **SECURITY — leaked credential detected** |
-| **`3`** | **SECURITY — system-path traversal detected** |
-
-> Add `zenzic check references` to your pre-commit hooks to catch leaks before git history.
-
----
-
 ## 🔌 Multi-Engine Support
-
-Zenzic reads config files as plain text — never imports or executes your build framework:
 
 | Engine | Adapter | Highlights |
 | :--- | :--- | :--- |
-| [Docusaurus v3][docusaurus] | `DocusaurusAdapter` | Versioned docs, `@site/` alias, Ghost Route detection, Virtual Routes (Tags, Pagination, Authors) |
+| [Docusaurus v3][docusaurus] | `DocusaurusAdapter` | Versioned docs, `@site/` alias, Ghost Route detection |
 | [MkDocs][mkdocs] | `MkDocsAdapter` | i18n suffix + folder modes, `fallback_to_default` |
-| [Zensical][zensical] | `ZensicalAdapter` | Transparent Proxy bridges `mkdocs.yml` if `zensical.toml` absent |
-| Any folder | `StandaloneAdapter` | File integrity checks only — orphan detection disabled without a nav contract |
+| [Zensical][zensical] | `ZensicalAdapter` | Transparent Proxy bridges `mkdocs.yml` |
+| Any folder | `StandaloneAdapter` | File integrity checks — orphan detection disabled without a nav contract |
 
-Third-party adapters install via the `zenzic.adapters` entry-point group.
-See the [Developer Guide][docs-arch] for the adapter API.
-
-### Docusaurus Virtual Routes
-
-Docusaurus generates URL pages that have no physical Markdown source: tag listing pages
-(`/blog/tags/python/`), paginated blog indexes (`/blog/page/2/`), and author pages
-(`/blog/authors/alice/`). Dynamic routes generated by Docusaurus are now traced by Zenzic, so
-any link pointing at them was incorrectly flagged as a broken link.
-
-`DocusaurusAdapter` now builds a **Virtual Route map** derived from frontmatter metadata
-— no build step needed, no Node.js execution. Each virtual route carries a `source_files`
-set that traces it back to the physical files that generate it, satisfying the
-**Reverse-Mapping Invariant**: every URL in the VSM has an unambiguous physical origin.
-A `VirtualRoute` with `source_files=frozenset()` raises `ValueError` at construction —
-no untraced URL can reach the VSM.
+See the [Adapter API][docs-arch] for the plugin interface. Third-party adapters install via the `zenzic.adapters` entry-point group.
 
 ---
 
 ## ⚙️ Configuration
 
-Zero-config by default. Full priority chain: **CLI flags** > `zenzic.toml` > `[tool.zenzic]` in `pyproject.toml` > built-ins. CLI flags always take precedence over configuration files.
-
-```toml
-# zenzic.toml  (all fields optional)
-docs_dir                 = "docs"
-fail_under               = 80       # exit 1 if score < threshold; 0 = observe only
-excluded_dirs            = ["includes", "assets", "overrides"]
-excluded_build_artifacts = ["pdf/*.pdf", "dist/*.zip"]
-placeholder_patterns     = ["coming soon", "todo", "stub"]
-
-[build_context]
-engine         = "mkdocs"   # mkdocs | docusaurus | zensical | standalone
-default_locale = "en"
-locales        = ["it"]
-```
+Zero-config by default. See the [Configuration Guide][docs-home] for the full `zenzic.toml` schema and `pyproject.toml` embedding.
 
 ```bash
-zenzic init             # Generate zenzic.toml with auto-detected values
-zenzic init --pyproject # Embed [tool.zenzic] in pyproject.toml
+zenzic init        # Generate zenzic.toml with auto-detected values
 ```
-
-**Custom lint rules** — declare project-specific patterns in `zenzic.toml`, no Python required:
-
-```toml
-[[custom_rules]]
-id       = "ZZ-NODRAFT"
-pattern  = "(?i)\\bDRAFT\\b"
-message  = "Remove DRAFT marker before publishing."
-severity = "warning"
-```
-
-Rules fire identically across all adapters. No changes required after engine migration.
-
-> **DFA Guarantee:** Custom rule patterns must be RE2-compatible — backreferences,
-> lookaheads, and lookbehinds are rejected at load time. See
-> [Architecture › DFA Guarantee](https://zenzic.dev/docs/explanation/architecture#dfa-guarantee).
 
 ---
 
 ## 🔄 CI/CD Integration
 
-### Official GitHub Action (Recommended)
-
 ```yaml
-permissions:
-  contents: read
-  security-events: write   # required for Code Scanning upload
-
-steps:
-  - uses: actions/checkout@v6
-
-  - name: 🛡️ Zenzic Documentation Quality Gate
-    uses: PythonWoods/zenzic-action@v1
-    with:
-      format: sarif
-      upload-sarif: "true"   # findings appear in the Security tab and as PR annotations
+- uses: PythonWoods/zenzic-action@v1
+  with:
+    format: sarif
+    upload-sarif: "true"
 ```
 
-### Zero-install with `uvx`
-
-```yaml
-- name: 🛡️ Zenzic Quality Gate
-  run: uvx zenzic check all --strict
-  # Exit 1 = quality · Exit 2 = leaked credential · Exit 3 = path traversal
-  # Exits 2 and 3 are never suppressible.
-
-- name: Regression gate
-  run: |
-    uvx zenzic score --save    # on main branch
-    uvx zenzic diff            # on PR — exit 1 if score drops
-```
-
-For badge automation and regression gates, see the [CI/CD guide][docs-cicd].
-[![CI](https://github.com/PythonWoods/zenzic/actions/workflows/ci.yml/badge.svg)](https://github.com/PythonWoods/zenzic/actions/workflows/ci.yml)
+For zero-install `uvx` integration and regression gates, see the [CI/CD guide][docs-cicd].
 
 ---
 
@@ -303,198 +147,29 @@ uv add --dev zenzic
 pip install zenzic
 ```
 
-**Portability:** Zenzic rejects absolute internal links (starting with `/`). Relative links
-work at any hosting path. External `https://` URLs are never affected.
-
-**Python compatibility:** Zenzic requires Python 3.10+. In CI, every release is officially
-validated against **Python 3.10** (Floor — backward compatibility) and **Python 3.14**
-(Peak — performance and future-readiness). If you run any version in between, it works.
-
 ---
 
-## 🖥️ CLI Reference
+## 📖 Documentation
 
-```bash
-# Checks
-zenzic check links [--strict] [--no-external]
-zenzic check orphans
-zenzic check snippets
-zenzic check placeholders
-zenzic check assets
-zenzic check references [--strict] [--links]
-zenzic check all [--strict] [--exit-zero] [--format json] [--engine ENGINE]
-zenzic check all [--exclude-dir DIR] [--include-dir DIR] [--no-external]
-
-# Score & diff
-zenzic score [--save] [--fail-under N]
-zenzic diff  [--threshold N]
-
-# Autofix
-zenzic clean assets [-y] [--dry-run]
-
-# Init
-zenzic init [--pyproject]
-
-# Interactive showroom
-zenzic lab [--act N] [--list]
-```
-
----
-
-## 📟 Visual Tour
-
-<p align="center">
-  <img src="assets/brand/svg/zenzic-terminal-report.svg" alt="Zenzic Analysis Report — All checks passed, score 100/100" width="720">
-</p>
-
-Visit the [documentation portal][docs-home] for interactive screenshots and rich examples.
-
----
-
-## 🧪 Examples
-
-The `examples/` directory is an executable specification library.
-
-| Fixture | Description |
-| :--- | :--- |
-| `examples/rules/z108-empty-link/` | Demonstrates `Z108 (EMPTY_LINK_TEXT)` detection on empty link text |
-
----
-
-## 📖 Documentation Map — The Integrity Promise
-
-Zenzic's docs ship as **two separate Docusaurus instances** under the same domain.
-Each has its own sidebar, search, and audience — never mixed.
-
-```text
-zenzic.dev/
-├── docs/           → User Area    — install, configure, CI/CD, finding codes
-├── developers/     → Dev Area     — plugins, adapters, ADRs, tech debt ledger
-├── blog/           → Release notes & engineering post-mortems
-└── community/      → Brand kit, FAQs, governance
-```
-
-**The Integrity Promise.** Two instances, one engine — stable AST contracts for plugins, total determinism (identical input → identical output), zero subprocess overhead. The split is enforced by [ADR 011: Cross-Instance Allowlist][docs-adr-011] — every cross-boundary link is a documented contract, never a silent suppression. Hidden debt corrupts trust; declared debt is engineering. See the [Technical Debt Ledger][docs-tech-debt] for what we deferred and why.
-
-**Entry points:**
-
-| You are a... | Start here |
-| :--- | :--- |
-| 👤 User integrating Zenzic | `uvx zenzic lab` · [User Guide][docs-home] |
-| 🔧 Contributor / plugin author | [Developer Portal][docs-developers] · [ADR Vault][docs-adr-vault] |
-| 🛡️ Security reviewer | [Engineering Ledger][docs-eng-ledger] · [SECURITY.md][security] |
-
----
-
-## 🧱 Engineering Ledger
-
-Zenzic is governed by three non-negotiable operational contracts — each
-enforce-able by machine, not by convention.
-
-Three design axioms from the NASA Power of 10 — applied without exception:
-
-- **Rule 1 / Rule 4 — Pure, deterministic control flow.** The analysis engine has zero global
-  state. Given identical inputs, Zenzic produces identical output. Every finding maps to a
-  single source file and a single line number. No stochastic components; no inference
-  dependencies declared in `pyproject.toml`.
-- **Rule 2 — No dynamic execution.** `subprocess.Popen`, `os.system`, and all shell
-  invocations are permanently banned from `src/`. Docusaurus TypeScript configs are parsed
-  as plain text. Node.js is never invoked. The Zero Subprocess invariant is enforced by
-  ruff and audited at every push.
-
-These are not conventions — they are machine-enforced contracts.
-
-<table>
-<tr>
-<td width="33%" valign="top">
-
-**Zero Assumptions** — Every adapter runs under `mypy --strict`. No `Any`, no silent coercions.
-The type system is a compile-time contract — not a suggestion.
-
-```python
-# mypy: strict = true
-# Zero untyped defs, zero ignored errors.
-```
-
-</td>
-<td width="33%" valign="top">
-
-**Subprocess-Free** — `subprocess.Popen` is permanently banned from `src/`. Docusaurus `.ts`
-configs are parsed as plain text. Node.js is never invoked.
-
-```python
-# ruff: ban = ["subprocess"]
-# Deterministic static analysis only.
-```
-
-</td>
-<td width="33%" valign="top">
-
-**Deterministic Compliance** — Every source file carries an SPDX header. REUSE 3.x is enforced in CI.
-No ambiguous licensing — machine-verifiable on every PR.
-
-```toml
-# REUSE-IgnoreStart / REUSE-IgnoreEnd
-# SPDX-License-Identifier: Apache-2.0
-```
-
-</td>
-</tr>
-</table>
-
-See the [Architecture Guide][docs-arch] for the Two-Pass Reference Pipeline and VSM deep-dive.
-
----
-
-## 🙋 FAQ
-
-**Why not `grep`?** Grep is blind to structure. Zenzic understands Docusaurus versioning,
-MkDocs i18n fallbacks, and Ghost Routes — pages that don't exist as files but are valid URLs.
-
-**Does it run my build engine?** No. 100% subprocess-free. Static analysis on plain text only.
-
-**Can it handle thousands of files?** Yes. Adaptive parallelism for discovery; O(1) VSM lookup
-per link; content-addressable cache (`SHA256(content + config + vsm_snapshot)`) skips unchanged files.
-
-**Credential Scanner vs Path Traversal Guard?** Credential Scanner = secrets *inside* content (exit 2). Path Traversal Guard =
-links pointing to OS system *paths* (exit 3). Both are non-suppressible.
-
-**No `zenzic.toml` needed?** Correct. Zenzic identifies the engine from config files present and applies safe defaults. Run
-`zenzic init` at any time to generate a pre-populated config file.
-
-**What is `zenzic lab`?** A 22-act interactive showroom covering every engine and error class — including Credential Scanner (Z2xx), Governance (Z601, Z602), and the Enterprise Privacy Gate (Z204).
-Run it once before integrating Zenzic into any project.
-
----
-
-## 🛠️ Development
-
-```bash
-uv sync --all-groups
-nox -s tests       # pytest + coverage
-nox -s lint        # ruff
-nox -s typecheck   # mypy --strict
-nox -s preflight   # lint + format + typecheck + pytest + reuse
-just verify        # preflight + zenzic check all --strict (self-dogfood)
-```
-
-See the [Contributing Guide][contributing] for the Zenzic Way checklist and PR conventions.
+| Area | URL | Audience |
+| :--- | :--- | :--- |
+| 👤 User Guide | [zenzic.dev/docs][docs-home] | Install, configure, CI/CD, finding codes |
+| 🔧 Developer Portal | [zenzic.dev/developers][docs-developers] | Adapters, ADRs, CLI architecture, mutation testing |
+| 🛡️ Security | [Engineering Ledger][docs-eng-ledger] · [SECURITY.md][security] | Security reviewer |
 
 ---
 
 ## 🤝 Contributing
 
 1. Open an [issue][issues] to discuss the change.
-2. Read the [Contributing Guide][contributing] — Zenzic Way checklist, pure functions, no
-   subprocesses, source-first.
-3. Every PR must pass `nox -s preflight` and include REUSE/SPDX headers on new files.
+2. Read the [Contributing Guide][contributing].
+3. Every PR must pass `just verify` and include SPDX headers on new files.
 
 See also: [Code of Conduct][coc] · [Security Policy][security]
 
 ## 📎 Citing
 
-A [`CITATION.cff`][citation-cff] is present at the root. Click **"Cite this repository"** on
-GitHub for APA or BibTeX output.
+A [`CITATION.cff`][citation-cff] is present at the root. Click **"Cite this repository"** on GitHub for APA or BibTeX output.
 
 ## 📄 License
 
@@ -526,12 +201,8 @@ Apache-2.0 — see [LICENSE][license].
 [docs-home]:         https://zenzic.dev/docs/
 [docs-badges]:       https://zenzic.dev/docs/how-to/add-badges/
 [docs-cicd]:         https://zenzic.dev/docs/how-to/configure-ci-cd/
-[docs-governance]:   https://zenzic.dev/docs/reference/governance/
 [docs-arch]:         https://zenzic.dev/developers/explanation/engineering-ledger
 [docs-developers]:   https://zenzic.dev/developers/
-[docs-adr-vault]:    https://zenzic.dev/developers/explanation/adr-vault
-[docs-adr-011]:      https://zenzic.dev/developers/explanation/adr-cross-instance-allowlist
-[docs-tech-debt]:    https://zenzic.dev/developers/governance/technical-debt
 [docs-eng-ledger]:   https://zenzic.dev/developers/explanation/engineering-ledger
 [contributing]:      CONTRIBUTING.md
 [license]:           LICENSE

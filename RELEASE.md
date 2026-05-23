@@ -47,8 +47,7 @@ git tag v0.7.1
 git push origin release/v0.7.1 --tags
 ```
 
-Create a GitHub Release from the tag. Copy the `## v0.7.1` section from
-`CHANGELOG.md` as the release body.
+- [ ] Create GitHub Release from the tag, using the `## v0.7.1` CHANGELOG section as the release body.
 
 ## Changelog Reference
 
