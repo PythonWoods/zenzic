@@ -51,9 +51,9 @@ from zenzic.core.exceptions import ConfigurationError
 
 _WEIGHTS: dict[str, float] = {
     "structural": 0.30,  # Z101, Z102, Z104, Z105, Z107, Z108 — Structural Integrity
-    "navigation": 0.25,  # Z301–303 (Ref-Graph) + Z402 — Navigation & Logic
-    "content": 0.20,  # Z501, Z502, Z503, Z505 — Content Quality
-    "brand": 0.25,  # Z405, Z406, Z601 — Governance & Brand
+    "navigation": 0.25,  # Z301–303 (Ref-Graph) + Z401, Z402 — Navigation & Logic
+    "content": 0.20,  # Z403, Z501, Z502, Z503, Z505 — Content Quality
+    "brand": 0.25,  # Z404, Z405, Z406, Z601 — Governance & Brand
 }
 
 # ─── Zenzic Penalty Table ───────────────────────────────────────────────
@@ -72,13 +72,16 @@ _CODE_PENALTY: dict[str, float] = {
     "Z301": 4.0,  # DANGLING_REF — reference link uses an undefined ID
     "Z302": 1.0,  # DEAD_DEF — reference definition never used
     "Z303": 3.0,  # DUPLICATE_DEF — reference ID defined more than once
+    "Z401": 2.0,  # MISSING_DIRECTORY_INDEX — directory lacks a required index page
     "Z402": 4.0,  # ORPHAN_PAGE
     # Content Quality (cap = 20 pts)
+    "Z403": 1.0,  # MISSING_ALT — image element has no alt text
     "Z501": 2.0,  # PLACEHOLDER — TODO / stub patterns
     "Z502": 1.0,  # SHORT_CONTENT — below minimum word count
     "Z503": 10.0,  # SNIPPET_ERROR — syntax error in code block
     "Z505": 1.0,  # UNTAGGED_CODE_BLOCK
     # Governance & Brand (cap = 25 pts)
+    "Z404": 3.0,  # CONFIG_ASSET_MISSING — static asset declared in config not found on disk
     "Z405": 3.0,  # UNUSED_ASSET
     "Z406": 2.0,  # NAV_CONTRACT (navigation contract violation)
     "Z601": 2.0,  # BRAND_OBSOLESCENCE (escalates exponentially beyond threshold)
@@ -95,11 +98,14 @@ _CODE_CATEGORY: dict[str, str] = {
     "Z301": "navigation",
     "Z302": "navigation",
     "Z303": "navigation",
+    "Z401": "navigation",
     "Z402": "navigation",
+    "Z403": "content",
     "Z501": "content",
     "Z502": "content",
     "Z503": "content",
     "Z505": "content",
+    "Z404": "brand",
     "Z405": "brand",
     "Z406": "brand",
     "Z601": "brand",
