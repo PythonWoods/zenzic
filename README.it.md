@@ -10,7 +10,7 @@ SPDX-License-Identifier: Apache-2.0
 
 <p align="center">
   <a href="https://pypi.org/project/zenzic/">
-    <img src="https://img.shields.io/pypi/v/zenzic?label=PyPI&color=38bdf8&style=flat-square&cacheBuster=current release" alt="PyPI Version">
+    <img src="https://img.shields.io/pypi/v/zenzic?label=PyPI&color=38bdf8&style=flat-square" alt="PyPI Version">
   </a>
   <a href="https://pypi.org/project/zenzic/">
     <img src="https://img.shields.io/pypi/pyversions/zenzic?color=10b981&style=flat-square" alt="Python Versions">
@@ -55,7 +55,8 @@ uvx zenzic check all ./tua-cartella
 ```
 
 Zenzic identificherà il tuo motore tramite i file di configurazione o passerà alla **Standalone Mode**
-per cartelle Markdown pure — garantendo protezione immediata per link, credenziali e integrità dei file.
+per cartelle Markdown pure — garantendo protezione immediata per link, credenziali e integrità
+dei file.
 
 ---
 
@@ -178,7 +179,7 @@ Apache-2.0 — vedi [LICENSE][license].
 
 <div align="center">
   <a href="https://zenzic.dev">
-    <img src="assets/brand/pythonwoods-logo.svg" alt="PythonWoods" height="50" />
+    <img src="https://raw.githubusercontent.com/PythonWoods/zenzic/main/assets/brand/pythonwoods-logo.svg" alt="PythonWoods" height="50" />
   </a>
   <p>
     <strong>Progettato con precisione da PythonWoods in Italia 🇮🇹</strong><br/>

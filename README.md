@@ -10,7 +10,7 @@ SPDX-License-Identifier: Apache-2.0
 
 <p align="center">
   <a href="https://pypi.org/project/zenzic/">
-    <img src="https://img.shields.io/pypi/v/zenzic?label=PyPI&color=38bdf8&style=flat-square&cacheBuster=current release" alt="PyPI Version">
+    <img src="https://img.shields.io/pypi/v/zenzic?label=PyPI&color=38bdf8&style=flat-square" alt="PyPI Version">
   </a>
   <a href="https://pypi.org/project/zenzic/">
     <img src="https://img.shields.io/pypi/pyversions/zenzic?color=10b981&style=flat-square" alt="Python Versions">
@@ -179,7 +179,7 @@ Apache-2.0 — see [LICENSE][license].
 
 <div align="center">
   <a href="https://zenzic.dev">
-    <img src="assets/brand/pythonwoods-logo.svg" alt="PythonWoods" height="50" />
+    <img src="https://raw.githubusercontent.com/PythonWoods/zenzic/main/assets/brand/pythonwoods-logo.svg" alt="PythonWoods" height="50" />
   </a>
   <p>
     <strong>Engineered with precision by PythonWoods in Italy 🇮🇹</strong><br/>
