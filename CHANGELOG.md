@@ -21,6 +21,17 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **`.zenzic.local.toml.example` eradicated (Phase 83):** The static template file has been deleted
+  from all repositories. Use `zenzic init --local` to generate a fresh `.zenzic.local.toml`
+  aligned to the current engine version.
+- **`zenzic init --local` added (Phase 83):** New flag scaffolds only the machine-local overlay
+  without touching the shared configuration. Ideal for contributors working in repos that already
+  have `.zenzic.toml` committed.
+- **`--dev` flag hard-removed from `zenzic init` (Phase 83):** The deprecated no-op flag has been
+  deleted. Scripts invoking `zenzic init --dev` must be updated.
+- **TOML templates hardened (Phase 83):** All three init templates (`.zenzic.toml`,
+  `.zenzic.local.toml`, `[tool.zenzic]`) now expose every available configuration field with
+  didactic comments. CI/CD snippet updated from `pipx` to `uvx`.
 - **CLI decomposition (Phase 82 — Zero-Regression):** `_check.py` reduced from 1641 → 1478 lines
   by extracting four helpers into dedicated modules with backward-compatible re-exports:
   `_apply_per_file_ignores` and `_apply_directory_policies` moved to `_governance.py`;

@@ -41,8 +41,8 @@ excluded_dirs = [
     ".adversarial",
 ]
 
-# ADR-039.1: .zenzic.local.toml.example and *.sh are in SYSTEM_EXCLUDED_FILE_NAMES /
-# SYSTEM_EXCLUDED_FILE_PATTERNS. No user-level exclusions needed.
+# ADR-039.1: *.sh is in SYSTEM_EXCLUDED_FILE_PATTERNS. No user-level exclusions needed.
+# .zenzic.local.toml.example removed in v0.8.0; use `zenzic init --local` to regenerate.
 # ADR-039.2: CHANGELOG*.md and RELEASE*.md are scanned without exclusion.
 # ROADMAP.md is scanned without exclusion.
 

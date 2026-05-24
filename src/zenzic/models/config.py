@@ -318,7 +318,6 @@ SYSTEM_EXCLUDED_FILE_NAMES: Final[frozenset[str]] = frozenset(
         "coverage.xml",
         # Zenzic native files — never documentation assets (ADR-039.1)
         ".zenzic.local.toml",
-        ".zenzic.local.toml.example",
         # Action wrapper infrastructure file (explicit safeguard for docs_dir='.')
         "zenzic-action-wrapper.sh",
     }
@@ -824,7 +823,7 @@ class ZenzicConfig(BaseModel):
                 f"key(s): {pretty}.\n"
                 "Allowed sections: core, build_context, project_metadata, governance, i18n, "
                 "forbidden_patterns, secrets, debug, env.\n"
-                "Remove the unknown key(s) or check the .zenzic.local.toml.example template.",
+                "Remove the unknown key(s) or run 'zenzic init --local' to regenerate the local config template.",
                 context={"unknown_keys": sorted(unknown_keys), "file": str(local_toml)},
             )
 

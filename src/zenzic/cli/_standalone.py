@@ -736,10 +736,10 @@ def init(
         "--pyproject",
         help="Write configuration into pyproject.toml [tool.zenzic] instead of .zenzic.toml.",
     ),
-    dev: bool = typer.Option(
+    local: bool = typer.Option(
         False,
-        "--dev",
-        help=("Deprecated compatibility flag. .zenzic.local.toml is now always scaffolded."),
+        "--local",
+        help="Scaffold only .zenzic.local.toml (machine-local overlay). Skips main config creation.",
     ),
     path: str | None = typer.Argument(
         None,
@@ -762,10 +762,10 @@ def init(
     pre-sets ``engine = "zensical"``.  Otherwise the ``[build_context]`` block
     is omitted and the standalone (engine-agnostic) defaults apply.
 
-    Zenzic always scaffolds ``.zenzic.local.toml`` as the machine-local overlay
-    alongside the shared project config (Local Sovereignty model).
+    Use ``--local`` to scaffold only ``.zenzic.local.toml`` (machine-local overlay)
+    without touching the shared configuration.  Ideal for contributors who clone a
+    repo that already has ``.zenzic.toml`` committed.
     """
-    _ = dev  # Backward-compatible flag retained intentionally.
     from zenzic import __version__
 
     _shared._ui.print_header(__version__)
@@ -783,7 +783,9 @@ def init(
         repo_root = find_repo_root(fallback_to_cwd=True)
 
     if plugin is not None:
-        conflicting = [flag for flag, val in [("--dev", dev), ("--pyproject", pyproject)] if val]
+        conflicting = [
+            flag for flag, val in [("--local", local), ("--pyproject", pyproject)] if val
+        ]
         if conflicting:
             typer.echo(
                 f"ERROR: --plugin cannot be combined with {', '.join(conflicting)}. "
@@ -792,6 +794,18 @@ def init(
             )
             raise typer.Exit(2)
         _scaffold_plugin(repo_root, plugin, force)
+        return
+
+    if local:
+        if pyproject:
+            typer.echo(
+                "ERROR: --local cannot be combined with --pyproject. "
+                "--local scaffolds only the machine-local overlay.",
+                err=True,
+            )
+            raise typer.Exit(1)
+        _scaffold_local_toml(repo_root, discovered_name=_discover_project_name(repo_root))
+        _shared.print_footer_hint("init")
         return
 
     if force:
@@ -824,7 +838,7 @@ def init(
         _init_standalone(repo_root)
 
     # Local Sovereignty: always scaffold machine-local overlay.
-    _scaffold_local_toml(repo_root)
+    _scaffold_local_toml(repo_root, discovered_name=_discover_project_name(repo_root))
     _shared.print_footer_hint("init")
 
 
@@ -860,7 +874,7 @@ def _raise_existing_configuration_error(existing_path: Path) -> None:
     raise typer.Exit(1)
 
 
-def _scaffold_local_toml(repo_root: Path) -> None:
+def _scaffold_local_toml(repo_root: Path, *, discovered_name: str | None = None) -> None:
     """Create a didactic ``.zenzic.local.toml`` Local Sovereignty template.
 
     Idempotent for content creation, but always ensures Git protection:
@@ -879,6 +893,12 @@ def _scaffold_local_toml(repo_root: Path) -> None:
             "# Precedence: .zenzic.local.toml overrides .zenzic.toml on this machine only.\n"
             "# Use it for workstation-specific paths, temporary debt-cleanup knobs,\n"
             "# and private credentials that must never enter version control.\n"
+            "#\n"
+            "# MERGE SEMANTICS\n"
+            "#   ADDITIVE  (lists are merged with shared config):\n"
+            "#     forbidden_patterns, excluded_dirs, excluded_file_patterns\n"
+            "#   REPLACEMENT (section replaces shared value entirely for this machine):\n"
+            "#     governance, build_context, project_metadata, i18n\n"
             "\n"
             "[core]\n"
             "# Override docs root when working in an isolated branch layout\n"
@@ -886,8 +906,8 @@ def _scaffold_local_toml(repo_root: Path) -> None:
             '# docs_dir = "my/custom/path/to/docs"\n'
             "\n"
             "# Z204 Privacy Gate (local secret terms, literal and case-insensitive).\n"
+            "# ADDITIVE: extends shared forbidden_patterns list (does not replace it).\n"
             '# forbidden_patterns = ["Project Titan", "internal-api.corp", "staging.acme.io"]\n'
-            "forbidden_patterns = []\n"
             "\n"
             "[build_context]\n"
             "# Mirrors global structure for safe local overrides only when needed.\n"
@@ -905,6 +925,14 @@ def _scaffold_local_toml(repo_root: Path) -> None:
             "# Keep shared governance decisions in .zenzic.toml.\n"
             "# suppression_cap = 100\n"
             "# suppression_cap_fail_hard = false\n"
+            "\n"
+            "# Per-file suppression map (local experiments — prefer .zenzic.toml for shared policy).\n"
+            "# [governance.per_file_ignores]\n"
+            '# "docs/wip/**" = ["Z101"]  # work-in-progress, not yet ready for link checks\n'
+            "\n"
+            "# Directory policy — silent exemption (0 pt debt, shown in --audit).\n"
+            "# [governance.directory_policies]\n"
+            '# "blog/**" = ["Z601"]  # historical blog posts — brand refs exempt locally\n'
             "\n"
             "[i18n]\n"
             "# Local i18n experiments (mirrors global section shape).\n"
@@ -960,7 +988,7 @@ def _scaffold_local_toml(repo_root: Path) -> None:
             + gitignore_line
             + "\nEdit local overrides safely: this file wins over shared config "
             "only on your machine.",
-            title="[bold]Local Sanctuary[/]",
+            title=f"[bold]{discovered_name or 'Zenzic'} Local Sandbox[/]",
             border_style="cyan",
         )
     )
@@ -1033,6 +1061,9 @@ def _build_governance_ready_toml(*, engine: str, discovered_name: str | None) ->
         "# External URLs excluded from the broken-link check (applies only with --strict)\n"
         '# excluded_external_urls = ["https://github.com/YourOrg/YourRepo"]\n'
         "\n"
+        "# Z204 Privacy Gate — terms that must never appear in published docs.\n"
+        "# forbidden_patterns = []\n"
+        "\n"
         "# --- ENGINE CONTEXT ---\n"
         "[build_context]\n"
         f'engine         = "{engine}" # Supported: docusaurus, mkdocs, zensical, standalone\n'
@@ -1046,7 +1077,7 @@ def _build_governance_ready_toml(*, engine: str, discovered_name: str | None) ->
         "\n"
         "# --- BRAND INTEGRITY ---\n"
         "[project_metadata]\n"
-        'release_name = "v0.8.0"\n'
+        '# release_name = "YOUR-RELEASE"\n'
         "\n"
         "[governance]\n"
         "# Maximum allowed architectural debt (inline + per-file suppressions).\n"
@@ -1058,6 +1089,8 @@ def _build_governance_ready_toml(*, engine: str, discovered_name: str | None) ->
         "# Keep empty until your governance policy defines deprecated brand terms.\n"
         "brand_obsolescence = []\n"
         "# Canonical path reference: [zenzic.governance].brand_obsolescence = []\n"
+        '# suppression_cap_scope = "all"  # Options: all, per-file\n'
+        "# i18n_parity = false            # Set true when i18n is enabled\n"
         "\n"
         "# Per-file suppression map: silence a rule for specific file globs.\n"
         "# WARNING: Every entry increases your Technical Debt Score.\n"
@@ -1107,6 +1140,7 @@ def _build_governance_ready_toml(*, engine: str, discovered_name: str | None) ->
         '# base_lang = "en"\n'
         '# base_source = "docs"\n'
         "# strict_parity = true\n"
+        '# require_frontmatter_parity = ["title", "description"]\n'
         "# [i18n.targets]\n"
         '# it = "i18n/it/docusaurus-plugin-content-docs/current"\n'
         "\n"
@@ -1123,7 +1157,7 @@ def _build_governance_ready_toml(*, engine: str, discovered_name: str | None) ->
         "#       - uses: actions/setup-python@v5\n"
         "#         with:\n"
         "#           python-version: '3.12'\n"
-        "#       - run: pipx run zenzic check all --strict\n"
+        "#       - run: uvx zenzic check all --strict\n"
     )
 
 
@@ -1189,6 +1223,27 @@ def _init_pyproject(repo_root: Path, pyproject_path: Path) -> None:
         "fail_under = 100  # Strict gate: fail if quality score < 100%\n"
         "strict = true     # Promote all warnings to blocking errors\n"
         "# excluded_dirs = []\n"
+        "\n"
+        "[tool.zenzic.governance]\n"
+        "suppression_cap = 30\n"
+        "suppression_cap_fail_hard = true\n"
+        "brand_obsolescence = []\n"
+        "# [tool.zenzic.governance.per_file_ignores]\n"
+        "# [tool.zenzic.governance.directory_policies]\n"
+        "\n"
+        "# Uncomment to enable i18n parity checks:\n"
+        "# [tool.zenzic.i18n]\n"
+        "# enabled = true\n"
+        '# base_lang = "en"\n'
+        '# base_source = "docs"\n'
+        "# [tool.zenzic.i18n.targets]\n"
+        '# it = "i18n/it/docusaurus-plugin-content-docs/current"\n'
+        "\n"
+        "# Uncomment to add project-specific lint rules:\n"
+        "# [[tool.zenzic.custom_rules]]\n"
+        '# id      = "ZZ-NOCLICKHERE"\n'
+        '# pattern = "(?i)\\\\bclick here\\\\b"\n'
+        '# message = "Avoid generic link text."\n'
     ) + engine_section
 
     pyproject_path.write_text(existing.rstrip("\n") + "\n" + section, encoding="utf-8")

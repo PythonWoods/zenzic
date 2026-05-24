@@ -394,15 +394,6 @@ class TestSystemFileGuardrails:
         mgr = LayeredExclusionManager(ZenzicConfig(), docs_root=docs)
         assert mgr.should_exclude_file(docs / "custom.lock", docs)
 
-    def test_l1a_zenzic_local_template_excluded(self, tmp_path: Path) -> None:
-        """.zenzic.local.toml.example is always excluded from asset checks."""
-        from zenzic.core.exclusion import LayeredExclusionManager
-
-        docs = tmp_path / "docs"
-        docs.mkdir()
-        mgr = LayeredExclusionManager(ZenzicConfig(), docs_root=docs)
-        assert mgr.should_exclude_file(docs / ".zenzic.local.toml.example", docs)
-
     def test_l1a_zenzic_local_override_excluded(self, tmp_path: Path) -> None:
         """.zenzic.local.toml is always excluded from asset checks."""
         from zenzic.core.exclusion import LayeredExclusionManager

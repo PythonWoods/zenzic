@@ -780,7 +780,7 @@ def test_init_standalone_creates_zenzic_toml(
     content = cfg.read_text(encoding="utf-8")
     assert "# --- PROJECT IDENTITY ---" in content
     assert "[project_metadata]" in content
-    assert 'release_name = "v0.8.0"' in content
+    assert '# release_name = "YOUR-RELEASE"' in content
     assert "suppression_cap = 30" in content
     assert "suppression_cap_fail_hard = true" in content
     assert "release-governance-protocol" in content
@@ -1276,10 +1276,23 @@ def test_check_all_short_format_alias(
 # ---------------------------------------------------------------------------
 
 
-def test_init_plugin_dev_conflict_exits_2(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """--plugin combined with --dev must exit 2 with an informative error."""
+def test_init_local_flag_scaffolds_only_local_toml(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """--local must create only .zenzic.local.toml; .zenzic.toml must not be created."""
     monkeypatch.chdir(tmp_path)
-    result = runner.invoke(app, ["init", "--plugin", "myrule", "--dev"])
+    result = runner.invoke(app, ["init", "--local"])
+    assert result.exit_code == 0, result.output
+    assert (tmp_path / ".zenzic.local.toml").exists()
+    assert not (tmp_path / ".zenzic.toml").exists()
+
+
+def test_init_plugin_local_conflict_exits_2(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """--plugin combined with --local must exit 2 with an informative error."""
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(app, ["init", "--plugin", "myrule", "--local"])
     assert result.exit_code == 2, result.output
     assert "--plugin" in result.output or "cannot be combined" in result.output.lower()
 

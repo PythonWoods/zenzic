@@ -200,7 +200,7 @@ contorno del linguaggio, non ogni minor release.
 - **Security First:** ogni nuova path resolution DEVE essere testata contro Path Traversal. Usa la logica `PathTraversal` da `core`.
 - **Test di Obfuscation del Credential Scanner:** ogni nuovo pattern di credential o regola di normalizer DEVE includere test di regressione per obfuscation: caratteri Unicode format (categoria Cf), encoding HTML entity, interleaving di commenti (HTML `<!-- -->` e MDX `{/* */}`), e token spezzati cross-line. Vedi `tests/test_credentials_obfuscation.py` come reference.
 - **Bilingual Parity:** la documentazione vive in [zenzic-doc](https://github.com/PythonWoods/zenzic-doc). Indirizza i contributori della documentazione lì.
-- **Machine-Local Config:** i secret specifici del progetto (forbidden terms per Z204) vanno in `.zenzic.local.toml` — mai committati. Copia [`.zenzic.local.toml.example`](.zenzic.local.toml.example) come template di partenza.
+- **Machine-Local Config:** i secret specifici del progetto (forbidden terms per Z204) vanno in `.zenzic.local.toml` — mai committati. Esegui `zenzic init --local` per generare una configurazione locale aggiornata alla tua versione del motore.
 
 ### Requisiti Supply-chain
 
