@@ -1,0 +1,17 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# .zenzic.toml — Z101 LINK_BROKEN gallery example
+#
+# docs/index.md references two pages that do not exist on disk:
+#   missing.md  and  guide/setup.md
+# Both trigger Z101 LINK_BROKEN, resulting in exit 1.
+#
+# Expected results:
+#   zenzic check links   → EXIT 1  (Z101 ×2)
+#   zenzic check all     → EXIT 1
+
+docs_dir = "docs"
+fail_under = 0
+
+[build_context]
+engine = "standalone"

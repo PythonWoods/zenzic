@@ -101,13 +101,13 @@ def test_check_all_help_snapshot_contract() -> None:
         "Output format: text, json, or sarif. [default: text]",
         "Always exit 0; report issues without failing.",
         "Minimal one-line output for pre-commit hooks.",
-        "Override the build engine adapter (e.g. mkdocs, zensical). Auto-detected from zenzic.toml when omitted.",
+        "Override the build engine adapter (e.g. mkdocs, zensical). Auto-detected from .zenzic.toml when omitted.",
         "Additional directories to exclude from scanning (repeatable).",
         "Directories to force-include even if excluded by config (repeatable). Cannot override system guardrails.",
         "Show info-level findings (e.g. circular links) in the report.",
         "Force flat URL resolution for offline builds.",
         "Skip HTTP validation of external URLs (Pass 3). For air-gapped / offline environments. Credential scanner (Z201) always active regardless of this flag.",
-        "Bypass external URL validation for URLs matching this prefix (repeatable). Merged with excluded_external_urls from zenzic.toml at runtime.",
+        "Bypass external URL validation for URLs matching this prefix (repeatable). Merged with excluded_external_urls from .zenzic.toml at runtime.",
         "Sovereign truth-seeking mode: ignore all suppressible bypasses (inline zenzic-ignore and governance.per_file_ignores).",
     ]
     assert _extract_contract(normalized, snippets) == _load_snapshot("help_check_all.txt")

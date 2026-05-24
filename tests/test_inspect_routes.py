@@ -293,9 +293,9 @@ class TestJSONPuritySubprocess:
 
     @staticmethod
     def _make_subprocess_fixture(tmp_path: Path) -> None:
-        """Like _make_docusaurus_repo but also writes zenzic.toml (needed by find_repo_root)."""
+        """Like _make_docusaurus_repo but also writes .zenzic.toml (needed by find_repo_root)."""
         _make_docusaurus_repo(tmp_path)
-        (tmp_path / "zenzic.toml").write_text(
+        (tmp_path / ".zenzic.toml").write_text(
             '[build_context]\nengine = "docusaurus"\n', encoding="utf-8"
         )
 

@@ -139,7 +139,7 @@ def find_repo_root(*, fallback_to_cwd: bool = False, search_from: Path | None = 
 
     Root markers (first match wins, checked in order):
     - ``.git/``  — universal VCS marker.
-    - ``zenzic.toml`` — Zenzic's own configuration file.
+    - ``.zenzic.toml`` — Zenzic's own configuration file.
 
     Using engine-neutral markers keeps the Core independent of any specific
     documentation build engine (e.g. ``mkdocs.yml`` is intentionally excluded).
@@ -163,14 +163,14 @@ def find_repo_root(*, fallback_to_cwd: bool = False, search_from: Path | None = 
     """
     start = search_from.resolve() if search_from is not None else Path.cwd().resolve()
     for candidate in [start, *start.parents]:
-        if (candidate / ".git").is_dir() or (candidate / "zenzic.toml").is_file():
+        if (candidate / ".git").is_dir() or (candidate / ".zenzic.toml").is_file():
             return candidate
 
     if fallback_to_cwd:
         return start
 
     raise RuntimeError(
-        "Could not locate repo root: no .git directory or zenzic.toml found in any "
+        "Could not locate repo root: no .git directory or .zenzic.toml found in any "
         f"ancestor of {start}. Run Zenzic from inside the repository."
     )
 

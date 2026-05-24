@@ -94,13 +94,13 @@ def check_links(
         "--exclude-url",
         help=(
             "Bypass external URL validation for URLs matching this prefix (repeatable). "
-            "Merged with excluded_external_urls from zenzic.toml at runtime."
+            "Merged with excluded_external_urls from .zenzic.toml at runtime."
         ),
         metavar="PREFIX",
     ),
     path: str | None = typer.Argument(
         None,
-        help="Limit to a directory or file. Accepts paths relative to repository root or docs directory. The path must be inside a project with a .git/ directory or zenzic.toml (root marker); run 'zenzic init' first if no marker exists.",
+        help="Limit to a directory or file. Accepts paths relative to repository root or docs directory. The path must be inside a project with a .git/ directory or .zenzic.toml (root marker); run 'zenzic init' first if no marker exists.",
         show_default=False,
     ),
 ) -> None:
@@ -231,7 +231,7 @@ def check_orphans(
         None,
         "--engine",
         help="Override the build engine adapter (e.g. mkdocs, zensical). "
-        "Auto-detected from zenzic.toml when omitted.",
+        "Auto-detected from .zenzic.toml when omitted.",
         metavar="ENGINE",
     ),
     output_format: str = typer.Option(
@@ -245,7 +245,7 @@ def check_orphans(
     ),
     path: str | None = typer.Argument(
         None,
-        help="Limit to a directory or file. Accepts paths relative to repository root or docs directory. The path must be inside a project with a .git/ directory or zenzic.toml (root marker); run 'zenzic init' first if no marker exists.",
+        help="Limit to a directory or file. Accepts paths relative to repository root or docs directory. The path must be inside a project with a .git/ directory or .zenzic.toml (root marker); run 'zenzic init' first if no marker exists.",
         show_default=False,
     ),
 ) -> None:
@@ -349,7 +349,7 @@ def check_snippets(
     ),
     path: str | None = typer.Argument(
         None,
-        help="Limit to a directory or file. Accepts paths relative to repository root or docs directory. The path must be inside a project with a .git/ directory or zenzic.toml (root marker); run 'zenzic init' first if no marker exists.",
+        help="Limit to a directory or file. Accepts paths relative to repository root or docs directory. The path must be inside a project with a .git/ directory or .zenzic.toml (root marker); run 'zenzic init' first if no marker exists.",
         show_default=False,
     ),
 ) -> None:
@@ -464,7 +464,7 @@ def check_references(
     ),
     path: str | None = typer.Argument(
         None,
-        help="Limit to a directory or file. Accepts paths relative to repository root or docs directory. The path must be inside a project with a .git/ directory or zenzic.toml (root marker); run 'zenzic init' first if no marker exists.",
+        help="Limit to a directory or file. Accepts paths relative to repository root or docs directory. The path must be inside a project with a .git/ directory or .zenzic.toml (root marker); run 'zenzic init' first if no marker exists.",
         show_default=False,
     ),
 ) -> None:
@@ -639,7 +639,7 @@ def check_assets(
     ),
     path: str | None = typer.Argument(
         None,
-        help="Limit to a directory or file. Accepts paths relative to repository root or docs directory. The path must be inside a project with a .git/ directory or zenzic.toml (root marker); run 'zenzic init' first if no marker exists.",
+        help="Limit to a directory or file. Accepts paths relative to repository root or docs directory. The path must be inside a project with a .git/ directory or .zenzic.toml (root marker); run 'zenzic init' first if no marker exists.",
         show_default=False,
     ),
 ) -> None:
@@ -741,7 +741,7 @@ def check_placeholders(
     ),
     path: str | None = typer.Argument(
         None,
-        help="Limit to a directory or file. Accepts paths relative to repository root or docs directory. The path must be inside a project with a .git/ directory or zenzic.toml (root marker); run 'zenzic init' first if no marker exists.",
+        help="Limit to a directory or file. Accepts paths relative to repository root or docs directory. The path must be inside a project with a .git/ directory or .zenzic.toml (root marker); run 'zenzic init' first if no marker exists.",
         show_default=False,
     ),
 ) -> None:
@@ -1347,7 +1347,7 @@ def check_all(
         None,
         "--engine",
         help="Override the build engine adapter (e.g. mkdocs, zensical). "
-        "Auto-detected from zenzic.toml when omitted.",
+        "Auto-detected from .zenzic.toml when omitted.",
         metavar="ENGINE",
     ),
     exclude_dir: list[str] | None = typer.Option(
@@ -1395,7 +1395,7 @@ def check_all(
         "--exclude-url",
         help=(
             "Bypass external URL validation for URLs matching this prefix (repeatable). "
-            "Merged with excluded_external_urls from zenzic.toml at runtime."
+            "Merged with excluded_external_urls from .zenzic.toml at runtime."
         ),
         metavar="PREFIX",
     ),

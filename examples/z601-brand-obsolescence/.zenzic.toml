@@ -1,0 +1,22 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# .zenzic.toml — Z601 BRAND_OBSOLESCENCE gallery example
+#
+# governance.brand_obsolescence lists "OldPlatform" as a deprecated name.
+# docs/index.md contains a reference to "OldPlatform" (historical context).
+# Zenzic flags it as Z601 BRAND_OBSOLESCENCE — exit 1.
+#
+# To suppress a legitimate historical reference:
+#   <!-- zenzic:ignore: Z601 intentional historical context -->
+#
+# Expected results:
+#   zenzic check all   → EXIT 1  (Z601 ×1 — OldPlatform)
+
+docs_dir = "docs"
+fail_under = 0
+
+[build_context]
+engine = "standalone"
+
+[governance]
+brand_obsolescence = ["OldPlatform"]

@@ -72,7 +72,7 @@ class SuppressionAudit:
             reverse=True,
         )
         if self.per_file_count > 0:
-            rows.append(("zenzic.toml [per-file]", self.per_file_count))
+            rows.append((".zenzic.toml [per-file]", self.per_file_count))
         rows.sort(key=lambda item: item[1], reverse=True)
         return rows[:limit]
 
@@ -121,7 +121,7 @@ def suppression_remediation_steps() -> list[str]:
     """Canonical remediation steps for suppression CAP governance failures."""
     return [
         "Review hotspots and remove suppressions where possible.",
-        "If debt is intentional, update governance.suppression_cap in zenzic.toml.",
+        "If debt is intentional, update governance.suppression_cap in .zenzic.toml.",
         "Follow the playbook: https://zenzic.dev/developers/how-to/release-governance-protocol",
     ]
 
@@ -251,7 +251,7 @@ def read_project_name_from_toml(path: Path) -> str | None:
 
 def resolve_governance_panel_title(repo_root: Path) -> str:
     """Resolve governance panel title from project metadata with safe fallback."""
-    zenzic_name = read_project_name_from_toml(repo_root / "zenzic.toml")
+    zenzic_name = read_project_name_from_toml(repo_root / ".zenzic.toml")
     pyproject_name = read_project_name_from_toml(repo_root / "pyproject.toml")
     app_name = zenzic_name or pyproject_name
     if not app_name:
@@ -331,7 +331,7 @@ def build_cap_exceeded_sarif_payload(
                             {
                                 "physicalLocation": {
                                     "artifactLocation": {
-                                        "uri": "zenzic.toml",
+                                        "uri": ".zenzic.toml",
                                         "uriBaseId": "%SRCROOT%",
                                     },
                                     "region": {"startLine": 1},

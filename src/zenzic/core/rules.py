@@ -11,7 +11,7 @@ documented clearly.
 
 Two kinds of rules coexist in the same engine:
 
-* **CustomRule** — declared directly in ``zenzic.toml`` as ``[[custom_rules]]``
+* **CustomRule** — declared directly in ``.zenzic.toml`` as ``[[custom_rules]]``
   entries.  No Python required.  Ideal for project-specific vocabulary checks.
 * **BaseRule** subclasses — Python classes registered via the
   ``zenzic.rules`` entry-point group.  For complex, multi-line logic that
@@ -154,7 +154,7 @@ class Violation:
 
     * ``code``    — Stable machine-readable identifier in the form ``ZXXX``
                     (e.g. ``Z001``).  Used in ``--ignore`` flags and
-                    suppressions inside ``zenzic.toml``.
+                    suppressions inside ``.zenzic.toml``.
     * ``level``   — ``"error"`` blocks a clean exit; ``"warning"`` is
                     reported but does not fail CI; ``"info"`` is purely
                     informational.
@@ -309,7 +309,7 @@ class BaseRule(ABC):
 
 @dataclass
 class CustomRule(BaseRule):
-    """A regex-based rule declared in ``[[custom_rules]]`` inside ``zenzic.toml``.
+    """A regex-based rule declared in ``[[custom_rules]]`` inside ``.zenzic.toml``.
 
     Each entry in the ``[[custom_rules]]`` array maps directly to one
     ``CustomRule`` instance.  The pattern is applied line-by-line.
@@ -751,7 +751,7 @@ class BrandObsolescenceRule(BaseRule):
     """Z601 — Detect deprecated brand terms in documentation source.
 
     Activated only when ``[project_metadata] obsolete_names`` is non-empty in
-    ``zenzic.toml``.  Emits a warning for each occurrence of an obsolete name
+    ``.zenzic.toml``.  Emits a warning for each occurrence of an obsolete name
     found in documentation source files.
 
     **Suppression (ADR-063 — MDX-native protocol):** Add an inline suppression

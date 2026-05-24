@@ -47,7 +47,7 @@ _SOURCE_BADGE: dict[str, tuple[str, str]] = {
     ),
     "global": (
         f"[bold {ZenzicPalette.BRAND}]global[/]",
-        f"[{ZenzicPalette.BRAND}]zenzic.toml[/]",
+        f"[{ZenzicPalette.BRAND}].zenzic.toml[/]",
     ),
     "default": (f"[{ZenzicPalette.DIM}]default[/]", f"[{ZenzicPalette.DIM}]built-in[/]"),
 }
@@ -157,14 +157,14 @@ def explain(
 
     \\b
     - [bold amber]local[/bold amber]   — set in .zenzic.local.toml (machine-local, git-ignored)
-    - [bold indigo]global[/bold indigo]  — set in zenzic.toml (shared, version-controlled)
+    - [bold indigo]global[/bold indigo]  — set in .zenzic.toml (shared, version-controlled)
     - [dim]default[/dim]  — built-in Zenzic default (no explicit declaration)
     """
     from zenzic import __version__
 
     repo_root = find_repo_root(search_from=Path(path).resolve(), fallback_to_cwd=True)
 
-    raw_global = _load_raw_toml(repo_root / "zenzic.toml")
+    raw_global = _load_raw_toml(repo_root / ".zenzic.toml")
     raw_local = _load_raw_toml(repo_root / ".zenzic.local.toml")
 
     # Canonical local core keys live under [core] in .zenzic.local.toml.
@@ -181,7 +181,7 @@ def explain(
     console.print()
 
     # ── config origin summary ─────────────────────────────────────────────
-    global_file = repo_root / "zenzic.toml"
+    global_file = repo_root / ".zenzic.toml"
     local_file = repo_root / ".zenzic.local.toml"
     global_status = (
         f"[{ZenzicPalette.SUCCESS}]{global_file.name}[/] [{ZenzicPalette.DIM}]({global_file})[/]"

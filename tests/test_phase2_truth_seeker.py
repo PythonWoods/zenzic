@@ -51,7 +51,7 @@ def test_per_file_ignores_are_disabled_in_sovereign_audit_mode() -> None:
 def test_guard_scan_detects_secrets_and_exits_2(tmp_path: Path, monkeypatch) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()
-    (repo / "zenzic.toml").write_text("docs_dir = '.'\n", encoding="utf-8")
+    (repo / ".zenzic.toml").write_text("docs_dir = '.'\n", encoding="utf-8")
     bad = repo / "README.md"
     bad.write_text("token = ghp_abcdefghijklmnopqrstuvwxyz1234567890", encoding="utf-8")
     monkeypatch.chdir(repo)
@@ -64,7 +64,7 @@ def test_guard_scan_detects_secrets_and_exits_2(tmp_path: Path, monkeypatch) -> 
 def test_guard_scan_clean_exit_zero(tmp_path: Path, monkeypatch) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()
-    (repo / "zenzic.toml").write_text("docs_dir = '.'\n", encoding="utf-8")
+    (repo / ".zenzic.toml").write_text("docs_dir = '.'\n", encoding="utf-8")
     ok = repo / "README.md"
     ok.write_text("No credentials here.", encoding="utf-8")
     monkeypatch.chdir(repo)

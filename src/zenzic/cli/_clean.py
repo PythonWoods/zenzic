@@ -38,7 +38,7 @@ def clean_assets(
         None,
         "--engine",
         help="Override the build engine adapter (e.g. mkdocs, zensical). "
-        "Auto-detected from zenzic.toml when omitted.",
+        "Auto-detected from .zenzic.toml when omitted.",
         metavar="ENGINE",
     ),
     exclude_dir: list[str] | None = typer.Option(

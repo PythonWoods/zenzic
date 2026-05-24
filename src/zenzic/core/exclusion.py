@@ -15,7 +15,7 @@ Exclusion Hierarchy (processed top-to-bottom, first match wins):
 4. **VCS Discovery (L2-VCS):** ``.gitignore`` patterns when
    ``respect_vcs_ignore = true`` (default).
 5. **Config Overrides (L3):** ``excluded_dirs`` / ``excluded_file_patterns``
-   from ``zenzic.toml``.
+   from ``.zenzic.toml``.
 6. **Default:** Included.
 
 Public API

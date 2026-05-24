@@ -604,8 +604,8 @@ def explain(
             "Z502": [("short_content_threshold", "short_content_threshold")],
             "Z402": [("excluded_dirs", "excluded_dirs (removes pages from nav scope)")],
         }
-        # Global: zenzic.toml presence
-        global_toml = repo_root / "zenzic.toml"
+        # Global: .zenzic.toml presence
+        global_toml = repo_root / ".zenzic.toml"
         local_toml = repo_root / ".zenzic.local.toml"
 
         genealogy_rows.append(
@@ -734,7 +734,7 @@ def init(
     pyproject: bool = typer.Option(
         False,
         "--pyproject",
-        help="Write configuration into pyproject.toml [tool.zenzic] instead of zenzic.toml.",
+        help="Write configuration into pyproject.toml [tool.zenzic] instead of .zenzic.toml.",
     ),
     dev: bool = typer.Option(
         False,
@@ -749,7 +749,7 @@ def init(
 ) -> None:
     """Scaffold a Zenzic configuration in the current project.
 
-    By default creates ``zenzic.toml``.  If ``pyproject.toml`` exists in the
+    By default creates ``.zenzic.toml``.  If ``pyproject.toml`` exists in the
     project root Zenzic will ask whether to embed the configuration there
     as a ``[tool.zenzic]`` table instead.  Use ``--pyproject`` to skip the
     prompt and write directly into ``pyproject.toml``.
@@ -801,7 +801,7 @@ def init(
         )
         raise typer.Exit(1)
 
-    config_path = repo_root / "zenzic.toml"
+    config_path = repo_root / ".zenzic.toml"
     local_path = repo_root / ".zenzic.local.toml"
     # Atomic guard for the dual-file init contract: do not allow partial re-init.
     if config_path.exists():
@@ -876,7 +876,7 @@ def _scaffold_local_toml(repo_root: Path) -> None:
         content = (
             "# --- ZENZIC LOCAL OVERRIDES ---\n"
             "# This file is auto-generated and must stay in .gitignore.\n"
-            "# Precedence: .zenzic.local.toml overrides zenzic.toml on this machine only.\n"
+            "# Precedence: .zenzic.local.toml overrides .zenzic.toml on this machine only.\n"
             "# Use it for workstation-specific paths, temporary debt-cleanup knobs,\n"
             "# and private credentials that must never enter version control.\n"
             "\n"
@@ -902,7 +902,7 @@ def _scaffold_local_toml(repo_root: Path) -> None:
             "[governance]\n"
             "# Want to disable fail-hard locally during massive debt cleanup?\n"
             "# Raise CAP only for your workstation to avoid blocking local experiments.\n"
-            "# Keep shared governance decisions in zenzic.toml.\n"
+            "# Keep shared governance decisions in .zenzic.toml.\n"
             "# suppression_cap = 100\n"
             "# suppression_cap_fail_hard = false\n"
             "\n"
@@ -911,7 +911,7 @@ def _scaffold_local_toml(repo_root: Path) -> None:
             "# enabled = true\n"
             "\n"
             "[secrets]\n"
-            "# Store API tokens here (never in shared zenzic.toml).\n"
+            "# Store API tokens here (never in shared .zenzic.toml).\n"
             "# Use these credentials in local wrappers for authenticated checks\n"
             "# (for example API rate limits or private repository URLs).\n"
             '# github_pat = "ghp_xxxxxxxxxxxxxxxxxxxx"\n'
@@ -1015,7 +1015,7 @@ def _build_governance_ready_toml(*, engine: str, discovered_name: str | None) ->
         "# SPDX-FileCopyrightText: 2026 [Your Name] <[Your Email]>\n"
         f"# {spdx_id_label}: Apache-2.0\n"
         "\n"
-        "# Precedence: zenzic.toml is shared baseline; .zenzic.local.toml overrides locally.\n"
+        "# Precedence: .zenzic.toml is shared baseline; .zenzic.local.toml overrides locally.\n"
         "# Keep secrets and workstation-only values in .zenzic.local.toml.\n"
         "\n"
         "# --- PROJECT IDENTITY ---\n"
@@ -1128,8 +1128,8 @@ def _build_governance_ready_toml(*, engine: str, discovered_name: str | None) ->
 
 
 def _init_standalone(repo_root: Path) -> None:
-    """Create a standalone ``zenzic.toml`` configuration file."""
-    config_path = repo_root / "zenzic.toml"
+    """Create a standalone ``.zenzic.toml`` configuration file."""
+    config_path = repo_root / ".zenzic.toml"
     local_path = repo_root / ".zenzic.local.toml"
 
     if config_path.exists():
@@ -1148,7 +1148,7 @@ def _init_standalone(repo_root: Path) -> None:
 
     _shared.console.print(
         Panel(
-            f"[green]✔[/] [bold]zenzic.toml created.[/]\n"
+            f"[green]✔[/] [bold].zenzic.toml created.[/]\n"
             f"[yellow]💡[/] [bold]Auto-discovery:[/] Engine pre-set to "
             f"[bold cyan]{detected_engine}[/].\n\n"
             "Run [bold cyan]zenzic check all[/] to verify your documentation.",
@@ -1164,7 +1164,7 @@ def _init_pyproject(repo_root: Path, pyproject_path: Path) -> None:
         _shared.console.print(
             "[red]ERROR:[/] No [bold]pyproject.toml[/] found at "
             f"[{ZenzicPalette.DIM}]{pyproject_path}[/]\n"
-            "Use [bold cyan]zenzic init[/] without --pyproject to create a standalone zenzic.toml."
+            "Use [bold cyan]zenzic init[/] without --pyproject to create a standalone .zenzic.toml."
         )
         raise typer.Exit(1)
 
@@ -1302,7 +1302,7 @@ uv pip install -e .
 zenzic inspect capabilities
 ```
 
-Enable this plugin in a target project's `zenzic.toml`:
+Enable this plugin in a target project's `.zenzic.toml`:
 
 ```toml
 plugins = ["{project_slug}"]
@@ -1319,8 +1319,8 @@ plugins = ["{project_slug}"]
 
     (target / "pyproject.toml").write_text(pyproject, encoding="utf-8")
     (target / "README.md").write_text(readme, encoding="utf-8")
-    (target / "zenzic.toml").write_text(
-        '# zenzic.toml generated by plugin scaffold\n# docs_dir defaults to "docs"\n',
+    (target / ".zenzic.toml").write_text(
+        '# .zenzic.toml generated by plugin scaffold\n# docs_dir defaults to "docs"\n',
         encoding="utf-8",
     )
     (src_pkg / "__init__.py").write_text(

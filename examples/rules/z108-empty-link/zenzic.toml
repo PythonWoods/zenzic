@@ -1,6 +1,0 @@
-# zenzic.toml — Z108 Empty Link reference fixture.
-docs_dir = "docs"
-fail_under = 100
-
-[build_context]
-engine = "standalone"

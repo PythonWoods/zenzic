@@ -49,9 +49,9 @@ class TestFindRepoRootSearchFrom:
         repo_b = tmp_path / "repo_b"
         repo_a.mkdir()
         repo_b.mkdir()
-        (repo_a / "zenzic.toml").write_text("[build_context]\nengine = 'mkdocs'\n")
+        (repo_a / ".zenzic.toml").write_text("[build_context]\nengine = 'mkdocs'\n")
         (repo_a / ".git").mkdir()
-        (repo_b / "zenzic.toml").write_text("[build_context]\nengine = 'docusaurus'\n")
+        (repo_b / ".zenzic.toml").write_text("[build_context]\nengine = 'docusaurus'\n")
         (repo_b / ".git").mkdir()
 
         original_cwd = Path.cwd()
@@ -67,10 +67,10 @@ class TestFindRepoRootSearchFrom:
             os.chdir(original_cwd)
 
     def test_search_from_zenzic_toml_marker(self, tmp_path: Path) -> None:
-        """zenzic.toml (not .git) is sufficient as a root marker when using search_from."""
+        """.zenzic.toml (not .git) is sufficient as a root marker when using search_from."""
         repo_b = tmp_path / "repo_b"
         (repo_b / "docs").mkdir(parents=True)
-        (repo_b / "zenzic.toml").write_text("")
+        (repo_b / ".zenzic.toml").write_text("")
 
         # CWD is tmp_path (no root marker here)
         original_cwd = Path.cwd()
@@ -105,7 +105,7 @@ class TestApplyTargetSovereignRoot:
         repo = tmp_path / "repo"
         docs = repo / "docs"
         docs.mkdir(parents=True)
-        (repo / "zenzic.toml").write_text("")
+        (repo / ".zenzic.toml").write_text("")
         (repo / ".git").mkdir()
         (docs / "index.md").write_text("# Home\n")
 
@@ -129,7 +129,7 @@ class TestApplyTargetSovereignRoot:
         docs.mkdir(parents=True)
         blog.mkdir()
         (repo / ".git").mkdir()
-        (repo / "zenzic.toml").write_text("")
+        (repo / ".zenzic.toml").write_text("")
         (docs / "index.md").write_text("# Home\n")
         (blog / "2026-post.md").write_text("# Blog Post\n")
 
@@ -147,7 +147,7 @@ class TestApplyTargetSovereignRoot:
         sub = repo / "content"
         sub.mkdir(parents=True)
         (repo / ".git").mkdir()
-        (repo / "zenzic.toml").write_text("")
+        (repo / ".zenzic.toml").write_text("")
         (sub / "index.md").write_text("# Content\n")
 
         config = ZenzicConfig(docs_dir=Path("docs"))
@@ -168,7 +168,7 @@ class TestConfigIsolation:
         """ZenzicConfig.load must read from target repo_root, not CWD's root.
 
         This is the core CEO-052 invariant: running Zenzic from repo A pointing
-        at repo B must load B's zenzic.toml, not A's.
+        at repo B must load B's .zenzic.toml, not A's.
         """
         repo_a = tmp_path / "repo_a"
         repo_b = tmp_path / "repo_b"
@@ -178,8 +178,8 @@ class TestConfigIsolation:
         (repo_b / ".git").mkdir()
 
         # A has strict=true, B has strict=false
-        (repo_a / "zenzic.toml").write_text("strict = true\n")
-        (repo_b / "zenzic.toml").write_text("strict = false\n")
+        (repo_a / ".zenzic.toml").write_text("strict = true\n")
+        (repo_b / ".zenzic.toml").write_text("strict = false\n")
 
         original_cwd = Path.cwd()
         os.chdir(repo_a)
@@ -195,7 +195,7 @@ class TestConfigIsolation:
             os.chdir(original_cwd)
 
     def test_docs_dir_from_target_config(self, tmp_path: Path) -> None:
-        """docs_dir must be read from B's zenzic.toml, not A's."""
+        """docs_dir must be read from B's .zenzic.toml, not A's."""
         repo_a = tmp_path / "repo_a"
         repo_b = tmp_path / "repo_b"
         repo_a.mkdir()
@@ -204,8 +204,8 @@ class TestConfigIsolation:
         (repo_b / ".git").mkdir()
         (repo_b / "documentation").mkdir()  # B uses "documentation" not "docs"
 
-        (repo_a / "zenzic.toml").write_text('docs_dir = "docs"\n')
-        (repo_b / "zenzic.toml").write_text('docs_dir = "documentation"\n')
+        (repo_a / ".zenzic.toml").write_text('docs_dir = "docs"\n')
+        (repo_b / ".zenzic.toml").write_text('docs_dir = "documentation"\n')
 
         original_cwd = Path.cwd()
         os.chdir(repo_a)

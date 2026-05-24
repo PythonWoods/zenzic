@@ -1138,7 +1138,7 @@ const c = {
 class TestAdapterAbsoluteUrlPrefixes:
     """``DocusaurusAdapter.get_absolute_url_prefixes`` auto-discovers project-
     owned route prefixes so cross-plugin absolute links bypass Z105 without
-    requiring the user to duplicate Docusaurus routing into ``zenzic.toml``.
+    requiring the user to duplicate Docusaurus routing into ``.zenzic.toml``.
 
     Discovery sources (in priority order):
       1. Static parse of ``docusaurus.config.{ts,js,mjs,cjs}`` for sibling
@@ -1229,7 +1229,7 @@ class TestAdapterAbsoluteUrlPrefixes:
 
 class TestZ105AdapterDrivenSuppression:
     """End-to-end: Z105 must not fire on cross-plugin links once the adapter
-    auto-detects the sibling plugin — no ``zenzic.toml`` allow-list required.
+    auto-detects the sibling plugin — no ``.zenzic.toml`` allow-list required.
     """
 
     def test_cross_plugin_link_passes_with_zero_config(self, tmp_path: Path) -> None:

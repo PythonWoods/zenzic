@@ -42,7 +42,7 @@ def _write_mkdocs(root: Path, config: dict) -> None:
 
 
 def _write_zenzic_toml(root: Path, engine: str = "mkdocs") -> None:
-    (root / "zenzic.toml").write_text(f'[build_context]\nengine = "{engine}"\n', encoding="utf-8")
+    (root / ".zenzic.toml").write_text(f'[build_context]\nengine = "{engine}"\n', encoding="utf-8")
 
 
 # ─── Route dataclass ──────────────────────────────────────────────────────────

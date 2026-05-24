@@ -189,13 +189,13 @@ class ZensicalAdapter(BaseAdapter):
             {"API" = ["api/index.md", {"Endpoints" = "api/endpoints.md"}]},
         ]
 
-    Locale information is sourced from ``[build_context]`` in ``zenzic.toml``
+    Locale information is sourced from ``[build_context]`` in ``.zenzic.toml``
     (the :class:`~zenzic.models.config.BuildContext`).  Zensical does not yet
     expose its own i18n configuration in ``zensical.toml``; when it does, this
     adapter will be updated to read it directly.
 
     Args:
-        context: Build context from ``zenzic.toml``.
+        context: Build context from ``.zenzic.toml``.
         docs_root: Resolved absolute path to the ``docs/`` directory.
         zensical_config: Parsed config payload from the active input source.
         config_source: Internal source marker (``"zensical"`` or ``"mkdocs"``).
@@ -214,7 +214,7 @@ class ZensicalAdapter(BaseAdapter):
             zensical_config if zensical_config is not None else {}
         )
         self._config_source = config_source
-        # Locale configuration sourced entirely from BuildContext (zenzic.toml).
+        # Locale configuration sourced entirely from BuildContext (.zenzic.toml).
         self._locale_dirs: frozenset[str] = frozenset(context.locales)
         self._fallback_to_default: bool = context.fallback_to_default
 
@@ -258,7 +258,7 @@ class ZensicalAdapter(BaseAdapter):
     ) -> bool:
         """Return ``True`` if an anchor miss should be suppressed via i18n fallback.
 
-        Locale configuration is sourced from ``BuildContext`` (``zenzic.toml``).
+        Locale configuration is sourced from ``BuildContext`` (``.zenzic.toml``).
 
         Args:
             resolved_file: Absolute path of the locale file whose anchor set
@@ -469,7 +469,7 @@ class ZensicalAdapter(BaseAdapter):
             )
 
         raise ConfigurationError(
-            "engine 'zensical' declared in zenzic.toml but no configuration file was found",
+            "engine 'zensical' declared in .zenzic.toml but no configuration file was found",
             context={
                 "repo_root": str(repo_root),
                 "hint": "create zensical.toml (or provide mkdocs.yml as compat input)",

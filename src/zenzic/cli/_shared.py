@@ -121,7 +121,7 @@ def create_app(*, name: str, long_help: str) -> typer.Typer:
 # ── Info hint panel ──────────────────────────────────────────────────────────
 
 _NO_CONFIG_HINT = Panel(
-    "Using built-in defaults — no [bold]zenzic.toml[/] found.\n"
+    "Using built-in defaults — no [bold].zenzic.toml[/] found.\n"
     "Run [bold cyan]zenzic init[/] to create a project configuration file.\n"
     "Customise docs directory, excluded paths, engine adapter, and lint rules.",
     title=f"[bold yellow]{emoji('info')} Zenzic Tip[/]",
@@ -134,7 +134,7 @@ _MACHINE_FORMATS: frozenset[str] = frozenset({"json", "sarif"})
 
 
 def _print_no_config_hint(output_format: str = "text") -> None:
-    """Print a one-time informational panel when running without zenzic.toml.
+    """Print a one-time informational panel when running without .zenzic.toml.
 
     Suppressed for machine-readable formats (json, sarif) — Rule R20 Machine Silence:
     stdout must remain 100% valid against the target schema; no Rich panels allowed.

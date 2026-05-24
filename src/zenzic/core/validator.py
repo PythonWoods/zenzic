@@ -691,7 +691,7 @@ async def validate_links_async(
     _bypass_schemes = adapter.get_link_scheme_bypasses()
     # Adapter-declared absolute URL prefixes (multi-instance plugin roots, blog,
     # default docs route base path).  Honours Zero-Config: the user does not
-    # duplicate Docusaurus routing into ``zenzic.toml``; the adapter inspects
+    # duplicate Docusaurus routing into ``.zenzic.toml``; the adapter inspects
     # its own engine's config and reports ownership.  Adapters that don't host
     # multi-instance plugins return ``frozenset()``.
     _project_absolute_prefixes: tuple[str, ...] = tuple(adapter.get_absolute_url_prefixes())

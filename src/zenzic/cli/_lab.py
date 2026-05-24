@@ -2,10 +2,10 @@
 # SPDX-License-Identifier: Apache-2.0
 """``zenzic lab`` — interactive showcase of bundled documentation examples.
 
-Each act runs a fresh check against one of the bundled example projects using
-Zenzic's internal Python APIs (zero subprocess).  Examples are resolved from
-the installed wheel via :func:`importlib.resources.files`, or from the
-repository checkout when running in editable mode.
+Each scenario runs a fresh check against one of the bundled Z-code gallery
+projects using Zenzic's internal Python APIs (zero subprocess).  Examples are
+resolved from the installed wheel via :func:`importlib.resources.files`, or
+from the repository checkout when running in editable mode.
 """
 
 from __future__ import annotations
@@ -67,12 +67,12 @@ def _examples_root() -> Path:
     )
 
 
-# ── Act definitions ──────────────────────────────────────────────────────────
+# ── Scenario definitions ─────────────────────────────────────────────────────
 
 
 @dataclass(frozen=True)
 class _Act:
-    id: int
+    code: str
     title: str
     description: str
     example_dir: str
@@ -83,234 +83,74 @@ class _Act:
     single_file: str | None = None
 
 
-_ACTS: list[_Act] = [
-    _Act(
-        0,
-        "Linter Demo",
-        "FILE_NOT_FOUND and BROKEN_ANCHOR on a MkDocs 1.x project",
-        "mkdocs-basic",
+# Z-code keyed gallery — each entry is a self-contained violation example.
+_GALLERY: dict[str, _Act] = {
+    "z101": _Act(
+        code="z101",
+        title="Link Integrity",
+        description="Z101 LINK_BROKEN — file references that resolve to missing pages",
+        example_dir="z101-broken-links",
         expected_pass=False,
     ),
-    _Act(
-        1,
-        "The Gold Standard",
-        "100/100 multi-locale MkDocs project — zero findings",
-        "i18n-standard",
-        expected_pass=True,
-    ),
-    _Act(
-        2,
-        "The Broken Docs",
-        "Every error class in a single fixture",
-        "broken-docs",
-        expected_pass=False,
-    ),
-    _Act(
-        3,
-        "Credential Scanner",
-        "Credential exposure detected — security_breach severity",
-        "security_lab",
+    "z201": _Act(
+        code="z201",
+        title="Credential Scanner",
+        description="Z201 CREDENTIAL_SECRET — AWS key in docs; security_breach severity, exit 2",
+        example_dir="z201-credentials",
         expected_pass=False,
         expected_breach=True,
     ),
-    _Act(
-        4,
-        "Single-File Target",
-        "Scope the audit to README.md only — 1 file, zero findings",
-        "single-file-target",
-        expected_pass=True,
-        single_file="README.md",
-    ),
-    _Act(
-        5,
-        "Custom Dir Target",
-        "Audit content/ at runtime without modifying zenzic.toml",
-        "custom-dir-target",
-        expected_pass=True,
-        docs_root_override="content",
-    ),
-    _Act(
-        6,
-        "Transparent Proxy",
-        "INFO banner — Zensical bridge with mkdocs.yml only. Z601 BRAND_OBSOLESCENCE ref to 'v0.6.x' detected",
-        "zensical-bridge",
+    "z405": _Act(
+        code="z405",
+        title="Asset Integrity",
+        description="Z405 UNREFERENCED_ASSET — image file exists on disk but is never linked",
+        example_dir="z405-unused-assets",
         expected_pass=False,
     ),
-    _Act(
-        7,
-        "The Flagship",
-        "Versioned docs + @site/ aliases + i18n Ghost Routing",
-        "docusaurus-v3-enterprise",
-        expected_pass=True,
-    ),
-    _Act(
-        8,
-        "Standalone Excellence",
-        "Config-free folder: link + credential scan + Z401 checks. Z505 untagged block demonstrated",
-        "standalone-markdown",
-        expected_pass=False,
-        show_info=True,
-    ),
-    _Act(
-        9,
-        "MkDocs Favicon Guard",
-        "Z404 fired for theme.favicon + theme.logo declared but missing (MkDocs engine)",
-        "mkdocs-z404",
+    "z601": _Act(
+        code="z601",
+        title="Brand Obsolescence",
+        description="Z601 BRAND_OBSOLESCENCE — deprecated release name detected in content",
+        example_dir="z601-brand-obsolescence",
         expected_pass=False,
     ),
-    _Act(
-        10,
-        "Zensical Logo Guard",
-        "Z404 fired for [project].favicon + [project].logo declared but missing (Zensical engine)",
-        "zensical-z404",
+    "z602": _Act(
+        code="z602",
+        title="i18n Parity",
+        description="Z602 I18N_PARITY — guide.md present in EN locale, absent from IT",
+        example_dir="z602-i18n-parity",
         expected_pass=False,
     ),
-    # ── Security Audit Matrix ──────────────────────────────────────────────────
-    _Act(
-        11,
-        "Unix Security Probe",
-        "PATH_TRAVERSAL + credential exposure: multi-hop ../chains, obfuscated & fenced creds",
-        "os/unix-security",
-        expected_pass=False,
-        expected_breach=True,
-    ),
-    _Act(
-        12,
-        "Windows Path Integrity",
-        "Z105 ABSOLUTE_LINK on /C:/, /D:/, /UNC/ and file:/// link targets",
-        "os/win-integrity",
-        expected_pass=False,
-    ),
-    _Act(
-        13,
-        "Link Graph Stress",
-        "Circular broken anchors (Z102) + FILE_NOT_FOUND (Z104) across 5 nodes",
-        "rules/z100-link-graph",
-        expected_pass=False,
-    ),
-    _Act(
-        14,
-        "Credential Scan: Obfuscation Patterns",
-        "Credential obfuscation: base64, percent-encoded, and mixed-case prefixes",
-        "rules/z201-credential-leak",
-        expected_pass=False,
-        expected_breach=True,
-    ),
-    _Act(
-        15,
-        "SEO Coverage",
-        "Z401 MISSING_DIRECTORY_INDEX ×3 + Z402 ORPHAN_PAGE ×1",
-        "rules/z400-seo",
-        expected_pass=False,
-    ),
-    _Act(
-        16,
-        "Quality Gate",
-        "Z501 PLACEHOLDER ×3 (TODO, FIXME, stub) + Z503 SNIPPET_NOT_FOUND ×1",
-        "rules/z500-quality",
-        expected_pass=False,
-    ),
-    # \u2500\u2500 Scoring Scenarios (Zenzic Penalty Table) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
-    _Act(
-        17,
-        "Score 0/100 — Security Override",
-        "Fake AWS credential \u2192 Z201 CREDENTIAL_SECRET \u2192 score collapses to 0 regardless of other quality",
-        "scoring/security-breach",
-        expected_pass=False,
-        expected_breach=True,
-    ),
-    _Act(
-        18,
-        "Score 70/100 — Category Cap",
-        "100 × Z505 UNTAGGED_CODE_BLOCK: content zeroed (30 pts) but total floors at 70/100",
-        "scoring/content-spam",
-        expected_pass=False,
-    ),
-    _Act(
-        19,
-        "The Base64 Shadow",
-        "GitHub PAT obfuscated in Base64 in frontmatter — credential scanner detects through encoding (CEO-194)",
-        "scoring/security-base64",
-        expected_pass=False,
-        expected_breach=True,
-    ),
-    # ── Enterprise Gate ───────────────────────────────────────────────────────
-    _Act(
-        20,
-        "Privacy Gate",
-        "Z204 FORBIDDEN_TERM: internal codename in docs triggers exit-2 breach via .zenzic.local.toml",
-        "rules/z204-privacy-gate",
-        expected_pass=False,
-        expected_breach=True,
-    ),
-    _Act(
-        21,
-        "Empty Link Detection",
-        "Z108 EMPTY_LINK_TEXT detected. Demonstrates structural penalty applied to Quality Score.",
-        "rules/z108-empty-link",
-        expected_pass=False,
-    ),
-]
+}
+
+_VALID_CODES: frozenset[str] = frozenset(_GALLERY)
 
 
-# ── Section definitions ───────────────────────────────────────────────────────
-
-_VALID_IDS: frozenset[int] = frozenset(a.id for a in _ACTS)
+# ── Input parser ─────────────────────────────────────────────────────────────
 
 
-# ── Range parser ──────────────────────────────────────────────────────────────
-
-
-def parse_act_range(raw: str) -> list[int]:
-    """Parse an act range string into an ordered list of valid act IDs.
+def parse_scenario_keys(raw: str) -> list[str]:
+    """Parse a Z-code input into an ordered list of valid scenario keys.
 
     Accepted formats:
 
-    - ``"3"``      → ``[3]``
-    - ``"11-16"``  → ``[11, 12, 13, 14, 15, 16]``
-    - ``"all"``    → all act IDs in ascending order
+    - ``"z101"``   -> ``["z101"]``
+    - ``"all"``    -> all codes in definition order
 
-    Raises :exc:`ValueError` for malformed input or empty ranges.
+    Raises :exc:`ValueError` for unknown codes.
     """
-    raw = raw.strip()
+    raw = raw.strip().lower()
     if raw == "all":
-        return sorted(_VALID_IDS)
-    if "-" in raw:
-        parts = raw.split("-", 1)
-        try:
-            lo, hi = int(parts[0]), int(parts[1])
-        except ValueError as exc:
-            raise ValueError(
-                f"Invalid range '{raw}': expected N-M where N and M are integers."
-            ) from exc
-        if lo > hi:
-            raise ValueError(f"Invalid range '{raw}': start ({lo}) must be ≤ end ({hi}).")
-        ids = [i for i in range(lo, hi + 1) if i in _VALID_IDS]
-        if not ids:
-            raise ValueError(f"Range '{raw}' contains no valid act numbers. Valid range: 0–21.")
-        return ids
-    try:
-        n = int(raw)
-    except ValueError as exc:
-        raise ValueError(f"Invalid act '{raw}': expected an integer, N-M range, or 'all'.") from exc
-    if n not in _VALID_IDS:
-        raise ValueError(f"Act {n} does not exist. Valid acts: 0–21.")
-    return [n]
+        return list(_GALLERY)
+    if raw not in _VALID_CODES:
+        valid = ", ".join(sorted(_VALID_CODES))
+        raise ValueError(
+            f"Unknown Z-code '{raw}'. Valid codes: {valid}. Use 'all' to run the full gallery."
+        )
+    return [raw]
 
 
-# ── Section definitions ───────────────────────────────────────────────────────
-
-_SECTIONS: list[tuple[str, str, range]] = [
-    ("OS & Environment Guardrails", "🛡", range(0, 4)),
-    ("Structural & SEO Integrity", "🔗", range(4, 7)),
-    ("Enterprise Adapters & Migration", "🏢", range(7, 11)),
-    ("Security Audit Matrix", "🔴", range(11, 17)),
-    ("Scoring Scenarios", "📊", range(17, 20)),
-    ("Enterprise Gate & Specialized Rules", "🚨", range(20, 22)),
-]
-
-
-# ── Act runner ───────────────────────────────────────────────────────────────
+# ── Scenario runner ──────────────────────────────────────────────────────────
 
 
 @dataclass
@@ -330,7 +170,7 @@ class _ActResult:
 
     @property
     def throughput(self) -> float:
-        """Files per second — 0.0 when elapsed is zero."""
+        """Files per second -- 0.0 when elapsed is zero."""
         return self.total_files / self.elapsed if self.elapsed > 0 else 0.0
 
     @property
@@ -404,14 +244,14 @@ def _status_cell(r: _ActResult) -> str:
     if r.act.expected_breach:
         if r.has_breach:
             return "[bold red]BREACH[/] [green]✓[/]"
-        return "[yellow]BREACH expected — not triggered[/] [red]✗[/]"
+        return "[yellow]BREACH expected -- not triggered[/] [red]✗[/]"
     if r.act.expected_pass:
         if r.errors == 0:
             return "[bold green]PASS[/] [green]✓[/]"
         return "[bold red]FAIL (unexpected)[/] [red]✗[/]"
     if r.errors > 0 or r.warnings > 0:
         return "[yellow]EXPECTED FAIL[/] [green]✓[/]"
-    return "[yellow]EXPECTED FAIL — nothing found[/] [red]✗[/]"
+    return "[yellow]EXPECTED FAIL -- nothing found[/] [red]✗[/]"
 
 
 def _print_summary(results: list[_ActResult]) -> None:
@@ -421,7 +261,7 @@ def _print_summary(results: list[_ActResult]) -> None:
         show_header=True,
         header_style=ZenzicPalette.STYLE_BRAND,
     )
-    table.add_column("Act", justify="center", style=ZenzicPalette.STYLE_BRAND, width=5)
+    table.add_column("Code", justify="center", style=ZenzicPalette.STYLE_BRAND, width=6)
     table.add_column("Title", style="bold", min_width=22)
     table.add_column("Engine", style="cyan", min_width=10)
     table.add_column("Files", justify="right", style=ZenzicPalette.DIM, min_width=7)
@@ -434,7 +274,7 @@ def _print_summary(results: list[_ActResult]) -> None:
     total_elapsed = sum(r.elapsed for r in results)
     for r in results:
         table.add_row(
-            str(r.act.id),
+            r.act.code.upper(),
             r.act.title,
             r.engine,
             str(r.total_files),
@@ -446,11 +286,10 @@ def _print_summary(results: list[_ActResult]) -> None:
     con = get_console()
     con.print(table)
 
-    # ── Lab results footer ──────────────────────────────────────────────────
     avg_throughput = total_files / total_elapsed if total_elapsed > 0 else 0.0
     seal_items = [
         Text.from_markup(
-            f"[{ZenzicPalette.DIM}]{total_files} files scanned across {len(results)} acts"
+            f"[{ZenzicPalette.DIM}]{total_files} files scanned across {len(results)} scenarios"
             f" {emoji('dot')} {total_elapsed:.2f}s total"
             f" {emoji('dot')} {avg_throughput:.0f} files/s[/]"
         ),
@@ -459,14 +298,14 @@ def _print_summary(results: list[_ActResult]) -> None:
     if unexpected == 0:
         seal_items.append(
             Text.from_markup(
-                f"[bold {ZenzicPalette.SUCCESS}]{emoji('check')} All {len(results)} act(s) met expectations."
+                f"[bold {ZenzicPalette.SUCCESS}]{emoji('check')} All {len(results)} scenario(s) met expectations."
                 " Zenzic: the audit surface is clean.[/]"
             )
         )
     else:
         seal_items.append(
             Text.from_markup(
-                f"[bold {ZenzicPalette.ERROR}]{emoji('cross')} {unexpected}/{len(results)} act(s)"
+                f"[bold {ZenzicPalette.ERROR}]{emoji('cross')} {unexpected}/{len(results)} scenario(s)"
                 " did not meet expectations.[/]"
             )
         )
@@ -482,7 +321,7 @@ def _print_summary(results: list[_ActResult]) -> None:
 
 
 def _print_act_seal(r: _ActResult) -> None:
-    """Render a results footer after a single-act run."""
+    """Render a results footer after a single-scenario run."""
     files_line = (
         f"{r.total_files} file{'s' if r.total_files != 1 else ''} scanned"
         f" {emoji('dot')} {r.elapsed:.2f}s"
@@ -493,10 +332,10 @@ def _print_act_seal(r: _ActResult) -> None:
         Text(),
     ]
     if r.met_expectation:
-        verdict = f"{emoji('check')} Act {r.act.id} — {r.act.title} — expectation met."
+        verdict = f"{emoji('check')} {r.act.code.upper()} — {r.act.title} — expectation met."
         seal_items.append(Text.from_markup(f"[bold {ZenzicPalette.SUCCESS}]{verdict}[/]"))
     else:
-        verdict = f"{emoji('cross')} Act {r.act.id} — {r.act.title} — expectation NOT met."
+        verdict = f"{emoji('cross')} {r.act.code.upper()} — {r.act.title} — expectation NOT met."
         seal_items.append(Text.from_markup(f"[bold {ZenzicPalette.ERROR}]{verdict}[/]"))
 
     con = get_console()
@@ -510,42 +349,25 @@ def _print_act_seal(r: _ActResult) -> None:
     )
 
 
-def _make_section_table(section_acts: list[_Act]) -> Table:
-    table = Table(box=box.ROUNDED, show_header=True, header_style="bold cyan")
-    table.add_column("Act", justify="center", style="bold cyan", width=5)
-    table.add_column("Title", style="bold", min_width=22)
-    table.add_column("Description", style=ZenzicPalette.WARNING)
-    table.add_column("Expects", justify="center", min_width=8)
-    for act in section_acts:
-        expects = (
-            "[red]BREACH[/]"
-            if act.expected_breach
-            else "[green]PASS[/]"
-            if act.expected_pass
-            else "[yellow]FAIL[/]"
-        )
-        table.add_row(str(act.id), act.title, act.description, expects)
-    return table
-
-
-def _print_act_index() -> None:
+def _print_gallery_index() -> None:
     con = get_console()
     con.print(
         Text.from_markup(
             f"[bold {ZenzicPalette.BRAND}]⧡  ZENZIC LAB[/]  [{ZenzicPalette.DIM}]v{__version__}[/]"
         )
     )
-    acts_by_id = {a.id: a for a in _ACTS}
-    for title, icon, act_range in _SECTIONS:
-        section_acts = [acts_by_id[i] for i in act_range if i in acts_by_id]
-        if not section_acts:
-            continue
-        con.print(Text.from_markup(f"\n  [bold {ZenzicPalette.BRAND}]{icon}  {title}[/]"))
-        con.print(_make_section_table(section_acts))
+    table = Table(box=box.ROUNDED, show_header=True, header_style="bold cyan")
+    table.add_column("Z-Code", justify="center", style="bold cyan", width=7)
+    table.add_column("Title", style="bold", min_width=22)
+    table.add_column("Description", style=ZenzicPalette.WARNING)
+    table.add_column("Expects", justify="center", min_width=8)
+    for act in _GALLERY.values():
+        expects = "[red]BREACH[/]" if act.expected_breach else "[yellow]FAIL[/]"
+        table.add_row(act.code.upper(), act.title, act.description, expects)
+    con.print(table)
     con.print(
-        f"\n  [{ZenzicPalette.DIM}]zenzic lab <act>   eg. [bold cyan]zenzic lab 3[/]   "
-        f"{emoji('dot')}   [bold cyan]zenzic lab 11–16[/] Security Audit   "
-        f"{emoji('dot')}   [bold cyan]zenzic lab 17-18[/] Scoring[/]\n"
+        f"\n  [{ZenzicPalette.DIM}]zenzic lab <code>   eg. [bold cyan]zenzic lab z101[/]"
+        f"   {emoji('dot')}   [bold cyan]zenzic lab all[/] -- full gallery[/]\n"
     )
 
 
@@ -553,52 +375,50 @@ def _print_act_index() -> None:
 
 
 def lab(
-    act_input: str | None = typer.Argument(
+    code: str | None = typer.Argument(
         None,
-        help="Act to run: a number (3), a range (11-16), or 'all'. Omit to display the menu.",
+        help="Z-code to run (e.g. z101, z201) or 'all'. Omit to display the gallery menu.",
         show_default=False,
     ),
     list_acts: bool = typer.Option(
         False,
         "--list",
         "-l",
-        help="Print the act index without running checks.",
+        help="Print the gallery index without running checks.",
     ),
 ) -> None:
     """Zenzic Lab — interactive showcase of bundled documentation examples.
 
-    Run without arguments to display the act menu.  Pass an act number,
-    range, or 'all' to execute the corresponding acts:
+    Run without arguments to display the gallery menu.  Pass a Z-code or
+    'all' to execute the corresponding scenario:
 
-        [bold cyan]zenzic lab[/]        — show act menu
-        [bold cyan]zenzic lab 3[/]      — run Act 3 (Credential Scanner)
-        [bold cyan]zenzic lab 11-16[/]  — run the Security Audit Matrix
-        [bold cyan]zenzic lab all[/]    — run all 17 acts
-        [bold cyan]zenzic lab --list[/] — print act index without running
+        [bold cyan]zenzic lab[/]        -- show gallery menu
+        [bold cyan]zenzic lab z101[/]   -- run the Z101 LINK_BROKEN scenario
+        [bold cyan]zenzic lab z201[/]   -- run the Z201 CREDENTIAL_SECRET scenario
+        [bold cyan]zenzic lab all[/]    -- run all gallery scenarios
+        [bold cyan]zenzic lab --list[/] -- print gallery index without running
     """
     con = get_console()
     con.print()
     get_ui().print_header(__version__)
 
     if list_acts:
-        _print_act_index()
+        _print_gallery_index()
         return
 
-    if act_input is None:
-        # No argument: show the menu and instructions, do not run any act.
-        _print_act_index()
+    if code is None:
+        _print_gallery_index()
         con.print(
-            "\n[bold]Welcome to the Zenzic Lab.[/] Choose an act to see Zenzic in action.\n"
-            "  Run [bold cyan]zenzic lab <N>[/] to execute a specific act (e.g. [cyan]zenzic lab 3[/]).\n"
-            "  Run [bold cyan]zenzic lab 11-16[/] for the Security Audit Matrix"
-            "  or [bold cyan]zenzic lab all[/] for the full tour.\n"
+            "\n[bold]Welcome to the Zenzic Lab.[/] Choose a Z-code scenario to see Zenzic in action.\n"
+            "  Run [bold cyan]zenzic lab z101[/] to execute the link integrity scenario.\n"
+            "  Run [bold cyan]zenzic lab all[/] for the full gallery tour.\n"
         )
         return
 
     try:
-        act_ids = parse_act_range(act_input)
+        keys = parse_scenario_keys(code)
     except ValueError as exc:
-        get_ui().print_exception_alert(str(exc), title="Lab — Invalid Act")
+        get_ui().print_exception_alert(str(exc), title="Lab -- Invalid Z-Code")
         raise typer.Exit(1) from exc
 
     try:
@@ -607,24 +427,24 @@ def lab(
         con.print(f"[bold red]ERROR:[/] {exc}")
         raise typer.Exit(1) from exc
 
-    acts_to_run = [a for a in _ACTS if a.id in act_ids]
-    acts_to_run.sort(key=lambda a: act_ids.index(a.id))
+    scenarios_to_run = [_GALLERY[k] for k in keys]
 
-    if len(acts_to_run) > 1:
-        lo, hi = acts_to_run[0].id, acts_to_run[-1].id
+    if len(scenarios_to_run) > 1:
         con.print(
             Text.from_markup(
                 f"\n  [bold {ZenzicPalette.BRAND}]LAB SEQUENCE:[/]"
-                f"  Running Acts {lo} through {hi} …\n"
+                f"  Running {len(scenarios_to_run)} gallery scenarios ...\n"
             )
         )
 
     act_results: list[_ActResult] = []
-    for act in acts_to_run:
+    for act in scenarios_to_run:
         con.print()
         con.print(
             Group(
-                Text.from_markup(f"[bold {ZenzicPalette.BRAND}]Act {act.id} — {act.title}[/]"),
+                Text.from_markup(
+                    f"[bold {ZenzicPalette.BRAND}]{act.code.upper()} -- {act.title}[/]"
+                ),
                 Text(),
                 Text.from_markup(f"[bold]{act.description}[/]"),
             )

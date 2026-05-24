@@ -10,7 +10,7 @@ that encodes everything the Rule Engine depends on for a given file:
 
 * **File content hash** — ``SHA256(raw_markdown)``
 * **Config hash** — ``SHA256(canonical_config_json)`` — invalidated when any
-  ``zenzic.toml`` option changes.
+  ``.zenzic.toml`` option changes.
 * **VSM snapshot hash** (optional) — ``SHA256(canonical_vsm_json)`` — only
   included for *global rules* (those that consult routing state).  Atomic
   rules (e.g. :class:`~zenzic.core.rules.CustomRule`) omit this component so
@@ -26,7 +26,7 @@ is intentional:
 * If the VSM changes (because any file changed), all global-rule cache entries
   are invalidated automatically — without needing a file-to-file dependency
   graph.
-* If ``zenzic.toml`` changes, all entries are invalidated regardless of rule
+* If ``.zenzic.toml`` changes, all entries are invalidated regardless of rule
   type.
 
 Cache persistence

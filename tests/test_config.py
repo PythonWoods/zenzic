@@ -26,7 +26,7 @@ def test_load_config_custom(tmp_path: Path) -> None:
     placeholder_max_words = 100
     placeholder_patterns = ["tbd", "wip"]
     """
-    (tmp_path / "zenzic.toml").write_text(toml_content)
+    (tmp_path / ".zenzic.toml").write_text(toml_content)
 
     config, loaded = ZenzicConfig.load(tmp_path)
     assert config.docs_dir == Path("my_docs")
@@ -47,7 +47,7 @@ def test_excluded_dirs_always_contains_system_guardrails(tmp_path: Path) -> None
     docs_dir = "docs"
     excluded_dirs = ["custom_stuff"]
     """
-    (tmp_path / "zenzic.toml").write_text(toml_content)
+    (tmp_path / ".zenzic.toml").write_text(toml_content)
 
     config, _ = ZenzicConfig.load(tmp_path)
     # User entry is preserved
@@ -58,14 +58,14 @@ def test_excluded_dirs_always_contains_system_guardrails(tmp_path: Path) -> None
 
 
 def test_load_config_invalid_toml_raises(tmp_path: Path) -> None:
-    """A malformed zenzic.toml must raise ConfigurationError — not silently fall back."""
-    (tmp_path / "zenzic.toml").write_text("invalid [ toml")
+    """A malformed .zenzic.toml must raise ConfigurationError — not silently fall back."""
+    (tmp_path / ".zenzic.toml").write_text("invalid [ toml")
     with pytest.raises(ConfigurationError, match="syntax error"):
         ZenzicConfig.load(tmp_path)
 
 
 def test_load_config_missing_file_uses_defaults(tmp_path: Path) -> None:
-    """When zenzic.toml does not exist, defaults are returned silently."""
+    """When .zenzic.toml does not exist, defaults are returned silently."""
     config, loaded = ZenzicConfig.load(tmp_path)
     assert config.docs_dir == Path("docs")
     assert loaded is False
@@ -86,7 +86,7 @@ pattern = "(?i)\\\\bDRAFT\\\\b"
 message = "Remove DRAFT marker."
 severity = "warning"
 """
-    (tmp_path / "zenzic.toml").write_text(toml_content)
+    (tmp_path / ".zenzic.toml").write_text(toml_content)
     config, loaded = ZenzicConfig.load(tmp_path)
     assert len(config.custom_rules) == 2
     assert config.custom_rules[0].id == "ZZ001"
@@ -97,8 +97,8 @@ severity = "warning"
 
 
 def test_load_config_plugins_list(tmp_path: Path) -> None:
-    """plugins = [...] is parsed from zenzic.toml."""
-    (tmp_path / "zenzic.toml").write_text("plugins = ['no-internal-hostname', 'acme-style']\n")
+    """plugins = [...] is parsed from .zenzic.toml."""
+    (tmp_path / ".zenzic.toml").write_text("plugins = ['no-internal-hostname', 'acme-style']\n")
     config, loaded = ZenzicConfig.load(tmp_path)
     assert config.plugins == ["no-internal-hostname", "acme-style"]
     assert loaded is True
@@ -116,7 +116,7 @@ def test_placeholder_patterns_compiled_on_init(tmp_path: Path) -> None:
 
 
 def test_load_config_from_pyproject_toml(tmp_path: Path) -> None:
-    """[tool.zenzic] in pyproject.toml is used when zenzic.toml is absent."""
+    """[tool.zenzic] in pyproject.toml is used when .zenzic.toml is absent."""
     (tmp_path / "pyproject.toml").write_text(
         "[tool.zenzic]\ndocs_dir = 'my_docs'\nfail_under = 75\n"
     )
@@ -169,11 +169,11 @@ def test_load_config_pyproject_plugins_list(tmp_path: Path) -> None:
 
 
 def test_load_config_zenzic_toml_wins_over_pyproject(tmp_path: Path) -> None:
-    """zenzic.toml takes priority over [tool.zenzic] in pyproject.toml."""
-    (tmp_path / "zenzic.toml").write_text("fail_under = 90\n")
+    """.zenzic.toml takes priority over [tool.zenzic] in pyproject.toml."""
+    (tmp_path / ".zenzic.toml").write_text("fail_under = 90\n")
     (tmp_path / "pyproject.toml").write_text("[tool.zenzic]\nfail_under = 42\n")
     config, loaded = ZenzicConfig.load(tmp_path)
-    assert config.fail_under == 90  # zenzic.toml wins
+    assert config.fail_under == 90  # .zenzic.toml wins
     assert loaded is True
 
 
@@ -197,7 +197,7 @@ def test_load_config_invalid_pyproject_raises(tmp_path: Path) -> None:
 
 def test_apply_local_toml_overrides_core_fields(tmp_path: Path) -> None:
     """[core] section in .zenzic.local.toml overrides docs_dir, strict, exit_zero, fail_under."""
-    (tmp_path / "zenzic.toml").write_text("docs_dir = 'docs'\n")
+    (tmp_path / ".zenzic.toml").write_text("docs_dir = 'docs'\n")
     (tmp_path / ".zenzic.local.toml").write_text(
         "[core]\ndocs_dir = 'local_docs'\nstrict = true\nexit_zero = true\nfail_under = 42\n"
     )
@@ -211,7 +211,7 @@ def test_apply_local_toml_overrides_core_fields(tmp_path: Path) -> None:
 def test_apply_local_toml_overrides_build_context(tmp_path: Path) -> None:
     """[build_context] in .zenzic.local.toml is merged into config.build_context."""
 
-    (tmp_path / "zenzic.toml").write_text("docs_dir = 'docs'\n")
+    (tmp_path / ".zenzic.toml").write_text("docs_dir = 'docs'\n")
     (tmp_path / ".zenzic.local.toml").write_text(
         "[build_context]\nengine = 'mkdocs'\ndefault_locale = 'it'\n"
     )
@@ -222,7 +222,7 @@ def test_apply_local_toml_overrides_build_context(tmp_path: Path) -> None:
 
 def test_apply_local_toml_malformed_silently_skipped(tmp_path: Path) -> None:
     """A malformed .zenzic.local.toml is silently ignored — no exception raised."""
-    (tmp_path / "zenzic.toml").write_text("docs_dir = 'docs'\n")
+    (tmp_path / ".zenzic.toml").write_text("docs_dir = 'docs'\n")
     (tmp_path / ".zenzic.local.toml").write_text("invalid [ toml !!!")
     config, loaded = ZenzicConfig.load(tmp_path)
     assert config.docs_dir == Path("docs")
@@ -238,7 +238,7 @@ def test_apply_local_toml_legacy_dev_toml_raises(tmp_path: Path) -> None:
 
 def test_apply_local_toml_forbidden_patterns_merged(tmp_path: Path) -> None:
     """forbidden_patterns from [core], [governance], and top-level are merged additively."""
-    (tmp_path / "zenzic.toml").write_text("forbidden_patterns = ['secret-a']\n")
+    (tmp_path / ".zenzic.toml").write_text("forbidden_patterns = ['secret-a']\n")
     (tmp_path / ".zenzic.local.toml").write_text(
         "forbidden_patterns = ['secret-b']\n[core]\nforbidden_patterns = ['secret-c']\n[governance]\nforbidden_patterns = ['secret-d']\n"
     )
@@ -251,7 +251,7 @@ def test_apply_local_toml_forbidden_patterns_merged(tmp_path: Path) -> None:
 
 def test_apply_local_toml_overrides_governance(tmp_path: Path) -> None:
     """[governance] in .zenzic.local.toml merges into config.governance."""
-    (tmp_path / "zenzic.toml").write_text(
+    (tmp_path / ".zenzic.toml").write_text(
         "docs_dir = 'docs'\n[governance]\nbrand_obsolescence = ['GlobalTerm']\n"
     )
     (tmp_path / ".zenzic.local.toml").write_text(
@@ -265,7 +265,7 @@ def test_apply_local_toml_overrides_governance(tmp_path: Path) -> None:
 
 def test_apply_local_toml_brand_obsolescence_additive(tmp_path: Path) -> None:
     """Local brand_obsolescence extends global — cannot remove global terms."""
-    (tmp_path / "zenzic.toml").write_text(
+    (tmp_path / ".zenzic.toml").write_text(
         "docs_dir = 'docs'\n[governance]\nbrand_obsolescence = ['TermA', 'TermB']\n"
     )
     (tmp_path / ".zenzic.local.toml").write_text("[governance]\nbrand_obsolescence = ['TermC']\n")
@@ -279,7 +279,7 @@ def test_apply_local_toml_brand_obsolescence_additive(tmp_path: Path) -> None:
 
 def test_apply_local_toml_overrides_i18n(tmp_path: Path) -> None:
     """[i18n] in .zenzic.local.toml merges into config.i18n."""
-    (tmp_path / "zenzic.toml").write_text("docs_dir = 'docs'\n")
+    (tmp_path / ".zenzic.toml").write_text("docs_dir = 'docs'\n")
     (tmp_path / ".zenzic.local.toml").write_text("[i18n]\nenabled = true\nbase_lang = 'fr'\n")
     config, _ = ZenzicConfig.load(tmp_path)
     assert config.i18n.enabled is True
@@ -292,10 +292,10 @@ def test_apply_local_toml_overrides_i18n(tmp_path: Path) -> None:
 def test_build_from_data_unknown_section_warning(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
-    """Unknown dict-valued keys in zenzic.toml emit a warning."""
+    """Unknown dict-valued keys in .zenzic.toml emit a warning."""
     import logging
 
-    (tmp_path / "zenzic.toml").write_text("[unknown_section]\nfoo = 'bar'\n")
+    (tmp_path / ".zenzic.toml").write_text("[unknown_section]\nfoo = 'bar'\n")
     with caplog.at_level(logging.WARNING, logger="zenzic"):
         ZenzicConfig.load(tmp_path)
     assert any("unknown section" in r.message for r in caplog.records)
@@ -304,10 +304,10 @@ def test_build_from_data_unknown_section_warning(
 def test_build_from_data_unknown_scalar_key_warning(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
-    """Unknown scalar keys in zenzic.toml emit a warning."""
+    """Unknown scalar keys in .zenzic.toml emit a warning."""
     import logging
 
-    (tmp_path / "zenzic.toml").write_text("totally_unknown_key = 42\n")
+    (tmp_path / ".zenzic.toml").write_text("totally_unknown_key = 42\n")
     with caplog.at_level(logging.WARNING, logger="zenzic"):
         ZenzicConfig.load(tmp_path)
     assert any("unknown key" in r.message for r in caplog.records)
@@ -319,7 +319,7 @@ def test_build_from_data_legacy_obsolete_names_migrated(
     """[project_metadata].obsolete_names is migrated to [governance].brand_obsolescence."""
     import logging
 
-    (tmp_path / "zenzic.toml").write_text(
+    (tmp_path / ".zenzic.toml").write_text(
         "[project_metadata]\nobsolete_names = ['OldBrand', 'AnotherOld']\n"
     )
     with caplog.at_level(logging.WARNING, logger="zenzic"):
@@ -331,7 +331,7 @@ def test_build_from_data_legacy_obsolete_names_migrated(
 
 def test_build_from_data_i18n_with_extra_sources(tmp_path: Path) -> None:
     """[i18n] with extra_sources is parsed correctly."""
-    (tmp_path / "zenzic.toml").write_text(
+    (tmp_path / ".zenzic.toml").write_text(
         "[i18n]\n"
         "enabled = true\n"
         "base_lang = 'en'\n"

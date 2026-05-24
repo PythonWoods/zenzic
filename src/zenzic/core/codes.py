@@ -171,7 +171,7 @@ CODE_NAMES: dict[str, str] = {
 #: Single source of truth — never duplicate these strings in other modules.
 CODE_DESCRIPTIONS: dict[str, str] = {
     # Z0xx — Migration & Compatibility
-    "Z000": "Unsupported or removed engine identifier in zenzic.toml — configuration guard raised before analysis begins",
+    "Z000": "Unsupported or removed engine identifier in .zenzic.toml — configuration guard raised before analysis begins",
     # Z1xx — Link Integrity
     "Z101": "Link target not found in the Virtual Site Map",
     "Z102": "Fragment anchor (#anchor) not defined on the target page",

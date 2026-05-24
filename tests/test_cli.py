@@ -146,7 +146,7 @@ def test_check_links_boundary_traversal_exits_1(_links, _cfg, _root) -> None:
 def test_cli_check_orphans_empty(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()
-    (repo / "zenzic.toml").touch()  # engine-neutral root marker
+    (repo / ".zenzic.toml").touch()  # engine-neutral root marker
     monkeypatch.chdir(repo)
     result = runner.invoke(app, ["check", "orphans"])
     assert result.exit_code == 0
@@ -261,7 +261,7 @@ def test_check_placeholders_with_findings(_ph, _cfg, _root) -> None:
 def test_cli_check_all_json_empty(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()
-    (repo / "zenzic.toml").touch()  # engine-neutral root marker
+    (repo / ".zenzic.toml").touch()  # engine-neutral root marker
     (repo / "docs").mkdir()
     monkeypatch.chdir(repo)
     result = runner.invoke(app, ["check", "all", "--format", "json"])
@@ -509,7 +509,7 @@ def test_check_all_target_single_file(tmp_path: Path, monkeypatch: pytest.Monkey
     """Single .md file target: findings filtered, banner shows 1 file."""
     repo = tmp_path / "repo"
     (repo / "docs").mkdir(parents=True)
-    (repo / "zenzic.toml").touch()
+    (repo / ".zenzic.toml").touch()
     _body = "word " * 60
     (repo / "docs" / "index.md").write_text(f"# Hello\n\n{_body}\n")
     (repo / "docs" / "other.md").write_text(f"# Other\n\n{_body}\n")
@@ -527,7 +527,7 @@ def test_check_all_target_file_outside_docs(
     """File outside docs_dir (e.g. README.md): config patched, exit 0."""
     repo = tmp_path / "repo"
     (repo / "docs").mkdir(parents=True)
-    (repo / "zenzic.toml").touch()
+    (repo / ".zenzic.toml").touch()
     _body = "word " * 60
     (repo / "docs" / "index.md").write_text(f"# Hello\n\n{_body}\n")
     (repo / "README.md").write_text(f"# Project\n\n{_body}\n")
@@ -545,7 +545,7 @@ def test_check_all_target_directory(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     repo = tmp_path / "repo"
     (repo / "content").mkdir(parents=True)
     (repo / "docs").mkdir()
-    (repo / "zenzic.toml").touch()
+    (repo / ".zenzic.toml").touch()
     _body = "word " * 60
     (repo / "content" / "page.md").write_text(f"# Page\n\n{_body}\n")
     (repo / "docs" / "other.md").write_text(f"# Other\n\n{_body}\n")
@@ -568,7 +568,7 @@ def test_check_all_external_docs_root_not_blocked_by_boundary_check(
     """
     repo = tmp_path / "repo"
     repo.mkdir()
-    (repo / "zenzic.toml").touch()
+    (repo / ".zenzic.toml").touch()
 
     ext_docs = tmp_path / "ext_docs"
     ext_docs.mkdir()
@@ -766,7 +766,7 @@ def test_init_plugin_scaffold_existing_dir_requires_force(
 def test_init_standalone_creates_zenzic_toml(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Default init (no pyproject.toml present) creates zenzic.toml."""
+    """Default init (no pyproject.toml present) creates .zenzic.toml."""
     repo = tmp_path / "repo"
     repo.mkdir()
     (repo / ".git").mkdir()
@@ -775,7 +775,7 @@ def test_init_standalone_creates_zenzic_toml(
     result = runner.invoke(app, ["init"])
     assert result.exit_code == 0
 
-    cfg = repo / "zenzic.toml"
+    cfg = repo / ".zenzic.toml"
     assert cfg.is_file()
     content = cfg.read_text(encoding="utf-8")
     assert "# --- PROJECT IDENTITY ---" in content
@@ -808,16 +808,16 @@ def test_init_standalone_detects_mkdocs(tmp_path: Path, monkeypatch: pytest.Monk
     result = runner.invoke(app, ["init"])
     assert result.exit_code == 0
 
-    content = (repo / "zenzic.toml").read_text(encoding="utf-8")
+    content = (repo / ".zenzic.toml").read_text(encoding="utf-8")
     assert 'engine         = "mkdocs"' in content
 
 
 def test_init_standalone_warns_if_exists(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Refuse re-initialization when zenzic.toml already exists."""
+    """Refuse re-initialization when .zenzic.toml already exists."""
     repo = tmp_path / "repo"
     repo.mkdir()
     (repo / ".git").mkdir()
-    (repo / "zenzic.toml").write_text("# existing\n", encoding="utf-8")
+    (repo / ".zenzic.toml").write_text("# existing\n", encoding="utf-8")
     monkeypatch.chdir(repo)
 
     result = runner.invoke(app, ["init"])
@@ -851,7 +851,7 @@ def test_init_standalone_discovers_project_name_from_pyproject(
     result = runner.invoke(app, ["init"], input="n\n")
     assert result.exit_code == 0
 
-    content = (repo / "zenzic.toml").read_text(encoding="utf-8")
+    content = (repo / ".zenzic.toml").read_text(encoding="utf-8")
     assert '# name = "castle-core"' in content
 
 
@@ -867,7 +867,7 @@ def test_init_standalone_discovers_project_name_from_package_json(
     result = runner.invoke(app, ["init"])
     assert result.exit_code == 0
 
-    content = (repo / "zenzic.toml").read_text(encoding="utf-8")
+    content = (repo / ".zenzic.toml").read_text(encoding="utf-8")
     assert '# name = "ui-bastion"' in content
 
 
@@ -911,7 +911,7 @@ def test_init_preserves_existing_local_file_and_backfills_gitignore(
 
     assert (repo / ".zenzic.local.toml").read_text(encoding="utf-8") == original_local
     assert (repo / ".gitignore").read_text(encoding="utf-8") == gitignore_before
-    assert not (repo / "zenzic.toml").exists()
+    assert not (repo / ".zenzic.toml").exists()
 
 
 def test_init_pyproject_with_mkdocs_engine(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -994,13 +994,13 @@ def test_init_interactive_prompt_chooses_pyproject(
 
     content = (repo / "pyproject.toml").read_text(encoding="utf-8")
     assert "[tool.zenzic]" in content
-    assert not (repo / "zenzic.toml").is_file()
+    assert not (repo / ".zenzic.toml").is_file()
 
 
 def test_init_interactive_prompt_chooses_standalone(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """When pyproject.toml exists and user answers 'n', creates zenzic.toml."""
+    """When pyproject.toml exists and user answers 'n', creates .zenzic.toml."""
     repo = tmp_path / "repo"
     repo.mkdir()
     (repo / ".git").mkdir()
@@ -1009,7 +1009,7 @@ def test_init_interactive_prompt_chooses_standalone(
 
     result = runner.invoke(app, ["init"], input="n\n")
     assert result.exit_code == 0
-    assert (repo / "zenzic.toml").is_file()
+    assert (repo / ".zenzic.toml").is_file()
 
     # pyproject.toml must NOT have [tool.zenzic]
     content = (repo / "pyproject.toml").read_text(encoding="utf-8")
@@ -1044,13 +1044,13 @@ def test_init_in_fresh_directory_no_git(tmp_path: Path, monkeypatch: pytest.Monk
 
     result = runner.invoke(app, ["init"])
     assert result.exit_code == 0, result.stdout
-    assert (fresh / "zenzic.toml").is_file()
+    assert (fresh / ".zenzic.toml").is_file()
 
 
 def test_init_nomad_writes_to_target_not_cwd(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """CEO-060 'The Nomad': zenzic init <path> creates zenzic.toml at target, not CWD."""
+    """CEO-060 'The Nomad': zenzic init <path> creates .zenzic.toml at target, not CWD."""
     target = tmp_path / "new-docs"
     target.mkdir()
     workspace = tmp_path / "workspace"
@@ -1059,20 +1059,20 @@ def test_init_nomad_writes_to_target_not_cwd(
 
     result = runner.invoke(app, ["init", str(target)])
     assert result.exit_code == 0, result.stdout
-    assert (target / "zenzic.toml").is_file(), "zenzic.toml must be at target"
-    assert not (workspace / "zenzic.toml").is_file(), "zenzic.toml must NOT appear in CWD"
+    assert (target / ".zenzic.toml").is_file(), ".zenzic.toml must be at target"
+    assert not (workspace / ".zenzic.toml").is_file(), ".zenzic.toml must NOT appear in CWD"
 
 
 def test_init_nomad_creates_target_directory(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """CEO-060: zenzic init <nonexistent-path> must create the directory and write zenzic.toml."""
+    """CEO-060: zenzic init <nonexistent-path> must create the directory and write .zenzic.toml."""
     target = tmp_path / "does" / "not" / "exist"
     monkeypatch.chdir(tmp_path)
 
     result = runner.invoke(app, ["init", str(target)])
     assert result.exit_code == 0, result.stdout
-    assert (target / "zenzic.toml").is_file(), "zenzic.toml must be created at nested target"
+    assert (target / ".zenzic.toml").is_file(), ".zenzic.toml must be created at nested target"
 
 
 # ---------------------------------------------------------------------------

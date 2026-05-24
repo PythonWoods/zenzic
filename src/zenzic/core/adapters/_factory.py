@@ -11,7 +11,7 @@ installed package can contribute an adapter by declaring it in ``pyproject.toml`
     myengine = "my_package.adapter:MyEngineAdapter"
 
 The **key** (e.g. ``myengine``) is the engine name users declare in
-``zenzic.toml`` or pass via ``--engine``.
+``.zenzic.toml`` or pass via ``--engine``.
 
 Adapter construction protocol
 ------------------------------
@@ -147,7 +147,7 @@ def get_adapter(
     Zenzic core** — only installing an adapter package is required.
 
     Args:
-        context: Build context from ``zenzic.toml``.
+        context: Build context from ``.zenzic.toml``.
         docs_root: Resolved absolute path to the ``docs/`` directory.
         repo_root: Resolved absolute path to the repository root (passed to
             ``from_repo`` when the adapter supports it).

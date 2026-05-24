@@ -36,10 +36,10 @@ _TRAVERSAL_SANDBOX = Path(__file__).resolve().parent / "sandboxes" / "screenshot
 def _make_sandbox(tmp_path: Path, files: dict[str, str]) -> Path:
     """Create a minimal Zenzic project in *tmp_path*.
 
-    Writes ``zenzic.toml`` and the given *files* (paths relative to the
+    Writes ``.zenzic.toml`` and the given *files* (paths relative to the
     sandbox root).  Returns the sandbox root.
     """
-    toml = tmp_path / "zenzic.toml"
+    toml = tmp_path / ".zenzic.toml"
     toml.write_text(
         textwrap.dedent("""\
             docs_dir = "docs"
@@ -348,7 +348,7 @@ class TestSuppressionCapE2E:
 
     @staticmethod
     def _make_cap_sandbox(tmp_path: Path, inline_count: int, cap: int = 30) -> Path:
-        toml = tmp_path / "zenzic.toml"
+        toml = tmp_path / ".zenzic.toml"
         toml.write_text(
             textwrap.dedent(
                 """\
@@ -476,7 +476,7 @@ class TestSuppressionCapE2E:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Per-file ignore must suppress matching findings in check all output."""
-        toml = tmp_path / "zenzic.toml"
+        toml = tmp_path / ".zenzic.toml"
         toml.write_text(
             textwrap.dedent(
                 """\
@@ -518,7 +518,7 @@ class TestSuppressionCapE2E:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """directory_policies must filter matching findings with zero suppression debt."""
-        toml = tmp_path / "zenzic.toml"
+        toml = tmp_path / ".zenzic.toml"
         toml.write_text(
             textwrap.dedent(
                 """\

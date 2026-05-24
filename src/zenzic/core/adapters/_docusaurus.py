@@ -14,7 +14,7 @@ Docusaurus uses a fundamentally different geography from MkDocs:
 Config parsing strategy (approved by Tech Lead):
 
 - **Structural parameters** (locales, docs_dir, fallback) are read from
-  ``zenzic.toml`` via ``BuildContext`` — same as ``ZensicalAdapter``.
+  ``.zenzic.toml`` via ``BuildContext`` — same as ``ZensicalAdapter``.
 - **``baseUrl``** is extracted from ``docusaurus.config.ts`` or ``.js`` via a
   multi-pattern static parser (no Node.js subprocess — Pillar 2 compliance).
 - **``routeBasePath``** is extracted from presets (e.g. ``@docusaurus/preset-classic``)
@@ -179,7 +179,7 @@ def _extract_base_url(config_path: Path) -> str:
     if _is_dynamic_config(content):
         _log.warning(
             "Docusaurus config at %s uses dynamic patterns (async/import()/require()); "
-            "falling back to baseUrl='/' — declare baseUrl in zenzic.toml "
+            "falling back to baseUrl='/' — declare baseUrl in .zenzic.toml "
             "[build_context] to override.",
             config_path,
         )
@@ -689,7 +689,7 @@ class DocusaurusAdapter(BaseAdapter):
       ``REACHABLE``); explicit sidebar support is deferred to a future version.
 
     The adapter reads all structural metadata from ``BuildContext``
-    (``zenzic.toml``).  ``baseUrl`` and ``routeBasePath`` are extracted from
+    (``.zenzic.toml``).  ``baseUrl`` and ``routeBasePath`` are extracted from
     the Docusaurus config file via a multi-pattern static parser — no Node.js
     execution.
 
@@ -698,7 +698,7 @@ class DocusaurusAdapter(BaseAdapter):
     building the VSM to enable slug support.
 
     Args:
-        context: Build context from ``zenzic.toml``.
+        context: Build context from ``.zenzic.toml``.
         docs_root: Resolved absolute path to the ``docs/`` directory.
         base_url: Docusaurus ``baseUrl`` (e.g. ``'/'``).
         route_base_path: Docusaurus ``routeBasePath`` (e.g. ``'docs'`` or ``''``).
@@ -724,7 +724,7 @@ class DocusaurusAdapter(BaseAdapter):
         # docs at the routeBasePath root (no version label in URL).
         self._latest_version: str | None = versions[0] if versions else None
 
-        # Locale configuration from BuildContext (zenzic.toml).
+        # Locale configuration from BuildContext (.zenzic.toml).
         self._locale_dirs: frozenset[str] = frozenset(context.locales)
         self._fallback_to_default: bool = context.fallback_to_default
 
@@ -1249,14 +1249,14 @@ class DocusaurusAdapter(BaseAdapter):
         No Node.js execution — Pillar 2 compliance.
 
         Args:
-            context: Build context from ``zenzic.toml``.
+            context: Build context from ``.zenzic.toml``.
             docs_root: Resolved absolute ``docs/`` path.
             repo_root: Repository root (where ``docusaurus.config.*`` lives).
 
         Returns:
             Configured ``DocusaurusAdapter`` instance.
         """
-        # Prefer the explicit base_url from zenzic.toml [build_context]
+        # Prefer the explicit base_url from .zenzic.toml [build_context]
         # over static extraction from the JS/TS config file.
         config_path = find_docusaurus_config(repo_root)
         if context.base_url:

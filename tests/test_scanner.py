@@ -24,10 +24,10 @@ from zenzic.models.config import ProjectMetadata, ZenzicConfig
 
 
 def test_find_repo_root_success(tmp_path: Path) -> None:
-    # Setup mock repo — uses zenzic.toml as the engine-neutral root marker
+    # Setup mock repo — uses .zenzic.toml as the engine-neutral root marker
     repo = tmp_path / "my_repo"
     repo.mkdir()
-    (repo / "zenzic.toml").touch()
+    (repo / ".zenzic.toml").touch()
 
     deep_dir = repo / "docs" / "nested" / "dir"
     deep_dir.mkdir(parents=True)

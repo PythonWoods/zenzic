@@ -134,7 +134,7 @@ def test_resolve_targets_explicit_directory(tmp_path: Path) -> None:
 
 def test_resolve_targets_default_docs_root_missing(tmp_path: Path) -> None:
     """When docs_root doesn't exist, returns empty list."""
-    # No docs/ directory exists, no zenzic.toml
+    # No docs/ directory exists, no .zenzic.toml
     result = _resolve_targets(tmp_path, [], staged=False)
     assert result == []
 

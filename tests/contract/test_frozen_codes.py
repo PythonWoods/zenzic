@@ -49,7 +49,7 @@ class TestFrozenCodesContract:
         golden_snapshot: dict[str, dict[str, str]] = {
             "Z000": {
                 "name": "UNSUPPORTED_ENGINE",
-                "description": "Unsupported or removed engine identifier in zenzic.toml — configuration guard raised before analysis begins",
+                "description": "Unsupported or removed engine identifier in .zenzic.toml — configuration guard raised before analysis begins",
                 "sarif_level": "error",
             },
             "Z201": {

@@ -429,7 +429,7 @@ class MkDocsAdapter(BaseAdapter):
 
     Args:
         context: :class:`~zenzic.models.config.BuildContext` loaded from
-            ``zenzic.toml``.  Provides ``locales`` and ``default_locale``.
+            ``.zenzic.toml``.  Provides ``locales`` and ``default_locale``.
             When ``context.locales`` is empty the adapter falls back to
             extracting locale information from *doc_config*.
         docs_root: Resolved absolute path to the ``docs/`` directory.
@@ -458,7 +458,7 @@ class MkDocsAdapter(BaseAdapter):
         # ConfigurationError rather than silent misbehaviour at link-check time.
         _validate_i18n_fallback_config(self._doc_config)
 
-        # Locales: prefer explicit context (from zenzic.toml); fall back to
+        # Locales: prefer explicit context (from .zenzic.toml); fall back to
         # extraction from the engine config (mkdocs.yml) when absent.
         if context.locales:
             self._locale_dirs: frozenset[str] = frozenset(context.locales)
@@ -584,7 +584,7 @@ class MkDocsAdapter(BaseAdapter):
         """``True`` when ``mkdocs.yml`` was found on disk **or** locales were declared.
 
         Returns ``False`` only when both the engine config file is absent
-        **and** no locales were declared in ``zenzic.toml`` — the truly bare
+        **and** no locales were declared in ``.zenzic.toml`` — the truly bare
         scenario where the adapter has no nav or i18n information to contribute.
         """
         return self._config_file_found or bool(self._locale_dirs)

@@ -139,7 +139,7 @@ def test_get_adapter_zensical_engine_with_config(tmp_path: Path) -> None:
 
 
 def test_get_adapter_locales_no_config_uses_engine(tmp_path: Path) -> None:
-    """Explicit locales declared in zenzic.toml → routes by engine without doc_config."""
+    """Explicit locales declared in .zenzic.toml → routes by engine without doc_config."""
     _mkdocs(tmp_path)
     assert isinstance(
         get_adapter(BuildContext(engine="mkdocs", locales=["it"]), tmp_path / "docs", tmp_path),

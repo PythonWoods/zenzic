@@ -33,7 +33,7 @@ def _write_contract_sandbox(
     fail_hard: bool = True,
 ) -> Path:
     """Create a minimal standalone docs project for JSON contract validation."""
-    toml = tmp_path / "zenzic.toml"
+    toml = tmp_path / ".zenzic.toml"
     toml.write_text(
         textwrap.dedent(
             """\

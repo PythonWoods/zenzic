@@ -92,7 +92,7 @@ class ProjectMetadata(BaseModel):
 
 
 class BuildContext(BaseModel):
-    """Build engine context declared in ``[build_context]`` of ``zenzic.toml``.
+    """Build engine context declared in ``[build_context]`` of ``.zenzic.toml``.
 
     Tells Zenzic which documentation engine produced the site and which locale
     directories are non-default translations.  Used by adapters to resolve
@@ -243,7 +243,7 @@ class GovernanceConfig(BaseModel):
 # ── System Guardrails ────────────────────────────────────────────────────────
 # Directories that Zenzic ALWAYS ignores.  These are merged into
 # ``excluded_dirs`` unconditionally in ``model_post_init``.  User entries
-# in ``zenzic.toml`` are additive — they cannot remove these guardrails.
+# in ``.zenzic.toml`` are additive — they cannot remove these guardrails.
 SYSTEM_EXCLUDED_DIRS: Final[frozenset[str]] = frozenset(
     {
         # VCS and CI/CD
@@ -347,7 +347,7 @@ SYSTEM_EXCLUDED_FILE_PATTERNS: Final[tuple[str, ...]] = (
 
 
 class ZenzicConfig(BaseModel):
-    """Configuration model for Zenzic, typically loaded from zenzic.toml.
+    """Configuration model for Zenzic, typically loaded from .zenzic.toml.
 
     **Hard Exclusion Policy:** The directories listed in
     :data:`SYSTEM_EXCLUDED_DIRS` are *always* excluded, regardless of what
@@ -524,7 +524,7 @@ class ZenzicConfig(BaseModel):
     custom_rules: list[CustomRuleConfig] = Field(
         default=[],
         description=(
-            "Project-specific lint rules declared inline in zenzic.toml.  "
+            "Project-specific lint rules declared inline in .zenzic.toml.  "
             "Each entry applies a regex pattern line-by-line to every .md file.  "
             "Example:  [[custom_rules]]  id='ZZ001'  pattern='TODO'  "
             "message='Remove before publish.'  severity='warning'"
@@ -562,7 +562,7 @@ class ZenzicConfig(BaseModel):
             "Z204 FORBIDDEN_TERM: literal strings (case-insensitive) whose presence "
             "in any documentation file triggers an exit-2 security breach. "
             "Populated by merging patterns from ``.zenzic.local.toml`` at runtime. "
-            "Never declare these in the shared ``zenzic.toml`` — use the git-ignored "
+            "Never declare these in the shared ``.zenzic.toml`` — use the git-ignored "
             "``.zenzic.local.toml`` so private terms are never committed."
         ),
     )
@@ -586,7 +586,7 @@ class ZenzicConfig(BaseModel):
     def _build_from_data(cls, data: dict[str, Any]) -> ZenzicConfig:
         """Construct a ``ZenzicConfig`` from a raw TOML dict.
 
-        Shared by :meth:`load` (``zenzic.toml``) and the ``pyproject.toml``
+        Shared by :meth:`load` (``.zenzic.toml``) and the ``pyproject.toml``
         fallback path.  Strips unknown keys and promotes sub-tables.
         """
         import logging as _logging
@@ -604,7 +604,7 @@ class ZenzicConfig(BaseModel):
             if key not in known_fields and key not in _HANDLED_SECTIONS:
                 if isinstance(data[key], dict):
                     _cfg_log.warning(
-                        "zenzic.toml: unknown section [%s] will be ignored — "
+                        ".zenzic.toml: unknown section [%s] will be ignored — "
                         "all keys nested inside it are silently discarded. "
                         "Root-level settings (e.g. placeholder_patterns, docs_dir) "
                         "must appear BEFORE any [section] header.",
@@ -612,7 +612,7 @@ class ZenzicConfig(BaseModel):
                     )
                 else:
                     _cfg_log.warning(
-                        "zenzic.toml: unknown key '%s' will be ignored.",
+                        ".zenzic.toml: unknown key '%s' will be ignored.",
                         key,
                     )
         filtered_data = {k: v for k, v in data.items() if k in known_fields}
@@ -690,7 +690,7 @@ class ZenzicConfig(BaseModel):
 
         Priority order (first match wins):
 
-        1. ``zenzic.toml`` at *repo_root* — the authoritative sovereign config.
+        1. ``.zenzic.toml`` at *repo_root* — the authoritative sovereign config.
         2. ``[tool.zenzic]`` table in ``pyproject.toml`` at *repo_root*.
         3. Built-in defaults (``loaded_from_file`` returned as ``False``).
 
@@ -703,7 +703,7 @@ class ZenzicConfig(BaseModel):
 
         Returns:
             A ``(config, loaded_from_file)`` tuple.  ``loaded_from_file`` is
-            ``True`` when either ``zenzic.toml`` or ``pyproject.toml`` was
+            ``True`` when either ``.zenzic.toml`` or ``pyproject.toml`` was
             found and parsed, ``False`` when built-in defaults are in use.
 
         Raises:
@@ -712,15 +712,15 @@ class ZenzicConfig(BaseModel):
         """
         from zenzic.core.exceptions import ConfigurationError  # deferred to avoid circular import
 
-        # ── Priority 1: zenzic.toml ───────────────────────────────────────────
-        zenzic_toml = repo_root / "zenzic.toml"
+        # ── Priority 1: .zenzic.toml ───────────────────────────────────────────
+        zenzic_toml = repo_root / ".zenzic.toml"
         if zenzic_toml.is_file():
             try:
                 with zenzic_toml.open("rb") as f:
                     data = tomllib.load(f)
             except tomllib.TOMLDecodeError as exc:
                 raise ConfigurationError(
-                    f"[bold red]zenzic.toml[/] contains a syntax error and cannot be loaded.\n"
+                    f"[bold red].zenzic.toml[/] contains a syntax error and cannot be loaded.\n"
                     f"  [{ZenzicPalette.DIM}]{zenzic_toml}[/]\n\n"
                     f"  [red]{exc}[/]\n\n"
                     "Fix the TOML syntax error and re-run Zenzic.",
