@@ -2,7 +2,7 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 420"
      role="img"
-     aria-label="Zenzic v0.7.1 — All checks passed, score 100/100">
+     aria-label="Zenzic — All checks passed, score 100/100">
   <defs>
     <style>
       .mono { font-family: 'JetBrains Mono', 'SFMono-Regular', Consolas, Menlo, monospace; }
@@ -50,7 +50,7 @@
         clip-path="url(#clip-header)"/>
   <!-- Header text -->
   <text class="mono" x="360" y="91" text-anchor="middle"
-        font-size="13" fill="#38bdf8" letter-spacing="0.8">🛡  ZENZIC  v0.7.1</text>
+        font-size="13" fill="#38bdf8" letter-spacing="0.8">🛡  ZENZIC</text>
   <!-- Header divider -->
   <line x1="24" y1="100" x2="696" y2="100" stroke="#3f3f46" stroke-width="1"/>
   <!-- Engine + stats row -->
@@ -96,5 +96,5 @@
   <!-- FOOTER                                                    -->
   <!-- ══════════════════════════════════════════════════════════ -->
   <text class="mono" x="360" y="392" text-anchor="middle"
-        font-size="11" fill="#52525b" letter-spacing="2">ZENZIC v0.7.1  ·  STABLE RELEASE  ·  EXIT 0</text>
+        font-size="11" fill="#52525b" letter-spacing="2">ZENZIC  ·  STABLE RELEASE  ·  EXIT 0</text>
 </svg>
