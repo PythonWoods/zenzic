@@ -8,7 +8,7 @@ from pathlib import Path
 
 from typer.testing import CliRunner
 
-from zenzic.cli._check import _apply_directory_policies, _apply_per_file_ignores
+from zenzic.cli._governance import _apply_directory_policies, _apply_per_file_ignores
 from zenzic.core.reporter import Finding
 from zenzic.core.rules import _is_suppressed, count_inline_suppressions
 from zenzic.core.sovereign_context import sovereign_context

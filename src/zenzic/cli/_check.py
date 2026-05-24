@@ -4,12 +4,9 @@
 
 from __future__ import annotations
 
-import dataclasses
 import json
-import os
 import time
 from dataclasses import dataclass, field
-from fnmatch import fnmatch
 from pathlib import Path
 
 import typer
@@ -28,7 +25,7 @@ from zenzic.core.scanner import (
     find_unused_assets,
     scan_docs_references,
 )
-from zenzic.core.sovereign_context import get_sovereign_context, sovereign_context
+from zenzic.core.sovereign_context import sovereign_context
 from zenzic.core.ui import ZenzicPalette
 from zenzic.core.validator import (
     LinkError,
@@ -43,6 +40,8 @@ from zenzic.models.references import IntegrityReport
 from . import _shared
 from ._governance import (
     SuppressionAudit,
+    _apply_directory_policies,
+    _apply_per_file_ignores,
     build_cap_exceeded_json_payload,
     build_cap_exceeded_sarif_payload,
     collect_inline_suppression_stats,
@@ -52,6 +51,7 @@ from ._governance import (
     resolve_governance_panel_title,
 )
 from ._metadata import COMMAND_BY_NAME
+from ._target_resolver import _apply_target
 
 
 check_app = _shared.create_app(
@@ -868,97 +868,9 @@ class _AllCheckResults:
         )
 
 
-def _apply_per_file_ignores(findings: list[Finding], config: ZenzicConfig) -> list[Finding]:
-    """Filter findings using governance.per_file_ignores patterns."""
-    from zenzic.core.codes import NON_SUPPRESSIBLE_CODES
-
-    if get_sovereign_context().force_audit:
-        return findings
-
-    if not config.governance.per_file_ignores:
-        return findings
-
-    normalized_map: dict[str, set[str]] = {}
-    for pattern, codes in config.governance.per_file_ignores.items():
-        if not isinstance(pattern, str) or not isinstance(codes, list):
-            continue
-        normalized_codes = {
-            str(code).upper().strip()
-            for code in codes
-            if isinstance(code, str) and str(code).upper().startswith("Z")
-        }
-        if normalized_codes:
-            normalized_map[pattern] = normalized_codes
-
-    if not normalized_map:
-        return findings
-
-    filtered: list[Finding] = []
-    for finding in findings:
-        code = finding.code.upper().strip()
-        if code in NON_SUPPRESSIBLE_CODES:
-            filtered.append(finding)
-            continue
-        if any(
-            fnmatch(finding.rel_path, pattern) and code in codes
-            for pattern, codes in normalized_map.items()
-        ):
-            continue
-        filtered.append(finding)
-    return filtered
-
-
-def _apply_directory_policies(findings: list[Finding], config: ZenzicConfig) -> list[Finding]:
-    """Filter or label findings using governance.directory_policies patterns (ADR-084).
-
-    In normal mode, matched findings are silently dropped with ZERO suppression
-    debt cost.  In --audit (sovereign) mode, they are kept but prefixed with
-    ``[POLICY_EXEMPTION]`` so reviewers can see what is strategically exempt.
-    Security findings (NON_SUPPRESSIBLE_CODES) always bypass this filter.
-    """
-    from zenzic.core.codes import NON_SUPPRESSIBLE_CODES
-
-    if not config.governance.directory_policies:
-        return findings
-
-    normalized_map: dict[str, set[str]] = {}
-    for pattern, codes in config.governance.directory_policies.items():
-        if not isinstance(pattern, str) or not isinstance(codes, list):
-            continue
-        normalized_codes = {
-            str(code).upper().strip()
-            for code in codes
-            if isinstance(code, str) and str(code).upper().startswith("Z")
-        }
-        if normalized_codes:
-            normalized_map[pattern] = normalized_codes
-
-    if not normalized_map:
-        return findings
-
-    audit_mode = get_sovereign_context().force_audit
-    filtered: list[Finding] = []
-    for finding in findings:
-        code = finding.code.upper().strip()
-        if code in NON_SUPPRESSIBLE_CODES:
-            filtered.append(finding)
-            continue
-        is_exempt = any(
-            fnmatch(finding.rel_path, pattern) and code in codes
-            for pattern, codes in normalized_map.items()
-        )
-        if is_exempt:
-            if audit_mode:
-                filtered.append(
-                    dataclasses.replace(
-                        finding,
-                        message=f"[POLICY_EXEMPTION] {finding.message}",
-                    )
-                )
-            # else: silently drop (zero debt)
-        else:
-            filtered.append(finding)
-    return filtered
+# _apply_per_file_ignores and _apply_directory_policies have moved to _governance.py.
+# They are re-imported above and remain accessible from this module for backward
+# compatibility with any direct callers (e.g. tests).
 
 
 def _collect_all_results(
@@ -1245,88 +1157,10 @@ def _to_findings(results: _AllCheckResults, docs_root: Path) -> list[Finding]:
     return findings
 
 
-# ── Target helpers (file or directory) ───────────────────────────────────────
-
-
-def _resolve_target(repo_root: Path, config: ZenzicConfig, raw: str) -> Path:
-    """Resolve *raw* to an existing file or directory.
-
-    Search order: absolute as-is → relative to *repo_root* → relative to
-    *repo_root/docs_dir*.  Files must have the ``.md`` extension.
-    Exits with code 1 if nothing is found or the extension is wrong.
-    """
-    p = Path(raw)
-    candidates: list[Path] = (
-        [p] if p.is_absolute() else [repo_root / p, repo_root / config.docs_dir / p]
-    )
-    for candidate in candidates:
-        if candidate.is_dir():
-            return candidate.resolve()
-        if candidate.is_file():
-            if candidate.suffix.lower() not in (".md", ".mdx"):
-                _shared.console.print(
-                    f"[red]ERROR:[/] [bold]{raw}[/] is not a Markdown file "
-                    f"(expected .md or .mdx, got '{candidate.suffix}')."
-                )
-                raise typer.Exit(1)
-            return candidate.resolve()
-    _shared.console.print(
-        f"[red]ERROR:[/] Target not found: [bold]{raw}[/]\n"
-        f"  Tried: {candidates[0]}" + (f", {candidates[1]}" if len(candidates) > 1 else "")
-    )
-    raise typer.Exit(1)
-
-
-def _apply_target(
-    repo_root: Path,
-    config: ZenzicConfig,
-    raw_path: str,
-) -> tuple[ZenzicConfig, Path | None, Path, str]:
-    """Resolve *raw_path* and return ``(patched_config, single_file, docs_root, hint)``.
-
-    *single_file* is ``None`` in directory mode; the absolute ``.md`` path in
-    file mode.  *hint* is a short display string for the analysis header.
-    """
-    target = _resolve_target(repo_root, config, raw_path)
-
-    try:
-        rel = target.relative_to(repo_root)
-        if rel == Path("."):
-            # Target IS repo_root itself — use relpath from CWD for clean display.
-            # This avoids the "././" balbettio caused by f"./{Path('.')}".
-            hint = os.path.relpath(target) + ("/" if target.is_dir() else "")
-        else:
-            hint = f"./{rel}" + ("/" if target.is_dir() else "")
-    except ValueError:
-        # Target is outside repo_root (cross-repo scan) — use relpath from CWD.
-        try:
-            hint = os.path.relpath(target) + ("/" if target.is_dir() else "")
-        except ValueError:
-            hint = str(target) + ("/" if target.is_dir() else "")
-
-    if target.is_dir():
-        # CEO-052: if target IS the project root, preserve the configured docs_dir.
-        # The explicit path was used to locate the correct project config —
-        # not to redefine the documentation scope. Overriding docs_dir to "."
-        # would scan the entire project root (including blog/, scripts/, etc.)
-        # instead of respecting the configured docs_dir (e.g. "docs").
-        if target == repo_root:
-            docs_root = (repo_root / config.docs_dir).resolve()
-            return config, None, docs_root, hint
-        try:
-            new_docs_dir = target.relative_to(repo_root)
-        except ValueError:
-            new_docs_dir = target
-        return config.model_copy(update={"docs_dir": new_docs_dir}), None, target, hint
-
-    default_docs_root = (repo_root / config.docs_dir).resolve()
-    try:
-        target.relative_to(default_docs_root)
-        return config, target, default_docs_root, hint
-    except ValueError:
-        new_docs_dir = target.parent.relative_to(repo_root)
-        patched = config.model_copy(update={"docs_dir": new_docs_dir})
-        return patched, target, target.parent.resolve(), hint
+# ── Target helpers (file or directory) ─────────────────────────────────────────
+# _resolve_target and _apply_target have moved to _target_resolver.py.
+# They are re-imported above and remain accessible from this module for
+# backward compatibility with any direct callers.
 
 
 @check_app.command(name="all")

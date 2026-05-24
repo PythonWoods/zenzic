@@ -21,6 +21,12 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **CLI decomposition (Phase 82 — Zero-Regression):** `_check.py` reduced from 1641 → 1478 lines
+  by extracting four helpers into dedicated modules with backward-compatible re-exports:
+  `_apply_per_file_ignores` and `_apply_directory_policies` moved to `_governance.py`;
+  `_resolve_target` and `_apply_target` moved to the new `_target_resolver.py`;
+  command-setup boilerplate consolidated in the new `_command_setup.py`.
+  All 1550 tests pass unchanged.
 - **Governance hardening — `brand_obsolescence` ADDITIVE merge:** `[governance].brand_obsolescence` in `.zenzic.local.toml` now uses additive semantics. Local terms extend the global list; they can never remove globally-configured protected terms. This prevents a non-versioned local override from silently disabling brand protection policy.
 - **Z504 and Exit Code 4 relegated to Reserved/Inactive status:** `Z504 (QUALITY_REGRESSION)` and the corresponding exit code 4 emitted by `zenzic diff` have been removed from the public reference documentation. Both remain in the binary to preserve behavioral continuity but are no longer part of the documented exit-code contract, pending full differential analysis maturity.
 

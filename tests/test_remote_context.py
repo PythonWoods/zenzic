@@ -14,7 +14,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from zenzic.cli._check import _apply_target
+from zenzic.cli._target_resolver import _apply_target
 from zenzic.core.scanner import find_repo_root
 from zenzic.models.config import ZenzicConfig
 

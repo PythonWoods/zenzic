@@ -23,7 +23,6 @@ from rich.text import Text
 
 from zenzic import __version__
 from zenzic.cli._check import (
-    _apply_target,
     _collect_all_results,
     _to_findings,
 )
@@ -32,6 +31,7 @@ from zenzic.cli._shared import (
     get_console,
     get_ui,
 )
+from zenzic.cli._target_resolver import _apply_target
 from zenzic.core.exclusion import LayeredExclusionManager
 from zenzic.core.reporter import Finding, ZenzicReporter
 from zenzic.core.ui import ZenzicPalette, emoji

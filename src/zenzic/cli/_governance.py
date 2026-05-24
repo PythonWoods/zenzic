@@ -1,11 +1,13 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
-"""Governance helpers for suppression CAP diagnostics and reporting."""
+"""Governance helpers for suppression CAP diagnostics, reporting, and per-file policies."""
 
 from __future__ import annotations
 
+import dataclasses
 import sys
 from dataclasses import dataclass, field
+from fnmatch import fnmatch
 from pathlib import Path
 from typing import Any
 
@@ -19,7 +21,9 @@ from rich.text import Text
 
 from zenzic.core.discovery import iter_markdown_sources
 from zenzic.core.exclusion import LayeredExclusionManager
+from zenzic.core.reporter import Finding
 from zenzic.core.rules import count_inline_suppressions
+from zenzic.core.sovereign_context import get_sovereign_context
 from zenzic.core.ui import ZenzicPalette, emoji
 from zenzic.models.config import ZenzicConfig
 
@@ -357,3 +361,99 @@ def build_cap_exceeded_sarif_payload(
             }
         ],
     }
+
+
+# ── Per-file ignore and directory policy filters ──────────────────────────────
+
+
+def _apply_per_file_ignores(findings: list[Finding], config: ZenzicConfig) -> list[Finding]:
+    """Filter findings using governance.per_file_ignores patterns."""
+    from zenzic.core.codes import NON_SUPPRESSIBLE_CODES
+
+    if get_sovereign_context().force_audit:
+        return findings
+
+    if not config.governance.per_file_ignores:
+        return findings
+
+    normalized_map: dict[str, set[str]] = {}
+    for pattern, codes in config.governance.per_file_ignores.items():
+        if not isinstance(pattern, str) or not isinstance(codes, list):
+            continue
+        normalized_codes = {
+            str(code).upper().strip()
+            for code in codes
+            if isinstance(code, str) and str(code).upper().startswith("Z")
+        }
+        if normalized_codes:
+            normalized_map[pattern] = normalized_codes
+
+    if not normalized_map:
+        return findings
+
+    filtered: list[Finding] = []
+    for finding in findings:
+        code = finding.code.upper().strip()
+        if code in NON_SUPPRESSIBLE_CODES:
+            filtered.append(finding)
+            continue
+        if any(
+            fnmatch(finding.rel_path, pattern) and code in codes
+            for pattern, codes in normalized_map.items()
+        ):
+            continue
+        filtered.append(finding)
+    return filtered
+
+
+def _apply_directory_policies(findings: list[Finding], config: ZenzicConfig) -> list[Finding]:
+    """Filter or label findings using governance.directory_policies patterns (ADR-084).
+
+    In normal mode, matched findings are silently dropped with ZERO suppression
+    debt cost.  In --audit (sovereign) mode, they are kept but prefixed with
+    ``[POLICY_EXEMPTION]`` so reviewers can see what is strategically exempt.
+    Security findings (NON_SUPPRESSIBLE_CODES) always bypass this filter.
+    """
+    from zenzic.core.codes import NON_SUPPRESSIBLE_CODES
+
+    if not config.governance.directory_policies:
+        return findings
+
+    normalized_map: dict[str, set[str]] = {}
+    for pattern, codes in config.governance.directory_policies.items():
+        if not isinstance(pattern, str) or not isinstance(codes, list):
+            continue
+        normalized_codes = {
+            str(code).upper().strip()
+            for code in codes
+            if isinstance(code, str) and str(code).upper().startswith("Z")
+        }
+        if normalized_codes:
+            normalized_map[pattern] = normalized_codes
+
+    if not normalized_map:
+        return findings
+
+    audit_mode = get_sovereign_context().force_audit
+    filtered: list[Finding] = []
+    for finding in findings:
+        code = finding.code.upper().strip()
+        if code in NON_SUPPRESSIBLE_CODES:
+            filtered.append(finding)
+            continue
+        is_exempt = any(
+            fnmatch(finding.rel_path, pattern) and code in codes
+            for pattern, codes in normalized_map.items()
+        )
+        if is_exempt:
+            if audit_mode:
+                filtered.append(
+                    dataclasses.replace(
+                        finding,
+                        message=f"[POLICY_EXEMPTION] {finding.message}",
+                    )
+                )
+            # else: silently drop (zero debt)
+        else:
+            filtered.append(finding)
+    return filtered

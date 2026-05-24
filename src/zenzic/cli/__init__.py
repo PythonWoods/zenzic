@@ -10,7 +10,6 @@ from __future__ import annotations
 
 from ._check import (
     _AllCheckResults,
-    _apply_target,
     _collect_all_results,
     _to_findings,
     check_app,
@@ -28,6 +27,7 @@ from ._shared import (
     get_ui,
 )
 from ._standalone import diff, explain, init, score
+from ._target_resolver import _apply_target
 
 
 __all__ = [
