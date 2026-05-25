@@ -79,6 +79,13 @@ For the current release history, see [CHANGELOG.md](CHANGELOG.md).
   cycle, Phase 40.2).
 - **Configurable finding tiers**: allow projects to promote/demote finding severity
   via `[governance]` TOML section, with audit log of all overrides.
+- **Dead Suppression Elimination (Z603)**: Detects inline `zenzic:ignore` directives
+  that do not correspond to any active finding. Prevents projects from accumulating
+  "phantom debt" — paying the 1-point DQS penalty for a suppression no longer needed
+  due to code fixes or configuration changes. Analogous to Ruff `RUF100` and ESLint
+  `--report-unused-disable-directives`. Implementation requires extending the
+  suppression engine (`suppressions.py`) to track which inline tags are consumed
+  during the scan lifecycle, then emitting a new `Z603` finding for unclaimed tags.
 
 ---
 
