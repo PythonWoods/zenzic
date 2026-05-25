@@ -162,7 +162,7 @@ pip install zenzic
 ## 🤝 Contribuire
 
 1. Apri una [issue][issues] per discutere la modifica.
-2. Leggi la [Guida ai Contributi][contributing].
+2. Leggi la [Guida per contribuire][contributing].
 3. Ogni PR deve passare `just verify` e includere header SPDX sui nuovi file.
 
 Vedi anche: [Code of Conduct][coc] · [Security Policy][security]

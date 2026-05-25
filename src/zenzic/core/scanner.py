@@ -583,16 +583,22 @@ def _is_i18n_ignored(path: Path) -> bool:
     return bool(block) and bool(_I18N_IGNORE_RE.search(block))
 
 
-def _i18n_files(root: Path) -> list[Path]:
-    """Return every ``.md`` / ``.mdx`` file under *root* not marked i18n-ignore."""
+def _i18n_files(
+    root: Path,
+    *,
+    config: ZenzicConfig,
+    exclusion_manager: LayeredExclusionManager,
+) -> list[Path]:
+    """Return source docs under *root* not marked ``i18n-ignore``.
+
+    Discovery is delegated to :func:`iter_markdown_sources` so i18n parity
+    honours the same layered exclusions as the rest of the scanner pipeline.
+    """
     if not root.exists() or not root.is_dir():
         return []
-    out: list[Path] = []
-    for suffix in DOC_SUFFIXES:
-        for f in root.rglob(f"*{suffix}"):
-            if f.is_file() and not _is_i18n_ignored(f):
-                out.append(f)
-    return out
+    return [
+        f for f in iter_markdown_sources(root, config, exclusion_manager) if not _is_i18n_ignored(f)
+    ]
 
 
 def _check_one_base_file(
@@ -653,6 +659,7 @@ def find_i18n_parity(
     repo_root: Path,
     *,
     config: ZenzicConfig,
+    exclusion_manager_factory: Callable[[Path], LayeredExclusionManager],
 ) -> list[I18nParityIssue]:
     """Z907 — verify cross-language documentation parity.
 
@@ -669,6 +676,8 @@ def find_i18n_parity(
         repo_root: Repository root.  All relative paths in
             :class:`I18nConfig` are resolved against this directory.
         config: Loaded :class:`ZenzicConfig`.
+        exclusion_manager_factory: Callable that receives each base source root
+            and returns a :class:`LayeredExclusionManager` for that root.
 
     Returns:
         List of :class:`I18nParityIssue` — empty when parity holds.
@@ -700,7 +709,11 @@ def find_i18n_parity(
     require_keys = tuple(cfg.require_frontmatter_parity)
     issues: list[I18nParityIssue] = []
     for base_root, target_roots in sources:
-        base_files = _i18n_files(base_root)
+        base_files = _i18n_files(
+            base_root,
+            config=config,
+            exclusion_manager=exclusion_manager_factory(base_root),
+        )
         if not base_files:
             continue
         if len(base_files) > ADAPTIVE_PARALLEL_THRESHOLD:

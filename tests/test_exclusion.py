@@ -403,6 +403,15 @@ class TestSystemFileGuardrails:
         mgr = LayeredExclusionManager(ZenzicConfig(), docs_root=docs)
         assert mgr.should_exclude_file(docs / ".zenzic.local.toml", docs)
 
+    def test_l1a_zenzic_local_backup_pattern_excluded(self, tmp_path: Path) -> None:
+        """Backup variants of .zenzic.local.toml are infrastructure files."""
+        from zenzic.core.exclusion import LayeredExclusionManager
+
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        mgr = LayeredExclusionManager(ZenzicConfig(), docs_root=docs)
+        assert mgr.should_exclude_file(docs / ".zenzic.local.toml.back", docs)
+
     def test_l1a_shell_wrapper_pattern_excluded(self, tmp_path: Path) -> None:
         """Shell wrapper scripts are infrastructure and must be excluded."""
         from zenzic.core.exclusion import LayeredExclusionManager

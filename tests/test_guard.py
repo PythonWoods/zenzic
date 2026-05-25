@@ -148,6 +148,36 @@ def test_resolve_targets_default_docs_root_scans_dir(tmp_path: Path) -> None:
     assert any(p.name == "index.md" for p in result)
 
 
+def test_resolve_targets_default_docs_root_skips_venv(tmp_path: Path) -> None:
+    """Root scans honor system exclusions even when docs_dir is the repo root."""
+    from zenzic.models.config import ZenzicConfig
+
+    readme = tmp_path / "README.md"
+    readme.write_text("# Root docs\n")
+
+    venv_readme = (
+        tmp_path
+        / ".venv"
+        / "lib"
+        / "python3.12"
+        / "site-packages"
+        / "zenzic"
+        / "examples"
+        / "matrix"
+        / "adversarial-validation"
+        / "README.md"
+    )
+    venv_readme.parent.mkdir(parents=True)
+    venv_readme.write_text("# Vendored docs\n")
+
+    config = ZenzicConfig(docs_dir=Path("."), excluded_dirs=[])
+    with patch("zenzic.cli._guard.ZenzicConfig.load", return_value=(config, None)):
+        result = _resolve_targets(tmp_path, [], staged=False)
+
+    assert readme.resolve() in result
+    assert all(".venv" not in p.parts for p in result)
+
+
 # ── scan command ──────────────────────────────────────────────────────────────
 
 

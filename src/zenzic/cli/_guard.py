@@ -16,6 +16,7 @@ from zenzic.core.credentials import (
     scan_line_for_forbidden_terms,
     scan_line_for_secrets,
 )
+from zenzic.core.discovery import iter_markdown_sources
 from zenzic.core.scanner import find_repo_root
 from zenzic.core.ui import ZenzicPalette
 from zenzic.models.config import ZenzicConfig
@@ -75,29 +76,43 @@ def _staged_doc_files(repo_root: Path) -> list[Path]:
     return sorted(set(docs))
 
 
+def _is_within(path: Path, directory: Path) -> bool:
+    try:
+        path.resolve().relative_to(directory.resolve())
+        return True
+    except ValueError:
+        return False
+
+
 def _resolve_targets(repo_root: Path, paths: list[str], staged: bool) -> list[Path]:
+    config, _ = ZenzicConfig.load(repo_root)
+    docs_root = (repo_root / config.docs_dir).resolve()
+    exclusion_mgr = _shared._build_exclusion_manager(config, repo_root, docs_root)
+
     if staged:
         return _staged_doc_files(repo_root)
 
     if paths:
+        repo_scan_root = repo_root.resolve()
+        repo_scan_mgr = _shared._build_exclusion_manager(config, repo_root, repo_scan_root)
+        repo_markdown = sorted(iter_markdown_sources(repo_scan_root, config, repo_scan_mgr))
+        repo_markdown_set = set(repo_markdown)
+
         resolved: list[Path] = []
         for raw in paths:
             candidate = Path(raw)
             if not candidate.is_absolute():
                 candidate = (repo_root / candidate).resolve()
             if candidate.is_file() and _is_doc_source(candidate):
-                resolved.append(candidate)
+                if candidate.resolve() in repo_markdown_set:
+                    resolved.append(candidate)
             elif candidate.is_dir():
-                resolved.extend(
-                    p.resolve() for p in candidate.rglob("*") if p.is_file() and _is_doc_source(p)
-                )
+                resolved.extend(p for p in repo_markdown if _is_within(p, candidate))
         return sorted(set(resolved))
 
-    config, _ = ZenzicConfig.load(repo_root)
-    docs_root = (repo_root / config.docs_dir).resolve()
     if not docs_root.is_dir():
         return []
-    return sorted(p.resolve() for p in docs_root.rglob("*") if p.is_file() and _is_doc_source(p))
+    return sorted(iter_markdown_sources(docs_root, config, exclusion_mgr))
 
 
 @guard_app.command(name="scan")
