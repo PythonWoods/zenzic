@@ -254,7 +254,6 @@ def score(
         _shared.console.print()
 
     exclusion_mgr = _shared._build_exclusion_manager(config, repo_root, docs_root)
-    effective_strict = strict if strict is not None else config.strict
     report = _run_all_checks(repo_root, docs_root, config, exclusion_mgr, strict=config.strict)
 
     effective_threshold = fail_under if fail_under > 0 else config.fail_under
@@ -381,12 +380,6 @@ def score(
         )
         raise typer.Exit(1)
 
-    if effective_strict and report.score < 100:
-        _shared.console.print(
-            "[red]FAILED:[/] strict mode enabled — warnings are treated as fatal until score is 100."
-        )
-        raise typer.Exit(1)
-
     _shared.print_footer_hint("score", output_format=output_format)
 
 
@@ -446,7 +439,6 @@ def diff(
     except ValueError:
         repo_root = docs_root
     exclusion_mgr = _shared._build_exclusion_manager(config, repo_root, docs_root)
-    effective_strict = strict if strict is not None else config.strict
 
     baseline: ScoreReport | None = None
     try:
@@ -552,12 +544,6 @@ def diff(
     if dropped > threshold:
         _shared.console.print(
             f"[red]REGRESSION:[/] score dropped by {dropped} point(s) (threshold: {threshold})."
-        )
-        raise typer.Exit(1)
-
-    if effective_strict and current.score < 100:
-        _shared.console.print(
-            "[red]FAILED:[/] strict mode enabled — warnings are treated as fatal until score is 100."
         )
         raise typer.Exit(1)
 
