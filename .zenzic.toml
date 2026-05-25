@@ -50,7 +50,6 @@ excluded_dirs = [
     "examples",
     "assets",
     "LICENSES",
-    ".adversarial",
 ]
 
 # --- PLACEHOLDERS & CODE SNIPPETS (Optional) ---
@@ -88,10 +87,6 @@ suppression_cap_fail_hard = true
 
 # Terms that should no longer appear in your documentation.
 brand_obsolescence = [
-    "Sentinel",
-    "Shield",
-    "Blood",
-    "Basalt",
     "Quartz",
     "Obsidian",
 ]
