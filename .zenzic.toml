@@ -24,7 +24,7 @@
 docs_dir = "."
 
 strict = true
-fail_under = 100
+fail_under = 94
 # exit_zero = false
 # respect_vcs_ignore = true
 # validate_same_page_anchors = true
@@ -83,7 +83,7 @@ obsolete_names_exclude_patterns = ["CHANGELOG*.md", "CHANGELOG*.archive.md", "ch
 #
 # DEFAULT: 30
 #
-suppression_cap = 7
+suppression_cap = 6
 suppression_cap_fail_hard = true
 
 # Terms that should no longer appear in your documentation.

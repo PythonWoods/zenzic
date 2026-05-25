@@ -44,6 +44,13 @@ GLOBAL_TOML_TEMPLATE: str = (
     '# docs_dir = "docs"\n'
     "\n"
     "strict = true\n"
+    "# ORTHOGONAL CONSTRAINTS (Flat-Cost Model):\n"
+    "# - fail_under: Controls the global health of the project (active findings + debt).\n"
+    "# - suppression_cap: An absolute hard-fail ceiling for hidden debt.\n"
+    "# Mathematical invariant: fail_under <= (100 - suppression_cap)\n"
+    "# Example Hybrid Policy: fail_under = 90, suppression_cap = 30.\n"
+    "# This ensures overall quality never drops below 90, while strictly preventing\n"
+    "# the accumulation of more than 30 suppressed errors under any circumstance.\n"
     "fail_under = 100\n"
     "# exit_zero = false\n"
     "# respect_vcs_ignore = true\n"
