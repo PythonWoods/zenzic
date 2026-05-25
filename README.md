@@ -36,7 +36,9 @@ SPDX-License-Identifier: Apache-2.0
 </p>
 
 <p align="center">
-  <em>Zenzic audits this repository for credential leaks on every commit.</em>
+  <a href="https://zenzic.dev/docs/reference/scoring-algorithm">
+    <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/PythonWoods-Dev/7a26bc9e0a919beded93b6c5cd055bf9/raw/zenzic-shields.json&cacheSeconds=3600&style=flat-square" alt="Zenzic Score">
+  </a>
 </p>
 
 <p align="center">

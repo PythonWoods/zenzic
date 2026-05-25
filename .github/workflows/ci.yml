@@ -64,3 +64,16 @@ jobs:
           # Runtime-only injection point for local isolation checks in CI.
           ZENZIC_EXTRA_ARGS: ${{ secrets.ZENZIC_EXTRA_ARGS }}
         run: just verify
+
+      - name: Export Zenzic Score badge
+        # Run only on push to the canonical branch with Python 3.14 on Linux
+        # to produce a single authoritative write per commit.
+        if: >
+          github.event_name == 'push' &&
+          matrix.os == 'ubuntu-latest' &&
+          matrix.python-version == '3.14'
+        env:
+          GH_TOKEN: ${{ secrets.GIST_TOKEN }}
+        run: |
+          uv run --active zenzic score --export-shields zenzic-shields.json
+          gh gist edit 7a26bc9e0a919beded93b6c5cd055bf9 zenzic-shields.json

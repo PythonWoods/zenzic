@@ -211,7 +211,7 @@ def score(
         None,
         "--strict",
         "-s",
-        help="Treat warnings as errors (exit non-zero unless the score is 100).",
+        help="Treat warnings as errors. The score gate is controlled exclusively by --fail-under.",
     ),
     output_format: str = typer.Option(
         "text", "--format", "-f", help="Output format: text or json."
@@ -219,6 +219,12 @@ def score(
     save: bool = typer.Option(False, "--save", help="Save score snapshot to .zenzic-score.json."),
     fail_under: int = typer.Option(
         0, "--fail-under", help="Exit non-zero if score is below this threshold (0 = disabled)."
+    ),
+    export_shields: str | None = typer.Option(
+        None,
+        "--export-shields",
+        metavar="PATH",
+        help="Write a Shields.io-compatible JSON endpoint to PATH for dynamic badge telemetry.",
     ),
 ) -> None:
     """Compute a 0–100 documentation quality score across all checks."""
@@ -380,6 +386,26 @@ def score(
         )
         raise typer.Exit(1)
 
+    if export_shields is not None:
+        _effective_threshold = fail_under if fail_under > 0 else config.fail_under
+        _ref = _effective_threshold if _effective_threshold > 0 else 80
+        if report.security_override or report.score < 70:
+            _color = "red"
+        elif report.score < _ref:
+            _color = "yellow"
+        else:
+            _color = "brightgreen"
+        import json as _json
+
+        _payload = {
+            "schemaVersion": 1,
+            "label": "zenzic score",
+            "message": f"{report.score} / 100",
+            "color": _color,
+        }
+        Path(export_shields).write_text(_json.dumps(_payload, indent=2) + "\n", encoding="utf-8")
+        _shared.console.print(f"[dim]Shields.io endpoint written to {export_shields}[/]")
+
     _shared.print_footer_hint("score", output_format=output_format)
 
 
@@ -396,7 +422,7 @@ def diff(
         None,
         "--strict",
         "-s",
-        help="Treat warnings as errors (exit non-zero unless the score is 100).",
+        help="Treat warnings as errors. The score gate is controlled exclusively by --fail-under.",
     ),
     output_format: str = typer.Option(
         "text", "--format", "-f", help="Output format: text or json."
