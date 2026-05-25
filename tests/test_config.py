@@ -75,13 +75,13 @@ def test_load_config_custom_rules(tmp_path: Path) -> None:
     """[[custom_rules]] entries are parsed and available as CustomRuleConfig instances."""
     toml_content = """
 [[custom_rules]]
-id = "ZZ001"
+id = "ZZ-NOINTERNAL"
 pattern = "internal\\\\.corp"
 message = "Internal hostname in docs."
 severity = "error"
 
 [[custom_rules]]
-id = "ZZ002"
+id = "ZZ-NODRAFT"
 pattern = "(?i)\\\\bDRAFT\\\\b"
 message = "Remove DRAFT marker."
 severity = "warning"
@@ -89,9 +89,9 @@ severity = "warning"
     (tmp_path / ".zenzic.toml").write_text(toml_content)
     config, loaded = ZenzicConfig.load(tmp_path)
     assert len(config.custom_rules) == 2
-    assert config.custom_rules[0].id == "ZZ001"
+    assert config.custom_rules[0].id == "ZZ-NOINTERNAL"
     assert config.custom_rules[0].severity == "error"
-    assert config.custom_rules[1].id == "ZZ002"
+    assert config.custom_rules[1].id == "ZZ-NODRAFT"
     assert config.custom_rules[1].severity == "warning"
     assert loaded is True
 
@@ -332,6 +332,49 @@ def test_apply_local_toml_custom_rules_additive(tmp_path: Path) -> None:
     # Local override wins for ZZ-GLOBAL
     global_rule = next(r for r in config.custom_rules if r.id == "ZZ-GLOBAL")
     assert global_rule.pattern == "overridden-pattern"
+
+
+# ─── ADR-012 namespace contract ──────────────────────────────────────────────
+
+
+def test_custom_rule_id_namespace_rejects_core_codes(tmp_path: Path) -> None:
+    """Custom rule IDs that collide with Core namespace (Z1xx–Z9xx) are rejected at load-time."""
+    (tmp_path / ".zenzic.toml").write_text(
+        "docs_dir = 'docs'\n"
+        "[[custom_rules]]\n"
+        'id = "Z101"\n'
+        'pattern = "bad"\n'
+        'message = "This should fail."\n'
+    )
+    with pytest.raises((ConfigurationError, Exception), match="ZZ-"):
+        ZenzicConfig.load(tmp_path)
+
+
+def test_custom_rule_id_namespace_rejects_lowercase_prefix(tmp_path: Path) -> None:
+    """Lowercase 'zz-' prefix is rejected — namespace contract is strict case-sensitive."""
+    (tmp_path / ".zenzic.toml").write_text(
+        "docs_dir = 'docs'\n"
+        "[[custom_rules]]\n"
+        'id = "zz-mycheck"\n'
+        'pattern = "bad"\n'
+        'message = "This should fail."\n'
+    )
+    with pytest.raises((ConfigurationError, Exception), match="ZZ-"):
+        ZenzicConfig.load(tmp_path)
+
+
+def test_custom_rule_id_namespace_accepts_valid_prefix(tmp_path: Path) -> None:
+    """Custom rule IDs starting with 'ZZ-' are accepted without error."""
+    (tmp_path / ".zenzic.toml").write_text(
+        "docs_dir = 'docs'\n"
+        "[[custom_rules]]\n"
+        'id = "ZZ-MYCHECK"\n'
+        'pattern = "bad-word"\n'
+        'message = "Do not use bad-word."\n'
+    )
+    config, _ = ZenzicConfig.load(tmp_path)
+    assert len(config.custom_rules) == 1
+    assert config.custom_rules[0].id == "ZZ-MYCHECK"
 
 
 def test_apply_local_toml_overrides_i18n(tmp_path: Path) -> None:

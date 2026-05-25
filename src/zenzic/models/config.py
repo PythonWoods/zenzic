@@ -14,7 +14,7 @@ else:
     import tomli as tomllib  # PEP 680 backport
 from typing import Any, Final, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from zenzic.core import regex as re
 from zenzic.core.ui import ZenzicPalette
@@ -40,13 +40,30 @@ class CustomRuleConfig(BaseModel):
         severity = "error"
     """
 
-    id: str = Field(description="Stable unique identifier for this rule (e.g. 'ZZ001').")
+    id: str = Field(description="Stable unique identifier for this rule (e.g. 'ZZ-MY-RULE').")
     pattern: str = Field(description="Regular-expression string applied to each content line.")
     message: str = Field(description="Human-readable explanation shown in the finding.")
     severity: Severity = Field(
         default="error",
         description="Severity level: 'error' (default), 'warning', or 'info'.",
     )
+
+    @field_validator("id", mode="before")
+    @classmethod
+    def _validate_id_namespace(cls, v: object) -> object:
+        """Enforce ADR-012 namespace contract: custom rule IDs must start with 'ZZ-'.
+
+        The 'ZZ-' prefix is reserved exclusively for user-defined custom rules
+        to prevent collision with Core finding codes (Z1xx–Z9xx) in findings,
+        SARIF reports, and CLI filters.
+        """
+        if not isinstance(v, str) or not v.startswith("ZZ-"):
+            raise ValueError(
+                f"Custom rule IDs must start with the 'ZZ-' prefix "
+                f"(e.g., 'ZZ-MY-RULE') to prevent collision with Core finding codes (ADR-012). "
+                f"Got: {v!r}"
+            )
+        return v
 
 
 class ProjectMetadata(BaseModel):
