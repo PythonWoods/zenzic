@@ -1,36 +1,48 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
-# zenzic.toml — Standalone configuration for the Zenzic Core repository.
-#
-# This is a "Prose-only Maintenance" config: it scans root-level Markdown
-# files (README, CONTRIBUTING, CHANGELOG, SECURITY, etc.) without any
-# nav-awareness.  The full documentation site lives in the separate
-# zenzic-doc repository, which uses engine = "docusaurus".
-#
-# ⚠️  SCAN SCOPE INVARIANT: docs_dir = "." ensures that README.md
-# and README.it.md are ALWAYS inside the validation scope.
-# Do NOT change docs_dir to a subdirectory without explicitly re-adding
-# README.md and README.it.md via an include_files entry.
-# Rationale: the README is the primary entry point for users; broken links
-# there are indistinguishable from broken links in the documentation itself.
-#
-# 🏛️ LOCAL SOVEREIGNTY: keep machine-specific overrides and private
-# credentials in `.zenzic.local.toml` only. Shared `zenzic.toml` is the team
-# constitution and must stay reproducible in CI.
-#
-# 🌿  ZERO-CONFIG NOTE:
-#   * Universal build / cache directories (`build`, `dist`, `temp`, `tmp`,
-#     `.tox`, `mutants`, plus `.git`, `.venv`, `node_modules`, …) are part
-#     of `SYSTEM_EXCLUDED_DIRS` — never repeat them here.
-#   * Universal toolchain files (`*.toml`, `*.yaml`, `*.json`, `*.lock`,
-#     `LICENSE`, `NOTICE`, `Dockerfile`, `Makefile`, `justfile`, …) are
-#     part of `SYSTEM_EXCLUDED_FILE_NAMES` / `SYSTEM_EXCLUDED_FILE_PATTERNS`
-#     — never repeat them in `excluded_assets`.
-# Only repo-specific entries belong below.
 
+# Precedence: .zenzic.toml is shared baseline; .zenzic.local.toml overrides locally.
+# Keep secrets and workstation-only values in .zenzic.local.toml.
+
+# --- PROJECT IDENTITY ---
+# [project]
+# name = "zenzic" # Used for personalized CLI Governance headers
+
+# --- CORE SETTINGS ---
+# ---------------------------------------------------------------------------
+# docs_dir
+# ---------------------------------------------------------------------------
+# The relative path to your documentation root.
+#
+# BEHAVIOR:
+#   - If commented out (default), Zenzic uses Auto-Discovery to find your
+#     docs based on the engine (reads docusaurus.config.ts, mkdocs.yml…).
+#   - Set to "." to scan the entire repository (L1 system exclusions apply).
+#
+# DEFAULT: Auto-discovered
+#
 docs_dir = "."
 
-# Repo-specific source / asset trees that are not documentation.
+strict = true
+fail_under = 100
+# exit_zero = false
+# respect_vcs_ignore = true
+# validate_same_page_anchors = true
+
+# External URLs excluded from the broken-link check (applies only with --strict)
+excluded_external_urls = [
+    # Prevents HTTP 429 (Too Many Requests) rate-limiting from GitHub in CI.
+    "https://github.com/PythonWoods/zenzic",
+    # Prevents HTTP 403 (Forbidden) since the CI runner is an unauthenticated bot.
+    "https://github.com/settings/tokens",
+]
+
+# Z204 Privacy Gate — terms that must never appear in published docs.
+# forbidden_patterns = []
+
+# --- EXCLUSION ZONES (Full bypass — use sparingly) ---
+# Paths listed here are INVISIBLE to Zenzic: no findings, no audit trail.
+# Prefer [governance.per_file_ignores] for targeted suppression with an audit trail.
 excluded_dirs = [
     "src",
     "tests",
@@ -41,79 +53,40 @@ excluded_dirs = [
     ".adversarial",
 ]
 
-# ADR-039.1: *.sh is in SYSTEM_EXCLUDED_FILE_PATTERNS. No user-level exclusions needed.
-# .zenzic.local.toml.example removed in v0.8.0; use `zenzic init --local` to regenerate.
-# ADR-039.2: CHANGELOG*.md and RELEASE*.md are scanned without exclusion.
-# ROADMAP.md is scanned without exclusion.
-
-# External URLs excluded from the broken-link check (applies only with --strict).
-# The GitHub repository URL returns 429 in CI (rate-limited).
-# The settings/tokens URL requires authentication (403 for bots).
-# All zenzic.dev/* links are subject to --strict validation.
-# If a CI runner cannot reach zenzic.dev, pass --exclude-url https://zenzic.dev/
-# as a runtime flag rather than encoding the bypass in the config file.
-excluded_external_urls = [
-    # Prevents HTTP 429 (Too Many Requests) rate-limiting from GitHub when CI checks multiple internal links.
-    "https://github.com/PythonWoods/zenzic",
-    # Prevents HTTP 403 (Forbidden) / Auth redirects since the CI runner is an unauthenticated bot.
-    "https://github.com/settings/tokens",
-]
-
+# --- PLACEHOLDERS & CODE SNIPPETS (Optional) ---
 # Pattern matching disabled: the README and CHANGELOG describe placeholder
 # patterns as examples, which would cause false positives.
 placeholder_patterns = []
-
 snippet_min_lines = 1
 placeholder_max_words = 50
 
+# --- ENGINE CONTEXT ---
 [build_context]
-engine = "standalone"
-# This repo uses engine = "standalone" because docs_dir = "." scans root-level
-# Markdown prose (README, CONTRIBUTING, CHANGELOG, etc.) with no nav contract.
-# The actual documentation site lives in the separate zenzic-doc repository,
-# which uses engine = "docusaurus" with i18n locale roots auto-authorised by the
-# Multi-Root Exclusion Scope. No locales key is needed here.
+engine         = "standalone" # Supported: docusaurus, mkdocs, zensical, standalone
+base_url       = "/"
+default_locale = "en"
 
-# ── Internal dogfood rules ────────────────────────────────────────────────────
-# Minimal rule set for root-level prose files.
-
-[[custom_rules]]
-id = "ZZ-NOCLICKHERE"
-pattern = "(?i)\\bclick here\\b|\\bclicca qui\\b"
-message = "Avoid generic link text. Use a meaningful description for accessibility."
-severity = "error"
-
-# ADR-075 — Inconsapevolezza Radicale: intercept the term 'ai' with word-boundary
-# to avoid the false-positive flood that literal substring match would cause.
-# (Literal 'ai' in forbidden_patterns would fire on 'main', 'mail', 'said', etc.)
-[[custom_rules]]
-id = "ZZ-ADR075-AI"
-pattern = "(?i)\\bai\\b"
-message = "Il termine 'ai' viola ADR-075 (Inconsapevolezza Radicale). Zenzic è un Analizzatore Statico della Documentazione agnostico rispetto a qualsiasi tecnologia di inferenza."
-severity = "error"
-
-# ── Brand integrity ──────────────────────────────────────────────────────────
-# Detect deprecated brand terms in documentation source (Z601).
-# Use zenzic-ignore inline to suppress intentional references (e.g. release codenames).
+# --- BRAND INTEGRITY ---
 [project_metadata]
 release_name = "Basalt"
 obsolete_names_exclude_patterns = ["CHANGELOG*.md", "CHANGELOG*.archive.md", "changelogs/*.md"]
 
 [governance]
-# Soglia di Hard-Fail per il debito tecnico. Se il numero totale di soppressioni
-# supera questo valore, la CI fallisce (Exit Code 1). Ogni singola soppressione
-# costa 1 punto di DQS (Flat-Cost Model).
+# ---------------------------------------------------------------------------
+# suppression_cap
+# ---------------------------------------------------------------------------
+# Hard-fail threshold for technical debt.
+#
+# BEHAVIOR:
+#   - If total suppressions > cap: CI fails immediately (Exit Code 1).
+#   - Scoring: Every suppression costs 1 DQS point (Flat-Cost Model).
+#
+# DEFAULT: 30
+#
 suppression_cap = 7
 suppression_cap_fail_hard = true
 
-# Per-file suppression map: silence a rule for specific file globs.
-# WARNING: Every entry increases your Technical Debt Score (1 pt each, flat-cost).
-# Use 'zenzic check --audit' to see what would be flagged without suppressions.
-# [governance.per_file_ignores]
-# "docs/legacy/**" = ["Z601"]   # intentional brand refs → -1 pt
-
-# brand_obsolescence: project-specific deprecated terms (Z601 BRAND_OBSOLESCENCE).
-# Permanent vocabulary guardian — fires if theatrical brand terms reappear in prose.
+# Terms that should no longer appear in your documentation.
 brand_obsolescence = [
     "Sentinel",
     "Shield",
@@ -122,3 +95,86 @@ brand_obsolescence = [
     "Quartz",
     "Obsidian",
 ]
+# suppression_cap_scope = "all"  # Options: all, per-file
+# i18n_parity = false            # Set true when i18n is enabled
+
+# ---------------------------------------------------------------------------
+# per_file_ignores
+# ---------------------------------------------------------------------------
+# Silence a rule for specific file globs.
+#
+# BEHAVIOR: ADDITIVE — each entry adds 1 pt of Technical Debt (flat-cost).
+# IMPACT:   Use directory_policies below for zero-debt strategic exemptions.
+#
+# [governance.per_file_ignores]
+# "docs/legacy/**"      = ["Z601"]  # intentional brand refs → -1 pt
+# "docs/migration/*.md" = ["Z101"]  # known broken links → -1 pt
+
+# ---------------------------------------------------------------------------
+# directory_policies
+# ---------------------------------------------------------------------------
+# Strategic exemptions for entire directory trees or specific files.
+#
+# BEHAVIOR: Matched findings are silently dropped — ZERO debt added.
+# IMPACT:   In --audit mode, shown with [POLICY_EXEMPTION] label.
+#
+# [governance.directory_policies]
+# "blog/**"                       = ["Z601"]  # historical archive
+# "docs/explanation/registry.mdx" = ["Z601"]  # SSOT codename registry
+
+# Governance Playbook:
+# https://zenzic.dev/developers/how-to/release-governance-protocol
+
+# --- EXCLUSION ZONES (Full bypass — use sparingly) ---
+# Paths listed here are INVISIBLE to Zenzic: no findings, no audit trail.
+# Prefer [governance.per_file_ignores] for targeted suppression with an audit trail.
+# excluded_file_patterns = ["*.tmp", "*.log"]
+# excluded_assets = ["favicon.ico"]
+# excluded_asset_dirs = ["theme/"]
+# excluded_build_artifacts = ["pdf/*.pdf"]
+# included_dirs = []
+# included_file_patterns = []
+
+# --- PLUGINS (Optional) ---
+# plugins = []
+
+# --- CUSTOM RULES (Optional) ---
+# Declares project-specific regex-based lint rules applied line-by-line.
+[[custom_rules]]
+id       = "ZZ-NOCLICKHERE"
+pattern  = "(?i)\\bclick here\\b|\\bclicca qui\\b"
+message  = "Avoid generic link text. Use a meaningful description for accessibility."
+severity = "error"
+
+# ADR-075 — Inconsapevolezza Radicale: intercept the term 'ai' with word-boundary
+# to avoid false-positive flood from literal substring match.
+[[custom_rules]]
+id       = "ZZ-ADR075-AI"
+pattern  = "(?i)\\bai\\b"
+message  = "Il termine 'ai' viola ADR-075 (Inconsapevolezza Radicale). Zenzic è un Analizzatore Statico della Documentazione agnostico rispetto a qualsiasi tecnologia di inferenza."
+severity = "error"
+
+# --- I18N PARITY (Optional) ---
+# [i18n]
+# enabled = true
+# base_lang = "en"
+# base_source = "docs"
+# strict_parity = true
+# require_frontmatter_parity = ["title", "description"]
+# [i18n.targets]
+# it = "i18n/it/docusaurus-plugin-content-docs/current"
+
+# --- GATE 4: CI/CD (GitHub Actions, Optional) ---
+# Add this workflow snippet to .github/workflows/zenzic.yml
+#
+# name: zenzic
+# on: [pull_request, push]
+# jobs:
+#   audit:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@v4
+#       - uses: actions/setup-python@v5
+#         with:
+#           python-version: '3.10'
+#       - run: uvx zenzic check all --strict
