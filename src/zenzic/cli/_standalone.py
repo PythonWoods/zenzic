@@ -19,6 +19,7 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
+from zenzic.cli.templates import GLOBAL_TOML_TEMPLATE, LOCAL_TOML_TEMPLATE
 from zenzic.core import regex as re
 from zenzic.core.exceptions import ConfigurationError
 from zenzic.core.exclusion import LayeredExclusionManager
@@ -900,74 +901,7 @@ def _scaffold_local_toml(repo_root: Path, *, discovered_name: str | None = None)
     created_now = False
 
     if not local_toml.exists():
-        content = (
-            "# --- ZENZIC LOCAL OVERRIDES ---\n"
-            "# This file is auto-generated and must stay in .gitignore.\n"
-            "# Precedence: .zenzic.local.toml overrides .zenzic.toml on this machine only.\n"
-            "# Use it for workstation-specific paths, temporary debt-cleanup knobs,\n"
-            "# and private credentials that must never enter version control.\n"
-            "#\n"
-            "# MERGE SEMANTICS\n"
-            "#   ADDITIVE  (lists are merged with shared config):\n"
-            "#     forbidden_patterns, brand_obsolescence, excluded_dirs,\n"
-            "#     excluded_file_patterns, custom_rules\n"
-            "#   REPLACEMENT (section replaces shared value entirely for this machine):\n"
-            "#     governance (except brand_obsolescence), build_context, project_metadata, i18n\n"
-            "\n"
-            "[core]\n"
-            "# Override docs root when working in an isolated branch layout\n"
-            "# or a non-standard local folder structure.\n"
-            '# docs_dir = "my/custom/path/to/docs"\n'
-            "\n"
-            "# Z204 Privacy Gate (local secret terms, literal and case-insensitive).\n"
-            "# ADDITIVE: extends shared forbidden_patterns list (does not replace it).\n"
-            '# forbidden_patterns = ["Project Titan", "internal-api.corp", "staging.acme.io"]\n'
-            "\n"
-            "[build_context]\n"
-            "# Mirrors global structure for safe local overrides only when needed.\n"
-            '# engine = "docusaurus"\n'
-            '# base_url = "/"\n'
-            '# default_locale = "en"\n'
-            "\n"
-            "[project_metadata]\n"
-            "# Optional local branding experiments without touching team config.\n"
-            '# release_name = "v0.8.0"\n'
-            "\n"
-            "[governance]\n"
-            "# Want to disable fail-hard locally during massive debt cleanup?\n"
-            "# Raise CAP only for your workstation to avoid blocking local experiments.\n"
-            "# Keep shared governance decisions in .zenzic.toml.\n"
-            "# suppression_cap = 100\n"
-            "# suppression_cap_fail_hard = false\n"
-            "\n"
-            "# Per-file suppression map (local experiments — prefer .zenzic.toml for shared policy).\n"
-            "# [governance.per_file_ignores]\n"
-            '# "docs/wip/**" = ["Z101"]  # work-in-progress, not yet ready for link checks\n'
-            "\n"
-            "# Directory policy — silent exemption (0 pt debt, shown in --audit).\n"
-            "# [governance.directory_policies]\n"
-            '# "blog/**" = ["Z601"]  # historical blog posts — brand refs exempt locally\n'
-            "\n"
-            "[i18n]\n"
-            "# Local i18n experiments (mirrors global section shape).\n"
-            "# enabled = true\n"
-            "\n"
-            "[secrets]\n"
-            "# Store API tokens here (never in shared .zenzic.toml).\n"
-            "# Use these credentials in local wrappers for authenticated checks\n"
-            "# (for example API rate limits or private repository URLs).\n"
-            '# github_pat = "ghp_xxxxxxxxxxxxxxxxxxxx"\n'
-            "\n"
-            "[debug]\n"
-            "# Enable granular diagnostics.\n"
-            '# log_level = "DEBUG"\n'
-            "\n"
-            "# --- DEVELOPMENT ENVIRONMENT ---\n"
-            "# Define local environment variables used by your wrappers/scripts.\n"
-            "[env]\n"
-            '# ZENZIC_FORCE_COLOR = "true"\n'
-        )
-        local_toml.write_text(content, encoding="utf-8")
+        local_toml.write_text(LOCAL_TOML_TEMPLATE, encoding="utf-8")
         created_now = True
 
     # Ensure local overlay is ignored in Git repositories.
@@ -1052,127 +986,7 @@ def _discover_project_name(repo_root: Path) -> str | None:
 def _build_governance_ready_toml(*, engine: str, discovered_name: str | None) -> str:
     """Build governance configuration template with didactic comments."""
     hint_name = discovered_name or "My Awesome App"
-    spdx_id_label = "SPDX-License-Identifier"
-    return (
-        "# SPDX-FileCopyrightText: 2026 [Your Name] <[Your Email]>\n"
-        f"# {spdx_id_label}: Apache-2.0\n"
-        "\n"
-        "# Precedence: .zenzic.toml is shared baseline; .zenzic.local.toml overrides locally.\n"
-        "# Keep secrets and workstation-only values in .zenzic.local.toml.\n"
-        "\n"
-        "# --- PROJECT IDENTITY ---\n"
-        "# [project]\n"
-        f'# name = "{hint_name}" # Used for personalized CLI Governance headers\n'
-        "\n"
-        "# --- CORE SETTINGS ---\n"
-        'docs_dir = "docs"\n'
-        "strict = true\n"
-        "fail_under = 100\n"
-        "# exit_zero = false\n"
-        "# respect_vcs_ignore = true\n"
-        "# validate_same_page_anchors = true\n"
-        "\n"
-        "# External URLs excluded from the broken-link check (applies only with --strict)\n"
-        '# excluded_external_urls = ["https://github.com/YourOrg/YourRepo"]\n'
-        "\n"
-        "# Z204 Privacy Gate — terms that must never appear in published docs.\n"
-        "# forbidden_patterns = []\n"
-        "\n"
-        "# --- ENGINE CONTEXT ---\n"
-        "[build_context]\n"
-        f'engine         = "{engine}" # Supported: docusaurus, mkdocs, zensical, standalone\n'
-        'base_url       = "/"\n'
-        'default_locale = "en"\n'
-        "\n"
-        "# --- PLACEHOLDERS & CODE SNIPPETS (Optional) ---\n"
-        '# placeholder_patterns = ["coming soon", "work in progress", "wip", "todo"]\n'
-        "# placeholder_max_words = 50\n"
-        "# snippet_min_lines = 1\n"
-        "\n"
-        "# --- BRAND INTEGRITY ---\n"
-        "[project_metadata]\n"
-        '# release_name = "YOUR-RELEASE"\n'
-        "\n"
-        "[governance]\n"
-        "# Maximum allowed architectural debt (inline + per-file suppressions).\n"
-        "# Default: 30. Build fails if exceeded.\n"
-        "suppression_cap = 30\n"
-        "suppression_cap_fail_hard = true\n"
-        "\n"
-        "# Terms that should no longer appear in your documentation.\n"
-        "# Keep empty until your governance policy defines deprecated brand terms.\n"
-        "brand_obsolescence = []\n"
-        "# Canonical path reference: [zenzic.governance].brand_obsolescence = []\n"
-        '# suppression_cap_scope = "all"  # Options: all, per-file\n'
-        "# i18n_parity = false            # Set true when i18n is enabled\n"
-        "\n"
-        "# Per-file suppression map: silence a rule for specific file globs.\n"
-        "# WARNING: Every entry increases your Technical Debt Score.\n"
-        "#   Cost: min(n,30)×1 pt + max(0,n-30)×2 pt  (escalates past the cap).\n"
-        "# Run 'zenzic explain ZXXX' to see the exact penalty for any rule.\n"
-        "# [governance.per_file_ignores]\n"
-        '# "docs/legacy/**"      = ["Z601"]  # intentional brand refs → -1 pt\n'
-        '# "docs/migration/*.md" = ["Z101"]  # known broken links → -1 pt\n'
-        "\n"
-        "# Directory Policy (Invisible Exemptions — 0 pt debt):\n"
-        "# Strategic exemptions for entire directory trees or specific files.\n"
-        "# Matched findings are silently dropped — no debt added to your score.\n"
-        "# Hierarchy: Directory Policy (0 pt) > Per-file ignore (1 pt) > Inline tag (1 pt)\n"
-        "# In --audit mode, exempted findings are shown with a [POLICY_EXEMPTION] label.\n"
-        "# [governance.directory_policies]\n"
-        '# "blog/**"                         = ["Z601"]  # historical blog archive — brand refs exempt\n'
-        '# "docs/explanation/registry.mdx"   = ["Z601"]  # SSOT codename registry\n'
-        "\n"
-        "# Governance Playbook:\n"
-        "# https://zenzic.dev/developers/how-to/release-governance-protocol\n"
-        "\n"
-        "# --- EXCLUSION ZONES (Full bypass — use sparingly) ---\n"
-        "# Paths listed here are INVISIBLE to Zenzic: no findings, no audit trail.\n"
-        "# Prefer [governance.per_file_ignores] for targeted suppression with an audit trail.\n"
-        '# excluded_dirs = ["legacy/", "third-party/"]\n'
-        '# excluded_file_patterns = ["*.tmp", "*.log"]\n'
-        '# excluded_assets = ["favicon.ico"]\n'
-        '# excluded_asset_dirs = ["theme/"]\n'
-        '# excluded_build_artifacts = ["pdf/*.pdf"]\n'
-        "# included_dirs = []\n"
-        "# included_file_patterns = []\n"
-        "\n"
-        "# --- PLUGINS (Optional) ---\n"
-        "# plugins = []\n"
-        "\n"
-        "# --- CUSTOM RULES (Optional) ---\n"
-        "# Declares project-specific regex-based lint rules applied line-by-line.\n"
-        "# [[custom_rules]]\n"
-        '# id       = "ZZ-NOCLICKHERE"\n'
-        '# pattern  = "(?i)\\\\bclick here\\\\b"\n'
-        '# message  = "Avoid generic link text. Use a meaningful description."\n'
-        '# severity = "error"\n'
-        "\n"
-        "# --- I18N PARITY (Optional) ---\n"
-        "# [i18n]\n"
-        "# enabled = true\n"
-        '# base_lang = "en"\n'
-        '# base_source = "docs"\n'
-        "# strict_parity = true\n"
-        '# require_frontmatter_parity = ["title", "description"]\n'
-        "# [i18n.targets]\n"
-        '# it = "i18n/it/docusaurus-plugin-content-docs/current"\n'
-        "\n"
-        "# --- GATE 4: CI/CD (GitHub Actions, Optional) ---\n"
-        "# Add this workflow snippet to .github/workflows/zenzic.yml\n"
-        "#\n"
-        "# name: zenzic\n"
-        "# on: [pull_request, push]\n"
-        "# jobs:\n"
-        "#   audit:\n"
-        "#     runs-on: ubuntu-latest\n"
-        "#     steps:\n"
-        "#       - uses: actions/checkout@v4\n"
-        "#       - uses: actions/setup-python@v5\n"
-        "#         with:\n"
-        "#           python-version: '3.10'\n"
-        "#       - run: uvx zenzic check all --strict\n"
-    )
+    return GLOBAL_TOML_TEMPLATE.format(engine=engine, hint_name=hint_name)
 
 
 def _init_standalone(repo_root: Path) -> None:

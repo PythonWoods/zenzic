@@ -788,7 +788,7 @@ def test_init_standalone_creates_zenzic_toml(
     local_cfg = repo / ".zenzic.local.toml"
     assert local_cfg.is_file()
     local_content = local_cfg.read_text(encoding="utf-8")
-    assert "# --- ZENZIC LOCAL OVERRIDES ---" in local_content
+    assert "# ZENZIC LOCAL OVERRIDES" in local_content
     assert "This file is auto-generated" in local_content
     assert "suppression_cap_fail_hard = false" in local_content
 
