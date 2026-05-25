@@ -1,0 +1,13 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# zensical.toml — category-cap-math: Category Cap invariant sandbox
+#
+# Explicit nav lists both pages. All files are REACHABLE → no Z402 orphan-page
+# findings. The five broken links in index.md all target non-existent files,
+# each producing Z104 FILE_NOT_FOUND (8.0 pts, Structural tier).
+# The orphan.md page documents the ADR-031 paradox resolved in v0.8.0.
+
+[project]
+name = "category-cap-math"
+docs_dir = "docs"
+nav = ["index.md", "orphan.md"]

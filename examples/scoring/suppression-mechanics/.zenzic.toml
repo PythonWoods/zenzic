@@ -1,0 +1,25 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# .zenzic.toml — suppression-mechanics: Flat-Cost Suppression Model sandbox
+#
+# Three Markdown files each carry one inline suppression for Z105 ABSOLUTE_PATH.
+# suppression_cap = 2: three active suppressions exceed the cap →
+#   zenzic score exits with code 1 (hard-fail gate).
+#
+# Flat-cost model (ADR-031):
+#   suppression_count = 3  →  debt_pts = 3  →  theoretical DQS = 97/100
+#   But cap is exceeded → Exit 1 fires before the score-threshold gate.
+#
+# Expected results:
+#   zenzic score        → EXIT 1  (suppression cap 3/2 exceeded)
+#   zenzic check all    → EXIT 0  (all Z105 findings are actively suppressed)
+
+docs_dir = "docs"
+fail_under = 0
+placeholder_max_words = 0
+
+[build_context]
+engine = "standalone"
+
+[governance]
+suppression_cap = 2

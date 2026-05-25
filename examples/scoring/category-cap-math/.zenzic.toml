@@ -1,0 +1,25 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# .zenzic.toml — category-cap-math: Category Cap invariant sandbox
+#
+# Engine auto-detected as "zensical" from zensical.toml.
+# All pages are in the explicit nav → all are REACHABLE → no Z402 findings.
+#
+# Findings expected:
+#   Z104 FILE_NOT_FOUND     ×5  (8.0 pts each, Structural)  →  40 pts raw
+#   ─────────────────────────────────────────────────────────────────────
+#   Structural raw total                                     →  40 pts
+#   Structural cap                                           →  30 pts (cap enforced)
+#   cat_pts_structural                                       →   0 pts
+#
+# Score arithmetic (no suppressions):
+#   S_base = 0 (structural) + 25 (navigation) + 20 (content) + 25 (governance) = 70
+#   S_final = max(0, 70 − 0) = 70
+#
+# Expected results:
+#   zenzic score     → EXIT 0  (score 70 ≥ fail_under 0, no cap breach)
+#   zenzic check all → EXIT 1  (Z104 ×5 are error-level findings)
+
+docs_dir = "docs"
+fail_under = 0
+placeholder_max_words = 0
