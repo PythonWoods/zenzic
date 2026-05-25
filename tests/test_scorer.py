@@ -261,6 +261,63 @@ def test_to_dict_security_override_status() -> None:
     assert d["debt_status"] == "CRITICAL"
 
 
+# ─── Flat-cost suppression model (ADR-031) ────────────────────────────────────
+
+
+def test_suppression_flat_cost_five() -> None:
+    """5 suppressions cost 5 pts flat — perfect-check max is 95."""
+    report = compute_score({}, suppression_count=5, suppression_cap=30)
+    assert report.score == 95
+    assert report.suppression_debt_pts == 5
+    assert report.debt_status == "MANAGED"
+
+
+def test_suppression_flat_cost_thirty() -> None:
+    """30 suppressions cost 30 pts — perfect-check max is 70."""
+    report = compute_score({}, suppression_count=30, suppression_cap=30)
+    assert report.score == 70
+    assert report.suppression_debt_pts == 30
+
+
+def test_suppression_flat_cost_over_budget() -> None:
+    """101 suppressions exhaust all 100 points — score is 0."""
+    report = compute_score({}, suppression_count=101, suppression_cap=30)
+    assert report.score == 0
+
+
+def test_suppression_debt_status_critical_on_cap_exceeded() -> None:
+    """count > cap → CRITICAL regardless of flat-cost debt."""
+    report = compute_score({}, suppression_count=31, suppression_cap=30)
+    assert report.debt_status == "CRITICAL"
+
+
+# ─── ADR-031 Paradox Resolution ────────────────────────────────────────────
+
+
+def test_z103_structural_penalty() -> None:
+    """Z103 ORPHAN_LINK: -2.0 pts from structural bucket (ADR-031 paradox resolved)."""
+    report = compute_score({"Z103": 1})
+    structural = next(c for c in report.categories if c.name == "structural")
+    assert structural.issues == 1
+    assert structural.category_score < 1.0
+    assert report.score == 98  # (30-2)/30*30 + 25 + 20 + 25 = 28+25+20+25=98
+
+
+def test_z111_structural_penalty_equals_z101() -> None:
+    """Z111 VIRTUAL_ROUTE_BROKEN: -8.0 pts, same weight as Z101 LINK_BROKEN (ADR-031)."""
+    r_z111 = compute_score({"Z111": 1})
+    r_z101 = compute_score({"Z101": 1})
+    assert r_z111.score == r_z101.score == 92  # (30-8)/30*30 + 25 + 20 + 25 = 22+25+20+25=92
+
+
+def test_z113_structural_penalty() -> None:
+    """Z113 AUTHOR_KEY_COLLISION: -2.0 pts from structural bucket (ADR-031)."""
+    report = compute_score({"Z113": 1})
+    structural = next(c for c in report.categories if c.name == "structural")
+    assert structural.issues == 1
+    assert report.score == 98
+
+
 # ─── Snapshot persistence ─────────────────────────────────────────────────────
 
 

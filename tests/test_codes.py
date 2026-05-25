@@ -126,3 +126,43 @@ def test_get_sarif_name_all_codes_non_empty() -> None:
         name = get_sarif_name(code)
         assert name, f"get_sarif_name('{code}') returned empty string"
         assert "_" not in name, f"get_sarif_name('{code}') still contains underscore: '{name}'"
+
+
+# ── CODE_DEFINITIONS completeness (ADR-031 SSoT) ───────────────────────────────
+
+
+def test_every_code_has_definition() -> None:
+    """Every code in CODE_NAMES must have an entry in CODE_DEFINITIONS (SSoT)."""
+    from zenzic.core.codes import CODE_DEFINITIONS
+
+    missing = sorted(set(CODE_NAMES) - set(CODE_DEFINITIONS))
+    assert missing == [], f"Codes missing from CODE_DEFINITIONS: {missing}"
+
+
+def test_no_orphan_definitions() -> None:
+    """No code in CODE_DEFINITIONS may be absent from CODE_NAMES."""
+    from zenzic.core.codes import CODE_DEFINITIONS
+
+    orphans = sorted(set(CODE_DEFINITIONS) - set(CODE_NAMES))
+    assert orphans == [], f"Ghost codes in CODE_DEFINITIONS (not in CODE_NAMES): {orphans}"
+
+
+def test_z103_z111_z113_are_structural_with_penalty() -> None:
+    """ADR-031: paradox codes must have error severity, positive penalty, structural category."""
+    from zenzic.core.codes import CODE_DEFINITIONS
+
+    for code in ("Z103", "Z111", "Z113"):
+        defn = CODE_DEFINITIONS[code]
+        assert defn.severity == "error", f"{code}.severity should be 'error'"
+        assert defn.penalty > 0.0, f"{code}.penalty should be > 0"
+        assert defn.category == "structural", f"{code}.category should be 'structural'"
+
+
+def test_z114_is_note_zero_penalty() -> None:
+    """ADR-031: Z114 LARGE_PAGINATION_SET must be note/0.0 (CI gate bug fixed)."""
+    from zenzic.core.codes import CODE_DEFINITIONS
+
+    defn = CODE_DEFINITIONS["Z114"]
+    assert defn.severity == "note"
+    assert defn.penalty == 0.0
+    assert defn.category is None

@@ -11,6 +11,7 @@ from pathlib import Path
 
 import typer
 
+from zenzic.core.codes import CODE_DEFINITIONS
 from zenzic.core.exclusion import LayeredExclusionManager
 from zenzic.core.reporter import Finding, ZenzicReporter
 from zenzic.core.scanner import (
@@ -58,6 +59,25 @@ check_app = _shared.create_app(
     name="check",
     long_help=(f"[bold {ZenzicPalette.BRAND}]Check[/] — {COMMAND_BY_NAME['check'].long_help}"),
 )
+
+
+def _finding_severity(code: str) -> str:
+    """Derive CLI finding severity from CodeDefinition SSoT (codes.py).
+
+    Returns ``"security_incident"`` only for Z203 (fatal system-path traversal),
+    ``"info"`` for note-level informational codes (Z106, Z114, Z906), and the
+    CodeDefinition severity (``"error"`` or ``"warning"``) for all others.
+    Unknown codes default to ``"error"`` since the validator only emits findings
+    when it detects a genuine problem.
+    """
+    if code == "Z203":
+        return "security_incident"
+    defn = CODE_DEFINITIONS.get(code)
+    if defn is None:
+        return "error"
+    if defn.severity == "note":
+        return "info"
+    return defn.severity  # "error" or "warning"
 
 
 # ── Check commands ────────────────────────────────────────────────────────────
@@ -158,13 +178,7 @@ def check_links(
             rel_path=_rel(err.file_path),
             line_no=err.line_no,
             code=err.code,
-            severity=(
-                "security_incident"
-                if err.code == "Z203"
-                else "info"
-                if err.code == "Z106"
-                else "error"
-            ),
+            severity=_finding_severity(err.code),
             message=err.message,
             source_line=err.source_line,
             col_start=err.col_start,
@@ -891,6 +905,9 @@ def _collect_all_results(
     _content_roots = adapter.get_extra_content_roots(repo_root)
     content_roots: list[Path] | None = _content_roots if _content_roots else None
 
+    def _mk_i18n_exclusion_mgr(base_root: Path) -> LayeredExclusionManager:
+        return _shared._build_exclusion_manager(config, repo_root, base_root)
+
     ref_reports, _ = scan_docs_references(
         docs_root,
         exclusion_mgr,
@@ -967,7 +984,11 @@ def _collect_all_results(
             provides_index=adapter.provides_index,
         ),
         config_asset_issues=config_asset_issues,
-        i18n_parity_issues=find_i18n_parity(repo_root, config=config),
+        i18n_parity_issues=find_i18n_parity(
+            repo_root,
+            config=config,
+            exclusion_manager_factory=_mk_i18n_exclusion_mgr,
+        ),
         i18n_strict=config.i18n.strict_parity,
     )
 
@@ -988,13 +1009,7 @@ def _to_findings(results: _AllCheckResults, docs_root: Path) -> list[Finding]:
                 rel_path=_rel(err.file_path),
                 line_no=err.line_no,
                 code=err.code,
-                severity=(
-                    "security_incident"
-                    if err.code in ("Z203", "Z202")
-                    else "info"
-                    if err.code == "Z106"
-                    else "error"
-                ),
+                severity=_finding_severity(err.code),
                 message=err.message,
                 source_line=err.source_line,
                 col_start=err.col_start,

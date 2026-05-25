@@ -23,12 +23,10 @@ Governance Escalation (Z6xx threshold = 10):
   Z6xx violations beyond 10 trigger exponential amplification on the
   governance bucket — doubling every 5 excess findings — until 0.
 
-Suppression Debt (ADR-061):
-    Inline/per-file suppressions are allowance-based.
-    Up to suppression_cap, suppressions are governance-approved exemptions and
-    do not reduce score. Only excess suppressions count as technical debt.
-
-    debt_pts = max(0, n − cap)
+Suppression Debt (ADR-061): flat-cost model.
+    Every inline or per-file suppression costs exactly 1 point, with no free
+    allowance.  The ``suppression_cap`` is a hard-fail threshold enforced by
+    the CLI layer: exceeding it causes Exit 1 regardless of the computed score.
 
 Security Override (Zero-Tolerance Floor)
 -----------------------------------------
@@ -44,6 +42,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
+from zenzic.core.codes import CODE_DEFINITIONS, NON_SUPPRESSIBLE_CODES
 from zenzic.core.exceptions import ConfigurationError
 
 
@@ -56,65 +55,19 @@ _WEIGHTS: dict[str, float] = {
     "brand": 0.25,  # Z404, Z405, Z406, Z601 — Governance & Brand
 }
 
-# ─── Zenzic Penalty Table ───────────────────────────────────────────────
-# Points deducted per occurrence of each finding code.
+# ─── Penalty Table — derived from CODE_DEFINITIONS (SSoT) ────────────────────
+# Do NOT edit these dicts manually.  Add or change a code in codes.py instead.
 # Category cap = weight × 100  (e.g. structural cap = 30 pts).
 # Formula per category:  max(0, cap − Σ penalty_i × count_i)
 _CODE_PENALTY: dict[str, float] = {
-    # Structural Integrity (cap = 30 pts)
-    "Z101": 8.0,  # LINK_BROKEN
-    "Z102": 5.0,  # ANCHOR_MISSING
-    "Z104": 8.0,  # FILE_NOT_FOUND
-    "Z105": 2.0,  # ABSOLUTE_PATH
-    "Z107": 1.0,  # CIRCULAR_ANCHOR (rule-engine level)
-    "Z108": 1.0,  # EMPTY_LINK_TEXT
-    # Navigation & Logic (cap = 25 pts)
-    "Z301": 4.0,  # DANGLING_REF — reference link uses an undefined ID
-    "Z302": 1.0,  # DEAD_DEF — reference definition never used
-    "Z303": 3.0,  # DUPLICATE_DEF — reference ID defined more than once
-    "Z401": 2.0,  # MISSING_DIRECTORY_INDEX — directory lacks a required index page
-    "Z402": 4.0,  # ORPHAN_PAGE
-    # Content Quality (cap = 20 pts)
-    "Z403": 1.0,  # MISSING_ALT — image element has no alt text
-    "Z501": 2.0,  # PLACEHOLDER — TODO / stub patterns
-    "Z502": 1.0,  # SHORT_CONTENT — below minimum word count
-    "Z503": 10.0,  # SNIPPET_ERROR — syntax error in code block
-    "Z505": 1.0,  # UNTAGGED_CODE_BLOCK
-    # Governance & Brand (cap = 25 pts)
-    "Z404": 3.0,  # CONFIG_ASSET_MISSING — static asset declared in config not found on disk
-    "Z405": 3.0,  # UNUSED_ASSET
-    "Z406": 2.0,  # NAV_CONTRACT (navigation contract violation)
-    "Z601": 2.0,  # BRAND_OBSOLESCENCE (escalates exponentially beyond threshold)
-    # Z602 (I18N_PARITY) is a Governance gate — not weighted in the DQS bucket.
+    code: defn.penalty for code, defn in CODE_DEFINITIONS.items() if defn.penalty > 0.0
 }
 
 _CODE_CATEGORY: dict[str, str] = {
-    "Z101": "structural",
-    "Z102": "structural",
-    "Z104": "structural",
-    "Z105": "structural",
-    "Z107": "structural",
-    "Z108": "structural",
-    "Z301": "navigation",
-    "Z302": "navigation",
-    "Z303": "navigation",
-    "Z401": "navigation",
-    "Z402": "navigation",
-    "Z403": "content",
-    "Z501": "content",
-    "Z502": "content",
-    "Z503": "content",
-    "Z505": "content",
-    "Z404": "brand",
-    "Z405": "brand",
-    "Z406": "brand",
-    "Z601": "brand",
+    code: defn.category for code, defn in CODE_DEFINITIONS.items() if defn.category is not None
 }
 
-# Z2xx codes trigger the Security Override — score collapses to 0.
-# Z204 (FORBIDDEN_TERM / Privacy Gate) is included: a document exposing
-# confidential terms has no meaningful documentation quality score.
-_SECURITY_CODES: frozenset[str] = frozenset({"Z201", "Z202", "Z203", "Z204"})
+# Security Override codes — imported from codes.py (NON_SUPPRESSIBLE_CODES).
 
 # Governance escalation: Z6xx violations above this threshold trigger exponential
 # penalty on the brand bucket — doubles every 5 excess findings until 0.
@@ -227,8 +180,11 @@ def compute_score(
         findings_counts: Mapping of ``Zxxx`` code → occurrence count.
             Unknown codes contribute zero deduction.
         suppression_count: Total number of active suppressions (inline + per-file).
-        suppression_cap: Allowance threshold (default 30).
-            Only suppressions above this value deduct 1 point each.
+            Each suppression costs exactly 1 point (flat-cost model).
+        suppression_cap: Hard-fail threshold (default 30). When
+            ``suppression_count`` exceeds this value the build fails regardless
+            of the computed score.  The cap does not grant a free allowance —
+            all suppressions are penalised at the flat rate.
 
     Returns:
         A :class:`ScoreReport` with the total 0–100 score and per-category breakdown.
@@ -241,7 +197,7 @@ def compute_score(
     )
 
     # Security override: any Z2xx finding collapses the score to 0.
-    sec_count = sum(findings_counts.get(code, 0) for code in _SECURITY_CODES)
+    sec_count = sum(findings_counts.get(code, 0) for code in NON_SUPPRESSIBLE_CODES)
     if sec_count > 0:
         categories = [
             CategoryScore(name=n, weight=w, issues=0, category_score=0.0, contribution=0.0)
@@ -300,12 +256,10 @@ def compute_score(
     if brand_cat is not None and brand_cat.category_score == 0.0:
         total_pts = min(total_pts, 70.0)
 
-    # Suppression Debt (ADR-061): allowance-based governance exemptions.
-    # Suppressions within cap do not reduce score; only excess deducts 1 pt.
-    debt_pts = 0
-    if normalized_suppression_count > 0:
-        debt_pts = max(0, normalized_suppression_count - normalized_suppression_cap)
-        total_pts = max(0.0, total_pts - debt_pts)
+    # Suppression Debt (ADR-061): flat-cost model — every suppression costs 1 pt.
+    # The cap is a hard-fail threshold enforced by the CLI, not a free allowance.
+    debt_pts = normalized_suppression_count
+    total_pts = max(0.0, total_pts - debt_pts)
 
     return ScoreReport(
         score=round(total_pts),

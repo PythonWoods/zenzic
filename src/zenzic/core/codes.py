@@ -65,6 +65,32 @@ from __future__ import annotations
 from typing import NamedTuple
 
 
+# ── Code Definition — Single Source of Truth ─────────────────────────────────
+
+
+class CodeDefinition(NamedTuple):
+    """Per-code scoring and CI gate metadata — Single Source of Truth (ADR-031).
+
+    All three attributes are defined **once** here; ``scorer.py`` derives its
+    penalty/category tables and ``_check.py`` derives finding severity from this
+    structure.  No catch-all ``else 'error'`` logic is permitted elsewhere.
+
+    Attributes:
+        severity: SARIF ``defaultConfiguration.level`` — ``"error"``,
+            ``"warning"``, or ``"note"``.
+        penalty:  Points deducted from the category bucket per occurrence.
+            ``0.0`` for codes that are informational or handled by a dedicated
+            gate (Security Override, Governance Gate).
+        category: DQS bucket — ``"structural"``, ``"navigation"``,
+            ``"content"``, ``"brand"``, or ``None`` for codes outside the
+            penalty table.
+    """
+
+    severity: str
+    penalty: float
+    category: str | None
+
+
 # ── Exit Code Contract ────────────────────────────────────────────────────────
 
 
@@ -125,6 +151,67 @@ LEGACY_TO_CODE: dict[str, str] = {
     "Z904": "Z406",
     "Z905": "Z601",
     "Z907": "Z602",
+}
+
+
+# ── Code Definitions (SSoT) ───────────────────────────────────────────────────
+# Every Zxxx code is defined ONCE here with its severity, DQS penalty, and
+# scoring category.  scorer.py and _check.py derive their tables from this dict.
+# Adding a new code requires a single entry here — nowhere else.
+
+CODE_DEFINITIONS: dict[str, CodeDefinition] = {
+    # ── Z0xx — Migration & Compatibility ──────────────────────────────────────
+    # Aborts config loading before any analysis; not in the DQS penalty table.
+    "Z000": CodeDefinition("error", 0.0, None),
+    # ── Z1xx — Link Integrity ─────────────────────────────────────────────────
+    "Z101": CodeDefinition("error", 8.0, "structural"),  # LINK_BROKEN
+    "Z102": CodeDefinition("error", 5.0, "structural"),  # ANCHOR_MISSING
+    "Z103": CodeDefinition(
+        "error", 2.0, "structural"
+    ),  # ORPHAN_LINK      — ADR-031 paradox resolved
+    "Z104": CodeDefinition("error", 8.0, "structural"),  # FILE_NOT_FOUND
+    "Z105": CodeDefinition("error", 2.0, "structural"),  # ABSOLUTE_PATH
+    "Z106": CodeDefinition("note", 0.0, None),  # CIRCULAR_LINK    — informational
+    "Z107": CodeDefinition("error", 1.0, "structural"),  # CIRCULAR_ANCHOR
+    "Z108": CodeDefinition("error", 1.0, "structural"),  # EMPTY_LINK_TEXT
+    "Z111": CodeDefinition(
+        "error", 8.0, "structural"
+    ),  # VIRTUAL_ROUTE_BROKEN — ADR-031 paradox resolved
+    "Z113": CodeDefinition(
+        "error", 2.0, "structural"
+    ),  # AUTHOR_KEY_COLLISION — ADR-031 paradox resolved
+    "Z114": CodeDefinition("note", 0.0, None),  # LARGE_PAGINATION_SET — informational threshold
+    # ── Z2xx — Security ───────────────────────────────────────────────────────
+    # Score collapses to 0 via Security Override; never in DQS category bucket.
+    # Exit codes 2–3; non-suppressible (see NON_SUPPRESSIBLE_CODES).
+    "Z201": CodeDefinition("error", 0.0, None),  # CREDENTIAL_SECRET
+    "Z202": CodeDefinition("error", 0.0, None),  # PATH_TRAVERSAL
+    "Z203": CodeDefinition("error", 0.0, None),  # PATH_TRAVERSAL_FATAL
+    "Z204": CodeDefinition("error", 0.0, None),  # FORBIDDEN_TERM
+    # ── Z3xx — Reference Integrity ────────────────────────────────────────────
+    "Z301": CodeDefinition("warning", 4.0, "navigation"),  # DANGLING_REF
+    "Z302": CodeDefinition("warning", 1.0, "navigation"),  # DEAD_DEF
+    "Z303": CodeDefinition("warning", 3.0, "navigation"),  # DUPLICATE_DEF
+    # ── Z4xx — Structure ──────────────────────────────────────────────────────
+    "Z401": CodeDefinition("warning", 2.0, "navigation"),  # MISSING_DIRECTORY_INDEX
+    "Z402": CodeDefinition("warning", 4.0, "navigation"),  # ORPHAN_PAGE
+    "Z403": CodeDefinition("warning", 1.0, "content"),  # MISSING_ALT
+    "Z404": CodeDefinition("warning", 3.0, "brand"),  # CONFIG_ASSET_MISSING
+    "Z405": CodeDefinition("warning", 3.0, "brand"),  # UNUSED_ASSET
+    "Z406": CodeDefinition("warning", 2.0, "brand"),  # NAV_CONTRACT
+    # ── Z5xx — Content Quality ────────────────────────────────────────────────
+    "Z501": CodeDefinition("warning", 2.0, "content"),  # PLACEHOLDER
+    "Z502": CodeDefinition("warning", 1.0, "content"),  # SHORT_CONTENT
+    "Z503": CodeDefinition("warning", 10.0, "content"),  # SNIPPET_ERROR
+    "Z504": CodeDefinition("warning", 0.0, None),  # QUALITY_REGRESSION — governance gate
+    "Z505": CodeDefinition("warning", 1.0, "content"),  # UNTAGGED_CODE_BLOCK
+    # ── Z6xx — Governance ─────────────────────────────────────────────────────
+    "Z601": CodeDefinition("warning", 2.0, "brand"),  # BRAND_OBSOLESCENCE (escalates exponentially)
+    "Z602": CodeDefinition("warning", 0.0, None),  # I18N_PARITY — binary governance gate
+    # ── Z9xx — Engine / System ────────────────────────────────────────────────
+    "Z901": CodeDefinition("warning", 0.0, None),  # RULE_ENGINE_ERROR
+    "Z902": CodeDefinition("warning", 0.0, None),  # RULE_TIMEOUT
+    "Z906": CodeDefinition("note", 0.0, None),  # NO_FILES_FOUND — informational
 }
 
 
@@ -216,53 +303,9 @@ CODE_DESCRIPTIONS: dict[str, str] = {
 }
 
 #: Default SARIF ``defaultConfiguration.level`` for each code.
-#: Z1xx/Z2xx → "error" | Z3xx–Z9xx quality → "warning" | Z906 informational → "note"
+#: Derived from :data:`CODE_DEFINITIONS` — do not edit manually.
 #: Individual Finding severity always takes precedence at result level.
-CODE_SARIF_LEVELS: dict[str, str] = {
-    # Z0xx — Migration & Compatibility: fatal error (aborts before analysis begins)
-    "Z000": "error",
-    # Z1xx — Link Integrity: errors (broken links block the user experience)
-    "Z101": "error",
-    "Z102": "error",
-    "Z103": "error",
-    "Z104": "error",
-    "Z105": "error",
-    "Z106": "note",
-    "Z107": "error",
-    "Z108": "error",
-    "Z111": "error",
-    "Z113": "error",
-    "Z114": "note",
-    # Z2xx — Security: always errors
-    "Z201": "error",
-    "Z202": "error",
-    "Z203": "error",
-    "Z204": "error",
-    # Z3xx — Reference Integrity: warnings (quality signal, not blocking)
-    "Z301": "warning",
-    "Z302": "warning",
-    "Z303": "warning",
-    # Z4xx — Structure: warnings
-    "Z401": "warning",
-    "Z402": "warning",
-    "Z403": "warning",
-    "Z404": "warning",
-    "Z405": "warning",
-    "Z406": "warning",
-    # Z6xx — Governance: warnings
-    "Z601": "warning",
-    "Z602": "warning",
-    # Z5xx — Content Quality: warnings
-    "Z501": "warning",
-    "Z502": "warning",
-    "Z503": "warning",
-    "Z504": "warning",
-    "Z505": "warning",
-    # Z9xx — Engine / System: warnings (except Z906 which is informational)
-    "Z901": "warning",
-    "Z902": "warning",
-    "Z906": "note",
-}
+CODE_SARIF_LEVELS: dict[str, str] = {code: defn.severity for code, defn in CODE_DEFINITIONS.items()}
 
 
 def get_sarif_name(code: str) -> str:

@@ -341,6 +341,14 @@ def score(
         )
         raise typer.Exit(1)
 
+    if report.suppression_count > report.suppression_cap:
+        _shared.console.print(
+            f"\n[red]FAILED:[/] suppression cap exceeded "
+            f"({report.suppression_count}/{report.suppression_cap}). "
+            f"Update governance.suppression_cap in .zenzic.toml if intentional."
+        )
+        raise typer.Exit(1)
+
     if effective_strict and report.score < 100:
         _shared.console.print(
             "[red]FAILED:[/] strict mode enabled — warnings are treated as fatal until score is 100."
@@ -548,8 +556,13 @@ def explain(
     from rich.table import Table as RTable
 
     from zenzic import __version__
-    from zenzic.core.codes import CODE_DESCRIPTIONS, CODE_NAMES, CODE_SARIF_LEVELS
-    from zenzic.core.scorer import _CODE_CATEGORY, _CODE_PENALTY, _SECURITY_CODES, _WEIGHTS
+    from zenzic.core.codes import (
+        CODE_DESCRIPTIONS,
+        CODE_NAMES,
+        CODE_SARIF_LEVELS,
+        NON_SUPPRESSIBLE_CODES,
+    )
+    from zenzic.core.scorer import _CODE_CATEGORY, _CODE_PENALTY, _WEIGHTS
 
     rule_id = rule_id.upper()
 
@@ -563,7 +576,7 @@ def explain(
     bucket = _CODE_CATEGORY.get(rule_id, "—")
     penalty = _CODE_PENALTY.get(rule_id)
     weight = _WEIGHTS.get(bucket, 0.0)
-    is_security = rule_id in _SECURITY_CODES
+    is_security = rule_id in NON_SUPPRESSIBLE_CODES
 
     meta_table = RTable.grid(padding=(0, 2))
     meta_table.add_column(style=ZenzicPalette.DIM, min_width=20)
