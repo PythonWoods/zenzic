@@ -896,9 +896,10 @@ def _scaffold_local_toml(repo_root: Path, *, discovered_name: str | None = None)
             "#\n"
             "# MERGE SEMANTICS\n"
             "#   ADDITIVE  (lists are merged with shared config):\n"
-            "#     forbidden_patterns, excluded_dirs, excluded_file_patterns\n"
+            "#     forbidden_patterns, brand_obsolescence, excluded_dirs,\n"
+            "#     excluded_file_patterns, custom_rules\n"
             "#   REPLACEMENT (section replaces shared value entirely for this machine):\n"
-            "#     governance, build_context, project_metadata, i18n\n"
+            "#     governance (except brand_obsolescence), build_context, project_metadata, i18n\n"
             "\n"
             "[core]\n"
             "# Override docs root when working in an isolated branch layout\n"
@@ -1156,7 +1157,7 @@ def _build_governance_ready_toml(*, engine: str, discovered_name: str | None) ->
         "#       - uses: actions/checkout@v4\n"
         "#       - uses: actions/setup-python@v5\n"
         "#         with:\n"
-        "#           python-version: '3.12'\n"
+        "#           python-version: '3.10'\n"
         "#       - run: uvx zenzic check all --strict\n"
     )
 

@@ -277,6 +277,63 @@ def test_apply_local_toml_brand_obsolescence_additive(tmp_path: Path) -> None:
     assert config.governance.brand_obsolescence.count("TermA") == 1
 
 
+def test_apply_local_toml_excluded_dirs_additive(tmp_path: Path) -> None:
+    """excluded_dirs from .zenzic.local.toml are merged additively with global dirs."""
+    (tmp_path / ".zenzic.toml").write_text("docs_dir = 'docs'\nexcluded_dirs = ['legacy/']\n")
+    (tmp_path / ".zenzic.local.toml").write_text("excluded_dirs = ['wip/']\n")
+    config, _ = ZenzicConfig.load(tmp_path)
+    assert "legacy/" in config.excluded_dirs
+    assert "wip/" in config.excluded_dirs
+    # SYSTEM_EXCLUDED_DIRS must remain intact (e.g. .venv is always excluded)
+    from zenzic.models.config import SYSTEM_EXCLUDED_DIRS
+
+    for sys_dir in SYSTEM_EXCLUDED_DIRS:
+        assert sys_dir in config.excluded_dirs
+
+
+def test_apply_local_toml_excluded_file_patterns_additive(tmp_path: Path) -> None:
+    """excluded_file_patterns from .zenzic.local.toml are merged additively with global patterns."""
+    (tmp_path / ".zenzic.toml").write_text(
+        "docs_dir = 'docs'\nexcluded_file_patterns = ['*.log']\n"
+    )
+    (tmp_path / ".zenzic.local.toml").write_text("excluded_file_patterns = ['*.tmp']\n")
+    config, _ = ZenzicConfig.load(tmp_path)
+    assert "*.log" in config.excluded_file_patterns
+    assert "*.tmp" in config.excluded_file_patterns
+
+
+def test_apply_local_toml_custom_rules_additive(tmp_path: Path) -> None:
+    """custom_rules from .zenzic.local.toml are merged additively; local overrides same-id rule."""
+    global_toml = (
+        "docs_dir = 'docs'\n"
+        "[[custom_rules]]\n"
+        'id = "ZZ-GLOBAL"\n'
+        'pattern = "global-pattern"\n'
+        'message = "Global rule."\n'
+    )
+    local_toml = (
+        "[[custom_rules]]\n"
+        'id = "ZZ-LOCAL"\n'
+        'pattern = "local-pattern"\n'
+        'message = "Local rule."\n'
+        "[[custom_rules]]\n"
+        'id = "ZZ-GLOBAL"\n'
+        'pattern = "overridden-pattern"\n'
+        'message = "Local override of global rule."\n'
+    )
+    (tmp_path / ".zenzic.toml").write_text(global_toml)
+    (tmp_path / ".zenzic.local.toml").write_text(local_toml)
+    config, _ = ZenzicConfig.load(tmp_path)
+    ids = [r.id for r in config.custom_rules]
+    assert "ZZ-GLOBAL" in ids
+    assert "ZZ-LOCAL" in ids
+    # Global rule base count: 1 (ZZ-GLOBAL) + 1 new local (ZZ-LOCAL) = 2 total
+    assert len(config.custom_rules) == 2
+    # Local override wins for ZZ-GLOBAL
+    global_rule = next(r for r in config.custom_rules if r.id == "ZZ-GLOBAL")
+    assert global_rule.pattern == "overridden-pattern"
+
+
 def test_apply_local_toml_overrides_i18n(tmp_path: Path) -> None:
     """[i18n] in .zenzic.local.toml merges into config.i18n."""
     (tmp_path / ".zenzic.toml").write_text("docs_dir = 'docs'\n")

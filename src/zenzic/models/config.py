@@ -327,6 +327,8 @@ SYSTEM_EXCLUDED_FILE_PATTERNS: Final[tuple[str, ...]] = (
     "eslint.config.*",
     ".prettierrc*",
     ".editorconfig",
+    # Machine-local override backups must be treated as infrastructure.
+    ".zenzic.local.toml.*",
     "*.lock",
     # Shell scripts are infrastructure, not documentation assets (ADR-039.1)
     "*.sh",
@@ -808,6 +810,9 @@ class ZenzicConfig(BaseModel):
                 "governance",
                 "i18n",
                 "forbidden_patterns",
+                "excluded_dirs",
+                "excluded_file_patterns",
+                "custom_rules",
                 "secrets",
                 "debug",
                 "env",
@@ -822,7 +827,8 @@ class ZenzicConfig(BaseModel):
                 f"[LOCAL-TOML-STRICT] .zenzic.local.toml contains unsupported top-level "
                 f"key(s): {pretty}.\n"
                 "Allowed sections: core, build_context, project_metadata, governance, i18n, "
-                "forbidden_patterns, secrets, debug, env.\n"
+                "forbidden_patterns, excluded_dirs, excluded_file_patterns, custom_rules, "
+                "secrets, debug, env.\n"
                 "Remove the unknown key(s) or run 'zenzic init --local' to regenerate the local config template.",
                 context={"unknown_keys": sorted(unknown_keys), "file": str(local_toml)},
             )
@@ -919,3 +925,36 @@ class ZenzicConfig(BaseModel):
             merged_forbidden.extend(gov_forbidden)
 
         config.forbidden_patterns = list(dict.fromkeys(merged_forbidden))
+
+        # excluded_dirs — ADDITIVE merge: local directories extend the global list.
+        # SYSTEM_EXCLUDED_DIRS are already baked in by model_post_init() before this
+        # method runs, so they are preserved unconditionally.
+        local_excl_dirs = local_data.get("excluded_dirs", [])
+        if isinstance(local_excl_dirs, list) and local_excl_dirs:
+            config.excluded_dirs = list(dict.fromkeys([*config.excluded_dirs, *local_excl_dirs]))
+
+        # excluded_file_patterns — ADDITIVE merge: local glob patterns extend the global list.
+        local_excl_patterns = local_data.get("excluded_file_patterns", [])
+        if isinstance(local_excl_patterns, list) and local_excl_patterns:
+            config.excluded_file_patterns = list(
+                dict.fromkeys([*config.excluded_file_patterns, *local_excl_patterns])
+            )
+
+        # custom_rules — ADDITIVE merge with per-id override semantics:
+        #   - Global rules without a matching local id are preserved unchanged.
+        #   - A local rule with the same id as a global rule overrides that single rule.
+        #   - Local rules with a new id are appended.
+        # This prevents a non-versioned local file from silently disabling global lint policy.
+        local_custom_rules_raw = local_data.get("custom_rules", [])
+        if isinstance(local_custom_rules_raw, list) and local_custom_rules_raw:
+            try:
+                local_rules = [
+                    CustomRuleConfig(**r) for r in local_custom_rules_raw if isinstance(r, dict)
+                ]
+            except Exception:
+                pass  # malformed local rule — silently skip (consistent with other merge blocks)
+            else:
+                merged_rules: dict[str, CustomRuleConfig] = {r.id: r for r in config.custom_rules}
+                for r in local_rules:
+                    merged_rules[r.id] = r
+                config.custom_rules = list(merged_rules.values())
