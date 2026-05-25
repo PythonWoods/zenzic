@@ -100,14 +100,14 @@ release_name = "Basalt"
 obsolete_names_exclude_patterns = ["CHANGELOG*.md", "CHANGELOG*.archive.md", "changelogs/*.md"]
 
 [governance]
-# Suppression CAP (ADR-061): allowance of governance-approved exemptions.
-# Suppressions up to this value do not reduce score. Only excess deducts points.
-# Run 'zenzic explain ZXXX' to see the exact penalty for any rule.
+# Soglia di Hard-Fail per il debito tecnico. Se il numero totale di soppressioni
+# supera questo valore, la CI fallisce (Exit Code 1). Ogni singola soppressione
+# costa 1 punto di DQS (Flat-Cost Model).
 suppression_cap = 7
 suppression_cap_fail_hard = true
 
 # Per-file suppression map: silence a rule for specific file globs.
-# WARNING: Every entry increases your Technical Debt Score (see formula above).
+# WARNING: Every entry increases your Technical Debt Score (1 pt each, flat-cost).
 # Use 'zenzic check --audit' to see what would be flagged without suppressions.
 # [governance.per_file_ignores]
 # "docs/legacy/**" = ["Z601"]   # intentional brand refs → -1 pt
