@@ -167,7 +167,7 @@ def check_links(
         exclusion_mgr,
         repo_root=repo_root,
         config=config,
-        strict=False,
+        strict=strict,
         locale_roots=locale_roots,
         check_external=not no_external,
     )
@@ -944,7 +944,7 @@ def _collect_all_results(
             exclusion_mgr,
             repo_root=repo_root,
             config=config,
-            strict=False,
+            strict=strict,
             locale_roots=locale_roots,
             check_external=check_external,
         ),

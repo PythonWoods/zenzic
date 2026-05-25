@@ -81,7 +81,7 @@ def _run_all_checks(
         exclusion_mgr,
         repo_root=repo_root,
         config=config,
-        strict=False,
+        strict=strict,
         locale_roots=locale_roots,
         check_external=True,
     )

@@ -92,7 +92,7 @@ def test_check_links_strict_passes_flag(mock_links, _cfg, _root) -> None:
         ANY,
         repo_root=_ROOT,
         config=_CFG,
-        strict=False,
+        strict=True,
         locale_roots=None,
         check_external=True,
     )
