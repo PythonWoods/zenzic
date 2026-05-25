@@ -293,7 +293,8 @@ def score(
         table.add_column("Category", min_width=14, style="bold")
         table.add_column("Issues", justify="right")
         table.add_column("Weight", justify="right", style=ZenzicPalette.DIM)
-        table.add_column("Score", justify="right", style=ZenzicPalette.DIM)
+        table.add_column("Raw Pts", justify="right", style=ZenzicPalette.DIM)
+        table.add_column("Applied Pts", justify="right")
 
         for cat in report.categories:
             if cat.issues == 0:
@@ -302,22 +303,52 @@ def score(
             else:
                 status_icon = f"[red]{emoji('cross')}[/]"
                 issue_display = f"[red]{cat.issues}[/]"
+            raw_pts = round(cat.raw_penalty)
+            raw_display = f"-{raw_pts}" if raw_pts > 0 else "0"
+            applied_penalty = round(cat.weight * 100 - cat.contribution * 100)
+            applied_display = f"-{applied_penalty}" if applied_penalty > 0 else "0"
+            capped_suffix = " [yellow](CAPPED)[/yellow]" if cat.is_capped else ""
             table.add_row(
                 status_icon,
                 cat.name,
                 issue_display,
                 f"{cat.weight:.0%}",
-                f"{cat.contribution:.2f}",
+                raw_display,
+                f"{applied_display}{capped_suffix}",
             )
+
+        subtotal = sum(round(c.contribution * 100) for c in report.categories)
+        table.add_section()
+        table.add_row(
+            "",
+            "[dim]Σ Subtotal[/dim]",
+            "",
+            "",
+            "",
+            f"[bold]{subtotal}[/bold]",
+        )
 
         _shared.console.print(score_summary)
         _shared.console.print(table)
 
-        if report.suppression_debt_pts > 0:
+        gravity_loss = subtotal - (report.score + report.suppression_debt_pts)
+        if gravity_loss > 0:
             _shared.console.print(
-                f"  [yellow]![/] [bold]Technical Debt (Suppressions):[/]"
-                f" [red]-{report.suppression_debt_pts} pts[/]"
+                f"  [yellow]![/] [bold]Gravity Cap Enforcement (Brand = 0):[/]"
+                f" [red]-{gravity_loss} pts[/]"
             )
+        debt_pts = report.suppression_debt_pts
+        debt_style = "red" if debt_pts > 0 else "dim"
+        debt_sign = "-" if debt_pts > 0 else ""
+        _shared.console.print(
+            f"  [yellow]![/] [bold]Technical Debt"
+            f" ({report.suppression_count} suppressions):[/]"
+            f" [{debt_style}]{debt_sign}{debt_pts} pts[/{debt_style}]"
+        )
+        _shared.console.print(
+            f"  [dim]=[/dim] [bold]Final Quality Score[/bold]"
+            f" [{score_style}]{report.score} / 100[/{score_style}]"
+        )
 
         if report.score == 100:
             from rich.console import Group

@@ -101,6 +101,8 @@ class CategoryScore:
     issues: int
     category_score: float  # 0.0–1.0 before weight is applied
     contribution: float  # category_score * weight
+    raw_penalty: float = 0.0  # post-escalation deduction before the category cap (positive value)
+    is_capped: bool = False  # True if raw_penalty was truncated by the category cap
 
 
 @dataclass
@@ -171,9 +173,9 @@ def compute_score(
     score is capped at 70 — a document with uncontrolled governance violations
     cannot score above 70/100.
 
-    Suppression Debt (ADR-061): suppressions are allowance-based.
-    Suppressions up to ``suppression_cap`` (default 30) are governance-approved
-    exemptions and cost 0 points. Only excess suppressions deduct 1 point each.
+    Suppression Debt (ADR-061): flat-cost model — every suppression costs
+    exactly 1 point. ``suppression_cap`` is a hard-fail exit threshold only;
+    it does not grant any free allowance.
     Debt is applied after all category calculations and after the Gravity Cap.
 
     Args:
@@ -200,7 +202,15 @@ def compute_score(
     sec_count = sum(findings_counts.get(code, 0) for code in NON_SUPPRESSIBLE_CODES)
     if sec_count > 0:
         categories = [
-            CategoryScore(name=n, weight=w, issues=0, category_score=0.0, contribution=0.0)
+            CategoryScore(
+                name=n,
+                weight=w,
+                issues=0,
+                category_score=0.0,
+                contribution=0.0,
+                raw_penalty=0.0,
+                is_capped=False,
+            )
             for n, w in _WEIGHTS.items()
         ]
         return ScoreReport(
@@ -231,7 +241,9 @@ def compute_score(
             if z6xx_total > _Z6XX_GOVERNANCE_THRESHOLD:
                 excess = z6xx_total - _Z6XX_GOVERNANCE_THRESHOLD
                 z6xx_multiplier = 2.0 ** (excess / 5.0)
-                deduction = min(cap_pts, deduction * z6xx_multiplier)
+                deduction = deduction * z6xx_multiplier  # post-escalation, pre-cap
+        raw_penalty_val = deduction  # post-escalation deduction, pre-cap
+        is_capped_val = deduction > cap_pts
         cat_pts = max(0.0, cap_pts - deduction)
         cat_score_norm = cat_pts / cap_pts  # 0.0–1.0
         issues = sum(
@@ -247,6 +259,8 @@ def compute_score(
                 issues=issues,
                 category_score=round(cat_score_norm, 4),
                 contribution=round(cat_pts / 100, 4),
+                raw_penalty=round(raw_penalty_val, 4),
+                is_capped=is_capped_val,
             )
         )
 

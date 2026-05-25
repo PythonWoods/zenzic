@@ -188,7 +188,9 @@
               "weight",
               "issues",
               "category_score",
-              "contribution"
+              "contribution",
+              "raw_penalty",
+              "is_capped"
             ],
             "properties": {
               "name": {
@@ -212,6 +214,13 @@
                 "type": "number",
                 "minimum": 0,
                 "maximum": 1
+              },
+              "raw_penalty": {
+                "type": "number",
+                "minimum": 0
+              },
+              "is_capped": {
+                "type": "boolean"
               }
             },
             "additionalProperties": false
