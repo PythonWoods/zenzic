@@ -24,20 +24,14 @@ SPDX-License-Identifier: Apache-2.0
   <a href="https://zenzic.dev/docs/how-to/add-badges/">
     <img src="https://img.shields.io/badge/zenzic-audit:_passed-success?style=flat-square" alt="Zenzic Audit">
   </a>
+  <a href="https://zenzic.dev/docs/reference/scoring-algorithm">
+    <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/PythonWoods-Dev/7a26bc9e0a919beded93b6c5cd055bf9/raw/zenzic-shields.json&cacheSeconds=3600&style=flat-square" alt="Zenzic Score">
+  </a>
   <a href="https://docusaurus.io/">
     <img src="https://img.shields.io/badge/docs_by-Docusaurus-3ECC5F?style=flat-square" alt="Built with Docusaurus">
   </a>
-  <a href="https://zenzic.dev/developers/explanation/adr-vault">
-    <img src="https://img.shields.io/badge/4--Gates-verified-10b981?style=flat-square" alt="4-Gates verified">
-  </a>
   <a href="https://reuse.software/">
     <img src="https://img.shields.io/badge/REUSE-3.x%20compliant-0d9488?style=flat-square" alt="REUSE 3.x compliant">
-  </a>
-</p>
-
-<p align="center">
-  <a href="https://zenzic.dev/docs/reference/scoring-algorithm">
-    <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/PythonWoods-Dev/7a26bc9e0a919beded93b6c5cd055bf9/raw/zenzic-shields.json&cacheSeconds=3600&style=flat-square" alt="Zenzic Score">
   </a>
 </p>
 
@@ -79,6 +73,19 @@ zenzic check all  # Audit the current directory
 - **Inspect-first workflow:** use `zenzic inspect codes` to validate live code semantics before touching docs or release notes.
 
 📖 [Full docs →][docs-home] · 🏅 [Badges][docs-badges] · 🔄 [CI/CD guide][docs-cicd]
+
+---
+
+## ⚙️ Commands Overview
+
+| Command | Purpose |
+| :--- | :--- |
+| `zenzic init` | Scaffold workspace configuration (`.zenzic.toml`) |
+| `zenzic check all [PATH]` | Full documentation audit — links, credentials, orphans |
+| `zenzic score [--fail-under N] [--export-shields PATH]` | Compute the Documentation Quality Score (0–100) |
+| `zenzic diff [--base PATH]` | Detect debt regression against a saved baseline |
+| `zenzic guard scan [PATH]` | Defense-in-Depth credential pre-gate (always fatal) |
+| `zenzic inspect codes` | Query live error-code semantics and suppressibility |
 
 ---
 

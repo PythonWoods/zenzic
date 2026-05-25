@@ -24,20 +24,14 @@ SPDX-License-Identifier: Apache-2.0
   <a href="https://zenzic.dev/it/docs/how-to/add-badges/">
     <img src="https://img.shields.io/badge/zenzic-audit:_passed-success?style=flat-square" alt="Zenzic Audit">
   </a>
+  <a href="https://zenzic.dev/it/docs/reference/scoring-algorithm">
+    <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/PythonWoods-Dev/7a26bc9e0a919beded93b6c5cd055bf9/raw/zenzic-shields.json&cacheSeconds=3600&style=flat-square" alt="Zenzic Score">
+  </a>
   <a href="https://docusaurus.io/">
     <img src="https://img.shields.io/badge/docs_by-Docusaurus-3ECC5F?style=flat-square" alt="Built with Docusaurus">
   </a>
-  <a href="https://zenzic.dev/it/developers/explanation/adr-vault">
-    <img src="https://img.shields.io/badge/4--Gates-verified-10b981?style=flat-square" alt="4-Gates verified">
-  </a>
   <a href="https://reuse.software/">
     <img src="https://img.shields.io/badge/REUSE-3.x%20compliant-0d9488?style=flat-square" alt="REUSE 3.x compliant">
-  </a>
-</p>
-
-<p align="center">
-  <a href="https://zenzic.dev/it/docs/reference/scoring-algorithm">
-    <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/PythonWoods-Dev/7a26bc9e0a919beded93b6c5cd055bf9/raw/zenzic-shields.json&cacheSeconds=3600&style=flat-square" alt="Zenzic Score">
   </a>
 </p>
 
@@ -79,6 +73,19 @@ zenzic check all  # Analizza la cartella corrente
 - **Workflow contributori inspect-first:** usare `zenzic inspect codes` prima di aggiornare esempi documentali o note di rilascio.
 
 📖 [Documentazione completa →][docs-it-home] · 🏅 [Badge][docs-it-badges] · 🔄 [Guida CI/CD][docs-it-cicd]
+
+---
+
+## ⚙️ Panoramica dei Comandi
+
+| Comando | Scopo |
+| :--- | :--- |
+| `zenzic init` | Scaffolding della configurazione workspace (`.zenzic.toml`) |
+| `zenzic check all [PATH]` | Audit documentazione completo — link, credenziali, orfani |
+| `zenzic score [--fail-under N] [--export-shields PATH]` | Calcola il Documentation Quality Score (0–100) |
+| `zenzic diff [--base PATH]` | Rileva regressioni di debito rispetto a una baseline salvata |
+| `zenzic guard scan [PATH]` | Pre-gate credenziali Defense-in-Depth (sempre fatale) |
+| `zenzic inspect codes` | Interroga la semantica live dei codici di errore e la loro sopprimibilità |
 
 ---
 
