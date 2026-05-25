@@ -39,11 +39,7 @@ sync:
 check *args:
     #!/usr/bin/env bash
     set -euo pipefail
-    # Permanent exclusion: contributor-covenant.org is a flaky third-party URL.
-    GUARD=(
-      --exclude-url "https://www.contributor-covenant.org/version/2/1/code_of_conduct.html"
-    )
-    {{ runner }} zenzic check all --strict "${GUARD[@]}" {{ ZENZIC_EXTRA_ARGS }} {{ args }}
+    {{ runner }} zenzic check all --strict {{ ZENZIC_EXTRA_ARGS }} {{ args }}
 
 # Inner loop: ultra-fast, parallel, no coverage (TDD feedback).
 # Pillar 3 (Pure Functions) guarantees pytest-xdist worker isolation.
