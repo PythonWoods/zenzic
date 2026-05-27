@@ -35,7 +35,7 @@ For the current release history, see [CHANGELOG.md](CHANGELOG.md).
 ### Planned for v0.8.x patch releases
 
 - `Z109 STALE_ALLOWLIST_ENTRY`: config-hygiene check for unused `absolute_path_allowlist`
-  entries (deferred from v0.7.1 to avoid Pillar 3 violation; requires dedicated
+  entries (deferred from the v0.7.x cycle to avoid Pillar 3 violation; requires dedicated
   `zenzic inspect config` command).
 - `zenzic inspect config`: read-only config audit command.
 - Windows CI matrix parity for all check commands.

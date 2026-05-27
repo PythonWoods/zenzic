@@ -20,6 +20,7 @@ Before tagging, every item must be green:
 - [ ] `pyproject.toml` version matches the tag (`0.7.1`)
 - [ ] `CITATION.cff` version and date updated
 - [ ] `CHANGELOG.md` — `[Unreleased]` section moved to the new version heading
+- [ ] Update SECURITY.md support table (Add new release, demote previous to Critical/EOL).
 - [ ] Bilingual sync verified — `Z602 I18N_PARITY` clean on `zenzic-doc`
 - [ ] `zenzic-doc` and `zenzic-action` RELEASE.md updated to match this version
 - [ ] Verification of `zenzic init` atomic protection (`EXIT 1` on existing config)
