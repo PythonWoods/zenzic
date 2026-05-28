@@ -31,6 +31,13 @@ For the current release history, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Planned
 
+- **Logic Site Map (LSM) — Documentation Topology Simplification**: The zenzic-doc
+  documentation corpus undergoes a formal deduplication pass following the Logic
+  Site Map protocol. Duplicate conceptual coverage (scoring, configuration reference,
+  ecosystem) is consolidated into canonical master pages; zombie files and superseded
+  ADRs are purged. Target: ≥30% reduction in total page count, 100% retention of
+  information fidelity.
+
 - **Z405 BROKEN_CODE_REFERENCE — File Integrity Check**: Zenzic will scan Markdown
   for backtick-quoted paths (e.g. `` `core/credentials.py` ``) and local file links,
   then verify their physical existence in the repository at scan time. Missing targets
@@ -90,6 +97,11 @@ For the current release history, see [CHANGELOG.md](CHANGELOG.md).
   the Plugin SDK contract.
 - **Determinism audit**: formal proof-of-determinism report published for all
   Core (`Z1xx`) and Security (`Z2xx`) finding codes.
+- **Auto-Fix Engine (`zenzic fix`)**: semantic `--dry-run` / `--apply` repair
+  semantics for Z1xx and Z3xx findings. `zenzic fix` never modifies Z2xx
+  (Security) findings — those require human review. Implementation is pure Python
+  with zero subprocess calls (Pillar 2 invariant). Status: design phase; no code
+  merged. Identified as GAP-001 in the Technical Debt Ledger.
 
 ---
 
