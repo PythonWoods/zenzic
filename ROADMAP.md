@@ -16,28 +16,11 @@ For the current release history, see [CHANGELOG.md](CHANGELOG.md).
 
 **Theme:** Tiered code governance, frozen security contracts, Sovereign Audit mode.
 
-### Delivered in v0.8.0
-
-- Tiered finding code model: Core (`Z1xx`), Structure (`Z4xx–Z5xx`), Governance (`Z6xx`),
-  Security (`Z2xx`), and Infrastructure (`Z9xx`) bands.
-- `FROZEN_CODES`, `NON_SUPPRESSIBLE_CODES`, `PLUGIN_FORBIDDEN_EXITS` — stable public
-  contracts for integrators and plugin authors.
-- `zenzic check all --audit`: Sovereign truth run bypassing all inline suppressions.
-- `zenzic guard scan` / `zenzic guard init`: dedicated pre-commit credential guard
-  powered by the credential scanner.
-- RE2 DFA engine: O(n) guaranteed complexity for all pattern matching. Backreferences
-  and lookaheads rejected at load time.
-- `zenzic inspect codes`: live canonical code registry with tier, ownership, and
-  non-suppressibility flag.
-- Code migration map: `LEGACY_TO_CODE` for transparent `Z903→Z405`, `Z904→Z406`,
-  `Z905→Z601`, `Z907→Z602` diagnostics.
-
 ### Planned for v0.8.x patch releases
 
 - `Z109 STALE_ALLOWLIST_ENTRY`: config-hygiene check for unused `absolute_path_allowlist`
-  entries (deferred from the v0.7.x cycle to avoid Pillar 3 violation; requires dedicated
-  `zenzic inspect config` command).
-- `zenzic inspect config`: read-only config audit command.
+  entries (deferred from the v0.7.x cycle to avoid Pillar 3 violation; requires
+  `zenzic config` command).
 - Windows CI matrix parity for all check commands.
 
 ---
@@ -61,7 +44,7 @@ For the current release history, see [CHANGELOG.md](CHANGELOG.md).
   `resolve_code_reference(path: str) -> Finding | None` method, reusing the
   existing `_allowed_roots` boundary contract. No new subprocess calls.
 
-- **Plugin SDK**: Stable AST adapter and rule APIs with semver guarantee.
+- **Plugin SDK** *(WIP)*: Stable AST adapter and rule APIs with semver guarantee.
   Exposure of the two-pass reference pipeline to external rule authors.
   Deprecation warnings for any v0.8 unstable API surfaces.
 - **Semantic Schemas**: YAML/JSON frontmatter validation against declared schemas
@@ -124,4 +107,4 @@ These constraints apply across every future release:
 
 ---
 
-Roadmap last updated: 2026-05-13
+Roadmap last updated: 2026-05-28
