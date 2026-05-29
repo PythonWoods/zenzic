@@ -148,21 +148,6 @@ pattern  = "(?i)\\bclick here\\b|\\bclicca qui\\b"
 message  = "Avoid generic link text. Use a meaningful description for accessibility."
 severity = "error"
 
-# ADR-075 — Inconsapevolezza Radicale: intercept the term 'ai' with word-boundary
-# to avoid false-positive flood from literal substring match.
-[[custom_rules]]
-id       = "ZZ-ADR075-AI"
-pattern  = "(?i)\\bai\\b"
-message  = "Il termine 'ai' viola ADR-075 (Inconsapevolezza Radicale). Zenzic è un Analizzatore Statico della Documentazione agnostico rispetto a qualsiasi tecnologia di inferenza."
-severity = "error"
-
-# ADR-075 — Inconsapevolezza Radicale: intercept the term 'ai' with word-boundary
-# to avoid false-positive flood from literal substring match.
-[[custom_rules]]
-id       = "ZZ-ADR075-AI"
-pattern  = "(?i)\\bai\\b"
-message  = "Il termine 'ai' viola ADR-075 (Inconsapevolezza Radicale). Zenzic è un Analizzatore Statico della Documentazione agnostico rispetto a qualsiasi tecnologia di inferenza."
-severity = "error"
 # --- I18N PARITY (Optional) ---
 # [i18n]
 # enabled = true
