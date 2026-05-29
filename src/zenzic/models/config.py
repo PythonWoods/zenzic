@@ -376,11 +376,16 @@ class ZenzicConfig(BaseModel):
         default=Path("docs"), description="Path to docs directory relative to repo root."
     )
     excluded_dirs: list[str] = Field(
-        default=["includes", "stylesheets", "overrides", "hooks"],
+        default=["includes", "stylesheets", "overrides"],
         description=(
             "Directories inside docs/ to exclude from orphan and snippet checks. "
             "User-provided entries are merged with the system guardrails "
-            "(SYSTEM_EXCLUDED_DIRS) — they can never be removed."
+            "(SYSTEM_EXCLUDED_DIRS) — they can never be removed. "
+            "Note: 'hooks' was removed from the default in v0.8.0 to prevent "
+            "false negatives on legitimate docs/hooks/ documentation directories "
+            "(e.g. React Hooks, Git Hooks, Webhook API docs). MkDocs projects "
+            "with build-time hook scripts in docs/ should add 'hooks' explicitly "
+            "to excluded_dirs in their .zenzic.toml."
         ),
     )
     snippet_min_lines: int = Field(
