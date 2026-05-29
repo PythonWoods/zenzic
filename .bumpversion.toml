@@ -10,7 +10,7 @@ serialize = [
 ]
 
 [tool.bumpversion.parts.pre_l]
-values = ["a", "b", "rc", "final"]
+values = ["final", "a", "b", "rc"]
 optional_value = "final"
 
 [tool.bumpversion.parts.pre_n]
