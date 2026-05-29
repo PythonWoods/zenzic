@@ -316,7 +316,7 @@ git push && git push --tags
 
 ### Bump Verification
 
-Baseline di release corrente: `v0.7.1`.
+Baseline di release corrente: `v0.8.0`.
 
 Prima di eseguire il bump finale, i maintainer devono eseguire un dry-run per
 identificare stringhe di versione hardcoded che non sono coperte
