@@ -7,7 +7,7 @@
 | Field    | Value      |
 | :------- | :--------- |
 | Version  | v0.8.0     |
-| Codename | Basalt<!-- zenzic:ignore: Z601 - release codename -->     |
+| Codename | Basalt     |
 | Date     | 2026-05-29 |
 | Status   | Stable     |
 

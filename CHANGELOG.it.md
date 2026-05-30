@@ -30,12 +30,16 @@ Le versioni seguono il [Versionamento Semantico](https://semver.org/).
 - **Gate freshness badge in `just verify`:** La recipe `verify` ora esegue `zenzic score --stamp` poi `git diff --exit-code README.md README.it.md`, bloccando il push se il badge committato non riflette il punteggio effettivo.
 - **Workflow CI rinominato `zenzic-audit` su tutta la flotta:** Il campo `name:` di GitHub Actions è ora `zenzic-audit` in tutti i repo, rendendo il badge CI nativo leggibile come `zenzic-audit | passing`.
 - **Testo `alt` dei badge normalizzato a lowercase kebab:** I badge CI usano `alt="zenzic-audit"`, i badge Score usano `alt="zenzic-score"` in tutti i README.
+- **Gate pre-push score cablato in `.pre-commit-config.yaml`:** Un hook `just-verify` con `stages: [pre-push]` è ora registrato. In precedenza, `git push` eseguiva il pre-push hook via `pre-commit --hook-type=pre-push`, non trovava hook corrispondenti, e terminava con exit 0 in silenzio — rendendo il gate dello score invisibile in sviluppo locale. L'hook ora garantisce l'esecuzione di `just verify` ad ogni push, imponendo la parità locale ≡ remota.
 
 ### Fixed
 
 - **SSoT `CodeDefinition`:** Severity, penalità DQS e categoria di scoring per ogni Z-code sono ora definiti una sola volta in `codes.py`.
 - **ADR-031 Paradox Resolution:** Z103, Z111, Z113 integrati nella tabella delle penalità.
 - **Bug CI Z114 corretto:** Z114 `LARGE_PAGINATION_SET` era erroneamente classificato come `severity="error"`.
+- **Payoff del debito di governance — 7 soppressioni Z601 inline eradicate:** I marcatori `<!-- zenzic:ignore: Z601 -->` su `CHANGELOG*.md`, `changelogs/` e `RELEASE.md` sono stati rimossi. I path corrispondenti sono ora coperti da esenzioni zero-debt `[governance.directory_policies]` (`changelogs/**`, `CHANGELOG*.md`, `RELEASE.md`), che eliminano i finding senza costo DQS. `RELEASE.md` è aggiunto anche a `obsolete_names_exclude_patterns`. Score ripristinato: 94 → 100/100.
+- **Refactoring UX di `just verify` — errore badge freshness actionable:** `git diff --exit-code README.md README.it.md` (che stampava un diff grezzo in caso di fallimento) è stato sostituito da una recipe privata `_badge-freshness-check` che usa `git diff --quiet` ed emette messaggi espliciti `[ZENZIC FATAL]` / `[ZENZIC SUCCESS]`. `zenzic check all --strict` viene ora eseguito prima di `zenzic score --stamp`, garantendo che l'output dell'audit strutturale sia sempre visibile anche quando il badge cambia. Le intestazioni di sezione (`==> [N/5]`) rendono leggibile la sequenza in cinque passi nei log CI.
+- **Filtro `_PATH_SEGMENT` Hypothesis rafforzato:** `test_deep_nesting_detects_missing_mirror` in `test_i18n_parity.py` ora esclude i nomi di `SYSTEM_EXCLUDED_DIRS` dai path segment generati. In precedenza, `segments=['build']` produceva un file in `docs/build/page.mdx` che lo scanner saltava correttamente (guardrail L1 di sistema), causando un falso fallimento del test.
 
 ### Removed
 
@@ -46,7 +50,7 @@ Le versioni seguono il [Versionamento Semantico](https://semver.org/).
 
 ---
 
-## [0.8.0] — 2026-05-15 <!-- zenzic:ignore: Z601 release codename -->
+## [0.8.0] — 2026-05-15
 
 ### Added
 

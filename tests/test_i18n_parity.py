@@ -22,7 +22,7 @@ from hypothesis import HealthCheck, given, settings, strategies as st
 
 from zenzic.core.exclusion import LayeredExclusionManager
 from zenzic.core.scanner import find_i18n_parity
-from zenzic.models.config import I18nConfig, I18nSource, ZenzicConfig
+from zenzic.models.config import SYSTEM_EXCLUDED_DIRS, I18nConfig, I18nSource, ZenzicConfig
 
 
 def _write(path: Path, body: str = "stub\n") -> None:
@@ -235,7 +235,12 @@ _PATH_SEGMENT = st.text(
     ),
     min_size=1,
     max_size=12,
-).filter(lambda s: s not in (".", "..") and "/" not in s and "\\" not in s)
+).filter(
+    lambda s: s not in (".", "..")
+    and "/" not in s
+    and "\\" not in s
+    and s not in SYSTEM_EXCLUDED_DIRS
+)
 
 
 @settings(

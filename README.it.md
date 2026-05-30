@@ -25,7 +25,7 @@ SPDX-License-Identifier: Apache-2.0
     <img src="https://github.com/PythonWoods/zenzic/actions/workflows/ci.yml/badge.svg" alt="zenzic-audit">
   </a>
   <!-- zenzic:badge -->
-  <img src="https://img.shields.io/badge/%F0%9F%9B%A1%EF%B8%8F_zenzic--score-93_%2F_100-ef4444?style=flat-square" alt="zenzic-score">
+  <img src="https://img.shields.io/badge/%F0%9F%9B%A1%EF%B8%8F_zenzic--score-100_%2F_100-4f46e5?style=flat-square" alt="zenzic-score">
   <a href="https://docusaurus.io/">
     <img src="https://img.shields.io/badge/docs_by-Docusaurus-3ECC5F?style=flat-square" alt="Built with Docusaurus">
   </a>

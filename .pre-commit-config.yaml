@@ -67,3 +67,14 @@ repos:
         language: system
         types: [python]
         pass_filenames: false
+
+  # 7. Final Guard — score gate + badge freshness + full audit (pre-push only)
+  - repo: local
+    hooks:
+      - id: just-verify
+        name: Final Guard (just verify)
+        entry: just verify
+        language: system
+        stages: [pre-push]
+        pass_filenames: false
+        always_run: true

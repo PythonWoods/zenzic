@@ -75,7 +75,7 @@ default_locale = "en"
 # --- BRAND INTEGRITY ---
 [project_metadata]
 release_name = "Basalt"
-obsolete_names_exclude_patterns = ["CHANGELOG*.md", "CHANGELOG*.archive.md", "changelogs/*.md"]
+obsolete_names_exclude_patterns = ["CHANGELOG*.md", "CHANGELOG*.archive.md", "changelogs/*.md", "RELEASE.md"]
 badge_stamp_files = ["README.md", "README.it.md"]
 
 [governance]
@@ -124,6 +124,11 @@ brand_obsolescence = [
 # [governance.directory_policies]
 # "blog/**"                       = ["Z601"]  # historical archive
 # "docs/explanation/registry.mdx" = ["Z601"]  # SSOT codename registry
+
+[governance.directory_policies]
+"changelogs/**" = ["Z601"]  # historical release codenames (Obsidian, Quartz…)
+"CHANGELOG*.md" = ["Z601"]  # release codenames in historical changelogs
+"RELEASE.md"    = ["Z601"]  # current release codename tracking
 
 # Governance Playbook:
 # https://zenzic.dev/developers/how-to/release-governance-protocol
