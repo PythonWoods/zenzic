@@ -33,6 +33,9 @@ jobs:
       - name: Build
         run: uv build
 
+      - name: Package brand kit
+        run: zip -qr brand-kit.zip assets/brand/
+
       - name: Generate build provenance attestation
         uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
         with:
@@ -46,6 +49,8 @@ jobs:
       - name: Generate GitHub Release
         uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3
         with:
-          files: dist/* # Carica i file .whl e .tar.gz come asset della release
+          files: |
+            dist/*
+            brand-kit.zip
           generate_release_notes: true
           make_latest: true
