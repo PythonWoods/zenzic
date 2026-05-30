@@ -110,8 +110,9 @@ class ProjectMetadata(BaseModel):
         default=["README.md"],
         description=(
             "Files updated by 'zenzic score --stamp'. Each file must contain a "
-            "'<!-- zenzic:badge -->' marker; the next non-empty line after the marker "
-            "is replaced with the current score badge URL."
+            "'<!-- zenzic:audit-badge -->' and/or '<!-- zenzic:score-badge -->' marker; "
+            "the next non-empty line after each marker is replaced with deterministic "
+            "audit and/or score badge URLs."
         ),
     )
 

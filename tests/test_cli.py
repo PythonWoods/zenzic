@@ -1297,7 +1297,60 @@ def test_score_check_stamp_fails_when_stale(
     result = runner.invoke(app, ["score", "--check-stamp", "--no-header"])
     assert result.exit_code == 1
     assert "Quality Breakdown" not in result.stdout
-    assert "[FAILED] Badge in" in result.stdout
+    assert "[FAILED] Badge (score) in" in result.stdout
+    assert "[FAILED] Badge (audit) in" in result.stdout
+
+
+@patch("zenzic.cli._standalone.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._standalone.ZenzicConfig.load", return_value=(_CFG, False))
+@patch("zenzic.cli._standalone._run_all_checks")
+@patch("zenzic.cli._standalone._check_stamp_file", side_effect=[False, True])
+def test_score_check_stamp_fails_when_score_badge_stale_only(
+    _chk: object, _run: object, _cfg: object, _root: object
+) -> None:
+    """score --check-stamp reports score marker drift independently from audit marker."""
+    from zenzic.core.scorer import CategoryScore, ScoreReport
+
+    _run.return_value = ScoreReport(  # type: ignore[attr-defined]
+        score=100,
+        categories=[
+            CategoryScore("links", 0.35, 0, 1.0, 0.35),
+            CategoryScore("orphans", 0.20, 0, 1.0, 0.20),
+            CategoryScore("snippets", 0.20, 0, 1.0, 0.20),
+            CategoryScore("placeholders", 0.15, 0, 1.0, 0.15),
+            CategoryScore("assets", 0.10, 0, 1.0, 0.10),
+        ],
+    )
+    result = runner.invoke(app, ["score", "--check-stamp", "--no-header"])
+    assert result.exit_code == 1
+    assert "Badge (score)" in result.stdout
+    assert "Badge (audit)" not in result.stdout
+
+
+@patch("zenzic.cli._standalone.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._standalone.ZenzicConfig.load", return_value=(_CFG, False))
+@patch("zenzic.cli._standalone._run_all_checks")
+@patch("zenzic.cli._standalone._check_stamp_file", side_effect=[True, False])
+def test_score_check_stamp_fails_when_audit_badge_stale_only(
+    _chk: object, _run: object, _cfg: object, _root: object
+) -> None:
+    """score --check-stamp reports audit marker drift independently from score marker."""
+    from zenzic.core.scorer import CategoryScore, ScoreReport
+
+    _run.return_value = ScoreReport(  # type: ignore[attr-defined]
+        score=100,
+        categories=[
+            CategoryScore("links", 0.35, 0, 1.0, 0.35),
+            CategoryScore("orphans", 0.20, 0, 1.0, 0.20),
+            CategoryScore("snippets", 0.20, 0, 1.0, 0.20),
+            CategoryScore("placeholders", 0.15, 0, 1.0, 0.15),
+            CategoryScore("assets", 0.10, 0, 1.0, 0.10),
+        ],
+    )
+    result = runner.invoke(app, ["score", "--check-stamp", "--no-header"])
+    assert result.exit_code == 1
+    assert "Badge (audit)" in result.stdout
+    assert "Badge (score)" not in result.stdout
 
 
 @patch("zenzic.cli._standalone.find_repo_root", return_value=_ROOT)

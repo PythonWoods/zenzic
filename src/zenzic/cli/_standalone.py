@@ -200,10 +200,12 @@ def _run_all_checks(
 
 # ── badge stamp helpers ────────────────────────────────────────────────────────
 
-_BADGE_LABEL = (
+_SCORE_BADGE_LABEL = (
     "%F0%9F%9B%A1%EF%B8%8F_zenzic--score"  # 🛡️ zenzic-score (-- = literal dash in Shields.io)
 )
-_STAMP_MARKER = "<!-- zenzic:badge -->"
+_AUDIT_BADGE_LABEL = "%F0%9F%9B%A1%EF%B8%8F_zenzic--audit"  # 🛡️ zenzic-audit
+_SCORE_STAMP_MARKER = "<!-- zenzic:score-badge -->"
+_AUDIT_STAMP_MARKER = "<!-- zenzic:audit-badge -->"
 _SHIELDS_URL_RE = re.compile(r"https://img\.shields\.io/badge/[^\s\"'<>)]*")
 
 
@@ -216,11 +218,18 @@ def _badge_url(score: int, fail_under: int, security_override: bool) -> str:
         color = "f59e0b"
     else:
         color = "4f46e5"
-    return f"https://img.shields.io/badge/{_BADGE_LABEL}-{message}-{color}?style=flat-square"
+    return f"https://img.shields.io/badge/{_SCORE_BADGE_LABEL}-{message}-{color}?style=flat-square"
 
 
-def _stamp_file(path: Path, badge_url: str) -> bool:
-    """Update the badge URL on the line after ``<!-- zenzic:badge -->``.
+def _audit_badge_url(is_passing: bool) -> str:
+    """Generate deterministic audit badge URL for pass/fail state."""
+    message = "passing" if is_passing else "failing"
+    color = "22c55e" if is_passing else "ef4444"
+    return f"https://img.shields.io/badge/{_AUDIT_BADGE_LABEL}-{message}-{color}?style=flat-square"
+
+
+def _stamp_file(path: Path, marker: str, badge_url: str) -> bool:
+    """Update the badge URL on the line after a marker.
 
     Returns True if the file was modified.
     Raises ValueError if the marker is found but the next line is not a Shields.io badge.
@@ -229,14 +238,14 @@ def _stamp_file(path: Path, badge_url: str) -> bool:
     modified = False
     i = 0
     while i < len(lines):
-        if lines[i].strip() == _STAMP_MARKER:
+        if lines[i].strip() == marker:
             j = i + 1
             while j < len(lines) and not lines[j].strip():
                 j += 1
             if j < len(lines):
                 if "img.shields.io/badge/" not in lines[j]:
                     raise ValueError(
-                        f"{path}:{j + 1}: marker found at line {i + 1} "
+                        f"{path}:{j + 1}: marker '{marker}' found at line {i + 1} "
                         "but next line is not a Shields.io badge"
                     )
                 new_line = _SHIELDS_URL_RE.sub(badge_url, lines[j])
@@ -249,8 +258,8 @@ def _stamp_file(path: Path, badge_url: str) -> bool:
     return modified
 
 
-def _check_stamp_file(path: Path, expected_url: str) -> bool:
-    """Return True if the badge after _STAMP_MARKER matches expected_url.
+def _check_stamp_file(path: Path, marker: str, expected_url: str) -> bool:
+    """Return True if the badge after marker matches expected_url.
 
     Returns True (pass) when the file does not exist, has no marker, or the
     marker has no following badge line — badge is considered 'not configured'.
@@ -259,12 +268,12 @@ def _check_stamp_file(path: Path, expected_url: str) -> bool:
     if not path.exists():
         return True
     content = path.read_text(encoding="utf-8")
-    if _STAMP_MARKER not in content:
+    if marker not in content:
         return True
     lines = content.splitlines(keepends=True)
     i = 0
     while i < len(lines):
-        if lines[i].strip() == _STAMP_MARKER:
+        if lines[i].strip() == marker:
             j = i + 1
             while j < len(lines) and not lines[j].strip():
                 j += 1
@@ -469,36 +478,59 @@ def score(
 
     if stamp:
         _eff = fail_under if fail_under > 0 else config.fail_under
-        url = _badge_url(report.score, _eff, report.security_override)
+        score_url = _badge_url(report.score, _eff, report.security_override)
+        audit_ok = (
+            not report.security_override
+            and report.score >= _eff
+            and report.suppression_count <= report.suppression_cap
+        )
+        audit_url = _audit_badge_url(audit_ok)
         found_any = False
         for rel in config.project_metadata.badge_stamp_files:
             p = Path(rel)
             if not p.exists():
                 continue
-            if _STAMP_MARKER not in p.read_text(encoding="utf-8"):
+            content = p.read_text(encoding="utf-8")
+            has_score_marker = _SCORE_STAMP_MARKER in content
+            has_audit_marker = _AUDIT_STAMP_MARKER in content
+            if not has_score_marker and not has_audit_marker:
                 continue
             found_any = True
-            changed = _stamp_file(p, url)
-            if changed:
+            changed_score = False
+            changed_audit = False
+            if has_score_marker:
+                changed_score = _stamp_file(p, _SCORE_STAMP_MARKER, score_url)
+            if has_audit_marker:
+                changed_audit = _stamp_file(p, _AUDIT_STAMP_MARKER, audit_url)
+            if changed_score or changed_audit:
                 _shared.console.print(f"[dim]Badge stamped → {p}[/]")
         if not found_any:
             _shared.stderr_console.print(
-                f"[red]--stamp: no {_STAMP_MARKER!r} marker found in any configured file[/]",
+                "[red]--stamp: no recognized stamp markers found in any configured file "
+                f"({_SCORE_STAMP_MARKER!r}, {_AUDIT_STAMP_MARKER!r})[/]",
             )
             raise typer.Exit(1)
 
     if check_stamp:
         _eff = fail_under if fail_under > 0 else config.fail_under
-        url = _badge_url(report.score, _eff, report.security_override)
-        outdated: list[Path] = []
+        score_url = _badge_url(report.score, _eff, report.security_override)
+        audit_ok = (
+            not report.security_override
+            and report.score >= _eff
+            and report.suppression_count <= report.suppression_cap
+        )
+        audit_url = _audit_badge_url(audit_ok)
+        outdated: list[tuple[Path, str]] = []
         for rel in config.project_metadata.badge_stamp_files:
             p = Path(rel)
-            if not _check_stamp_file(p, url):
-                outdated.append(p)
+            if not _check_stamp_file(p, _SCORE_STAMP_MARKER, score_url):
+                outdated.append((p, "score"))
+            if not _check_stamp_file(p, _AUDIT_STAMP_MARKER, audit_url):
+                outdated.append((p, "audit"))
         if outdated:
-            for p in outdated:
+            for p, badge_type in outdated:
                 _shared.console.print(
-                    f"[red][FAILED][/red] Badge in [bold]{p}[/] is stale. "
+                    f"[red][FAILED][/red] Badge ({badge_type}) in [bold]{p}[/] is stale. "
                     "Run 'zenzic score --stamp' locally and commit the result."
                 )
             raise typer.Exit(1)

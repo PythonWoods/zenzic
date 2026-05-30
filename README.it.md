@@ -14,7 +14,9 @@ SPDX-License-Identifier: Apache-2.0
   <a href="https://github.com/PythonWoods/zenzic/actions/workflows/ci.yml">
     <img src="https://github.com/PythonWoods/zenzic/actions/workflows/ci.yml/badge.svg" alt="CI">
   </a>
-  <!-- zenzic:badge -->
+  <!-- zenzic:audit-badge -->
+  <img src="https://img.shields.io/badge/%F0%9F%9B%A1%EF%B8%8F_zenzic--audit-passing-22c55e?style=flat-square" alt="zenzic-audit">
+  <!-- zenzic:score-badge -->
   <img src="https://img.shields.io/badge/%F0%9F%9B%A1%EF%B8%8F_zenzic--score-100_%2F_100-4f46e5?style=flat-square" alt="zenzic-score">
 
   <a href="https://reuse.software/">
