@@ -155,6 +155,18 @@ _FAKE_AWS_KEY = "AKIAIOSFODNN7EXAMPLE"  # 20 chars: AKIA + 16
 # A real-looking GitHub token
 _FAKE_GH_TOKEN = "ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghij"  # ghp_ + 36
 
+
+def _build_fake_stateless_ghs_token(total_len: int = 550) -> str:
+    """Build a fake ghs_ token with JWT-like dot-separated segments."""
+    if total_len <= 4:
+        return "ghs_"
+    payload_len = total_len - 4
+    # Include dots to emulate stateless JWT-like installation tokens.
+    pattern = "abcDEF123._-"
+    payload = (pattern * ((payload_len // len(pattern)) + 1))[:payload_len]
+    return "ghs_" + payload
+
+
 # A real-looking GitLab PAT
 _FAKE_GL_PAT = "glpat-ABCDEFGHIJKLMNOPQRSTUVWXYZab"  # glpat- + 26
 
@@ -173,6 +185,18 @@ class TestCredentialScannerBypass:
 
     def test_baseline_gh_token_detected(self) -> None:
         assert self._has_finding(f"token = {_FAKE_GH_TOKEN}")
+
+    def test_long_stateless_ghs_token_detected_and_fast(self) -> None:
+        """New GitHub App stateless token format (ghs_) must be detected quickly."""
+        token = _build_fake_stateless_ghs_token(550)
+        line = f"token = {token}"
+        t0 = time.monotonic()
+        findings = list(scan_line_for_secrets(line, Path("test.md"), 1))
+        elapsed = time.monotonic() - t0
+        assert any(f.secret_type == "github-token" for f in findings), (
+            "Credential scanner failed to detect long stateless ghs_ token"
+        )
+        assert elapsed < 2, f"Long ghs_ token scan took {elapsed:.3f}s (>2s guard)"
 
     def test_baseline_gl_pat_detected(self) -> None:
         assert self._has_finding(f"pat = {_FAKE_GL_PAT}")

@@ -10,7 +10,7 @@ never after loading the full file.
 Supported patterns
 ------------------
 - OpenAI API key:       ``sk-[a-zA-Z0-9]{48}``
-- GitHub token:         ``gh[pousr]_[a-zA-Z0-9]{36}``
+- GitHub token:         ``(?i)\b(?:ghp|gho|ghu|ghs|ghr)_[a-zA-Z0-9_.-]+\b``
 - AWS access key:       ``AKIA[0-9A-Z]{16}``
 - Stripe live key:      ``sk_live_[0-9a-zA-Z]{24}``
 - Slack token:          ``xox[baprs]-[0-9a-zA-Z]{10,48}``
@@ -93,7 +93,7 @@ def _normalize_line_for_scan(line: str) -> str:
 
 _SECRETS: list[tuple[str, re.RegexPattern]] = [
     ("openai-api-key", re.compile(r"sk-[a-zA-Z0-9]{48}")),
-    ("github-token", re.compile(r"gh[pousr]_[a-zA-Z0-9]{36}")),
+    ("github-token", re.compile(r"(?i)\b(?:ghp|gho|ghu|ghs|ghr)_[a-zA-Z0-9_.-]+\b")),
     ("aws-access-key", re.compile(r"AKIA[0-9A-Z]{16}")),
     ("stripe-live-key", re.compile(r"sk_live_[0-9a-zA-Z]{24}")),
     ("slack-token", re.compile(r"xox[baprs]-[0-9a-zA-Z]{10,48}")),
