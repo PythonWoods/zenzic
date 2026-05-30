@@ -276,6 +276,11 @@ def score(
         "--stamp",
         help="Update the score badge inline in files listed in badge_stamp_files.",
     ),
+    no_header: bool = typer.Option(
+        False,
+        "--no-header",
+        help="Suppress the Zenzic banner. Use in CI pipelines where check all already printed it.",
+    ),
 ) -> None:
     """Compute a 0–100 documentation quality score across all checks."""
     # CEO-056 "Universal Path Awareness": derive repo_root from the explicit
@@ -297,7 +302,7 @@ def score(
     except ValueError:
         repo_root = docs_root
 
-    if output_format != "json":
+    if output_format != "json" and not no_header:
         from zenzic import __version__
 
         _shared._ui.print_header(__version__)

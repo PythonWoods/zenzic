@@ -1225,8 +1225,29 @@ def test_score_low_uses_error_style(_run: object, _cfg: object, _root: object) -
     assert "Every check passed" not in result.stdout
 
 
-# ---------------------------------------------------------------------------
-# GAP-01: -f short alias for --format (Global CLI DX Standardization)
+@patch("zenzic.cli._standalone.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._standalone.ZenzicConfig.load", return_value=(_CFG, False))
+@patch("zenzic.cli._standalone._run_all_checks")
+def test_score_no_header_suppresses_banner(_run: object, _cfg: object, _root: object) -> None:
+    """score --no-header must omit the PythonWoods banner panel from output."""
+    from zenzic.core.scorer import CategoryScore, ScoreReport
+
+    _run.return_value = ScoreReport(  # type: ignore[attr-defined]
+        score=100,
+        categories=[
+            CategoryScore("links", 0.35, 0, 1.0, 0.35),
+            CategoryScore("orphans", 0.20, 0, 1.0, 0.20),
+            CategoryScore("snippets", 0.20, 0, 1.0, 0.20),
+            CategoryScore("placeholders", 0.15, 0, 1.0, 0.15),
+            CategoryScore("assets", 0.10, 0, 1.0, 0.10),
+        ],
+    )
+    result = runner.invoke(app, ["score", "--no-header"])
+    assert result.exit_code == 0
+    assert "PythonWoods" not in result.stdout
+    assert "100/100" in result.stdout
+
+
 # ---------------------------------------------------------------------------
 
 
