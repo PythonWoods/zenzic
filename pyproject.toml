@@ -51,7 +51,7 @@ dependencies = [
     # tomllib was added to the stdlib in Python 3.11 (PEP 680).
     # tomli is the identical backport for Python 3.10 (our Floor).
     "tomli>=2.0.0; python_version < '3.11'",
-    "pathspec>=0.12.1",
+    "pathspec>=1.1.1",
 ]
 
 [project.scripts]
