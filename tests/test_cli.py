@@ -671,6 +671,38 @@ class TestZenzicReporter:
         assert "1 error" in buf.getvalue()
         assert "1 warning" in buf.getvalue()
 
+    def test_render_security_breach_is_counted_in_summary(self) -> None:
+        from io import StringIO
+
+        from rich.console import Console
+
+        from zenzic.core.reporter import Finding, ZenzicReporter
+
+        findings = [
+            Finding(
+                "docs/leaky.md",
+                42,
+                "Z201",
+                "security_breach",
+                "Secret detected (github-token) — rotate immediately.",
+                source_line='token = "ghp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"',
+                match_text="ghp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            )
+        ]
+        buf = StringIO()
+        con = Console(file=buf, highlight=False, no_color=True)
+        reporter = ZenzicReporter(con, Path("/fake/docs"))
+        errors, warnings = reporter.render(
+            findings, version="0.5.0a3", elapsed=0.2, docs_count=1, assets_count=0
+        )
+        assert errors == 0
+        assert warnings == 0
+        output = buf.getvalue()
+        assert "SECURITY BREACH DETECTED" in output
+        assert "security breach" in output
+        assert "file impacted" in output
+        assert "Exit code 2 is mandatory" in output
+
 
 # ---------------------------------------------------------------------------
 # check references — rule_findings surfaced in CLI output

@@ -363,7 +363,18 @@ class ZenzicReporter:
         renderables.append(Rule(style=ZenzicPalette.DIM))
         renderables.append(Text())  # breathing after Rule
         incidents_count = sum(1 for f in normal_findings if f.severity == "security_incident")
+        breaches_count = len(breach_findings)
+        breach_files_count = len({f.rel_path for f in breach_findings})
         summary_parts: list[str] = [f"[{ZenzicPalette.DIM}]Summary:[/]"]
+        if breaches_count:
+            summary_parts.append(
+                f"[bold white on {ZenzicPalette.FATAL}]{emoji('cross')} {breaches_count}"
+                f" security breach{'es' if breaches_count != 1 else ''}[/]"
+            )
+            summary_parts.append(
+                f"[{ZenzicPalette.DIM}]{emoji('dot')} {breach_files_count} file"
+                f"{'s' if breach_files_count != 1 else ''} impacted[/]"
+            )
         if incidents_count:
             summary_parts.append(
                 f"[bold white on {ZenzicPalette.FATAL}]{emoji('cross')} {incidents_count}"
@@ -384,17 +395,25 @@ class ZenzicReporter:
 
         # ── Status line (verdict) ─────────────────────────────────────────────
         renderables.append(Text())  # breathing before verdict
-        has_hard_failures = (incidents_count > 0) or (errors > 0)
+        has_hard_failures = (breaches_count > 0) or (incidents_count > 0) or (errors > 0)
         has_strict_failures = strict and warnings > 0
         has_failures = has_hard_failures or has_strict_failures
         if has_failures:
             if has_hard_failures:
-                renderables.append(
-                    Text.from_markup(
-                        f"[bold {ZenzicPalette.ERROR}]FAILED:[/]"
-                        " Hard errors detected. Exit code 1 is mandatory."
+                if breaches_count:
+                    renderables.append(
+                        Text.from_markup(
+                            f"[bold {ZenzicPalette.ERROR}]FAILED:[/]"
+                            " Security breaches detected. Exit code 2 is mandatory."
+                        )
                     )
-                )
+                else:
+                    renderables.append(
+                        Text.from_markup(
+                            f"[bold {ZenzicPalette.ERROR}]FAILED:[/]"
+                            " Hard errors detected. Exit code 1 is mandatory."
+                        )
+                    )
                 if has_strict_failures:
                     renderables.append(
                         Text.from_markup(
