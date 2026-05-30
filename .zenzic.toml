@@ -90,7 +90,7 @@ badge_stamp_files = ["README.md", "README.it.md"]
 #
 # DEFAULT: 30
 #
-suppression_cap = 6
+suppression_cap = 0  # Set to 0 for no cap (default); set to 1 to fail on the first suppression.
 suppression_cap_fail_hard = true
 
 # Terms that should no longer appear in your documentation.
@@ -174,7 +174,7 @@ severity = "error"
 #     runs-on: ubuntu-latest
 #     steps:
 #       - uses: actions/checkout@v4
-#       - uses: actions/setup-python@v5
-#         with:
-#           python-version: '3.10'
-#       - run: uvx zenzic check all --strict
+#       - name: Run Zenzic Action
+#         uses: pythonwoods/zenzic-action@v1
+#       - name: Verify Badge Freshness
+#         run: uvx zenzic score --check-stamp

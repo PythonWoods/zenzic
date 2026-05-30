@@ -13,6 +13,8 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.8.0] — 2026-05-30
+
 ### Added
 
 - Initial work on Plugin SDK architecture.

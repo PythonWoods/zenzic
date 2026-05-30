@@ -171,10 +171,10 @@ GLOBAL_TOML_TEMPLATE: str = (
     "#     runs-on: ubuntu-latest\n"
     "#     steps:\n"
     "#       - uses: actions/checkout@v4\n"
-    "#       - uses: actions/setup-python@v5\n"
-    "#         with:\n"
-    "#           python-version: '3.10'\n"
-    "#       - run: uvx zenzic check all --strict\n"
+    "#       - name: Run Zenzic Action\n"
+    "#         uses: pythonwoods/zenzic-action@v1\n"
+    "#       - name: Verify Badge Freshness\n"
+    "#         run: uvx zenzic score --check-stamp\n"
 )
 
 # ===========================================================================
