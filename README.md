@@ -4,8 +4,10 @@ SPDX-License-Identifier: Apache-2.0
 -->
 
 <p align="center">
-  <img src="assets/brand/svg/zenzic-wordmark.svg#gh-light-mode-only" alt="Zenzic" width="360">
-  <img src="assets/brand/svg/zenzic-wordmark-dark.svg#gh-dark-mode-only" alt="Zenzic" width="360">
+  <a href="https://github.com/PythonWoods/zenzic">
+    <img src="assets/brand/svg/zenzic-wordmark.svg#gh-light-mode-only" alt="Zenzic" width="360">
+    <img src="assets/brand/svg/zenzic-wordmark-dark.svg#gh-dark-mode-only" alt="Zenzic" width="360">
+  </a>
 </p>
 
 <p align="center">
@@ -26,12 +28,6 @@ SPDX-License-Identifier: Apache-2.0
   </a>
   <a href="LICENSE">
     <img src="https://img.shields.io/badge/license-Apache--2.0-0d9488?style=flat-square" alt="License">
-  </a>
-</p>
-
-<p align="center">
-  <a href="https://docusaurus.io/">
-    <img src="https://img.shields.io/badge/docs_by-Docusaurus-3ECC5F?style=flat-square" alt="Built with Docusaurus">
   </a>
 </p>
 
