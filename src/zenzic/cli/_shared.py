@@ -16,13 +16,16 @@ from pathlib import Path
 import typer
 from rich.console import Console
 from rich.panel import Panel
+from rich.text import Text
 
 from zenzic.core.adapters import list_adapter_engines
 from zenzic.core.codes import CODE_DESCRIPTIONS, CODE_NAMES, CODE_SARIF_LEVELS, get_sarif_name
 from zenzic.core.exclusion import LayeredExclusionManager
-from zenzic.core.reporter import Finding
-from zenzic.core.ui import SentinelPalette, SentinelUI, emoji
+from zenzic.core.reporter import Finding, FooterNotice
+from zenzic.core.ui import ZenzicPalette, ZenzicUI, emoji
 from zenzic.models.config import ZenzicConfig
+
+from ._metadata import COMMAND_BY_NAME
 
 
 # ── Console singleton & UI gateway ───────────────────────────────────────────
@@ -35,7 +38,16 @@ console = Console(
     else None,
 )
 
-_ui = SentinelUI(console)
+stderr_console = Console(
+    stderr=True,
+    highlight=False,
+    no_color=os.environ.get("NO_COLOR") is not None,
+    force_terminal=True
+    if os.environ.get("FORCE_COLOR") and not os.environ.get("NO_COLOR")
+    else None,
+)
+
+_ui = ZenzicUI(stderr_console)
 
 
 def configure_console(*, no_color: bool = False, force_color: bool = False) -> None:
@@ -45,18 +57,20 @@ def configure_console(*, no_color: bool = False, force_color: bool = False) -> N
     CLI flags take priority over environment variables.  Also rebuilds ``_ui``
     so all subsequent command output uses the reconfigured console.
     """
-    global console, _ui
+    global console, stderr_console, _ui
     if no_color:
         console = Console(highlight=False, no_color=True)
+        stderr_console = Console(stderr=True, highlight=False, no_color=True)
     elif force_color:
         console = Console(highlight=False, force_terminal=True)
+        stderr_console = Console(stderr=True, highlight=False, force_terminal=True)
     # else: keep existing console — no_color=False + force_color=False means "auto",
     # which is already set correctly in the module-level Console (force_terminal=None).
-    _ui = SentinelUI(console)
+    _ui = ZenzicUI(stderr_console)
 
 
-def get_ui() -> SentinelUI:
-    """Return the current centralized :class:`~zenzic.ui.SentinelUI` instance.
+def get_ui() -> ZenzicUI:
+    """Return the current centralized :class:`~zenzic.ui.ZenzicUI` instance.
 
     Always performs a live lookup so callers outside this module always receive
     the instance that is current *after* any ``configure_console()`` call.
@@ -69,10 +83,45 @@ def get_console() -> Console:
     return console
 
 
+def make_footer_notice(*lines: str) -> FooterNotice:
+    """Return a normalized footer notice contract for text-mode command footers."""
+    return FooterNotice(lines=tuple(line for line in lines if line))
+
+
+def footer_hint(command_name: str) -> str:
+    """Return the canonical usage hint line for a top-level command name."""
+    meta = COMMAND_BY_NAME.get(command_name)
+    if meta is None:
+        return f"[{ZenzicPalette.DIM}]Try 'zenzic --help' for options.[/]"
+    return f"[{ZenzicPalette.DIM}]{meta.usage_hint}[/]"
+
+
+def print_footer_hint(
+    command_name: str,
+    *,
+    output_format: str = "text",
+    quiet: bool = False,
+) -> None:
+    """Emit a canonical footer navigation hint for human-readable command output."""
+    if output_format != "text" or quiet:
+        return
+    console.print(Text.from_markup(footer_hint(command_name)))
+
+
+def create_app(*, name: str, long_help: str) -> typer.Typer:
+    """Create a Typer sub-app with the standard Zenzic CLI defaults."""
+    return typer.Typer(
+        name=name,
+        help=long_help,
+        no_args_is_help=True,
+        rich_markup_mode="rich",
+    )
+
+
 # ── Info hint panel ──────────────────────────────────────────────────────────
 
 _NO_CONFIG_HINT = Panel(
-    "Using built-in defaults — no [bold]zenzic.toml[/] found.\n"
+    "Using built-in defaults — no [bold].zenzic.toml[/] found.\n"
     "Run [bold cyan]zenzic init[/] to create a project configuration file.\n"
     "Customise docs directory, excluded paths, engine adapter, and lint rules.",
     title=f"[bold yellow]{emoji('info')} Zenzic Tip[/]",
@@ -85,7 +134,7 @@ _MACHINE_FORMATS: frozenset[str] = frozenset({"json", "sarif"})
 
 
 def _print_no_config_hint(output_format: str = "text") -> None:
-    """Print a one-time informational panel when running without zenzic.toml.
+    """Print a one-time informational panel when running without .zenzic.toml.
 
     Suppressed for machine-readable formats (json, sarif) — Rule R20 Machine Silence:
     stdout must remain 100% valid against the target schema; no Rich panels allowed.
@@ -244,9 +293,9 @@ def _render_link_error(err: object, docs_root: Path) -> None:
     assert isinstance(err, LinkError)
     try:
         rel = err.file_path.relative_to(docs_root)
-        location = f"[dim]{rel}:{err.line_no}[/]"
+        location = f"[{ZenzicPalette.DIM}]{rel}:{err.line_no}[/]"
     except ValueError:
-        location = f"[dim]{err.file_path.name}:{err.line_no}[/]"
+        location = f"[{ZenzicPalette.DIM}]{err.file_path.name}:{err.line_no}[/]"
 
     raw_msg = err.message
     prefix = f"{err.file_path.relative_to(docs_root).as_posix() if err.file_path != docs_root else ''}:{err.line_no}: "
@@ -257,7 +306,7 @@ def _render_link_error(err: object, docs_root: Path) -> None:
     console.print(header)
 
     if err.source_line:
-        console.print(f"    [dim]│[/] [italic]{err.source_line}[/]")
+        console.print(f"    [{ZenzicPalette.DIM}]│[/] [italic]{err.source_line}[/]")
 
 
 # ── Exclusion manager factory ─────────────────────────────────────────────────
@@ -294,7 +343,7 @@ def _build_exclusion_manager(
 def _validate_docs_root(repo_root: Path, docs_root: Path) -> None:
     """F4-1: Reject docs_dir paths that escape the repository root.
 
-    Raises :class:`typer.Exit` with code 3 (Blood Sentinel) if
+    Raises :class:`typer.Exit` with code 3 (path traversal guard) if
     ``docs_root.resolve()`` is not under ``repo_root.resolve()``.
     This prevents path-traversal attacks via ``docs_dir = "../../etc"``.
     """
@@ -304,7 +353,7 @@ def _validate_docs_root(repo_root: Path, docs_root: Path) -> None:
         resolved_docs.relative_to(resolved_repo)
     except ValueError:
         console.print(
-            f"[bold {SentinelPalette.FATAL}]BLOOD SENTINEL:[/] docs_dir resolves to "
+            f"[bold {ZenzicPalette.FATAL}]PATH TRAVERSAL:[/] docs_dir resolves to "
             f"[bold]{resolved_docs}[/] which is outside the repository root "
             f"[bold]{resolved_repo}[/]. Path traversal blocked."
         )
@@ -320,7 +369,7 @@ def _count_docs_assets(
     exclusion_mgr: LayeredExclusionManager,
     config: ZenzicConfig | None = None,
 ) -> tuple[int, int]:
-    """Return ``(docs_count, assets_count)`` for the Sentinel telemetry line.
+    """Return ``(docs_count, assets_count)`` for the analysis telemetry line.
 
     When *config* is provided and the adapter exposes ``get_locale_source_roots()``,
     locale translation trees (e.g. Docusaurus ``i18n/``) are counted in
@@ -353,11 +402,10 @@ def _count_docs_assets(
         from zenzic.core.adapters import get_adapter
 
         adapter = get_adapter(config.build_context, docs_root, repo_root)
-        if hasattr(adapter, "get_locale_source_roots"):
-            for locale_root, _ in adapter.get_locale_source_roots(repo_root):
-                docs_count += sum(
-                    1
-                    for p in walk_files(locale_root, SYSTEM_EXCLUDED_DIRS, exclusion_mgr)
-                    if p.suffix.lower() in _DOC_EXT
-                )
+        for locale_root, _ in adapter.get_locale_source_roots(repo_root):
+            docs_count += sum(
+                1
+                for p in walk_files(locale_root, SYSTEM_EXCLUDED_DIRS, exclusion_mgr)
+                if p.suffix.lower() in _DOC_EXT
+            )
     return docs_count, assets_count

@@ -60,10 +60,10 @@ def test_sarif_levels_are_valid_values() -> None:
 
 
 # ── Severity policy: Z1xx/Z2xx must be 'error', Z906/Z114 must be 'note' ───────
-# Z114 LARGE_PAGINATION_SET is intentionally informational within the Z1xx
-# range — it reports a threshold metric, not a broken link. It is the only
-# Z1xx code exempt from the 'error' invariant.
-_Z1XX_NOTE_EXCEPTIONS: frozenset[str] = frozenset({"Z114"})
+# Z106 CIRCULAR_LINK is informational; Z114 LARGE_PAGINATION_SET is also
+# informational within the Z1xx range because it reports a threshold metric,
+# not a broken link.
+_Z1XX_NOTE_EXCEPTIONS: frozenset[str] = frozenset({"Z106", "Z114"})
 
 
 @pytest.mark.parametrize(
@@ -104,7 +104,7 @@ def test_z906_sarif_level_is_note() -> None:
     ("code", "expected"),
     [
         ("Z101", "LinkBroken"),
-        ("Z201", "ShieldSecret"),
+        ("Z201", "CredentialSecret"),
         ("Z402", "OrphanPage"),
         ("Z505", "UntaggedCodeBlock"),
         ("Z906", "NoFilesFound"),
@@ -126,3 +126,43 @@ def test_get_sarif_name_all_codes_non_empty() -> None:
         name = get_sarif_name(code)
         assert name, f"get_sarif_name('{code}') returned empty string"
         assert "_" not in name, f"get_sarif_name('{code}') still contains underscore: '{name}'"
+
+
+# ── CODE_DEFINITIONS completeness (ADR-031 SSoT) ───────────────────────────────
+
+
+def test_every_code_has_definition() -> None:
+    """Every code in CODE_NAMES must have an entry in CODE_DEFINITIONS (SSoT)."""
+    from zenzic.core.codes import CODE_DEFINITIONS
+
+    missing = sorted(set(CODE_NAMES) - set(CODE_DEFINITIONS))
+    assert missing == [], f"Codes missing from CODE_DEFINITIONS: {missing}"
+
+
+def test_no_orphan_definitions() -> None:
+    """No code in CODE_DEFINITIONS may be absent from CODE_NAMES."""
+    from zenzic.core.codes import CODE_DEFINITIONS
+
+    orphans = sorted(set(CODE_DEFINITIONS) - set(CODE_NAMES))
+    assert orphans == [], f"Ghost codes in CODE_DEFINITIONS (not in CODE_NAMES): {orphans}"
+
+
+def test_z103_z111_z113_are_structural_with_penalty() -> None:
+    """ADR-031: paradox codes must have error severity, positive penalty, structural category."""
+    from zenzic.core.codes import CODE_DEFINITIONS
+
+    for code in ("Z103", "Z111", "Z113"):
+        defn = CODE_DEFINITIONS[code]
+        assert defn.severity == "error", f"{code}.severity should be 'error'"
+        assert defn.penalty > 0.0, f"{code}.penalty should be > 0"
+        assert defn.category == "structural", f"{code}.category should be 'structural'"
+
+
+def test_z114_is_note_zero_penalty() -> None:
+    """ADR-031: Z114 LARGE_PAGINATION_SET must be note/0.0 (CI gate bug fixed)."""
+    from zenzic.core.codes import CODE_DEFINITIONS
+
+    defn = CODE_DEFINITIONS["Z114"]
+    assert defn.severity == "note"
+    assert defn.penalty == 0.0
+    assert defn.category is None

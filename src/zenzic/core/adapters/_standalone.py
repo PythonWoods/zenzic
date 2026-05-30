@@ -7,13 +7,14 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from zenzic.core.adapters._base import BaseAdapter
+
 
 if TYPE_CHECKING:
     from zenzic.core.adapters._base import RouteMetadata
-    from zenzic.models.vsm import RouteStatus
 
 
-class StandaloneAdapter:
+class StandaloneAdapter(BaseAdapter):
     """Adapter for projects with no recognised build engine (Standalone Mode).
 
     Returned by :func:`~zenzic.core.adapters.get_adapter` when neither a
@@ -65,8 +66,8 @@ class StandaloneAdapter:
         """StandaloneAdapter has no engine config file."""
         return frozenset()
 
-    def map_url(self, rel: Path) -> str:  # noqa: ARG002
-        """Fallback URL mapping: same clean-URL rule as Zensical."""
+    def _map_url(self, rel: Path) -> str:
+        """Filesystem-derived clean URL — same rule as Zensical."""
         stem = rel.with_suffix("")
         parts = list(stem.parts)
         if not parts:
@@ -77,14 +78,6 @@ class StandaloneAdapter:
             return "/"
         return "/" + "/".join(parts) + "/"
 
-    def classify_route(  # noqa: ARG002
-        self,
-        rel: Path,
-        nav_paths: frozenset[str],
-    ) -> RouteStatus:
-        """Always ``REACHABLE`` — no nav to compare against."""
-        return "REACHABLE"
-
     def get_route_info(self, rel: Path) -> RouteMetadata:
         """Return route metadata derived purely from the filesystem.
 
@@ -94,7 +87,7 @@ class StandaloneAdapter:
         from zenzic.core.adapters._base import RouteMetadata
 
         return RouteMetadata(
-            canonical_url=self.map_url(rel),
+            canonical_url=self._map_url(rel),
             status="REACHABLE",
         )
 
@@ -119,6 +112,14 @@ class StandaloneAdapter:
         """Standalone projects have no engine-specific link-scheme bypass."""
         return frozenset()
 
-    def get_absolute_url_prefixes(self, repo_root: Path) -> frozenset[str]:
-        """Standalone projects do not host engine-routed absolute URL prefixes."""
-        return frozenset()
+    def get_extra_content_roots(self, repo_root: Path) -> list[Path]:  # noqa: ARG002
+        """Standalone projects do not define extra content trees."""
+        return []
+
+    def get_locale_source_roots(self, repo_root: Path) -> list[tuple[Path, str]]:  # noqa: ARG002
+        """Standalone projects do not define locale source trees."""
+        return []
+
+    def get_absolute_url_prefixes(self, repo_root: Path | None = None) -> list[str]:  # noqa: ARG002
+        """Standalone mode owns no absolute URL prefixes."""
+        return []

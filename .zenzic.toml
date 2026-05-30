@@ -1,0 +1,180 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+
+# Precedence: .zenzic.toml is shared baseline; .zenzic.local.toml overrides locally.
+# Keep secrets and workstation-only values in .zenzic.local.toml.
+
+# --- PROJECT IDENTITY ---
+# [project]
+# name = "zenzic" # Used for personalized CLI Governance headers
+
+# --- CORE SETTINGS ---
+# ---------------------------------------------------------------------------
+# docs_dir
+# ---------------------------------------------------------------------------
+# The relative path to your documentation root.
+#
+# BEHAVIOR:
+#   - If commented out (default), Zenzic uses Auto-Discovery to find your
+#     docs based on the engine (reads docusaurus.config.ts, mkdocs.yml…).
+#   - Set to "." to scan the entire repository (L1 system exclusions apply).
+#
+# DEFAULT: Auto-discovered
+#
+docs_dir = "."
+
+strict = true
+fail_under = 94
+# exit_zero = false
+# respect_vcs_ignore = true
+# validate_same_page_anchors = true
+
+# External URLs excluded from the broken-link check (applies only with --strict)
+excluded_external_urls = [
+    # Prevents HTTP 429 (Too Many Requests) rate-limiting from GitHub in CI.
+    "https://github.com/PythonWoods/zenzic",
+    # Prevents HTTP 403 (Forbidden) since the CI runner is an unauthenticated bot.
+    "https://github.com/settings/tokens",
+    # GitHub API rate-limits unauthenticated CI runners; prefix covers all remaining github.com links.
+    "https://github.com",
+    # contributor-covenant.org consistently times out (> 10 s) from CI environments.
+    "https://www.contributor-covenant.org/version/2/1/code_of_conduct.html",
+    "https://www.contributor-covenant.org",
+    # Shields.io applies rate-limiting to CI runners (HTTP 429); prefix covers all badge URLs.
+    "https://img.shields.io",
+]
+
+# Z204 Privacy Gate — terms that must never appear in published docs.
+# forbidden_patterns = []
+
+# --- EXCLUSION ZONES (Full bypass — use sparingly) ---
+# Paths listed here are INVISIBLE to Zenzic: no findings, no audit trail.
+# Prefer [governance.per_file_ignores] for targeted suppression with an audit trail.
+excluded_dirs = [
+    "src",
+    "tests",
+    "scripts",
+    "examples",
+    "assets",
+    "LICENSES",
+]
+
+# --- PLACEHOLDERS & CODE SNIPPETS (Optional) ---
+# Pattern matching disabled: the README, CHANGELOG, and CONTRIBUTING files
+# describe placeholder patterns as examples, which would cause false positives.
+placeholder_patterns = []
+snippet_min_lines = 1
+placeholder_max_words = 50
+
+# --- ENGINE CONTEXT ---
+[build_context]
+engine         = "standalone" # Supported: docusaurus, mkdocs, zensical, standalone
+base_url       = "/"
+default_locale = "en"
+
+# --- BRAND INTEGRITY ---
+[project_metadata]
+release_name = "Basalt"
+obsolete_names_exclude_patterns = ["CHANGELOG*.md", "CHANGELOG*.archive.md", "changelogs/*.md", "RELEASE.md"]
+badge_stamp_files = ["README.md", "README.it.md"]
+
+[governance]
+# ---------------------------------------------------------------------------
+# suppression_cap
+# ---------------------------------------------------------------------------
+# Hard-fail threshold for technical debt.
+#
+# BEHAVIOR:
+#   - If total suppressions > cap: CI fails immediately (Exit Code 1).
+#   - Scoring: Every suppression costs 1 DQS point (Flat-Cost Model).
+#
+# DEFAULT: 30
+#
+suppression_cap = 0  # Set to 0 for no cap (default); set to 1 to fail on the first suppression.
+suppression_cap_fail_hard = true
+
+# Terms that should no longer appear in your documentation.
+brand_obsolescence = [
+    "Quartz",
+    "Obsidian",
+]
+# suppression_cap_scope = "all"  # Options: all, per-file
+# i18n_parity = false            # Set true when i18n is enabled
+
+# ---------------------------------------------------------------------------
+# per_file_ignores
+# ---------------------------------------------------------------------------
+# Silence a rule for specific file globs.
+#
+# BEHAVIOR: ADDITIVE — each entry adds 1 pt of Technical Debt (flat-cost).
+# IMPACT:   Use directory_policies below for zero-debt strategic exemptions.
+#
+# [governance.per_file_ignores]
+# "docs/legacy/**"      = ["Z601"]  # intentional brand refs → -1 pt
+# "docs/migration/*.md" = ["Z101"]  # known broken links → -1 pt
+
+# ---------------------------------------------------------------------------
+# directory_policies
+# ---------------------------------------------------------------------------
+# Strategic exemptions for entire directory trees or specific files.
+#
+# BEHAVIOR: Matched findings are silently dropped — ZERO debt added.
+# IMPACT:   In --audit mode, shown with [POLICY_EXEMPTION] label.
+#
+# [governance.directory_policies]
+# "blog/**"                       = ["Z601"]  # historical archive
+# "docs/explanation/registry.mdx" = ["Z601"]  # SSOT codename registry
+
+[governance.directory_policies]
+"changelogs/**" = ["Z601"]  # historical release codenames (Obsidian, Quartz…)
+"CHANGELOG*.md" = ["Z601"]  # release codenames in historical changelogs
+"RELEASE.md"    = ["Z601"]  # current release codename tracking
+
+# Governance Playbook:
+# https://zenzic.dev/developers/how-to/release-governance-protocol
+
+# --- EXCLUSION ZONES (Full bypass — use sparingly) ---
+# Paths listed here are INVISIBLE to Zenzic: no findings, no audit trail.
+# Prefer [governance.per_file_ignores] for targeted suppression with an audit trail.
+# excluded_file_patterns = ["*.tmp", "*.log"]
+# excluded_assets = ["favicon.ico"]
+# excluded_asset_dirs = ["theme/"]
+# excluded_build_artifacts = ["pdf/*.pdf"]
+# included_dirs = []
+# included_file_patterns = []
+
+# --- PLUGINS (Optional) ---
+# plugins = []
+
+# --- CUSTOM RULES (Optional) ---
+# Declares project-specific regex-based lint rules applied line-by-line.
+[[custom_rules]]
+id       = "ZZ-NOCLICKHERE"
+pattern  = "(?i)\\bclick here\\b|\\bclicca qui\\b"
+message  = "Avoid generic link text. Use a meaningful description for accessibility."
+severity = "error"
+
+# --- I18N PARITY (Optional) ---
+# [i18n]
+# enabled = true
+# base_lang = "en"
+# base_source = "docs"
+# strict_parity = true
+# require_frontmatter_parity = ["title", "description"]
+# [i18n.targets]
+# it = "i18n/it/docusaurus-plugin-content-docs/current"
+
+# --- GATE 4: CI/CD (GitHub Actions, Optional) ---
+# Add this workflow snippet to .github/workflows/zenzic.yml
+#
+# name: zenzic
+# on: [pull_request, push]
+# jobs:
+#   audit:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@v4
+#       - name: Run Zenzic Action
+#         uses: pythonwoods/zenzic-action@v1
+#       - name: Verify Badge Freshness
+#         run: uvx zenzic score --check-stamp

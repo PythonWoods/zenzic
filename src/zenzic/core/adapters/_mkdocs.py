@@ -2,23 +2,25 @@
 # SPDX-License-Identifier: Apache-2.0
 """MkDocsAdapter — adapter for MkDocs folder-mode and suffix-mode i18n.
 
-This module also owns all MkDocs-specific parsing utilities (YAML loading,
-i18n plugin extraction, nav traversal).  The Scanner and Validator are pure
-consumers of the adapter API and never import from this module directly.
+MkDocs YAML/config parsing is provided by ``_mkdocs_config`` and reused by
+both ``MkDocsAdapter`` and ``ZensicalAdapter``.
 """
 
 from __future__ import annotations
 
 import logging
-import os
-import re
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-import yaml
-from yaml.nodes import MappingNode, ScalarNode, SequenceNode
-
-from zenzic.core.adapters._utils import case_sensitive_exists, remap_to_default_locale
+from zenzic.core import regex as re
+from zenzic.core.adapters._base import BaseAdapter
+from zenzic.core.adapters._mkdocs_config import (
+    _PermissiveYamlLoader as _PermissiveYamlLoader,  # noqa: F401
+    find_mkdocs_config_file,
+    load_mkdocs_config,
+    load_mkdocs_config_file,
+)
+from zenzic.core.adapters._utils import case_sensitive_exists, dedupe_roots, remap_to_default_locale
 from zenzic.core.exceptions import ConfigurationError
 from zenzic.models.config import BuildContext
 
@@ -29,107 +31,6 @@ _log = logging.getLogger(__name__)
 if TYPE_CHECKING:
     from zenzic.core.adapters._base import RouteMetadata
     from zenzic.models.vsm import RouteStatus
-
-
-# ── YAML loader ───────────────────────────────────────────────────────────────
-
-
-class _PermissiveYamlLoader(yaml.SafeLoader):
-    """SafeLoader that silently ignores unknown tags (e.g. MkDocs ``!ENV``)."""
-
-
-def _construct_unknown_tag(
-    loader: _PermissiveYamlLoader,
-    tag_suffix: str,
-    node: ScalarNode | SequenceNode | MappingNode,
-) -> Any:
-    """Best-effort constructor for unknown YAML tags.
-
-    MkDocs projects often use custom tags from plugins. Zenzic must remain
-    tolerant and preserve structure rather than dropping values to ``None``.
-    """
-    if isinstance(node, ScalarNode):
-        return loader.construct_scalar(node)
-    if isinstance(node, SequenceNode):
-        return loader.construct_sequence(node)
-    return loader.construct_mapping(node)
-
-
-def _construct_env_tag(
-    loader: _PermissiveYamlLoader,
-    node: ScalarNode | SequenceNode | MappingNode,
-) -> Any:
-    """Resolve MkDocs !ENV tag with graceful fallback semantics.
-
-    Supported forms:
-    - ``!ENV VAR``
-    - ``!ENV [VAR, default]``
-    - ``!ENV [VAR1, VAR2, default]``
-    """
-    if isinstance(node, ScalarNode):
-        key = loader.construct_scalar(node)
-        return os.getenv(key)
-
-    if isinstance(node, SequenceNode):
-        values = loader.construct_sequence(node)
-        if not values:
-            return None
-        if len(values) == 1:
-            return os.getenv(str(values[0]))
-
-        *keys, default = values
-        for key in keys:
-            if not isinstance(key, str):
-                continue
-            val = os.getenv(key)
-            if val is not None:
-                return val
-        return default
-
-    # Defensive fallback for malformed usage.
-    return loader.construct_mapping(node)
-
-
-def _construct_relative_tag(
-    loader: _PermissiveYamlLoader,
-    node: ScalarNode | SequenceNode | MappingNode,
-) -> Any:
-    """Preserve !relative payload as plain data for static analysis."""
-    if isinstance(node, ScalarNode):
-        return loader.construct_scalar(node)
-    if isinstance(node, SequenceNode):
-        return loader.construct_sequence(node)
-    return loader.construct_mapping(node)
-
-
-def _construct_python_tag(
-    loader: _PermissiveYamlLoader,
-    tag_suffix: str,
-    node: ScalarNode | SequenceNode | MappingNode,
-) -> Any:
-    """Best-effort constructor for ``!!python/*`` tags in mkdocs.yml.
-
-    MkDocs configs often include values like
-    ``!!python/name:pymdownx.superfences.fence_code_format``. Zenzic does not
-    execute these callables; it only needs the YAML structure for nav/i18n
-    analysis. We therefore preserve the payload as plain data.
-    """
-    if isinstance(node, ScalarNode):
-        value = loader.construct_scalar(node)
-        return value if value is not None else tag_suffix
-    if isinstance(node, SequenceNode):
-        return loader.construct_sequence(node)
-    return loader.construct_mapping(node)
-
-
-_PermissiveYamlLoader.add_constructor("!ENV", _construct_env_tag)
-_PermissiveYamlLoader.add_constructor("!relative", _construct_relative_tag)
-_PermissiveYamlLoader.add_multi_constructor("!", _construct_unknown_tag)  # type: ignore[no-untyped-call]
-# Support PyYAML global python tags (e.g. !!python/name:...) without executing them.
-_PermissiveYamlLoader.add_multi_constructor(
-    "tag:yaml.org,2002:python/",
-    _construct_python_tag,
-)  # type: ignore[no-untyped-call]
 
 
 def _iter_plugins(doc_config: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
@@ -159,25 +60,102 @@ def _iter_plugins(doc_config: dict[str, Any]) -> list[tuple[str, dict[str, Any]]
     return normalized
 
 
+def _iter_path_like_values(value: Any) -> list[str]:
+    """Extract path-like string values from nested plugin config structures."""
+    out: list[str] = []
+    if isinstance(value, str):
+        out.append(value)
+        return out
+    if isinstance(value, list):
+        for item in value:
+            out.extend(_iter_path_like_values(item))
+        return out
+    if isinstance(value, dict):
+        for key, item in value.items():
+            if key in {"path", "config", "file", "include", "includes"}:
+                out.extend(_iter_path_like_values(item))
+        return out
+    return out
+
+
+def _iter_monorepo_include_paths(doc_config: dict[str, Any]) -> list[str]:
+    """Extract include-config paths from monorepo-style MkDocs plugins."""
+    includes: list[str] = []
+    for name, plugin_cfg in _iter_plugins(doc_config):
+        if "monorepo" not in name.lower():
+            continue
+        for key in ("include", "includes", "configs", "projects", "paths"):
+            if key not in plugin_cfg:
+                continue
+            includes.extend(_iter_path_like_values(plugin_cfg[key]))
+
+    nav = doc_config.get("nav")
+    if isinstance(nav, list):
+        for item in nav:
+            if isinstance(item, str) and item.startswith("!include"):
+                parts = item.split(maxsplit=1)
+                if len(parts) == 2 and parts[1].strip():
+                    includes.append(parts[1].strip())
+            elif isinstance(item, dict):
+                include_val = item.get("!include")
+                if isinstance(include_val, str) and include_val.strip():
+                    includes.append(include_val.strip())
+
+    return includes
+
+
+def _candidate_include_configs(include_path: Path) -> list[Path]:
+    """Return candidate mkdocs config files for an include path."""
+    if include_path.suffix.lower() in {".yml", ".yaml"}:
+        return [include_path]
+    if include_path.is_dir():
+        return [include_path / "mkdocs.yml", include_path / "mkdocs.yaml"]
+    return [include_path / "mkdocs.yml", include_path / "mkdocs.yaml"]
+
+
+def _discover_monorepo_docs_roots(config_file: Path) -> list[Path]:
+    """Recursively discover docs_dir roots from included MkDocs configs."""
+    discovered: list[Path] = []
+    visited: set[Path] = set()
+
+    def _walk(config_path: Path) -> None:
+        resolved_config = config_path.resolve()
+        if resolved_config in visited or not resolved_config.is_file():
+            return
+        visited.add(resolved_config)
+
+        cfg = _load_doc_config_file(resolved_config)
+        docs_dir = str(cfg.get("docs_dir") or "docs")
+        docs_root = (resolved_config.parent / docs_dir).resolve()
+        if docs_root.is_dir():
+            discovered.append(docs_root)
+
+        for include in _iter_monorepo_include_paths(cfg):
+            include_path = (resolved_config.parent / include).resolve()
+            for candidate in _candidate_include_configs(include_path):
+                if candidate.is_file():
+                    _walk(candidate)
+
+    _walk(config_file)
+    return dedupe_roots(discovered)
+
+
 # ── Config discovery & loading ────────────────────────────────────────────────
 
 
 def find_config_file(repo_root: Path) -> Path | None:
     """Return the MkDocs config file path, or ``None`` if absent."""
-    mkdocs_yml = repo_root / "mkdocs.yml"
-    return mkdocs_yml if mkdocs_yml.exists() else None
+    return find_mkdocs_config_file(repo_root)
+
+
+def _load_doc_config_file(config_file: Path) -> dict[str, Any]:
+    """Load and parse a specific MkDocs config file path."""
+    return load_mkdocs_config_file(config_file)
 
 
 def _load_doc_config(repo_root: Path) -> dict[str, Any]:
     """Load and parse ``mkdocs.yml``, returning ``{}`` on any failure."""
-    config_file = find_config_file(repo_root)
-    if config_file is None:
-        return {}
-    with config_file.open(encoding="utf-8") as f:
-        try:
-            return yaml.load(f, Loader=_PermissiveYamlLoader) or {}  # noqa: S506
-        except yaml.YAMLError:
-            return {}
+    return load_mkdocs_config(repo_root)
 
 
 # ── Infrastructure asset path extraction (Z404) ──────────────────────────────
@@ -437,7 +415,7 @@ def _collect_nav_paths(nav: list[Any] | dict[str, Any] | str | None, acc: set[st
 # ── Adapter ───────────────────────────────────────────────────────────────────
 
 
-class MkDocsAdapter:
+class MkDocsAdapter(BaseAdapter):
     """Adapter for MkDocs folder-mode and suffix-mode i18n.
 
     In folder mode every non-default locale lives in a top-level directory
@@ -451,7 +429,7 @@ class MkDocsAdapter:
 
     Args:
         context: :class:`~zenzic.models.config.BuildContext` loaded from
-            ``zenzic.toml``.  Provides ``locales`` and ``default_locale``.
+            ``.zenzic.toml``.  Provides ``locales`` and ``default_locale``.
             When ``context.locales`` is empty the adapter falls back to
             extracting locale information from *doc_config*.
         docs_root: Resolved absolute path to the ``docs/`` directory.
@@ -468,9 +446,11 @@ class MkDocsAdapter:
         doc_config: dict[str, Any] | None = None,
         *,
         config_file_found: bool = False,
+        repo_root: Path | None = None,
     ) -> None:
         self._docs_root = docs_root
         self._context = context
+        self._repo_root = repo_root
         self._doc_config: dict[str, Any] = doc_config if doc_config is not None else {}
         self._config_file_found: bool = config_file_found
 
@@ -478,7 +458,7 @@ class MkDocsAdapter:
         # ConfigurationError rather than silent misbehaviour at link-check time.
         _validate_i18n_fallback_config(self._doc_config)
 
-        # Locales: prefer explicit context (from zenzic.toml); fall back to
+        # Locales: prefer explicit context (from .zenzic.toml); fall back to
         # extraction from the engine config (mkdocs.yml) when absent.
         if context.locales:
             self._locale_dirs: frozenset[str] = frozenset(context.locales)
@@ -604,18 +584,18 @@ class MkDocsAdapter:
         """``True`` when ``mkdocs.yml`` was found on disk **or** locales were declared.
 
         Returns ``False`` only when both the engine config file is absent
-        **and** no locales were declared in ``zenzic.toml`` — the truly bare
+        **and** no locales were declared in ``.zenzic.toml`` — the truly bare
         scenario where the adapter has no nav or i18n information to contribute.
         """
         return self._config_file_found or bool(self._locale_dirs)
 
     def get_metadata_files(self) -> frozenset[str]:
-        """MkDocs configuration file — shielded from Z903."""
+        """MkDocs configuration file — excluded from Z903."""
         return frozenset({"mkdocs.yml"})
 
     # ── VSM integration ────────────────────────────────────────────────────────
 
-    def map_url(self, rel: Path) -> str:
+    def _map_url(self, rel: Path) -> str:
         """Map a physical source path to its MkDocs canonical URL.
 
         Applies the MkDocs ``use_directory_urls`` rule (default ``true``):
@@ -653,7 +633,7 @@ class MkDocsAdapter:
             return "/" + "/".join(parts) + "/"
         return "/" + "/".join(parts) + ".html"
 
-    def classify_route(self, rel: Path, nav_paths: frozenset[str]) -> RouteStatus:
+    def _classify_route(self, rel: Path, nav_paths: frozenset[str]) -> RouteStatus:
         """Classify a MkDocs route as REACHABLE, ORPHAN_BUT_EXISTING, or IGNORED.
 
         Classification rules (in priority order):
@@ -713,7 +693,7 @@ class MkDocsAdapter:
     def get_route_info(self, rel: Path) -> RouteMetadata:
         """Return unified routing metadata for a MkDocs source file.
 
-        Delegates to ``map_url()`` and ``classify_route()`` internally,
+        Delegates to ``_map_url()`` and ``_classify_route()`` internally,
         wrapping the results in :class:`RouteMetadata`.
 
         MkDocs does not support frontmatter ``slug:`` — the slug field is
@@ -723,8 +703,8 @@ class MkDocsAdapter:
         from zenzic.core.adapters._base import RouteMetadata
 
         nav_paths = self.get_nav_paths()
-        canonical_url = self.map_url(rel)
-        status = self.classify_route(rel, nav_paths)
+        canonical_url = self._map_url(rel)
+        status = self._classify_route(rel, nav_paths)
 
         # Detect proxy routes: reconfigure_material auto-generates locale
         # entry points that have no physical nav entry.
@@ -743,7 +723,7 @@ class MkDocsAdapter:
     def provides_index(self, directory_path: Path) -> bool:
         """Return ``True`` when MkDocs will serve an index page for this directory.
 
-        MkDocs treats ``index.md`` (and the legacy ``README.md``) as the index
+        MkDocs treats ``index.md`` (and ``README.md``) as the index
         page for the enclosing directory, rendering it at the directory URL.
 
         I/O is permitted here — this method is called once per directory during
@@ -761,9 +741,25 @@ class MkDocsAdapter:
         """MkDocs has no engine-specific link-scheme bypass."""
         return frozenset()
 
-    def get_absolute_url_prefixes(self, repo_root: Path) -> frozenset[str]:
-        """MkDocs is single-instance: no cross-plugin absolute prefixes to allowlist."""
-        return frozenset()
+    def get_extra_content_roots(self, repo_root: Path) -> list[Path]:
+        """Discover plugin-managed external docs roots from included MkDocs configs."""
+        config_file = find_config_file(repo_root)
+        if config_file is None:
+            return []
+        roots = [
+            root
+            for root in _discover_monorepo_docs_roots(config_file)
+            if root != self._docs_root.resolve()
+        ]
+        return dedupe_roots(roots)
+
+    def get_locale_source_roots(self, repo_root: Path) -> list[tuple[Path, str]]:  # noqa: ARG002
+        """MkDocs locale files are scanned inside docs_root; no external locale roots."""
+        return []
+
+    def get_absolute_url_prefixes(self, repo_root: Path | None = None) -> list[str]:  # noqa: ARG002
+        """MkDocs is single-instance and exports no absolute URL prefixes."""
+        return []
 
     @classmethod
     def from_repo(
@@ -786,4 +782,5 @@ class MkDocsAdapter:
             docs_root,
             _load_doc_config(repo_root),
             config_file_found=config_file_found,
+            repo_root=repo_root,
         )

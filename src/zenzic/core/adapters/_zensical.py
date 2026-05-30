@@ -1,10 +1,12 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
-"""ZensicalAdapter — native adapter for the Zensical build engine.
+"""ZensicalAdapter — authoritative adapter for the Zensical build engine.
 
-Reads ``zensical.toml`` exclusively via Python's ``tomllib``.  Zero YAML.
+The adapter always enforces Zensical routing semantics. Configuration input can
+come from either ``zensical.toml`` (native) or ``mkdocs.yml`` (compat input)
+without changing the adapter class.
 
-Zensical v0.0.31+ uses a single ``[project]`` scope for all settings::
+Native ``zensical.toml`` layout::
 
     [project]
     site_name = "My Docs"
@@ -22,9 +24,10 @@ Zensical v0.0.31+ uses a single ``[project]`` scope for all settings::
 from __future__ import annotations
 
 import logging
-import re
 import sys
 from pathlib import Path
+
+from zenzic.core import regex as re
 
 
 if sys.version_info >= (3, 11):
@@ -33,7 +36,8 @@ else:
     import tomli as tomllib  # PEP 680 backport
 from typing import TYPE_CHECKING, Any
 
-from zenzic.core.adapters._mkdocs import MkDocsAdapter, _load_doc_config, find_config_file
+from zenzic.core.adapters._base import BaseAdapter
+from zenzic.core.adapters._mkdocs_config import find_mkdocs_config_file, load_mkdocs_config
 from zenzic.core.adapters._utils import case_sensitive_exists, remap_to_default_locale
 from zenzic.core.exceptions import ConfigurationError
 from zenzic.models.config import BuildContext
@@ -131,10 +135,10 @@ def check_config_assets(repo_root: Path) -> list[tuple[str, str]]:
     return issues
 
 
-def _extract_nav_paths(items: list[object]) -> set[str]:
-    """Recursively extract ``.md`` file paths from a Zensical nav list.
+def _extract_nav_paths(items: object) -> set[str]:
+    """Recursively extract ``.md`` file paths from nav-style structures.
 
-    Handles all official nav variants (v0.0.31+):
+    Handles nav variants used by both ``zensical.toml`` and ``mkdocs.yml``:
 
     * Plain string: ``"page.md"``
     * Titled page: ``{"Title" = "page.md"}``
@@ -142,89 +146,40 @@ def _extract_nav_paths(items: list[object]) -> set[str]:
     * External URL: ``{"GitHub" = "https://…"}``  — skipped.
 
     Args:
-        items: List of nav entries from ``[project].nav`` in ``zensical.toml``.
+        items: Nav payload (list/dict/string) from the active config source.
 
     Returns:
         Set of ``.md`` paths, relative to ``docs_root``, without leading slash.
     """
     paths: set[str] = set()
-    for item in items:
-        if isinstance(item, str):
-            if item.endswith(".md"):
-                paths.add(item.lstrip("/"))
-        elif isinstance(item, dict):
-            for _title, val in item.items():
-                if isinstance(val, str) and val.endswith(".md"):
-                    paths.add(val.lstrip("/"))
-                elif isinstance(val, list):
-                    paths |= _extract_nav_paths(val)
+    if isinstance(items, str):
+        if items.endswith(".md"):
+            paths.add(items.lstrip("/"))
+        return paths
+
+    if isinstance(items, dict):
+        for val in items.values():
+            paths |= _extract_nav_paths(val)
+        return paths
+
+    if isinstance(items, list):
+        for item in items:
+            paths |= _extract_nav_paths(item)
+
     return paths
 
 
 # ── Adapter ───────────────────────────────────────────────────────────────────
 
 
-class ZensicalLegacyProxy:
-    """Proxy that wraps MkDocsAdapter for Zensical legacy compatibility mode.
+class ZensicalAdapter(BaseAdapter):
+    """Adapter for the Zensical build engine.
 
-    Delegates all BaseAdapter protocol methods to the underlying MkDocsAdapter,
-    while carrying the is_compatibility_mode flag for upstream reporting.
-    """
+    The adapter can be constructed from native ``zensical.toml`` config or from
+    ``mkdocs.yml`` input while preserving Zensical routing/classification logic.
+    Navigation is read from ``[project].nav`` (native) or ``nav`` (compat).
 
-    def __init__(self, adapter: MkDocsAdapter) -> None:
-        self._adapter = adapter
-        self.is_compatibility_mode = True
-
-    def is_locale_dir(self, part: str) -> bool:
-        return self._adapter.is_locale_dir(part)
-
-    def resolve_asset(self, missing_abs: Path, docs_root: Path) -> Path | None:
-        return self._adapter.resolve_asset(missing_abs, docs_root)
-
-    def resolve_anchor(
-        self, resolved_file: Path, anchor: str, anchors_cache: dict[Path, set[str]], docs_root: Path
-    ) -> bool:
-        return self._adapter.resolve_anchor(resolved_file, anchor, anchors_cache, docs_root)
-
-    def is_shadow_of_nav_page(self, rel: Path, nav_paths: frozenset[str]) -> bool:
-        return self._adapter.is_shadow_of_nav_page(rel, nav_paths)
-
-    def get_ignored_patterns(self) -> set[str]:
-        return self._adapter.get_ignored_patterns()
-
-    def get_nav_paths(self) -> frozenset[str]:
-        return self._adapter.get_nav_paths()
-
-    def has_engine_config(self) -> bool:
-        return self._adapter.has_engine_config()
-
-    def get_metadata_files(self) -> frozenset[str]:
-        return self._adapter.get_metadata_files()
-
-    def map_url(self, rel: Path) -> str:
-        return self._adapter.map_url(rel)
-
-    def classify_route(self, rel: Path, nav_paths: frozenset[str]) -> RouteStatus:
-        return self._adapter.classify_route(rel, nav_paths)
-
-    def get_route_info(self, rel: Path) -> RouteMetadata:
-        return self._adapter.get_route_info(rel)
-
-    def provides_index(self, directory_path: Path) -> bool:
-        return self._adapter.provides_index(directory_path)
-
-    def get_link_scheme_bypasses(self) -> frozenset[str]:
-        return self._adapter.get_link_scheme_bypasses()
-
-    def get_absolute_url_prefixes(self, repo_root: Path) -> frozenset[str]:
-        return self._adapter.get_absolute_url_prefixes(repo_root)
-
-
-class ZensicalAdapter:
-    """Adapter for the Zensical build engine — reads ``zensical.toml`` natively.
-
-    Zero YAML.  All configuration is sourced from ``zensical.toml``.
-    Navigation is declared under ``[project].nav`` (Zensical v0.0.31+)::
+    Native ``zensical.toml`` example::
 
         [project]
         site_name = "My Docs"
@@ -234,20 +189,16 @@ class ZensicalAdapter:
             {"API" = ["api/index.md", {"Endpoints" = "api/endpoints.md"}]},
         ]
 
-    Locale information is sourced from ``[build_context]`` in ``zenzic.toml``
+    Locale information is sourced from ``[build_context]`` in ``.zenzic.toml``
     (the :class:`~zenzic.models.config.BuildContext`).  Zensical does not yet
     expose its own i18n configuration in ``zensical.toml``; when it does, this
     adapter will be updated to read it directly.
 
-    Enforcement contract: if ``engine = "zensical"`` is declared in
-    ``zenzic.toml`` but ``zensical.toml`` is absent, :func:`get_adapter`
-    raises :class:`~zenzic.core.exceptions.ConfigurationError` before this
-    class is ever instantiated.
-
     Args:
-        context: Build context from ``zenzic.toml``.
+        context: Build context from ``.zenzic.toml``.
         docs_root: Resolved absolute path to the ``docs/`` directory.
-        zensical_config: Parsed ``zensical.toml`` contents.
+        zensical_config: Parsed config payload from the active input source.
+        config_source: Internal source marker (``"zensical"`` or ``"mkdocs"``).
     """
 
     def __init__(
@@ -255,18 +206,27 @@ class ZensicalAdapter:
         context: BuildContext,
         docs_root: Path,
         zensical_config: dict[str, Any] | None = None,
+        *,
+        config_source: str = "zensical",
     ) -> None:
         self._docs_root = docs_root
         self._zensical_config: dict[str, Any] = (
             zensical_config if zensical_config is not None else {}
         )
-        # Locale configuration sourced entirely from BuildContext (zenzic.toml).
+        self._config_source = config_source
+        # Locale configuration sourced entirely from BuildContext (.zenzic.toml).
         self._locale_dirs: frozenset[str] = frozenset(context.locales)
         self._fallback_to_default: bool = context.fallback_to_default
 
-        # Pre-compute nav state from [project].nav in zensical.toml.
-        _project = self._zensical_config.get("project", {})
-        _raw_nav: list[object] = _project.get("nav", [])
+        if self._config_source == "mkdocs":
+            _project = self._zensical_config
+        else:
+            _project = self._zensical_config.get("project", {})
+        if not isinstance(_project, dict):
+            _project = {}
+
+        # Pre-compute nav state from active config source.
+        _raw_nav = _project.get("nav", [])
         self._nav_paths: frozenset[str] = frozenset(_extract_nav_paths(_raw_nav))
         # True only when the user supplied an explicit, non-empty nav list.
         self._has_explicit_nav: bool = bool(_raw_nav)
@@ -298,7 +258,7 @@ class ZensicalAdapter:
     ) -> bool:
         """Return ``True`` if an anchor miss should be suppressed via i18n fallback.
 
-        Locale configuration is sourced from ``BuildContext`` (``zenzic.toml``).
+        Locale configuration is sourced from ``BuildContext`` (``.zenzic.toml``).
 
         Args:
             resolved_file: Absolute path of the locale file whose anchor set
@@ -331,16 +291,18 @@ class ZensicalAdapter:
         return set()
 
     def has_engine_config(self) -> bool:
-        """``True`` — ZensicalAdapter is constructed only when zensical.toml exists."""
+        """``True`` — adapter is instantiated only when a supported config exists."""
         return True
 
     def get_metadata_files(self) -> frozenset[str]:
-        """Zensical configuration file — shielded from Z903."""
+        """Engine configuration files excluded from Z903."""
+        if self._config_source == "mkdocs":
+            return frozenset({"mkdocs.yml"})
         return frozenset({"zensical.toml"})
 
     # ── VSM integration ────────────────────────────────────────────────────────
 
-    def map_url(self, rel: Path) -> str:
+    def _map_url(self, rel: Path) -> str:
         """Map a physical source path to its Zensical canonical URL.
 
         Zensical always serves clean directory-style URLs.  Both ``index.md``
@@ -361,7 +323,7 @@ class ZensicalAdapter:
             index.md       → /index.html
 
         Files inside ``_private``-prefixed path segments are mapped normally
-        here; ``classify_route()`` marks them ``IGNORED``.
+        here; ``_classify_route()`` marks them ``IGNORED``.
 
         Args:
             rel: Path of the source file relative to ``docs_root``.
@@ -383,7 +345,7 @@ class ZensicalAdapter:
             return "/"
         return "/" + "/".join(parts) + "/"
 
-    def classify_route(self, rel: Path, nav_paths: frozenset[str]) -> RouteStatus:
+    def _classify_route(self, rel: Path, nav_paths: frozenset[str]) -> RouteStatus:
         """Classify a Zensical route by filesystem and nav rules.
 
         Priority chain:
@@ -410,7 +372,7 @@ class ZensicalAdapter:
     def get_nav_paths(self) -> frozenset[str]:
         """Return ``.md`` paths from ``[project].nav`` in ``zensical.toml``.
 
-        Supports all Zensical v0.0.31+ nav variants — plain strings, titled
+        Supports all supported nav variants — plain strings, titled
         pages, nested sections (see :func:`_extract_nav_paths`).
 
         Returns:
@@ -430,8 +392,8 @@ class ZensicalAdapter:
 
         nav_paths = self.get_nav_paths()
         return RouteMetadata(
-            canonical_url=self.map_url(rel),
-            status=self.classify_route(rel, nav_paths),
+            canonical_url=self._map_url(rel),
+            status=self._classify_route(rel, nav_paths),
         )
 
     def provides_index(self, directory_path: Path) -> bool:
@@ -455,9 +417,17 @@ class ZensicalAdapter:
         """Zensical has no engine-specific link-scheme bypass."""
         return frozenset()
 
-    def get_absolute_url_prefixes(self, repo_root: Path) -> frozenset[str]:
-        """Zensical is single-instance: no cross-plugin absolute prefixes to allowlist."""
-        return frozenset()
+    def get_extra_content_roots(self, repo_root: Path) -> list[Path]:  # noqa: ARG002
+        """Zensical does not define additional content roots outside docs_dir."""
+        return []
+
+    def get_locale_source_roots(self, repo_root: Path) -> list[tuple[Path, str]]:  # noqa: ARG002
+        """Zensical locale roots are currently declared inside docs_dir."""
+        return []
+
+    def get_absolute_url_prefixes(self, repo_root: Path | None = None) -> list[str]:  # noqa: ARG002
+        """Zensical is single-instance and exports no absolute URL prefixes."""
+        return []
 
     @classmethod
     def from_repo(
@@ -465,19 +435,24 @@ class ZensicalAdapter:
         context: BuildContext,
         docs_root: Path,
         repo_root: Path,
-    ) -> ZensicalAdapter | ZensicalLegacyProxy:
+    ) -> ZensicalAdapter:
         """Construct from a live repository root.
 
-        Enforces the Zensical contract: if ``zensical.toml`` is missing but
-        ``mkdocs.yml`` is present, returns a ZensicalLegacyProxy that delegates
-        to MkDocsAdapter, enabling a seamless migration path.
+        Resolution order:
+
+        1. ``zensical.toml`` (native source)
+        2. ``mkdocs.yml`` (compat input, Zensical semantics preserved)
         """
         if find_zensical_config(repo_root) is not None:
-            return cls(context, docs_root, _load_zensical_config(repo_root))
+            return cls(
+                context,
+                docs_root,
+                _load_zensical_config(repo_root),
+                config_source="zensical",
+            )
 
-        # Transparent Bridge: fallback to MkDocs config
-        if find_config_file(repo_root) is not None:
-            mkdocs_config = _load_doc_config(repo_root)
+        if find_mkdocs_config_file(repo_root) is not None:
+            mkdocs_config = load_mkdocs_config(repo_root)
             # Warn about unsupported keys
             for key in _UNSUPPORTED_MKDOCS_KEYS:
                 if key in mkdocs_config:
@@ -486,15 +461,17 @@ class ZensicalAdapter:
                         key,
                     )
 
-            # Delegate to MkDocsAdapter
-            adapter = MkDocsAdapter(context, docs_root, mkdocs_config, config_file_found=True)
-            return ZensicalLegacyProxy(adapter)
+            return cls(
+                context,
+                docs_root,
+                mkdocs_config,
+                config_source="mkdocs",
+            )
 
-        # Neither config exists
         raise ConfigurationError(
-            "engine 'zensical' declared in zenzic.toml but no configuration file was found",
+            "engine 'zensical' declared in .zenzic.toml but no configuration file was found",
             context={
                 "repo_root": str(repo_root),
-                "hint": "create zensical.toml (or mkdocs.yml for legacy mode)",
+                "hint": "create zensical.toml (or provide mkdocs.yml as compat input)",
             },
         )

@@ -1,8 +1,8 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
-"""EPOCH 7b — Virtual Route infrastructure and Docusaurus Tag Generator tests.
+"""v0.7.x — Virtual Route infrastructure and Docusaurus Tag Generator tests.
 
-Test numbering follows the EPOCH 7b specification:
+Test numbering follows the v0.7.x specification:
 
 Test 5 — Reverse-Mapping Invariant:
     ``VirtualRoute`` raises ``ValueError`` when ``source_files`` is empty;

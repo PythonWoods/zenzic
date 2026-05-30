@@ -1,16 +1,13 @@
-<!--
-SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
-SPDX-License-Identifier: Apache-2.0
-markdownlint-disable MD003
--->
 ---
-
 name: "🛡️ Gate Bypass Post-Mortem"
 about: "Break-Glass protocol — documented bypass of the `just verify` Final Guard."
 title: "[BYPASS] <short-emergency-description>"
 labels: ["gate-bypass", "priority:critical"]
 assignees: ""
 ---
+<!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<!-- markdownlint-disable MD003 MD041 -->
 
 <!-- markdownlint-disable MD003 -->
 
@@ -34,7 +31,7 @@ assignees: ""
 
 ## 🔍 3. Root Cause Analysis
 
-- [ ] **False positive** (Blood Sentinel / Shield flagged a legitimate value)
+- [ ] **False positive** (Z201 Credential Scanner / Path Traversal Gate flagged a legitimate value)
 - [ ] **Flakiness** (pytest-xdist timeout, `uv sync` failure, network)
 - [ ] **Infrastructure** (GitHub Actions / local runner offline)
 - [ ] **Technical debt** (coverage dropped below 80% on emergency code)

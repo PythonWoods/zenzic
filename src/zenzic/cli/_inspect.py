@@ -9,19 +9,18 @@ from rich import box
 from rich.table import Table
 from rich.text import Text
 
-from zenzic.core.codes import CORE_SCANNERS
+from zenzic.core.codes import CODE_NAMES, CORE_SCANNERS
 from zenzic.core.scanner import find_repo_root
-from zenzic.core.ui import SentinelPalette
+from zenzic.core.ui import ZenzicPalette
 from zenzic.models.config import ZenzicConfig
 
 from . import _shared
+from ._metadata import COMMAND_BY_NAME
 
 
-inspect_app = typer.Typer(
+inspect_app = _shared.create_app(
     name="inspect",
-    help=f"[bold {SentinelPalette.BRAND}]Inspect[/] — Introspect the Zenzic scanner arsenal and plugin registry.",
-    no_args_is_help=True,
-    rich_markup_mode="rich",
+    long_help=(f"[bold {ZenzicPalette.BRAND}]Inspect[/] — {COMMAND_BY_NAME['inspect'].long_help}"),
 )
 
 
@@ -29,7 +28,7 @@ def _inspect_capabilities() -> None:
     """Show the full Zenzic scanner arsenal.
 
     **Section A — Core Scanners (Built-in):** seven scanners compiled into
-    Zenzic itself.  The Shield (Z201) and Blood Sentinel (Z202–203) exit with
+    Zenzic itself.  The credential scanner (Z201) and path traversal guard (Z202–203) exit with
     codes 2 and 3 respectively — neither is suppressible with ``--exit-zero``.
 
     **Section B — Extensible Rules (Plugin System):** rules registered via the
@@ -43,11 +42,11 @@ def _inspect_capabilities() -> None:
 
     # ── Section A: Core Scanners ──────────────────────────────────────────
     core_table = Table(
-        title=f"[bold {SentinelPalette.BRAND}]Core Scanners[/]  [dim](built-in)[/dim]",
+        title=f"[bold {ZenzicPalette.BRAND}]Core Scanners[/]  [{ZenzicPalette.DIM}](built-in)[/]",
         title_justify="left",
         box=box.ROUNDED,
-        border_style=SentinelPalette.DIM,
-        header_style=SentinelPalette.STYLE_BRAND,
+        border_style=ZenzicPalette.DIM,
+        header_style=ZenzicPalette.STYLE_BRAND,
         pad_edge=True,
         padding=(0, 1),
     )
@@ -67,8 +66,8 @@ def _inspect_capabilities() -> None:
     _shared.console.print()
     _shared.console.print(
         Text.from_markup(
-            f"  [{SentinelPalette.DIM}]\u26a0  Exit 2 and Exit 3 are non-suppressible \u2014 "
-            f"--exit-zero has no effect on Shield or Blood Sentinel.[/{SentinelPalette.DIM}]"
+            f"  [{ZenzicPalette.DIM}]\u26a0  Exit 2 and Exit 3 are non-suppressible \u2014 "
+            f"--exit-zero has no effect on credential scanner or path traversal guard.[/{ZenzicPalette.DIM}]"
         )
     )
     _shared.console.print()
@@ -78,20 +77,20 @@ def _inspect_capabilities() -> None:
 
     rules_table = Table(
         title=(
-            f"[bold {SentinelPalette.BRAND}]Extensible Rules[/]  "
-            f"[dim](plugin system \u2014 zenzic.rules entry-point group)[/dim]"
+            f"[bold {ZenzicPalette.BRAND}]Extensible Rules[/]  "
+            f"[{ZenzicPalette.DIM}](plugin system — zenzic.rules entry-point group)[/]"
         ),
         title_justify="left",
         box=box.ROUNDED,
-        border_style=SentinelPalette.DIM,
-        header_style=SentinelPalette.STYLE_BRAND,
+        border_style=ZenzicPalette.DIM,
+        header_style=ZenzicPalette.STYLE_BRAND,
         pad_edge=True,
         padding=(0, 1),
     )
     rules_table.add_column("Rule", style="bold cyan", min_width=14)
     rules_table.add_column("Code", style="bold", min_width=6)
     rules_table.add_column("Origin", min_width=8)
-    rules_table.add_column("Class", style="dim")
+    rules_table.add_column("Class", style=ZenzicPalette.DIM)
 
     if rules:
         for info in rules:
@@ -101,12 +100,12 @@ def _inspect_capabilities() -> None:
             rules_table.add_row(info.source, info.rule_id, origin_badge, info.class_name)
     else:
         rules_table.add_row(
-            "[dim]\u2014[/dim]",
-            "[dim]\u2014[/dim]",
-            "[dim]\u2014[/dim]",
+            f"[{ZenzicPalette.DIM}]\u2014[/]",
+            f"[{ZenzicPalette.DIM}]\u2014[/]",
+            f"[{ZenzicPalette.DIM}]\u2014[/]",
             (
-                f"[{SentinelPalette.DIM}]No third-party plugins installed. "
-                f"Register rules via the zenzic.rules entry-point group.[/{SentinelPalette.DIM}]"
+                f"[{ZenzicPalette.DIM}]No third-party plugins installed. "
+                f"Register rules via the zenzic.rules entry-point group.[/{ZenzicPalette.DIM}]"
             ),
         )
 
@@ -116,9 +115,9 @@ def _inspect_capabilities() -> None:
     rule_count = len(rules)
     _shared.console.print(
         Text.from_markup(
-            f"  [{SentinelPalette.DIM}]{len(CORE_SCANNERS)} built-in scanners \u00b7 "
+            f"  [{ZenzicPalette.DIM}]{len(CORE_SCANNERS)} built-in scanners \u00b7 "
             f"{rule_count} extensible rule{'s' if rule_count != 1 else ''} registered"
-            f"[/{SentinelPalette.DIM}]"
+            f"[/{ZenzicPalette.DIM}]"
         )
     )
     _shared.console.print()
@@ -126,13 +125,13 @@ def _inspect_capabilities() -> None:
     # ── Section C: Engine-specific Link Bypasses ──────────────────────────
     bypass_table = Table(
         title=(
-            f"[bold {SentinelPalette.BRAND}]Engine-specific Link Bypasses[/]  "
-            f"[dim](Rule R21 \u2014 Protocol Sovereignty)[/dim]"
+            f"[bold {ZenzicPalette.BRAND}]Engine-specific Link Bypasses[/]  "
+            f"[{ZenzicPalette.DIM}](Rule R21 — Protocol Sovereignty)[/]"
         ),
         title_justify="left",
         box=box.ROUNDED,
-        border_style=SentinelPalette.DIM,
-        header_style=SentinelPalette.STYLE_BRAND,
+        border_style=ZenzicPalette.DIM,
+        header_style=ZenzicPalette.STYLE_BRAND,
         pad_edge=True,
         padding=(0, 1),
     )
@@ -145,23 +144,23 @@ def _inspect_capabilities() -> None:
             "docusaurus",
             "DocusaurusAdapter",
             Text.from_markup(
-                f"[bold]pathname:[/bold]  [{SentinelPalette.DIM}](static-asset routing escape hatch)[/{SentinelPalette.DIM}]"
+                f"[bold]pathname:[/bold]  [{ZenzicPalette.DIM}](static-asset routing escape hatch)[/{ZenzicPalette.DIM}]"
             ),
         ),
         (
             "mkdocs",
             "MkDocsAdapter",
-            Text.from_markup(f"[{SentinelPalette.DIM}](none)[/{SentinelPalette.DIM}]"),
+            Text.from_markup(f"[{ZenzicPalette.DIM}](none)[/{ZenzicPalette.DIM}]"),
         ),
         (
             "zensical",
             "ZensicalAdapter",
-            Text.from_markup(f"[{SentinelPalette.DIM}](none)[/{SentinelPalette.DIM}]"),
+            Text.from_markup(f"[{ZenzicPalette.DIM}](none)[/{ZenzicPalette.DIM}]"),
         ),
         (
             "standalone",
             "StandaloneAdapter",
-            Text.from_markup(f"[{SentinelPalette.DIM}](none)[/{SentinelPalette.DIM}]"),
+            Text.from_markup(f"[{ZenzicPalette.DIM}](none)[/{ZenzicPalette.DIM}]"),
         ),
     ]
     for _engine, _adapter, _bypasses in _BYPASS_ROWS:
@@ -171,11 +170,12 @@ def _inspect_capabilities() -> None:
     _shared.console.print()
     _shared.console.print(
         Text.from_markup(
-            f"  [{SentinelPalette.DIM}]R21: engine-specific behaviour is declared in the adapter "
+            f"  [{ZenzicPalette.DIM}]R21: engine-specific behaviour is declared in the adapter "
             f"via get_link_scheme_bypasses() \u2014 validator.py never hardcodes engine names."
-            f"[/{SentinelPalette.DIM}]"
+            f"[/{ZenzicPalette.DIM}]"
         )
     )
+    _shared.print_footer_hint("inspect")
 
 
 # Canonical command
@@ -183,6 +183,107 @@ inspect_app.command(
     name="capabilities",
     help="Show all built-in scanners, plugin rules, and engine-specific link bypasses.",
 )(_inspect_capabilities)
+
+
+@inspect_app.command(name="codes")
+def inspect_codes(
+    tier: str = typer.Option(
+        "all",
+        "--tier",
+        help="Filter by tier: core, governance, plugin, custom, or all.",
+        show_default=True,
+    ),
+) -> None:
+    """Show code registry grouped by tier with activation status from config."""
+    from zenzic.core.rules import list_plugin_rules
+
+    tier_normalized = tier.strip().lower()
+    valid_tiers = {"core", "governance", "plugin", "custom", "all"}
+    if tier_normalized not in valid_tiers:
+        _shared.console.print(
+            "[bold red]Error:[/] --tier must be one of: core, governance, plugin, custom, all"
+        )
+        raise typer.Exit(1)
+
+    repo_root = find_repo_root()
+    config, _ = ZenzicConfig.load(repo_root)
+
+    def _badge(active: bool) -> str:
+        return (
+            "[bold green][ACTIVE][/bold green]" if active else f"[{ZenzicPalette.DIM}][inactive][/]"
+        )
+
+    rows: dict[str, list[tuple[str, str, str]]] = {
+        "core": [],
+        "governance": [],
+        "plugin": [],
+        "custom": [],
+    }
+
+    # Core + Governance (from canonical registry)
+    for code in sorted(CODE_NAMES.keys(), key=lambda c: int(c[1:])):
+        if code.startswith("Z6"):
+            is_active = True
+            if code == "Z601":
+                is_active = bool(config.governance.brand_obsolescence)
+            elif code == "Z602":
+                is_active = config.governance.i18n_parity
+            rows["governance"].append((code, CODE_NAMES[code], _badge(is_active)))
+        else:
+            rows["core"].append((code, CODE_NAMES[code], _badge(True)))
+
+    # Plugin tier (third-party only; core-origin entry points excluded)
+    plugin_infos = [info for info in list_plugin_rules() if info.origin != "zenzic"]
+    for info in plugin_infos:
+        rows["plugin"].append(
+            (info.rule_id, info.source, _badge(info.source in set(config.plugins)))
+        )
+
+    # Custom tier (local TOML custom rules)
+    for cr in config.custom_rules:
+        rows["custom"].append((cr.id, "custom rule", _badge(True)))
+
+    if tier_normalized == "all":
+        selected_tiers = ["core", "governance", "plugin", "custom"]
+    else:
+        selected_tiers = [tier_normalized]
+
+    table = Table(
+        title=f"[bold {ZenzicPalette.BRAND}]Code Registry[/] · tier view",
+        title_justify="left",
+        box=box.ROUNDED,
+        border_style=ZenzicPalette.DIM,
+        header_style=ZenzicPalette.STYLE_BRAND,
+        pad_edge=True,
+        padding=(0, 1),
+    )
+    table.add_column("Tier", style="bold cyan", min_width=12, no_wrap=True)
+    table.add_column("Code", style="bold", min_width=10, no_wrap=True)
+    table.add_column("Name", min_width=20)
+    table.add_column("Status", min_width=10, no_wrap=True)
+
+    title_map = {
+        "core": "Core",
+        "governance": "Governance",
+        "plugin": "Plugin",
+        "custom": "Custom",
+    }
+    for idx, tier_name in enumerate(selected_tiers):
+        tier_rows = rows[tier_name]
+        if not tier_rows:
+            table.add_row(
+                title_map[tier_name], "—", "No entries", f"[{ZenzicPalette.DIM}][inactive][/]"
+            )
+        else:
+            for code, name, status in tier_rows:
+                table.add_row(title_map[tier_name], code, name, status)
+        if idx < len(selected_tiers) - 1:
+            table.add_section()
+
+    _shared.console.print()
+    _shared.console.print(table)
+    _shared.console.print()
+    _shared.print_footer_hint("inspect")
 
 
 @inspect_app.command(name="routes")
@@ -215,6 +316,7 @@ def inspect_routes(
 
     from zenzic.core.adapters import get_adapter
     from zenzic.core.discovery import (
+        build_content_mounts,
         iter_extra_content_markdown_sources,
         iter_markdown_sources,
     )
@@ -247,19 +349,24 @@ def inspect_routes(
             continue
 
     # ── Pass 1c: include extra content roots (blog/, etc.) ────────────────────
-    extra_content_roots: list[tuple[Path, str]] = []
-    if hasattr(adapter, "get_extra_content_roots"):
-        for content_root in adapter.get_extra_content_roots(repo_root):
-            extra_content_roots.append((content_root.path, content_root.url_prefix))
-            for abs_path, _ in iter_extra_content_markdown_sources(
-                content_root.path, content_root.url_prefix, config, exclusion_mgr
-            ):
-                try:
-                    md_contents[abs_path.resolve()] = abs_path.read_text(encoding="utf-8")
-                except OSError:
-                    continue
+    extra_content_roots = adapter.get_extra_content_roots(repo_root)
+    extra_content_mounts = build_content_mounts(extra_content_roots, repo_root=repo_root)
+    for content_root, url_prefix in extra_content_mounts:
+        for abs_path, _ in iter_extra_content_markdown_sources(
+            content_root, url_prefix, config, exclusion_mgr
+        ):
+            try:
+                md_contents[abs_path.resolve()] = abs_path.read_text(encoding="utf-8")
+            except OSError:
+                continue
 
-    vsm = build_vsm(adapter, docs_root, md_contents, extra_content_roots=extra_content_roots)
+    vsm = build_vsm(
+        adapter,
+        docs_root,
+        md_contents,
+        extra_content_roots=extra_content_roots,
+        repo_root=repo_root,
+    )
 
     # ── Virtual route kind lookup (call once; idempotent with build_vsm's call) ─
     virtual_kind_map: dict[str, str] = {}
@@ -272,7 +379,7 @@ def inspect_routes(
     # Docs-root files are relative to docs/, so prepend docs_dir to make them
     # repo-relative (e.g. "intro.md" → "docs/intro.md").
     _extra_prefixes: frozenset[str] = frozenset(
-        prefix.rstrip("/") for _, prefix in extra_content_roots if prefix
+        prefix.rstrip("/") for _, prefix in extra_content_mounts if prefix
     )
     _docs_prefix = config.docs_dir.as_posix().rstrip("/")
 
@@ -328,15 +435,15 @@ def inspect_routes(
         title=f"[bold]Site Map[/] · {label}",
         title_justify="left",
         box=box.ROUNDED,
-        border_style=SentinelPalette.DIM,
-        header_style=SentinelPalette.STYLE_BRAND,
+        border_style=ZenzicPalette.DIM,
+        header_style=ZenzicPalette.STYLE_BRAND,
         pad_edge=True,
         padding=(0, 1),
     )
     table.add_column("URL", style="bold cyan", no_wrap=True)
     table.add_column("Kind", min_width=10)
     table.add_column("Source Files")
-    table.add_column("Digest", style="dim", min_width=12, no_wrap=True)
+    table.add_column("Digest", style=ZenzicPalette.DIM, min_width=12, no_wrap=True)
 
     for rec in records:
         table.add_row(
@@ -349,3 +456,4 @@ def inspect_routes(
     _shared.console.print()
     _shared.console.print(table)
     _shared.console.print()
+    _shared.print_footer_hint("inspect")

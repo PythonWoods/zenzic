@@ -10,12 +10,13 @@ from __future__ import annotations
 
 from ._check import (
     _AllCheckResults,
-    _apply_target,
     _collect_all_results,
     _to_findings,
     check_app,
 )
 from ._clean import clean_app
+from ._config_explain import config_app
+from ._guard import guard_app
 from ._inspect import inspect_app
 from ._lab import lab
 from ._shared import (
@@ -25,17 +26,21 @@ from ._shared import (
     get_console,
     get_ui,
 )
-from ._standalone import diff, init, score
+from ._standalone import diff, explain, init, score
+from ._target_resolver import _apply_target
 
 
 __all__ = [
     # Typer sub-apps (registered in main.py)
     "check_app",
     "clean_app",
+    "config_app",
+    "guard_app",
     "inspect_app",
     # Standalone commands (registered in main.py)
     "score",
     "diff",
+    "explain",
     "init",
     "lab",
     # Console control (called from main.py @app.callback)

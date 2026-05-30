@@ -92,11 +92,11 @@ body:
       required: false
 
   - type: textarea
-    id: shield_log
+    id: zenzic_log
     attributes:
-      label: Shield / Blood Sentinel output (if applicable)
+      label: Zenzic alert output (exit codes 2–3) (if applicable)
       description: >
-        If the bug involves exit code 2 (Shield) or exit code 3 (Blood Sentinel),
+        If the bug involves exit code 2 (credential alert) or exit code 3 (path traversal),
         paste the relevant output here. **Redact any real secrets or paths before posting.**
       render: text
     validations:

@@ -144,7 +144,6 @@ artifacts/
 .vscode/
 !.vscode/extensions.json
 !.vscode/settings.json
-!.vscode/mcp.json
 
 # IntelliJ IDEA / PyCharm
 .idea/
@@ -203,3 +202,6 @@ zenzic.code-workspace
 # ImageMagick / tooling artifacts
 *.ps
 /sys
+
+# VS Code Copilot agent definitions (local-only)
+.github/agents/

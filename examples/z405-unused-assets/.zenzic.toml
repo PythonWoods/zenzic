@@ -1,0 +1,16 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# .zenzic.toml — Z405 UNREFERENCED_ASSET gallery example
+#
+# assets/banner.png exists on disk but is never referenced in any document.
+# Zenzic's asset scanner flags it as UNREFERENCED_ASSET (Z405).
+#
+# Expected results:
+#   zenzic check assets   → EXIT 1  (Z405 ×1 — banner.png unreferenced)
+#   zenzic check all      → EXIT 1
+
+docs_dir = "docs"
+fail_under = 0
+
+[build_context]
+engine = "standalone"

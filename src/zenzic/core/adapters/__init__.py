@@ -5,10 +5,10 @@
 Public API
 ----------
 All symbols below are importable from either ``zenzic.core.adapters`` or
-the legacy alias ``zenzic.core.adapter`` (both resolve to the same objects).
+the alias ``zenzic.core.adapter`` (both resolve to the same objects).
 
 Classes:
-    BaseAdapter       — ``@runtime_checkable`` Protocol every adapter must satisfy.
+    BaseAdapter       — Strict ABC contract every adapter must subclass.
     MkDocsAdapter     — Folder-mode and suffix-mode i18n for MkDocs projects.
     ZensicalAdapter   — Native TOML-based adapter for Zensical projects.
     StandaloneAdapter — No-op adapter for projects with no recognised engine.

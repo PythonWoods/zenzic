@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
 #
-# just — interactive developer workflow (4-Gates Standard, EPOCH 4 / v0.7.0).
+# just — interactive developer workflow (Standard Documentation Workflow).
 #
 # Single source of truth for the quality pipeline. `just verify` is the
 # atomic entry-point invoked by the pre-push hook AND by GitHub Actions:
@@ -24,6 +24,8 @@ runner     := "uv run --active"
 nox_runner := "uv run nox -s"
 # Keep BUILD_DATE deterministic across Ubuntu and Git Bash on Windows runners.
 export BUILD_DATE := `date -u +'%Y/%m/%d'`
+# ZENZIC_EXTRA_ARGS: allow runtime flag injection (e.g. --no-external)
+ZENZIC_EXTRA_ARGS := env_var_or_default("ZENZIC_EXTRA_ARGS", "")
 
 # ─── Workflow ─────────────────────────────────────────────────────────────────
 
@@ -31,17 +33,13 @@ export BUILD_DATE := `date -u +'%Y/%m/%d'`
 sync:
     uv sync --all-groups
 
-# Self-linting: run Zenzic on its own documentation (The Sentinel's duty).
+# Self-linting: run Zenzic on its own documentation (core integrity check).
 # ZRT-010 — Sovereign Parity: Pre-Launch Guard inlined; local == CI.
 # Pass extra flags directly: just check --no-external
 check *args:
     #!/usr/bin/env bash
     set -euo pipefail
-    # Permanent exclusion: contributor-covenant.org is a flaky third-party URL.
-    GUARD=(
-      --exclude-url "https://www.contributor-covenant.org/version/2/1/code_of_conduct.html"
-    )
-    {{ runner }} zenzic check all --strict "${GUARD[@]}" {{ args }}
+    {{ runner }} zenzic check all --strict {{ ZENZIC_EXTRA_ARGS }} {{ args }}
 
 # Inner loop: ultra-fast, parallel, no coverage (TDD feedback).
 # Pillar 3 (Pure Functions) guarantees pytest-xdist worker isolation.
@@ -72,22 +70,54 @@ test-full *args:
 
 # Fast linter pass: run all pre-commit hooks without the full test suite.
 lint:
-    uvx pre-commit run --all-files
+    {{ runner }} pre-commit run --all-files
 
 # Final Guard: atomic verification invoked by pre-push hook + GHA.
-# Sequence: pre-commit (all hooks) → test-cov (with coverage gate) → zenzic self-check.
-verify: _check-hooks release-contracts
-    uvx pre-commit run --all-files
-    just test-cov
-    just check
+# Sequence: pre-commit (all hooks) → pytest tests/ → structural audit → score + stamp → badge freshness.
+verify: _check-hooks release-contracts check-pinning
+    @echo "==> [1/5] Pre-commit hooks (lint, type-check, REUSE)..."
+    {{ runner }} pre-commit run --all-files
+    @echo "==> [2/5] Test suite..."
+    {{ runner }} pytest tests/
+    @echo "==> [3/5] Structural audit (zenzic check all --strict)..."
+    {{ runner }} zenzic check all --strict {{ ZENZIC_EXTRA_ARGS }}
+    @echo "==> [4/5] Score computation and badge stamp (zenzic score --stamp)..."
+    {{ runner }} zenzic score --stamp --no-header
+    @echo "==> [5/5] Badge freshness gate..."
+    {{ runner }} zenzic score --check-stamp --no-header
+
+# ADR-089 — Immutable Infrastructure guard on local hooks (internal CI policy,
+# not a public Zenzic linter rule). Pre-commit `rev:` keys must be 40-char
+# commit SHAs, not mutable tags. Regex anchored to line-start so the
+# `# vX.Y.Z` annotation comment is safe.
+check-pinning:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "Validating Immutable Infrastructure (ADR-089)..."
+    if grep -E '^[[:space:]]*rev:[[:space:]]*v?[0-9]+\.[0-9]+' .pre-commit-config.yaml >/dev/null 2>&1; then
+        echo "[ADR-089] FATAL: Unpinned tag detected in pre-commit config. Zenzic internal policy requires SHA-256 pinning." >&2
+        grep -nE '^[[:space:]]*rev:[[:space:]]*v?[0-9]+\.[0-9]+' .pre-commit-config.yaml >&2
+        echo "👉 Update via: uvx pre-commit autoupdate --freeze" >&2
+        exit 1
+    fi
+    echo "✓ ADR-089: all pre-commit hooks pinned to immutable commit hashes."
 
 _check-hooks:
     #!/usr/bin/env bash
-    if [ ! -f .git/hooks/pre-push ]; then
-        echo -e "\033[33m⚠️  WARNING: Pre-push hook is not installed.\033[0m"
-        echo "Without it, you might accidentally push broken code to GitHub and fail the remote CI."
-        echo "👉 Fix it by running: uvx pre-commit install -t pre-push"
+    _missing=0
+    if [ ! -f .git/hooks/pre-commit ]; then
+        echo -e "\033[33m⚠️  WARNING: pre-commit hook is not installed.\033[0m"
+        echo "Without it, linters and type-checks will NOT run automatically on git commit."
+        echo "👉 Fix it by running: uv run --active pre-commit install"
         echo ""
+        _missing=1
+    fi
+    if [ ! -f .git/hooks/pre-push ]; then
+        echo -e "\033[33m⚠️  WARNING: pre-push hook is not installed.\033[0m"
+        echo "Without it, you might accidentally push broken code to GitHub and fail the remote CI."
+        echo "👉 Fix it by running: uv run --active pre-commit install -t pre-push"
+        echo ""
+        _missing=1
     fi
 
 # Enforce release contracts: dirty allowed only in release-dry.

@@ -1,0 +1,17 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# .zenzic.toml — Z201 CREDENTIAL_SECRET gallery example
+#
+# docs/setup.md contains a fake AWS access key embedded in a YAML code block.
+# The credential scanner detects it without external network calls and raises
+# SECURITY BREACH (exit 2).
+#
+# Expected results:
+#   zenzic check credentials   → EXIT 2  (Z201 ×1 — aws-access-key)
+#   zenzic check all           → EXIT 2  (security tier overrides quality score)
+
+docs_dir = "docs"
+fail_under = 0
+
+[build_context]
+engine = "standalone"

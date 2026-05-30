@@ -8,14 +8,15 @@ authors:
   - name: "PythonWoods"
     email: "dev@pythonwoods.dev"
     website: "https://pythonwoods.dev"
-title: "Zenzic: Resilient Static Content Analysis Framework"
+title: "Zenzic: Static Analysis for Markdown Documentation"
 abstract: >-
-  A high-performance, engine-agnostic framework for securing and validating
-  Markdown-based documentation. Zenzic introduces Universal Discovery,
-  VCS-aware exclusion mapping, and the Sentinel Shield middleware to provide
-  a deterministic Safe Harbor for complex documentation lifecycles.
-version: 0.7.1
-date-released: 2026-05-08
+  A high-performance, engine-agnostic tool for structural integrity and
+  credential leak detection in Markdown and MDX documentation. Zenzic
+  performs deterministic static analysis using a two-pass reference
+  pipeline and a RE2-backed credential scanner, with zero subprocess
+  calls and full SARIF 2.1.0 support for CI/CD integration.
+version: 0.8.0
+date-released: 2026-05-29
 url: "https://zenzic.dev"
 repository-code: "https://github.com/PythonWoods/zenzic"
 repository-artifact: "https://pypi.org/project/zenzic/"

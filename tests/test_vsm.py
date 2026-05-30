@@ -42,7 +42,7 @@ def _write_mkdocs(root: Path, config: dict) -> None:
 
 
 def _write_zenzic_toml(root: Path, engine: str = "mkdocs") -> None:
-    (root / "zenzic.toml").write_text(f'[build_context]\nengine = "{engine}"\n', encoding="utf-8")
+    (root / ".zenzic.toml").write_text(f'[build_context]\nengine = "{engine}"\n', encoding="utf-8")
 
 
 # ─── Route dataclass ──────────────────────────────────────────────────────────
@@ -127,33 +127,35 @@ class TestMkDocsAdapterMapUrl:
 
     def test_page_md_maps_to_slash_page_slash(self) -> None:
         a = self._make_adapter()
-        assert a.map_url(Path("page.md")) == "/page/"
+        assert a.get_route_info(Path("page.md")).canonical_url == "/page/"
 
     def test_index_md_maps_to_slash(self) -> None:
         a = self._make_adapter()
-        assert a.map_url(Path("index.md")) == "/"
+        assert a.get_route_info(Path("index.md")).canonical_url == "/"
 
     def test_nested_index_md(self) -> None:
         a = self._make_adapter()
-        assert a.map_url(Path("guide/index.md")) == "/guide/"
+        assert a.get_route_info(Path("guide/index.md")).canonical_url == "/guide/"
 
     def test_readme_md_same_as_index(self) -> None:
         """README.md must produce the same URL as index.md → collision risk."""
         a = self._make_adapter()
-        assert a.map_url(Path("guide/README.md")) == "/guide/"
+        assert a.get_route_info(Path("guide/README.md")).canonical_url == "/guide/"
 
     def test_nested_page(self) -> None:
         a = self._make_adapter()
-        assert a.map_url(Path("guide/installation.md")) == "/guide/installation/"
+        assert (
+            a.get_route_info(Path("guide/installation.md")).canonical_url == "/guide/installation/"
+        )
 
     def test_no_directory_urls(self) -> None:
         a = self._make_adapter({"use_directory_urls": False})
-        assert a.map_url(Path("page.md")) == "/page.html"
+        assert a.get_route_info(Path("page.md")).canonical_url == "/page.html"
 
     def test_no_directory_urls_index(self) -> None:
         # With use_directory_urls=false, guide/index.md → parts=["guide"] → /guide.html
         a = self._make_adapter({"use_directory_urls": False})
-        assert a.map_url(Path("guide/index.md")) == "/guide.html"
+        assert a.get_route_info(Path("guide/index.md")).canonical_url == "/guide.html"
 
 
 # ─── MkDocsAdapter.classify_route ────────────────────────────────────────────
@@ -167,19 +169,19 @@ class TestMkDocsAdapterClassifyRoute:
 
     def test_file_in_nav_is_reachable(self) -> None:
         a = self._make_adapter(frozenset({"index.md"}))
-        assert a.classify_route(Path("index.md"), frozenset({"index.md"})) == "REACHABLE"
+        assert a.get_route_info(Path("index.md")).status == "REACHABLE"
 
     def test_file_not_in_nav_is_orphan(self) -> None:
         a = self._make_adapter(frozenset({"index.md"}))
-        assert a.classify_route(Path("draft.md"), frozenset({"index.md"})) == "ORPHAN_BUT_EXISTING"
+        assert a.get_route_info(Path("draft.md")).status == "ORPHAN_BUT_EXISTING"
 
     def test_readme_not_in_nav_is_ignored(self) -> None:
         a = self._make_adapter(frozenset({"index.md"}))
-        assert a.classify_route(Path("README.md"), frozenset({"index.md"})) == "IGNORED"
+        assert a.get_route_info(Path("README.md")).status == "IGNORED"
 
     def test_readme_in_nav_is_reachable(self) -> None:
         a = self._make_adapter(frozenset({"README.md"}))
-        assert a.classify_route(Path("README.md"), frozenset({"README.md"})) == "REACHABLE"
+        assert a.get_route_info(Path("README.md")).status == "REACHABLE"
 
 
 # ─── Ghost Route: reconfigure_material locale entry points ───────────────────
@@ -238,13 +240,13 @@ class TestGhostRouteReconfigureMaterial:
     def test_locale_index_is_reachable_when_reconfigure_material_true(self) -> None:
         """it/index.md → REACHABLE when reconfigure_material: true."""
         a = self._make_adapter(_GHOST_ROUTE_CONFIG_ON)
-        assert a.classify_route(Path("it/index.md"), _NAV_PATHS) == "REACHABLE"
+        assert a.get_route_info(Path("it/index.md")).status == "REACHABLE"
 
     def test_locale_readme_is_ignored_not_a_ghost_route(self) -> None:
         """it/README.md → IGNORED: the README.md rule (rule 1) fires before the
         ghost-route rule.  Material does not synthesise README entry points."""
         a = self._make_adapter(_GHOST_ROUTE_CONFIG_ON)
-        assert a.classify_route(Path("it/README.md"), _NAV_PATHS) == "IGNORED"
+        assert a.get_route_info(Path("it/README.md")).status == "IGNORED"
 
     # ── Regression path (reconfigure_material: false) ────────────────────────
     # NOTE: we use it/extra.md (no default-locale equivalent in nav) rather than
@@ -256,7 +258,7 @@ class TestGhostRouteReconfigureMaterial:
         """it/extra.md has no default-locale equivalent in nav → ORPHAN_BUT_EXISTING
         when reconfigure_material: false (ghost-route rule inactive)."""
         a = self._make_adapter(_GHOST_ROUTE_CONFIG_OFF)
-        assert a.classify_route(Path("it/extra.md"), _NAV_PATHS) == "ORPHAN_BUT_EXISTING"
+        assert a.get_route_info(Path("it/extra.md")).status == "ORPHAN_BUT_EXISTING"
 
     def test_non_shadow_locale_page_is_orphan_when_reconfigure_material_absent(self) -> None:
         """it/extra.md → ORPHAN_BUT_EXISTING when reconfigure_material key is absent."""
@@ -275,16 +277,15 @@ class TestGhostRouteReconfigureMaterial:
             "nav": [{"Home": "index.md"}],
         }
         a = self._make_adapter(config_no_key)
-        assert a.classify_route(Path("it/extra.md"), _NAV_PATHS) == "ORPHAN_BUT_EXISTING"
+        assert a.get_route_info(Path("it/extra.md")).status == "ORPHAN_BUT_EXISTING"
 
     # ── Boundary: explicit nav entry must NOT be overridden ──────────────────
 
     def test_locale_index_in_nav_stays_reachable_regardless_of_flag(self) -> None:
         """If it/index.md is explicitly in nav, classify_route must return REACHABLE
         via the standard nav path — the reconfigure_material branch is never reached."""
-        nav_with_locale = frozenset({"index.md", "it/index.md"})
         a = self._make_adapter(_GHOST_ROUTE_CONFIG_ON)
-        assert a.classify_route(Path("it/index.md"), nav_with_locale) == "REACHABLE"
+        assert a.get_route_info(Path("it/index.md")).status == "REACHABLE"
 
     # ── Boundary: deeper locale pages are NOT ghost routes ───────────────────
 
@@ -294,7 +295,7 @@ class TestGhostRouteReconfigureMaterial:
         is_shadow_of_nav_page, not the ghost-route rule)."""
         a = self._make_adapter(_GHOST_ROUTE_CONFIG_ON)
         # guide/index.md is not in nav → shadow check also returns False → ORPHAN
-        assert a.classify_route(Path("it/guide/index.md"), _NAV_PATHS) == "ORPHAN_BUT_EXISTING"
+        assert a.get_route_info(Path("it/guide/index.md")).status == "ORPHAN_BUT_EXISTING"
 
     # ── End-to-end VSM integration (filesystem) ──────────────────────────────
 
@@ -338,28 +339,33 @@ class TestZensicalAdapterMapUrl:
         return ZensicalAdapter(BuildContext(), Path("/docs"), {})
 
     def test_page_md(self) -> None:
-        assert self._make_adapter().map_url(Path("page.md")) == "/page/"
+        assert self._make_adapter().get_route_info(Path("page.md")).canonical_url == "/page/"
 
     def test_index_md(self) -> None:
-        assert self._make_adapter().map_url(Path("index.md")) == "/"
+        assert self._make_adapter().get_route_info(Path("index.md")).canonical_url == "/"
 
     def test_readme_md_treated_as_index(self) -> None:
-        assert self._make_adapter().map_url(Path("guide/README.md")) == "/guide/"
+        assert (
+            self._make_adapter().get_route_info(Path("guide/README.md")).canonical_url == "/guide/"
+        )
 
     def test_nested_page(self) -> None:
-        assert self._make_adapter().map_url(Path("guide/install.md")) == "/guide/install/"
+        assert (
+            self._make_adapter().get_route_info(Path("guide/install.md")).canonical_url
+            == "/guide/install/"
+        )
 
     def test_all_files_reachable(self) -> None:
         a = self._make_adapter()
-        assert a.classify_route(Path("any/page.md"), frozenset()) == "REACHABLE"
+        assert a.get_route_info(Path("any/page.md")).status == "REACHABLE"
 
     def test_underscore_prefix_is_ignored(self) -> None:
         a = self._make_adapter()
-        assert a.classify_route(Path("_private/notes.md"), frozenset()) == "IGNORED"
+        assert a.get_route_info(Path("_private/notes.md")).status == "IGNORED"
 
     def test_underscore_in_nested_segment_is_ignored(self) -> None:
         a = self._make_adapter()
-        assert a.classify_route(Path("section/_draft.md"), frozenset()) == "IGNORED"
+        assert a.get_route_info(Path("section/_draft.md")).status == "IGNORED"
 
 
 # ─── build_vsm (I/O boundary) ─────────────────────────────────────────────────

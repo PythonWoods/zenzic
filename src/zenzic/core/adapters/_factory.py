@@ -11,7 +11,7 @@ installed package can contribute an adapter by declaring it in ``pyproject.toml`
     myengine = "my_package.adapter:MyEngineAdapter"
 
 The **key** (e.g. ``myengine``) is the engine name users declare in
-``zenzic.toml`` or pass via ``--engine``.
+``.zenzic.toml`` or pass via ``--engine``.
 
 Adapter construction protocol
 ------------------------------
@@ -35,10 +35,11 @@ from __future__ import annotations
 import threading
 from importlib.metadata import entry_points
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from zenzic.models.config import BuildContext
 
+from ._base import BaseAdapter
 from ._docusaurus import DocusaurusAdapter
 from ._mkdocs import MkDocsAdapter
 from ._standalone import StandaloneAdapter
@@ -59,12 +60,12 @@ _BUILTIN_ADAPTERS: dict[str, type[Any]] = {
 def discover_engine(repo_root: Path) -> str:
     """Probe *repo_root* for known engine config files and return the canonical engine name.
 
-    Priority order (Quartz Discovery Logic):
+    Priority order (Engine Discovery Logic):
 
     1. ``zensical.toml``      → ``"zensical"``
     2. ``docusaurus.config.ts`` or ``docusaurus.config.js`` → ``"docusaurus"``
     3. ``mkdocs.yml``         → ``"mkdocs"``
-    4. No marker found        → ``"standalone"`` (universal Safe Harbor)
+    4. No marker found        → ``"standalone"`` (universal fallback mode)
 
     This function is called when ``BuildContext.engine == "auto"`` (the default),
     replacing the previous implicit assumption that the engine was MkDocs.
@@ -87,19 +88,7 @@ def _load_adapter_class(engine: str) -> type[Any] | None:
     1. ``zenzic.adapters`` entry-point group (allows third-party overrides).
     2. Built-in adapter registry (always available regardless of install state).
 
-    Raises:
-        :class:`~zenzic.core.exceptions.ConfigurationError`: when *engine* is
-            ``"vanilla"`` (removed in v0.6.1 — use ``"standalone"`` instead).
     """
-    from zenzic.core.exceptions import ConfigurationError  # deferred: avoid circular import
-
-    # Permanent guard: engine = "vanilla" was removed in v0.6.1 and replaced by
-    # "standalone". Raise a descriptive error instead of silently falling back.
-    if engine == "vanilla":
-        raise ConfigurationError(
-            "[Z000] Engine 'vanilla' has been removed. "
-            'Update your zenzic.toml: set engine = "standalone" instead.'
-        )
     eps = entry_points(group="zenzic.adapters")
     for ep in eps:
         if ep.name == engine:
@@ -120,7 +109,7 @@ def list_adapter_engines() -> list[str]:
 # execution model uses ProcessPoolExecutor (each worker has its own cache).
 # This eliminates the risk of double-instantiation if a future caller uses
 # ThreadPoolExecutor without requiring a code-level change here.
-_adapter_cache: dict[tuple[str, Path, Path], Any] = {}
+_adapter_cache: dict[tuple[str, Path, Path], BaseAdapter] = {}
 _adapter_cache_lock: threading.Lock = threading.Lock()
 
 
@@ -138,7 +127,7 @@ def get_adapter(
     context: BuildContext,
     docs_root: Path,
     repo_root: Path,
-) -> Any:
+) -> BaseAdapter:
     """Return the adapter for the declared build engine via entry-point discovery.
 
     Resolution order:
@@ -158,7 +147,7 @@ def get_adapter(
     Zenzic core** — only installing an adapter package is required.
 
     Args:
-        context: Build context from ``zenzic.toml``.
+        context: Build context from ``.zenzic.toml``.
         docs_root: Resolved absolute path to the ``docs/`` directory.
         repo_root: Resolved absolute path to the repository root (passed to
             ``from_repo`` when the adapter supports it).
@@ -172,7 +161,7 @@ def get_adapter(
             discovered adapter's ``from_repo`` raises one (e.g.
             ``ZensicalAdapter`` raises when ``zensical.toml`` is absent).
     """
-    # Quartz Discovery: resolve "auto" to a concrete engine name by probing
+    # Engine auto-discovery: resolve "auto" to a concrete engine name by probing
     # repo_root for known engine config files.  Mutating context.engine here
     # propagates to the reporter (telemetry line) and _collect_all_results
     # (Z404 config-asset checks) without any additional wiring.
@@ -186,13 +175,31 @@ def get_adapter(
 
     adapter_class = _load_adapter_class(context.engine)
 
+    if adapter_class is not None:
+        try:
+            if not issubclass(adapter_class, BaseAdapter):
+                raise TypeError(
+                    f"Adapter class for engine {context.engine!r} must subclass BaseAdapter"
+                )
+        except TypeError as exc:
+            if "issubclass" in str(exc):
+                raise TypeError(
+                    f"Adapter entry-point for engine {context.engine!r} did not resolve to a class"
+                ) from exc
+            raise
+
     if adapter_class is None or adapter_class is StandaloneAdapter:
-        adapter: Any = StandaloneAdapter()
+        adapter: BaseAdapter = StandaloneAdapter()
     elif hasattr(adapter_class, "from_repo"):
         # Prefer the richer from_repo constructor when available.
-        adapter = adapter_class.from_repo(context, docs_root, repo_root)
+        adapter = cast(Any, adapter_class).from_repo(context, docs_root, repo_root)
     else:
-        adapter = adapter_class(context, docs_root)
+        adapter = cast(Any, adapter_class)(context, docs_root)
+
+    if not isinstance(adapter, BaseAdapter):
+        raise TypeError(
+            f"Adapter instance for engine {context.engine!r} must be a BaseAdapter subclass"
+        )
 
     # If the adapter found no engine config and no locale information, fall
     # back to StandaloneAdapter so nav-dependent checks are skipped cleanly.
@@ -200,14 +207,8 @@ def get_adapter(
         adapter = StandaloneAdapter()
 
     messages = []
-    if getattr(adapter, "is_compatibility_mode", False):
-        messages.append(
-            "[bold cyan]SENTINEL:[/bold cyan] Zensical engine active via [yellow]mkdocs.yml[/yellow] compatibility bridge."
-        )
     if getattr(context, "offline_mode", False):
-        messages.append(
-            "[bold cyan]SENTINEL:[/bold cyan] [Offline Mode Active: forcing flat URL structure]"
-        )
+        messages.append("[bold cyan]NOTICE:[/bold cyan] [Offline mode: forcing flat URL structure]")
 
     if messages:
         from rich.console import Console

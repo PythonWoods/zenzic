@@ -21,3 +21,8 @@ overrides:
       # Scoring fixtures may have intentional heading/frontmatter combinations
       # (e.g. security-base64/secret.md: frontmatter title + H1 = Shield Z201 trigger).
       MD025: false
+  - files: ["examples/rules/z108-empty-link/**/*.md"]
+    config:
+      # Z108 demo fixture intentionally contains empty link labels []() to trigger
+      # the Z108 EMPTY_LINK_LABEL rule. MD042 would flag exactly these violations.
+      MD042: false

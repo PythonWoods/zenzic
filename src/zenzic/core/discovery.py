@@ -6,7 +6,7 @@ Every module that needs to iterate over documentation source files or asset
 files must use the helpers defined here.  This ensures that ``excluded_dirs``
 (including the ``SYSTEM_EXCLUDED_DIRS`` guardrails merged at config load time)
 and ``excluded_file_patterns`` are applied **universally** — scanner, validator,
-Shield, and orphan-checker all see the exact same file set.
+credential scanner, and orphan-checker all see the exact same file set.
 
 Public API
 ----------
@@ -31,6 +31,41 @@ if TYPE_CHECKING:
 
 # Extensions recognised as documentation source files (not assets).
 DOC_SUFFIXES: frozenset[str] = frozenset({".md", ".mdx"})
+
+
+def derive_content_root_prefix(content_root: Path, repo_root: Path | None = None) -> str:
+    """Derive a stable logical URL prefix for an external content root.
+
+    The prefix is inferred from filesystem topology so scanner/validator/VSM can
+    consume ``list[Path]`` roots without adapter-specific wrappers.
+    """
+    root = content_root.resolve()
+
+    if repo_root is not None:
+        try:
+            rel = root.relative_to(repo_root.resolve())
+        except ValueError:
+            rel = None
+        if rel is not None and rel.parts:
+            if rel.parts[-1] in {"docs", "current"} and len(rel.parts) >= 2:
+                return rel.parts[-2]
+            return rel.parts[0]
+
+    if root.name in {"docs", "current"} and root.parent.name:
+        return root.parent.name
+    return root.name
+
+
+def build_content_mounts(
+    content_roots: list[Path],
+    *,
+    repo_root: Path | None = None,
+) -> list[tuple[Path, str]]:
+    """Return ``(content_root, url_prefix)`` mounts from ``list[Path]`` roots."""
+    return [
+        (root.resolve(), derive_content_root_prefix(root, repo_root=repo_root))
+        for root in content_roots
+    ]
 
 
 def walk_files(
@@ -73,7 +108,7 @@ def iter_locale_markdown_sources(
 
         i18n/it/.../current/architecture.mdx  →  (abs_path, Path("it/architecture.mdx"))
 
-    The locale prefix makes ``map_url(logical_rel)`` produce the correct
+    The locale prefix makes ``_map_url(logical_rel)`` produce the correct
     locale-prefixed URL (e.g. ``/it/architecture/``) without any special-casing
     in the adapter.
 
@@ -110,7 +145,7 @@ def iter_extra_content_markdown_sources(
 ) -> Generator[tuple[Path, Path], None, None]:
     """Yield ``(abs_path, logical_rel)`` for files in an extra content root.
 
-    EPOCH 7a Multi-Root Discovery helper.  Walks a content tree that lives
+    v0.7.x Multi-Root Discovery helper.  Walks a content tree that lives
     outside ``docs_root`` (e.g. Docusaurus's ``blog/`` directory) and yields
     each Markdown file with a *logical* relative path that includes the
     declared URL prefix.  The prefix injection lets the active adapter route
@@ -127,8 +162,7 @@ def iter_extra_content_markdown_sources(
 
     Args:
         content_root:      Absolute path to the extra content root.
-        url_prefix:        URL prefix declared by the adapter
-                           (:attr:`ContentRoot.url_prefix`).
+        url_prefix:        URL prefix injected for this mounted root.
         config:            Loaded Zenzic configuration.
         exclusion_manager: Layered exclusion manager.
 

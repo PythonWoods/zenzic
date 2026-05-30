@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Layered Exclusion system: VCS-aware file exclusion with 4-level hierarchy.
 
-This module implements the core exclusion logic for the Sentinel Perimeter
+This module implements the core exclusion logic for the Zenzic exclusion scope
 architecture.  All functions are **pure** — no I/O after construction except
 for the ``VCSIgnoreParser.from_file()`` factory.
 
@@ -15,7 +15,7 @@ Exclusion Hierarchy (processed top-to-bottom, first match wins):
 4. **VCS Discovery (L2-VCS):** ``.gitignore`` patterns when
    ``respect_vcs_ignore = true`` (default).
 5. **Config Overrides (L3):** ``excluded_dirs`` / ``excluded_file_patterns``
-   from ``zenzic.toml``.
+   from ``.zenzic.toml``.
 6. **Default:** Included.
 
 Public API
@@ -27,14 +27,16 @@ Public API
 from __future__ import annotations
 
 import fnmatch
-import re
-from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import pathspec
+
+from zenzic.core import regex as re
+
 
 if TYPE_CHECKING:
-    from typing_extensions import Self  # PEP 673; typing.Self requires Python 3.11+
+    pass  # PEP 673; typing.Self requires Python 3.11+
 
 from zenzic.models.config import (
     SYSTEM_EXCLUDED_DIRS,
@@ -47,244 +49,23 @@ if TYPE_CHECKING:
     from zenzic.models.config import ZenzicConfig
 
 
-# ── VCS Ignore Parser ────────────────────────────────────────────────────────
+# ── VCS Ignore Parser (pathspec-based) ──────────────────────────────────────
 
 
-def _gitignore_glob_to_regex(pattern: str) -> str:
-    """Convert a single gitignore glob pattern to a regex string.
-
-    Implements the gitignore pattern spec:
-    - ``*`` matches anything except ``/``
-    - ``**`` matches everything including ``/``
-    - ``?`` matches any single character except ``/``
-    - ``[...]`` character classes passed through
-    - Leading ``/`` anchors to base dir
-    - Trailing ``/`` means directory-only (handled by caller)
-    """
-    i = 0
-    n = len(pattern)
-    result: list[str] = []
-
-    while i < n:
-        c = pattern[i]
-        if c == "*":
-            if i + 1 < n and pattern[i + 1] == "*":
-                # **
-                if i + 2 < n and pattern[i + 2] == "/":
-                    # **/ — match zero or more directories
-                    result.append("(?:.*/)?")
-                    i += 3
-                    continue
-                elif i == 0 or (i > 0 and pattern[i - 1] == "/"):
-                    # Leading ** or /**/
-                    result.append(".*")
-                    i += 2
-                    continue
-                else:
-                    # Trailing ** (e.g. abc/**)
-                    result.append(".*")
-                    i += 2
-                    continue
-            else:
-                # Single * — match anything except /
-                result.append("[^/]*")
-                i += 1
-        elif c == "?":
-            result.append("[^/]")
-            i += 1
-        elif c == "[":
-            # Character class — find closing ]
-            j = i + 1
-            if j < n and pattern[j] == "!":
-                j += 1
-            if j < n and pattern[j] == "]":
-                j += 1
-            while j < n and pattern[j] != "]":
-                j += 1
-            if j >= n:
-                # No closing ] — treat [ as literal
-                result.append(re.escape(c))
-                i += 1
-            else:
-                # Convert [!...] to [^...]
-                cls_content = pattern[i + 1 : j]
-                if cls_content.startswith("!"):
-                    cls_content = "^" + cls_content[1:]
-                result.append(f"[{cls_content}]")
-                i = j + 1
-        elif c == "\\":
-            # Escaped character
-            if i + 1 < n:
-                result.append(re.escape(pattern[i + 1]))
-                i += 2
-            else:
-                result.append(re.escape(c))
-                i += 1
-        else:
-            result.append(re.escape(c))
-            i += 1
-
-    return "".join(result)
-
-
-@dataclass(slots=True, frozen=True)
-class _GitignoreRule:
-    """A single parsed gitignore rule."""
-
-    pattern: re.Pattern[str]
-    negated: bool
-    dir_only: bool
-    anchored: bool
-
-
-class VCSIgnoreParser:
-    """Pure-Python parser for ``.gitignore``-style pattern files.
-
-    All patterns are pre-compiled to ``re.Pattern`` at construction time.
-    Pattern matching is O(N) per path where N = number of rules.
-
-    The parser follows the gitignore specification:
-    - Last matching rule wins (negation via ``!`` can re-include).
-    - Trailing ``/`` restricts a rule to directories only.
-    - Leading ``/`` anchors a rule to the base directory.
-    - A pattern containing a ``/`` (except trailing) is implicitly anchored.
-    - ``*`` matches everything except ``/``.
-    - ``**`` matches everything including ``/``.
-    """
-
-    __slots__ = ("_rules", "_has_negation", "_positive_combined", "_all_dir_only")
-
-    def __init__(self, patterns: list[str], base_dir: Path | None) -> None:
-        self._rules: list[_GitignoreRule] = []
-        for raw_line in patterns:
-            rule = self._parse_line(raw_line)
-            if rule is not None:
-                self._rules.append(rule)
-        self._has_negation = any(r.negated for r in self._rules)
-        self._all_dir_only = all(r.dir_only for r in self._rules)
-        # Fast path: if no negation, combine all file-applicable rules into one regex
-        self._positive_combined: re.Pattern[str] | None = None
-        if not self._has_negation and self._rules:
-            file_patterns = [r.pattern.pattern for r in self._rules if not r.dir_only]
-            if file_patterns:
+def _load_vcs_pathspec(repo_root: Path | None, docs_root: Path | None) -> pathspec.PathSpec | None:
+    """Load a pathspec.PathSpec from .gitignore files in repo_root and docs_root."""
+    patterns = []
+    for root in (repo_root, docs_root):
+        if root is not None:
+            gitignore = root / ".gitignore"
+            if gitignore.is_file():
                 try:
-                    self._positive_combined = re.compile(
-                        "|".join(f"(?:{p})" for p in file_patterns)
-                    )
-                except re.error:
-                    self._positive_combined = None
-
-    @classmethod
-    def from_file(cls, path: Path) -> Self:
-        """Load patterns from a file.  Returns empty parser if file is missing."""
-        if not path.is_file():
-            return cls([], base_dir=path.parent if path.parent.exists() else None)
-        try:
-            text = path.read_text(encoding="utf-8-sig")  # handles BOM
-        except (OSError, UnicodeDecodeError):
-            return cls([], base_dir=path.parent)
-        lines = text.splitlines()
-        return cls(lines, base_dir=path.parent)
-
-    def is_excluded(self, rel_path: str, *, is_dir: bool = False) -> bool:
-        """Return True if *rel_path* is excluded by the loaded rules.
-
-        Uses last-matching-rule-wins semantics (gitignore spec).
-        Paths containing ``..`` are always treated as non-matching (safety).
-        """
-        # Safety: reject paths with .. components
-        if ".." in rel_path.split("/"):
-            return False
-
-        # Reject absolute paths (rel_path should always be relative)
-        if rel_path.startswith("/"):
-            return False
-
-        # Fast path: no negation and checking files — use combined regex
-        if not self._has_negation and not is_dir and self._positive_combined is not None:
-            return self._positive_combined.search(rel_path) is not None
-
-        excluded = False
-        for rule in self._rules:
-            if rule.dir_only and not is_dir:
-                continue
-            if rule.pattern.search(rel_path):
-                excluded = not rule.negated
-        return excluded
-
-    @staticmethod
-    def _parse_line(line: str) -> _GitignoreRule | None:
-        """Parse a single gitignore line into a rule, or None if blank/comment."""
-        # Strip trailing whitespace (but not escaped trailing space)
-        stripped = line.rstrip()
-        if not stripped:
-            return None
-
-        # Handle escaped trailing spaces: if line ends with '\ ', keep the space
-        if line.rstrip("\n\r").endswith("\\ "):
-            # Preserve one trailing space
-            stripped = line.rstrip("\n\r")
-            # Remove non-escaped trailing spaces, keep escaped ones
-            while stripped.endswith("\\ "):
-                break
-
-        # Comments
-        if stripped.startswith("#"):
-            return None
-
-        # Negation
-        negated = False
-        pattern = stripped
-        if pattern.startswith("!"):
-            negated = True
-            pattern = pattern[1:]
-            if not pattern:
-                return None
-
-        # Dir-only
-        dir_only = pattern.endswith("/")
-        if dir_only:
-            pattern = pattern.rstrip("/")
-            if not pattern:
-                return None
-
-        # Anchored: leading / or pattern contains /
-        anchored = False
-        if pattern.startswith("/"):
-            anchored = True
-            pattern = pattern[1:]
-        elif "/" in pattern:
-            anchored = True
-
-        # Convert to regex
-        regex_str = _gitignore_glob_to_regex(pattern)
-
-        if anchored:
-            # Must match from start of path
-            full_regex = f"^{regex_str}"
-            if dir_only:
-                full_regex += "$"
-            else:
-                full_regex += "$"
-        else:
-            # Floating: can match anywhere in the path
-            full_regex = f"(?:^|/){regex_str}"
-            if dir_only:
-                full_regex += "$"
-            else:
-                full_regex += "(?:/|$)"
-
-        try:
-            compiled = re.compile(full_regex)
-        except re.error:
-            return None
-
-        return _GitignoreRule(
-            pattern=compiled,
-            negated=negated,
-            dir_only=dir_only,
-            anchored=anchored,
-        )
+                    patterns.extend(gitignore.read_text(encoding="utf-8-sig").splitlines())
+                except (OSError, UnicodeDecodeError):
+                    continue
+    if patterns:
+        return pathspec.PathSpec.from_lines("gitignore", patterns)
+    return None
 
 
 # ── Layered Exclusion Manager ────────────────────────────────────────────────
@@ -316,7 +97,7 @@ class LayeredExclusionManager:
         "_cli_include_dirs",
         "_config_excluded_patterns",
         "_config_included_patterns",
-        "_vcs_parser",
+        "_vcs_pathspec",
         "_respect_vcs",
     )
 
@@ -348,43 +129,18 @@ class LayeredExclusionManager:
         # File patterns — pre-compiled for performance
         raw_excl_patterns = getattr(config, "excluded_file_patterns", []) or []
         raw_incl_patterns = getattr(config, "included_file_patterns", []) or []
-        self._config_excluded_patterns: list[re.Pattern[str]] = [
+        self._config_excluded_patterns: list[re.RegexPattern] = [
             re.compile(fnmatch.translate(p)) for p in raw_excl_patterns
         ]
-        self._config_included_patterns: list[re.Pattern[str]] = [
+        self._config_included_patterns: list[re.RegexPattern] = [
             re.compile(fnmatch.translate(p)) for p in raw_incl_patterns
         ]
 
         # VCS
         self._respect_vcs: bool = getattr(config, "respect_vcs_ignore", False)
-        self._vcs_parser: VCSIgnoreParser | None = None
+        self._vcs_pathspec: pathspec.PathSpec | None = None
         if self._respect_vcs:
-            parsers: list[VCSIgnoreParser] = []
-            if repo_root is not None:
-                parsers.append(VCSIgnoreParser.from_file(repo_root / ".gitignore"))
-            if docs_root is not None and docs_root != repo_root:
-                parsers.append(VCSIgnoreParser.from_file(docs_root / ".gitignore"))
-            if parsers:
-                # Merge rules from all parsers into a single parser
-                all_rules: list[_GitignoreRule] = []
-                for p in parsers:
-                    all_rules.extend(p._rules)
-                merged = VCSIgnoreParser([], base_dir=None)
-                merged._rules = all_rules
-                # Rebuild fast-path caches
-                merged._has_negation = any(r.negated for r in all_rules)
-                merged._all_dir_only = all(r.dir_only for r in all_rules)
-                merged._positive_combined = None
-                if not merged._has_negation and all_rules:
-                    file_patterns = [r.pattern.pattern for r in all_rules if not r.dir_only]
-                    if file_patterns:
-                        try:
-                            merged._positive_combined = re.compile(
-                                "|".join(f"(?:{p})" for p in file_patterns)
-                            )
-                        except re.error:
-                            pass
-                self._vcs_parser = merged
+            self._vcs_pathspec = _load_vcs_pathspec(repo_root, docs_root)
 
     def should_exclude_dir(self, dir_name: str, rel_path: str | None = None) -> bool:
         """Return True if a directory should be excluded during walk.
@@ -408,9 +164,9 @@ class LayeredExclusionManager:
             return False
 
         # L2 VCS: VCS ignore (for directories)
-        if self._vcs_parser is not None:
+        if self._vcs_pathspec is not None:
             check_path = rel_path if rel_path else dir_name
-            if self._vcs_parser.is_excluded(check_path, is_dir=True):
+            if self._vcs_pathspec.match_file(check_path + "/"):
                 return True
 
         # L3: Config excluded_dirs
@@ -465,8 +221,8 @@ class LayeredExclusionManager:
                 return False
 
         # L2 VCS: .gitignore patterns
-        if self._vcs_parser is not None:
-            if self._vcs_parser.is_excluded(rel_path, is_dir=False):
+        if self._vcs_pathspec is not None:
+            if self._vcs_pathspec.match_file(rel_path):
                 return True
 
         # L3: Config excluded_file_patterns

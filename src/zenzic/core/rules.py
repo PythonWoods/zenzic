@@ -11,7 +11,7 @@ documented clearly.
 
 Two kinds of rules coexist in the same engine:
 
-* **CustomRule** — declared directly in ``zenzic.toml`` as ``[[custom_rules]]``
+* **CustomRule** — declared directly in ``.zenzic.toml`` as ``[[custom_rules]]``
   entries.  No Python required.  Ideal for project-specific vocabulary checks.
 * **BaseRule** subclasses — Python classes registered via the
   ``zenzic.rules`` entry-point group.  For complex, multi-line logic that
@@ -61,19 +61,17 @@ Zenzic Way compliance
 
 from __future__ import annotations
 
+import os
 import pickle
-import re
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
+from urllib.parse import unquote, urlsplit
 
-# ZRT-007 — DFA Purity Contract: RE2 is the sole regex engine for user-supplied
-# patterns.  google-re2 provides O(n) DFA guarantees, eliminating the entire
-# ReDoS attack surface.  ImportError here is intentional and fatal: non-RE2
-# environments are explicitly unsupported.
-import re2
+from zenzic.core import regex as re
+from zenzic.core.sovereign_context import get_sovereign_context
 
 
 if TYPE_CHECKING:
@@ -156,7 +154,7 @@ class Violation:
 
     * ``code``    — Stable machine-readable identifier in the form ``ZXXX``
                     (e.g. ``Z001``).  Used in ``--ignore`` flags and
-                    suppressions inside ``zenzic.toml``.
+                    suppressions inside ``.zenzic.toml``.
     * ``level``   — ``"error"`` blocks a clean exit; ``"warning"`` is
                     reported but does not fail CI; ``"info"`` is purely
                     informational.
@@ -311,7 +309,7 @@ class BaseRule(ABC):
 
 @dataclass
 class CustomRule(BaseRule):
-    """A regex-based rule declared in ``[[custom_rules]]`` inside ``zenzic.toml``.
+    """A regex-based rule declared in ``[[custom_rules]]`` inside ``.zenzic.toml``.
 
     Each entry in the ``[[custom_rules]]`` array maps directly to one
     ``CustomRule`` instance.  The pattern is applied line-by-line.
@@ -341,8 +339,8 @@ class CustomRule(BaseRule):
     pattern: str
     message: str
     severity: Severity = "error"
-    # re2.Pattern[str] at runtime; annotated as Any-compatible via the untyped re2 import.
-    _compiled: re2.Pattern[str] = field(init=False, repr=False, compare=False)
+    # Compiled with RE2; typed via the shared RegexPattern alias.
+    _compiled: re.RegexPattern = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         # ZRT-007: compile with RE2 — rejection here means the pattern uses
@@ -352,8 +350,8 @@ class CustomRule(BaseRule):
         from zenzic.core.exceptions import PluginContractError
 
         try:
-            self._compiled = re2.compile(self.pattern)
-        except re2.error as exc:
+            self._compiled = re.compile(self.pattern)
+        except re.error as exc:
             raise PluginContractError(
                 f"CustomRule '{self.id}': pattern {self.pattern!r} is not supported "
                 f"by the RE2 engine (ZRT-007 — DFA Purity Contract). "
@@ -545,50 +543,86 @@ _ANCHOR_LINK_RE = re.compile(r"\[([^\[\]]+)\]\(#([^)]+)\)")
 #: (CommonMark invariant — a closing fence never has an info string).
 _FENCE_OPEN_RE = re.compile(r"^(?P<fence>[`~]{3,})(?P<info>.*)$")
 
-#: CEO-142/143 — Silent Sentinel Protocol (Polymorphic Suppression).
-#: Matches BOTH Markdown HTML comments AND MDX/JSX comments in one pass.
+#: Strict suppression protocol: only exact ``zenzic:ignore:`` directives are valid.
+#: Matches both Markdown HTML comments and MDX/JSX comments.
 #:
-#:   Markdown (.md) syntax:  ``<!-- zenzic:ignore Z905 -->``
-#:   MDX (.mdx) syntax:      ``{/* zenzic:ignore Z905 */}``
-#:
-#: The regex is intentionally format-agnostic so a single helper works for
-#: every file format Zenzic audits.
-_SUPPRESS_RE = re.compile(r"(?:<!--|\{/\*)\s*zenzic:ignore\s+(?P<code>Z\d{3})\s*(?:-->|\*/\})")
+#:   Markdown (.md) syntax:  ``<!-- zenzic:ignore: Z905 - reason -->``
+#:   MDX (.mdx) syntax:      ``{/* zenzic:ignore: Z905 - reason */}``
+_SUPPRESS_RE = re.compile(
+    r"(?:<!--|\{/\*)\s*zenzic:ignore:\s*(?P<code>Z\d{3})(?:[^\n]*?)?(?:-->|\*/\})",
+)
 
-#: CEO-152 — The Suppression Manifesto: Inviolability Law.
-#: Security findings are facts, not suggestions.  These codes are permanently
-#: non-suppressible via per-line ``zenzic:ignore`` comments.  The Shield and
-#: Blood Sentinel scanners operate independently of the rule engine and never
-#: consult this function, but this guard future-proofs the contract: even if a
-#: Z2xx finding were ever routed through the rule engine it could not be silenced.
-_INVIOLABLE_CODES: frozenset[str] = frozenset({"Z201", "Z202", "Z203"})
+#: ADR-084 — Strip backtick inline code spans before counting suppressions.
+#: Prevents didactic examples like `<!-- zenzic:ignore: Z601 -->` from
+#: being counted as active suppression directives.
+#: Alternation ``double first | single`` handles RST-style `````.md````` spans
+#: without backreferences (RE2 engine does not support backreferences).
+_INLINE_CODE_STRIP_RE = re.compile(r"``[^`\n]+``|`[^`\n]+`")
+
+
+def count_inline_suppressions(text: str) -> int:
+    """Count suppression directives declared in Markdown/MDX source text.
+
+    Fence-aware (ADR-084): lines inside triple-backtick/tilde fenced code
+    blocks are skipped entirely.  Backtick inline code spans are stripped
+    before the suppression regex is applied on each prose line.
+    """
+    total = 0
+    inside_fence = False
+    open_char = ""
+    open_count = 0
+    for line in text.splitlines():
+        fm = _FENCE_OPEN_RE.match(line)
+        if not inside_fence:
+            if fm:
+                fence = fm.group("fence")
+                inside_fence = True
+                open_char = fence[0]
+                open_count = len(fence)
+            else:
+                stripped = _INLINE_CODE_STRIP_RE.sub("", line)
+                total += sum(1 for _ in _SUPPRESS_RE.finditer(stripped))
+        else:
+            if fm:
+                fence = fm.group("fence")
+                info = fm.group("info").strip()
+                if fence[0] == open_char and len(fence) >= open_count and not info:
+                    inside_fence = False
+                    open_char = ""
+                    open_count = 0
+            # Inside fence: skip the line entirely (no counting)
+    return total
 
 
 def _is_suppressed(line: str, code: str) -> bool:
-    """Return ``True`` if *line* carries a ``zenzic:ignore`` comment for *code*.
+    """Return ``True`` if *line* carries a suppression comment for *code*.
 
     **Format-aware suppression (CEO-143 — Polymorphic Suppression Protocol):**
 
     In ``.md`` files use an HTML comment (invisible in rendered Markdown)::
 
-        Obsidian was the v0.6.x codename. <!-- zenzic:ignore Z905 -->
+        v0.6.x was the previous codename. <!-- zenzic:ignore: Z601 - historical reference -->
 
     In ``.mdx`` files use a JSX comment (invisible in rendered MDX and safe
     for the Docusaurus/React parser)::
 
-        Obsidian was the v0.6.x codename. {/* zenzic:ignore Z905 */}
+        v0.6.x was the previous codename. {/* zenzic:ignore: Z601 - historical reference */}
 
     Each suppression comment silences **only** the specified diagnostic code
     on the tagged line.  To suppress multiple codes, add multiple comments.
 
-    **CEO-152 — Inviolability Law:** Security findings (Z201, Z202, Z203)
+    **CEO-152 — Inviolability Law:** Security findings (Z201, Z202, Z203, Z204)
     always return ``False`` unconditionally.  Security findings are facts,
     not suggestions — a credential leak cannot be declared a false positive.
     """
-    if code in _INVIOLABLE_CODES:
+    from zenzic.core.codes import NON_SUPPRESSIBLE_CODES
+
+    if get_sovereign_context().force_audit:
         return False
-    m = _SUPPRESS_RE.search(line)
-    return m is not None and m.group("code") == code
+
+    if code in NON_SUPPRESSIBLE_CODES:
+        return False
+    return any(m.group("code").upper() == code.upper() for m in _SUPPRESS_RE.finditer(line))
 
 
 def _slugify(text: str) -> str:
@@ -714,16 +748,17 @@ if TYPE_CHECKING:
 
 
 class BrandObsolescenceRule(BaseRule):
-    """Z905 — Detect deprecated brand terms in documentation source.
+    """Z601 — Detect deprecated brand terms in documentation source.
 
     Activated only when ``[project_metadata] obsolete_names`` is non-empty in
-    ``zenzic.toml``.  Emits a warning for each occurrence of an obsolete name
+    ``.zenzic.toml``.  Emits a warning for each occurrence of an obsolete name
     found in documentation source files.
 
-    **Suppression (CEO-142 — Silent Sentinel Protocol):** Add an HTML comment
-    to the end of any line to silence Z905 for that specific occurrence::
+    **Suppression (ADR-063 — MDX-native protocol):** Add an inline suppression
+    marker to the end of any line to silence Z601 for that specific occurrence::
 
-        Obsidian was the v0.6.x codename. <!-- zenzic:ignore Z905 -->
+        v0.6.x was the previous codename. <!-- zenzic:ignore: Z601 historical reference -->
+        v0.6.x was the previous codename. {/* zenzic:ignore: Z601 historical reference */}
 
     The comment is invisible in rendered Markdown and MDX output.  The
     deprecated token ``[HISTORICAL]`` is no longer recognised — it is visible
@@ -736,11 +771,9 @@ class BrandObsolescenceRule(BaseRule):
     """
 
     def __init__(self, project_metadata: ProjectMetadata) -> None:
-        import re as _re
-
         self._release_name = project_metadata.release_name
-        self._patterns: list[re.Pattern[str]] = [
-            _re.compile(rf"\b{_re.escape(name)}\b", _re.IGNORECASE)
+        self._patterns: list[re.RegexPattern] = [
+            re.compile(rf"\b{re.escape(name)}\b", re.IGNORECASE)
             for name in project_metadata.obsolete_names
             if name.strip()
         ]
@@ -748,7 +781,7 @@ class BrandObsolescenceRule(BaseRule):
 
     @property
     def rule_id(self) -> str:
-        return "Z905"
+        return "Z601"
 
     def check(self, file_path: Path, text: str) -> list[RuleFinding]:
         if not self._patterns:
@@ -762,7 +795,6 @@ class BrandObsolescenceRule(BaseRule):
                 return []
 
         findings: list[RuleFinding] = []
-        hint = f" use '{self._release_name}' instead." if self._release_name else ""
         # Fence-tracking state — body lines inside code blocks are not brand
         # claims and must not trigger Z905 (CEO-152).
         inside_fence: bool = False
@@ -785,7 +817,7 @@ class BrandObsolescenceRule(BaseRule):
                         open_char = ""
                         open_count = 0
                 continue  # skip all body lines inside the fence block
-            if _is_suppressed(line, "Z905"):
+            if _is_suppressed(line, "Z601"):
                 continue
             for pat in self._patterns:
                 for m in pat.finditer(line):
@@ -795,8 +827,8 @@ class BrandObsolescenceRule(BaseRule):
                             line_no=line_no,
                             rule_id=self.rule_id,
                             message=(
-                                f"Obsolete brand term '{m.group(0)}':{hint} "
-                                "Add <!-- zenzic:ignore Z905 --> to the line to suppress intentional references."
+                                f"[Z601] Obsolete or unauthorized brand term '{m.group(0)}' detected. "
+                                "Use semantic versioning (e.g., 'vX.Y.Z') in active prose, or suppress if this is a historical ledger."
                             ),
                             severity="warning",
                             matched_line=line,
@@ -814,6 +846,10 @@ class BrandObsolescenceRule(BaseRule):
 _INLINE_LINK_RE = re.compile(r"!?\[[^\[\]]*\]\(([^)]+)\)")
 # Fenced code block fence marker
 _FENCE_RE = re.compile(r"^(`{3,}|~{3,})")
+# Inline code spans — erased before link extraction to avoid false positives
+_INLINE_CODE_RE = re.compile(r"`[^`]+`")
+# Strips Markdown link title from href: "url 'title'" → "url"
+_TITLE_STRIP_RE = re.compile(r"""\s+["'].*$""")
 
 
 def _extract_inline_links_with_lines(text: str) -> list[tuple[str, int, str]]:
@@ -839,12 +875,12 @@ def _extract_inline_links_with_lines(text: str) -> list[tuple[str, int, str]]:
             if _FENCE_RE.match(stripped):
                 in_block = False
             continue
-        clean = re.sub(r"`[^`]+`", lambda m: " " * len(m.group()), line)
+        clean = _INLINE_CODE_RE.sub(lambda m: " " * len(m.group()), line)
         for m in _INLINE_LINK_RE.finditer(clean):
             raw = m.group(1).strip()
             if not raw:
                 continue
-            url = re.sub(r"""\s+["'].*$""", "", raw).strip()
+            url = _TITLE_STRIP_RE.sub("", raw).strip()
             if url:
                 results.append((url, lineno, line.strip()))
     return results
@@ -1031,11 +1067,13 @@ class VSMBrokenLinkRule(BaseRule):
         Returns:
             Canonical URL string (leading and trailing ``/``), or ``None``.
         """
-        import os
-        from urllib.parse import unquote, urlsplit
-
-        parsed = urlsplit(href)
-        path = unquote(parsed.path.replace("\\", "/")).rstrip("/")
+        # Fast path: skip urlsplit/unquote for plain relative paths (no encoding,
+        # no query string, no fragment).  This is the common case for internal links.
+        if "%" not in href and "?" not in href and "#" not in href:
+            path = href.replace("\\", "/").rstrip("/")
+        else:
+            parsed = urlsplit(href)
+            path = unquote(parsed.path.replace("\\", "/")).rstrip("/")
         if not path:
             return None
 
@@ -1048,7 +1086,7 @@ class VSMBrokenLinkRule(BaseRule):
             raw_target = os.path.normpath(str(source_dir) + os.sep + path.replace("/", os.sep))
             root_str = str(docs_root)
             if not (raw_target == root_str or raw_target.startswith(root_str + os.sep)):
-                return None  # path escapes docs_root — Shield territory, skip
+                return None  # path escapes docs_root — credential scanner territory, skip
             try:
                 rel = str(Path(raw_target).relative_to(docs_root)).replace(os.sep, "/")
             except ValueError:
@@ -1186,11 +1224,36 @@ class PluginRegistry:
 
         loaded: list[BaseRule] = []
         for pid in requested:
-            loaded.append(self._load_entry_point(eps_by_name[pid]))
+            rule = self._load_entry_point(eps_by_name[pid])
+            self._validate_plugin_code(rule, pid)
+            loaded.append(rule)
         return loaded
 
-    @staticmethod
-    def _load_entry_point(ep: EntryPoint) -> BaseRule:
+    def _validate_plugin_code(self, rule: BaseRule, plugin_id: str) -> None:
+        """Enforce third-party plugin code/exit namespace contracts.
+
+        Contract:
+        - Plugins must not emit core ``Zxxx`` namespace codes.
+        - Plugin codes must be prefixed as ``<plugin-id>:<code>``.
+        - Plugins cannot emit security exit codes reserved for core scanners.
+        """
+        from zenzic.core.codes import PLUGIN_FORBIDDEN_EXITS
+        from zenzic.core.exceptions import PluginContractError  # deferred: avoid circular import
+
+        code = getattr(rule, "code", None)
+        if isinstance(code, str):
+            if re.fullmatch(r"Z\d{3}", code):
+                raise PluginContractError(
+                    "Third-party plugins must use '<plugin-id>:<code>' format"
+                )
+            if not code.startswith(f"{plugin_id}:"):
+                raise PluginContractError(f"Plugin code '{code}' must start with '{plugin_id}:'.")
+
+        primary_exit = getattr(rule, "primary_exit", None)
+        if isinstance(primary_exit, int) and primary_exit in PLUGIN_FORBIDDEN_EXITS:
+            raise PluginContractError("Plugins cannot emit Exit 2 or 3")
+
+    def _load_entry_point(self, ep: EntryPoint) -> BaseRule:
         """Load and instantiate one entry-point as a :class:`BaseRule`."""
         from zenzic.core.exceptions import PluginContractError  # deferred: avoid circular import
 

@@ -42,8 +42,8 @@ class TestMdxMdMixing:
     def test_md_and_mdx_same_stem_collide(self, tmp_path: Path) -> None:
         """guide/install.md and guide/install.mdx → same URL → CONFLICT."""
         adapter = _docusaurus(tmp_path)
-        url_md = adapter.map_url(Path("guide/install.md"))
-        url_mdx = adapter.map_url(Path("guide/install.mdx"))
+        url_md = adapter.get_route_info(Path("guide/install.md")).canonical_url
+        url_mdx = adapter.get_route_info(Path("guide/install.mdx")).canonical_url
         assert url_md == url_mdx == "/docs/guide/install/"
 
         routes = [
@@ -56,15 +56,17 @@ class TestMdxMdMixing:
     def test_index_md_and_index_mdx_collide(self, tmp_path: Path) -> None:
         """index.md and index.mdx both map to / → CONFLICT."""
         adapter = _docusaurus(tmp_path)
-        url1 = adapter.map_url(Path("index.md"))
-        url2 = adapter.map_url(Path("index.mdx"))
+        url1 = adapter.get_route_info(Path("index.md")).canonical_url
+        url2 = adapter.get_route_info(Path("index.mdx")).canonical_url
         assert url1 == url2 == "/docs/"
 
     def test_different_dirs_no_collision(self, tmp_path: Path) -> None:
         """guide/install.md and api/install.mdx → different URLs."""
         adapter = _docusaurus(tmp_path)
-        assert adapter.map_url(Path("guide/install.md")) == "/docs/guide/install/"
-        assert adapter.map_url(Path("api/install.mdx")) == "/docs/api/install/"
+        assert (
+            adapter.get_route_info(Path("guide/install.md")).canonical_url == "/docs/guide/install/"
+        )
+        assert adapter.get_route_info(Path("api/install.mdx")).canonical_url == "/docs/api/install/"
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -77,29 +79,29 @@ class TestSpecialCharacterFilenames:
 
     def test_spaces_in_filename(self, tmp_path: Path) -> None:
         adapter = _docusaurus(tmp_path)
-        url = adapter.map_url(Path("my guide.md"))
+        url = adapter.get_route_info(Path("my guide.md")).canonical_url
         assert url == "/docs/my guide/"
 
     def test_dots_in_filename(self, tmp_path: Path) -> None:
         adapter = _docusaurus(tmp_path)
-        url = adapter.map_url(Path("v1.2.3-release.md"))
+        url = adapter.get_route_info(Path("v1.2.3-release.md")).canonical_url
         # Should strip .md, keep dots in stem
         assert url == "/docs/v1.2.3-release/"
 
     def test_dashes_in_filename(self, tmp_path: Path) -> None:
         adapter = _docusaurus(tmp_path)
-        url = adapter.map_url(Path("getting-started.mdx"))
+        url = adapter.get_route_info(Path("getting-started.mdx")).canonical_url
         assert url == "/docs/getting-started/"
 
     def test_underscored_file_not_in_underscore_dir(self, tmp_path: Path) -> None:
         """_intro.md inside a non-underscore dir is still IGNORED (Docusaurus rule)."""
         adapter = _docusaurus(tmp_path)
-        status = adapter.classify_route(Path("_intro.md"), frozenset())
+        status = adapter.get_route_info(Path("_intro.md")).status
         assert status == "IGNORED"
 
     def test_deeply_nested_path(self, tmp_path: Path) -> None:
         adapter = _docusaurus(tmp_path)
-        url = adapter.map_url(Path("a/b/c/d/e/f.md"))
+        url = adapter.get_route_info(Path("a/b/c/d/e/f.md")).canonical_url
         assert url == "/docs/a/b/c/d/e/f/"
 
 
@@ -192,15 +194,14 @@ class TestMkDocsNestedNav:
         adapter = _mkdocs(docs, config)
         nav_paths = adapter.get_nav_paths()
         assert "a/b/c/deep.md" in nav_paths
-        assert adapter.classify_route(Path("a/b/c/deep.md"), nav_paths) == "REACHABLE"
+        assert adapter.get_route_info(Path("a/b/c/deep.md")).status == "REACHABLE"
 
     def test_page_not_in_nested_nav_is_orphan(self, tmp_path: Path) -> None:
         docs = tmp_path / "docs"
         docs.mkdir()
         config = {"nav": [{"Home": "index.md"}]}
         adapter = _mkdocs(docs, config)
-        nav_paths = adapter.get_nav_paths()
-        assert adapter.classify_route(Path("unlisted.md"), nav_paths) == "ORPHAN_BUT_EXISTING"
+        assert adapter.get_route_info(Path("unlisted.md")).status == "ORPHAN_BUT_EXISTING"
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -213,9 +214,9 @@ class TestStandaloneEdgeCases:
 
     def test_deeply_nested(self) -> None:
         adapter = StandaloneAdapter()
-        assert adapter.map_url(Path("a/b/c/d.md")) == "/a/b/c/d/"
+        assert adapter.get_route_info(Path("a/b/c/d.md")).canonical_url == "/a/b/c/d/"
 
     def test_special_chars(self) -> None:
         adapter = StandaloneAdapter()
-        url = adapter.map_url(Path("my-file (1).md"))
+        url = adapter.get_route_info(Path("my-file (1).md")).canonical_url
         assert "/my-file (1)/" == url

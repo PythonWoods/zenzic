@@ -43,7 +43,7 @@ def test_cli_main_calls_app() -> None:
 def test_cli_help() -> None:
     result = runner.invoke(app, ["--help"])
     assert result.exit_code == 0
-    assert "Engine-agnostic linter" in result.stdout
+    assert "Engine-agnostic" in result.stdout
 
 
 # ---------------------------------------------------------------------------
@@ -57,7 +57,7 @@ def test_cli_help() -> None:
 def test_check_links_ok(_links, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "links"])
     assert result.exit_code == 0
-    assert "ZENZIC SENTINEL" in result.stdout
+    assert "ZENZIC" in (result.stdout + result.stderr)
     assert "No broken links found." in result.stdout
 
 
@@ -78,7 +78,7 @@ def test_check_links_ok(_links, _cfg, _root) -> None:
 def test_check_links_with_errors(_links, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "links"])
     assert result.exit_code == 1
-    assert "ZENZIC SENTINEL" in result.stdout
+    assert "ZENZIC" in (result.stdout + result.stderr)
     assert "Z104" in result.stdout or "error" in result.stdout.lower()
 
 
@@ -146,11 +146,11 @@ def test_check_links_boundary_traversal_exits_1(_links, _cfg, _root) -> None:
 def test_cli_check_orphans_empty(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()
-    (repo / "zenzic.toml").touch()  # engine-neutral root marker
+    (repo / ".zenzic.toml").touch()  # engine-neutral root marker
     monkeypatch.chdir(repo)
     result = runner.invoke(app, ["check", "orphans"])
     assert result.exit_code == 0
-    assert "ZENZIC SENTINEL" in result.stdout
+    assert "ZENZIC" in (result.stdout + result.stderr)
     assert "No orphan pages found." in result.stdout
 
 
@@ -160,7 +160,7 @@ def test_cli_check_orphans_empty(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 def test_check_orphans_with_orphans(_orphans, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "orphans"])
     assert result.exit_code == 1
-    assert "ZENZIC SENTINEL" in result.stdout
+    assert "ZENZIC" in (result.stdout + result.stderr)
     assert "Z402" in result.stdout
 
 
@@ -175,7 +175,7 @@ def test_check_orphans_with_orphans(_orphans, _cfg, _root) -> None:
 def test_check_snippets_ok(_snip, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "snippets"])
     assert result.exit_code == 0
-    assert "ZENZIC SENTINEL" in result.stdout
+    assert "ZENZIC" in (result.stdout + result.stderr)
     assert "All code snippets are syntactically valid." in result.stdout
 
 
@@ -194,7 +194,7 @@ def test_check_snippets_ok(_snip, _cfg, _root) -> None:
 def test_check_snippets_with_errors(_snip, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "snippets"])
     assert result.exit_code == 1
-    assert "ZENZIC SENTINEL" in result.stdout
+    assert "ZENZIC" in (result.stdout + result.stderr)
     assert "Z503" in result.stdout
 
 
@@ -209,7 +209,7 @@ def test_check_snippets_with_errors(_snip, _cfg, _root) -> None:
 def test_check_assets_ok(_assets, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "assets"])
     assert result.exit_code == 0
-    assert "ZENZIC SENTINEL" in result.stdout
+    assert "ZENZIC" in (result.stdout + result.stderr)
     assert "No unused assets found." in result.stdout
 
 
@@ -219,8 +219,8 @@ def test_check_assets_ok(_assets, _cfg, _root) -> None:
 def test_check_assets_with_unused(_assets, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "assets"])
     assert result.exit_code == 1
-    assert "ZENZIC SENTINEL" in result.stdout
-    assert "Z903" in result.stdout
+    assert "ZENZIC" in (result.stdout + result.stderr)
+    assert "Z405" in result.stdout
 
 
 # ---------------------------------------------------------------------------
@@ -234,7 +234,7 @@ def test_check_assets_with_unused(_assets, _cfg, _root) -> None:
 def test_check_placeholders_ok(_ph, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "placeholders"])
     assert result.exit_code == 0
-    assert "ZENZIC SENTINEL" in result.stdout
+    assert "ZENZIC" in (result.stdout + result.stderr)
     assert "No placeholder stubs found." in result.stdout
 
 
@@ -249,7 +249,7 @@ def test_check_placeholders_ok(_ph, _cfg, _root) -> None:
 def test_check_placeholders_with_findings(_ph, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "placeholders"])
     assert result.exit_code == 1
-    assert "ZENZIC SENTINEL" in result.stdout
+    assert "ZENZIC" in (result.stdout + result.stderr)
     assert "Z502" in result.stdout
 
 
@@ -261,7 +261,7 @@ def test_check_placeholders_with_findings(_ph, _cfg, _root) -> None:
 def test_cli_check_all_json_empty(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()
-    (repo / "zenzic.toml").touch()  # engine-neutral root marker
+    (repo / ".zenzic.toml").touch()  # engine-neutral root marker
     (repo / "docs").mkdir()
     monkeypatch.chdir(repo)
     result = runner.invoke(app, ["check", "all", "--format", "json"])
@@ -275,7 +275,15 @@ def test_cli_check_all_json_empty(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
         "unused_assets",
         "nav_contract",
         "references",
+        "suppression_count",
+        "suppression_cap",
+        "suppression_debt_pts",
+        "debt_status",
     }
+    assert data["suppression_count"] == 0
+    assert data["suppression_cap"] == 30
+    assert data["suppression_debt_pts"] == 0
+    assert data["debt_status"] == "CLEAN"
 
 
 @patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
@@ -325,7 +333,7 @@ def test_check_all_text_ok(
 ) -> None:
     result = runner.invoke(app, ["check", "all"])
     assert result.exit_code == 0
-    assert "Sentinel Seal" in result.stdout or "SUCCESS" in result.stdout
+    assert "Analysis complete" in result.stdout or "No broken links" in result.stdout
 
 
 @patch("zenzic.cli._shared._count_docs_assets", return_value=(5, 2))
@@ -501,7 +509,7 @@ def test_check_all_target_single_file(tmp_path: Path, monkeypatch: pytest.Monkey
     """Single .md file target: findings filtered, banner shows 1 file."""
     repo = tmp_path / "repo"
     (repo / "docs").mkdir(parents=True)
-    (repo / "zenzic.toml").touch()
+    (repo / ".zenzic.toml").touch()
     _body = "word " * 60
     (repo / "docs" / "index.md").write_text(f"# Hello\n\n{_body}\n")
     (repo / "docs" / "other.md").write_text(f"# Other\n\n{_body}\n")
@@ -519,7 +527,7 @@ def test_check_all_target_file_outside_docs(
     """File outside docs_dir (e.g. README.md): config patched, exit 0."""
     repo = tmp_path / "repo"
     (repo / "docs").mkdir(parents=True)
-    (repo / "zenzic.toml").touch()
+    (repo / ".zenzic.toml").touch()
     _body = "word " * 60
     (repo / "docs" / "index.md").write_text(f"# Hello\n\n{_body}\n")
     (repo / "README.md").write_text(f"# Project\n\n{_body}\n")
@@ -537,7 +545,7 @@ def test_check_all_target_directory(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     repo = tmp_path / "repo"
     (repo / "content").mkdir(parents=True)
     (repo / "docs").mkdir()
-    (repo / "zenzic.toml").touch()
+    (repo / ".zenzic.toml").touch()
     _body = "word " * 60
     (repo / "content" / "page.md").write_text(f"# Page\n\n{_body}\n")
     (repo / "docs" / "other.md").write_text(f"# Other\n\n{_body}\n")
@@ -549,18 +557,18 @@ def test_check_all_target_directory(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     assert "other.md" not in result.stdout
 
 
-def test_check_all_external_docs_root_not_blocked_by_sentinel(
+def test_check_all_external_docs_root_not_blocked_by_boundary_check(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    """The External Audit (CEO-043): explicit path outside CWD repo root must not trigger Blood Sentinel (Exit 3).
+    """The External Audit (CEO-043): explicit path outside CWD repo root must not trigger path traversal guard (Exit 3).
 
     Simulates: `zenzic check all ../zenzic-doc` from inside a sibling project.
-    The Blood Sentinel must guard escapes FROM the target, not the location OF the target.
+    The path traversal guard must guard escapes FROM the target, not the location OF the target.
     """
     repo = tmp_path / "repo"
     repo.mkdir()
-    (repo / "zenzic.toml").touch()
+    (repo / ".zenzic.toml").touch()
 
     ext_docs = tmp_path / "ext_docs"
     ext_docs.mkdir()
@@ -571,28 +579,28 @@ def test_check_all_external_docs_root_not_blocked_by_sentinel(
     result = runner.invoke(app, ["check", "all", rel])
 
     assert result.exit_code != 3, (
-        f"Blood Sentinel incorrectly blocked an explicit external path.\n{result.output}"
+        f"Path traversal guard incorrectly blocked an explicit external path.\n{result.output}"
     )
 
 
 # ---------------------------------------------------------------------------
-# SentinelReporter unit tests
+# ZenzicReporter unit tests
 # ---------------------------------------------------------------------------
 
 
-class TestSentinelReporter:
-    """Unit tests for the Sentinel Report Engine."""
+class TestZenzicReporter:
+    """Unit tests for the Zenzic Report Engine."""
 
     def test_render_no_findings(self) -> None:
         from io import StringIO
 
         from rich.console import Console
 
-        from zenzic.core.reporter import SentinelReporter
+        from zenzic.core.reporter import ZenzicReporter
 
         buf = StringIO()
         con = Console(file=buf, highlight=False, no_color=True)
-        reporter = SentinelReporter(con, Path("/fake/docs"))
+        reporter = ZenzicReporter(con, Path("/fake/docs"))
         errors, warnings = reporter.render(
             [], version="0.5.0a3", elapsed=1.0, docs_count=6, assets_count=4
         )
@@ -600,14 +608,14 @@ class TestSentinelReporter:
         assert warnings == 0
         output = buf.getvalue()
         assert "auto" in output  # telemetry engine field
-        assert "Sentinel Seal" in output
+        assert "Analysis complete" in output
 
     def test_render_grouped_findings(self) -> None:
         from io import StringIO
 
         from rich.console import Console
 
-        from zenzic.core.reporter import Finding, SentinelReporter
+        from zenzic.core.reporter import Finding, ZenzicReporter
 
         findings = [
             Finding("guide/index.md", 10, "LINK_ERROR", "error", "broken link"),
@@ -616,7 +624,7 @@ class TestSentinelReporter:
         ]
         buf = StringIO()
         con = Console(file=buf, highlight=False, no_color=True)
-        reporter = SentinelReporter(con, Path("/fake/docs"))
+        reporter = ZenzicReporter(con, Path("/fake/docs"))
         errors, warnings = reporter.render(
             findings, version="0.5.0a3", elapsed=0.5, docs_count=5, assets_count=0
         )
@@ -633,11 +641,11 @@ class TestSentinelReporter:
 
         from rich.console import Console
 
-        from zenzic.core.reporter import SentinelReporter
+        from zenzic.core.reporter import ZenzicReporter
 
         buf = StringIO()
         con = Console(file=buf, highlight=False, no_color=True)
-        reporter = SentinelReporter(con, Path("/fake/docs"))
+        reporter = ZenzicReporter(con, Path("/fake/docs"))
         errors, warnings = reporter.render_quiet([])
         assert errors == 0
         assert warnings == 0
@@ -648,7 +656,7 @@ class TestSentinelReporter:
 
         from rich.console import Console
 
-        from zenzic.core.reporter import Finding, SentinelReporter
+        from zenzic.core.reporter import Finding, ZenzicReporter
 
         findings = [
             Finding("x.md", 1, "E001", "error", "bad"),
@@ -656,12 +664,44 @@ class TestSentinelReporter:
         ]
         buf = StringIO()
         con = Console(file=buf, highlight=False, no_color=True)
-        reporter = SentinelReporter(con, Path("/fake/docs"))
+        reporter = ZenzicReporter(con, Path("/fake/docs"))
         errors, warnings = reporter.render_quiet(findings)
         assert errors == 1
         assert warnings == 1
         assert "1 error" in buf.getvalue()
         assert "1 warning" in buf.getvalue()
+
+    def test_render_security_breach_is_counted_in_summary(self) -> None:
+        from io import StringIO
+
+        from rich.console import Console
+
+        from zenzic.core.reporter import Finding, ZenzicReporter
+
+        findings = [
+            Finding(
+                "docs/leaky.md",
+                42,
+                "Z201",
+                "security_breach",
+                "Secret detected (github-token) — rotate immediately.",
+                source_line='token = "ghp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"',
+                match_text="ghp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            )
+        ]
+        buf = StringIO()
+        con = Console(file=buf, highlight=False, no_color=True)
+        reporter = ZenzicReporter(con, Path("/fake/docs"))
+        errors, warnings = reporter.render(
+            findings, version="0.5.0a3", elapsed=0.2, docs_count=1, assets_count=0
+        )
+        assert errors == 0
+        assert warnings == 0
+        output = buf.getvalue()
+        assert "SECURITY BREACH DETECTED" in output
+        assert "security breach" in output
+        assert "file impacted" in output
+        assert "Exit code 2 is mandatory" in output
 
 
 # ---------------------------------------------------------------------------
@@ -678,7 +718,7 @@ class TestSentinelReporter:
 def test_check_references_ok(_scan, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "references"])
     assert result.exit_code == 0
-    assert "ZENZIC SENTINEL" in result.stdout
+    assert "ZENZIC" in (result.stdout + result.stderr)
     assert "All references resolved." in result.stdout
 
 
@@ -758,7 +798,7 @@ def test_init_plugin_scaffold_existing_dir_requires_force(
 def test_init_standalone_creates_zenzic_toml(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Default init (no pyproject.toml present) creates zenzic.toml."""
+    """Default init (no pyproject.toml present) creates .zenzic.toml."""
     repo = tmp_path / "repo"
     repo.mkdir()
     (repo / ".git").mkdir()
@@ -767,11 +807,26 @@ def test_init_standalone_creates_zenzic_toml(
     result = runner.invoke(app, ["init"])
     assert result.exit_code == 0
 
-    cfg = repo / "zenzic.toml"
+    cfg = repo / ".zenzic.toml"
     assert cfg.is_file()
     content = cfg.read_text(encoding="utf-8")
-    assert "docs_dir" in content
-    assert "fail_under" in content
+    assert "# --- PROJECT IDENTITY ---" in content
+    assert "[project_metadata]" in content
+    assert '# release_name = "YOUR-RELEASE"' in content
+    assert "suppression_cap = 30" in content
+    assert "suppression_cap_fail_hard = true" in content
+    assert "release-governance-protocol" in content
+
+    local_cfg = repo / ".zenzic.local.toml"
+    assert local_cfg.is_file()
+    local_content = local_cfg.read_text(encoding="utf-8")
+    assert "# ZENZIC LOCAL OVERRIDES" in local_content
+    assert "This file is auto-generated" in local_content
+    assert "suppression_cap_fail_hard = false" in local_content
+
+    gitignore = repo / ".gitignore"
+    assert gitignore.is_file()
+    assert ".zenzic.local.toml" in gitignore.read_text(encoding="utf-8")
 
 
 def test_init_standalone_detects_mkdocs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -785,37 +840,67 @@ def test_init_standalone_detects_mkdocs(tmp_path: Path, monkeypatch: pytest.Monk
     result = runner.invoke(app, ["init"])
     assert result.exit_code == 0
 
-    content = (repo / "zenzic.toml").read_text(encoding="utf-8")
-    assert 'engine = "mkdocs"' in content
+    content = (repo / ".zenzic.toml").read_text(encoding="utf-8")
+    assert 'engine         = "mkdocs"' in content
 
 
 def test_init_standalone_warns_if_exists(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Refuse to overwrite existing zenzic.toml without --force."""
+    """Refuse re-initialization when .zenzic.toml already exists."""
     repo = tmp_path / "repo"
     repo.mkdir()
     (repo / ".git").mkdir()
-    (repo / "zenzic.toml").write_text("# existing\n", encoding="utf-8")
+    (repo / ".zenzic.toml").write_text("# existing\n", encoding="utf-8")
     monkeypatch.chdir(repo)
 
     result = runner.invoke(app, ["init"])
     assert result.exit_code == 1
-    assert "already exists" in result.stdout
+    assert "Configuration already exists" in result.stdout
+    normalized = " ".join(result.stdout.split())
+    assert "Manual editing is required" in normalized
 
 
-def test_init_standalone_force_overwrites(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """--force overwrites an existing zenzic.toml."""
+def test_init_standalone_force_is_rejected(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """--force is blocked for configuration initialization."""
     repo = tmp_path / "repo"
     repo.mkdir()
     (repo / ".git").mkdir()
-    (repo / "zenzic.toml").write_text("# old\n", encoding="utf-8")
     monkeypatch.chdir(repo)
 
     result = runner.invoke(app, ["init", "--force"])
+    assert result.exit_code == 1
+    assert "--force is not supported" in result.stdout
+
+
+def test_init_standalone_discovers_project_name_from_pyproject(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Init includes discovered project name as commented [project].name hint."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / "pyproject.toml").write_text('[project]\nname = "castle-core"\n', encoding="utf-8")
+    monkeypatch.chdir(repo)
+
+    result = runner.invoke(app, ["init"], input="n\n")
     assert result.exit_code == 0
 
-    content = (repo / "zenzic.toml").read_text(encoding="utf-8")
-    assert "zenzic.dev/docs/reference/configuration/" in content
-    assert "# old" not in content
+    content = (repo / ".zenzic.toml").read_text(encoding="utf-8")
+    assert '# name = "castle-core"' in content
+
+
+def test_init_standalone_discovers_project_name_from_package_json(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Init falls back to package.json name when pyproject is absent."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / "package.json").write_text('{"name":"ui-bastion"}', encoding="utf-8")
+    monkeypatch.chdir(repo)
+
+    result = runner.invoke(app, ["init"])
+    assert result.exit_code == 0
+
+    content = (repo / ".zenzic.toml").read_text(encoding="utf-8")
+    assert '# name = "ui-bastion"' in content
 
 
 def test_init_pyproject_flag_appends_tool_section(
@@ -834,6 +919,31 @@ def test_init_pyproject_flag_appends_tool_section(
     content = (repo / "pyproject.toml").read_text(encoding="utf-8")
     assert "[tool.zenzic]" in content
     assert 'name = "myapp"' in content  # original content preserved
+
+    assert (repo / ".zenzic.local.toml").is_file()
+    assert ".zenzic.local.toml" in (repo / ".gitignore").read_text(encoding="utf-8")
+
+
+def test_init_preserves_existing_local_file_and_backfills_gitignore(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Init aborts atomically when .zenzic.local.toml already exists."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / ".git").mkdir()
+    (repo / ".gitignore").write_text("# baseline\n", encoding="utf-8")
+    original_local = "[governance]\nsuppression_cap = 123\n"
+    (repo / ".zenzic.local.toml").write_text(original_local, encoding="utf-8")
+    monkeypatch.chdir(repo)
+
+    gitignore_before = (repo / ".gitignore").read_text(encoding="utf-8")
+    result = runner.invoke(app, ["init"])
+    assert result.exit_code == 1
+    assert "Configuration already exists" in result.stdout
+
+    assert (repo / ".zenzic.local.toml").read_text(encoding="utf-8") == original_local
+    assert (repo / ".gitignore").read_text(encoding="utf-8") == gitignore_before
+    assert not (repo / ".zenzic.toml").exists()
 
 
 def test_init_pyproject_with_mkdocs_engine(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -868,13 +978,13 @@ def test_init_pyproject_warns_if_section_exists(
 
     result = runner.invoke(app, ["init", "--pyproject"])
     assert result.exit_code == 1
-    assert "already exists" in result.stdout
+    assert "Configuration already exists" in result.stdout
+    normalized = " ".join(result.stdout.split())
+    assert "Manual editing is required" in normalized
 
 
-def test_init_pyproject_force_replaces_section(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """--pyproject --force replaces an existing [tool.zenzic] section."""
+def test_init_pyproject_force_is_rejected(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """--pyproject --force is rejected in hardened init mode."""
     repo = tmp_path / "repo"
     repo.mkdir()
     (repo / ".git").mkdir()
@@ -885,12 +995,8 @@ def test_init_pyproject_force_replaces_section(
     monkeypatch.chdir(repo)
 
     result = runner.invoke(app, ["init", "--pyproject", "--force"])
-    assert result.exit_code == 0
-
-    content = (repo / "pyproject.toml").read_text(encoding="utf-8")
-    assert "[tool.zenzic]" in content
-    assert "fail_under = 80" not in content  # old section removed
-    assert 'name = "x"' in content  # project section preserved
+    assert result.exit_code == 1
+    assert "--force is not supported" in result.stdout
 
 
 def test_init_pyproject_no_file_errors(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -920,13 +1026,13 @@ def test_init_interactive_prompt_chooses_pyproject(
 
     content = (repo / "pyproject.toml").read_text(encoding="utf-8")
     assert "[tool.zenzic]" in content
-    assert not (repo / "zenzic.toml").is_file()
+    assert not (repo / ".zenzic.toml").is_file()
 
 
 def test_init_interactive_prompt_chooses_standalone(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """When pyproject.toml exists and user answers 'n', creates zenzic.toml."""
+    """When pyproject.toml exists and user answers 'n', creates .zenzic.toml."""
     repo = tmp_path / "repo"
     repo.mkdir()
     (repo / ".git").mkdir()
@@ -935,7 +1041,7 @@ def test_init_interactive_prompt_chooses_standalone(
 
     result = runner.invoke(app, ["init"], input="n\n")
     assert result.exit_code == 0
-    assert (repo / "zenzic.toml").is_file()
+    assert (repo / ".zenzic.toml").is_file()
 
     # pyproject.toml must NOT have [tool.zenzic]
     content = (repo / "pyproject.toml").read_text(encoding="utf-8")
@@ -970,13 +1076,13 @@ def test_init_in_fresh_directory_no_git(tmp_path: Path, monkeypatch: pytest.Monk
 
     result = runner.invoke(app, ["init"])
     assert result.exit_code == 0, result.stdout
-    assert (fresh / "zenzic.toml").is_file()
+    assert (fresh / ".zenzic.toml").is_file()
 
 
 def test_init_nomad_writes_to_target_not_cwd(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """CEO-060 'The Nomad': zenzic init <path> creates zenzic.toml at target, not CWD."""
+    """CEO-060 'The Nomad': zenzic init <path> creates .zenzic.toml at target, not CWD."""
     target = tmp_path / "new-docs"
     target.mkdir()
     workspace = tmp_path / "workspace"
@@ -985,20 +1091,20 @@ def test_init_nomad_writes_to_target_not_cwd(
 
     result = runner.invoke(app, ["init", str(target)])
     assert result.exit_code == 0, result.stdout
-    assert (target / "zenzic.toml").is_file(), "zenzic.toml must be at target"
-    assert not (workspace / "zenzic.toml").is_file(), "zenzic.toml must NOT appear in CWD"
+    assert (target / ".zenzic.toml").is_file(), ".zenzic.toml must be at target"
+    assert not (workspace / ".zenzic.toml").is_file(), ".zenzic.toml must NOT appear in CWD"
 
 
 def test_init_nomad_creates_target_directory(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """CEO-060: zenzic init <nonexistent-path> must create the directory and write zenzic.toml."""
+    """CEO-060: zenzic init <nonexistent-path> must create the directory and write .zenzic.toml."""
     target = tmp_path / "does" / "not" / "exist"
     monkeypatch.chdir(tmp_path)
 
     result = runner.invoke(app, ["init", str(target)])
     assert result.exit_code == 0, result.stdout
-    assert (target / "zenzic.toml").is_file(), "zenzic.toml must be created at nested target"
+    assert (target / ".zenzic.toml").is_file(), ".zenzic.toml must be created at nested target"
 
 
 # ---------------------------------------------------------------------------
@@ -1013,10 +1119,10 @@ class TestShowInfoFilter:
     def _make_reporter(buf):  # type: ignore[no-untyped-def]
         from rich.console import Console
 
-        from zenzic.core.reporter import SentinelReporter
+        from zenzic.core.reporter import ZenzicReporter
 
         con = Console(file=buf, highlight=False, markup=True)
-        return SentinelReporter(con, Path("/fake/docs"), docs_dir="docs")
+        return ZenzicReporter(con, Path("/fake/docs"), docs_dir="docs")
 
     @staticmethod
     def _info_finding():  # type: ignore[no-untyped-def]
@@ -1108,8 +1214,8 @@ def test_inspect_capabilities_shows_bypass_table() -> None:
 @patch("zenzic.cli._standalone.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._standalone.ZenzicConfig.load", return_value=(_CFG, False))
 @patch("zenzic.cli._standalone._run_all_checks")
-def test_score_perfect_shows_sentinel_seal(_run: object, _cfg: object, _root: object) -> None:
-    """score at 100/100 must display the Sentinel Seal celebratory panel."""
+def test_score_perfect_shows_audit_complete(_run: object, _cfg: object, _root: object) -> None:
+    """score at 100/100 must display the celebratory completion panel."""
     from zenzic.core.scorer import CategoryScore, ScoreReport
 
     _run.return_value = ScoreReport(  # type: ignore[attr-defined]
@@ -1125,7 +1231,6 @@ def test_score_perfect_shows_sentinel_seal(_run: object, _cfg: object, _root: ob
     result = runner.invoke(app, ["score"])
     assert result.exit_code == 0
     assert "100/100" in result.stdout
-    assert "SENTINEL SEAL" in result.stdout
     assert "Every check passed" in result.stdout
 
 
@@ -1133,7 +1238,7 @@ def test_score_perfect_shows_sentinel_seal(_run: object, _cfg: object, _root: ob
 @patch("zenzic.cli._standalone.ZenzicConfig.load", return_value=(_CFG, False))
 @patch("zenzic.cli._standalone._run_all_checks")
 def test_score_low_uses_error_style(_run: object, _cfg: object, _root: object) -> None:
-    """score below 50 must use red error styling and must NOT show Sentinel Seal."""
+    """score below 50 must use red error styling and must NOT show the completion panel."""
     from zenzic.core.scorer import CategoryScore, ScoreReport
 
     _run.return_value = ScoreReport(  # type: ignore[attr-defined]
@@ -1149,11 +1254,146 @@ def test_score_low_uses_error_style(_run: object, _cfg: object, _root: object) -
     result = runner.invoke(app, ["score"])
     assert result.exit_code == 0
     assert "30/100" in result.stdout
-    assert "SENTINEL SEAL" not in result.stdout
+    assert "Every check passed" not in result.stdout
 
 
-# ---------------------------------------------------------------------------
-# GAP-01: -f short alias for --format (Global CLI DX Standardization)
+@patch("zenzic.cli._standalone.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._standalone.ZenzicConfig.load", return_value=(_CFG, False))
+@patch("zenzic.cli._standalone._run_all_checks")
+def test_score_no_header_suppresses_banner(_run: object, _cfg: object, _root: object) -> None:
+    """score --no-header must omit the PythonWoods banner panel from output."""
+    from zenzic.core.scorer import CategoryScore, ScoreReport
+
+    _run.return_value = ScoreReport(  # type: ignore[attr-defined]
+        score=100,
+        categories=[
+            CategoryScore("links", 0.35, 0, 1.0, 0.35),
+            CategoryScore("orphans", 0.20, 0, 1.0, 0.20),
+            CategoryScore("snippets", 0.20, 0, 1.0, 0.20),
+            CategoryScore("placeholders", 0.15, 0, 1.0, 0.15),
+            CategoryScore("assets", 0.10, 0, 1.0, 0.10),
+        ],
+    )
+    result = runner.invoke(app, ["score", "--no-header"])
+    assert result.exit_code == 0
+    assert "PythonWoods" not in result.stdout
+    assert "100/100" in result.stdout
+
+
+@patch("zenzic.cli._standalone.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._standalone.ZenzicConfig.load", return_value=(_CFG, False))
+@patch("zenzic.cli._standalone._run_all_checks")
+@patch("zenzic.cli._standalone._check_stamp_file", return_value=True)
+def test_score_check_stamp_passes_when_current(
+    _chk: object, _run: object, _cfg: object, _root: object
+) -> None:
+    """score --check-stamp must exit 0 and report all badges current when fresh."""
+    from zenzic.core.scorer import CategoryScore, ScoreReport
+
+    _run.return_value = ScoreReport(  # type: ignore[attr-defined]
+        score=100,
+        categories=[
+            CategoryScore("links", 0.35, 0, 1.0, 0.35),
+            CategoryScore("orphans", 0.20, 0, 1.0, 0.20),
+            CategoryScore("snippets", 0.20, 0, 1.0, 0.20),
+            CategoryScore("placeholders", 0.15, 0, 1.0, 0.15),
+            CategoryScore("assets", 0.10, 0, 1.0, 0.10),
+        ],
+    )
+    result = runner.invoke(app, ["score", "--check-stamp", "--no-header"])
+    assert result.exit_code == 0
+    assert "Quality Breakdown" not in result.stdout
+    assert "All badges are current" in result.stdout
+
+
+@patch("zenzic.cli._standalone.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._standalone.ZenzicConfig.load", return_value=(_CFG, False))
+@patch("zenzic.cli._standalone._run_all_checks")
+@patch("zenzic.cli._standalone._check_stamp_file", return_value=False)
+def test_score_check_stamp_fails_when_stale(
+    _chk: object, _run: object, _cfg: object, _root: object
+) -> None:
+    """score --check-stamp must exit 1 and name the stale file when badge is outdated."""
+    from zenzic.core.scorer import CategoryScore, ScoreReport
+
+    _run.return_value = ScoreReport(  # type: ignore[attr-defined]
+        score=95,
+        categories=[
+            CategoryScore("links", 0.35, 0, 1.0, 0.35),
+            CategoryScore("orphans", 0.20, 0, 1.0, 0.20),
+            CategoryScore("snippets", 0.20, 0, 1.0, 0.20),
+            CategoryScore("placeholders", 0.15, 0, 1.0, 0.15),
+            CategoryScore("assets", 0.10, 0, 1.0, 0.10),
+        ],
+    )
+    result = runner.invoke(app, ["score", "--check-stamp", "--no-header"])
+    assert result.exit_code == 1
+    assert "Quality Breakdown" not in result.stdout
+    assert "[FAILED] Badge (score) in" in result.stdout
+    assert "[FAILED] Badge (audit) in" in result.stdout
+
+
+@patch("zenzic.cli._standalone.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._standalone.ZenzicConfig.load", return_value=(_CFG, False))
+@patch("zenzic.cli._standalone._run_all_checks")
+@patch("zenzic.cli._standalone._check_stamp_file", side_effect=[False, True])
+def test_score_check_stamp_fails_when_score_badge_stale_only(
+    _chk: object, _run: object, _cfg: object, _root: object
+) -> None:
+    """score --check-stamp reports score marker drift independently from audit marker."""
+    from zenzic.core.scorer import CategoryScore, ScoreReport
+
+    _run.return_value = ScoreReport(  # type: ignore[attr-defined]
+        score=100,
+        categories=[
+            CategoryScore("links", 0.35, 0, 1.0, 0.35),
+            CategoryScore("orphans", 0.20, 0, 1.0, 0.20),
+            CategoryScore("snippets", 0.20, 0, 1.0, 0.20),
+            CategoryScore("placeholders", 0.15, 0, 1.0, 0.15),
+            CategoryScore("assets", 0.10, 0, 1.0, 0.10),
+        ],
+    )
+    result = runner.invoke(app, ["score", "--check-stamp", "--no-header"])
+    assert result.exit_code == 1
+    assert "Badge (score)" in result.stdout
+    assert "Badge (audit)" not in result.stdout
+
+
+@patch("zenzic.cli._standalone.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._standalone.ZenzicConfig.load", return_value=(_CFG, False))
+@patch("zenzic.cli._standalone._run_all_checks")
+@patch("zenzic.cli._standalone._check_stamp_file", side_effect=[True, False])
+def test_score_check_stamp_fails_when_audit_badge_stale_only(
+    _chk: object, _run: object, _cfg: object, _root: object
+) -> None:
+    """score --check-stamp reports audit marker drift independently from score marker."""
+    from zenzic.core.scorer import CategoryScore, ScoreReport
+
+    _run.return_value = ScoreReport(  # type: ignore[attr-defined]
+        score=100,
+        categories=[
+            CategoryScore("links", 0.35, 0, 1.0, 0.35),
+            CategoryScore("orphans", 0.20, 0, 1.0, 0.20),
+            CategoryScore("snippets", 0.20, 0, 1.0, 0.20),
+            CategoryScore("placeholders", 0.15, 0, 1.0, 0.15),
+            CategoryScore("assets", 0.10, 0, 1.0, 0.10),
+        ],
+    )
+    result = runner.invoke(app, ["score", "--check-stamp", "--no-header"])
+    assert result.exit_code == 1
+    assert "Badge (audit)" in result.stdout
+    assert "Badge (score)" not in result.stdout
+
+
+@patch("zenzic.cli._standalone.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._standalone.ZenzicConfig.load", return_value=(_CFG, False))
+def test_score_check_stamp_and_stamp_mutually_exclusive(_cfg: object, _root: object) -> None:
+    """score --stamp --check-stamp must exit 1 with a clear mutual-exclusivity error."""
+    result = runner.invoke(app, ["score", "--stamp", "--check-stamp"])
+    assert result.exit_code == 1
+    assert "mutually exclusive" in result.output
+
+
 # ---------------------------------------------------------------------------
 
 
@@ -1203,10 +1443,23 @@ def test_check_all_short_format_alias(
 # ---------------------------------------------------------------------------
 
 
-def test_init_plugin_dev_conflict_exits_2(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """--plugin combined with --dev must exit 2 with an informative error."""
+def test_init_local_flag_scaffolds_only_local_toml(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """--local must create only .zenzic.local.toml; .zenzic.toml must not be created."""
     monkeypatch.chdir(tmp_path)
-    result = runner.invoke(app, ["init", "--plugin", "myrule", "--dev"])
+    result = runner.invoke(app, ["init", "--local"])
+    assert result.exit_code == 0, result.output
+    assert (tmp_path / ".zenzic.local.toml").exists()
+    assert not (tmp_path / ".zenzic.toml").exists()
+
+
+def test_init_plugin_local_conflict_exits_2(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """--plugin combined with --local must exit 2 with an informative error."""
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(app, ["init", "--plugin", "myrule", "--local"])
     assert result.exit_code == 2, result.output
     assert "--plugin" in result.output or "cannot be combined" in result.output.lower()
 

@@ -16,16 +16,22 @@ from __future__ import annotations
 
 import fnmatch
 import posixpath
-import re
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from urllib.parse import unquote
 
-from zenzic.core.adapter import get_adapter
+from zenzic.core import regex as re
+from zenzic.core.credentials import (
+    SecurityFinding,
+    scan_line_for_forbidden_terms,
+    scan_lines_with_lookback,
+    scan_url_for_secrets,
+)
 from zenzic.core.discovery import (
     DOC_SUFFIXES,
+    build_content_mounts,
     iter_extra_content_markdown_sources,
     iter_locale_markdown_sources,
     iter_markdown_sources,
@@ -33,12 +39,6 @@ from zenzic.core.discovery import (
 )
 from zenzic.core.reporter import Finding
 from zenzic.core.rules import AdaptiveRuleEngine, BaseRule
-from zenzic.core.shield import (
-    SecurityFinding,
-    scan_line_for_forbidden_terms,
-    scan_lines_with_lookback,
-    scan_url_for_secrets,
-)
 from zenzic.core.validator import LinkValidator
 from zenzic.models.config import (
     SYSTEM_EXCLUDED_FILE_NAMES,
@@ -49,23 +49,77 @@ from zenzic.models.references import IntegrityReport, ReferenceFinding, Referenc
 
 
 if TYPE_CHECKING:
+    from zenzic.core.adapters._base import BaseAdapter
     from zenzic.core.exclusion import LayeredExclusionManager
+
+
+# ─── Code-asset suffix guard (Z405 exemption) ────────────────────────────────
+# Source code files are never documentation assets. When docs_dir is the repo
+# root (standalone mode), walking src/ would otherwise produce Z405 findings
+# for every .py/.ts file not referenced by any Markdown page. These files are
+# logically application code — exempt from unused-asset enforcement.
+# Discovery still walks them so the InMemoryPathResolver can resolve links
+# that cross the docs/source boundary (e.g. README linking to a source file).
+CODE_ASSET_SUFFIXES: frozenset[str] = frozenset(
+    {
+        # Python
+        ".py",
+        ".pyi",
+        # TypeScript / JavaScript variants not already in SYSTEM_EXCLUDED_FILE_PATTERNS
+        ".ts",
+        ".tsx",
+        ".jsx",
+        ".mjs",
+        ".cjs",
+        # Systems languages
+        ".rs",
+        ".go",
+        ".c",
+        ".cpp",
+        ".cc",
+        ".cxx",
+        ".h",
+        ".hpp",
+        ".hh",
+        ".cs",
+        ".swift",
+        # JVM
+        ".java",
+        ".kt",
+        ".kts",
+        ".scala",
+        # Scripting
+        ".rb",
+        ".php",
+        ".lua",
+        ".pl",
+        ".pm",
+        # Functional
+        ".ex",
+        ".exs",
+        ".hs",
+        ".lhs",
+        # Data / query
+        ".sql",
+        # Build / infra
+        ".nix",
+        ".tf",
+    }
+)
 
 
 # ─── Reference pipeline regexes ───────────────────────────────────────────────
 
 # Reference definition: [id]: url  (up to 3 leading spaces per CommonMark §4.7)
-# Optional title on the same line is ignored (we only need the URL for Shield scan).
+# Optional title on the same line is ignored (we only need the URL for credential scan).
 _RE_REF_DEF = re.compile(r"^ {0,3}\[([^\]]+)\]:\s+(\S+)")
 
 # Reference link usage: [text][id] or [text][] (collapsed reference).
-# Negative lookbehind (?<!!) prevents matching image reference links ![alt][id].
-_RE_REF_LINK = re.compile(r"(?<!!)(\[([^\]]*)\]\[([^\]]*)\])")
+_RE_REF_LINK = re.compile(r"(\[([^\]]*)\]\[([^\]]*)\])")
 
-# Shortcut reference link: [text] NOT followed by [ ( or : (CommonMark §4.7).
-# Negative lookbehinds: (?<!!) avoids image refs; (?<!\]) avoids matching the
-# second bracket pair of full/collapsed refs [text][id].
-_RE_REF_SHORTCUT = re.compile(r"(?<![!\]])\[([^\]]+)\](?![\[(:])")
+# Shortcut reference link: [text] with semantic filters applied in code to
+# exclude image refs and full/collapsed ref tails.
+_RE_REF_SHORTCUT = re.compile(r"\[([^\]]+)\]")
 
 # Inline image: ![alt](url)
 _RE_IMAGE_INLINE = re.compile(r"!\[([^\]]*)\]\(([^)]+)\)")
@@ -76,6 +130,8 @@ _RE_HTML_ALT = re.compile(r'\balt=["\']([^"\']*)["\']', re.IGNORECASE)
 
 
 _MARKDOWN_ASSET_LINK_RE = re.compile(r"!\[.*?\]\((.*?)\)|<img.*?src=[\"'](.*?)[\"'].*?>")
+# Inline code span — erased before link extraction to avoid false positives.
+_INLINE_CODE_RE = re.compile(r"`[^`]+`")
 
 
 def find_repo_root(*, fallback_to_cwd: bool = False, search_from: Path | None = None) -> Path:
@@ -83,7 +139,7 @@ def find_repo_root(*, fallback_to_cwd: bool = False, search_from: Path | None = 
 
     Root markers (first match wins, checked in order):
     - ``.git/``  — universal VCS marker.
-    - ``zenzic.toml`` — Zenzic's own configuration file.
+    - ``.zenzic.toml`` — Zenzic's own configuration file.
 
     Using engine-neutral markers keeps the Core independent of any specific
     documentation build engine (e.g. ``mkdocs.yml`` is intentionally excluded).
@@ -107,14 +163,14 @@ def find_repo_root(*, fallback_to_cwd: bool = False, search_from: Path | None = 
     """
     start = search_from.resolve() if search_from is not None else Path.cwd().resolve()
     for candidate in [start, *start.parents]:
-        if (candidate / ".git").is_dir() or (candidate / "zenzic.toml").is_file():
+        if (candidate / ".git").is_dir() or (candidate / ".zenzic.toml").is_file():
             return candidate
 
     if fallback_to_cwd:
         return start
 
     raise RuntimeError(
-        "Could not locate repo root: no .git directory or zenzic.toml found in any "
+        "Could not locate repo root: no .git directory or .zenzic.toml found in any "
         f"ancestor of {start}. Run Zenzic from inside the repository."
     )
 
@@ -135,26 +191,26 @@ def calculate_orphans(all_md: set[str], nav_paths: set[str] | frozenset[str]) ->
     return sorted(all_md - nav_paths)
 
 
-def _map_shield_to_finding(sf: SecurityFinding, docs_root: Path) -> Finding:
+def _map_credential_to_finding(sf: SecurityFinding, docs_root: Path) -> Finding:
     """Convert a :class:`SecurityFinding` into a reporter :class:`Finding`.
 
-    This is the **sole authorised bridge** between the Shield detection layer
-    and the SentinelReporter.  It is extracted as a standalone pure function so
+    This is the **sole authorised bridge** between the credential detection layer
+    and the ZenzicReporter.  It is extracted as a standalone pure function so
     that mutation testing can target it directly (see the Mutation Gate in
     ``CONTRIBUTING.md``, Obligation 4 — "The Invisible", "The Amnesiac", and
     "The Silencer" mutants must all be killed here).
 
     Args:
-        sf: A secret detection result from :func:`~zenzic.core.shield.scan_line_for_secrets`,
-            :func:`~zenzic.core.shield.scan_url_for_secrets`, or
-            :func:`~zenzic.core.shield.scan_line_for_forbidden_terms`.
+        sf: A secret detection result from :func:`~zenzic.core.credentials.scan_line_for_secrets`,
+            :func:`~zenzic.core.credentials.scan_url_for_secrets`, or
+            :func:`~zenzic.core.credentials.scan_line_for_forbidden_terms`.
         docs_root: Absolute path to the docs root directory used to compute
             a project-relative display path.
 
     Returns:
-        A :class:`~zenzic.core.reporter.Finding` ready for the SentinelReporter
+        A :class:`~zenzic.core.reporter.Finding` ready for the ZenzicReporter
         pipeline.  Z204 FORBIDDEN_TERM findings use ``severity="security_breach"``
-        with code ``"Z204"``; all other Shield findings use ``"Z201"``.
+        with code ``"Z204"``; all other credential scanner findings use ``"Z201"``.
     """
     try:
         rel = str(sf.file_path.relative_to(docs_root))
@@ -196,11 +252,11 @@ class PlaceholderFinding:
 
 
 # Strips YAML frontmatter (leading ---...--- block).
-_FRONTMATTER_RE: re.Pattern[str] = re.compile(r"\A\s*---\s*\n.*?\n---\s*\n?", re.DOTALL)
+_FRONTMATTER_RE: re.RegexPattern = re.compile(r"\A\s*---\s*\n.*?\n---\s*\n?", re.DOTALL)
 # Strips MDX comments {/* ... */} — invisible in the rendered page.
-_MDX_COMMENT_RE: re.Pattern[str] = re.compile(r"\{/\*.*?\*/\}", re.DOTALL)
+_MDX_COMMENT_RE: re.RegexPattern = re.compile(r"\{/\*.*?\*/\}", re.DOTALL)
 # Strips HTML comments <!-- ... --> — also invisible.
-_HTML_COMMENT_RE: re.Pattern[str] = re.compile(r"<!--.*?-->", re.DOTALL)
+_HTML_COMMENT_RE: re.RegexPattern = re.compile(r"<!--.*?-->", re.DOTALL)
 
 
 def _first_content_line(text: str) -> int:
@@ -380,16 +436,27 @@ def find_orphans(
     docs_root: Path,
     exclusion_manager: LayeredExclusionManager,
     *,
-    repo_root: Path,
     config: ZenzicConfig,
+    has_engine_config: bool | None = None,
+    nav_paths: frozenset[str] | None = None,
+    is_locale_dir: Callable[[str], bool] | None = None,
+    ignored_patterns: set[str] | None = None,
+    adapter: BaseAdapter | None = None,
+    repo_root: Path | None = None,
 ) -> list[Path]:
     """Return docs/*.md files whose adapter status is ORPHAN_BUT_EXISTING.
 
     Args:
         docs_root: Resolved path to the documentation root.
         exclusion_manager: Layered exclusion manager (mandatory).
-        repo_root: Path to the repository root (for adapter creation).
         config: Zenzic configuration model.
+        has_engine_config: ``True`` when nav-based checks are meaningful.
+        nav_paths: Nav-listed markdown paths (adapter-provided).
+        is_locale_dir: Callback that identifies locale directory names.
+        ignored_patterns: Adapter-specific filename patterns to skip.
+        adapter: Adapter instance used for route classification.
+        repo_root: Optional repository root used to build the adapter
+            when adapter and other callbacks are omitted.
 
     Returns:
         List of Path objects relative to docs_root that are not in the nav.
@@ -397,22 +464,45 @@ def find_orphans(
     if not docs_root.exists() or not docs_root.is_dir():
         return []
 
-    adapter = get_adapter(config.build_context, docs_root, repo_root)
+    if (
+        adapter is None
+        or has_engine_config is None
+        or nav_paths is None
+        or is_locale_dir is None
+        or ignored_patterns is None
+    ):
+        if adapter is None:
+            if repo_root is None:
+                raise TypeError("find_orphans requires adapter or repo_root for adapter discovery")
+            from zenzic.core.adapters._factory import get_adapter
 
-    if not adapter.has_engine_config():
+            adapter = get_adapter(config.build_context, docs_root, repo_root)
+        if has_engine_config is None:
+            has_engine_config = adapter.has_engine_config()
+        if nav_paths is None:
+            nav_paths = adapter.get_nav_paths()
+        if is_locale_dir is None:
+            is_locale_dir = adapter.is_locale_dir
+        if ignored_patterns is None:
+            ignored_patterns = adapter.get_ignored_patterns()
+
+    assert adapter is not None
+    assert nav_paths is not None
+    assert is_locale_dir is not None
+    assert ignored_patterns is not None
+    assert has_engine_config is not None
+
+    if not has_engine_config:
         return []
-
-    nav_paths = adapter.get_nav_paths()
-    adapter_ignored = adapter.get_ignored_patterns()
 
     orphans: list[Path] = []
     for md_file in iter_markdown_sources(docs_root, config, exclusion_manager):
         rel = md_file.relative_to(docs_root)
-        if rel.parts and adapter.is_locale_dir(rel.parts[0]):
+        if rel.parts and is_locale_dir(rel.parts[0]):
             continue
-        if any(fnmatch.fnmatch(md_file.name, pat) for pat in adapter_ignored):
+        if any(fnmatch.fnmatch(md_file.name, pat) for pat in ignored_patterns):
             continue
-        if adapter.classify_route(rel, nav_paths) == "ORPHAN_BUT_EXISTING":
+        if adapter.get_route_info(rel).status == "ORPHAN_BUT_EXISTING":
             orphans.append(rel)
 
     return orphans
@@ -442,11 +532,11 @@ class I18nParityIssue:
     message: str
 
 
-_I18N_IGNORE_RE: re.Pattern[str] = re.compile(
+_I18N_IGNORE_RE: re.RegexPattern = re.compile(
     r"^\s*i18n-ignore\s*:\s*(true|yes|1)\s*$",
     re.IGNORECASE | re.MULTILINE,
 )
-_FM_KV_RE: re.Pattern[str] = re.compile(
+_FM_KV_RE: re.RegexPattern = re.compile(
     r"^\s*([A-Za-z_][\w-]*)\s*:\s*(.*?)\s*$",
     re.MULTILINE,
 )
@@ -493,16 +583,22 @@ def _is_i18n_ignored(path: Path) -> bool:
     return bool(block) and bool(_I18N_IGNORE_RE.search(block))
 
 
-def _i18n_files(root: Path) -> list[Path]:
-    """Return every ``.md`` / ``.mdx`` file under *root* not marked i18n-ignore."""
+def _i18n_files(
+    root: Path,
+    *,
+    config: ZenzicConfig,
+    exclusion_manager: LayeredExclusionManager,
+) -> list[Path]:
+    """Return source docs under *root* not marked ``i18n-ignore``.
+
+    Discovery is delegated to :func:`iter_markdown_sources` so i18n parity
+    honours the same layered exclusions as the rest of the scanner pipeline.
+    """
     if not root.exists() or not root.is_dir():
         return []
-    out: list[Path] = []
-    for suffix in DOC_SUFFIXES:
-        for f in root.rglob(f"*{suffix}"):
-            if f.is_file() and not _is_i18n_ignored(f):
-                out.append(f)
-    return out
+    return [
+        f for f in iter_markdown_sources(root, config, exclusion_manager) if not _is_i18n_ignored(f)
+    ]
 
 
 def _check_one_base_file(
@@ -563,6 +659,7 @@ def find_i18n_parity(
     repo_root: Path,
     *,
     config: ZenzicConfig,
+    exclusion_manager_factory: Callable[[Path], LayeredExclusionManager],
 ) -> list[I18nParityIssue]:
     """Z907 — verify cross-language documentation parity.
 
@@ -579,6 +676,8 @@ def find_i18n_parity(
         repo_root: Repository root.  All relative paths in
             :class:`I18nConfig` are resolved against this directory.
         config: Loaded :class:`ZenzicConfig`.
+        exclusion_manager_factory: Callable that receives each base source root
+            and returns a :class:`LayeredExclusionManager` for that root.
 
     Returns:
         List of :class:`I18nParityIssue` — empty when parity holds.
@@ -610,7 +709,11 @@ def find_i18n_parity(
     require_keys = tuple(cfg.require_frontmatter_parity)
     issues: list[I18nParityIssue] = []
     for base_root, target_roots in sources:
-        base_files = _i18n_files(base_root)
+        base_files = _i18n_files(
+            base_root,
+            config=config,
+            exclusion_manager=exclusion_manager_factory(base_root),
+        )
         if not base_files:
             continue
         if len(base_files) > ADAPTIVE_PARALLEL_THRESHOLD:
@@ -644,7 +747,8 @@ def find_placeholders(
     exclusion_manager: LayeredExclusionManager,
     *,
     config: ZenzicConfig,
-    repo_root: Path | None = None,
+    locale_roots: list[tuple[Path, str]] | None = None,
+    content_roots: list[Path] | None = None,
 ) -> list[PlaceholderFinding]:
     """Scan docs for placeholder/stub patterns and short word counts.
 
@@ -652,9 +756,8 @@ def find_placeholders(
         docs_root: Resolved path to the documentation root.
         exclusion_manager: Layered exclusion manager (mandatory).
         config: Zenzic configuration model.
-        repo_root: Optional repository root.  When provided and the adapter
-            exposes ``get_locale_source_roots()``, locale translation trees
-            are also scanned (Docusaurus i18n support).
+        locale_roots: Optional locale translation roots injected by caller.
+        content_roots: Optional external markdown roots injected by caller.
 
     Returns:
         List of PlaceholderFinding instances detailing the issues found.
@@ -669,22 +772,21 @@ def find_placeholders(
         content = md_file.read_text(encoding="utf-8")
         findings.extend(check_placeholder_content(content, rel_path, config))
 
-    if repo_root is not None:
-        adapter = get_adapter(config.build_context, docs_root, repo_root)
-        if hasattr(adapter, "get_locale_source_roots"):
-            for locale_root, locale_name in adapter.get_locale_source_roots(repo_root):
-                for md_file, logical_rel in iter_locale_markdown_sources(
-                    locale_root, locale_name, config, exclusion_manager
-                ):
-                    content = md_file.read_text(encoding="utf-8")
-                    findings.extend(check_placeholder_content(content, logical_rel, config))
-        if hasattr(adapter, "get_extra_content_roots"):
-            for content_root in adapter.get_extra_content_roots(repo_root):
-                for md_file, logical_rel in iter_extra_content_markdown_sources(
-                    content_root.path, content_root.url_prefix, config, exclusion_manager
-                ):
-                    content = md_file.read_text(encoding="utf-8")
-                    findings.extend(check_placeholder_content(content, logical_rel, config))
+    if locale_roots:
+        for locale_root, locale_name in locale_roots:
+            for md_file, logical_rel in iter_locale_markdown_sources(
+                locale_root, locale_name, config, exclusion_manager
+            ):
+                content = md_file.read_text(encoding="utf-8")
+                findings.extend(check_placeholder_content(content, logical_rel, config))
+
+    if content_roots:
+        for content_root, url_prefix in build_content_mounts(content_roots):
+            for md_file, logical_rel in iter_extra_content_markdown_sources(
+                content_root, url_prefix, config, exclusion_manager
+            ):
+                content = md_file.read_text(encoding="utf-8")
+                findings.extend(check_placeholder_content(content, logical_rel, config))
 
     return findings
 
@@ -694,7 +796,8 @@ def find_unused_assets(
     exclusion_manager: LayeredExclusionManager,
     *,
     config: ZenzicConfig,
-    repo_root: Path | None = None,
+    locale_roots: list[tuple[Path, str]] | None = None,
+    content_roots: list[Path] | None = None,
     adapter_metadata_files: frozenset[str] = frozenset(),
 ) -> list[Path]:
     """Return asset files in docs/ that are not referenced by any markdown file.
@@ -703,12 +806,10 @@ def find_unused_assets(
         docs_root: Resolved path to the documentation root.
         exclusion_manager: Layered exclusion manager (mandatory).
         config: Zenzic configuration model.
-        repo_root: Optional repository root.  When provided and the adapter
-            exposes ``get_locale_source_roots()``, locale translation trees
-            are also scanned when collecting asset reference sets
-            (Docusaurus i18n support).
+        locale_roots: Optional locale translation roots injected by caller.
+        content_roots: Optional external markdown roots injected by caller.
         adapter_metadata_files: Filenames (basename only) that the active adapter
-            consumes as configuration — shielded from Z903 (Level 1b guardrail).
+            consumes as configuration — excluded from Z903 (Level 1b guardrail).
 
     Returns:
         List of Path objects relative to docs_root that are unused.
@@ -733,6 +834,8 @@ def find_unused_assets(
             continue
         rel_path = file_path.relative_to(docs_root)
         if rel_path.suffix in {".css", ".js", ".yml", ".sarif", ".license", ".j2"}:
+            continue
+        if rel_path.suffix in CODE_ASSET_SUFFIXES:
             continue
         if any(part in config.excluded_asset_dirs for part in rel_path.parts):
             continue
@@ -767,28 +870,27 @@ def find_unused_assets(
         used_assets |= check_asset_references(content, page_dir)
 
     # Also collect asset references cited from locale translation trees.
-    if repo_root is not None:
-        adapter = get_adapter(config.build_context, docs_root, repo_root)
-        if hasattr(adapter, "get_locale_source_roots"):
-            for locale_root, locale_name in adapter.get_locale_source_roots(repo_root):
-                for md_file, logical_rel in iter_locale_markdown_sources(
-                    locale_root, locale_name, config, exclusion_manager
-                ):
-                    content = md_file.read_text(encoding="utf-8")
-                    page_dir = logical_rel.parent.as_posix()
-                    if page_dir == ".":
-                        page_dir = ""
-                    used_assets |= check_asset_references(content, page_dir)
-        if hasattr(adapter, "get_extra_content_roots"):
-            for content_root in adapter.get_extra_content_roots(repo_root):
-                for md_file, logical_rel in iter_extra_content_markdown_sources(
-                    content_root.path, content_root.url_prefix, config, exclusion_manager
-                ):
-                    content = md_file.read_text(encoding="utf-8")
-                    page_dir = logical_rel.parent.as_posix()
-                    if page_dir == ".":
-                        page_dir = ""
-                    used_assets |= check_asset_references(content, page_dir)
+    if locale_roots:
+        for locale_root, locale_name in locale_roots:
+            for md_file, logical_rel in iter_locale_markdown_sources(
+                locale_root, locale_name, config, exclusion_manager
+            ):
+                content = md_file.read_text(encoding="utf-8")
+                page_dir = logical_rel.parent.as_posix()
+                if page_dir == ".":
+                    page_dir = ""
+                used_assets |= check_asset_references(content, page_dir)
+
+    if content_roots:
+        for content_root, url_prefix in build_content_mounts(content_roots):
+            for md_file, logical_rel in iter_extra_content_markdown_sources(
+                content_root, url_prefix, config, exclusion_manager
+            ):
+                content = md_file.read_text(encoding="utf-8")
+                page_dir = logical_rel.parent.as_posix()
+                if page_dir == ".":
+                    page_dir = ""
+                used_assets |= check_asset_references(content, page_dir)
 
     return [Path(p) for p in calculate_unused_assets(all_assets, used_assets)]
 
@@ -797,17 +899,14 @@ def find_missing_directory_indices(
     docs_root: Path,
     exclusion_manager: LayeredExclusionManager,
     *,
-    repo_root: Path,
     config: ZenzicConfig,
+    provides_index: Callable[[Path], bool],
 ) -> list[Path]:
     """Return directories that contain ``.md`` / ``.mdx`` source files but no
     engine-provided index page, indicating a potential 404 at the directory URL.
 
-    The check is engine-aware: it delegates to
-    :meth:`~zenzic.core.adapters._base.BaseAdapter.provides_index` on the
-    resolved adapter so that each engine's index-page conventions are respected
-    (Docusaurus ``index.mdx`` / ``_category_.json``, MkDocs ``README.md``,
-    Zensical strict ``index.md``, etc.).
+    The check is engine-aware via the injected ``provides_index`` callback so
+    the scanner stays independent from adapter resolution.
 
     The docs root itself is excluded — a missing ``docs/index.*`` is reported
     only when it actually causes a 404 visible to end-users (i.e. sub-dirs).
@@ -818,8 +917,8 @@ def find_missing_directory_indices(
     Args:
         docs_root: Resolved absolute path to the documentation root.
         exclusion_manager: Mandatory layered exclusion manager.
-        repo_root: Repository root used to instantiate the adapter.
         config: Zenzic configuration model.
+        provides_index: Callback that answers whether a directory has an index.
 
     Returns:
         List of :class:`~pathlib.Path` objects relative to *docs_root*,
@@ -827,8 +926,6 @@ def find_missing_directory_indices(
     """
     if not docs_root.exists() or not docs_root.is_dir():
         return []
-
-    adapter = get_adapter(config.build_context, docs_root, repo_root)
 
     # Collect the set of unique parent directories that contain at least one
     # Markdown source file (excluding docs_root itself — the root index is a
@@ -843,7 +940,7 @@ def find_missing_directory_indices(
 
     missing: list[Path] = []
     for dir_abs in sorted(dirs_with_docs):
-        if not adapter.provides_index(dir_abs):
+        if not provides_index(dir_abs):
             try:
                 missing.append(dir_abs.relative_to(docs_root))
             except ValueError:
@@ -859,7 +956,7 @@ def find_missing_directory_indices(
 # (lineno, "DUPLICATE_DEF", (ref_id_norm, url))      — duplicate ignored
 # (lineno, "IMG",           (alt_text, url))          — image found
 # (lineno, "MISSING_ALT",   url)                      — image without alt-text
-# (lineno, "SECRET",        SecurityFinding)          — secret detected by Shield
+# (lineno, "SECRET",        SecurityFinding)          — secret detected by credential scanner
 
 HarvestEvent = tuple[int, str, Any]
 
@@ -871,7 +968,7 @@ def _skip_frontmatter(
 
     Frontmatter is a leading ``---`` block that ends with ``---`` or ``...``.
     Every other line — including lines inside fenced code blocks — is yielded.
-    This is the raw stream used by the Shield so that secrets embedded inside
+    This is the raw stream used by the credential scanner so that secrets embedded inside
     code examples are never invisible.
 
     Args:
@@ -915,7 +1012,7 @@ def _iter_content_lines(
     * **Fenced code blocks**: Lines inside ``` or ~~~ fences are skipped so that
       example URLs inside code never trigger false positives.
 
-    Use :func:`_skip_frontmatter` when the Shield needs to scan every line,
+    Use :func:`_skip_frontmatter` when the credential scanner needs to scan every line,
     including lines inside fenced blocks.
 
     Args:
@@ -1027,10 +1124,10 @@ class ReferenceScanner:
         self.ref_map: ReferenceMap = ReferenceMap()
         self._config = config or ZenzicConfig()
 
-    # ── Pass 1: Harvesting & Shield ────────────────────────────────────────────
+    # ── Pass 1: Harvesting & Credential Scanner ────────────────────────────────
 
     def harvest(self) -> Generator[HarvestEvent, None, None]:
-        """Pass 1: stream the file, extract reference definitions, run the Shield.
+        """Pass 1: stream the file, extract reference definitions, run the credential scanner.
 
         Populates ``self.ref_map.definitions`` as a side effect.  Security
         findings are yielded immediately as ``("SECRET", SecurityFinding)``
@@ -1038,33 +1135,33 @@ class ReferenceScanner:
 
         Uses two independent line streams from the same file:
 
-        * **Shield stream** — every line except YAML frontmatter, including lines
+        * **Credential stream** — every line except YAML frontmatter, including lines
           inside fenced code blocks.  Ensures that credentials in ``bash`` or
-          unlabelled code examples are never invisible to the Shield.
+          unlabelled code examples are never invisible to the credential scanner.
         * **Content stream** — lines outside fenced blocks (``_iter_content_lines``).
           Used for reference-definition harvesting and alt-text detection so that
           example URLs inside code blocks never produce false positives.
 
         Reference definitions (``[id]: url``) are always outside fenced blocks by
         CommonMark §4.7 convention, so scanning them on the content stream is
-        sufficient.  The Shield additionally scans every definition URL via
+        sufficient.  The credential scanner additionally scans every definition URL via
         ``scan_url_for_secrets`` to catch embedded secrets in reference URLs.
 
         Yields:
             ``(lineno, event_type, data)`` tuples.  See module-level type alias
             ``HarvestEvent`` for the full list of event types and data shapes.
         """
-        # ── 1.a Shield pass: scan EVERY line including YAML frontmatter ──────────
-        # ZRT-001 fix: the Shield must have priority over ALL content, including
+        # ── 1.a Credential scanner pass: scan EVERY line including YAML frontmatter ─
+        # ZRT-001 fix: the credential scanner must have priority over ALL content, including
         # YAML frontmatter.  Frontmatter values (aws_key, api_token, ...) are
         # real secrets — we use raw enumerate() so no line is ever skipped.
         # The Content Stream (1.b below) still uses _iter_content_lines which
         # skips frontmatter correctly to avoid false-positive ref-def hits.
         secret_line_nos: set[int] = set()
-        shield_events: list[HarvestEvent] = []
+        credential_events: list[HarvestEvent] = []
         with self.file_path.open(encoding="utf-8") as fh:
             for finding in scan_lines_with_lookback(enumerate(fh, start=1), self.file_path):
-                shield_events.append((finding.line_no, "SECRET", finding))
+                credential_events.append((finding.line_no, "SECRET", finding))
                 secret_line_nos.add(finding.line_no)
 
         # ── 1.a.2 Privacy Gate: scan for Z204 FORBIDDEN_TERM ─────────────────
@@ -1081,7 +1178,7 @@ class ReferenceScanner:
                     for finding in scan_line_for_forbidden_terms(
                         raw_line, fp, self.file_path, lineno
                     ):
-                        shield_events.append((finding.line_no, "SECRET", finding))
+                        credential_events.append((finding.line_no, "SECRET", finding))
                         secret_line_nos.add(finding.line_no)
 
         # ── 1.b Content pass: harvest ref-defs and alt-text (fences skipped) ─
@@ -1096,12 +1193,12 @@ class ReferenceScanner:
                 if accepted:
                     content_events.append((lineno, "DEF", (norm_id, url)))
 
-                    # ── 1.c Shield: scan URL for secrets ─────────────────────
+                    # ── 1.c Credential scanner: scan URL for secrets ──────────────
                     for finding in scan_url_for_secrets(url, self.file_path, lineno):
                         # Only emit if scan_line_for_secrets hasn't already
                         # emitted a SECRET for this line (avoid duplicates).
                         if lineno not in secret_line_nos:
-                            shield_events.append((lineno, "SECRET", finding))
+                            credential_events.append((lineno, "SECRET", finding))
                             secret_line_nos.add(lineno)
                 else:
                     content_events.append((lineno, "DUPLICATE_DEF", (norm_id, url)))
@@ -1117,7 +1214,7 @@ class ReferenceScanner:
                     content_events.append((lineno, "MISSING_ALT", url))
 
         # Yield all events in line-number order
-        yield from sorted(shield_events + content_events, key=lambda e: e[0])
+        yield from sorted(credential_events + content_events, key=lambda e: e[0])
 
     # ── Pass 2: Cross-Check & Validation ──────────────────────────────────────
 
@@ -1135,9 +1232,11 @@ class ReferenceScanner:
 
         for lineno, line in _iter_content_lines(self.file_path):
             # Blank out inline code to avoid false matches inside `[code][spans]`
-            clean = re.sub(r"`[^`]+`", lambda m: " " * len(m.group()), line)
+            clean = _INLINE_CODE_RE.sub(lambda m: " " * len(m.group()), line)
 
             for m in _RE_REF_LINK.finditer(clean):
+                if m.start() > 0 and clean[m.start() - 1] == "!":
+                    continue
                 text = m.group(2)
                 ref_id = m.group(3) if m.group(3) else text  # collapsed ref
                 url = self.ref_map.resolve(ref_id)
@@ -1157,6 +1256,11 @@ class ReferenceScanner:
 
             # Shortcut reference links: [text] (CommonMark §4.7)
             for m in _RE_REF_SHORTCUT.finditer(clean):
+                if m.start() > 0 and clean[m.start() - 1] in "!]":
+                    continue
+                tail = clean[m.end() : m.end() + 1]
+                if tail in "[:(":
+                    continue
                 ref_id = m.group(1)
                 self.ref_map.resolve(ref_id)  # mark as used if defined
 
@@ -1174,7 +1278,7 @@ class ReferenceScanner:
         Args:
             cross_check_findings: Findings from :meth:`cross_check` (dangling
                 refs).  Pass ``None`` or omit to skip.
-            security_findings: Shield findings collected during
+            security_findings: Credential scanner findings collected during
                 :meth:`harvest`.  Pass ``None`` or omit to skip.
 
         Returns:
@@ -1244,7 +1348,7 @@ def _scan_single_file(
             rule pass is skipped entirely.
 
     Returns:
-        ``(report, scanner)`` where ``scanner`` is ``None`` when the Shield
+        ``(report, scanner)`` where ``scanner`` is ``None`` when the credential scanner
         detected secrets (no external URLs should be registered from such files).
     """
     scanner = ReferenceScanner(md_file, config)
@@ -1255,7 +1359,7 @@ def _scan_single_file(
         if event_type == "SECRET":
             security_findings.append(data)
 
-    # Pass 2 — cross-check (only if no secrets; Shield is a firewall)
+    # Pass 2 — cross-check (only if no secrets; credential scanner is a firewall)
     cross_findings: list[ReferenceFinding] = []
     if not security_findings:
         cross_findings = scanner.cross_check()
@@ -1271,7 +1375,7 @@ def _scan_single_file(
         report.rule_findings = rule_engine.run(md_file, text)
 
     # Return scanner only when the file is secure — callers must not register
-    # URLs from files that failed the Shield (they may embed leaked credentials).
+    # URLs from files that failed the credential scanner (they may embed leaked credentials).
     secure_scanner: ReferenceScanner | None = None if security_findings else scanner
     return report, secure_scanner
 
@@ -1382,6 +1486,7 @@ def scan_docs_references(
     workers: int | None = 1,
     verbose: bool = False,
     locale_roots: list[tuple[Path, str]] | None = None,
+    content_roots: list[Path] | None = None,
 ) -> tuple[list[IntegrityReport], list[str]]:
     """Run the Three-Phase Pipeline over every .md file in docs/.
 
@@ -1406,20 +1511,20 @@ def scan_docs_references(
     **Determinism guarantee:** results are always sorted by ``file_path``
     regardless of execution mode.
 
-    **Shield behaviour:** enforced per-worker in parallel mode; per-file in
+    **Credential scanner behaviour:** enforced per-worker in parallel mode; per-file in
     sequential mode.  Files with security findings are excluded from link
     validation in both modes.
 
     **Read behaviour:** total I/O remains :math:`O(N)` in the number of files,
     but individual files may be read multiple times.  In sequential mode the
-    scanner typically performs separate Shield and content passes, and some
+    scanner typically performs separate credential and content passes, and some
     rules may trigger an additional ``read_text()`` call.  In parallel mode the
     same per-worker behaviour applies; when ``validate_links=True`` an extra
     lightweight sequential pass in the main process registers external URLs
     after workers complete (workers discard scanners).
 
     Args:
-        repo_root:      Repository root (must contain ``docs/``).
+        docs_root:      Documentation root to scan.
         config:         Optional Zenzic configuration.
         validate_links: When ``True``, perform async HTTP validation of all
                         external reference URLs found across the docs tree.
@@ -1433,6 +1538,8 @@ def scan_docs_references(
                         after the scan completes.  Shows the engine mode, worker
                         count, elapsed time, and estimated speedup (parallel
                         mode only).  Defaults to ``False``.
+        locale_roots:   Optional locale trees injected by caller.
+        content_roots:  Optional extra markdown roots injected by caller.
 
     Returns:
         A ``(reports, link_errors)`` tuple where:
@@ -1466,6 +1573,14 @@ def scan_docs_references(
                 _locale_path_remap[abs_path] = docs_root / logical_rel
                 md_files.append(abs_path)
 
+    if content_roots:
+        for content_root, url_prefix in build_content_mounts(content_roots):
+            for abs_path, logical_rel in iter_extra_content_markdown_sources(
+                content_root, url_prefix, config, exclusion_manager
+            ):
+                _locale_path_remap[abs_path] = docs_root / logical_rel
+                md_files.append(abs_path)
+
     if not md_files:
         return [], []
 
@@ -1480,7 +1595,7 @@ def scan_docs_references(
         actual_workers = workers if workers is not None else os.cpu_count() or 1
         work_items = [(f, config, rule_engine) for f in md_files]
         # GA-1 fix: use actual_workers for the executor (not the raw `workers`
-        # sentinel) so max_workers always matches what telemetry reports.
+        # marker) so max_workers always matches what telemetry reports.
         with concurrent.futures.ProcessPoolExecutor(max_workers=actual_workers) as executor:
             # CEO-298 fail-fast + ZRT-002: use wait(FIRST_COMPLETED) to process
             # results in completion order and cancel queued tasks immediately on
@@ -1546,7 +1661,7 @@ def scan_docs_references(
         # Phase B in main process: lightweight sequential pass for URL
         # registration.  Workers discard scanners; we re-collect ref_maps here
         # for deduplication.  This is an additional O(N) read but preserves the
-        # Shield-as-firewall guarantee (no URLs from compromised files).
+        # credential-scanner-as-firewall guarantee (no URLs from compromised files).
         secure_scanners_b: list[ReferenceScanner] = []
         for md_file in md_files:
             _report_b, secure_scanner_b = _scan_single_file(md_file, config, None)

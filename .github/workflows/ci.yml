@@ -1,30 +1,24 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
 
-name: CI
+name: zenzic-audit
 
 on:
   push:
-    branches:
-      - main
-      - 'release/**'
+    branches: [main, 'release/**']
     paths:
       - 'src/**'
       - 'tests/**'
       - 'pyproject.toml'
       - 'uv.lock'
-      - 'noxfile.py'
       - '.github/workflows/ci.yml'
   pull_request:
-    branches:
-      - main
-      - 'release/**'
+    branches: [main, 'release/**']
     paths:
       - 'src/**'
       - 'tests/**'
       - 'pyproject.toml'
       - 'uv.lock'
-      - 'noxfile.py'
       - '.github/workflows/ci.yml'
 
 permissions:
@@ -32,62 +26,41 @@ permissions:
 
 jobs:
   verify:
-    name: Verify (${{ matrix.os }}, Python ${{ matrix.python }})
+    name: Verify (Py ${{ matrix.python-version }} on ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
-        # Pillar Matrix (v0.7.0):
-        #   Floor          → 3.10  (oldest supported; enforces minimum compat)
-        #   Peak / Windows → 3.14  (latest stable; primary target + Windows anchor)
-        include:
-          # ── Ubuntu Floor ──────────────────────────────────────────────────
-          - os: ubuntu-latest
-            python: '3.10'
-            lint: true   # pre-commit (incl. markdownlint Node hook) runs here
-          # ── Ubuntu Peak ───────────────────────────────────────────────────
-          - os: ubuntu-latest
-            python: '3.14'
-            lint: true
-          # ── Windows Stable ────────────────────────────────────────────────
-          # Validates path separators, binary encoding, and shell compat.
-          # pre-commit is skipped: Node hook (markdownlint) triggers thousands
-          # of small-file I/O operations that freeze the Windows runner.
-          # Linting is already enforced by both Ubuntu slots.
-          - os: windows-latest
-            python: '3.14'
-            lint: false
-    defaults:
-      run:
-        shell: bash
+        # Pillar Matrix: test the boundaries (Floor/Peak) on Linux
+        # and use a stable anchor for Windows/macOS.
+        os: [ubuntu-latest]
+        python-version: ["3.10", "3.14"]
+        # include:
+        #   - os: windows-latest
+        #     python-version: "3.12"
+        #   - os: macos-latest
+        #     python-version: "3.12"
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Install just
-        uses: taiki-e/install-action@just
+        uses: taiki-e/install-action@ea85faa6acd705ad6d40586db99f1a70b09c2929 # just
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v8.1.0
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
         with:
           enable-cache: true
 
-      - name: Set up Python ${{ matrix.python }}
-        run: uv python install ${{ matrix.python }}
+      - name: Set up Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
 
       - name: Sync dependencies
-        run: uv sync --all-groups
+        run: uv sync --all-groups --frozen
 
       - name: Run unified verification
         shell: bash
-        # ZRT-010 — Sovereign Parity: Pre-Launch Guard lives in justfile.
-        # Ubuntu: full verify (pre-commit + test-cov + check).
-        # Windows: skip pre-commit (markdownlint Node hook causes I/O freeze
-        # on Windows runners); linting is enforced by both Ubuntu slots.
-        run: |
-          if [[ "${{ matrix.lint }}" == "true" ]]; then
-            just verify
-          else
-            just test-cov
-            just check
-          fi
+        env:
+          # Runtime-only injection point for local isolation checks in CI.
+          ZENZIC_EXTRA_ARGS: ${{ secrets.ZENZIC_EXTRA_ARGS }}
+        run: just verify

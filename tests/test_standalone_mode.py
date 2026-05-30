@@ -8,7 +8,7 @@ Covers:
 * get_adapter engine routing (Multi-Engine Matrix)
 * Zensical Identity Violation — ConfigurationError when zensical.toml is absent
 * find_orphans integration for standalone and Zensical repos
-* Z000 migration guard — engine = "vanilla" raises ConfigurationError
+* Legacy aliases and unknown engines fall back to StandaloneAdapter
 """
 
 from __future__ import annotations
@@ -28,6 +28,7 @@ from zenzic.core.adapter import (
 )
 from zenzic.core.adapters._factory import discover_engine
 from zenzic.core.exceptions import ConfigurationError
+from zenzic.core.exclusion import LayeredExclusionManager
 from zenzic.core.scanner import find_orphans
 from zenzic.models.config import BuildContext, ZenzicConfig
 
@@ -52,6 +53,22 @@ def _zensical(repo: Path, nav: list[str] | None = None) -> None:
 def _docusaurus(repo: Path) -> None:
     """Write a minimal docusaurus.config.ts into *repo*."""
     (repo / "docusaurus.config.ts").write_text('module.exports = { title: "Test" };\n')
+
+
+def _run_find_orphans(
+    repo_root: Path,
+    config: ZenzicConfig,
+    mgr: LayeredExclusionManager,
+) -> list[Path]:
+    """Execute find_orphans via adapter."""
+    docs_root = repo_root / config.docs_dir
+    adapter = get_adapter(config.build_context, docs_root, repo_root)
+    return find_orphans(
+        docs_root,
+        mgr,
+        config=config,
+        adapter=adapter,
+    )
 
 
 # ── StandaloneAdapter unit tests ─────────────────────────────────────────────
@@ -122,7 +139,7 @@ def test_get_adapter_zensical_engine_with_config(tmp_path: Path) -> None:
 
 
 def test_get_adapter_locales_no_config_uses_engine(tmp_path: Path) -> None:
-    """Explicit locales declared in zenzic.toml → routes by engine without doc_config."""
+    """Explicit locales declared in .zenzic.toml → routes by engine without doc_config."""
     _mkdocs(tmp_path)
     assert isinstance(
         get_adapter(BuildContext(engine="mkdocs", locales=["it"]), tmp_path / "docs", tmp_path),
@@ -139,18 +156,18 @@ def test_get_adapter_unknown_engine_falls_back_to_standalone(tmp_path: Path) -> 
     assert isinstance(adapter, StandaloneAdapter)
 
 
-def test_get_adapter_vanilla_engine_raises_configuration_error(tmp_path: Path) -> None:
-    """Z000 Migration Guard: engine = 'vanilla' must raise ConfigurationError."""
-    context = BuildContext(engine="vanilla")
-    with pytest.raises(ConfigurationError, match="Z000"):
-        get_adapter(context, tmp_path / "docs", tmp_path)
+def test_get_adapter_legacy_standalone_alias_falls_back_to_standalone(tmp_path: Path) -> None:
+    """Legacy alias strings fall back safely to StandaloneAdapter."""
+    context = BuildContext(engine="legacy-standalone")
+    adapter = get_adapter(context, tmp_path / "docs", tmp_path)
+    assert isinstance(adapter, StandaloneAdapter)
 
 
-# ── discover_engine: Quartz Discovery Logic ───────────────────────────────────
+# ── discover_engine: Engine Discovery Logic ───────────────────────────────────
 
 
 def test_discover_engine_empty_dir_returns_standalone(tmp_path: Path) -> None:
-    """No engine config files → 'standalone' (universal Safe Harbor)."""
+    """No engine config files → 'standalone' (universal Privacy Gate)."""
     assert discover_engine(tmp_path) == "standalone"
 
 
@@ -250,15 +267,14 @@ def test_zensical_engine_without_zensical_toml_raises(tmp_path: Path) -> None:
 
 
 def test_zensical_engine_mkdocs_yml_bridge_works(tmp_path: Path) -> None:
-    """Transparent Bridge: engine='zensical' + mkdocs.yml → ZensicalLegacyProxy."""
+    """Bridge path: engine='zensical' + mkdocs.yml resolves to ZensicalAdapter."""
     _mkdocs(tmp_path)  # mkdocs.yml exists, but no zensical.toml
     context = BuildContext(engine="zensical")
     adapter = get_adapter(context, tmp_path / "docs", tmp_path)
 
-    # It should not raise; it should return a proxy that identifies as Zensical but uses MkDocs rules
+    # It should not raise; engine authority remains Zensical.
     assert adapter.has_engine_config() is True
-    # The factory returns the underlying adapter or proxy
-    assert "Zensical" in str(type(adapter))
+    assert isinstance(adapter, ZensicalAdapter)
 
 
 def test_zensical_engine_with_zensical_toml_does_not_raise(tmp_path: Path) -> None:
@@ -287,8 +303,7 @@ def test_find_orphans_no_config_returns_empty(tmp_path: Path) -> None:
     (docs / "orphan.md").write_text("# Orphan")
     config = ZenzicConfig()
     mgr = make_mgr(config, repo_root=tmp_path)
-    docs_root = tmp_path / config.docs_dir
-    assert find_orphans(docs_root, mgr, repo_root=tmp_path, config=config) == []
+    assert _run_find_orphans(tmp_path, config, mgr) == []
 
 
 def test_find_orphans_zensical_repo(tmp_path: Path) -> None:
@@ -303,8 +318,7 @@ def test_find_orphans_zensical_repo(tmp_path: Path) -> None:
         {"docs_dir": "docs", "build_context": {"engine": "zensical"}}
     )
     mgr = make_mgr(config, repo_root=tmp_path)
-    docs_root = tmp_path / config.docs_dir
-    orphans = find_orphans(docs_root, mgr, repo_root=tmp_path, config=config)
+    orphans = _run_find_orphans(tmp_path, config, mgr)
     assert Path("orphan.md") in orphans
     assert Path("index.md") not in orphans
 
@@ -319,6 +333,5 @@ def test_find_orphans_standalone_suffix_file_appears_as_orphan(tmp_path: Path) -
 
     config = ZenzicConfig()
     mgr = make_mgr(config, repo_root=tmp_path)
-    docs_root = tmp_path / config.docs_dir
-    orphans = find_orphans(docs_root, mgr, repo_root=tmp_path, config=config)
+    orphans = _run_find_orphans(tmp_path, config, mgr)
     assert Path("guide.it.md") in orphans

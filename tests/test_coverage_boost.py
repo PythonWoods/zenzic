@@ -72,7 +72,7 @@ class TestLogging:
     def test_get_logger_with_different_sub_names(self) -> None:
         from zenzic.core.logging import get_logger
 
-        for sub in ("shield", "validator", "rules"):
+        for sub in ("credentials", "validator", "rules"):
             lg = get_logger(sub)
             assert lg.name == f"zenzic.{sub}"
 
@@ -116,7 +116,7 @@ class TestLogging:
 
 
 class TestUI:
-    """Cover uncovered branches in ``emoji``, ``make_sentinel_header``,
+    """Cover uncovered branches in ``emoji``, ``make_report_header``,
     ``print_exception_alert``, and ``_detect_capabilities``."""
 
     # ── emoji() ───────────────────────────────────────────────────────────────
@@ -183,48 +183,48 @@ class TestUI:
         assert isinstance(result, tuple)
         assert len(result) == 2
 
-    # ── make_sentinel_header() ────────────────────────────────────────────────
+    # ── make_report_header() ─────────────────────────────────────────────────
 
-    def test_make_sentinel_header_minimal(self) -> None:
-        from zenzic.core.ui import make_sentinel_header
+    def test_make_report_header_minimal(self) -> None:
+        from zenzic.core.ui import make_report_header
 
-        result = make_sentinel_header("1.0")
-        assert "ZENZIC SENTINEL" in result
+        result = make_report_header("1.0")
+        assert "ZENZIC" in result
         assert "1.0" in result
 
-    def test_make_sentinel_header_with_target(self) -> None:
+    def test_make_report_header_with_target(self) -> None:
         """Cover the ``if target is not None:`` branch."""
-        from zenzic.core.ui import make_sentinel_header
+        from zenzic.core.ui import make_report_header
 
-        result = make_sentinel_header("1.0", engine="mkdocs", target="/docs/guide")
+        result = make_report_header("1.0", engine="mkdocs", target="/docs/guide")
         assert "/docs/guide" in result
 
-    def test_make_sentinel_header_with_files(self) -> None:
+    def test_make_report_header_with_files(self) -> None:
         """Cover the ``if total:`` branch including singular file."""
-        from zenzic.core.ui import make_sentinel_header
+        from zenzic.core.ui import make_report_header
 
-        result_multi = make_sentinel_header("1.0", docs_count=10, assets_count=5)
+        result_multi = make_report_header("1.0", docs_count=10, assets_count=5)
         # String contains Rich markup, check for numbers and keyword separately
         assert "15" in result_multi
         assert "file" in result_multi
 
-        result_single = make_sentinel_header("1.0", docs_count=1, assets_count=0)
+        result_single = make_report_header("1.0", docs_count=1, assets_count=0)
         # Rich markup: "[#4f46e5]1[/] file" — check for "file" and "1" separately
         assert "file" in result_single
         assert "1" in result_single
 
-    def test_make_sentinel_header_with_elapsed(self) -> None:
+    def test_make_report_header_with_elapsed(self) -> None:
         """Cover the ``if elapsed:`` branch."""
-        from zenzic.core.ui import make_sentinel_header
+        from zenzic.core.ui import make_report_header
 
-        result = make_sentinel_header("1.0", elapsed=2.3)
+        result = make_report_header("1.0", elapsed=2.3)
         assert "2.3" in result
 
-    def test_make_sentinel_header_all_branches(self) -> None:
+    def test_make_report_header_all_branches(self) -> None:
         """Hit all optional branches in one call."""
-        from zenzic.core.ui import make_sentinel_header
+        from zenzic.core.ui import make_report_header
 
-        result = make_sentinel_header(
+        result = make_report_header(
             "0.7.0",
             engine="docusaurus",
             target="docs/",
@@ -232,54 +232,54 @@ class TestUI:
             assets_count=8,
             elapsed=3.14,
         )
-        assert "ZENZIC SENTINEL" in result
+        assert "ZENZIC" in result
         assert "docs/" in result
         assert "28" in result
         assert "3.1" in result
 
-    # ── SentinelUI.print_exception_alert() ────────────────────────────────────
+    # ── ZenzicUI.print_exception_alert() ──────────────────────────────────────
 
     def test_print_exception_alert_no_context(self) -> None:
-        from zenzic.core.ui import SentinelUI
+        from zenzic.core.ui import ZenzicUI
 
         console = Console(highlight=False, force_terminal=True)
-        ui = SentinelUI(console)
+        ui = ZenzicUI(console)
         ui.print_exception_alert("Something went wrong")  # no context — default path
 
     def test_print_exception_alert_with_context(self) -> None:
         """Cover the ``if context:`` branch."""
-        from zenzic.core.ui import SentinelUI
+        from zenzic.core.ui import ZenzicUI
 
         console = Console(highlight=False, force_terminal=True)
-        ui = SentinelUI(console)
+        ui = ZenzicUI(console)
         ui.print_exception_alert(
             "Detailed error",
             context={"file": "docs/index.md", "line": "42", "code": "Z104"},
-            title="Sentinel Alert",
+            title="Zenzic Alert",
         )
 
     def test_print_exception_alert_custom_border(self) -> None:
         """Cover the ``border_style`` parameter path."""
-        from zenzic.core.ui import SentinelPalette, SentinelUI
+        from zenzic.core.ui import ZenzicPalette, ZenzicUI
 
         console = Console(highlight=False, force_terminal=True)
-        ui = SentinelUI(console)
+        ui = ZenzicUI(console)
         ui.print_exception_alert(
             "Plugin contract violation",
-            border_style=SentinelPalette.STYLE_BRAND,
+            border_style=ZenzicPalette.STYLE_BRAND,
         )
 
     def test_make_panel_factory(self) -> None:
-        from zenzic.core.ui import SentinelUI
+        from zenzic.core.ui import ZenzicUI
 
-        panel = SentinelUI.make_panel("content", title="My Title", subtitle="subtitle")
+        panel = ZenzicUI.make_panel("content", title="My Title", subtitle="subtitle")
         assert panel is not None
 
     def test_print_header(self) -> None:
-        from zenzic.core.ui import SentinelUI
+        from zenzic.core.ui import ZenzicUI
 
         console = Console(highlight=False, force_terminal=True)
-        ui = SentinelUI(console)
+        ui = ZenzicUI(console)
         ui.print_header("0.7.0")  # must not raise
 
 
@@ -307,7 +307,7 @@ class TestCleanAssets:
     def test_clean_assets_no_unused(
         self, mock_excl, mock_adapter, mock_find, mock_cfg, mock_root
     ) -> None:
-        """No unused assets → Sentinel Seal message, exit 0."""
+        """No unused assets → completion message, exit 0."""
         from zenzic.cli._clean import clean_app
 
         mock_adapter.return_value = self._make_adapter_mock()
@@ -315,7 +315,7 @@ class TestCleanAssets:
 
         result = runner.invoke(clean_app, ["assets"])
         assert result.exit_code == 0
-        assert "Sentinel Seal" in result.output or "No unused assets" in result.output
+        assert "No unused assets" in result.output
 
     @patch("zenzic.cli._clean.find_repo_root", return_value=_FAKE_ROOT)
     @patch("zenzic.cli._clean.ZenzicConfig.load", return_value=(_CFG, True))
@@ -471,11 +471,11 @@ class TestShared:
 
     # ── get_ui / get_console ─────────────────────────────────────────────────
 
-    def test_get_ui_returns_sentinel_ui(self) -> None:
+    def test_get_ui_returns_zenzic_ui(self) -> None:
         from zenzic.cli._shared import get_ui
-        from zenzic.core.ui import SentinelUI
+        from zenzic.core.ui import ZenzicUI
 
-        assert isinstance(get_ui(), SentinelUI)
+        assert isinstance(get_ui(), ZenzicUI)
 
     def test_get_console_returns_console(self) -> None:
         from rich.console import Console
@@ -634,7 +634,7 @@ class TestShared:
         _validate_docs_root(repo, docs)  # must not raise
 
     def test_validate_docs_root_escape_raises(self, tmp_path: Path) -> None:
-        """Cover the Blood Sentinel path traversal exit."""
+        """Cover the path traversal guard path traversal exit."""
         import typer
 
         from zenzic.cli._shared import _validate_docs_root

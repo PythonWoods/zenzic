@@ -25,8 +25,8 @@ from typing import TYPE_CHECKING
 
 
 if TYPE_CHECKING:
+    from zenzic.core.credentials import SecurityFinding
     from zenzic.core.rules import RuleFinding
-    from zenzic.core.shield import SecurityFinding
 
 
 # ─── ReferenceMap ─────────────────────────────────────────────────────────────
@@ -167,7 +167,7 @@ class IntegrityReport:
         score: Reference Integrity score (0.0–100.0).
         findings: All reference-quality issues (dangling refs, orphan defs,
             duplicate defs, missing alt-text).
-        security_findings: Secrets detected by the Shield during Pass 1.
+        security_findings: Secrets detected by the credential scanner during Pass 1.
         rule_findings: Issues raised by the AdaptiveRuleEngine (custom rules and
             plugin-registered rules).  Empty when no rules are configured.
     """
@@ -180,7 +180,7 @@ class IntegrityReport:
 
     @property
     def is_secure(self) -> bool:
-        """``True`` when the Shield found no secrets in this file."""
+        """``True`` when the credential scanner found no secrets in this file."""
         return len(self.security_findings) == 0
 
     @property

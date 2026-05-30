@@ -1,0 +1,364 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zenzic.dev/schemas/zenzic-output.schema.json",
+  "title": "Zenzic CLI JSON Output Contract",
+  "description": "Machine contract for zenzic --format json outputs used by CI/CD consumers.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/checkAllReport"
+    },
+    {
+      "$ref": "#/$defs/scoreReport"
+    },
+    {
+      "$ref": "#/$defs/capExceededReport"
+    }
+  ],
+  "$defs": {
+    "debtStatus": {
+      "type": "string",
+      "enum": [
+        "CLEAN",
+        "MANAGED",
+        "EXTENDED",
+        "CRITICAL"
+      ]
+    },
+    "checkAllReport": {
+      "type": "object",
+      "required": [
+        "links",
+        "orphans",
+        "snippets",
+        "placeholders",
+        "unused_assets",
+        "nav_contract",
+        "references",
+        "suppression_count",
+        "suppression_cap",
+        "suppression_debt_pts",
+        "debt_status"
+      ],
+      "properties": {
+        "links": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "orphans": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "snippets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "file",
+              "line",
+              "message"
+            ],
+            "properties": {
+              "file": {
+                "type": "string"
+              },
+              "line": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "message": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "placeholders": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "file",
+              "line",
+              "issue",
+              "detail"
+            ],
+            "properties": {
+              "file": {
+                "type": "string"
+              },
+              "line": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "issue": {
+                "type": "string"
+              },
+              "detail": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "unused_assets": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "nav_contract": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "references": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "suppression_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "suppression_cap": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "suppression_debt_pts": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "debt_status": {
+          "$ref": "#/$defs/debtStatus"
+        }
+      },
+      "additionalProperties": false
+    },
+    "scoreReport": {
+      "type": "object",
+      "required": [
+        "project",
+        "score",
+        "threshold",
+        "status",
+        "timestamp",
+        "categories",
+        "suppression_count",
+        "suppression_cap",
+        "suppression_debt_pts",
+        "debt_status"
+      ],
+      "properties": {
+        "project": {
+          "type": "string"
+        },
+        "score": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "threshold": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "success",
+            "failing",
+            "security_breach"
+          ]
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "categories": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "weight",
+              "issues",
+              "category_score",
+              "contribution",
+              "raw_penalty",
+              "is_capped"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "weight": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "issues": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "category_score": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "contribution": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "raw_penalty": {
+                "type": "number",
+                "minimum": 0
+              },
+              "is_capped": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "security_override": {
+          "type": "boolean"
+        },
+        "security_findings": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "suppression_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "suppression_cap": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "suppression_debt_pts": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "debt_status": {
+          "$ref": "#/$defs/debtStatus"
+        }
+      },
+      "additionalProperties": false
+    },
+    "capExceededReport": {
+      "type": "object",
+      "required": [
+        "error",
+        "severity",
+        "message",
+        "suppression_count",
+        "suppression_cap",
+        "suppression_debt_pts",
+        "debt_status",
+        "statistics",
+        "hotspots",
+        "remediation",
+        "playbook"
+      ],
+      "properties": {
+        "error": {
+          "type": "string",
+          "const": "SUPPRESSION_CAP_EXCEEDED"
+        },
+        "severity": {
+          "type": "string",
+          "const": "error"
+        },
+        "message": {
+          "type": "string"
+        },
+        "suppression_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "suppression_cap": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "suppression_debt_pts": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "debt_status": {
+          "$ref": "#/$defs/debtStatus"
+        },
+        "statistics": {
+          "type": "object",
+          "required": [
+            "active_suppressions",
+            "configured_global_cap",
+            "excess_debt",
+            "inline_ignores",
+            "per_file_ignores"
+          ],
+          "properties": {
+            "active_suppressions": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "configured_global_cap": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "excess_debt": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "inline_ignores": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "per_file_ignores": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "additionalProperties": false
+        },
+        "hotspots": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "path",
+              "count"
+            ],
+            "properties": {
+              "path": {
+                "type": "string"
+              },
+              "count": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "remediation": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "playbook": {
+          "type": "string",
+          "format": "uri"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

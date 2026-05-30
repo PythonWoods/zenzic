@@ -7,7 +7,8 @@ from __future__ import annotations
 import io
 import os
 import sys
-from typing import Annotated
+from collections.abc import Callable
+from typing import Annotated, Any, cast
 
 import typer
 from rich.console import Console
@@ -16,18 +17,22 @@ from zenzic import __version__
 from zenzic.cli import (
     check_app,
     clean_app,
+    config_app,
     configure_console,
     diff,
+    explain,
     get_console,
     get_ui,
+    guard_app,
     init,
     inspect_app,
     lab,
     score,
 )
+from zenzic.cli._metadata import COMMANDS, ROOT_EPILOG, ROOT_HELP
 from zenzic.core.exceptions import PluginContractError, ZenzicError
 from zenzic.core.logging import setup_cli_logging
-from zenzic.core.ui import SentinelPalette, SentinelUI
+from zenzic.core.ui import ZenzicPalette, ZenzicUI
 
 
 def _version_callback(value: bool) -> None:
@@ -38,16 +43,11 @@ def _version_callback(value: bool) -> None:
 
 app = typer.Typer(
     name="zenzic",
-    help=(
-        f"[bold {SentinelPalette.BRAND}]Zenzic[/] — Engine-agnostic linter and security shield "
-        "for Markdown documentation.\n\n"
-        "Run [bold cyan]zenzic check all[/] for a full audit, or pick individual "
-        "checks below."
-    ),
+    help=ROOT_HELP,
     rich_markup_mode="rich",
     no_args_is_help=True,
     rich_help_panel="Core",
-    epilog=f"[bold {SentinelPalette.BRAND}]PythonWoods[/]  [dim]·  Apache-2.0  ·  https://zenzic.dev[/]",
+    epilog=ROOT_EPILOG,
 )
 
 
@@ -83,13 +83,37 @@ def _main(
     configure_console(no_color=no_color, force_color=force_color)
 
 
-app.add_typer(check_app, name="check", rich_help_panel="Core")
-app.add_typer(clean_app, name="clean", rich_help_panel="Core")
-app.add_typer(inspect_app, name="inspect", rich_help_panel="Introspection")
-app.command(name="lab", rich_help_panel="Core")(lab)
-app.command(name="score", rich_help_panel="Quality")(score)
-app.command(name="diff", rich_help_panel="Quality")(diff)
-app.command(name="init", rich_help_panel="SDK & Plugins")(init)
+_SUB_APPS = {
+    "check": check_app,
+    "clean": clean_app,
+    "config": config_app,
+    "guard": guard_app,
+    "inspect": inspect_app,
+}
+
+_STANDALONE_COMMANDS = {
+    "lab": lab,
+    "score": score,
+    "diff": diff,
+    "explain": explain,
+    "init": init,
+}
+
+for cmd in COMMANDS:
+    if cmd.name in _SUB_APPS:
+        app.add_typer(
+            _SUB_APPS[cmd.name],
+            name=cmd.name,
+            rich_help_panel=cmd.panel,
+            help=cmd.short_help,
+        )
+    elif cmd.name in _STANDALONE_COMMANDS:
+        _handler = cast(Callable[..., Any], _STANDALONE_COMMANDS[cmd.name])
+        app.command(
+            name=cmd.name,
+            rich_help_panel=cmd.panel,
+            help=cmd.short_help,
+        )(_handler)
 
 
 _err_console = Console(
@@ -101,7 +125,7 @@ _err_console = Console(
     else None,
 )
 
-_err_ui = SentinelUI(_err_console)
+_err_ui = ZenzicUI(_err_console)
 
 
 def bootstrap_unicode() -> None:
@@ -119,8 +143,8 @@ def bootstrap_unicode() -> None:
         sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 
-def _sentinel_alert(exc: ZenzicError, *, border_style: str, title: str) -> None:
-    """Render a styled Sentinel Alert panel for a ZenzicError."""
+def _error_panel(exc: ZenzicError, *, border_style: str, title: str) -> None:
+    """Render a styled error alert panel for a ZenzicError."""
     _err_ui.print_exception_alert(
         str(exc.message),
         context=dict(exc.context) if exc.context else None,
@@ -130,7 +154,7 @@ def _sentinel_alert(exc: ZenzicError, *, border_style: str, title: str) -> None:
 
 
 def _print_banner() -> None:
-    """Print the Forge Frame Zenzic banner to stdout (same console as commands)."""
+    """Print the Zenzic Frame banner to stdout (same console as commands)."""
     get_ui().print_header(__version__)
     get_console().print()
 
@@ -159,16 +183,16 @@ def cli_main() -> None:
     except (SystemExit, KeyboardInterrupt):
         raise
     except PluginContractError as exc:
-        _sentinel_alert(
+        _error_panel(
             exc,
-            border_style=SentinelPalette.STYLE_BRAND,
+            border_style=ZenzicPalette.STYLE_BRAND,
             title="Zenzic Plugin Contract Violation",
         )
         sys.exit(1)
     except ZenzicError as exc:
-        _sentinel_alert(
+        _error_panel(
             exc,
-            border_style=SentinelPalette.STYLE_ERR,
+            border_style=ZenzicPalette.STYLE_ERR,
             title="Zenzic Error",
         )
         sys.exit(1)

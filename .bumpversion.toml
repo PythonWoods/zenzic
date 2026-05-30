@@ -1,0 +1,88 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+
+[tool.bumpversion]
+current_version = "0.8.0"
+parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)((?P<pre_l>a|b|rc)(?P<pre_n>\\d+))?"
+serialize = [
+    "{major}.{minor}.{patch}{pre_l}{pre_n}",
+    "{major}.{minor}.{patch}",
+]
+
+[tool.bumpversion.parts.pre_l]
+values = ["final", "a", "b", "rc"]
+optional_value = "final"
+
+[tool.bumpversion.parts.pre_n]
+first_value = 1
+
+[[tool.bumpversion.files]]
+filename = "pyproject.toml"
+search = 'version = "{current_version}"'
+replace = 'version = "{new_version}"'
+
+[[tool.bumpversion.files]]
+filename = "src/zenzic/__init__.py"
+search = '__version__ = "{current_version}"'
+replace = '__version__ = "{new_version}"'
+
+[[tool.bumpversion.files]]
+filename = "CITATION.cff"
+search = "version: {current_version}"
+replace = "version: {new_version}"
+
+[[tool.bumpversion.files]]
+filename = "CITATION.cff"
+search = "date-released: \\d{{4}}-\\d{{2}}-\\d{{2}}"
+replace = "date-released: {now:%Y-%m-%d}"
+regex = true
+
+[[tool.bumpversion.files]]
+filename = "src/zenzic/cli/_standalone.py"
+search = 'dependencies = ["zenzic>={current_version}"]'
+replace = 'dependencies = ["zenzic>={new_version}"]'
+
+
+# Historical versioned documentation is tracked here so the release bump
+# updates the current release marker consistently across the fleet.
+
+[[tool.bumpversion.files]]
+filename = "CHANGELOG.md"
+search = "v{current_version}"
+replace = "v{new_version}"
+
+[[tool.bumpversion.files]]
+filename = "CONTRIBUTING.md"
+search = "v{current_version}"
+replace = "v{new_version}"
+serialize = ["{major}.{minor}.{patch}{pre_l}{pre_n}", "{major}.{minor}.{patch}"]
+
+[[tool.bumpversion.files]]
+filename = "CONTRIBUTING.it.md"
+search = "v{current_version}"
+replace = "v{new_version}"
+serialize = ["{major}.{minor}.{patch}{pre_l}{pre_n}", "{major}.{minor}.{patch}"]
+
+[[tool.bumpversion.files]]
+filename = "RELEASE.md"
+search = "{current_version}"
+replace = "{new_version}"
+
+[[tool.bumpversion.files]]
+filename = "RELEASE.md"
+search = '(?m)^(\| Date\s+\|\s+)\d{{4}}-\d{{2}}-\d{{2}}(\s*\|)$'
+replace = '| Date     | {now:%Y-%m-%d} |'
+regex = true
+
+[[tool.bumpversion.files]]
+filename = ".github/ISSUE_TEMPLATE/security_vulnerability.yml"
+search = 'placeholder: "{current_version}"'
+replace = 'placeholder: "{new_version}"'
+
+[[tool.bumpversion.files]]
+# Phase 2: .pre-commit-hooks.yaml must be bumped atomically with core version.
+# If this file is not updated, users pulling the hook will get a stale rev pointer.
+# Governance Leak Fix (Release A audit): This was missing, forcing manual edits.
+filename = ".pre-commit-hooks.yaml"
+search = "rev: v{current_version}"
+replace = "rev: v{new_version}"

@@ -27,7 +27,7 @@ runner = CliRunner()
 _CFG = ZenzicConfig()
 
 
-# ─── compute_score — pure unit tests (Quartz Penalty API, CEO-163) ─────────────
+# ─── compute_score — pure unit tests (Penalty API, CEO-163) ─────────────
 
 
 def test_perfect_score() -> None:
@@ -42,12 +42,12 @@ def test_score_drops_with_issues() -> None:
 
 
 def test_score_is_zero_with_many_issues() -> None:
-    report = compute_score({"Z101": 10, "Z402": 10, "Z503": 10, "Z903": 10})
+    report = compute_score({"Z101": 10, "Z402": 10, "Z503": 10, "Z405": 10})
     assert report.score == 0
 
 
 def test_score_is_bounded_0_to_100() -> None:
-    report = compute_score({"Z101": 100, "Z402": 100, "Z503": 100, "Z903": 100})
+    report = compute_score({"Z101": 100, "Z402": 100, "Z503": 100, "Z405": 100})
     assert 0 <= report.score <= 100
 
 
@@ -70,8 +70,23 @@ def test_single_link_error_drops_structural_category() -> None:
     assert structural_cat.issues == 1
 
 
+def test_circular_links_are_informational_and_not_scored() -> None:
+    report = compute_score({"Z106": 4})
+    structural_cat = next(c for c in report.categories if c.name == "structural")
+    assert report.score == 100
+    assert structural_cat.issues == 0
+    assert structural_cat.category_score == 1.0
+
+
 def test_circular_anchors_counted_in_structural() -> None:
     report = compute_score({"Z107": 2})
+    structural_cat = next(c for c in report.categories if c.name == "structural")
+    assert structural_cat.issues == 2
+    assert structural_cat.category_score < 1.0
+
+
+def test_empty_link_text_counts_in_structural() -> None:
+    report = compute_score({"Z108": 2})
     structural_cat = next(c for c in report.categories if c.name == "structural")
     assert structural_cat.issues == 2
     assert structural_cat.category_score < 1.0
@@ -84,14 +99,14 @@ def test_untagged_blocks_counted_in_content() -> None:
 
 
 def test_brand_violations_counted_in_brand() -> None:
-    report = compute_score({"Z905": 2})
+    report = compute_score({"Z601": 2})
     brand_cat = next(c for c in report.categories if c.name == "brand")
     assert brand_cat.issues == 2
     assert brand_cat.category_score < 1.0
 
 
 def test_nav_contract_errors_counted_in_brand() -> None:
-    report = compute_score({"Z904": 1, "Z905": 1})
+    report = compute_score({"Z406": 1, "Z601": 1})
     brand_cat = next(c for c in report.categories if c.name == "brand")
     assert brand_cat.issues == 2
 
@@ -121,46 +136,85 @@ def test_no_security_override_when_zero_violations() -> None:
     assert report.security_override is False
 
 
-# ─── Quartz Penalty Table invariants (CEO-163) ────────────────────────────────
+# ─── Penalty Table invariants (CEO-163) ────────────────────────────────
 
 
 def test_z505_category_cap_invariant() -> None:
-    """CEO-163 invariant: 1000 Z505 caps content; structural+nav+brand intact → 70."""
+    """Phase 24 invariant: 1000 Z505 caps content; structural+nav+brand intact → 80."""
     report = compute_score({"Z505": 1000})
-    assert report.score == 70
+    assert report.score == 80
     content_cat = next(c for c in report.categories if c.name == "content")
     assert content_cat.category_score == 0.0
 
 
 def test_z503_single_snippet_error() -> None:
-    """One snippet error = 10pt deduction from content cap (30 → 20)."""
+    """One snippet error = 10pt deduction from content cap (20 → 10)."""
     report = compute_score({"Z503": 1})
     assert report.score == 90
     content_cat = next(c for c in report.categories if c.name == "content")
-    assert abs(content_cat.category_score - (20 / 30)) < 1e-3
+    assert abs(content_cat.category_score - 0.5) < 1e-3
 
 
 def test_z101_penalty_five_broken_links() -> None:
-    """5 broken links: 5 × 8 = 40 → structural zeroed, total = 60."""
+    """5 broken links: 5 × 8 = 40 > structural cap (30) → structural zeroed, total = 70."""
     report = compute_score({"Z101": 5})
-    assert report.score == 60
+    assert report.score == 70
     structural_cat = next(c for c in report.categories if c.name == "structural")
     assert structural_cat.category_score == 0.0
 
 
 def test_z501_z502_split_penalty() -> None:
-    """Z501 (2.0pt) and Z502 (1.0pt) have distinct weights (CEO-171)."""
+    """Z501 (2.0pt) and Z502 (1.0pt) have distinct weights."""
     r_z501 = compute_score({"Z501": 1})
     r_z502 = compute_score({"Z502": 1})
     assert r_z501.score < r_z502.score
 
 
+def test_z3xx_classified_in_navigation() -> None:
+    """Phase 24: Z301/Z302/Z303 (Ref-Graph) deduct from the navigation bucket."""
+    for code, _expected_penalty in (("Z301", 4.0), ("Z302", 1.0), ("Z303", 3.0)):
+        report = compute_score({code: 1})
+        nav_cat = next(c for c in report.categories if c.name == "navigation")
+        assert nav_cat.issues == 1, f"{code} not counted in navigation"
+        expected_score = nav_cat.category_score
+        assert expected_score < 1.0, f"{code} did not reduce navigation score"
+
+
+def test_z204_security_override() -> None:
+    """Phase 24: Z204 (Privacy Gate) must trigger Security Gate — score = 0."""
+    report = compute_score({"Z204": 1})
+    assert report.score == 0
+    assert report.security_override is True
+    assert report.security_findings == 1
+
+
+def test_security_findings_populated() -> None:
+    """security_findings counts all Z2xx occurrences across all security codes."""
+    report = compute_score({"Z201": 2, "Z204": 1})
+    assert report.score == 0
+    assert report.security_override is True
+    assert report.security_findings == 3
+
+
+def test_gravity_cap_with_governance_escalation() -> None:
+    """Phase 24: 11 Z601 violations trigger exponential escalation → brand=0 → score ≤ 70."""
+    # With Z601 penalty=2.0 and brand cap=25:
+    # base deduction = 11 × 2.0 = 22 < 25 (would not zero brand linearly).
+    # Escalation: excess=1, multiplier=2^(1/5)≈1.149, escalated=22×1.149=25.27 > 25 → brand=0.
+    # Gravity Cap fires: total score ≤ 70.
+    report = compute_score({"Z601": 11})
+    brand_cat = next(c for c in report.categories if c.name == "brand")
+    assert brand_cat.category_score == 0.0
+    assert report.score <= 70
+    assert report.score == 70  # structural(30)+nav(25)+content(20)+brand(0)=75, capped to 70
+
+
 def test_z402_orphan_navigation_penalty() -> None:
-    """Z402 deducts from navigation (cap=20). 5 orphans × 4.0 = 20 → nav zeroed."""
-    report = compute_score({"Z402": 5})
+    """Z402 deducts from navigation (cap=25). 7 orphans × 4.0 = 28 > 25 → nav zeroed."""
+    report = compute_score({"Z402": 7})
     nav_cat = next(c for c in report.categories if c.name == "navigation")
     assert nav_cat.category_score == 0.0
-    assert report.score == 80  # structural(40) + content(30) + brand(10) = 80
+    assert report.score == 75  # structural(30) + content(20) + brand(25) = 75
 
 
 def test_unknown_code_contributes_zero_deduction() -> None:
@@ -170,8 +224,8 @@ def test_unknown_code_contributes_zero_deduction() -> None:
 
 
 def test_to_dict_structure() -> None:
-    # Z101:1 → struct 32; Z503:2 → content 10; Z903:1 → brand 7; nav 20 → total 69
-    report = compute_score({"Z101": 1, "Z503": 2, "Z903": 1})
+    # Z101:1 → struct 32; Z503:2 → content 10; Z405:1 → brand 7; nav 20 → total 69
+    report = compute_score({"Z101": 1, "Z503": 2, "Z405": 1})
     d = report.to_dict()
     assert d["project"] == "zenzic"
     assert "score" in d
@@ -179,8 +233,15 @@ def test_to_dict_structure() -> None:
     assert d["status"] in ("success", "failing", "security_breach")
     assert "timestamp" in d
     assert "categories" in d
-    assert len(d["categories"]) == 4
-    for cat in d["categories"]:
+    assert d["suppression_count"] == 0
+    assert d["suppression_cap"] == 30
+    assert d["suppression_debt_pts"] == 0
+    assert d["debt_status"] == "CLEAN"
+    categories = d["categories"]
+    assert isinstance(categories, list)
+    assert len(categories) == 4
+    for cat in categories:
+        assert isinstance(cat, dict)
         assert "name" in cat
         assert "issues" in cat
         assert "weight" in cat
@@ -189,11 +250,72 @@ def test_to_dict_structure() -> None:
 
 
 def test_to_dict_security_override_status() -> None:
-    report = compute_score({"Z201": 1})
+    report = compute_score({"Z201": 1}, suppression_count=31)
     d = report.to_dict()
     assert d["status"] == "security_breach"
     assert d["security_override"] is True
     assert d["score"] == 0
+    assert d["suppression_count"] == 31
+    assert d["suppression_cap"] == 30
+    assert d["suppression_debt_pts"] == 0
+    assert d["debt_status"] == "CRITICAL"
+
+
+# ─── Flat-cost suppression model (ADR-031) ────────────────────────────────────
+
+
+def test_suppression_flat_cost_five() -> None:
+    """5 suppressions cost 5 pts flat — perfect-check max is 95."""
+    report = compute_score({}, suppression_count=5, suppression_cap=30)
+    assert report.score == 95
+    assert report.suppression_debt_pts == 5
+    assert report.debt_status == "MANAGED"
+
+
+def test_suppression_flat_cost_thirty() -> None:
+    """30 suppressions cost 30 pts — perfect-check max is 70."""
+    report = compute_score({}, suppression_count=30, suppression_cap=30)
+    assert report.score == 70
+    assert report.suppression_debt_pts == 30
+
+
+def test_suppression_flat_cost_over_budget() -> None:
+    """101 suppressions exhaust all 100 points — score is 0."""
+    report = compute_score({}, suppression_count=101, suppression_cap=30)
+    assert report.score == 0
+
+
+def test_suppression_debt_status_critical_on_cap_exceeded() -> None:
+    """count > cap → CRITICAL regardless of flat-cost debt."""
+    report = compute_score({}, suppression_count=31, suppression_cap=30)
+    assert report.debt_status == "CRITICAL"
+
+
+# ─── ADR-031 Paradox Resolution ────────────────────────────────────────────
+
+
+def test_z103_structural_penalty() -> None:
+    """Z103 ORPHAN_LINK: -2.0 pts from structural bucket (ADR-031 paradox resolved)."""
+    report = compute_score({"Z103": 1})
+    structural = next(c for c in report.categories if c.name == "structural")
+    assert structural.issues == 1
+    assert structural.category_score < 1.0
+    assert report.score == 98  # (30-2)/30*30 + 25 + 20 + 25 = 28+25+20+25=98
+
+
+def test_z111_structural_penalty_equals_z101() -> None:
+    """Z111 VIRTUAL_ROUTE_BROKEN: -8.0 pts, same weight as Z101 LINK_BROKEN (ADR-031)."""
+    r_z111 = compute_score({"Z111": 1})
+    r_z101 = compute_score({"Z101": 1})
+    assert r_z111.score == r_z101.score == 92  # (30-8)/30*30 + 25 + 20 + 25 = 22+25+20+25=92
+
+
+def test_z113_structural_penalty() -> None:
+    """Z113 AUTHOR_KEY_COLLISION: -2.0 pts from structural bucket (ADR-031)."""
+    report = compute_score({"Z113": 1})
+    structural = next(c for c in report.categories if c.name == "structural")
+    assert structural.issues == 1
+    assert report.score == 98
 
 
 # ─── Snapshot persistence ─────────────────────────────────────────────────────
@@ -242,7 +364,7 @@ def test_save_snapshot_writes_schema_version(tmp_path: Path) -> None:
 
 
 def test_snapshot_roundtrip_preserves_categories(tmp_path: Path) -> None:
-    report = compute_score({"Z101": 2, "Z402": 1, "Z501": 3, "Z903": 1})
+    report = compute_score({"Z101": 2, "Z402": 1, "Z501": 3, "Z405": 1})
     save_snapshot(tmp_path, report)
     loaded = load_snapshot(tmp_path)
     assert loaded is not None
@@ -271,8 +393,8 @@ def _mock_all_checks_with_issues(
     exclusion_mgr: object,
     strict: bool,
 ) -> ScoreReport:
-    # structural: 2×8=16 → 24pts; content: 1×10+3×2=16 → 14pts; nav: 1×4=4 → 16pts; brand: 1×3=3 → 7pts → score=61
-    return compute_score({"Z101": 2, "Z402": 1, "Z503": 1, "Z501": 3, "Z903": 1})
+    # structural: 2×8=16 → 30-16=14pts; nav: 1×4=4 → 25-4=21pts; content: 1×10+3×2=16 → 20-16=4pts; brand: 1×3=3 → 25-3=22pts → score=61
+    return compute_score({"Z101": 2, "Z402": 1, "Z503": 1, "Z501": 3, "Z405": 1})
 
 
 @patch("zenzic.cli._standalone.find_repo_root")
@@ -299,6 +421,10 @@ def test_score_json_output(mock_run, mock_load, mock_root, tmp_path: Path) -> No
     assert data["project"] == "zenzic"
     assert data["status"] == "success"
     assert "timestamp" in data
+    assert data["suppression_count"] == 0
+    assert data["suppression_cap"] == 30
+    assert data["suppression_debt_pts"] == 0
+    assert data["debt_status"] == "CLEAN"
     assert len(data["categories"]) == 4
 
 

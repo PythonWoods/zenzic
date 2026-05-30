@@ -7,20 +7,30 @@
 #
 #   repos:
 #     - repo: https://github.com/PythonWoods/zenzic
-#       rev: v0.7.0  # Quartz
+#       rev: v0.8.0
 #       hooks:
-#         - id: zenzic-verify    # gate Sentinel — corrisponde a `just verify` lato zenzic
+#         - id: zenzic-verify    # quality gate — corrisponde a `just verify` lato zenzic
+#         - id: zenzic-guard     # fast staged-file credential scan
 #
 # See https://zenzic.dev/ci-cd/ for full integration guide.
 
 - id: zenzic-verify
-  name: zenzic verify (Sentinel gate)
+  name: zenzic verify (integrity gate)
   description: >-
-    Sentinel gate equivalent of `just verify` (Zenzic portion only — does not
-    invoke pytest). Runs all documentation quality checks in --strict posture.
+    Full documentation integrity audit (Zenzic check all).
+    Equivalent to the Zenzic portion of just verify.
   entry: zenzic check all --strict --quiet
   language: python
-  types: [markdown]
+  types_or: [markdown, mdx]
+  pass_filenames: false
+  require_serial: true
+
+- id: zenzic-guard
+  name: zenzic guard (Credential Scanner)
+  description: Fast staged-file secret detection for Markdown/MDX.
+  entry: zenzic guard scan --staged
+  language: python
+  types_or: [markdown, mdx]
   pass_filenames: false
   require_serial: true
 
@@ -29,22 +39,22 @@
   description: Check for broken internal links in documentation.
   entry: zenzic check links
   language: python
-  types: [markdown]
+  types_or: [markdown, mdx]
   pass_filenames: false
 
 - id: zenzic-check-references
   name: zenzic check references
-  description: Run the Two-Pass Reference Pipeline and Zenzic Shield (credential detection).
+  description: Run the Two-Pass Reference Pipeline and credential detection.
   entry: zenzic check references
   language: python
-  types: [markdown]
+  types_or: [markdown, mdx]
   pass_filenames: false
   require_serial: true
 
 - id: zenzic-score
   name: zenzic score
   description: Compute documentation quality score and fail if below threshold.
-  entry: zenzic score --fail-under 80
+  entry: zenzic score --fail-under 100
   language: python
-  types: [markdown]
+  types_or: [markdown, mdx]
   pass_filenames: false

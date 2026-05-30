@@ -5,19 +5,19 @@
 from __future__ import annotations
 
 import json
-import os
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import typer
 
+from zenzic.core.codes import CODE_DEFINITIONS
 from zenzic.core.exclusion import LayeredExclusionManager
-from zenzic.core.reporter import Finding, SentinelReporter
+from zenzic.core.reporter import Finding, ZenzicReporter
 from zenzic.core.scanner import (
     I18nParityIssue,
     PlaceholderFinding,
-    _map_shield_to_finding,
+    _map_credential_to_finding,
     find_i18n_parity,
     find_missing_directory_indices,
     find_orphans,
@@ -26,7 +26,8 @@ from zenzic.core.scanner import (
     find_unused_assets,
     scan_docs_references,
 )
-from zenzic.core.ui import SentinelPalette
+from zenzic.core.sovereign_context import sovereign_context
+from zenzic.core.ui import ZenzicPalette
 from zenzic.core.validator import (
     LinkError,
     SnippetError,
@@ -38,14 +39,45 @@ from zenzic.models.config import ZenzicConfig
 from zenzic.models.references import IntegrityReport
 
 from . import _shared
-
-
-check_app = typer.Typer(
-    name="check",
-    help=f"[bold {SentinelPalette.BRAND}]Check[/] — Run documentation quality checks.",
-    no_args_is_help=True,
-    rich_markup_mode="rich",
+from ._governance import (
+    SuppressionAudit,
+    _apply_directory_policies,
+    _apply_per_file_ignores,
+    build_cap_exceeded_json_payload,
+    build_cap_exceeded_sarif_payload,
+    collect_inline_suppression_stats,
+    count_per_file_ignores,
+    print_governance_cap_failure,
+    print_suppression_audit_footer,
+    resolve_governance_panel_title,
 )
+from ._metadata import COMMAND_BY_NAME
+from ._target_resolver import _apply_target
+
+
+check_app = _shared.create_app(
+    name="check",
+    long_help=(f"[bold {ZenzicPalette.BRAND}]Check[/] — {COMMAND_BY_NAME['check'].long_help}"),
+)
+
+
+def _finding_severity(code: str) -> str:
+    """Derive CLI finding severity from CodeDefinition SSoT (codes.py).
+
+    Returns ``"security_incident"`` only for Z203 (fatal system-path traversal),
+    ``"info"`` for note-level informational codes (Z106, Z114, Z906), and the
+    CodeDefinition severity (``"error"`` or ``"warning"``) for all others.
+    Unknown codes default to ``"error"`` since the validator only emits findings
+    when it detects a genuine problem.
+    """
+    if code == "Z203":
+        return "security_incident"
+    defn = CODE_DEFINITIONS.get(code)
+    if defn is None:
+        return "error"
+    if defn.severity == "note":
+        return "info"
+    return defn.severity  # "error" or "warning"
 
 
 # ── Check commands ────────────────────────────────────────────────────────────
@@ -53,7 +85,12 @@ check_app = typer.Typer(
 
 @check_app.command(name="links")
 def check_links(
-    strict: bool = typer.Option(False, "--strict", "-s", help="Exit non-zero on any warning."),
+    strict: bool = typer.Option(
+        False,
+        "--strict",
+        "-s",
+        help="Treat warnings as errors (exit non-zero on any warning).",
+    ),
     output_format: str = typer.Option(
         "text", "--format", "-f", help="Output format: text, json, or sarif."
     ),
@@ -69,7 +106,7 @@ def check_links(
         help=(
             "Skip HTTP validation of external URLs (Pass 3). "
             "For air-gapped / offline environments. "
-            "Shield (Z201) always active regardless of this flag."
+            "Credential scanner (Z201) always active regardless of this flag."
         ),
     ),
     exclude_url: list[str] = typer.Option(
@@ -77,17 +114,17 @@ def check_links(
         "--exclude-url",
         help=(
             "Bypass external URL validation for URLs matching this prefix (repeatable). "
-            "Merged with excluded_external_urls from zenzic.toml at runtime."
+            "Merged with excluded_external_urls from .zenzic.toml at runtime."
         ),
         metavar="PREFIX",
     ),
     path: str | None = typer.Argument(
         None,
-        help="Limit to a directory or file. Accepts paths relative to repo root or docs dir.",
+        help="Limit to a directory or file. Accepts paths relative to repository root or docs directory. The path must be inside a project with a .git/ directory or .zenzic.toml (root marker); run 'zenzic init' first if no marker exists.",
         show_default=False,
     ),
 ) -> None:
-    """Check for broken internal links. Pass --strict to also validate external URLs."""
+    """Check for broken internal links and enforce strict warning policy when requested."""
     from zenzic import __version__
 
     _search_from: Path | None = None
@@ -122,10 +159,8 @@ def check_links(
     from zenzic.core.adapters import get_adapter
 
     adapter = get_adapter(config.build_context, docs_root, repo_root)
-    locale_roots: list[tuple[Path, str]] | None = None
-    if hasattr(adapter, "get_locale_source_roots"):
-        _roots = adapter.get_locale_source_roots(repo_root)
-        locale_roots = _roots if _roots else None
+    _roots = adapter.get_locale_source_roots(repo_root)
+    locale_roots: list[tuple[Path, str]] | None = _roots if _roots else None
 
     link_errors = validate_links_structured(
         docs_root,
@@ -143,13 +178,7 @@ def check_links(
             rel_path=_rel(err.file_path),
             line_no=err.line_no,
             code=err.code,
-            severity=(
-                "security_incident"
-                if err.code == "Z203"
-                else "info"
-                if err.code == "Z106"
-                else "error"
-            ),
+            severity=_finding_severity(err.code),
             message=err.message,
             source_line=err.source_line,
             col_start=err.col_start,
@@ -184,8 +213,14 @@ def check_links(
             _hint = str(docs_root.relative_to(Path.cwd()))
         except ValueError:
             _hint = str(docs_root)
-        _shared.console.print(f"[dim]  Scanning: {_hint}[/]\n")
-    reporter = SentinelReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
+        _shared.console.print(f"[{ZenzicPalette.DIM}]  Scanning: {_hint}[/]")
+    reporter = ZenzicReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
+    footer_lines = [f"[{ZenzicPalette.DIM}]Try 'zenzic check links --help' for options.[/]"]
+    if no_external and output_format == "text":
+        footer_lines.append(
+            f"[{ZenzicPalette.DIM}]💡 External link validation skipped (--no-external). "
+            f"Credential scanner (Z201) remains active.[/]"
+        )
     errors, warnings = reporter.render(
         findings,
         version=__version__,
@@ -195,16 +230,12 @@ def check_links(
         engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
         ok_message="No broken links found.",
         show_info=show_info,
+        footer_notice=_shared.make_footer_notice(*footer_lines),
     )
-    if no_external and output_format == "text":
-        _shared.console.print(
-            "[dim] 💡 External link validation skipped (--no-external). "
-            "Shield (Z201) remains active.[/dim]\n"
-        )
     incidents = sum(1 for f in findings if f.severity == "security_incident")
     if incidents:
         raise typer.Exit(3)
-    if errors:
+    if errors or (strict and warnings):
         raise typer.Exit(1)
 
 
@@ -214,7 +245,7 @@ def check_orphans(
         None,
         "--engine",
         help="Override the build engine adapter (e.g. mkdocs, zensical). "
-        "Auto-detected from zenzic.toml when omitted.",
+        "Auto-detected from .zenzic.toml when omitted.",
         metavar="ENGINE",
     ),
     output_format: str = typer.Option(
@@ -228,7 +259,7 @@ def check_orphans(
     ),
     path: str | None = typer.Argument(
         None,
-        help="Limit to a directory or file. Accepts paths relative to repo root or docs dir.",
+        help="Limit to a directory or file. Accepts paths relative to repository root or docs directory. The path must be inside a project with a .git/ directory or .zenzic.toml (root marker); run 'zenzic init' first if no marker exists.",
         show_default=False,
     ),
 ) -> None:
@@ -256,8 +287,21 @@ def check_orphans(
         docs_root = (repo_root / config.docs_dir).resolve()
     exclusion_mgr = _shared._build_exclusion_manager(config, repo_root, docs_root)
 
+    from zenzic.core.adapters import get_adapter
+
+    adapter = get_adapter(config.build_context, docs_root, repo_root)
+
     t0 = time.monotonic()
-    orphans = find_orphans(docs_root, exclusion_mgr, repo_root=repo_root, config=config)
+    orphans = find_orphans(
+        docs_root,
+        exclusion_mgr,
+        config=config,
+        has_engine_config=adapter.has_engine_config(),
+        nav_paths=adapter.get_nav_paths(),
+        is_locale_dir=adapter.is_locale_dir,
+        ignored_patterns=adapter.get_ignored_patterns(),
+        adapter=adapter,
+    )
     elapsed = time.monotonic() - t0
 
     findings = [
@@ -291,8 +335,8 @@ def check_orphans(
             _hint = str(docs_root.relative_to(Path.cwd()))
         except ValueError:
             _hint = str(docs_root)
-        _shared.console.print(f"[dim]  Scanning: {_hint}[/]\n")
-    reporter = SentinelReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
+        _shared.console.print(f"[{ZenzicPalette.DIM}]  Scanning: {_hint}[/]")
+    reporter = ZenzicReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
     errors, warnings = reporter.render(
         findings,
         version=__version__,
@@ -303,6 +347,7 @@ def check_orphans(
         strict=True,
         ok_message="No orphan pages found.",
         show_info=show_info,
+        footer_notice=_shared.make_footer_notice(_shared.footer_hint("check")),
     )
     if errors or warnings:
         raise typer.Exit(1)
@@ -318,7 +363,7 @@ def check_snippets(
     ),
     path: str | None = typer.Argument(
         None,
-        help="Limit to a directory or file. Accepts paths relative to repo root or docs dir.",
+        help="Limit to a directory or file. Accepts paths relative to repository root or docs directory. The path must be inside a project with a .git/ directory or .zenzic.toml (root marker); run 'zenzic init' first if no marker exists.",
         show_default=False,
     ),
 ) -> None:
@@ -394,8 +439,8 @@ def check_snippets(
             _hint = str(docs_root.relative_to(Path.cwd()))
         except ValueError:
             _hint = str(docs_root)
-        _shared.console.print(f"[dim]  Scanning: {_hint}[/]\n")
-    reporter = SentinelReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
+        _shared.console.print(f"[{ZenzicPalette.DIM}]  Scanning: {_hint}[/]")
+    reporter = ZenzicReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
     errors, warnings = reporter.render(
         findings,
         version=__version__,
@@ -405,6 +450,7 @@ def check_snippets(
         engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
         ok_message="All code snippets are syntactically valid.",
         show_info=show_info,
+        footer_notice=_shared.make_footer_notice(_shared.footer_hint("check")),
     )
     if errors:
         raise typer.Exit(1)
@@ -416,7 +462,7 @@ def check_references(
         False,
         "--strict",
         "-s",
-        help="Treat Dead Definitions and duplicate defs as errors (not warnings).",
+        help="Treat warnings as errors (exit non-zero on any warning).",
     ),
     links: bool = typer.Option(
         False,
@@ -432,13 +478,13 @@ def check_references(
     ),
     path: str | None = typer.Argument(
         None,
-        help="Limit to a directory or file. Accepts paths relative to repo root or docs dir.",
+        help="Limit to a directory or file. Accepts paths relative to repository root or docs directory. The path must be inside a project with a .git/ directory or .zenzic.toml (root marker); run 'zenzic init' first if no marker exists.",
         show_default=False,
     ),
 ) -> None:
-    """Run the Two-Pass Reference Pipeline: harvest definitions, check integrity, run Shield.
+    """Run the Two-Pass Reference Pipeline: harvest definitions, check integrity, run credential scan.
 
-    Pass 1 — Harvest: extract [id]: url definitions, detect secrets (Shield).
+    Pass 1 — Harvest: extract [id]: url definitions, detect secrets (credential scanner).
     Pass 2 — Cross-Check: resolve [text][id] links against the ReferenceMap.
     Pass 3 — Report: compute Reference Integrity score, flag Dead Definitions and Dangling References.
 
@@ -476,12 +522,24 @@ def check_references(
         except ValueError:
             return str(path)
 
+    from zenzic.core.adapters import get_adapter
+
+    adapter = get_adapter(config.build_context, docs_root, repo_root)
+
+    _locale_roots = adapter.get_locale_source_roots(repo_root)
+    locale_roots: list[tuple[Path, str]] | None = _locale_roots if _locale_roots else None
+
+    _content_roots = adapter.get_extra_content_roots(repo_root)
+    content_roots: list[Path] | None = _content_roots if _content_roots else None
+
     t0 = time.monotonic()
     reports, ext_link_errors = scan_docs_references(
         docs_root,
         exclusion_mgr,
         config=config,
         validate_links=links,
+        locale_roots=locale_roots,
+        content_roots=content_roots,
     )
     elapsed = time.monotonic() - t0
 
@@ -522,7 +580,7 @@ def check_references(
                 )
             )
         for sf in report.security_findings:
-            findings.append(_map_shield_to_finding(sf, docs_root))
+            findings.append(_map_credential_to_finding(sf, docs_root))
 
     for err_str in ext_link_errors:
         findings.append(
@@ -563,8 +621,8 @@ def check_references(
             _hint = str(docs_root.relative_to(Path.cwd()))
         except ValueError:
             _hint = str(docs_root)
-        _shared.console.print(f"[dim]  Scanning: {_hint}[/]\n")
-    reporter = SentinelReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
+        _shared.console.print(f"[{ZenzicPalette.DIM}]  Scanning: {_hint}[/]")
+    reporter = ZenzicReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
     errors, warnings = reporter.render(
         findings,
         version=__version__,
@@ -575,6 +633,7 @@ def check_references(
         strict=strict,
         ok_message="All references resolved.",
         show_info=show_info,
+        footer_notice=_shared.make_footer_notice(_shared.footer_hint("check")),
     )
 
     breaches = sum(1 for f in findings if f.severity == "security_breach")
@@ -594,7 +653,7 @@ def check_assets(
     ),
     path: str | None = typer.Argument(
         None,
-        help="Limit to a directory or file. Accepts paths relative to repo root or docs dir.",
+        help="Limit to a directory or file. Accepts paths relative to repository root or docs directory. The path must be inside a project with a .git/ directory or .zenzic.toml (root marker); run 'zenzic init' first if no marker exists.",
         show_default=False,
     ),
 ) -> None:
@@ -621,13 +680,22 @@ def check_assets(
 
     adapter = get_adapter(config.build_context, docs_root, repo_root)
     adapter_meta = adapter.get_metadata_files()
+    _locale_roots = adapter.get_locale_source_roots(repo_root)
+    locale_roots: list[tuple[Path, str]] | None = _locale_roots if _locale_roots else None
+    _content_roots = adapter.get_extra_content_roots(repo_root)
+    content_roots: list[Path] | None = _content_roots if _content_roots else None
     exclusion_mgr = _shared._build_exclusion_manager(
         config, repo_root, docs_root, adapter_metadata_files=adapter_meta
     )
 
     t0 = time.monotonic()
     unused = find_unused_assets(
-        docs_root, exclusion_mgr, config=config, adapter_metadata_files=adapter_meta
+        docs_root,
+        exclusion_mgr,
+        config=config,
+        locale_roots=locale_roots,
+        content_roots=content_roots,
+        adapter_metadata_files=adapter_meta,
     )
     elapsed = time.monotonic() - t0
 
@@ -635,7 +703,7 @@ def check_assets(
         Finding(
             rel_path=str(path),
             line_no=0,
-            code="Z903",
+            code="Z405",
             severity="warning",
             message="File not referenced in any documentation page.",
         )
@@ -662,8 +730,8 @@ def check_assets(
             _hint = str(docs_root.relative_to(Path.cwd()))
         except ValueError:
             _hint = str(docs_root)
-        _shared.console.print(f"[dim]  Scanning: {_hint}[/]\n")
-    reporter = SentinelReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
+        _shared.console.print(f"[{ZenzicPalette.DIM}]  Scanning: {_hint}[/]")
+    reporter = ZenzicReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
     errors, warnings = reporter.render(
         findings,
         version=__version__,
@@ -674,6 +742,7 @@ def check_assets(
         strict=True,
         ok_message="No unused assets found.",
         show_info=show_info,
+        footer_notice=_shared.make_footer_notice(_shared.footer_hint("check")),
     )
     if errors or warnings:
         raise typer.Exit(1)
@@ -686,7 +755,7 @@ def check_placeholders(
     ),
     path: str | None = typer.Argument(
         None,
-        help="Limit to a directory or file. Accepts paths relative to repo root or docs dir.",
+        help="Limit to a directory or file. Accepts paths relative to repository root or docs directory. The path must be inside a project with a .git/ directory or .zenzic.toml (root marker); run 'zenzic init' first if no marker exists.",
         show_default=False,
     ),
 ) -> None:
@@ -711,8 +780,22 @@ def check_placeholders(
         docs_root = (repo_root / config.docs_dir).resolve()
     exclusion_mgr = _shared._build_exclusion_manager(config, repo_root, docs_root)
 
+    from zenzic.core.adapters import get_adapter
+
+    adapter = get_adapter(config.build_context, docs_root, repo_root)
+    _locale_roots = adapter.get_locale_source_roots(repo_root)
+    locale_roots: list[tuple[Path, str]] | None = _locale_roots if _locale_roots else None
+    _content_roots = adapter.get_extra_content_roots(repo_root)
+    content_roots: list[Path] | None = _content_roots if _content_roots else None
+
     t0 = time.monotonic()
-    raw_findings = find_placeholders(docs_root, exclusion_mgr, config=config)
+    raw_findings = find_placeholders(
+        docs_root,
+        exclusion_mgr,
+        config=config,
+        locale_roots=locale_roots,
+        content_roots=content_roots,
+    )
     elapsed = time.monotonic() - t0
 
     findings: list[Finding] = []
@@ -747,8 +830,8 @@ def check_placeholders(
             _hint = str(docs_root.relative_to(Path.cwd()))
         except ValueError:
             _hint = str(docs_root)
-        _shared.console.print(f"[dim]  Scanning: {_hint}[/]\n")
-    reporter = SentinelReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
+        _shared.console.print(f"[{ZenzicPalette.DIM}]  Scanning: {_hint}[/]")
+    reporter = ZenzicReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
     errors, warnings = reporter.render(
         findings,
         version=__version__,
@@ -759,6 +842,7 @@ def check_placeholders(
         strict=True,
         ok_message="No placeholder stubs found.",
         show_info=show_info,
+        footer_notice=_shared.make_footer_notice(_shared.footer_hint("check")),
     )
     if errors or warnings:
         raise typer.Exit(1)
@@ -798,6 +882,11 @@ class _AllCheckResults:
         )
 
 
+# _apply_per_file_ignores and _apply_directory_policies have moved to _governance.py.
+# They are re-imported above and remain accessible from this module for backward
+# compatibility with any direct callers (e.g. tests).
+
+
 def _collect_all_results(
     repo_root: Path,
     docs_root: Path,
@@ -810,10 +899,14 @@ def _collect_all_results(
     from zenzic.core.adapters import get_adapter
 
     adapter = get_adapter(config.build_context, docs_root, repo_root)
-    locale_roots: list[tuple[Path, str]] | None = None
-    if hasattr(adapter, "get_locale_source_roots"):
-        _roots = adapter.get_locale_source_roots(repo_root)
-        locale_roots = _roots if _roots else None
+    _locale_roots = adapter.get_locale_source_roots(repo_root)
+    locale_roots: list[tuple[Path, str]] | None = _locale_roots if _locale_roots else None
+
+    _content_roots = adapter.get_extra_content_roots(repo_root)
+    content_roots: list[Path] | None = _content_roots if _content_roots else None
+
+    def _mk_i18n_exclusion_mgr(base_root: Path) -> LayeredExclusionManager:
+        return _shared._build_exclusion_manager(config, repo_root, base_root)
 
     ref_reports, _ = scan_docs_references(
         docs_root,
@@ -821,6 +914,7 @@ def _collect_all_results(
         config=config,
         validate_links=False,
         locale_roots=locale_roots,
+        content_roots=content_roots,
     )
     security_events = sum(len(r.security_findings) for r in ref_reports)
 
@@ -854,26 +948,47 @@ def _collect_all_results(
             locale_roots=locale_roots,
             check_external=check_external,
         ),
-        orphans=find_orphans(docs_root, exclusion_mgr, repo_root=repo_root, config=config),
+        orphans=find_orphans(
+            docs_root,
+            exclusion_mgr,
+            config=config,
+            has_engine_config=adapter.has_engine_config(),
+            nav_paths=adapter.get_nav_paths(),
+            is_locale_dir=adapter.is_locale_dir,
+            ignored_patterns=adapter.get_ignored_patterns(),
+            adapter=adapter,
+        ),
         snippet_errors=validate_snippets(docs_root, exclusion_mgr, config=config),
         placeholders=find_placeholders(
-            docs_root, exclusion_mgr, config=config, repo_root=repo_root
+            docs_root,
+            exclusion_mgr,
+            config=config,
+            locale_roots=locale_roots,
+            content_roots=content_roots,
         ),
         unused_assets=find_unused_assets(
             docs_root,
             exclusion_mgr,
             config=config,
-            repo_root=repo_root,
+            locale_roots=locale_roots,
+            content_roots=content_roots,
             adapter_metadata_files=adapter.get_metadata_files(),
         ),
         nav_contract_errors=check_nav_contract(repo_root, exclusion_mgr),
         reference_reports=ref_reports,
         security_events=security_events,
         directory_index_issues=find_missing_directory_indices(
-            docs_root, exclusion_mgr, repo_root=repo_root, config=config
+            docs_root,
+            exclusion_mgr,
+            config=config,
+            provides_index=adapter.provides_index,
         ),
         config_asset_issues=config_asset_issues,
-        i18n_parity_issues=find_i18n_parity(repo_root, config=config),
+        i18n_parity_issues=find_i18n_parity(
+            repo_root,
+            config=config,
+            exclusion_manager_factory=_mk_i18n_exclusion_mgr,
+        ),
         i18n_strict=config.i18n.strict_parity,
     )
 
@@ -894,13 +1009,7 @@ def _to_findings(results: _AllCheckResults, docs_root: Path) -> list[Finding]:
                 rel_path=_rel(err.file_path),
                 line_no=err.line_no,
                 code=err.code,
-                severity=(
-                    "security_incident"
-                    if err.code in ("Z203", "Z202")
-                    else "info"
-                    if err.code == "Z106"
-                    else "error"
-                ),
+                severity=_finding_severity(err.code),
                 message=err.message,
                 source_line=err.source_line,
                 col_start=err.col_start,
@@ -968,7 +1077,7 @@ def _to_findings(results: _AllCheckResults, docs_root: Path) -> list[Finding]:
             Finding(
                 rel_path=str(path),
                 line_no=0,
-                code="Z903",
+                code="Z405",
                 severity="warning",
                 message="File not referenced in any documentation page.",
             )
@@ -979,7 +1088,7 @@ def _to_findings(results: _AllCheckResults, docs_root: Path) -> list[Finding]:
             Finding(
                 rel_path="(nav)",
                 line_no=0,
-                code="Z904",
+                code="Z406",
                 severity="error",
                 message=msg,
             )
@@ -991,7 +1100,7 @@ def _to_findings(results: _AllCheckResults, docs_root: Path) -> list[Finding]:
             Finding(
                 rel_path=_rel(issue.file_path),
                 line_no=0,
-                code="Z907",
+                code="Z602",
                 severity="error" if _i18n_strict else "warning",
                 message=issue.message,
             )
@@ -1033,7 +1142,7 @@ def _to_findings(results: _AllCheckResults, docs_root: Path) -> list[Finding]:
                 )
             )
         for sf in report.security_findings:
-            findings.append(_map_shield_to_finding(sf, docs_root))
+            findings.append(_map_credential_to_finding(sf, docs_root))
 
     for dir_path in results.directory_index_issues:
         findings.append(
@@ -1063,88 +1172,10 @@ def _to_findings(results: _AllCheckResults, docs_root: Path) -> list[Finding]:
     return findings
 
 
-# ── Target helpers (file or directory) ───────────────────────────────────────
-
-
-def _resolve_target(repo_root: Path, config: ZenzicConfig, raw: str) -> Path:
-    """Resolve *raw* to an existing file or directory.
-
-    Search order: absolute as-is → relative to *repo_root* → relative to
-    *repo_root/docs_dir*.  Files must have the ``.md`` extension.
-    Exits with code 1 if nothing is found or the extension is wrong.
-    """
-    p = Path(raw)
-    candidates: list[Path] = (
-        [p] if p.is_absolute() else [repo_root / p, repo_root / config.docs_dir / p]
-    )
-    for candidate in candidates:
-        if candidate.is_dir():
-            return candidate.resolve()
-        if candidate.is_file():
-            if candidate.suffix.lower() != ".md":
-                _shared.console.print(
-                    f"[red]ERROR:[/] [bold]{raw}[/] is not a Markdown file "
-                    f"(expected .md, got '{candidate.suffix}')."
-                )
-                raise typer.Exit(1)
-            return candidate.resolve()
-    _shared.console.print(
-        f"[red]ERROR:[/] Target not found: [bold]{raw}[/]\n"
-        f"  Tried: {candidates[0]}" + (f", {candidates[1]}" if len(candidates) > 1 else "")
-    )
-    raise typer.Exit(1)
-
-
-def _apply_target(
-    repo_root: Path,
-    config: ZenzicConfig,
-    raw_path: str,
-) -> tuple[ZenzicConfig, Path | None, Path, str]:
-    """Resolve *raw_path* and return ``(patched_config, single_file, docs_root, hint)``.
-
-    *single_file* is ``None`` in directory mode; the absolute ``.md`` path in
-    file mode.  *hint* is a short display string for the Sentinel banner.
-    """
-    target = _resolve_target(repo_root, config, raw_path)
-
-    try:
-        rel = target.relative_to(repo_root)
-        if rel == Path("."):
-            # Target IS repo_root itself — use relpath from CWD for clean display.
-            # This avoids the "././" balbettio caused by f"./{Path('.')}".
-            hint = os.path.relpath(target) + ("/" if target.is_dir() else "")
-        else:
-            hint = f"./{rel}" + ("/" if target.is_dir() else "")
-    except ValueError:
-        # Target is outside repo_root (cross-repo scan) — use relpath from CWD.
-        try:
-            hint = os.path.relpath(target) + ("/" if target.is_dir() else "")
-        except ValueError:
-            hint = str(target) + ("/" if target.is_dir() else "")
-
-    if target.is_dir():
-        # CEO-052: if target IS the project root, preserve the configured docs_dir.
-        # The explicit path was used to locate the correct project config —
-        # not to redefine the documentation scope. Overriding docs_dir to "."
-        # would scan the entire project root (including blog/, scripts/, etc.)
-        # instead of respecting the configured docs_dir (e.g. "docs").
-        if target == repo_root:
-            docs_root = (repo_root / config.docs_dir).resolve()
-            return config, None, docs_root, hint
-        try:
-            new_docs_dir = target.relative_to(repo_root)
-        except ValueError:
-            new_docs_dir = target
-        return config.model_copy(update={"docs_dir": new_docs_dir}), None, target, hint
-
-    default_docs_root = (repo_root / config.docs_dir).resolve()
-    try:
-        target.relative_to(default_docs_root)
-        return config, target, default_docs_root, hint
-    except ValueError:
-        new_docs_dir = target.parent.relative_to(repo_root)
-        patched = config.model_copy(update={"docs_dir": new_docs_dir})
-        return patched, target, target.parent.resolve(), hint
+# ── Target helpers (file or directory) ─────────────────────────────────────────
+# _resolve_target and _apply_target have moved to _target_resolver.py.
+# They are re-imported above and remain accessible from this module for
+# backward compatibility with any direct callers.
 
 
 @check_app.command(name="all")
@@ -1165,7 +1196,7 @@ def check_all(
         None,
         "--engine",
         help="Override the build engine adapter (e.g. mkdocs, zensical). "
-        "Auto-detected from zenzic.toml when omitted.",
+        "Auto-detected from .zenzic.toml when omitted.",
         metavar="ENGINE",
     ),
     exclude_dir: list[str] | None = typer.Option(
@@ -1185,10 +1216,10 @@ def check_all(
         None,
         help=(
             "Limit audit to a single Markdown file or an entire directory. "
-            "Accepts paths relative to the repo root or to the docs directory. "
+            "Accepts paths relative to the repository root or to the docs directory. "
             "File examples: README.md, docs/index.md. "
             "Directory examples: content/, docs/guide/. "
-            "When a directory is given, docs_dir is patched to that path and all "
+            "When a directory is given, the configured docs directory is patched to that path and all "
             "Markdown files inside it are audited."
         ),
         show_default=False,
@@ -1205,7 +1236,7 @@ def check_all(
         help=(
             "Skip HTTP validation of external URLs (Pass 3). "
             "For air-gapped / offline environments. "
-            "Shield (Z201) always active regardless of this flag."
+            "Credential scanner (Z201) always active regardless of this flag."
         ),
     ),
     exclude_url: list[str] = typer.Option(
@@ -1213,9 +1244,17 @@ def check_all(
         "--exclude-url",
         help=(
             "Bypass external URL validation for URLs matching this prefix (repeatable). "
-            "Merged with excluded_external_urls from zenzic.toml at runtime."
+            "Merged with excluded_external_urls from .zenzic.toml at runtime."
         ),
         metavar="PREFIX",
+    ),
+    audit: bool = typer.Option(
+        False,
+        "--audit",
+        help=(
+            "Sovereign truth-seeking mode: ignore all suppressible bypasses "
+            "(inline zenzic-ignore and governance.per_file_ignores)."
+        ),
     ),
 ) -> None:
     """Run all checks: links, orphans, snippets, placeholders, assets, references.
@@ -1267,8 +1306,8 @@ def check_all(
 
     docs_root = (repo_root / config.docs_dir).resolve()
     # CEO-043: explicit target may live outside the CWD repo root.
-    # Adopt the target as the sovereign sandbox so Blood Sentinel guards
-    # escapes FROM the target, not the location OF the target.
+    # Adopt the target as the sovereign sandbox so the path traversal guard
+    # rejects escapes FROM the target, not the location OF the target.
     try:
         docs_root.relative_to(repo_root)
     except ValueError:
@@ -1285,14 +1324,50 @@ def check_all(
     effective_exit_zero = exit_zero if exit_zero is not None else config.exit_zero
 
     t0 = time.monotonic()
-    results = _collect_all_results(
-        repo_root,
-        docs_root,
-        config,
-        exclusion_mgr,
-        strict=effective_strict,
-        check_external=not no_external,
+    inline_suppressions, inline_hotspots = collect_inline_suppression_stats(
+        docs_root, config, exclusion_mgr
     )
+    per_file_suppressions = count_per_file_ignores(config)
+    suppression_audit = SuppressionAudit(
+        inline_count=inline_suppressions,
+        per_file_count=per_file_suppressions,
+        cap=config.governance.suppression_cap,
+        inline_hotspots=inline_hotspots,
+    )
+
+    if (
+        config.governance.suppression_cap_fail_hard
+        and suppression_audit.total > suppression_audit.cap
+    ):
+        if output_format == "json":
+            print(json.dumps(build_cap_exceeded_json_payload(suppression_audit), indent=2))
+        elif output_format == "sarif":
+            from zenzic import __version__
+
+            print(
+                json.dumps(
+                    build_cap_exceeded_sarif_payload(suppression_audit, version=__version__),
+                    indent=2,
+                )
+            )
+        elif output_format == "text":
+            if not quiet:
+                _shared.console.print()
+            print_governance_cap_failure(
+                suppression_audit,
+                title=resolve_governance_panel_title(repo_root),
+            )
+        raise typer.Exit(1)
+
+    with sovereign_context(force_audit=audit):
+        results = _collect_all_results(
+            repo_root,
+            docs_root,
+            config,
+            exclusion_mgr,
+            strict=effective_strict,
+            check_external=not no_external,
+        )
     elapsed = time.monotonic() - t0
 
     if output_format == "json":
@@ -1319,6 +1394,10 @@ def check_all(
             "unused_assets": [str(p) for p in results.unused_assets],
             "nav_contract": results.nav_contract_errors,
             "references": ref_errors,
+            "suppression_count": suppression_audit.total,
+            "suppression_cap": suppression_audit.cap,
+            "suppression_debt_pts": suppression_audit.excess,
+            "debt_status": suppression_audit.debt_status,
         }
         print(json.dumps(report, indent=2))
         if results.failed and not effective_exit_zero:
@@ -1327,7 +1406,8 @@ def check_all(
     elif output_format == "sarif":
         from zenzic import __version__
 
-        all_findings = _to_findings(results, docs_root)
+        with sovereign_context(force_audit=audit):
+            all_findings = _to_findings(results, docs_root)
         _shared._output_sarif_findings(all_findings, __version__)
         incidents = sum(1 for f in all_findings if f.severity == "security_incident")
         if incidents:
@@ -1342,13 +1422,16 @@ def check_all(
 
     from zenzic import __version__
 
-    all_findings = _to_findings(results, docs_root)
+    with sovereign_context(force_audit=audit):
+        all_findings = _to_findings(results, docs_root)
+        all_findings = _apply_per_file_ignores(all_findings, config)
+        all_findings = _apply_directory_policies(all_findings, config)
 
     if _single_file is not None:
         _sf_rel = str(_single_file.relative_to(docs_root))
         all_findings = [f for f in all_findings if f.rel_path == _sf_rel]
 
-    reporter = SentinelReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
+    reporter = ZenzicReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
 
     if quiet:
         errors, warnings = reporter.render_quiet(all_findings)
@@ -1370,6 +1453,13 @@ def check_all(
             )
             return
 
+        _footer_lines = [_shared.footer_hint("check")]
+        if no_external:
+            _footer_lines.append(
+                f"[{ZenzicPalette.DIM}]💡 External link validation skipped (--no-external). "
+                f"Credential scanner (Z201) remains active.[/]"
+            )
+
         errors, warnings = reporter.render(
             all_findings,
             version=__version__,
@@ -1380,13 +1470,11 @@ def check_all(
             target=_target_hint,
             strict=effective_strict,
             show_info=show_info,
+            footer_notice=_shared.make_footer_notice(*_footer_lines),
         )
 
-    if no_external and output_format == "text" and not quiet:
-        _shared.console.print(
-            "[dim] 💡 External link validation skipped (--no-external). "
-            "Shield (Z201) remains active.[/dim]\n"
-        )
+    if output_format == "text":
+        print_suppression_audit_footer(suppression_audit, audit_mode=audit)
 
     incidents = sum(1 for f in all_findings if f.severity == "security_incident")
     if incidents:

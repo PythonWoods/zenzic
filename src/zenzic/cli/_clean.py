@@ -10,17 +10,16 @@ import typer
 from rich.text import Text
 
 from zenzic.core.scanner import find_repo_root, find_unused_assets
-from zenzic.core.ui import SentinelPalette, emoji
+from zenzic.core.ui import ZenzicPalette, emoji
 from zenzic.models.config import ZenzicConfig
 
 from . import _shared
+from ._metadata import COMMAND_BY_NAME
 
 
-clean_app = typer.Typer(
+clean_app = _shared.create_app(
     name="clean",
-    help=f"[bold {SentinelPalette.BRAND}]Clean[/] — Safely remove unused documentation files.",
-    no_args_is_help=True,
-    rich_markup_mode="rich",
+    long_help=(f"[bold {ZenzicPalette.BRAND}]Clean[/] — {COMMAND_BY_NAME['clean'].long_help}"),
 )
 
 
@@ -39,7 +38,7 @@ def clean_assets(
         None,
         "--engine",
         help="Override the build engine adapter (e.g. mkdocs, zensical). "
-        "Auto-detected from zenzic.toml when omitted.",
+        "Auto-detected from .zenzic.toml when omitted.",
         metavar="ENGINE",
     ),
     exclude_dir: list[str] | None = typer.Option(
@@ -83,6 +82,10 @@ def clean_assets(
     docs_root = (repo_root / config.docs_dir).resolve()
     adapter = get_adapter(config.build_context, docs_root, repo_root)
     adapter_meta = adapter.get_metadata_files()
+    _locale_roots = adapter.get_locale_source_roots(repo_root)
+    locale_roots: list[tuple[Path, str]] | None = _locale_roots if _locale_roots else None
+    _content_roots = adapter.get_extra_content_roots(repo_root)
+    content_roots: list[Path] | None = _content_roots if _content_roots else None
     exclusion_mgr = _shared._build_exclusion_manager(
         config,
         repo_root,
@@ -96,7 +99,8 @@ def clean_assets(
         docs_root,
         exclusion_mgr,
         config=config,
-        repo_root=repo_root,
+        locale_roots=locale_roots,
+        content_roots=content_roots,
         adapter_metadata_files=adapter_meta,
     )
     if not unused:
@@ -107,20 +111,24 @@ def clean_assets(
             _shared.console.print(
                 Text.from_markup(
                     f"{emoji('sparkles')} "
-                    f"[bold {SentinelPalette.SUCCESS}]Sentinel Seal:[/bold {SentinelPalette.SUCCESS}]"
-                    f" [{SentinelPalette.SUCCESS}]No unused assets found \u2014 documentation tree is clean.[/{SentinelPalette.SUCCESS}]"
+                    f"[bold {ZenzicPalette.SUCCESS}]{emoji('check')} Clean:[/bold {ZenzicPalette.SUCCESS}]"
+                    f" [{ZenzicPalette.SUCCESS}]No unused assets found \u2014 documentation tree is clean.[/{ZenzicPalette.SUCCESS}]"
                 )
             )
+            _shared.print_footer_hint("clean", quiet=quiet)
         return
 
     if not quiet:
-        _shared.console.print(f"\n[yellow]Found {len(unused)} unused asset(s):[/]")
+        _shared.console.print()
+        _shared.console.print(f"[yellow]Found {len(unused)} unused asset(s):[/]")
         for asset in unused:
-            _shared.console.print(f"  [dim]{asset}[/]")
+            _shared.console.print(f"  [{ZenzicPalette.DIM}]{asset}[/]")
 
     if dry_run:
         if not quiet:
-            _shared.console.print("\n[blue]DRY RUN:[/] No files were deleted.")
+            _shared.console.print()
+            _shared.console.print("[blue]DRY RUN:[/] No files were deleted.")
+            _shared.print_footer_hint("clean", quiet=quiet)
         return
 
     if not yes:
@@ -137,4 +145,6 @@ def clean_assets(
         abs_path.unlink(missing_ok=True)
 
     if not quiet:
-        _shared.console.print(f"\n[green]SUCCESS:[/] Deleted {len(unused)} unused asset(s).")
+        _shared.console.print()
+        _shared.console.print(f"[green]SUCCESS:[/] Deleted {len(unused)} unused asset(s).")
+        _shared.print_footer_hint("clean", quiet=quiet)

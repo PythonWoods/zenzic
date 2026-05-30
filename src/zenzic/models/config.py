@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-import re
 import sys
 from pathlib import Path
 
@@ -13,9 +12,12 @@ if sys.version_info >= (3, 11):
     import tomllib
 else:
     import tomli as tomllib  # PEP 680 backport
-from typing import Any, Literal
+from typing import Any, Final, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from zenzic.core import regex as re
+from zenzic.core.ui import ZenzicPalette
 
 
 # Severity type shared with the rule engine (avoids a circular import).
@@ -38,13 +40,30 @@ class CustomRuleConfig(BaseModel):
         severity = "error"
     """
 
-    id: str = Field(description="Stable unique identifier for this rule (e.g. 'ZZ001').")
+    id: str = Field(description="Stable unique identifier for this rule (e.g. 'ZZ-MY-RULE').")
     pattern: str = Field(description="Regular-expression string applied to each content line.")
     message: str = Field(description="Human-readable explanation shown in the finding.")
     severity: Severity = Field(
         default="error",
         description="Severity level: 'error' (default), 'warning', or 'info'.",
     )
+
+    @field_validator("id", mode="before")
+    @classmethod
+    def _validate_id_namespace(cls, v: object) -> object:
+        """Enforce ADR-012 namespace contract: custom rule IDs must start with 'ZZ-'.
+
+        The 'ZZ-' prefix is reserved exclusively for user-defined custom rules
+        to prevent collision with Core finding codes (Z1xx–Z9xx) in findings,
+        SARIF reports, and CLI filters.
+        """
+        if not isinstance(v, str) or not v.startswith("ZZ-"):
+            raise ValueError(
+                f"Custom rule IDs must start with the 'ZZ-' prefix "
+                f"(e.g., 'ZZ-MY-RULE') to prevent collision with Core finding codes (ADR-012). "
+                f"Got: {v!r}"
+            )
+        return v
 
 
 class ProjectMetadata(BaseModel):
@@ -55,14 +74,14 @@ class ProjectMetadata(BaseModel):
     brand term found in documentation source files.  Lines carrying a
     ``zenzic:ignore`` comment are silently skipped so intentional historical
     references (e.g. in CHANGELOG files or ADR entries) are not flagged.
-    Use ``<!-- zenzic:ignore Z905 -->`` in ``.md`` files and
-    ``{/* zenzic:ignore Z905 */}`` in ``.mdx`` files.
+    Use ``<!-- zenzic:ignore: Z905 -->`` in ``.md`` files and
+    ``{/* zenzic:ignore: Z905 */}`` in ``.mdx`` files.
 
     TOML example::
 
         [project_metadata]
-        release_name = "Quartz"
-        obsolete_names = ["Obsidian"]
+        release_name = "MyRelease"
+        obsolete_names = ["PreviousRelease"]
         # ADR files contain intentional historical references
         obsolete_names_exclude_patterns = [
             "CHANGELOG*.md",
@@ -74,9 +93,11 @@ class ProjectMetadata(BaseModel):
         default="",
         description="Current canonical brand/release name shown in Z905 remediation hints.",
     )
+    # Deprecated in v0.8: canonical source moved to [governance].brand_obsolescence.
+    # Kept for runtime compatibility while scanner migration is completed.
     obsolete_names: list[str] = Field(
         default=[],
-        description="Deprecated brand terms that trigger Z905 when found in docs.",
+        description="Deprecated legacy field; populated from [governance].brand_obsolescence.",
     )
     obsolete_names_exclude_patterns: list[str] = Field(
         default=["CHANGELOG*.md", "CHANGELOG*.archive.md"],
@@ -85,10 +106,19 @@ class ProjectMetadata(BaseModel):
             "CHANGELOG*.md is excluded by default to allow historical prose."
         ),
     )
+    badge_stamp_files: list[str] = Field(
+        default=["README.md"],
+        description=(
+            "Files updated by 'zenzic score --stamp'. Each file must contain a "
+            "'<!-- zenzic:audit-badge -->' and/or '<!-- zenzic:score-badge -->' marker; "
+            "the next non-empty line after each marker is replaced with deterministic "
+            "audit and/or score badge URLs."
+        ),
+    )
 
 
 class BuildContext(BaseModel):
-    """Build engine context declared in ``[build_context]`` of ``zenzic.toml``.
+    """Build engine context declared in ``[build_context]`` of ``.zenzic.toml``.
 
     Tells Zenzic which documentation engine produced the site and which locale
     directories are non-default translations.  Used by adapters to resolve
@@ -181,15 +211,74 @@ class I18nConfig(BaseModel):
     )
 
 
+class GovernanceConfig(BaseModel):
+    """Governance toggles declared in ``[governance]``.
+
+    This section controls opt-in governance checks introduced in v0.8.
+    """
+
+    brand_obsolescence: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Deprecated brand terms that activate Z601 BRAND_OBSOLESCENCE "
+            "when present in docs source."
+        ),
+    )
+    i18n_parity: bool = Field(
+        default=False,
+        description="Activate Z602 I18N_PARITY governance reporting.",
+    )
+    per_file_ignores: dict[str, list[str]] = Field(
+        default_factory=dict,
+        description=(
+            "Per-file suppression map (glob pattern -> finding codes). "
+            "Example: {'blog/*.mdx': ['Z601']}. Security findings remain "
+            "non-suppressible regardless of this map."
+        ),
+    )
+    directory_policies: dict[str, list[str]] = Field(
+        default_factory=dict,
+        description=(
+            "Strategic directory-level policy exemptions (glob pattern -> finding codes). "
+            "Matched findings are removed before display with ZERO suppression debt cost. "
+            "In --audit mode, exempted findings appear with a [POLICY_EXEMPTION] label. "
+            "Intended for historical archives, SSOT registries, and blog directories. "
+            "Security findings (Z201-Z204) bypass this exemption unconditionally."
+        ),
+    )
+    suppression_cap: int = Field(
+        default=30,
+        ge=0,
+        description=(
+            "Maximum number of active suppressions allowed before hard-failing the check pipeline."
+        ),
+    )
+    suppression_cap_scope: Literal["all"] = Field(
+        default="all",
+        description=(
+            "Suppression CAP scope. 'all' counts inline suppressions plus "
+            "per-file configuration suppressions."
+        ),
+    )
+    suppression_cap_fail_hard: bool = Field(
+        default=True,
+        description=("When True, exceeding suppression_cap causes immediate exit 1."),
+    )
+
+
 # ── System Guardrails ────────────────────────────────────────────────────────
 # Directories that Zenzic ALWAYS ignores.  These are merged into
 # ``excluded_dirs`` unconditionally in ``model_post_init``.  User entries
-# in ``zenzic.toml`` are additive — they cannot remove these guardrails.
-SYSTEM_EXCLUDED_DIRS: frozenset[str] = frozenset(
+# in ``.zenzic.toml`` are additive — they cannot remove these guardrails.
+SYSTEM_EXCLUDED_DIRS: Final[frozenset[str]] = frozenset(
     {
         # VCS and CI/CD
         ".git",
         ".github",
+        # Zenzic family dogfooding: sibling core checkout used by self-check CI
+        # (ZRT-010 Sovereign Parity). Excluding at L1 eliminates the need for
+        # every family repo to declare it in excluded_dirs.
+        "_zenzic_core",
         # Virtual environments and package managers
         ".venv",
         "node_modules",
@@ -221,7 +310,7 @@ SYSTEM_EXCLUDED_DIRS: frozenset[str] = frozenset(
 # Files that Zenzic ALWAYS excludes from asset checks — universal development
 # toolchain files that are never documentation content.  Adapters may declare
 # additional files via ``BaseAdapter.get_metadata_files()`` (L1b).
-SYSTEM_EXCLUDED_FILE_NAMES: frozenset[str] = frozenset(
+SYSTEM_EXCLUDED_FILE_NAMES: Final[frozenset[str]] = frozenset(
     {
         # JavaScript / Node.js
         "package.json",
@@ -253,14 +342,22 @@ SYSTEM_EXCLUDED_FILE_NAMES: frozenset[str] = frozenset(
         ".gitattributes",
         ".coverage",
         "coverage.xml",
+        # Zenzic native files — never documentation assets (ADR-039.1)
+        ".zenzic.local.toml",
+        # Action wrapper infrastructure file (explicit safeguard for docs_dir='.')
+        "zenzic-action-wrapper.sh",
     }
 )
 
-SYSTEM_EXCLUDED_FILE_PATTERNS: tuple[str, ...] = (
+SYSTEM_EXCLUDED_FILE_PATTERNS: Final[tuple[str, ...]] = (
     "eslint.config.*",
     ".prettierrc*",
     ".editorconfig",
+    # Machine-local override backups must be treated as infrastructure.
+    ".zenzic.local.toml.*",
     "*.lock",
+    # Shell scripts are infrastructure, not documentation assets (ADR-039.1)
+    "*.sh",
     # Project metadata / build manifests promoted to Layer 1 in v0.7.0.
     # Honours Zero-Config for "Prose-only Maintenance" repos (engine = standalone)
     # whose docs_root is the repository root: every TOML/YAML/JSON config file
@@ -277,7 +374,7 @@ SYSTEM_EXCLUDED_FILE_PATTERNS: tuple[str, ...] = (
 
 
 class ZenzicConfig(BaseModel):
-    """Configuration model for Zenzic, typically loaded from zenzic.toml.
+    """Configuration model for Zenzic, typically loaded from .zenzic.toml.
 
     **Hard Exclusion Policy:** The directories listed in
     :data:`SYSTEM_EXCLUDED_DIRS` are *always* excluded, regardless of what
@@ -288,11 +385,16 @@ class ZenzicConfig(BaseModel):
         default=Path("docs"), description="Path to docs directory relative to repo root."
     )
     excluded_dirs: list[str] = Field(
-        default=["includes", "stylesheets", "overrides", "hooks"],
+        default=["includes", "stylesheets", "overrides"],
         description=(
             "Directories inside docs/ to exclude from orphan and snippet checks. "
             "User-provided entries are merged with the system guardrails "
-            "(SYSTEM_EXCLUDED_DIRS) — they can never be removed."
+            "(SYSTEM_EXCLUDED_DIRS) — they can never be removed. "
+            "Note: 'hooks' was removed from the default in v0.8.0 to prevent "
+            "false negatives on legitimate docs/hooks/ documentation directories "
+            "(e.g. React Hooks, Git Hooks, Webhook API docs). MkDocs projects "
+            "with build-time hook scripts in docs/ should add 'hooks' explicitly "
+            "to excluded_dirs in their .zenzic.toml."
         ),
     )
     snippet_min_lines: int = Field(
@@ -354,7 +456,7 @@ class ZenzicConfig(BaseModel):
         default=[],
         description=(
             "Filename glob patterns excluded from all checks (orphan detection, "
-            "placeholder scanning, reference pipeline, and Shield). "
+            "placeholder scanning, reference pipeline, and credential scanner). "
             "Use this for locale-suffixed files managed by i18n plugins "
             "(e.g. '*.it.md', '*.fr.md') or historical prose that contains "
             "intentional examples of secrets or deprecated syntax "
@@ -454,7 +556,7 @@ class ZenzicConfig(BaseModel):
     custom_rules: list[CustomRuleConfig] = Field(
         default=[],
         description=(
-            "Project-specific lint rules declared inline in zenzic.toml.  "
+            "Project-specific lint rules declared inline in .zenzic.toml.  "
             "Each entry applies a regex pattern line-by-line to every .md file.  "
             "Example:  [[custom_rules]]  id='ZZ001'  pattern='TODO'  "
             "message='Remove before publish.'  severity='warning'"
@@ -462,9 +564,13 @@ class ZenzicConfig(BaseModel):
     )
     project_metadata: ProjectMetadata = Field(
         default_factory=ProjectMetadata,
+        description=("Optional metadata used by remediation messaging and legacy compatibility."),
+    )
+    governance: GovernanceConfig = Field(
+        default_factory=GovernanceConfig,
         description=(
-            "Optional brand-integrity metadata. When obsolete_names is non-empty, "
-            "activates the Z905 BRAND_OBSOLESCENCE rule."
+            "Governance toggles for ADR-012 checks. Prefer this section over "
+            "legacy [project_metadata].obsolete_names."
         ),
     )
     plugins: list[str] = Field(
@@ -488,14 +594,12 @@ class ZenzicConfig(BaseModel):
             "Z204 FORBIDDEN_TERM: literal strings (case-insensitive) whose presence "
             "in any documentation file triggers an exit-2 security breach. "
             "Populated by merging patterns from ``.zenzic.local.toml`` at runtime. "
-            "Never declare these in the shared ``zenzic.toml`` — use the git-ignored "
+            "Never declare these in the shared ``.zenzic.toml`` — use the git-ignored "
             "``.zenzic.local.toml`` so private terms are never committed."
         ),
     )
-    # Pre-compiled regex patterns for placeholder detection.
-    # Populated automatically from placeholder_patterns in model_post_init.
-    # Excluded from serialisation — never written to or read from TOML.
-    placeholder_patterns_compiled: list[re.Pattern[str]] = Field(
+    # Pre-compiled regex patterns (not serializable, runtime only)
+    placeholder_patterns_compiled: list[re.RegexPattern] = Field(
         default_factory=list,
         exclude=True,
         repr=False,
@@ -514,7 +618,7 @@ class ZenzicConfig(BaseModel):
     def _build_from_data(cls, data: dict[str, Any]) -> ZenzicConfig:
         """Construct a ``ZenzicConfig`` from a raw TOML dict.
 
-        Shared by :meth:`load` (``zenzic.toml``) and the ``pyproject.toml``
+        Shared by :meth:`load` (``.zenzic.toml``) and the ``pyproject.toml``
         fallback path.  Strips unknown keys and promotes sub-tables.
         """
         import logging as _logging
@@ -525,12 +629,14 @@ class ZenzicConfig(BaseModel):
         # The most common pitfall: writing root-level settings AFTER a [section]
         # header (e.g. `[project]`) causes TOML to nest them under that table,
         # which is then silently dropped because `project` is not a known field.
-        _HANDLED_SECTIONS = frozenset({"build_context", "custom_rules", "project_metadata", "i18n"})
+        _HANDLED_SECTIONS = frozenset(
+            {"build_context", "custom_rules", "project_metadata", "governance", "i18n"}
+        )
         for key in data:
             if key not in known_fields and key not in _HANDLED_SECTIONS:
                 if isinstance(data[key], dict):
                     _cfg_log.warning(
-                        "zenzic.toml: unknown section [%s] will be ignored — "
+                        ".zenzic.toml: unknown section [%s] will be ignored — "
                         "all keys nested inside it are silently discarded. "
                         "Root-level settings (e.g. placeholder_patterns, docs_dir) "
                         "must appear BEFORE any [section] header.",
@@ -538,7 +644,7 @@ class ZenzicConfig(BaseModel):
                     )
                 else:
                     _cfg_log.warning(
-                        "zenzic.toml: unknown key '%s' will be ignored.",
+                        ".zenzic.toml: unknown key '%s' will be ignored.",
                         key,
                     )
         filtered_data = {k: v for k, v in data.items() if k in known_fields}
@@ -559,9 +665,41 @@ class ZenzicConfig(BaseModel):
                 **{
                     k: v
                     for k, v in data["project_metadata"].items()
-                    if k in ProjectMetadata.model_fields
+                    if k in ProjectMetadata.model_fields and k != "obsolete_names"
                 }
             )
+        if "governance" in data and isinstance(data["governance"], dict):
+            filtered_data["governance"] = GovernanceConfig(
+                **{
+                    k: v
+                    for k, v in data["governance"].items()
+                    if k in GovernanceConfig.model_fields
+                }
+            )
+
+        # Legacy migration path (v0.8): [project_metadata].obsolete_names ->
+        # [governance].brand_obsolescence.
+        legacy_obsolete: list[str] = []
+        if "project_metadata" in data and isinstance(data["project_metadata"], dict):
+            raw_legacy = data["project_metadata"].get("obsolete_names", [])
+            if isinstance(raw_legacy, list):
+                legacy_obsolete = [name for name in raw_legacy if isinstance(name, str)]
+        if legacy_obsolete:
+            _cfg_log.warning(
+                "Deprecated in v0.8: The '[project_metadata].obsolete_names' field is "
+                "deprecated. Please move it to '[governance].brand_obsolescence'."
+            )
+            governance_cfg = filtered_data.get("governance", GovernanceConfig())
+            if not governance_cfg.brand_obsolescence:
+                governance_cfg.brand_obsolescence = legacy_obsolete
+            filtered_data["governance"] = governance_cfg
+
+        # Runtime compatibility bridge for current scanner wiring.
+        governance_cfg = filtered_data.get("governance")
+        if governance_cfg is not None and governance_cfg.brand_obsolescence:
+            metadata_cfg = filtered_data.get("project_metadata", ProjectMetadata())
+            metadata_cfg.obsolete_names = list(governance_cfg.brand_obsolescence)
+            filtered_data["project_metadata"] = metadata_cfg
         if "i18n" in data and isinstance(data["i18n"], dict):
             i18n_raw = data["i18n"]
             extra_raw = i18n_raw.get("extra_sources", []) or []
@@ -584,7 +722,7 @@ class ZenzicConfig(BaseModel):
 
         Priority order (first match wins):
 
-        1. ``zenzic.toml`` at *repo_root* — the authoritative sovereign config.
+        1. ``.zenzic.toml`` at *repo_root* — the authoritative sovereign config.
         2. ``[tool.zenzic]`` table in ``pyproject.toml`` at *repo_root*.
         3. Built-in defaults (``loaded_from_file`` returned as ``False``).
 
@@ -597,7 +735,7 @@ class ZenzicConfig(BaseModel):
 
         Returns:
             A ``(config, loaded_from_file)`` tuple.  ``loaded_from_file`` is
-            ``True`` when either ``zenzic.toml`` or ``pyproject.toml`` was
+            ``True`` when either ``.zenzic.toml`` or ``pyproject.toml`` was
             found and parsed, ``False`` when built-in defaults are in use.
 
         Raises:
@@ -606,16 +744,16 @@ class ZenzicConfig(BaseModel):
         """
         from zenzic.core.exceptions import ConfigurationError  # deferred to avoid circular import
 
-        # ── Priority 1: zenzic.toml ───────────────────────────────────────────
-        zenzic_toml = repo_root / "zenzic.toml"
+        # ── Priority 1: .zenzic.toml ───────────────────────────────────────────
+        zenzic_toml = repo_root / ".zenzic.toml"
         if zenzic_toml.is_file():
             try:
                 with zenzic_toml.open("rb") as f:
                     data = tomllib.load(f)
             except tomllib.TOMLDecodeError as exc:
                 raise ConfigurationError(
-                    f"[bold red]zenzic.toml[/] contains a syntax error and cannot be loaded.\n"
-                    f"  [dim]{zenzic_toml}[/]\n\n"
+                    f"[bold red].zenzic.toml[/] contains a syntax error and cannot be loaded.\n"
+                    f"  [{ZenzicPalette.DIM}]{zenzic_toml}[/]\n\n"
                     f"  [red]{exc}[/]\n\n"
                     "Fix the TOML syntax error and re-run Zenzic.",
                     context={"config_path": str(zenzic_toml)},
@@ -633,7 +771,7 @@ class ZenzicConfig(BaseModel):
             except tomllib.TOMLDecodeError as exc:
                 raise ConfigurationError(
                     f"[bold red]pyproject.toml[/] contains a syntax error and cannot be loaded.\n"
-                    f"  [dim]{pyproject_toml}[/]\n\n"
+                    f"  [{ZenzicPalette.DIM}]{pyproject_toml}[/]\n\n"
                     f"  [red]{exc}[/]\n\n"
                     "Fix the TOML syntax error and re-run Zenzic.",
                     context={"config_path": str(pyproject_toml)},
@@ -652,12 +790,18 @@ class ZenzicConfig(BaseModel):
 
     @classmethod
     def _apply_local_toml(cls, config: ZenzicConfig, repo_root: Path) -> None:
-        """Merge ``forbidden_patterns`` from ``.zenzic.local.toml`` into *config*.
+        """Apply machine-local overrides from ``.zenzic.local.toml``.
 
-        The local file is git-ignored and machine-local — it is the canonical
-        home for the Z204 Privacy Gate patterns.  Patterns from the local file
-        are appended to any patterns already declared in the primary config
-        (additive merge, insertion-order preserved, duplicates removed).
+        The local file is git-ignored and machine-local.  It can override a
+        safe subset of the shared configuration (core/build_context/
+        project_metadata/governance/i18n) while preserving the repository
+        sovereign defaults for everyone else.
+
+        Legacy compatibility:
+
+        - Top-level ``forbidden_patterns`` remains supported.
+        - ``[core].forbidden_patterns`` is also supported.
+        - Patterns are merged additively with de-duplication.
 
         ``.zenzic.dev.toml`` is a hard-removed legacy file in v0.7.0: when
         present, configuration loading fails with an explicit migration error.
@@ -670,7 +814,7 @@ class ZenzicConfig(BaseModel):
 
             raise ConfigurationError(
                 "Legacy local config [bold].zenzic.dev.toml[/] is no longer supported in v0.7.0.\n"
-                f"  [dim]{legacy_toml}[/]\n\n"
+                f"  [{ZenzicPalette.DIM}]{legacy_toml}[/]\n\n"
                 "Migrate to [bold].zenzic.local.toml[/] and remove the legacy file.\n"
                 "Run [bold cyan]zenzic init[/] to scaffold the new local template."
             )
@@ -683,7 +827,165 @@ class ZenzicConfig(BaseModel):
                 local_data = tomllib.load(f)
         except tomllib.TOMLDecodeError:
             return  # malformed local file — silently skip to avoid hard failures
-        extra = local_data.get("forbidden_patterns", [])
-        if isinstance(extra, list):
-            merged = list(dict.fromkeys([*config.forbidden_patterns, *extra]))
-            config.forbidden_patterns = merged
+
+        # Strict key validation: reject unknown top-level keys in .zenzic.local.toml.
+        # Prevents silent-drop of mis-spelled or unsupported sections.
+        # Note: Z108 in the public finding registry is EMPTY_LINK_TEXT (structural
+        # integrity). This is a ConfigurationError raised before scanning begins —
+        # not a scanner finding code.
+        _ALLOWED_LOCAL_KEYS: Final[frozenset[str]] = frozenset(
+            {
+                "core",
+                "build_context",
+                "project_metadata",
+                "governance",
+                "i18n",
+                "forbidden_patterns",
+                "excluded_dirs",
+                "excluded_file_patterns",
+                "custom_rules",
+                "secrets",
+                "debug",
+                "env",
+            }
+        )
+        unknown_keys = set(local_data.keys()) - _ALLOWED_LOCAL_KEYS
+        if unknown_keys:
+            from zenzic.core.exceptions import ConfigurationError
+
+            pretty = ", ".join(f"'{k}'" for k in sorted(unknown_keys))
+            raise ConfigurationError(
+                f"[LOCAL-TOML-STRICT] .zenzic.local.toml contains unsupported top-level "
+                f"key(s): {pretty}.\n"
+                "Allowed sections: core, build_context, project_metadata, governance, i18n, "
+                "forbidden_patterns, excluded_dirs, excluded_file_patterns, custom_rules, "
+                "secrets, debug, env.\n"
+                "Remove the unknown key(s) or run 'zenzic init --local' to regenerate the local config template.",
+                context={"unknown_keys": sorted(unknown_keys), "file": str(local_toml)},
+            )
+
+        core_local = local_data.get("core")
+        if isinstance(core_local, dict):
+            docs_dir = core_local.get("docs_dir")
+            if isinstance(docs_dir, str) and docs_dir.strip():
+                config.docs_dir = Path(docs_dir.strip())
+
+            strict = core_local.get("strict")
+            if isinstance(strict, bool):
+                config.strict = strict
+
+            exit_zero = core_local.get("exit_zero")
+            if isinstance(exit_zero, bool):
+                config.exit_zero = exit_zero
+
+            fail_under = core_local.get("fail_under")
+            if isinstance(fail_under, int):
+                config.fail_under = fail_under
+
+        build_local = local_data.get("build_context")
+        if isinstance(build_local, dict):
+            merged_build = config.build_context.model_dump()
+            for key in BuildContext.model_fields:
+                if key in build_local:
+                    merged_build[key] = build_local[key]
+            try:
+                config.build_context = BuildContext(**merged_build)
+            except Exception:
+                pass
+
+        metadata_local = local_data.get("project_metadata")
+        if isinstance(metadata_local, dict):
+            merged_meta = config.project_metadata.model_dump()
+            for key in ProjectMetadata.model_fields:
+                if key in metadata_local:
+                    merged_meta[key] = metadata_local[key]
+            try:
+                config.project_metadata = ProjectMetadata(**merged_meta)
+            except Exception:
+                pass
+
+        governance_local = local_data.get("governance")
+        if isinstance(governance_local, dict):
+            merged_governance = config.governance.model_dump()
+            # brand_obsolescence uses ADDITIVE merge — local extends global;
+            # global terms cannot be removed by an unversioned local file.
+            if "brand_obsolescence" in governance_local:
+                local_terms = governance_local.get("brand_obsolescence", [])
+                if isinstance(local_terms, list):
+                    existing = merged_governance.get("brand_obsolescence", [])
+                    merged_governance["brand_obsolescence"] = list(
+                        dict.fromkeys(existing + [t for t in local_terms if t not in existing])
+                    )
+            for key in GovernanceConfig.model_fields:
+                if key in governance_local and key != "brand_obsolescence":
+                    merged_governance[key] = governance_local[key]
+            try:
+                config.governance = GovernanceConfig(**merged_governance)
+            except Exception:
+                pass
+
+        i18n_local = local_data.get("i18n")
+        if isinstance(i18n_local, dict):
+            merged_i18n = config.i18n.model_dump()
+            for key in I18nConfig.model_fields:
+                if key in i18n_local:
+                    merged_i18n[key] = i18n_local[key]
+            try:
+                config.i18n = I18nConfig(**merged_i18n)
+            except Exception:
+                pass
+
+        merged_forbidden = list(config.forbidden_patterns)
+
+        legacy_extra = local_data.get("forbidden_patterns", [])
+        if isinstance(legacy_extra, list):
+            merged_forbidden.extend(legacy_extra)
+
+        core_forbidden = (
+            core_local.get("forbidden_patterns", []) if isinstance(core_local, dict) else []
+        )
+        if isinstance(core_forbidden, list):
+            merged_forbidden.extend(core_forbidden)
+
+        gov_forbidden = (
+            governance_local.get("forbidden_patterns", [])
+            if isinstance(governance_local, dict)
+            else []
+        )
+        if isinstance(gov_forbidden, list):
+            merged_forbidden.extend(gov_forbidden)
+
+        config.forbidden_patterns = list(dict.fromkeys(merged_forbidden))
+
+        # excluded_dirs — ADDITIVE merge: local directories extend the global list.
+        # SYSTEM_EXCLUDED_DIRS are already baked in by model_post_init() before this
+        # method runs, so they are preserved unconditionally.
+        local_excl_dirs = local_data.get("excluded_dirs", [])
+        if isinstance(local_excl_dirs, list) and local_excl_dirs:
+            config.excluded_dirs = list(dict.fromkeys([*config.excluded_dirs, *local_excl_dirs]))
+
+        # excluded_file_patterns — ADDITIVE merge: local glob patterns extend the global list.
+        local_excl_patterns = local_data.get("excluded_file_patterns", [])
+        if isinstance(local_excl_patterns, list) and local_excl_patterns:
+            config.excluded_file_patterns = list(
+                dict.fromkeys([*config.excluded_file_patterns, *local_excl_patterns])
+            )
+
+        # custom_rules — ADDITIVE merge with per-id override semantics:
+        #   - Global rules without a matching local id are preserved unchanged.
+        #   - A local rule with the same id as a global rule overrides that single rule.
+        #   - Local rules with a new id are appended.
+        # This prevents a non-versioned local file from silently disabling global lint policy.
+        local_custom_rules_raw = local_data.get("custom_rules", [])
+        if isinstance(local_custom_rules_raw, list) and local_custom_rules_raw:
+            try:
+                local_rules = [
+                    CustomRuleConfig(**r) for r in local_custom_rules_raw if isinstance(r, dict)
+                ]
+            except Exception:
+                pass  # malformed local rule — silently skip (consistent with other merge blocks)
+            else:
+                merged_rules: dict[str, CustomRuleConfig] = {r.id: r for r in config.custom_rules}
+                for r in local_rules:
+                    merged_rules[r.id] = r
+                config.custom_rules = list(merged_rules.values())

@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
-"""EPOCH 7a regression — Docusaurus blog/ files must enter the VSM and link checks.
+"""Regression tests — Docusaurus blog/ files must enter the VSM and link checks.
 
 Pre-fix bug: the VSM only ingested files under ``docs_dir``, so Docusaurus
 blog posts were invisible to ``zenzic check`` and broken links inside the
@@ -23,7 +23,6 @@ from __future__ import annotations
 import asyncio
 from pathlib import Path
 
-from zenzic.core.adapters._base import ContentRoot
 from zenzic.core.adapters._docusaurus import DocusaurusAdapter
 from zenzic.core.exclusion import LayeredExclusionManager
 from zenzic.core.validator import validate_links_async
@@ -74,7 +73,7 @@ def _build_sandbox(
         )
 
     if with_absolute_slug_mismatch:
-        # VSM bypass regression — EPOCH 7b / validator.py fix.
+        # VSM bypass regression — v0.7.x / validator.py fix.
         #
         # The file declares slug: saga-iv-zenzic, so Docusaurus publishes it at
         # /blog/saga-iv-zenzic/.  The log post links to /blog/saga-iv/ (missing
@@ -95,7 +94,7 @@ def _build_sandbox(
 # ── Tests ─────────────────────────────────────────────────────────────────────
 
 
-class TestEpoch7aBlogDiscovery:
+class TestBlogDiscovery:
     """get_extra_content_roots returns blog/ via convention auto-detection."""
 
     def test_blog_directory_advertised_as_content_root(self, tmp_path: Path) -> None:
@@ -103,10 +102,7 @@ class TestEpoch7aBlogDiscovery:
         adapter = DocusaurusAdapter.from_repo(BuildContext(engine="docusaurus"), docs, repo)
         roots = adapter.get_extra_content_roots(repo)
         assert len(roots) == 1
-        root = roots[0]
-        assert isinstance(root, ContentRoot)
-        assert root.path == (repo / "blog").resolve()
-        assert root.url_prefix == "blog"
+        assert roots[0] == (repo / "blog").resolve()
 
     def test_no_blog_directory_yields_empty_list(self, tmp_path: Path) -> None:
         docs = tmp_path / "docs"
@@ -118,7 +114,7 @@ class TestEpoch7aBlogDiscovery:
         assert adapter.get_extra_content_roots(tmp_path) == []
 
 
-class TestEpoch7aVsmIngestion:
+class TestVsmIngestion:
     """build_vsm() walks extra content roots and routes blog files correctly."""
 
     def test_blog_file_appears_as_reachable_route(self, tmp_path: Path) -> None:
@@ -134,7 +130,7 @@ class TestEpoch7aVsmIngestion:
             adapter,
             docs.resolve(),
             md_contents,
-            extra_content_roots=[((repo / "blog").resolve(), "blog")],
+            extra_content_roots=[(repo / "blog").resolve()],
         )
         # Date prefix is stripped; URL lives under /blog/.
         assert "/blog/welcome/" in vsm
@@ -143,10 +139,10 @@ class TestEpoch7aVsmIngestion:
         assert "/docs/intro/" in vsm
 
 
-class TestEpoch7aReverseMapping:
+class TestReverseMapping:
     """Traceability invariant: every VSM route resolves back to a real source file.
 
-    Locks the contract that EPOCH 7b virtual routes (tags, pagination,
+    Locks the contract that virtual routes (tags, pagination,
     authors) must also satisfy — a route without a physical origin is a
     validator screaming ``error`` without ever saying ``where``.
     """
@@ -170,7 +166,7 @@ class TestEpoch7aReverseMapping:
             adapter,
             docs.resolve(),
             md_contents,
-            extra_content_roots=[((repo / "blog").resolve(), "blog")],
+            extra_content_roots=[(repo / "blog").resolve()],
         )
         blog_routes = [r for r in vsm.values() if r.url.startswith("/blog/")]
         assert len(blog_routes) >= 2, f"expected ≥2 blog routes, got {blog_routes}"
@@ -186,7 +182,7 @@ class TestEpoch7aReverseMapping:
             )
 
 
-class TestEpoch7aValidatorClosesTheGap:
+class TestValidatorClosesTheGap:
     """validate_links_async catches broken links inside and across blog/."""
 
     def _run(self, repo: Path, docs: Path) -> list[str]:

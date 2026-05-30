@@ -4,8 +4,7 @@
 # ─── Zenzic Determinism Invariant ──────────────────────────────────────
 # Zenzic ships zero AI/ML inference dependencies. Pure Python + AST + regex.
 # Adversarial AI testing happens externally; no runtime LLM call exists in
-# any code path. Reintroducing such a dependency violates the v0.7.0
-# "Quartz Maturity" purity contract.
+# any code path. Reintroducing such a dependency violates the purity contract.
 # ───────────────────────────────────────────────────────────────────────
 
 [build-system]
@@ -14,16 +13,17 @@ build-backend = "hatchling.build"
 
 [project]
 name = "zenzic"
-version = "0.7.1"
-description = "Engineering-grade, engine-agnostic linter and security shield for Markdown documentation"
+version = "0.8.0"
+description = "Engineering-grade, engine-agnostic static analyzer and credential scanner for Markdown documentation"
 readme = "README.md"
 requires-python = ">=3.10"
 # PEP 639: SPDX expression string (replaces deprecated `license = { text = "..." }`)
 license = "Apache-2.0"
-license-files = ["LICENSE", "LICENSES/*.txt"]
-authors = [{ name = "PythonWoods", email = "dev@pythonwoods.dev" }]
 keywords = ["documentation", "mkdocs", "zensical", "linter", "ci", "strict", "links", "security", "yaml", "json", "toml"]
 classifiers = [
+
+ # ─── Version bumping ───────────────────────────────────────────────────────────
+
     "Development Status :: 5 - Production/Stable",
     "Environment :: Console",
     "Intended Audience :: Developers",
@@ -51,6 +51,7 @@ dependencies = [
     # tomllib was added to the stdlib in Python 3.11 (PEP 680).
     # tomli is the identical backport for Python 3.10 (our Floor).
     "tomli>=2.0.0; python_version < '3.11'",
+    "pathspec>=0.12.1",
 ]
 
 [project.scripts]
@@ -105,6 +106,7 @@ test = [
     "pytest-xdist>=3.6",
     "pytest-timeout>=2.3.0",
     "hypothesis>=6.100.0",
+    "jsonschema>=4.23.0",
     "mutmut>=3.0.0",
 ]
 lint = [
@@ -133,8 +135,12 @@ line-length = 100
 target-version = "py310"
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "B", "C4", "UP", "A"]
+select = ["E", "F", "W", "I", "B", "C4", "UP", "A", "TID252"]
 ignore = ["E501", "B008"]
+
+# Ban standard re module in governed paths (src/ + tests/)
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+re = { msg = "Use `re2` (google-re2) instead to prevent ReDoS vulnerability (ZRT-007)." }
 
 [tool.ruff.lint.isort]
 known-first-party = ["zenzic"]
@@ -183,12 +189,12 @@ exclude_lines = [
     "\\.\\.\\.",
 ]
 
-# ─── Mutation testing (Sentinel Rigor) ────────────────────────────────────────
+# ─── Mutation testing (Mutation Gate) ────────────────────────────────────────
 
 [tool.mutmut]
 paths_to_mutate = [
     "src/zenzic/core/rules.py",
-    "src/zenzic/core/shield.py",
+    "src/zenzic/core/credentials.py",
     "src/zenzic/core/reporter.py",
 ]
 # pytest_add_cli_args_test_selection specifies which tests to run (replaces tests_dir).
@@ -199,88 +205,7 @@ also_copy = ["src/"]
 pytest_add_cli_args = ["--import-mode=prepend"]
 
 # ─── Version bumping ───────────────────────────────────────────────────────────
-
-[tool.bumpversion]
-current_version = "0.7.1"
-parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)((?P<pre_l>a|b|rc)(?P<pre_n>\\d+))?"
-serialize = [
-    "{major}.{minor}.{patch}{pre_l}{pre_n}",
-    "{major}.{minor}.{patch}",
-]
-
-[tool.bumpversion.parts.pre_l]
-values = ["a", "b", "rc", "final"]
-optional_value = "final"
-
-[tool.bumpversion.parts.pre_n]
-first_value = 1
-
-[[tool.bumpversion.files]]
-filename = "pyproject.toml"
-search = 'version = "{current_version}"'
-replace = 'version = "{new_version}"'
-
-[[tool.bumpversion.files]]
-filename = "src/zenzic/__init__.py"
-search = '__version__ = "{current_version}"'
-replace = '__version__ = "{new_version}"'
-
-[[tool.bumpversion.files]]
-filename = "CITATION.cff"
-search = "version: {current_version}"
-replace = "version: {new_version}"
-
-[[tool.bumpversion.files]]
-filename = "CITATION.cff"
-search = "date-released: \\d{{4}}-\\d{{2}}-\\d{{2}}"
-replace = "date-released: {now:%Y-%m-%d}"
-regex = true
-
-[[tool.bumpversion.files]]
-# CHANGELOG uses PEP 440 normalized form: 0.5.0-a2 (hyphen before pre-release label).
-# The serialize pattern below produces that form; pyproject uses 0.5.0a2 (no hyphen).
-filename = "CHANGELOG.md"
-# Cerca solo l'header di secondo livello — evita match su sezioni storiche e link di riferimento
-search = "## [{current_version}]"
-replace = "## [{new_version}]"
-serialize = ["{major}.{minor}.{patch}{pre_l}{pre_n}", "{major}.{minor}.{patch}"]
-
-[[tool.bumpversion.files]]
-filename = "CHANGELOG.it.md"
-# Cerca solo l'header di secondo livello — evita match su sezioni storiche e link di riferimento
-search = "## [{current_version}]"
-replace = "## [{new_version}]"
-serialize = ["{major}.{minor}.{patch}{pre_l}{pre_n}", "{major}.{minor}.{patch}"]
-
-[[tool.bumpversion.files]]
-filename = "README.md"
-search = "v{current_version}"
-replace = "v{new_version}"
-serialize = ["{major}.{minor}.{patch}{pre_l}{pre_n}", "{major}.{minor}.{patch}"]
-
-[[tool.bumpversion.files]]
-filename = "README.it.md"
-search = "v{current_version}"
-replace = "v{new_version}"
-serialize = ["{major}.{minor}.{patch}{pre_l}{pre_n}", "{major}.{minor}.{patch}"]
-
-[[tool.bumpversion.files]]
-filename = "CONTRIBUTING.md"
-search = "v{current_version}"
-replace = "v{new_version}"
-serialize = ["{major}.{minor}.{patch}{pre_l}{pre_n}", "{major}.{minor}.{patch}"]
-
-[[tool.bumpversion.files]]
-filename = "RELEASE.md"
-search = "v{current_version}"
-replace = "v{new_version}"
-
-[[tool.bumpversion.files]]
-filename = "RELEASE.it.md"
-search = "v{current_version}"
-replace = "v{new_version}"
-
-[[tool.bumpversion.files]]
-filename = ".github/ISSUE_TEMPLATE/security_vulnerability.yml"
-search = 'placeholder: "{current_version}"'
-replace = 'placeholder: "{new_version}"'
+# CONSOLIDATED IN .bumpversion.toml (primary source of truth for bump-my-version).
+# This section removed to prevent governance duplication across version sources.
+# All version bump config now maintained in single .bumpversion.toml file.
+# ────────────────────────────────────────────────────────────────────────────────

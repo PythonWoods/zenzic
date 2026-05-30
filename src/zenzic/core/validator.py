@@ -31,7 +31,6 @@ import difflib
 import fnmatch
 import json
 import os
-import re
 import sys
 from collections.abc import Iterator
 
@@ -48,9 +47,11 @@ from urllib.parse import urlsplit
 import httpx
 import yaml
 
+from zenzic.core import regex as re
 from zenzic.core.adapter import get_adapter
 from zenzic.core.discovery import (
     DOC_SUFFIXES,
+    build_content_mounts,
     iter_extra_content_markdown_sources,
     iter_locale_markdown_sources,
     iter_markdown_sources,
@@ -89,6 +90,11 @@ _PermissiveSafeLoader.add_multi_constructor("", lambda loader, tag_suffix, node:
 # Does NOT match reference-style links [text][id] or auto-links <url>.
 _MARKDOWN_LINK_RE = re.compile(r"!?\[[^\[\]]*\]\(([^)]+)\)")
 
+# Empty link-label detectors used for Z108. Images are excluded; Z403 covers
+# missing image alt text separately.
+_EMPTY_INLINE_LINK_TEXT_RE = re.compile(r"\[\s*\]\(([^)]*)\)")
+_EMPTY_REF_LINK_TEXT_RE = re.compile(r"\[\s*\]\[[^\]]*\]")
+
 
 class LinkInfo(NamedTuple):
     """Extracted link with source position for surgical caret rendering."""
@@ -114,9 +120,16 @@ _REF_DEF_RE = re.compile(r"^ {0,3}\[([^\]]+)\]:\s+(\S+)")
 # Reference link: [text][id] or [text][] (collapsed reference)
 _REF_LINK_RE = re.compile(r"\[([^\]]*)\]\[([^\]]*)\]")
 
-# Shortcut reference link: [text] NOT followed by [ ( or : (CommonMark §4.7)
-# (?<!\]) prevents matching the second part of [text][id] full/collapsed refs.
-_REF_SHORTCUT_RE = re.compile(r"(?<![!\]])\[([^\]]+)\](?![\[(:])")
+# Shortcut reference link: [text] (semantic filters applied in code).
+_REF_SHORTCUT_RE = re.compile(r"\[([^\]]+)\]")
+
+# Inline code span — erased before link extraction to avoid false positives.
+_INLINE_CODE_RE = re.compile(r"`[^`]+`")
+# Strips Markdown link title from href: "url 'title'" → "url".
+_TITLE_STRIP_RE = re.compile(r"""\s+["'].*$""")
+# Slugification helpers used in _slugify_heading().
+_SLUG_NONWORD_RE = re.compile(r"[^\w\s-]")
+_SLUG_SPACES_RE = re.compile(r"\s+")
 
 # URL schemes that are valid syntax but point to non-HTTP targets we skip.
 _SKIP_SCHEMES = ("mailto:", "data:", "ftp:", "tel:", "javascript:", "irc:", "xmpp:")
@@ -181,7 +194,7 @@ class LinkError:
 # Detects hrefs that, after traversal, would reach an OS system directory.
 # Triggering this classifier upgrades a PATH_TRAVERSAL error to a
 # PATH_TRAVERSAL_SUSPICIOUS security incident (Exit Code 3).
-_RE_SYSTEM_PATH: re.Pattern[str] = re.compile(r"/(?:etc|root|var|proc|sys|usr)/")
+_RE_SYSTEM_PATH: re.RegexPattern = re.compile(r"/(?:etc|root|var|proc|sys|usr)/")
 
 
 def _classify_traversal_intent(href: str) -> Literal["suspicious", "boundary"]:
@@ -341,14 +354,14 @@ def extract_links(text: str) -> list[LinkInfo]:
             continue  # always skip lines inside a fenced block
 
         # ── Inline code: blank out `...` spans to prevent false matches ───────
-        clean = re.sub(r"`[^`]+`", lambda m: " " * len(m.group()), line)
+        clean = _INLINE_CODE_RE.sub(lambda m: " " * len(m.group()), line)
 
         for m in _MARKDOWN_LINK_RE.finditer(clean):
             raw = m.group(1).strip()
             if not raw:
                 continue
             # Strip optional title portion: url "title" or url 'title'
-            url = re.sub(r"""\s+["'].*$""", "", raw).strip()
+            url = _TITLE_STRIP_RE.sub("", raw).strip()
             if url:
                 results.append(
                     LinkInfo(
@@ -358,6 +371,43 @@ def extract_links(text: str) -> list[LinkInfo]:
                         match_text=m.group(0),
                     )
                 )
+
+    return results
+
+
+def _extract_empty_link_texts(text: str) -> list[tuple[int, int, str]]:
+    """Return empty-text Markdown links for Z108 detection.
+
+    The helper skips fenced code blocks and inline code spans, mirroring the
+    main link extractor, but only reports link syntaxes whose label is empty or
+    whitespace-only. Images are intentionally excluded from this rule.
+    """
+    results: list[tuple[int, int, str]] = []
+    in_block = False
+
+    for lineno, line in enumerate(text.splitlines(), start=1):
+        stripped = line.strip()
+        if not in_block:
+            if stripped.startswith("```") or stripped.startswith("~~~"):
+                in_block = True
+                continue
+        else:
+            if stripped.startswith("```") or stripped.startswith("~~~"):
+                in_block = False
+            continue
+
+        clean = _INLINE_CODE_RE.sub(lambda m: " " * len(m.group()), line)
+        for pattern in (_EMPTY_INLINE_LINK_TEXT_RE, _EMPTY_REF_LINK_TEXT_RE):
+            for m in pattern.finditer(clean):
+                # Skip image links (![](url)); those are covered by Z403.
+                if m.start() > 0 and clean[m.start() - 1] == "!":
+                    continue
+                # Only report if the bracket is also empty in the original line.
+                # This prevents false positives from labels like [`code`][ref]
+                # whose inline code was stripped to spaces by the cleaner above.
+                if not pattern.match(line[m.start() :]):
+                    continue
+                results.append((lineno, m.start(), line.strip()))
 
     return results
 
@@ -395,8 +445,8 @@ def slug_heading(heading: str) -> str:
     slug = unicodedata.normalize("NFKD", slug)
     slug = "".join(c for c in slug if not unicodedata.combining(c))
     slug = slug.lower()
-    slug = re.sub(r"[^\w\s-]", "", slug)
-    slug = re.sub(r"\s+", "-", slug).strip("-")
+    slug = _SLUG_NONWORD_RE.sub("", slug)
+    slug = _SLUG_SPACES_RE.sub("-", slug).strip("-")
     return slug
 
 
@@ -479,7 +529,7 @@ def extract_ref_links(text: str, ref_map: dict[str, str]) -> list[LinkInfo]:
             if stripped.startswith("```") or stripped.startswith("~~~"):
                 in_block = False
             continue
-        clean = re.sub(r"`[^`]+`", lambda m: " " * len(m.group()), line)
+        clean = _INLINE_CODE_RE.sub(lambda m: " " * len(m.group()), line)
         for m in _REF_LINK_RE.finditer(clean):
             text_part = m.group(1)
             raw_id = m.group(2) if m.group(2) else text_part
@@ -498,6 +548,11 @@ def extract_ref_links(text: str, ref_map: dict[str, str]) -> list[LinkInfo]:
                 )
         # Shortcut reference links: [text] (CommonMark §4.7)
         for m in _REF_SHORTCUT_RE.finditer(clean):
+            if m.start() > 0 and clean[m.start() - 1] in "!]":
+                continue
+            tail = clean[m.end() : m.end() + 1]
+            if tail in "[:(":
+                continue
             ref_id = m.group(1).lower().strip()
             url = ref_map.get(ref_id)
             if url:
@@ -623,7 +678,7 @@ async def validate_links_async(
             validation pass so that broken anchors in translated pages are caught.
         check_external: When False, skip Pass 3 (HTTP HEAD requests) even if
             ``strict`` is True. Designed for air-gapped / offline environments.
-            Shield (Z201) is never affected — it operates on raw file content.
+            Credential scanner (Z201) is never affected — it operates on raw file content.
 
     Returns:
         list[str] or list[LinkError]; empty when all links pass.
@@ -636,14 +691,10 @@ async def validate_links_async(
     _bypass_schemes = adapter.get_link_scheme_bypasses()
     # Adapter-declared absolute URL prefixes (multi-instance plugin roots, blog,
     # default docs route base path).  Honours Zero-Config: the user does not
-    # duplicate Docusaurus routing into ``zenzic.toml``; the adapter inspects
+    # duplicate Docusaurus routing into ``.zenzic.toml``; the adapter inspects
     # its own engine's config and reports ownership.  Adapters that don't host
     # multi-instance plugins return ``frozenset()``.
-    _project_absolute_prefixes: frozenset[str] = (
-        adapter.get_absolute_url_prefixes(repo_root)
-        if hasattr(adapter, "get_absolute_url_prefixes")
-        else frozenset()
-    )
+    _project_absolute_prefixes: tuple[str, ...] = tuple(adapter.get_absolute_url_prefixes())
 
     # ── Pass 1: read all .md/.mdx files + map all non-doc assets into memory ──
     md_contents: dict[Path, str] = {}
@@ -669,22 +720,21 @@ async def validate_links_async(
                 except OSError:
                     continue
 
-    # ── Pass 1c: include extra content roots (EPOCH 7a Multi-Root Discovery) ──
+    # ── Pass 1c: include extra content roots (v0.7.x Multi-Root Discovery) ──
     # Plugin-managed content trees that live outside docs_root — most notably
     # Docusaurus's blog/ directory.  Loading them here means the VSM, anchor
     # index, and link resolver all see them as first-class content, closing the
     # gap between ``zenzic check`` and the engine's own build-time link check.
-    extra_content_roots: list[tuple[Path, str]] = []
-    if hasattr(adapter, "get_extra_content_roots"):
-        for content_root in adapter.get_extra_content_roots(repo_root):
-            extra_content_roots.append((content_root.path, content_root.url_prefix))
-            for abs_path, _logical_rel in iter_extra_content_markdown_sources(
-                content_root.path, content_root.url_prefix, config, exclusion_manager
-            ):
-                try:
-                    md_contents[abs_path.resolve()] = abs_path.read_text(encoding="utf-8")
-                except OSError:
-                    continue
+    extra_content_roots: list[Path] = adapter.get_extra_content_roots(repo_root)
+    extra_content_mounts = build_content_mounts(extra_content_roots, repo_root=repo_root)
+    for content_root, url_prefix in extra_content_mounts:
+        for abs_path, _logical_rel in iter_extra_content_markdown_sources(
+            content_root, url_prefix, config, exclusion_manager
+        ):
+            try:
+                md_contents[abs_path.resolve()] = abs_path.read_text(encoding="utf-8")
+            except OSError:
+                continue
 
     # Build the asset map once — eliminates all Path.exists() calls from Pass 2.
     # Scanning repo_root (not just docs_root) ensures that @site/static/ assets
@@ -697,25 +747,25 @@ async def validate_links_async(
         if f.is_file() and not f.is_symlink() and f.suffix not in DOC_SUFFIXES
     )
 
-    # ── Locale file registry + multi-root Shield setup ───────────────────────
+    # ── Locale file registry + multi-root credential scanner setup ───────────────────────
     # locale_file_set: files loaded from i18n/ directories (outside docs_root).
     # Used in Phase 2 to:
     #   • Force same-page anchor validation regardless of validate_same_page_anchors
-    #     (translation drift is exactly the class of error the sentinel must catch).
+    #     (translation drift is exactly the class of error the i18n integrity check must catch).
     #   • Never suppress genuine path-traversal attempts (security invariant).
     locale_file_set: frozenset[Path] = frozenset(
         p for p in md_contents if not p.is_relative_to(docs_root)
     )
     # Multi-root allowed list passed to the resolver: docs_root is always in the
     # list; locale roots are added so that cross-locale relative links resolve
-    # within an authorised boundary instead of firing PATH_TRAVERSAL.  EPOCH 7a:
+    # within an authorised boundary instead of firing PATH_TRAVERSAL.  v0.7.x:
     # extra content roots (Docusaurus blog/, …) are also admitted so that
     # in-blog relative links and cross-blog↔docs links resolve as authorised.
     _allowed_roots: list[Path] = [docs_root]
     if locale_roots:
         _allowed_roots.extend(locale_root for locale_root, _ in locale_roots)
-    if extra_content_roots:
-        _allowed_roots.extend(root for root, _ in extra_content_roots)
+    if extra_content_mounts:
+        _allowed_roots.extend(root for root, _ in extra_content_mounts)
 
     # ── Phase 1: parallel index (anchors + resolved links) ────────────────
     # Workers return immutable payloads. The main process only merges maps
@@ -737,7 +787,7 @@ async def validate_links_async(
     # Instantiate the resolver ONCE — _lookup_map is built here, not per-link.
     # Instantiating inside the file loop would regenerate the map N times,
     # cancelling the 14× performance gain from the pre-computed flat dict.
-    # allowed_roots extends the Shield boundary to authorised locale directories.
+    # allowed_roots extends the credential scanner boundary to authorised locale directories.
     resolver = InMemoryPathResolver(
         docs_root, md_contents, anchors_cache, allowed_roots=_allowed_roots
     )
@@ -747,7 +797,7 @@ async def validate_links_async(
     # It is only meaningful when the adapter has a nav (MkDocs with mkdocs.yml);
     # for StandaloneAdapter / Zensical every file is REACHABLE by definition.
     #
-    # EPOCH 7b: populate the adapter's slug map BEFORE building the VSM so that
+    # v0.7.x: populate the adapter's slug map BEFORE building the VSM so that
     # ``map_url()`` resolves frontmatter ``slug:`` overrides correctly.
     # Without this call the slug map is empty and all blog URLs are derived from
     # the physical filename — mismatching the URLs that Docusaurus actually serves.
@@ -763,6 +813,7 @@ async def validate_links_async(
         md_contents,
         anchors_cache=anchors_cache,
         extra_content_roots=extra_content_roots,
+        repo_root=repo_root,
     )
 
     # ── Phase 1.5: cycle registry (requires resolver + links_cache) ───────────
@@ -776,12 +827,12 @@ async def validate_links_async(
     # ── Phase 2: validate against global indexes ────────────────────────────
     # Pre-compute known relative paths once for Z104 "Did you mean?" hints.
     # No disk I/O — md_contents is already in memory from Pass 1.  Files under
-    # extra content roots (EPOCH 7a) are admitted with their url_prefix injected
+    # extra content roots (v0.7.x) are admitted with their url_prefix injected
     # so suggestions like ``blog/2026-04-12-foo.mdx`` surface for typos.
     def _compute_logical_rel(f: Path) -> str | None:
         if f.is_relative_to(docs_root):
             return f.relative_to(docs_root).as_posix()
-        for root, prefix in extra_content_roots:
+        for root, prefix in extra_content_mounts:
             if f.is_relative_to(root):
                 inner = f.relative_to(root).as_posix()
                 return f"{prefix}/{inner}" if prefix else inner
@@ -822,6 +873,21 @@ async def validate_links_async(
             if md_file.is_relative_to(docs_root)
             else str(md_file.relative_to(repo_root))
         )
+        raw_text = md_contents[md_file]
+
+        for lineno, col_start, source_line in _extract_empty_link_texts(raw_text):
+            internal_errors.append(
+                LinkError(
+                    file_path=md_file,
+                    line_no=lineno,
+                    message=f"{label}:{lineno}: link label is empty or whitespace-only",
+                    source_line=source_line,
+                    error_type="Z108",
+                    col_start=col_start,
+                    match_text=source_line,
+                )
+            )
+
         all_links = links_cache.get(md_file, [])
 
         for link in all_links:
@@ -840,7 +906,7 @@ async def validate_links_async(
             # Pure same-page anchor (#section).
             # Always validated for locale files: translation drift (e.g. a
             # translator updating the link text but not the heading's {#id})
-            # is exactly the failure mode the i18n sentinel must catch.
+            # is exactly the failure mode the i18n integrity check must catch.
             # For main-docs files the check is gated by validate_same_page_anchors
             # (disabled by default — anchors can be generated by plugins/macros
             # at build time that are invisible at source-scan time).
@@ -934,7 +1000,7 @@ async def validate_links_async(
 
             # ── Internal resolution: delegate entirely to InMemoryPathResolver ─
             # The resolver receives the raw href; it handles percent-decoding,
-            # backslash normalisation, normpath, Shield check, and anchor lookup.
+            # backslash normalisation, normpath, credential scanner check, and anchor lookup.
             # Do NOT pre-process the url before passing it — double-decoding
             # would corrupt links with legitimately encoded characters.
             match resolver.resolve(md_file, url):
@@ -1051,9 +1117,9 @@ async def validate_links_async(
                         try:
                             target_rel = resolved_target.relative_to(docs_root)
                         except ValueError:
-                            pass  # target outside docs_root — already handled by Shield
+                            pass  # target outside docs_root — already handled by credential scanner
                         else:
-                            target_url = adapter.map_url(target_rel)
+                            target_url = adapter.get_route_info(target_rel).canonical_url
                             route = vsm.get(target_url)
                             if route is not None and route.status in (
                                 "ORPHAN_BUT_EXISTING",

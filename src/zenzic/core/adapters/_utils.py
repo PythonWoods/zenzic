@@ -14,8 +14,23 @@ may use or ignore them as needed.
 from __future__ import annotations
 
 import os
-import re
 from pathlib import Path
+
+from zenzic.core import regex as re
+
+
+def dedupe_roots(roots: list[Path]) -> list[Path]:
+    """Return roots de-duplicated by resolved absolute path, preserving order."""
+    seen: set[str] = set()
+    out: list[Path] = []
+    for root in roots:
+        resolved = root.resolve()
+        key = resolved.as_posix()
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(resolved)
+    return out
 
 
 def case_sensitive_exists(path: Path) -> bool:
@@ -108,6 +123,8 @@ _DRAFT_RE = re.compile(r"^draft\s*:\s*(true|false)\s*$", re.MULTILINE | re.IGNOR
 _UNLISTED_RE = re.compile(r"^unlisted\s*:\s*(true|false)\s*$", re.MULTILINE | re.IGNORECASE)
 _TAGS_RE = re.compile(r"^tags\s*:\s*\[([^\]]*)\]\s*$", re.MULTILINE)
 _TAGS_FLOW_RE = re.compile(r"^-\s+(.+)$", re.MULTILINE)
+# Block-style tags key: "tags:\n  - item" (used in extract_frontmatter_tags).
+_TAGS_BLOCK_RE = re.compile(r"^tags\s*:\s*$", re.MULTILINE)
 
 
 def extract_frontmatter_slug(content: str) -> str | None:
@@ -178,7 +195,7 @@ def extract_frontmatter_tags(content: str) -> list[str]:
         return [t.strip().strip("'\"") for t in raw.split(",") if t.strip()]
 
     # Flow syntax: tags:\n- a\n- b
-    tags_start = re.search(r"^tags\s*:\s*$", fm_text, re.MULTILINE)
+    tags_start = _TAGS_BLOCK_RE.search(fm_text)
     if tags_start:
         rest = fm_text[tags_start.end() :]
         return [m.group(1).strip() for m in _TAGS_FLOW_RE.finditer(rest)]
@@ -209,7 +226,7 @@ def build_metadata_cache(
     md_contents: dict[Path, str],
     docs_root: Path,
     *,
-    shield_enabled: bool = True,
+    scan_credentials: bool = True,
 ) -> dict[str, FileMetadata]:
     """Build a metadata cache from all loaded Markdown files in one pass.
 
@@ -221,22 +238,22 @@ def build_metadata_cache(
     VSM construction to pre-compute all frontmatter metadata, then pass the
     result to adapter constructors or ``get_route_info()`` implementations.
 
-    When ``shield_enabled`` is ``True`` (default), every frontmatter line is
-    passed through :func:`~zenzic.core.shield.safe_read_line` before parsing.
-    If a secret is detected, :class:`~zenzic.core.shield.ShieldViolation` is
+    When ``scan_credentials`` is ``True`` (default), every frontmatter line is
+    passed through :func:`~zenzic.core.credentials.safe_read_line` before parsing.
+    If a secret is detected, :class:`~zenzic.core.credentials.CredentialViolation` is
     raised immediately — the VSM is never constructed.
 
     Args:
         md_contents: Pre-loaded mapping of absolute ``Path`` → raw content.
         docs_root: Resolved absolute ``docs/`` directory root.
-        shield_enabled: When ``True``, invoke the Shield on frontmatter lines.
+        scan_credentials: When ``True``, run credential scan on frontmatter lines.
 
     Returns:
         Dict mapping POSIX relative path → :class:`FileMetadata`.
 
     Raises:
-        :class:`~zenzic.core.shield.ShieldViolation`: When a secret is found
-            in frontmatter content (only when ``shield_enabled=True``).
+        :class:`~zenzic.core.credentials.CredentialViolation`: When a secret is found
+            in frontmatter content (only when ``scan_credentials=True``).
     """
     cache: dict[str, FileMetadata] = {}
     for abs_path, content in md_contents.items():
@@ -245,11 +262,11 @@ def build_metadata_cache(
         except ValueError:
             continue
 
-        # Shield check on frontmatter lines if enabled.
-        if shield_enabled:
+        # Credential scanner check on frontmatter lines if enabled.
+        if scan_credentials:
             fm_match = _FRONTMATTER_RE.match(content)
             if fm_match:
-                from zenzic.core.shield import safe_read_line
+                from zenzic.core.credentials import safe_read_line
 
                 fm_text = fm_match.group(1)
                 # Find the line offset of frontmatter start.

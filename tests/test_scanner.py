@@ -12,6 +12,7 @@ import yaml
 from _helpers import make_mgr
 
 from zenzic.core.adapter import _extract_i18n_locale_dirs, _extract_i18n_locale_patterns
+from zenzic.core.rules import BrandObsolescenceRule
 from zenzic.core.scanner import (
     check_placeholder_content,
     find_orphans,
@@ -19,14 +20,14 @@ from zenzic.core.scanner import (
     find_repo_root,
     find_unused_assets,
 )
-from zenzic.models.config import ZenzicConfig
+from zenzic.models.config import ProjectMetadata, ZenzicConfig
 
 
 def test_find_repo_root_success(tmp_path: Path) -> None:
-    # Setup mock repo — uses zenzic.toml as the engine-neutral root marker
+    # Setup mock repo — uses .zenzic.toml as the engine-neutral root marker
     repo = tmp_path / "my_repo"
     repo.mkdir()
-    (repo / "zenzic.toml").touch()
+    (repo / ".zenzic.toml").touch()
 
     deep_dir = repo / "docs" / "nested" / "dir"
     deep_dir.mkdir(parents=True)
@@ -307,7 +308,7 @@ def test_short_content_pointer_skips_frontmatter() -> None:
     """
     text = """\
 ---
-icon: ShieldCheck
+icon: SafetyCheck
 sidebar_label: Licenza
 title: Licenza Apache 2.0
 description: Informazioni sulla licenza.
@@ -326,6 +327,34 @@ LICENZA
         f"short-content finding points at line {short[0].line_no} — "
         "expected a line past the frontmatter block"
     )
+
+
+def test_jsx_suppression_is_respected_for_z601() -> None:
+    """MDX-native JSX suppression marker must silence Z601 on the tagged line."""
+    rule = BrandObsolescenceRule(
+        ProjectMetadata(
+            release_name="v0.8.0",
+            obsolete_names=["v0.6.x"],
+            obsolete_names_exclude_patterns=[],
+        )
+    )
+    text = "v0.6.x codename {/* zenzic:ignore: Z601 release codename */}\n"
+    findings = rule.check(Path("docs/page.mdx"), text)
+    assert findings == []
+
+
+def test_html_suppression_still_works_for_z601() -> None:
+    """Legacy/standard HTML suppression marker remains backward compatible."""
+    rule = BrandObsolescenceRule(
+        ProjectMetadata(
+            release_name="v0.8.0",
+            obsolete_names=["v0.6.x"],
+            obsolete_names_exclude_patterns=[],
+        )
+    )
+    text = "v0.6.x codename <!-- zenzic:ignore: Z601 release codename -->\n"
+    findings = rule.check(Path("docs/page.md"), text)
+    assert findings == []
 
 
 def test_short_content_pointer_skips_spdx_comments() -> None:
@@ -885,10 +914,10 @@ def test_find_unused_assets_symlink_skipped(tmp_path: Path) -> None:
 
 
 def test_find_unused_assets_skips_system_infrastructure_files(tmp_path: Path) -> None:
-    """System infrastructure files must never appear as Z903 findings.
+    """System infrastructure files must never appear as Z405 findings.
 
     Regression (D050): when docs_root == project root, toolchain files like
-    package.json were included in the asset walk and emitted spurious Z903
+    package.json were included in the asset walk and emitted spurious Z405
     warnings. The Level 1a guardrail in find_unused_assets must filter them.
     """
     docs = tmp_path / "docs"
@@ -905,16 +934,16 @@ def test_find_unused_assets_skips_system_infrastructure_files(tmp_path: Path) ->
     unused = find_unused_assets(docs, mgr, config=config)
 
     infra_names = {p.name for p in unused}
-    assert "package.json" not in infra_names, "package.json must be shielded (L1a)"
-    assert "pyproject.toml" not in infra_names, "pyproject.toml must be shielded (L1a)"
-    assert "yarn.lock" not in infra_names, "yarn.lock must be shielded (L1a)"
-    assert "eslint.config.mjs" not in infra_names, "eslint.config.mjs must be shielded (L1a)"
+    assert "package.json" not in infra_names, "package.json must be excluded (L1a)"
+    assert "pyproject.toml" not in infra_names, "pyproject.toml must be excluded (L1a)"
+    assert "yarn.lock" not in infra_names, "yarn.lock must be excluded (L1a)"
+    assert "eslint.config.mjs" not in infra_names, "eslint.config.mjs must be excluded (L1a)"
 
 
 def test_find_unused_assets_skips_adapter_metadata_files(tmp_path: Path) -> None:
     """Adapter metadata files must be excluded via the adapter_metadata_files param.
 
-    Regression (D050): docusaurus.config.ts in docs_root triggered Z903 when
+    Regression (D050): docusaurus.config.ts in docs_root triggered Z405 when
     the Docusaurus adapter's metadata files were not passed to find_unused_assets.
     """
     docs = tmp_path / "docs"
@@ -930,6 +959,6 @@ def test_find_unused_assets_skips_adapter_metadata_files(tmp_path: Path) -> None
     unused = find_unused_assets(docs, mgr, config=config, adapter_metadata_files=adapter_meta)
 
     unused_names = {p.name for p in unused}
-    assert "docusaurus.config.ts" not in unused_names, "adapter config must be shielded (L1b)"
-    assert "sidebars.ts" not in unused_names, "adapter sidebar must be shielded (L1b)"
+    assert "docusaurus.config.ts" not in unused_names, "adapter config must be excluded (L1b)"
+    assert "sidebars.ts" not in unused_names, "adapter sidebar must be excluded (L1b)"
     assert "logo.png" in unused_names, "genuine unused asset must still be reported"

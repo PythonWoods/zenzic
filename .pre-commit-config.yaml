@@ -1,10 +1,14 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
 
+# Segregate stage execution: linters run at commit-time only.
+# Any pre-push orchestrator must declare `stages: [pre-push]` explicitly.
+default_stages: [pre-commit]
+
 repos:
   # 1. Generic file hygiene
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
+    rev: cef0300fd0fc4d2a87a85fa2093c6b283ea36f4b  # v5.0.0
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
@@ -19,14 +23,14 @@ repos:
 
   # 2. Markdown linting
   - repo: https://github.com/igorshubovych/markdownlint-cli
-    rev: v0.41.0
+    rev: f295829140d25717bc79368d3f966fc1f67a824f  # v0.41.0
     hooks:
       - id: markdownlint
         args: ["--fix"]
 
   # 3. Ruff (linting & formatting)
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.11.2
+    rev: 25a8c8da6c24a3b9a1a536e2674683dd0eead5d6  # v0.11.2
     hooks:
       - id: ruff
         args: [--fix, --exit-non-zero-on-fix]
@@ -46,11 +50,11 @@ repos:
 
   # 5. REUSE/SPDX license compliance
   - repo: https://github.com/fsfe/reuse-tool
-    rev: v6.2.0
+    rev: 9fabf9eb815a57aac116b435e8346c200cdb8604  # v6.2.0
     hooks:
       - id: reuse
 
-  # 6. Local: type checking, tests, zenzic self-check
+  # 6. Local: type checking
   - repo: local
     hooks:
       - id: mypy
@@ -64,21 +68,11 @@ repos:
         types: [python]
         pass_filenames: false
 
-      - id: zenzic
-        name: Zenzic self-check
-        # --no-external: dev machine may be offline; CI pipelines omit this flag for full validation
-        entry: uv run zenzic check all --strict --no-external
-        language: system
-        types_or: [python, markdown, yaml]
-        pass_filenames: false
-
-  # 7. Pre-push Final Guard (4-Gates Standard, EPOCH 4 / v0.7.0)
-  # Single entry-point: locale ≡ remote. Same `just verify` runs in GHA.
-  # Install with: uvx pre-commit install -t pre-push
+  # 7. Final Guard — score gate + badge freshness + full audit (pre-push only)
   - repo: local
     hooks:
       - id: just-verify
-        name: 🛡️ Zenzic Final Guard (just verify)
+        name: Final Guard (just verify)
         entry: just verify
         language: system
         stages: [pre-push]

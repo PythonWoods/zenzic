@@ -448,7 +448,7 @@ class TestSLUG01FrontmatterSlug:
         md.write_text("---\nslug: /getting-started\n---\n# Install\n")
 
         adapter.set_slug_map({md: md.read_text()})
-        url = adapter.map_url(Path("guide/install.mdx"))
+        url = adapter.get_route_info(Path("guide/install.mdx")).canonical_url
         # Absolute slug is appended to routeBasePath (Docusaurus official spec).
         assert url == "/docs/getting-started/"
 
@@ -461,7 +461,7 @@ class TestSLUG01FrontmatterSlug:
         md.write_text("---\nslug: setup\n---\n# Install\n")
 
         adapter.set_slug_map({md: md.read_text()})
-        url = adapter.map_url(Path("guide/install.mdx"))
+        url = adapter.get_route_info(Path("guide/install.mdx")).canonical_url
         assert url == "/guide/setup/"
 
     def test_relative_slug_at_root(self, tmp_path: Path) -> None:
@@ -472,7 +472,7 @@ class TestSLUG01FrontmatterSlug:
         md.write_text("---\nslug: welcome\n---\n# Intro\n")
 
         adapter.set_slug_map({md: md.read_text()})
-        url = adapter.map_url(Path("intro.mdx"))
+        url = adapter.get_route_info(Path("intro.mdx")).canonical_url
         assert url == "/welcome/"
 
     def test_no_slug_uses_filesystem(self, tmp_path: Path) -> None:
@@ -483,7 +483,7 @@ class TestSLUG01FrontmatterSlug:
         md.write_text("# No slug\n")
 
         adapter.set_slug_map({md: md.read_text()})
-        url = adapter.map_url(Path("intro.mdx"))
+        url = adapter.get_route_info(Path("intro.mdx")).canonical_url
         assert url == "/docs/intro/"
 
     def test_absolute_slug_root(self, tmp_path: Path) -> None:
@@ -495,7 +495,7 @@ class TestSLUG01FrontmatterSlug:
         md.write_text("---\nslug: /\n---\n# Root\n")
 
         adapter.set_slug_map({md: md.read_text()})
-        url = adapter.map_url(Path("intro.mdx"))
+        url = adapter.get_route_info(Path("intro.mdx")).canonical_url
         # slug: / is the doc-relative root; full permalink = /docs/ (routeBasePath prefix).
         assert url == "/docs/"
 
@@ -611,22 +611,27 @@ class TestMapUrlRegression:
         return _make_adapter(tmp_path)
 
     def test_mdx_extension_stripped(self, adapter: DocusaurusAdapter) -> None:
-        assert adapter.map_url(Path("guide/install.mdx")) == "/docs/guide/install/"
+        assert (
+            adapter.get_route_info(Path("guide/install.mdx")).canonical_url
+            == "/docs/guide/install/"
+        )
 
     def test_md_extension_stripped(self, adapter: DocusaurusAdapter) -> None:
-        assert adapter.map_url(Path("guide/install.md")) == "/docs/guide/install/"
+        assert (
+            adapter.get_route_info(Path("guide/install.md")).canonical_url == "/docs/guide/install/"
+        )
 
     def test_index_collapses(self, adapter: DocusaurusAdapter) -> None:
-        assert adapter.map_url(Path("guide/index.mdx")) == "/docs/guide/"
+        assert adapter.get_route_info(Path("guide/index.mdx")).canonical_url == "/docs/guide/"
 
     def test_root_index(self, adapter: DocusaurusAdapter) -> None:
-        assert adapter.map_url(Path("index.mdx")) == "/docs/"
+        assert adapter.get_route_info(Path("index.mdx")).canonical_url == "/docs/"
 
     def test_checks(self, adapter: DocusaurusAdapter) -> None:
-        assert adapter.map_url(Path("checks.mdx")) == "/docs/checks/"
+        assert adapter.get_route_info(Path("checks.mdx")).canonical_url == "/docs/checks/"
 
     def test_nested_path(self, adapter: DocusaurusAdapter) -> None:
-        assert adapter.map_url(Path("a/b/c.md")) == "/docs/a/b/c/"
+        assert adapter.get_route_info(Path("a/b/c.md")).canonical_url == "/docs/a/b/c/"
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -642,18 +647,13 @@ class TestClassifyRouteRegression:
         return _make_adapter(tmp_path, locales=["it"])
 
     def test_ignored_underscore(self, adapter: DocusaurusAdapter) -> None:
-        assert adapter.classify_route(Path("_private/secret.md"), frozenset()) == "IGNORED"
+        assert adapter.get_route_info(Path("_private/secret.md")).status == "IGNORED"
 
     def test_reachable_auto_sidebar(self, adapter: DocusaurusAdapter) -> None:
-        assert adapter.classify_route(Path("guide/install.mdx"), frozenset()) == "REACHABLE"
-
-    def test_orphan_with_explicit_nav(self, adapter: DocusaurusAdapter) -> None:
-        nav = frozenset({"intro.mdx"})
-        assert adapter.classify_route(Path("unlisted.mdx"), nav) == "ORPHAN_BUT_EXISTING"
+        assert adapter.get_route_info(Path("guide/install.mdx")).status == "REACHABLE"
 
     def test_locale_ghost_route(self, adapter: DocusaurusAdapter) -> None:
-        nav = frozenset({"intro.mdx"})
-        assert adapter.classify_route(Path("it/index.mdx"), nav) == "REACHABLE"
+        assert adapter.get_route_info(Path("it/index.mdx")).status == "REACHABLE"
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -893,7 +893,7 @@ class TestFromRepoSidebar:
         _, adapter = self._setup(tmp_path, sidebar_content=None)
         assert adapter._sidebar_path is None
         assert adapter.get_nav_paths() == frozenset()
-        assert adapter.classify_route(Path("intro.md"), frozenset()) == "REACHABLE"
+        assert adapter.get_route_info(Path("intro.md")).status == "REACHABLE"
 
     # SBI-02 — autogenerated sidebar → all REACHABLE
     def test_autogenerated_sidebar_all_reachable(self, tmp_path: Path) -> None:
@@ -903,7 +903,7 @@ class TestFromRepoSidebar:
         )
         assert adapter._sidebar_path is not None
         assert adapter.get_nav_paths() == frozenset()
-        assert adapter.classify_route(Path("intro.md"), frozenset()) == "REACHABLE"
+        assert adapter.get_route_info(Path("intro.md")).status == "REACHABLE"
 
     # SBI-03 — explicit sidebar → only listed files are REACHABLE
     def test_explicit_sidebar_listed_file_reachable(self, tmp_path: Path) -> None:
@@ -914,8 +914,8 @@ class TestFromRepoSidebar:
         nav = adapter.get_nav_paths()
         assert "intro.md" in nav
         assert "guide/install.md" in nav
-        assert adapter.classify_route(Path("intro.md"), nav) == "REACHABLE"
-        assert adapter.classify_route(Path("guide/install.md"), nav) == "REACHABLE"
+        assert adapter.get_route_info(Path("intro.md")).status == "REACHABLE"
+        assert adapter.get_route_info(Path("guide/install.md")).status == "REACHABLE"
 
     # SBI-04 — explicit sidebar → unlisted file is ORPHAN_BUT_EXISTING
     def test_explicit_sidebar_unlisted_file_orphan(self, tmp_path: Path) -> None:
@@ -924,8 +924,7 @@ class TestFromRepoSidebar:
             "export default { main: ['intro'] };",
         )
         (docs / "secret.md").write_text("# Secret\n", encoding="utf-8")
-        nav = adapter.get_nav_paths()
-        assert adapter.classify_route(Path("secret.md"), nav) == "ORPHAN_BUT_EXISTING"
+        assert adapter.get_route_info(Path("secret.md")).status == "ORPHAN_BUT_EXISTING"
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1087,7 +1086,7 @@ class TestUnifiedNavigation:
         )
         nav = adapter.get_nav_paths()
         assert "changelog.md" in nav
-        assert adapter.classify_route(Path("changelog.md"), nav) == "REACHABLE"
+        assert adapter.get_route_info(Path("changelog.md")).status == "REACHABLE"
 
     # NCI-02 — footer-only file is REACHABLE (not in sidebar or navbar)
     def test_footer_only_file_reachable(self, tmp_path: Path) -> None:
@@ -1098,7 +1097,7 @@ class TestUnifiedNavigation:
         )
         nav = adapter.get_nav_paths()
         assert "about.md" in nav
-        assert adapter.classify_route(Path("about.md"), nav) == "REACHABLE"
+        assert adapter.get_route_info(Path("about.md")).status == "REACHABLE"
 
     # NCI-03 — file absent from sidebar, navbar, and footer is ORPHAN_BUT_EXISTING
     def test_unlisted_everywhere_is_orphan(self, tmp_path: Path) -> None:
@@ -1107,8 +1106,7 @@ class TestUnifiedNavigation:
             sidebar="export default { main: ['intro'] };",
             config="const c = { baseUrl: '/', themeConfig: { navbar: { items: [{ to: '/docs/changelog' }] } } };",
         )
-        nav = adapter.get_nav_paths()
-        assert adapter.classify_route(Path("secret.md"), nav) == "ORPHAN_BUT_EXISTING"
+        assert adapter.get_route_info(Path("secret.md")).status == "ORPHAN_BUT_EXISTING"
 
     # NCI-04 — sidebar + navbar + footer all merged into single nav set
     def test_all_sources_merged(self, tmp_path: Path) -> None:
@@ -1140,7 +1138,7 @@ const c = {
 class TestAdapterAbsoluteUrlPrefixes:
     """``DocusaurusAdapter.get_absolute_url_prefixes`` auto-discovers project-
     owned route prefixes so cross-plugin absolute links bypass Z105 without
-    requiring the user to duplicate Docusaurus routing into ``zenzic.toml``.
+    requiring the user to duplicate Docusaurus routing into ``.zenzic.toml``.
 
     Discovery sources (in priority order):
       1. Static parse of ``docusaurus.config.{ts,js,mjs,cjs}`` for sibling
@@ -1223,7 +1221,7 @@ class TestAdapterAbsoluteUrlPrefixes:
 
         docs = tmp_path / "docs"
         docs.mkdir()
-        (tmp_path / "blog").mkdir()  # convention-fallback discovery (EPOCH 7a)
+        (tmp_path / "blog").mkdir()  # convention-fallback discovery (v0.7.x)
         adapter = DocusaurusAdapter.from_repo(BuildContext(engine="docusaurus"), docs, tmp_path)
         prefixes = adapter.get_absolute_url_prefixes(tmp_path)
         assert "/blog/" in prefixes
@@ -1231,7 +1229,7 @@ class TestAdapterAbsoluteUrlPrefixes:
 
 class TestZ105AdapterDrivenSuppression:
     """End-to-end: Z105 must not fire on cross-plugin links once the adapter
-    auto-detects the sibling plugin — no ``zenzic.toml`` allow-list required.
+    auto-detects the sibling plugin — no ``.zenzic.toml`` allow-list required.
     """
 
     def test_cross_plugin_link_passes_with_zero_config(self, tmp_path: Path) -> None:

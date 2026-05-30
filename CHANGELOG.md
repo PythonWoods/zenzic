@@ -9,276 +9,107 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
-> **Development history (v0.1.0 – v0.6.x):** See the [Changelog Archive](CHANGELOG.archive.md).
+> **Development history (v0.1.0 – v0.8.0):** See the [Historical Archives](./changelogs/README.md).
 
 ## [Unreleased]
 
+## [0.8.0] — 2026-05-30
+
 ### Added
 
-- **`_check-hooks` DX guard:** Added hidden `_check-hooks` recipe as first dependency of
-  `just verify`. Emits a warning if the pre-push Final Guard hook (`pre-commit install
-  -t pre-push`) is not installed locally, without blocking the verification run.
-- **`version` recipe:** `just version` prints the current project version directly from
-  `bump-my-version`. Fast alternative to reading `pyproject.toml` manually.
-- **`release-dry --short` flag:** `just release-dry patch --short` filters the verbose
-  bump-my-version output to three essential lines: current version, new version, and
-  dry-run confirmation. Default behaviour (full verbose diff) is unchanged.
-- **`release-contracts` DX guard:** New recipe enforces architectural contracts on the
-  justfile: mandatory presence of `version`, `release`, and `release-dry` recipes;
-  `--allow-dirty` must appear only in `release-dry`, never in `release`. Wired into
-  `just verify` as a structural pre-flight check that fails fast on violations.
+- Initial work on Plugin SDK architecture.
+- **`zenzic score --stamp`:** Inline, deterministic badge stamping. Add `<!-- zenzic:audit-badge -->` and/or `<!-- zenzic:score-badge -->` markers to files listed in `badge_stamp_files` (config); running `zenzic score --stamp` replaces the Shields.io badge URLs on the following lines with deterministic audit + score telemetry. Eliminates external dependencies (Gist, PAT tokens) and enables Time-Traveling badges: telemetry is crystallised in each commit.
+- **`zenzic score --check-stamp`:** Read-only badge freshness verification. Computes the expected Shields.io URL for the current score, reads `badge_stamp_files` from config, and exits 1 if any configured file contains a stale badge URL. Mutually exclusive with `--stamp`. Replaces the `git diff HEAD --quiet` bash gate in `just verify`, making the freshness check config-aware, git-agnostic, and usable directly from any CI environment. `zenzic-action` runs `--check-stamp` automatically after `check all` (opt-out: `check-stamp: 'false'`).
+- **`badge_stamp_files` config field:** New `[project_metadata]` key listing the files updated by `--stamp` (default: `["README.md"]`).
+- **Domain-Aware Discovery (`CODE_ASSET_SUFFIXES`):**** Source code files (`.py`, `.pyi`, `.ts`, `.tsx`, `.rs`, `.go`, and 20+ other code extensions) are now natively exempt from Z405 `UNUSED_ASSET` enforcement in `find_unused_assets`. Files are still indexed by the discovery engine for link resolution across the docs/source boundary. No configuration change is required.
+- **Strict Local TOML Parsing:** `.zenzic.local.toml` now rejects unknown top-level keys with a fatal `ConfigurationError` (`LOCAL-TOML-STRICT`). Previously, unrecognised keys were silently discarded. Allowed sections: `core`, `build_context`, `project_metadata`, `governance`, `i18n`, `forbidden_patterns`, `secrets`, `debug`, `env`.
 
 ### Changed
 
-- **Test matrix — Boundary Testing (CI parity):** Nox `PYTHONS` updated from
-  `["3.11", "3.12", "3.13"]` to `["3.10", "3.14"]`, mirroring the CI Pillar Matrix
-  (Floor 3.10 / Peak 3.14). Eliminates the local-vs-remote "green divergence".
-- **Fixed-version sessions pinned to Peak 3.14:** `lint`, `format`, `fmt`, `typecheck`,
-  `reuse`, `security`, `mutation`, and `bump` sessions updated from `python="3.11"` to
-  `python="3.14"`.
-- **Mypy floor lowered to 3.10:** `[tool.mypy] python_version` changed from `"3.11"` to
-  `"3.10"`, enforcing compatibility at the declared `requires-python = ">=3.10"` floor.
-  The `tomllib` / `tomli` compatibility guard (`sys.version_info >= (3, 11)`) and the
-  `tomli>=2.0.0; python_version < '3.11'` runtime dependency were already in place.
+- **Flat-cost suppression model (Breaking Change):** Every inline or per-file suppression now deducts exactly 1 point from the DQS regardless of `governance.suppression_cap`. Previously suppressions within the cap cost 0 points (allowance-based). `suppression_cap` now functions exclusively as a hard-fail threshold: exceeding it causes `zenzic score` to exit with code 1. Projects relying on the allowance model will see their maximum achievable score reduced by their suppression count.
+- **`.zenzic.local.toml.example` eradicated (Phase 83):** The static template file has been deleted
+  from all repositories. Use `zenzic init --local` to generate a fresh `.zenzic.local.toml`
+  aligned to the current engine version.
+- **`zenzic init --local` added (Phase 83):** New flag scaffolds only the machine-local overlay
+  without touching the shared configuration. Ideal for contributors working in repos that already
+  have `.zenzic.toml` committed.
+- **`--dev` flag hard-removed from `zenzic init` (Phase 83):** The deprecated no-op flag has been
+  deleted. Scripts invoking `zenzic init --dev` must be updated.
+- **TOML templates hardened (Phase 83):** All three init templates (`.zenzic.toml`,
+  `.zenzic.local.toml`, `[tool.zenzic]`) now expose every available configuration field with
+  didactic comments. CI/CD snippet updated from `pipx` to `uvx`.
+- **CLI decomposition (Phase 82 — Zero-Regression):** `_check.py` reduced from 1641 → 1478 lines
+  by extracting four helpers into dedicated modules with backward-compatible re-exports:
+  `_apply_per_file_ignores` and `_apply_directory_policies` moved to `_governance.py`;
+  `_resolve_target` and `_apply_target` moved to the new `_target_resolver.py`;
+  command-setup boilerplate consolidated in the new `_command_setup.py`.
+  All 1550 tests pass unchanged.
+- **Governance hardening — `brand_obsolescence` ADDITIVE merge:** `[governance].brand_obsolescence` in `.zenzic.local.toml` now uses additive semantics. Local terms extend the global list; they can never remove globally-configured protected terms. This prevents a non-versioned local override from silently disabling brand protection policy.
+- **Z504 and Exit Code 4 relegated to Reserved/Inactive status:** `Z504 (QUALITY_REGRESSION)` and the corresponding exit code 4 emitted by `zenzic diff` have been removed from the public reference documentation. Both remain in the binary to preserve behavioral continuity but are no longer part of the documented exit-code contract, pending full differential analysis maturity.
+- **`just verify` badge freshness gate replaced with native command:** Step 5 now runs `zenzic score --check-stamp --no-header` instead of the bash `_badge-freshness-check` recipe. The gate is now config-aware (honors `badge_stamp_files`) and git-agnostic.
+- **`just verify` badge freshness gate added:** The `verify` recipe now runs `zenzic score --stamp` then `git diff --exit-code README.md README.it.md`, failing the pipeline if the committed badge does not reflect the actual score. Developers must stamp locally before pushing.
+- **CI workflow renamed to `zenzic-audit` fleet-wide:** The GitHub Actions `name:` field is now `zenzic-audit` across all repos, making the native CI badge show `zenzic-audit | passing` — an unambiguous Dual-Badge signal.
+- **Badge `alt` text normalised to lowercase kebab:** CI badges use `alt="zenzic-audit"`, Score badges use `alt="zenzic-score"` across all READMEs.
+- **Pre-push score gate wired in `.pre-commit-config.yaml`:** A `just-verify` hook with `stages: [pre-push]` is now registered. Previously, `git push` executed the pre-push hook via `pre-commit --hook-type=pre-push`, found no matching hooks, and exited 0 silently — making the score gate invisible in local development. The hook now enforces `just verify` on every push, guaranteeing locale ≡ remote parity.
 
 ### Fixed
 
-- **`Z000` added to code registry (`codes.py`):** `Z000` (UNSUPPORTED_ENGINE) was
-  already documented in the `codes.py` docstring schema and in `finding-codes.mdx`,
-  but was absent from `CODE_NAMES`, `CODE_DESCRIPTIONS`, and `CODE_SARIF_LEVELS`.
-  Registry now complete at 34 canonical codes. The `verify-codes-parity` session
-  counts Z000 as a full encyclopedia entry with `{#z000}` anchor.
+- **SSoT `CodeDefinition` — Single Source of Truth for code metadata:** Severity, DQS penalty, and scoring category for every Z-code are now defined once in `codes.py` via `CODE_DEFINITIONS`. `scorer.py` derives `_CODE_PENALTY` and `_CODE_CATEGORY` from this structure at module init. `_check.py` derives finding severity via `_finding_severity()`. The `else "error"` catch-all is eliminated.
+- **ADR-031 Paradox Resolution — Z103, Z111, Z113 onboarded to penalty table:** Z103 `ORPHAN_LINK` (−2.0 pts, Structural), Z111 `VIRTUAL_ROUTE_BROKEN` (−8.0 pts, Structural, equivalent to Z101 `LINK_BROKEN`), and Z113 `AUTHOR_KEY_COLLISION` (−2.0 pts, Structural) are now part of the DQS calculation. Previously these codes blocked `zenzic check links` (CI gate) while contributing zero DQS deduction (mathematical paradox).
+- **Z114 CI gate bug fixed:** Z114 `LARGE_PAGINATION_SET` was erroneously classified as `severity="error"` by the `_check.py` catch-all despite being defined as `note` in `CODE_SARIF_LEVELS`. The SSoT migration corrects this: Z114 now correctly maps to `"info"` severity and does not trigger CI failure.
+- **Security bypass fix — ADDITIVE deep merge for `excluded_dirs`, `excluded_file_patterns`, and `custom_rules` in `.zenzic.local.toml`:** All three keys were previously rejected by `LOCAL-TOML-STRICT`, making it impossible to use them in the machine-local overlay. They now use additive merge semantics: local values extend the global baseline and can never remove globally-configured entries. For `[[custom_rules]]`, a local rule sharing an `id` with a global rule overrides that single rule while leaving all other global rules intact. The allowed-keys list and the `LOCAL-TOML-STRICT` error message have been updated accordingly.
+- **`zenzic init` MERGE SEMANTICS comment corrected:** The comment block generated by `zenzic init` in `.zenzic.local.toml` now correctly lists `brand_obsolescence`, `excluded_dirs`, `excluded_file_patterns`, and `custom_rules` as ADDITIVE, and correctly notes that `[governance]` is REPLACEMENT *except* for `brand_obsolescence`. The CI/CD snippet Python baseline has been corrected from `3.12` to `3.10`.
+- **Enforced ADR-012 namespace contract — `custom_rules.id` must start with `ZZ-`:** Custom rule IDs are now validated at config load-time by a Pydantic field validator. Any `id` not starting with the strict uppercase prefix `ZZ-` (e.g. `Z101`, `zz-mycheck`) raises a `ConfigurationError` immediately, preventing namespace collision with Core finding codes and SARIF report pollution.
+- **Governance debt payoff — 7 inline Z601 suppressions eradicated:** `<!-- zenzic:ignore: Z601 -->` markers on `CHANGELOG*.md`, `changelogs/`, and `RELEASE.md` have been removed. The corresponding paths are now covered by zero-debt `[governance.directory_policies]` exemptions (`changelogs/**`, `CHANGELOG*.md`, `RELEASE.md`), which drop findings silently with no DQS cost. `RELEASE.md` is also added to `obsolete_names_exclude_patterns`. Score restored: 94 → 100/100.
+- **`just verify` UX refactoring — actionable badge freshness error:** `git diff --exit-code README.md README.it.md` (which printed a raw diff on failure) has been replaced by a `_badge-freshness-check` private recipe that uses `git diff --quiet` and emits explicit `[ZENZIC FATAL]` / `[ZENZIC SUCCESS]` messages. `zenzic check all --strict` is now executed before `zenzic score --stamp`, ensuring structural audit output is always visible even when the badge changes. Section headers (`==> [N/5]`) make the five-step sequence legible in CI logs.
+- **Hypothesis `_PATH_SEGMENT` filter hardened:** `test_deep_nesting_detects_missing_mirror` in `test_i18n_parity.py` now excludes `SYSTEM_EXCLUDED_DIRS` names from the generated path segments. Previously, `segments=['build']` produced a file at `docs/build/page.mdx` which the scanner correctly skipped (L1 system guardrail), causing a false test failure.
+- **`zenzic score --no-header` flag added:** New flag suppresses the PythonWoods ASCII banner. Use in CI pipelines where `zenzic check all` has already printed the header, preventing banner duplication in sequential invocations. The score ledger and badge stamp output are unaffected.
+- **`just verify` I18N fix — English-only CI messages:** `[ZENZIC FATAL]` / `[ZENZIC SUCCESS]` messages in `_badge-freshness-check` translated to English (CI log language boundary: Italian reserved for user-facing `.md`/`.mdx` documentation).
+- **`just verify` badge freshness gate uses `git diff HEAD`:** Changed from `git diff --quiet` (working tree vs index) to `git diff HEAD --quiet` (working tree vs last commit). This closes a staging bypass: `git add README.md` could previously satisfy the check without an actual commit. The gate now enforces that the badge is committed, not merely staged.
+
+### Removed
+
+- **Static Zenzic Audit Badge eradicated — Dual-Badge Telemetry:** The hardcoded "passing" Audit badge has been replaced fleet-wide by the native GitHub Actions CI badge. Zenzic now exposes two orthogonal signals: CI status (Pass/Fail, real-time, via GitHub Actions) and DQS Score (quality of accepted code, stamped inline via `--stamp`). A red `--stamp` badge in local development is immediate, unambiguous feedback that the commit will be rejected by CI — it will never appear on main.
+- **Breaking change — `--export-shields` removed from `zenzic score`.** The Gist-based dynamic badge workflow is eradicated. Replace with `zenzic score --stamp` (see Added). Remove the `GIST_TOKEN` secret from repository settings manually.
+- **Breaking change — `map_url()` and `classify_route()` removed from `BaseAdapter` protocol.** Custom adapters that implement these methods instead of `get_route_info()` must be updated. Migration: `adapter.map_url(rel)` → `adapter.get_route_info(rel).canonical_url`; `adapter.classify_route(rel, nav_paths)` → `adapter.get_route_info(rel).status`.
+- **Breaking change — `find_orphans()` callback API removed.** The `classify_route` callback parameter is replaced by `adapter: BaseAdapter | None`.
 
 ---
 
-## [0.7.1] — 2026-05-07 — Quartz Maturity (Stable)
+## [0.8.0] — 2026-05-15
 
-> **Legacy Documentation:** Versions prior to v0.7.0 are officially deprecated and do not follow
-> the current Diátaxis architecture. For historical reference, see the
-> [v0.6.1 GitHub Release](https://github.com/PythonWoods/zenzic/releases/tag/v0.6.1).
-> The authoritative source is [zenzic.dev](https://zenzic.dev).
+### Added
 
-### 💎 Quartz Era (Initial Release)
+- **Scoring Engine 2.0:** Mathematical quality assessment using tiered weights ($\omega_{tier}$) and Technical Debt penalties for suppressions ($\omega_{debt}$).
+- **Integrity Regression Check (`zenzic diff`):** Command to compare documentation state between branches; exits with code 4 on quality regression.
+- **Config Genealogy (`zenzic explain`):** Introspection command to trace rule origin (Default vs Global vs Local TOML).
+- **Rule Z108 (EMPTY_LINK_TEXT):** New validator to detect links with empty or whitespace-only labels.
+- **MDX-Native Suppressions:** Support for JSX comment syntax `{/* zenzic:ignore */}` alongside standard HTML comments.
+- **Sovereign Audit Mode (`--audit`):** Global flag to bypass all suppressions for unfiltered repository inspection.
+- **Privacy Gate (Z204):** Support for `.zenzic.local.toml` to enforce local-only forbidden patterns without repository leakage.
+- **Core Hardening:** Native exclusion of system-critical files (`.zenzic.local.toml.example`, `*.sh`, `LICENSE`) from unused asset detection (Z405).
 
-This release marks Year Zero for the Zenzic ecosystem, establishing a new standard of
-deterministic maturity and formal integrity. The codebase achieves structural maturity:
-1,485+ tests, 80%+ branch coverage, and a hardened security pipeline.
+### Changed
 
-#### Added
+- **Total Rebranding:** Eradication of theatrical terminology (Sentinel, Shield, Blood, Siege, Epoch, Forge) across source code, documentation, and CLI.
+- **Execution Mode Normalization:** "Vanilla Mode" renamed to **"Standalone Mode"**.
+- **Rule Z106 (CIRCULAR_LINK):** Downgraded to `info` severity; no longer penalizes the Quality Score.
+- **CLI Output Standard:** Implemented "Ruff-style" UI with stderr-only headers and clean stdout for machine-readable payloads.
+- **Namespace Finalization:** Formalized Tier Model (Z1xx–Z6xx) as the stable public API for violation codes.
+- **Documentation Strategy:** Transitioned to "Agnostic Prose" (ADR-037); release codenames are treated exclusively as external identifiers.
 
-- **Z204 FORBIDDEN_TERM — Enterprise Privacy Gate (Sprint D100)**: New Shield rule that
-  triggers Exit 2 when a forbidden project term appears in any documentation file. Patterns
-  (plain strings or anchored regexes) are declared in the machine-local, git-ignored
-  `.zenzic.local.toml`, keeping sensitive project vocabulary permanently off `git log`.
-  Two-layer architecture: `scan_line_for_forbidden_terms()` in `shield.py` handles the
-  term scan; `_apply_local_toml()` in `config.py` merges patterns additively at load time.
-- **`.zenzic.local.toml` init scaffolding (Sprint D100)**: `zenzic init` (and `--dev`)
-  always creates `.zenzic.local.toml` and appends it to `.gitignore` automatically, so
-  private patterns are git-ignored from the first commit.
+### Fixed
 
-- **EPOCH 7a.1 — Zero-Config Sovereignty (`absolute_path_allowlist` purged)**: The
-  `[link_validation]` TOML schema and its `absolute_path_allowlist` field are
-  removed. Multi-instance Docusaurus plugin URL prefixes (`/docs/`, `/developers/`,
-  every additional `@docusaurus/plugin-content-docs` instance) are now auto-detected
-  by `DocusaurusAdapter.get_absolute_url_prefixes(repo_root)` — a new Protocol
-  method on `BaseAdapter`. Two pure-Python passes preserve the Zero Subprocess
-  invariant: a regex-based static parse of `docusaurus.config.{ts,js,mjs,cjs}` that
-  walks every `@docusaurus/plugin-content-docs` tuple and harvests its
-  `routeBasePath`, plus a filesystem heuristic that pairs `<repo>/<id>/` content
-  trees with `i18n/<locale>/docusaurus-plugin-content-docs-<id>/` siblings when
-  the config is dynamic. Z105 `ABSOLUTE_PATH` honours the discovered prefixes
-  without any user-side TOML duplication. **Industry-grade — no compat shim**:
-  `LinkValidationConfig` is removed in full; configs that still declare
-  `[link_validation]` will fail TOML validation.
-- **Zero-Config Asset Defaults (CEO Directive — Asset Cemetery)**: Universal
-  toolchain files are promoted to Layer 1 in `SYSTEM_EXCLUDED_FILE_NAMES` and
-  `SYSTEM_EXCLUDED_FILE_PATTERNS` — `*.toml`, `*.yaml`, `*.yml`, `*.json`,
-  `*.cfg`, `*.ini`, `*.cff`, `*.code-workspace`, `LICENSE`, `LICENSE.txt`,
-  `LICENSE.md`, `NOTICE`, `NOTICE.txt`, `COPYING`, `Dockerfile`, `noxfile.py`,
-  `.gitignore`, `.gitattributes`, `.coverage`. "Prose-only Maintenance" repos
-  (engine `standalone` with `docs_dir = "."`) no longer need to repeat them in
-  `excluded_assets`.
-- **Zero-Config Directory Defaults (CEO Directive — Dir Cemetery)**: Universal
-  build / temporary artefact directories are promoted to `SYSTEM_EXCLUDED_DIRS`
-  — `build`, `dist`, `temp`, `tmp`, `mutants` (`.tox` was already there). Every
-  Python wheel build, JS bundler, and mutation-testing toolchain is honoured
-  Zero-Config from now on.
-- **EPOCH 7a — Multi-Root Discovery (VSM Blindness sealed)**: The VSM is no longer
-  bounded by `docs_dir`. Adapters can now declare extra content roots via the optional
-  `get_extra_content_roots(repo_root) -> list[ContentRoot]` hook (discovered via
-  `hasattr()`, mirroring `get_locale_source_roots` — non-breaking for third-party adapters).
-  The Docusaurus adapter auto-detects the `blog/` plugin in two pure-parsing passes
-  (static regex over `docusaurus.config.{ts,js,mjs,cjs}` then convention fallback) — the
-  Zero Subprocess invariant is preserved. Four pipeline stages (Discovery, VSM, Validator,
-  Scanner Z903/Z104) cooperate so blog posts behave as first-class content: broken links
-  inside `blog/` and cross-tree links from `docs/` to `blog/` are now caught by
-  `zenzic check all --strict` instead of slipping through to `docusaurus build`. A
-  Reverse-Mapping invariant test (`tests/test_docusaurus_blog_vsm.py::TestEpoch7aReverseMapping`)
-  asserts every blog `Route.source` traces back to a real file on disk, locking the
-  contract that EPOCH 7b virtual routes (tags, pagination, authors) will inherit.
-  Discovery uses `walk_files` (the existing `os.walk` engine), not `rglob` — determinism
-  is preserved.
-- **EPOCH 7b — Virtual Routes & `zenzic inspect routes` (The JSON API)**: Engine-generated
-  pages — Docusaurus tag pages (`/blog/tags/{slug}/`), tag index (`/blog/tags/`), paginated
-  indexes, and author profiles — are now first-class VSM citizens with the
-  Reverse-Mapping Invariant enforced at construction time: a `VirtualRoute` with
-  `source_files=frozenset()` raises `ValueError` immediately, preventing any untraced URL
-  from reaching the VSM. Three new finding codes: **Z111 VIRTUAL_ROUTE_BROKEN** (error)
-  when a docs link targets a tag URL that no blog post activates, **Z113 AUTHOR_KEY_COLLISION**
-  (error) for duplicate author keys, **Z114 LARGE_PAGINATION_SET** (info) when the
-  pagination set exceeds 200 pages. The `DocusaurusAdapter` tag generator applies Unicode
-  NFKD normalisation + `re.ASCII` slugification (matching Docusaurus's own algorithm) and
-  guards against pure-CJK tags returning `"untagged"`. The new CLI command
-  `zenzic inspect routes [--kind physical|virtual|all] [--json]` exports the complete site
-  map in a deterministic JSON format with per-route `url`, `kind`, `source_files`
-  (repo-relative POSIX), and `digest` (`sha256(url + ":" + ",".join(sorted(source_files)))`).
-  **JSON Purity Invariant**: when `--json` is active, `stdout` contains exclusively valid
-  JSON — no ANSI codes, no banners. This feature is designed to be consumed by external
-  tools: custom Bash scripts, CI/CD dashboards, or Artificial Intelligence agents that
-  require architectural context.
-- **Sentinel Seal**: Rigorous 4-Gates validation system (`just verify`) integrated across
-  every repository — pre-commit, test-cov, and self-check run identically in local and CI.
-- **Cross-Repo Governance**: Branch Parity Rule for Core/Doc synchronisation with automatic
-  fallback to `main`. VS Code Multi-Root Workspace configuration for unified development.
-- **Z907 I18N Parity**: Language-agnostic translation parity scanner with adaptive parallelism,
-  frontmatter key enforcement, and multi-instance Docusaurus support.
-- **SARIF 2.1.0 Export**: All `check` commands support `--format sarif` for native GitHub
-  Code Scanning integration with inline PR annotations.
-- **Cross-Platform CI Matrix**: 3×3 matrix (Ubuntu/Windows/macOS × Python 3.11/3.12/3.13).
-- **Engine Auto-Discovery**: `engine = "auto"` resolves the documentation framework
-  automatically (Docusaurus → MkDocs → Zensical → Standalone).
-- **Base64 Speculative Decoder**: Shield detects credentials encoded as Base64 in YAML
-  frontmatter, sealing the S2 attack vector from the Quartz Tribunal.
-- **Z107 Circular Anchor**, **Z505 Untagged Code Block**, **Z905 Brand Obsolescence**:
-  Three new rule-based checks for structural and brand integrity.
-- **Z404 Config Asset Integrity**: Verifies favicon and social card paths across all
-  three supported engines (Docusaurus, MkDocs, Zensical).
-- **Unified Navigation Discovery**: Docusaurus orphan detection aggregates sidebar,
-  navbar, and footer surfaces (UX-Discoverability Law R21).
-- **Static Sidebar Parser**: Pure-Python regex parser for `sidebars.ts`/`sidebars.js`.
-- **Official GitHub Action**: `PythonWoods/zenzic-action` composite action with SARIF
-  upload and configurable quality gates.
-- **Determinism Invariant**: Formal contract in `pyproject.toml` — Zenzic ships zero
-  AI/ML inference dependencies.
-- **`--exclude-url` CLI flag** (`check all`, `check links`): Runtime suppression of external
-  URL validation for specific URL prefixes. Repeatable; merged with `excluded_external_urls`
-  from `zenzic.toml`. Designed for CI/CD deployment paradoxes — e.g. suppressing a GitHub
-  Release page that does not yet exist at pipeline time.
+- **Performance Optimization (ZRT-007):** Pre-compiled module-level RE2 patterns reduced regex overhead (N=10,000 links: 1.18s → 0.78s).
+- **Z108 False Positives:** Implemented raw-line cross-validation to support inline code within reference link labels.
+- **Z104 Resolution:** Eliminated false positives on infrastructure paths by standardizing GitHub Actions badges.
+- **CLI Exception Handling:** Fixed `AttributeError` in `score/diff` path through structured link error API.
 
-#### Changed
+### Security
 
-- **Engine-Agnostic Architecture**: MkDocs plugin permanently removed. Zenzic is now a
-  Sovereign CLI independent of any documentation framework.
-- **Windows Unicode Shield in CLI bootstrap**: `cli_main()` now invokes
-  `bootstrap_unicode()` before Rich traceback and logging setup, forcing UTF-8
-  stdio (`errors='replace'`) on Windows to prevent `UnicodeEncodeError`
-  crashes from console code pages.
-- **CLI Restructuring**: `cli.py` monolith split into a coherent `cli/` package.
-  `zenzic plugins` replaced by `zenzic inspect capabilities`.
-- **Layer Law Enforcement**: `ui.py` → `core/ui.py`, `lab.py` → `cli/_lab.py`,
-  `run_rule()` → `core/rules.py`. Core never imports from CLI layer.
-- **Pre-commit Hook**: `zenzic-check-all` replaced by `zenzic-verify` (4-Gates posture).
-- **Coverage Format**: Standardised to JSON (`coverage.json`) across justfile and noxfile.
-- **Core CI and automation parity**: `.github/workflows/ci.yml` now runs
-  `just verify` on an Ubuntu/Windows matrix (`fail-fast: false`) and the core
-  `justfile` is explicitly Bash-first (`set shell := ["bash", "-c"]`) for
-  consistent recipe behavior on GitHub Windows runners. `ZENZIC_EXTRA_ARGS`
-  is propagated as an env block in CI and honoured via `${ZENZIC_EXTRA_ARGS:-}`
-  in the `check` recipe — enabling the Sovereign Override 404 shield without
-  local configuration changes.
-- **`.zenzic.dev.toml` hard-fail guard** (`config.py`): `_apply_local_toml()`
-  now raises `ConfigurationError` immediately when `.zenzic.dev.toml` is found
-  at repo root, with an inline migration message pointing users to `zenzic init`
-  and `.zenzic.local.toml`. Eliminates ghost-config debugging surface.
+- **DFA-Pure Runtime:** Eradicated standard-library `re` module from production paths in favor of the RE2 Anti-Corruption Layer.
+- **Z2xx Security Override:** Security findings (including Z204) now force a Quality Score of 0/100.
 
-#### Removed
+---
 
-- **`.zenzic.dev.toml` (D002 Environmental Privacy Gate) — hard removed**: The file no longer
-  exists for the Zenzic engine. It is not scanned, not loaded, not warned about. The sole
-  source of truth for local Privacy Gate patterns is `.zenzic.local.toml`.
-  `_scaffold_dev_toml()` removed; `zenzic init --dev` calls `_scaffold_local_toml()` directly.
-
-- **`[link_validation]` TOML schema (EPOCH 7a.1)**: The `LinkValidationConfig`
-  Pydantic model and its `absolute_path_allowlist: list[str]` field are removed
-  from `zenzic.models.config`. Configurations that still declare
-  `[link_validation]` raise a TOML validation error. **Migration:** delete the
-  block — DocusaurusAdapter discovers plugin URL prefixes Zero-Config.
-- **Stale ghost paths in `excluded_build_artifacts`**: `docs/configuration/*.md`
-  and `docs/adr/*.md` removed from `zenzic.toml` — the underlying directories
-  were estirpated in earlier EPOCHs; the entries were dead.
-- **Legacy Brand Purge**: Complete removal of all obsolete nomenclature and external
-  platform references from active configuration and documentation.
-- **MkDocs Plugin**: `zenzic.integrations.mkdocs` physically purged. The `[mkdocs]`
-  optional extra no longer exists.
-- **`zenzic plugins` command**: Entirely removed. Use `zenzic inspect capabilities`.
-- **`scripts/map_project.py`**: Superseded; no remaining callers.
-
-#### Security
-
-- **[D100] Z204 FORBIDDEN_TERM — Brand Integrity Shield**: Two-layer Privacy Gate
-  architecture seals sensitive project vocabulary (codenames, internal endpoints, PII) at
-  the Shield layer (Exit 2). Patterns are declared in machine-local, git-ignored
-  `.zenzic.local.toml`. `.zenzic.dev.toml` is hard-removed: unrecognised by the engine,
-  never scanned, never loaded.
-- **[ZRT-001]** Shield Blind Spot — YAML Frontmatter Bypass sealed (Dual-Stream architecture).
-- **[ZRT-002]** ReDoS + ProcessPoolExecutor Deadlock — Canary prevention + 30s timeout containment.
-- **[ZRT-003]** Split-Token Shield Bypass — `_normalize_line_for_shield()` pre-processor.
-- **[ZRT-004]** Context-Aware VSM Resolution — `ResolutionContext` dataclass for nested paths.
-- **[ZRT-007] DFA Revolution — Google RE2 Engine** (`core/rules.py`, `core/shield.py`): Integral
-  migration to the **Google RE2** DFA engine. `CustomRule` patterns now have guaranteed $O(n)$
-  complexity — ReDoS is eliminated by design, not by timeout.
-  - **Breaking Change**: patterns using backreferences (`\1`), lookaheads (`(?=...)`, `(?!...)`)
-    or lookbehinds (`(?<=...)`) are rejected at load time with `PluginContractError`.
-  - `timeout.py` and its dependency on `signal.SIGALRM` deleted: Zenzic is now natively
-    identical on Linux and Windows.
-  - `shield.py` migrated to `re2`: the Shield is now fully DFA-Pure.
-  - Legacy code aliases `Z001` and `Z009` removed: findings now emit `Z101` (LINK_BROKEN)
-    and `Z902` (ANALYSIS_TIMEOUT) directly at the source.
-- **Base64 speculative decoder** seals encoded credential attack vector.
-- **`os.path.normcase` portability fix** for cross-platform Shield boundary comparison.
-- **4-Gates Standard**: pre-commit → test-cov → self-check, enforced on every push.
-
-#### Migration
-
-Contributors must rerun bootstrap after pulling this release:
-
-```bash
-just sync
-uvx pre-commit install              # commit-stage hooks
-uvx pre-commit install -t pre-push  # 🛡️ Final Guard (just verify)
-```
-
-Replace `zenzic plugins list` with `zenzic inspect capabilities`.
-Replace `pip install "zenzic[mkdocs]"` with `pip install zenzic`.
-
-#### Fixed
-
-- **[ZRT-006] VSM Bypass: Absolute Slug Links Skipped Silently** (`core/validator.py`):
-  Two coordinated bugs caused Zenzic to emit no finding when an absolute link targeted
-  the wrong slug of a Docusaurus blog post — while `docusaurus build` failed with a
-  broken-link error.
-
-  1. **Lifecycle ordering** — `DocusaurusAdapter.set_slug_map(md_contents)` was never
-     called during `validate_links_async()`. The slug map was empty at VSM construction
-     time, so blog posts with a `slug:` frontmatter field were routed via filename
-     derivation (e.g. `2026-04-29-post.mdx` → `/blog/2026-04-29-post/`) instead of
-     the declared slug URL. Fix: `set_slug_map()` is now called via `hasattr` guard
-     immediately before `build_vsm()` — cross-engine safe, non-breaking for MkDocs /
-     Standalone / Zensical adapters that do not implement the method.
-
-  2. **Scoped VSM lookup** — The Z105 `ABSOLUTE_PATH` suppression for project-owned
-     prefixes (e.g. `/blog/`) was implemented as a bare `continue`, which exited the
-     per-link loop before any VSM lookup, making `FILE_NOT_FOUND` impossible to fire
-     on those links. Fix: a new `_scanned_vsm_prefixes` discriminator separates
-     *fully-scanned* prefixes (those with ≥1 route in the VSM) from *unscanned sibling
-     plugins* (e.g. `/developers/` whose markdown is outside the scan scope). Links
-     targeting a scanned prefix now receive a `dict.get()` lookup and report Z104
-     `FILE_NOT_FOUND` when the exact route is absent. Unscanned prefixes retain the
-     unconditional bypass — Zero-Config invariant preserved.
-
-- **Regression lock** — `tests/test_docusaurus_blog_vsm.py::TestAbsoluteSlugMismatch`
-  (2 new tests):
-  - `test_absolute_broken_blog_link_is_detected` — wrong slug raises `FILE_NOT_FOUND`
-  - `test_correct_absolute_slug_link_is_clean` — correct slug produces no finding
-
-**Test suite: 1485 passed, 0 failed.**
+Looking for older versions? See [Historical Archives](./changelogs/README.md).
