@@ -9,6 +9,15 @@ SPDX-License-Identifier: Apache-2.0
 </p>
 
 <p align="center">
+  <a href="https://github.com/PythonWoods/zenzic/actions/workflows/ci.yml">
+    <img src="https://github.com/PythonWoods/zenzic/actions/workflows/ci.yml/badge.svg" alt="CI">
+  </a>
+  <!-- zenzic:badge -->
+  <img src="https://img.shields.io/badge/%F0%9F%9B%A1%EF%B8%8F_zenzic--score-100_%2F_100-4f46e5?style=flat-square" alt="zenzic-score">
+
+  <a href="https://reuse.software/">
+    <img src="https://img.shields.io/badge/REUSE-3.x%20compliant-0d9488?style=flat-square" alt="REUSE 3.x compliant">
+  </a>
   <a href="https://pypi.org/project/zenzic/">
     <img src="https://img.shields.io/pypi/v/zenzic?label=PyPI&color=38bdf8&style=flat-square" alt="PyPI Version">
   </a>
@@ -21,16 +30,8 @@ SPDX-License-Identifier: Apache-2.0
 </p>
 
 <p align="center">
-  <a href="https://github.com/PythonWoods/zenzic/actions/workflows/ci.yml">
-    <img src="https://github.com/PythonWoods/zenzic/actions/workflows/ci.yml/badge.svg" alt="zenzic-audit">
-  </a>
-  <!-- zenzic:badge -->
-  <img src="https://img.shields.io/badge/%F0%9F%9B%A1%EF%B8%8F_zenzic--score-100_%2F_100-4f46e5?style=flat-square" alt="zenzic-score">
   <a href="https://docusaurus.io/">
     <img src="https://img.shields.io/badge/docs_by-Docusaurus-3ECC5F?style=flat-square" alt="Built with Docusaurus">
-  </a>
-  <a href="https://reuse.software/">
-    <img src="https://img.shields.io/badge/REUSE-3.x%20compliant-0d9488?style=flat-square" alt="REUSE 3.x compliant">
   </a>
 </p>
 
