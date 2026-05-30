@@ -1270,6 +1270,7 @@ def test_score_check_stamp_passes_when_current(
     )
     result = runner.invoke(app, ["score", "--check-stamp", "--no-header"])
     assert result.exit_code == 0
+    assert "Quality Breakdown" not in result.stdout
     assert "All badges are current" in result.stdout
 
 
@@ -1295,7 +1296,8 @@ def test_score_check_stamp_fails_when_stale(
     )
     result = runner.invoke(app, ["score", "--check-stamp", "--no-header"])
     assert result.exit_code == 1
-    assert "FAILED: Badge in" in result.stdout
+    assert "Quality Breakdown" not in result.stdout
+    assert "[FAILED] Badge in" in result.stdout
 
 
 @patch("zenzic.cli._standalone.find_repo_root", return_value=_ROOT)

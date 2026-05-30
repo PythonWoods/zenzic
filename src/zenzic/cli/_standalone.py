@@ -342,7 +342,7 @@ def score(
         )
         raise typer.Exit(1)
 
-    if output_format != "json" and not no_header:
+    if output_format != "json" and not no_header and not check_stamp:
         from zenzic import __version__
 
         _shared._ui.print_header(__version__)
@@ -364,9 +364,9 @@ def score(
         snapshot_path = save_snapshot(repo_root, report)
         _shared.console.print(f"[{ZenzicPalette.DIM}]Snapshot saved to {snapshot_path}[/]")
 
-    if output_format == "json":
+    if output_format == "json" and not check_stamp:
         print(json.dumps(report.to_dict(), indent=2))
-    else:
+    elif not check_stamp:
         if report.score >= 80:
             score_style = ZenzicPalette.STYLE_OK
         elif report.score >= 50:
@@ -498,13 +498,11 @@ def score(
         if outdated:
             for p in outdated:
                 _shared.console.print(
-                    f"[red]FAILED:[/] Badge in [bold]{p}[/] is stale. "
+                    f"[red][FAILED][/red] Badge in [bold]{p}[/] is stale. "
                     "Run 'zenzic score --stamp' locally and commit the result."
                 )
             raise typer.Exit(1)
-        _shared.console.print(
-            f"[{ZenzicPalette.SUCCESS}]{emoji('check')} All badges are current.[/]"
-        )
+        _shared.console.print(f"[{ZenzicPalette.SUCCESS}][SUCCESS] All badges are current.[/]")
 
     if effective_threshold > 0 and report.score < effective_threshold:
         _shared.console.print(
@@ -520,7 +518,8 @@ def score(
         )
         raise typer.Exit(1)
 
-    _shared.print_footer_hint("score", output_format=output_format)
+    if not check_stamp:
+        _shared.print_footer_hint("score", output_format=output_format)
 
 
 # ── diff command ──────────────────────────────────────────────────────────────
