@@ -249,6 +249,32 @@ def _stamp_file(path: Path, badge_url: str) -> bool:
     return modified
 
 
+def _check_stamp_file(path: Path, expected_url: str) -> bool:
+    """Return True if the badge after _STAMP_MARKER matches expected_url.
+
+    Returns True (pass) when the file does not exist, has no marker, or the
+    marker has no following badge line — badge is considered 'not configured'.
+    Returns False (stale) only when a badge line is present but the URL differs.
+    """
+    if not path.exists():
+        return True
+    content = path.read_text(encoding="utf-8")
+    if _STAMP_MARKER not in content:
+        return True
+    lines = content.splitlines(keepends=True)
+    i = 0
+    while i < len(lines):
+        if lines[i].strip() == _STAMP_MARKER:
+            j = i + 1
+            while j < len(lines) and not lines[j].strip():
+                j += 1
+            if j < len(lines) and "img.shields.io/badge/" in lines[j]:
+                m = _SHIELDS_URL_RE.search(lines[j])
+                return bool(m and m.group() == expected_url)
+        i += 1
+    return True
+
+
 # ── score command ─────────────────────────────────────────────────────────────
 
 
@@ -276,6 +302,14 @@ def score(
         "--stamp",
         help="Update the score badge inline in files listed in badge_stamp_files.",
     ),
+    check_stamp: bool = typer.Option(
+        False,
+        "--check-stamp",
+        help=(
+            "Verify that badge_stamp_files contain the current score URL. "
+            "Exit 1 if any badge is stale. Mutually exclusive with --stamp."
+        ),
+    ),
     no_header: bool = typer.Option(
         False,
         "--no-header",
@@ -301,6 +335,12 @@ def score(
         docs_root.relative_to(repo_root)
     except ValueError:
         repo_root = docs_root
+
+    if stamp and check_stamp:
+        _shared.stderr_console.print(
+            "[red]ERROR:[/] --stamp and --check-stamp are mutually exclusive."
+        )
+        raise typer.Exit(1)
 
     if output_format != "json" and not no_header:
         from zenzic import __version__
@@ -446,6 +486,25 @@ def score(
                 f"[red]--stamp: no {_STAMP_MARKER!r} marker found in any configured file[/]",
             )
             raise typer.Exit(1)
+
+    if check_stamp:
+        _eff = fail_under if fail_under > 0 else config.fail_under
+        url = _badge_url(report.score, _eff, report.security_override)
+        outdated: list[Path] = []
+        for rel in config.project_metadata.badge_stamp_files:
+            p = Path(rel)
+            if not _check_stamp_file(p, url):
+                outdated.append(p)
+        if outdated:
+            for p in outdated:
+                _shared.console.print(
+                    f"[red]FAILED:[/] Badge in [bold]{p}[/] is stale. "
+                    "Run 'zenzic score --stamp' locally and commit the result."
+                )
+            raise typer.Exit(1)
+        _shared.console.print(
+            f"[{ZenzicPalette.SUCCESS}]{emoji('check')} All badges are current.[/]"
+        )
 
     if effective_threshold > 0 and report.score < effective_threshold:
         _shared.console.print(

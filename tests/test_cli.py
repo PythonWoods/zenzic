@@ -1248,6 +1248,65 @@ def test_score_no_header_suppresses_banner(_run: object, _cfg: object, _root: ob
     assert "100/100" in result.stdout
 
 
+@patch("zenzic.cli._standalone.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._standalone.ZenzicConfig.load", return_value=(_CFG, False))
+@patch("zenzic.cli._standalone._run_all_checks")
+@patch("zenzic.cli._standalone._check_stamp_file", return_value=True)
+def test_score_check_stamp_passes_when_current(
+    _chk: object, _run: object, _cfg: object, _root: object
+) -> None:
+    """score --check-stamp must exit 0 and report all badges current when fresh."""
+    from zenzic.core.scorer import CategoryScore, ScoreReport
+
+    _run.return_value = ScoreReport(  # type: ignore[attr-defined]
+        score=100,
+        categories=[
+            CategoryScore("links", 0.35, 0, 1.0, 0.35),
+            CategoryScore("orphans", 0.20, 0, 1.0, 0.20),
+            CategoryScore("snippets", 0.20, 0, 1.0, 0.20),
+            CategoryScore("placeholders", 0.15, 0, 1.0, 0.15),
+            CategoryScore("assets", 0.10, 0, 1.0, 0.10),
+        ],
+    )
+    result = runner.invoke(app, ["score", "--check-stamp", "--no-header"])
+    assert result.exit_code == 0
+    assert "All badges are current" in result.stdout
+
+
+@patch("zenzic.cli._standalone.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._standalone.ZenzicConfig.load", return_value=(_CFG, False))
+@patch("zenzic.cli._standalone._run_all_checks")
+@patch("zenzic.cli._standalone._check_stamp_file", return_value=False)
+def test_score_check_stamp_fails_when_stale(
+    _chk: object, _run: object, _cfg: object, _root: object
+) -> None:
+    """score --check-stamp must exit 1 and name the stale file when badge is outdated."""
+    from zenzic.core.scorer import CategoryScore, ScoreReport
+
+    _run.return_value = ScoreReport(  # type: ignore[attr-defined]
+        score=95,
+        categories=[
+            CategoryScore("links", 0.35, 0, 1.0, 0.35),
+            CategoryScore("orphans", 0.20, 0, 1.0, 0.20),
+            CategoryScore("snippets", 0.20, 0, 1.0, 0.20),
+            CategoryScore("placeholders", 0.15, 0, 1.0, 0.15),
+            CategoryScore("assets", 0.10, 0, 1.0, 0.10),
+        ],
+    )
+    result = runner.invoke(app, ["score", "--check-stamp", "--no-header"])
+    assert result.exit_code == 1
+    assert "FAILED: Badge in" in result.stdout
+
+
+@patch("zenzic.cli._standalone.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._standalone.ZenzicConfig.load", return_value=(_CFG, False))
+def test_score_check_stamp_and_stamp_mutually_exclusive(_cfg: object, _root: object) -> None:
+    """score --stamp --check-stamp must exit 1 with a clear mutual-exclusivity error."""
+    result = runner.invoke(app, ["score", "--stamp", "--check-stamp"])
+    assert result.exit_code == 1
+    assert "mutually exclusive" in result.output
+
+
 # ---------------------------------------------------------------------------
 
 

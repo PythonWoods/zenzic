@@ -84,20 +84,7 @@ verify: _check-hooks release-contracts check-pinning
     @echo "==> [4/5] Score computation and badge stamp (zenzic score --stamp)..."
     {{ runner }} zenzic score --stamp --no-header
     @echo "==> [5/5] Badge freshness gate..."
-    just _badge-freshness-check
-
-# Badge freshness gate: fails with a clear, actionable message if --stamp changed the README.
-_badge-freshness-check:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    if ! git diff HEAD --quiet README.md README.it.md; then
-        echo ""
-        echo "[ZENZIC FATAL] DQS score changed. README files were automatically stamped."
-        echo "[ZENZIC FATAL] You must stage and commit these changes before pushing."
-        git status -s README.md README.it.md
-        exit 1
-    fi
-    echo "[ZENZIC SUCCESS] Badge is current. Workspace ready to push."
+    {{ runner }} zenzic score --check-stamp --no-header
 
 # ADR-089 — Immutable Infrastructure guard on local hooks (internal CI policy,
 # not a public Zenzic linter rule). Pre-commit `rev:` keys must be 40-char
