@@ -198,6 +198,57 @@ def _run_all_checks(
     )
 
 
+# ── badge stamp helpers ────────────────────────────────────────────────────────
+
+_BADGE_LABEL = (
+    "%F0%9F%9B%A1%EF%B8%8F_zenzic--score"  # 🛡️ zenzic-score (-- = literal dash in Shields.io)
+)
+_STAMP_MARKER = "<!-- zenzic:badge -->"
+_SHIELDS_URL_RE = re.compile(r"https://img\.shields\.io/badge/[^\s\"'<>)]*")
+
+
+def _badge_url(score: int, fail_under: int, security_override: bool) -> str:
+    message = f"{score}_%2F_100"
+    _threshold = fail_under if fail_under > 0 else 80
+    if security_override or score < _threshold:
+        color = "ef4444"
+    elif score < 100:
+        color = "f59e0b"
+    else:
+        color = "4f46e5"
+    return f"https://img.shields.io/badge/{_BADGE_LABEL}-{message}-{color}?style=flat-square"
+
+
+def _stamp_file(path: Path, badge_url: str) -> bool:
+    """Update the badge URL on the line after ``<!-- zenzic:badge -->``.
+
+    Returns True if the file was modified.
+    Raises ValueError if the marker is found but the next line is not a Shields.io badge.
+    """
+    lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
+    modified = False
+    i = 0
+    while i < len(lines):
+        if lines[i].strip() == _STAMP_MARKER:
+            j = i + 1
+            while j < len(lines) and not lines[j].strip():
+                j += 1
+            if j < len(lines):
+                if "img.shields.io/badge/" not in lines[j]:
+                    raise ValueError(
+                        f"{path}:{j + 1}: marker found at line {i + 1} "
+                        "but next line is not a Shields.io badge"
+                    )
+                new_line = _SHIELDS_URL_RE.sub(badge_url, lines[j])
+                if new_line != lines[j]:
+                    lines[j] = new_line
+                    modified = True
+        i += 1
+    if modified:
+        path.write_text("".join(lines), encoding="utf-8")
+    return modified
+
+
 # ── score command ─────────────────────────────────────────────────────────────
 
 
@@ -220,11 +271,10 @@ def score(
     fail_under: int = typer.Option(
         0, "--fail-under", help="Exit non-zero if score is below this threshold (0 = disabled)."
     ),
-    export_shields: str | None = typer.Option(
-        None,
-        "--export-shields",
-        metavar="PATH",
-        help="Write a Shields.io-compatible JSON endpoint to PATH for dynamic badge telemetry.",
+    stamp: bool = typer.Option(
+        False,
+        "--stamp",
+        help="Update the score badge inline in files listed in badge_stamp_files.",
     ),
 ) -> None:
     """Compute a 0–100 documentation quality score across all checks."""
@@ -372,6 +422,26 @@ def score(
                 )
             )
 
+    if stamp:
+        _eff = fail_under if fail_under > 0 else config.fail_under
+        url = _badge_url(report.score, _eff, report.security_override)
+        found_any = False
+        for rel in config.project_metadata.badge_stamp_files:
+            p = Path(rel)
+            if not p.exists():
+                continue
+            if _STAMP_MARKER not in p.read_text(encoding="utf-8"):
+                continue
+            found_any = True
+            changed = _stamp_file(p, url)
+            if changed:
+                _shared.console.print(f"[dim]Badge stamped → {p}[/]")
+        if not found_any:
+            _shared.stderr_console.print(
+                f"[red]--stamp: no {_STAMP_MARKER!r} marker found in any configured file[/]",
+            )
+            raise typer.Exit(1)
+
     if effective_threshold > 0 and report.score < effective_threshold:
         _shared.console.print(
             f"\n[red]FAILED:[/] score {report.score} is below threshold {effective_threshold}."
@@ -385,26 +455,6 @@ def score(
             f"Update governance.suppression_cap in .zenzic.toml if intentional."
         )
         raise typer.Exit(1)
-
-    if export_shields is not None:
-        _effective_threshold = fail_under if fail_under > 0 else config.fail_under
-        _ref = _effective_threshold if _effective_threshold > 0 else 80
-        if report.security_override or report.score < 70:
-            _color = "red"
-        elif report.score < _ref:
-            _color = "yellow"
-        else:
-            _color = "brightgreen"
-        import json as _json
-
-        _payload = {
-            "schemaVersion": 1,
-            "label": "zenzic score",
-            "message": f"{report.score} / 100",
-            "color": _color,
-        }
-        Path(export_shields).write_text(_json.dumps(_payload, indent=2) + "\n", encoding="utf-8")
-        _shared.console.print(f"[dim]Shields.io endpoint written to {export_shields}[/]")
 
     _shared.print_footer_hint("score", output_format=output_format)
 

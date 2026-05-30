@@ -16,7 +16,8 @@ Versions follow [Semantic Versioning](https://semver.org/).
 ### Added
 
 - Initial work on Plugin SDK architecture.
-- **`--export-shields PATH`:** `zenzic score` can now write a [Shields.io](https://shields.io/endpoint)-compatible JSON endpoint to disk for dynamic CI badge telemetry. Upload the file to a GitHub Gist or `gh-pages` branch and embed `https://img.shields.io/endpoint?url=<raw_url>` in your README for a live quality badge.
+- **`zenzic score --stamp`:** Inline, deterministic badge stamping. Add a `<!-- zenzic:badge -->` marker to any file listed in `badge_stamp_files` (config); running `zenzic score --stamp` replaces the Shields.io badge URL on the next line with the current score, colour-coded by brand palette (`4f46e5` indaco for 100, `f59e0b` ambra for passing, `ef4444` rosso for fail/security breach). Eliminates external dependencies (Gist, PAT tokens) and enables Time-Traveling badges: the score is crystallised in each commit.
+- **`badge_stamp_files` config field:** New `[project_metadata]` key listing the files updated by `--stamp` (default: `["README.md"]`).
 - **Domain-Aware Discovery (`CODE_ASSET_SUFFIXES`):**** Source code files (`.py`, `.pyi`, `.ts`, `.tsx`, `.rs`, `.go`, and 20+ other code extensions) are now natively exempt from Z405 `UNUSED_ASSET` enforcement in `find_unused_assets`. Files are still indexed by the discovery engine for link resolution across the docs/source boundary. No configuration change is required.
 - **Strict Local TOML Parsing:** `.zenzic.local.toml` now rejects unknown top-level keys with a fatal `ConfigurationError` (`LOCAL-TOML-STRICT`). Previously, unrecognised keys were silently discarded. Allowed sections: `core`, `build_context`, `project_metadata`, `governance`, `i18n`, `forbidden_patterns`, `secrets`, `debug`, `env`.
 
@@ -42,6 +43,9 @@ Versions follow [Semantic Versioning](https://semver.org/).
   All 1550 tests pass unchanged.
 - **Governance hardening — `brand_obsolescence` ADDITIVE merge:** `[governance].brand_obsolescence` in `.zenzic.local.toml` now uses additive semantics. Local terms extend the global list; they can never remove globally-configured protected terms. This prevents a non-versioned local override from silently disabling brand protection policy.
 - **Z504 and Exit Code 4 relegated to Reserved/Inactive status:** `Z504 (QUALITY_REGRESSION)` and the corresponding exit code 4 emitted by `zenzic diff` have been removed from the public reference documentation. Both remain in the binary to preserve behavioral continuity but are no longer part of the documented exit-code contract, pending full differential analysis maturity.
+- **`just verify` badge freshness gate added:** The `verify` recipe now runs `zenzic score --stamp` then `git diff --exit-code README.md README.it.md`, failing the pipeline if the committed badge does not reflect the actual score. Developers must stamp locally before pushing.
+- **CI workflow renamed to `zenzic-audit` fleet-wide:** The GitHub Actions `name:` field is now `zenzic-audit` across all repos, making the native CI badge show `zenzic-audit | passing` — an unambiguous Dual-Badge signal.
+- **Badge `alt` text normalised to lowercase kebab:** CI badges use `alt="zenzic-audit"`, Score badges use `alt="zenzic-score"` across all READMEs.
 
 ### Fixed
 
@@ -54,6 +58,8 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Removed
 
+- **Static Zenzic Audit Badge eradicated — Dual-Badge Telemetry:** The hardcoded "passing" Audit badge has been replaced fleet-wide by the native GitHub Actions CI badge. Zenzic now exposes two orthogonal signals: CI status (Pass/Fail, real-time, via GitHub Actions) and DQS Score (quality of accepted code, stamped inline via `--stamp`). A red `--stamp` badge in local development is immediate, unambiguous feedback that the commit will be rejected by CI — it will never appear on main.
+- **Breaking change — `--export-shields` removed from `zenzic score`.** The Gist-based dynamic badge workflow is eradicated. Replace with `zenzic score --stamp` (see Added). Remove the `GIST_TOKEN` secret from repository settings manually.
 - **Breaking change — `map_url()` and `classify_route()` removed from `BaseAdapter` protocol.** Custom adapters that implement these methods instead of `get_route_info()` must be updated. Migration: `adapter.map_url(rel)` → `adapter.get_route_info(rel).canonical_url`; `adapter.classify_route(rel, nav_paths)` → `adapter.get_route_info(rel).status`.
 - **Breaking change — `find_orphans()` callback API removed.** The `classify_route` callback parameter is replaced by `adapter: BaseAdapter | None`.
 

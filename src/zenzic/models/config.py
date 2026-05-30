@@ -106,6 +106,14 @@ class ProjectMetadata(BaseModel):
             "CHANGELOG*.md is excluded by default to allow historical prose."
         ),
     )
+    badge_stamp_files: list[str] = Field(
+        default=["README.md"],
+        description=(
+            "Files updated by 'zenzic score --stamp'. Each file must contain a "
+            "'<!-- zenzic:badge -->' marker; the next non-empty line after the marker "
+            "is replaced with the current score badge URL."
+        ),
+    )
 
 
 class BuildContext(BaseModel):

@@ -78,6 +78,7 @@ GLOBAL_TOML_TEMPLATE: str = (
     "# --- BRAND INTEGRITY ---\n"
     "[project_metadata]\n"
     '# release_name = "YOUR-RELEASE"\n'
+    "# badge_stamp_files = [\"README.md\"]  # files updated by 'zenzic score --stamp'\n"
     "\n"
     "[governance]\n"
     "# ---------------------------------------------------------------------------\n"

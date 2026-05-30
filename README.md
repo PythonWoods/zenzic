@@ -21,12 +21,11 @@ SPDX-License-Identifier: Apache-2.0
 </p>
 
 <p align="center">
-  <a href="https://zenzic.dev/docs/how-to/add-badges/">
-    <img src="https://img.shields.io/badge/zenzic-audit:_passed-success?style=flat-square" alt="Zenzic Audit">
+  <a href="https://github.com/PythonWoods/zenzic/actions/workflows/ci.yml">
+    <img src="https://github.com/PythonWoods/zenzic/actions/workflows/ci.yml/badge.svg" alt="zenzic-audit">
   </a>
-  <a href="https://zenzic.dev/docs/reference/scoring-algorithm">
-    <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/PythonWoods-Dev/7a26bc9e0a919beded93b6c5cd055bf9/raw/zenzic-shields.json&cacheSeconds=3600&style=flat-square" alt="Zenzic Score">
-  </a>
+  <!-- zenzic:badge -->
+  <img src="https://img.shields.io/badge/%F0%9F%9B%A1%EF%B8%8F_zenzic--score-93_%2F_100-ef4444?style=flat-square" alt="zenzic-score">
   <a href="https://docusaurus.io/">
     <img src="https://img.shields.io/badge/docs_by-Docusaurus-3ECC5F?style=flat-square" alt="Built with Docusaurus">
   </a>
@@ -82,7 +81,7 @@ zenzic check all  # Audit the current directory
 | :--- | :--- |
 | `zenzic init` | Scaffold workspace configuration (`.zenzic.toml`) |
 | `zenzic check all [PATH]` | Full documentation audit — links, credentials, orphans |
-| `zenzic score [--fail-under N] [--export-shields PATH]` | Compute the Documentation Quality Score (0–100) |
+| `zenzic score [--fail-under N] [--stamp]` | Compute the Documentation Quality Score (0–100) |
 | `zenzic diff [--base PATH]` | Detect debt regression against a saved baseline |
 | `zenzic guard scan [PATH]` | Defense-in-Depth credential pre-gate (always fatal) |
 | `zenzic inspect codes` | Query live error-code semantics and suppressibility |

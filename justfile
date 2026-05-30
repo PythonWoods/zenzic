@@ -73,10 +73,12 @@ lint:
     {{ runner }} pre-commit run --all-files
 
 # Final Guard: atomic verification invoked by pre-push hook + GHA.
-# Sequence: pre-commit (all hooks) → pytest tests/ → zenzic self-check.
+# Sequence: pre-commit (all hooks) → pytest tests/ → zenzic self-check → badge freshness.
 verify: _check-hooks release-contracts check-pinning
     {{ runner }} pre-commit run --all-files
     {{ runner }} pytest tests/
+    {{ runner }} zenzic score --stamp
+    git diff --exit-code README.md README.it.md
     {{ runner }} zenzic check all --strict {{ ZENZIC_EXTRA_ARGS }}
 
 # ADR-089 — Immutable Infrastructure guard on local hooks (internal CI policy,
