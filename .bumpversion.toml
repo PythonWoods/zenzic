@@ -43,13 +43,8 @@ search = 'dependencies = ["zenzic>={current_version}"]'
 replace = 'dependencies = ["zenzic>={new_version}"]'
 
 
-# Historical versioned documentation is tracked here so the release bump
-# updates the current release marker consistently across the fleet.
-
-[[tool.bumpversion.files]]
-filename = "CHANGELOG.md"
-search = "v{current_version}"
-replace = "v{new_version}"
+# Historical versioned documentation is tracked where explicit release
+# markers are still present in the file body.
 
 [[tool.bumpversion.files]]
 filename = "CONTRIBUTING.md"
