@@ -5,8 +5,11 @@ SPDX-License-Identifier: Apache-2.0
 
 <p align="center">
   <a href="https://github.com/PythonWoods/zenzic">
-    <img src="assets/brand/svg/zenzic-wordmark.svg#gh-light-mode-only" alt="Zenzic" width="360">
-    <img src="assets/brand/svg/zenzic-wordmark-dark.svg#gh-dark-mode-only" alt="Zenzic" width="360">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="assets/brand/svg/zenzic-wordmark-dark.svg">
+      <source media="(prefers-color-scheme: light)" srcset="assets/brand/svg/zenzic-wordmark.svg">
+      <img src="assets/brand/svg/zenzic-wordmark.svg" alt="Zenzic" width="360">
+    </picture>
   </a>
 </p>
 
