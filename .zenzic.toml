@@ -76,7 +76,7 @@ default_locale = "en"
 
 # --- BRAND INTEGRITY ---
 [project_metadata]
-release_name = "Basalt"
+release_name = "Graphite"
 obsolete_names_exclude_patterns = ["CHANGELOG*.md", "CHANGELOG*.archive.md", "changelogs/*.md", "RELEASE.md"]
 badge_stamp_files = ["README.md", "README.it.md"]
 
@@ -99,6 +99,7 @@ suppression_cap_fail_hard = true
 brand_obsolescence = [
     "Quartz",
     "Obsidian",
+    "Basalt",
 ]
 # suppression_cap_scope = "all"  # Options: all, per-file
 # i18n_parity = false            # Set true when i18n is enabled
