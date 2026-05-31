@@ -9,7 +9,7 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
-> **Development history (v0.1.0 – v0.8.0):** See the [Historical Archives](./changelogs/README.md).
+> **Development history (v0.1.0 – v0.8.1):** See the [Historical Archives](./changelogs/README.md).
 
 ## [Unreleased]
 

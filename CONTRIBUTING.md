@@ -298,7 +298,7 @@ git push && git push --tags
 
 ### Bump Verification
 
-Current release baseline: `v0.8.0`.
+Current release baseline: `v0.8.1`.
 
 Before executing the final bump, maintainers must run a dry-run to identify
 hardcoded version strings that are not covered by the automation:
