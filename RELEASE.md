@@ -6,7 +6,7 @@
 
 | Field    | Value      |
 | :------- | :--------- |
-| Version  | v0.8.1     |
+| Version  | v0.9.0     |
 | Codename | Basalt     |
 | Date     | 2026-05-31 |
 | Status   | Stable     |
@@ -18,7 +18,7 @@ Before tagging, every item must be green:
 - [ ] `just verify` — exits 0 (pre-commit hooks → pytest → `zenzic score --stamp` → badge freshness → `zenzic check all --strict`)
 - [ ] `zenzic score --stamp` committed — badge in README.md and README.it.md reflects current score
 - [ ] `zenzic check all .` — zero findings in the repo root
-- [ ] `pyproject.toml` version matches the tag (`0.8.1`)
+- [ ] `pyproject.toml` version matches the tag (`0.9.0`)
 - [ ] `CITATION.cff` version and date updated
 - [ ] `CHANGELOG.md` — `[Unreleased]` section moved to the new version heading
 - [ ] Update SECURITY.md support table (Add new release, demote previous to Critical/EOL).
@@ -45,11 +45,11 @@ Distribution target: **PyPI** — `pip install zenzic` / `uvx zenzic`.
 ## Tag & Push
 
 ```bash
-git tag v0.8.1
-git push origin release/v0.8.1 --tags
+git tag v0.9.0
+git push origin release/v0.9.0 --tags
 ```
 
-- [ ] Create GitHub Release from the tag, using the `## v0.8.1` CHANGELOG section as the release body.
+- [ ] Create GitHub Release from the tag, using the `## v0.9.0` CHANGELOG section as the release body.
 
 ## Changelog Reference
 
