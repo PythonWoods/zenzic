@@ -1,0 +1,19 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# .zenzic.toml — Z108 EMPTY_LINK_TEXT gallery example
+#
+# docs/index.md contains [](guide.md) — a link with an empty label.
+# Zenzic's link validator flags it as Z108 EMPTY_LINK_TEXT — exit 1.
+#
+# Empty link text is inaccessible to screen readers and violates WCAG 2.1 §2.4.4
+# (Link Purpose). The anchor renders as a clickable invisible element.
+#
+# Expected results:
+#   zenzic check links   → EXIT 1  (Z108 ×1)
+#   zenzic check all     → EXIT 1
+
+docs_dir = "docs"
+fail_under = 0
+
+[build_context]
+engine = "standalone"

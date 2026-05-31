@@ -1,0 +1,19 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# .zenzic.toml — Z503 SNIPPET_ERROR gallery example
+#
+# docs/index.md contains a Python code block with a SyntaxError:
+#   def compute_total(
+#       items =   # incomplete expression — SyntaxError
+# Zenzic's built-in snippet validator parses fenced Python blocks via the
+# `ast` module and flags syntax errors as Z503 SNIPPET_ERROR — exit 1.
+#
+# Expected results:
+#   zenzic check content   → EXIT 1  (Z503 ×1 — SyntaxError in Python block)
+#   zenzic check all       → EXIT 1
+
+docs_dir = "docs"
+fail_under = 0
+
+[build_context]
+engine = "standalone"

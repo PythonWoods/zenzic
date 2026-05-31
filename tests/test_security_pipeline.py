@@ -1,0 +1,178 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+"""Security pipeline regression tests.
+
+Covers two bugs discovered during Z204 red-teaming (v0.9.0):
+
+1. **i18n Path Bug** (Fase 1): `_locale_path_remap` in `scanner.py` was
+   remapping `report.file_path` but not `report.security_findings[*].file_path`,
+   causing `_map_credential_to_finding` to produce `docs//home/...` absolute
+   paths when a Z204/Z201 finding was detected in an i18n file.
+
+2. **Security Short-Circuit** (Fase 2): When a report had `security_findings`,
+   structural findings (`report.findings`, `report.rule_findings`) derived from
+   a partially-processed file state were still emitted, producing false positives
+   like Z302 dead-definitions on files aborted mid-pipeline.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+from zenzic.core.credentials import SecurityFinding
+from zenzic.core.scanner import ReferenceScanner, _map_credential_to_finding
+from zenzic.models.config import ZenzicConfig
+from zenzic.models.references import IntegrityReport, ReferenceFinding
+
+
+# ─── Helpers ─────────────────────────────────────────────────────────────────
+
+
+def _make_sf(abs_path: Path, term: str = "secret") -> SecurityFinding:
+    return SecurityFinding(
+        file_path=abs_path,
+        line_no=10,
+        secret_type="FORBIDDEN_TERM",
+        url="line containing secret",
+        col_start=0,
+        match_text=term,
+    )
+
+
+def _make_ref_finding(abs_path: Path, line_no: int = 5) -> ReferenceFinding:
+    """Minimal ReferenceFinding stub (Z302-class warning)."""
+    return ReferenceFinding(
+        file_path=abs_path,
+        line_no=line_no,
+        issue="Z302",
+        detail="Reference defined but never used.",
+        is_warning=True,
+    )
+
+
+# ─── Fase 1: i18n SecurityFinding path remap ─────────────────────────────────
+
+
+def test_locale_path_remap_applied_to_security_findings() -> None:
+    """Remapping _locale_path_remap must also update security_findings[*].file_path.
+
+    Regression for: Z204 findings on i18n files produced `docs//home/...` paths
+    because only `report.file_path` was remapped, not the SecurityFinding paths.
+    """
+    docs_root = Path("/repo/docs")
+    i18n_abs = Path("/repo/i18n/it/docs/reference/file.mdx")
+    logical = docs_root / "it/reference/file.mdx"
+
+    _locale_path_remap: dict[Path, Path] = {i18n_abs: logical}
+
+    sf = _make_sf(i18n_abs, term="openai")
+    report = IntegrityReport(
+        file_path=i18n_abs,
+        score=100.0,
+        security_findings=[sf],
+    )
+
+    # Apply the same remap logic now present in scanner.py
+    if report.file_path in _locale_path_remap:
+        report.file_path = _locale_path_remap[report.file_path]
+    for _sf in report.security_findings:
+        if _sf.file_path in _locale_path_remap:
+            _sf.file_path = _locale_path_remap[_sf.file_path]
+
+    # After remap, _map_credential_to_finding must produce a clean relative path
+    finding = _map_credential_to_finding(report.security_findings[0], docs_root)
+
+    assert not finding.rel_path.startswith("/"), (
+        f"rel_path must be relative, got: {finding.rel_path!r}"
+    )
+    assert "home" not in finding.rel_path, (
+        f"Absolute path leaked into rel_path: {finding.rel_path!r}"
+    )
+    assert finding.rel_path == "it/reference/file.mdx", (
+        f"Expected 'it/reference/file.mdx', got: {finding.rel_path!r}"
+    )
+
+
+def test_locale_path_remap_without_security_findings_is_noop() -> None:
+    """Remap loop must not raise when security_findings is empty."""
+    docs_root = Path("/repo/docs")
+    i18n_abs = Path("/repo/i18n/it/docs/reference/clean.mdx")
+    logical = docs_root / "it/reference/clean.mdx"
+    _locale_path_remap: dict[Path, Path] = {i18n_abs: logical}
+
+    report = IntegrityReport(file_path=i18n_abs, score=100.0)
+
+    if report.file_path in _locale_path_remap:
+        report.file_path = _locale_path_remap[report.file_path]
+    for _sf in report.security_findings:  # must iterate zero times
+        if _sf.file_path in _locale_path_remap:
+            _sf.file_path = _locale_path_remap[_sf.file_path]
+
+    assert report.file_path == logical
+
+
+# ─── Fase 2: Security Observer — Pass 2 always runs ──────────────────────────
+
+
+def test_security_breach_does_not_suppress_structural_findings(tmp_path: Path) -> None:
+    """Security findings must not prevent Z302 computation (Observer pattern).
+
+    Regression for: the security scanner was acting as a firewall — it skipped
+    Pass 2 (cross_check) when a breach was detected, leaving ref_map.used_ids
+    incomplete and producing false Z302 dead-definition warnings.
+
+    The fix: Pass 2 always runs regardless of security_findings.  The security
+    scanner is now a pure Observer: it records breaches but never interrupts the
+    structural pipeline.  Z302 is computed from a complete ref_map.
+    """
+    md = tmp_path / "tainted.md"
+    # File has one definition AND one use of it, plus a Z204-triggering term.
+    md.write_text(
+        "[syntax]: https://spec.example.com\n\nSee [CommonMark syntax][syntax] for details.\n",
+        encoding="utf-8",
+    )
+
+    config = ZenzicConfig()
+    scanner = ReferenceScanner(md, config)
+
+    # Simulate Pass 1: harvest definitions (and discover a breach)
+    security_findings_found: list[SecurityFinding] = []
+    for _lineno, event_type, data in scanner.harvest():
+        if event_type == "SECRET":
+            security_findings_found.append(data)
+
+    # Inject a synthetic breach (as if forbidden_patterns = ["see"])
+    sf = _make_sf(md, term="see")
+
+    # Pass 2 must always run — breach is observer-only
+    cross_findings = scanner.cross_check()
+
+    report = scanner.get_integrity_report(cross_findings, [sf])
+
+    # "syntax" IS used in the file → ref_map.used_ids must include it → no Z302
+    assert not any(f.issue == "Z302" for f in report.findings), (
+        "Z302 must not appear for a definition that IS used — Pass 2 must run "
+        "even when a security breach is present"
+    )
+    # Security finding must still be present
+    assert len(report.security_findings) == 1
+
+
+def test_no_security_breach_emits_structural_findings(tmp_path: Path) -> None:
+    """Without a breach, get_integrity_report must still produce Z302 normally."""
+    md = tmp_path / "clean.md"
+    md.write_text("[syntax]: https://example.com\n", encoding="utf-8")
+
+    config = ZenzicConfig()
+    scanner = ReferenceScanner(md, config)
+    scanner.ref_map.add_definition("syntax", "https://example.com", 1)
+    # "syntax" is never used → orphan definition → Z302
+
+    report = scanner.get_integrity_report(
+        cross_check_findings=[],
+        security_findings=[],
+    )
+
+    assert any(f.issue == "Z302" for f in report.findings), (
+        "Z302 must be emitted for orphan definitions on clean files"
+    )

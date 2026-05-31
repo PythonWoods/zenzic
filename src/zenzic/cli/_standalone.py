@@ -803,7 +803,7 @@ def explain(
         # Rule-specific config keys to inspect
         _RULE_CONFIG_MAP: dict[str, list[tuple[str, str]]] = {
             "Z601": [("governance.brand_obsolescence", "brand_obsolescence list")],
-            "Z204": [("governance.forbidden_patterns", "forbidden_patterns list")],
+            "Z204": [("forbidden_patterns", "forbidden_patterns list")],
             "Z501": [("placeholder_patterns", "placeholder_patterns list")],
             "Z502": [("short_content_threshold", "short_content_threshold")],
             "Z402": [("excluded_dirs", "excluded_dirs (removes pages from nav scope)")],

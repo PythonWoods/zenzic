@@ -1,0 +1,19 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# .zenzic.toml — Z303 DUPLICATE_DEF gallery example
+#
+# docs/index.md defines the same reference ID "api" twice with different URLs.
+# Zenzic's reference scanner flags it as Z303 DUPLICATE_DEF — exit 1.
+#
+# Duplicate definitions create ambiguity: most Markdown renderers silently pick
+# one URL, but authors may have intended two different targets.
+#
+# Expected results:
+#   zenzic check references   → EXIT 1  (Z303 ×1 — 'api' defined twice)
+#   zenzic check all          → EXIT 1
+
+docs_dir = "docs"
+fail_under = 0
+
+[build_context]
+engine = "standalone"

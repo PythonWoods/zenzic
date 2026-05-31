@@ -1,0 +1,17 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# .zenzic.toml — Z302 DEAD_DEF gallery example
+#
+# docs/index.md defines [setup]: https://example.com/setup but never uses
+# the reference ID "setup" anywhere in the document.
+# Zenzic's reference scanner flags it as Z302 DEAD_DEF — exit 1.
+#
+# Expected results:
+#   zenzic check references   → EXIT 1  (Z302 ×1 — 'setup' defined but unused)
+#   zenzic check all          → EXIT 1
+
+docs_dir = "docs"
+fail_under = 0
+
+[build_context]
+engine = "standalone"

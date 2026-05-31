@@ -1,0 +1,23 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# .zenzic.toml — Z505 UNTAGGED_CODE_BLOCK gallery example
+#
+# docs/index.md contains a fenced code block without a language specifier:
+#   ```
+#   this code block has no language tag
+#   ```
+# Zenzic's built-in UntaggedCodeBlockRule (Z505) is always active and flags
+# language-less fenced blocks — exit 1.
+#
+# Untagged blocks disable syntax highlighting and language-specific linting.
+# Always specify a language: ```bash, ```python, ```json, ```text, etc.
+#
+# Expected results:
+#   zenzic check content   → EXIT 1  (Z505 ×1 — untagged fenced code block)
+#   zenzic check all       → EXIT 1
+
+docs_dir = "docs"
+fail_under = 0
+
+[build_context]
+engine = "standalone"

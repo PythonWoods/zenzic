@@ -1,0 +1,20 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# .zenzic.toml — Z502 SHORT_CONTENT gallery example
+#
+# docs/index.md contains only 8 words of prose — well below the default
+# placeholder_max_words threshold of 50 words.
+# Zenzic's content scanner flags it as Z502 SHORT_CONTENT — exit 1.
+#
+# The file intentionally has no placeholder patterns (to avoid Z501 co-firing),
+# but its word count falls under the minimum threshold.
+#
+# Expected results:
+#   zenzic check content   → EXIT 1  (Z502 ×1 — word count below threshold)
+#   zenzic check all       → EXIT 1
+
+docs_dir = "docs"
+fail_under = 0
+
+[build_context]
+engine = "standalone"

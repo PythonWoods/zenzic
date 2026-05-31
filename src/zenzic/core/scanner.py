@@ -1171,12 +1171,17 @@ class ReferenceScanner:
         # avoid duplicate SecurityFinding entries for the same line.
         fp = self._config.forbidden_patterns if self._config else []
         if fp:
+            fp_compiled = self._config.forbidden_patterns_compiled if self._config else None
             with self.file_path.open(encoding="utf-8") as fh:
                 for lineno, raw_line in enumerate(fh, start=1):
                     if lineno in secret_line_nos:
                         continue
                     for finding in scan_line_for_forbidden_terms(
-                        raw_line, fp, self.file_path, lineno
+                        raw_line,
+                        fp,
+                        self.file_path,
+                        lineno,
+                        compiled_pattern=fp_compiled,
                     ):
                         credential_events.append((finding.line_no, "SECRET", finding))
                         secret_line_nos.add(finding.line_no)
@@ -1359,18 +1364,14 @@ def _scan_single_file(
         if event_type == "SECRET":
             security_findings.append(data)
 
-    # Pass 2 — cross-check (only if no secrets; credential scanner is a firewall)
-    cross_findings: list[ReferenceFinding] = []
-    if not security_findings:
-        cross_findings = scanner.cross_check()
+    # Pass 2 — cross-check (always runs; security findings are observer-only)
+    cross_findings: list[ReferenceFinding] = scanner.cross_check()
 
     # Pass 3 — integrity report
     report = scanner.get_integrity_report(cross_findings, security_findings)
 
     # Rule Engine pass — applied after reference pipeline, only when configured.
-    # Files with security findings are also excluded from rule scanning to avoid
-    # further processing of potentially compromised content.
-    if rule_engine and not security_findings:
+    if rule_engine:
         text = md_file.read_text(encoding="utf-8")
         report.rule_findings = rule_engine.run(md_file, text)
 
@@ -1645,6 +1646,9 @@ def scan_docs_references(
             for _r in reports:
                 if _r.file_path in _locale_path_remap:
                     _r.file_path = _locale_path_remap[_r.file_path]
+                for _sf in _r.security_findings:
+                    if _sf.file_path in _locale_path_remap:
+                        _sf.file_path = _locale_path_remap[_sf.file_path]
 
         elapsed = time.monotonic() - _t0
         if verbose:
@@ -1697,6 +1701,9 @@ def scan_docs_references(
             for _r in reports_seq:
                 if _r.file_path in _locale_path_remap:
                     _r.file_path = _locale_path_remap[_r.file_path]
+                for _sf in _r.security_findings:
+                    if _sf.file_path in _locale_path_remap:
+                        _sf.file_path = _locale_path_remap[_sf.file_path]
         return reports_seq, []
 
     # Phase B — global URL deduplication and async HTTP validation.
@@ -1709,6 +1716,9 @@ def scan_docs_references(
         for _r in reports_seq:
             if _r.file_path in _locale_path_remap:
                 _r.file_path = _locale_path_remap[_r.file_path]
+            for _sf in _r.security_findings:
+                if _sf.file_path in _locale_path_remap:
+                    _sf.file_path = _locale_path_remap[_sf.file_path]
     return reports_seq, validator_seq.validate()
 
 

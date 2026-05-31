@@ -293,6 +293,8 @@ def scan_line_for_forbidden_terms(
     forbidden_patterns: list[str],
     file_path: Path | str,
     line_no: int,
+    *,
+    compiled_pattern: re.RegexPattern | None = None,
 ) -> Iterator[SecurityFinding]:
     """Scan a text line for project-specific forbidden terms (Z204).
 
@@ -302,11 +304,18 @@ def scan_line_for_forbidden_terms(
     reported; subsequent terms on the same line are skipped to avoid
     flooding the reporter with duplicate findings.
 
+    When *compiled_pattern* is provided (the pre-compiled RE2 union regex built
+    by :meth:`~zenzic.models.config.ZenzicConfig._recompile_forbidden_patterns`),
+    the scan reduces from O(N_patterns) string searches per line to a single
+    RE2 pass — O(1) regardless of how many forbidden terms are configured.
+
     Args:
         line: Raw text line from the Markdown source.
         forbidden_patterns: List of literal strings from ``.zenzic.local.toml``.
         file_path: Path identifier (no disk access).
         line_no: 1-based line number.
+        compiled_pattern: Optional pre-compiled union regex.  When supplied the
+            linear fallback loop is bypassed entirely.
 
     Yields:
         :class:`SecurityFinding` with ``secret_type="FORBIDDEN_TERM"`` for
@@ -316,6 +325,22 @@ def scan_line_for_forbidden_terms(
     if not forbidden_patterns:
         return
     path = Path(file_path)
+
+    # ── Fast path: single RE2 union pass (O(1) per line) ─────────────────────
+    if compiled_pattern is not None:
+        m = compiled_pattern.search(line)
+        if m:
+            yield SecurityFinding(
+                file_path=path,
+                line_no=line_no,
+                secret_type="FORBIDDEN_TERM",
+                url=line.strip(),
+                col_start=m.start(),
+                match_text=m.group(0),
+            )
+        return
+
+    # ── Fallback: linear scan (no pre-compiled pattern available) ────────────
     line_lower = line.lower()
     for term in forbidden_patterns:
         idx = line_lower.find(term.lower())

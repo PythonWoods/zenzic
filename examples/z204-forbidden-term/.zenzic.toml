@@ -1,0 +1,22 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# .zenzic.toml — Z204 FORBIDDEN_TERM gallery example
+#
+# .zenzic.local.toml (in this same directory) declares "ProjectX" as a
+# forbidden term. docs/index.md mentions "ProjectX" — triggering Z204.
+#
+# Z204 is non-suppressible and exits with code 2.
+# The CLI displays "POLICY VIOLATION DETECTED" (distinct from Z201's banner).
+#
+# NOTE: .zenzic.local.toml is the "Local Sanctuary" — normally git-ignored so
+# private forbidden-term lists never enter the shared repository. In this example
+# it is committed intentionally for demonstration purposes.
+#
+# Expected results:
+#   zenzic check all   → EXIT 2  (Z204 ×1 — "ProjectX" detected, non-suppressible)
+
+docs_dir = "docs"
+fail_under = 0
+
+[build_context]
+engine = "standalone"

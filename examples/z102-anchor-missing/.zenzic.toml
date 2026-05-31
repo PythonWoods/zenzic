@@ -1,0 +1,17 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# .zenzic.toml — Z102 ANCHOR_MISSING gallery example
+#
+# docs/index.md links to guide.md#nonexistent-section.
+# docs/guide.md exists and has a "## Overview" heading, but no "#nonexistent-section".
+# Zenzic's link validator flags the dead fragment as Z102 ANCHOR_MISSING — exit 1.
+#
+# Expected results:
+#   zenzic check links   → EXIT 1  (Z102 ×1 — guide.md#nonexistent-section)
+#   zenzic check all     → EXIT 1
+
+docs_dir = "docs"
+fail_under = 0
+
+[build_context]
+engine = "standalone"
