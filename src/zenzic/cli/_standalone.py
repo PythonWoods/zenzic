@@ -538,7 +538,9 @@ def score(
 
     if effective_threshold > 0 and report.score < effective_threshold:
         _shared.console.print(
-            f"\n[red]FAILED:[/] score {report.score} is below threshold {effective_threshold}."
+            "\n[red]FAILED:[/] "
+            f"Quality Score ({report.score}) is below the configured 'fail_under' "
+            f"threshold ({effective_threshold})."
         )
         raise typer.Exit(1)
 
