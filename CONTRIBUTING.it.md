@@ -95,12 +95,13 @@ just verify
 ```
 
 `just verify` è l'entry point canonico: pre-commit su tutti i file →
-`pytest tests/` → `zenzic check all --strict`. La stessa sequenza gira in
+`pytest tests/` → `zenzic check all --strict` → `zenzic score --stamp` →
+`zenzic score --check-stamp`. La stessa sequenza gira in
 GitHub Actions — **locale ≡ remoto, no drift**.
 
 ---
 
-## Il 4-Gates Standard
+## Il Modello a 4 Gate di Lifecycle
 
 Zenzic applica una pipeline di qualità deterministica con un singolo
 entry-point atomico. Lo stesso `just verify` gira in tre posti:
@@ -109,7 +110,7 @@ entry-point atomico. Lo stesso `just verify` gira in tre posti:
 |:------|:--------|:------------|:---------|
 | **TDD inner loop** | `just test` | `pytest -n auto` (no coverage, parallel) | ⚡ instant |
 | **Commit** | `git commit` | Light hooks (ruff, format, file hygiene) | < 5 s |
-| **Final Guard** | `just verify` (manuale o CI) | pre-commit → `pytest tests/` → `zenzic check all --strict` | < 60 s |
+| **Final Guard** | `just verify` (manuale o CI) | pre-commit → `pytest tests/` → `zenzic check all --strict` → `zenzic score --stamp` → `zenzic score --check-stamp` | < 60 s |
 | **CI** | GitHub Actions | `just verify` (identico) | matches local |
 ---
 
@@ -127,7 +128,7 @@ usa `nox` direttamente quando ti serve l'environment esatto della CI.
 | Test (audit) | `just test-cov` | `nox -s tests` | pytest serial + branch coverage XML (matches CI) |
 | Test (thorough) | `just test-full` | — | pytest con profilo Hypothesis **ci** (500 examples) |
 | Mutation testing | — | `nox -s mutation` | mutmut su `rules.py`, `credentials.py`, `reporter.py` |
-| **Final Guard** | **`just verify`** | — | **pre-commit → `pytest tests/` → `zenzic check all --strict`** |
+| **Final Guard** | **`just verify`** | — | **pre-commit → `pytest tests/` → `zenzic check all --strict` → `zenzic score --stamp` → `zenzic score --check-stamp`** |
 | Show version | `just version` | — | Stampa la versione corrente da bump-my-version |
 | Release dry-run | `just release-dry patch` | — | Simula un bump (full diff output) |
 | Release dry-run (compact) | `just release-dry patch --short` | — | Simula un bump — riepilogo a 3 righe |

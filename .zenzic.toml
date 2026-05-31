@@ -40,6 +40,8 @@ excluded_external_urls = [
     # contributor-covenant.org consistently times out (> 10 s) from CI environments.
     "https://www.contributor-covenant.org/version/2/1/code_of_conduct.html",
     "https://www.contributor-covenant.org",
+    # zenzic.dev documentation endpoint is intermittently unavailable in CI network paths.
+    "https://zenzic.dev/docs/",
     # Shields.io applies rate-limiting to CI runners (HTTP 429); prefix covers all badge URLs.
     "https://img.shields.io",
 ]

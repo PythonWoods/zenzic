@@ -66,7 +66,7 @@ test-cov-full *args:
 test-full *args:
     HYPOTHESIS_PROFILE=ci {{ nox_runner }} tests {{ args }}
 
-# ─── Quality Gates (4-Gates Standard) ─────────────────────────────────────────
+# ─── Quality Gates (4-Lifecycle-Gates model) ──────────────────────────────────
 
 # Fast linter pass: run all pre-commit hooks without the full test suite.
 lint:
