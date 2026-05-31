@@ -28,7 +28,7 @@ from __future__ import annotations
 
 import fnmatch
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import pathspec
 
@@ -52,7 +52,9 @@ if TYPE_CHECKING:
 # ── VCS Ignore Parser (pathspec-based) ──────────────────────────────────────
 
 
-def _load_vcs_pathspec(repo_root: Path | None, docs_root: Path | None) -> pathspec.PathSpec | None:
+def _load_vcs_pathspec(
+    repo_root: Path | None, docs_root: Path | None
+) -> pathspec.PathSpec[Any] | None:
     """Load a pathspec.PathSpec from .gitignore files in repo_root and docs_root."""
     patterns = []
     for root in (repo_root, docs_root):
@@ -138,7 +140,7 @@ class LayeredExclusionManager:
 
         # VCS
         self._respect_vcs: bool = getattr(config, "respect_vcs_ignore", False)
-        self._vcs_pathspec: pathspec.PathSpec | None = None
+        self._vcs_pathspec: pathspec.PathSpec[Any] | None = None
         if self._respect_vcs:
             self._vcs_pathspec = _load_vcs_pathspec(repo_root, docs_root)
 
