@@ -11,12 +11,21 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+No changes yet.
+
+---
+
+## [0.9.0] - 2026-05-31
+
 ### Added
 
 - `zenzic score --stamp`: deterministic, in-file badge stamping for score telemetry.
 - `zenzic score --check-stamp`: config-aware freshness gate for stamped score badges.
 - `badge_stamp_files` project metadata key to declare stamp targets.
 - Domain-aware discovery exemptions for source-code assets in unused-asset analysis.
+- `zenzic lab` command: empirical sandbox gallery covering 100% of Z-codes (20 scenarios).
+- 15 new sandbox directories under `examples/` (z102 through z505), each with `.zenzic.toml`, `README.md`, and a minimal `docs/` tree that reliably triggers the target rule.
+- `zenzic lab all` validation gate: all 20 scenarios emit the expected exit code.
 
 ### Changed
 
@@ -24,6 +33,8 @@ Versions follow [Semantic Versioning](https://semver.org/).
 - `suppression_cap` behavior clarified as an independent hard-fail governance gate.
 - Local overlay parsing hardened with strict unknown-key rejection.
 - `just verify` standardized to a five-step operational sequence (hooks, tests, strict check, stamp, freshness check).
+- **Performance — Z204 (FORBIDDEN_TERM):** `scan_line_for_forbidden_terms` now accepts a pre-compiled RE2 union regex. `ZenzicConfig` builds the union once via `_recompile_forbidden_patterns()` (called in `model_post_init` and after every `_apply_local_toml` merge). Scan complexity reduced from O(N_lines × N_patterns) to O(N_lines).
+- **Performance — Z601 (BRAND_OBSOLESCENCE):** `BrandObsolescenceRule` replaced per-pattern `list[RegexPattern]` with a single RE2 union pattern compiled once at `__init__`. Same O(N_lines) reduction.
 
 ### Removed
 

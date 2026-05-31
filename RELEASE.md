@@ -16,6 +16,7 @@
 Before tagging, every item must be green:
 
 - [ ] `just verify` — exits 0 (pre-commit hooks → pytest → `zenzic score --stamp` → badge freshness → `zenzic check all --strict`)
+- [ ] `zenzic lab all` — all 20 scenarios exit with expected code
 - [ ] `zenzic score --stamp` committed — badge in README.md and README.it.md reflects current score
 - [ ] `zenzic check all .` — zero findings in the repo root
 - [ ] `pyproject.toml` version matches the tag (`0.9.0`)
