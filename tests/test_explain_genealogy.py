@@ -47,6 +47,13 @@ def test_explain_z204_shows_security_gate() -> None:
     assert "SECURITY GATE" in result.stdout
 
 
+def test_explain_z204_shows_forbidden_patterns_genealogy() -> None:
+    """Z204 explain output must show the forbidden_patterns genealogy row."""
+    result = runner.invoke(app, ["explain", "Z204"])
+    assert result.exit_code == 0
+    assert "forbidden_patterns list" in result.stdout
+
+
 def test_explain_case_insensitive() -> None:
     """Rule ID argument must be case-insensitive (z101 == Z101)."""
     result_upper = runner.invoke(app, ["explain", "Z101"])

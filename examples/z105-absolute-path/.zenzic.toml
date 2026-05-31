@@ -1,0 +1,21 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# .zenzic.toml — Z105 ABSOLUTE_PATH gallery example
+#
+# docs/index.md contains a link using an absolute path (/guide) instead of a
+# relative path (guide.md or ./guide.md).
+# Zenzic's link validator flags it as Z105 ABSOLUTE_PATH — exit 1.
+#
+# Absolute paths are non-portable: when a site is hosted in a subdirectory (e.g.
+# https://example.com/my-docs/), absolute paths like /guide resolve to the
+# server root, not the documentation root.
+#
+# Expected results:
+#   zenzic check links   → EXIT 1  (Z105 ×1)
+#   zenzic check all     → EXIT 1
+
+docs_dir = "docs"
+fail_under = 0
+
+[build_context]
+engine = "standalone"

@@ -244,11 +244,15 @@ class ZenzicReporter:
         # ── Security breach flat output (rendered BEFORE main findings) ──────
         if breach_findings:
             for bf in breach_findings:
-                obfuscated = _obfuscate_secret(bf.match_text) if bf.match_text else "[redacted]"
                 self._con.print()
-                self._con.print(
-                    Text("\u2718 SECURITY BREACH DETECTED", style="bold white on #8b0000")
-                )
+                if bf.code == "Z204":
+                    self._con.print(
+                        Text("\u2718 POLICY VIOLATION DETECTED", style="bold white on #8b0000")
+                    )
+                else:
+                    self._con.print(
+                        Text("\u2718 SECURITY BREACH DETECTED", style="bold white on #8b0000")
+                    )
                 self._con.print(
                     Text.from_markup(f"  {emoji('cross')} [bold]Finding:[/]    {_esc(bf.message)}")
                 )
@@ -258,19 +262,36 @@ class ZenzicReporter:
                         f"[bold]{_esc(self._full_rel(bf.rel_path))}[/]:{bf.line_no}"
                     )
                 )
-                self._con.print(
-                    Text.from_markup(
-                        f"  {emoji('cross')} [bold]Credential:[/] "
-                        f"[bold reverse] {_esc(obfuscated)} [/]"
+                if bf.code == "Z204":
+                    self._con.print(
+                        Text.from_markup(
+                            f"  {emoji('cross')} [bold]Term:[/]       "
+                            f"[bold reverse] {_esc(bf.match_text or '[unknown]')} [/]"
+                        )
                     )
-                )
-                self._con.print(Text())
-                self._con.print(
-                    Text.from_markup(
-                        "  [bold]Action:[/] Rotate this credential immediately "
-                        "and purge it from the repository history."
+                    self._con.print(Text())
+                    self._con.print(
+                        Text.from_markup(
+                            "  [bold]Action:[/] Remove this term from the documentation "
+                            "or update the [bold]forbidden_patterns[/] list in "
+                            "[bold].zenzic.local.toml[/]."
+                        )
                     )
-                )
+                else:
+                    obfuscated = _obfuscate_secret(bf.match_text) if bf.match_text else "[redacted]"
+                    self._con.print(
+                        Text.from_markup(
+                            f"  {emoji('cross')} [bold]Credential:[/] "
+                            f"[bold reverse] {_esc(obfuscated)} [/]"
+                        )
+                    )
+                    self._con.print(Text())
+                    self._con.print(
+                        Text.from_markup(
+                            "  [bold]Action:[/] Rotate this credential immediately "
+                            "and purge it from the repository history."
+                        )
+                    )
 
         if not normal_findings and not breach_findings:
             # ── All-clear panel ───────────────────────────────────────────────
@@ -363,7 +384,10 @@ class ZenzicReporter:
         renderables.append(Rule(style=ZenzicPalette.DIM))
         renderables.append(Text())  # breathing after Rule
         incidents_count = sum(1 for f in normal_findings if f.severity == "security_incident")
-        breaches_count = len(breach_findings)
+        policy_findings = [f for f in breach_findings if f.code == "Z204"]
+        credential_findings = [f for f in breach_findings if f.code != "Z204"]
+        policy_count = len(policy_findings)
+        breaches_count = len(credential_findings)
         breach_files_count = len({f.rel_path for f in breach_findings})
         summary_parts: list[str] = [f"[{ZenzicPalette.DIM}]Summary:[/]"]
         if breaches_count:
@@ -371,6 +395,12 @@ class ZenzicReporter:
                 f"[bold white on {ZenzicPalette.FATAL}]{emoji('cross')} {breaches_count}"
                 f" security breach{'es' if breaches_count != 1 else ''}[/]"
             )
+        if policy_count:
+            summary_parts.append(
+                f"[bold white on {ZenzicPalette.FATAL}]{emoji('cross')} {policy_count}"
+                f" policy violation{'s' if policy_count != 1 else ''}[/]"
+            )
+        if breach_files_count:
             summary_parts.append(
                 f"[{ZenzicPalette.DIM}]{emoji('dot')} {breach_files_count} file"
                 f"{'s' if breach_files_count != 1 else ''} impacted[/]"
@@ -395,16 +425,32 @@ class ZenzicReporter:
 
         # ── Status line (verdict) ─────────────────────────────────────────────
         renderables.append(Text())  # breathing before verdict
-        has_hard_failures = (breaches_count > 0) or (incidents_count > 0) or (errors > 0)
+        has_hard_failures = (
+            (breaches_count > 0) or (policy_count > 0) or (incidents_count > 0) or (errors > 0)
+        )
         has_strict_failures = strict and warnings > 0
         has_failures = has_hard_failures or has_strict_failures
         if has_failures:
             if has_hard_failures:
-                if breaches_count:
+                if breaches_count and policy_count:
+                    renderables.append(
+                        Text.from_markup(
+                            f"[bold {ZenzicPalette.ERROR}]FAILED:[/]"
+                            " Security breaches and policy violations detected. Exit code 2 is mandatory."
+                        )
+                    )
+                elif breaches_count:
                     renderables.append(
                         Text.from_markup(
                             f"[bold {ZenzicPalette.ERROR}]FAILED:[/]"
                             " Security breaches detected. Exit code 2 is mandatory."
+                        )
+                    )
+                elif policy_count:
+                    renderables.append(
+                        Text.from_markup(
+                            f"[bold {ZenzicPalette.ERROR}]FAILED:[/]"
+                            " Policy violations detected. Exit code 2 is mandatory."
                         )
                     )
                 else:

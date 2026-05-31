@@ -604,15 +604,35 @@ class ZenzicConfig(BaseModel):
         exclude=True,
         repr=False,
     )
+    forbidden_patterns_compiled: re.RegexPattern | None = Field(
+        default=None,
+        exclude=True,
+        repr=False,
+    )
 
     def model_post_init(self, __context: Any) -> None:
         """Post-init: compile placeholders and enforce system exclusions."""
         self.placeholder_patterns_compiled = [
             re.compile(re.escape(p), re.IGNORECASE) for p in self.placeholder_patterns
         ]
+        self._recompile_forbidden_patterns()
         # Hard Exclusion Policy: system guardrails are always present.
         merged = list(dict.fromkeys([*self.excluded_dirs, *SYSTEM_EXCLUDED_DIRS]))
         self.excluded_dirs = merged
+
+    def _recompile_forbidden_patterns(self) -> None:
+        """Pre-compile forbidden_patterns into a single RE2 union regex (O(1) per line).
+
+        Called by :meth:`model_post_init` and at the end of :meth:`_apply_local_toml`
+        whenever ``forbidden_patterns`` is mutated.  Using a union pattern reduces the
+        Z204 scan from O(N_lines × N_patterns) string searches to a single RE2 pass
+        per line — O(N_lines).
+        """
+        if not self.forbidden_patterns:
+            self.forbidden_patterns_compiled = None
+            return
+        union = "|".join(re.escape(p) for p in self.forbidden_patterns)
+        self.forbidden_patterns_compiled = re.compile(f"(?:{union})", re.IGNORECASE)
 
     @classmethod
     def _build_from_data(cls, data: dict[str, Any]) -> ZenzicConfig:
@@ -989,3 +1009,6 @@ class ZenzicConfig(BaseModel):
                 for r in local_rules:
                     merged_rules[r.id] = r
                 config.custom_rules = list(merged_rules.values())
+
+        # Re-compile forbidden_patterns union regex after all local merges are complete.
+        config._recompile_forbidden_patterns()

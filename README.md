@@ -15,7 +15,7 @@ SPDX-License-Identifier: Apache-2.0
 
 <p align="center">
   <a href="https://github.com/PythonWoods/zenzic/actions/workflows/ci.yml">
-    <img src="https://github.com/PythonWoods/zenzic/actions/workflows/ci.yml/badge.svg" alt="CI">
+    <img src="https://img.shields.io/github/actions/workflow/status/PythonWoods/zenzic/ci.yml?branch=main&label=ci&style=flat-square" alt="ci-status">
   </a>
   <!-- zenzic:audit-badge -->
   <img src="https://img.shields.io/badge/%F0%9F%9B%A1%EF%B8%8F_zenzic--audit-passing-22c55e?style=flat-square" alt="zenzic-audit">

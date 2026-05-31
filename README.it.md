@@ -15,7 +15,7 @@ SPDX-License-Identifier: Apache-2.0
 
 <p align="center">
   <a href="https://github.com/PythonWoods/zenzic/actions/workflows/ci.yml">
-    <img src="https://github.com/PythonWoods/zenzic/actions/workflows/ci.yml/badge.svg" alt="CI">
+    <img src="https://img.shields.io/github/actions/workflow/status/PythonWoods/zenzic/ci.yml?branch=main&label=ci&style=flat-square" alt="ci-status">
   </a>
   <!-- zenzic:audit-badge -->
   <img src="https://img.shields.io/badge/%F0%9F%9B%A1%EF%B8%8F_zenzic--audit-passing-22c55e?style=flat-square" alt="zenzic-audit">
@@ -90,7 +90,7 @@ zenzic check all  # Analizza la cartella corrente
 
 ---
 
-> 🚀 **CI/CD Ready:** Usa la [Official Zenzic Action](https://github.com/PythonWoods/zenzic-action) per eseguire Zenzic in GitHub Actions — i finding appaiono in Code Scanning, nelle annotazioni PR e nella tab Security.
+> 🚀 **CI/CD Ready:** Usa la [Action Ufficiale di Zenzic](https://github.com/PythonWoods/zenzic-action) per eseguire Zenzic in GitHub Actions — i finding appaiono in Code Scanning, nelle annotazioni PR e nella tab Security.
 >
 > ```yaml
 > - uses: PythonWoods/zenzic-action@v1
@@ -163,7 +163,7 @@ pip install zenzic
 
 | Area | URL | Destinatario |
 | :--- | :--- | :--- |
-| 👤 Guida Utente | [zenzic.dev/it/docs][docs-it-home] | Installazione, configurazione, CI/CD, codici finding |
+| 👤 Guida Utente | [zenzic.dev/it/docs][docs-it-home] | Installazione, configurazione, CI/CD, finding codes |
 | 🔧 Developer Portal | [zenzic.dev/developers][docs-developers] | Adapter, ADR, architettura CLI, mutation testing |
 | 🛡️ Sicurezza | [Engineering Ledger][docs-eng-ledger] · [SECURITY.md][security] | Reviewer di sicurezza |
 
@@ -193,7 +193,7 @@ Apache-2.0 — vedi [LICENSE][license].
   </a>
   <p>
     <strong>Progettato con precisione da PythonWoods in Italia 🇮🇹</strong><br/>
-    <em>"Building the Standard for Technical Document Integrity."</em>
+    <em>"Costruendo lo Standard per l'Integrità della Documentazione Tecnica."</em>
   </p>
   <p>
     <a href="https://zenzic.dev"><strong>Documentazione</strong></a> &middot;

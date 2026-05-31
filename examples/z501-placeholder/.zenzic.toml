@@ -1,0 +1,17 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# .zenzic.toml — Z501 PLACEHOLDER gallery example
+#
+# docs/index.md contains lines matching built-in placeholder patterns:
+#   "TODO: content goes here" and "Coming soon!"
+# Zenzic's content scanner flags them as Z501 PLACEHOLDER — exit 1.
+#
+# Expected results:
+#   zenzic check content   → EXIT 1  (Z501 ×2 — two placeholder patterns found)
+#   zenzic check all       → EXIT 1
+
+docs_dir = "docs"
+fail_under = 0
+
+[build_context]
+engine = "standalone"

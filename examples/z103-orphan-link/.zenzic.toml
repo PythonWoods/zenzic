@@ -1,0 +1,24 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# .zenzic.toml — Z103 ORPHAN_LINK gallery example
+#
+# docs/index.md links to guide.md, which exists on disk but is NOT listed in
+# the zensical.toml nav. The file is ORPHAN_BUT_EXISTING: reachable via
+# direct link from index.md, but unreachable through site navigation.
+#
+# Zenzic's VSMBrokenLinkRule emits Z103 ORPHAN_LINK when a link target exists
+# on disk (so not Z101) but has ORPHAN_BUT_EXISTING status in the Virtual
+# Site Map (VSM) — the link bypasses navigation.
+#
+# NOTE: Z103 requires engine config (zensical engine here). The standalone
+# engine has no VSM, so ORPHAN_BUT_EXISTING status is never assigned.
+#
+# Expected results:
+#   zenzic check links   → EXIT 1  (Z103 ×1 — guide.md is nav-orphaned)
+#   zenzic check all     → EXIT 1
+
+docs_dir = "docs"
+fail_under = 0
+
+[build_context]
+engine = "zensical"

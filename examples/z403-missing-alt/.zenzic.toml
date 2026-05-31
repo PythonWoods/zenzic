@@ -1,0 +1,20 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# .zenzic.toml — Z403 MISSING_ALT gallery example
+#
+# docs/index.md contains ![](diagram.png) — an image element with no alt text.
+# Zenzic's asset scanner flags it as Z403 MISSING_ALT — exit 1.
+#
+# NOTE: Zenzic does NOT perform I/O on image paths (unlike Z101 for regular
+# links). Z403 fires on the syntax ![](url) regardless of whether the image
+# file exists on disk.
+#
+# Expected results:
+#   zenzic check assets   → EXIT 1  (Z403 ×1 — diagram.png has no alt text)
+#   zenzic check all      → EXIT 1
+
+docs_dir = "docs"
+fail_under = 0
+
+[build_context]
+engine = "standalone"

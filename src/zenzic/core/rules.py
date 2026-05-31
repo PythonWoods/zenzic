@@ -772,11 +772,15 @@ class BrandObsolescenceRule(BaseRule):
 
     def __init__(self, project_metadata: ProjectMetadata) -> None:
         self._release_name = project_metadata.release_name
-        self._patterns: list[re.RegexPattern] = [
-            re.compile(rf"\b{re.escape(name)}\b", re.IGNORECASE)
-            for name in project_metadata.obsolete_names
-            if name.strip()
-        ]
+        valid_names = [name for name in project_metadata.obsolete_names if name.strip()]
+        # Pre-compile a single RE2 union regex — O(1) per line regardless of how
+        # many obsolete names are configured.  Named groups (g0, g1, …) are used
+        # to recover which term matched (required for the finding message).
+        if valid_names:
+            alt = "|".join(rf"\b{re.escape(name)}\b" for name in valid_names)
+            self._union_pattern: re.RegexPattern | None = re.compile(f"(?:{alt})", re.IGNORECASE)
+        else:
+            self._union_pattern = None
         self._exclude_globs: list[str] = list(project_metadata.obsolete_names_exclude_patterns)
 
     @property
@@ -784,7 +788,7 @@ class BrandObsolescenceRule(BaseRule):
         return "Z601"
 
     def check(self, file_path: Path, text: str) -> list[RuleFinding]:
-        if not self._patterns:
+        if self._union_pattern is None:
             return []
         import fnmatch as _fnmatch
 
@@ -819,23 +823,22 @@ class BrandObsolescenceRule(BaseRule):
                 continue  # skip all body lines inside the fence block
             if _is_suppressed(line, "Z601"):
                 continue
-            for pat in self._patterns:
-                for m in pat.finditer(line):
-                    findings.append(
-                        RuleFinding(
-                            file_path=file_path,
-                            line_no=line_no,
-                            rule_id=self.rule_id,
-                            message=(
-                                f"[Z601] Obsolete or unauthorized brand term '{m.group(0)}' detected. "
-                                "Use semantic versioning (e.g., 'vX.Y.Z') in active prose, or suppress if this is a historical ledger."
-                            ),
-                            severity="warning",
-                            matched_line=line,
-                            col_start=m.start(),
-                            match_text=m.group(0),
-                        )
+            for m in self._union_pattern.finditer(line):
+                findings.append(
+                    RuleFinding(
+                        file_path=file_path,
+                        line_no=line_no,
+                        rule_id=self.rule_id,
+                        message=(
+                            f"[Z601] Obsolete or unauthorized brand term '{m.group(0)}' detected. "
+                            "Use semantic versioning (e.g., 'vX.Y.Z') in active prose, or suppress if this is a historical ledger."
+                        ),
+                        severity="warning",
+                        matched_line=line,
+                        col_start=m.start(),
+                        match_text=m.group(0),
                     )
+                )
         return findings
 
 

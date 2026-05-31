@@ -220,11 +220,16 @@ LOCAL_TOML_TEMPLATE: str = (
     "# ---------------------------------------------------------------------------\n"
     "# forbidden_patterns\n"
     "# ---------------------------------------------------------------------------\n"
-    "# Z204 Privacy Gate: local secret terms (literal, case-insensitive).\n"
+    "# Z204 FORBIDDEN_TERM — Exit 2, non-suppressible.\n"
+    "# Literal strings that must never appear in published documentation.\n"
+    "# Case-insensitive substring match — single terms and phrases both work:\n"
+    '#   "openai"        → matches any line containing "openai"\n'
+    '#   "Project Titan" → matches any line containing the full phrase\n'
     "#\n"
     "# BEHAVIOR: ADDITIVE — extends the shared list; does not replace it.\n"
     "#\n"
-    '# forbidden_patterns = ["Project Titan", "internal-api.corp"]\n'
+    '# forbidden_patterns = ["openai", "Project Titan", "internal-api.corp"]\n'
+    "forbidden_patterns = []\n"
     "\n"
     "[build_context]\n"
     "# ---------------------------------------------------------------------------\n"

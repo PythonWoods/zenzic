@@ -9,107 +9,41 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
-> **Development history (v0.1.0 – v0.8.0):** See the [Historical Archives](./changelogs/README.md).
-
 ## [Unreleased]
 
-## [0.8.0] — 2026-05-30
+No changes yet.
+
+---
+
+## [0.9.0] - 2026-05-31
 
 ### Added
 
-- Initial work on Plugin SDK architecture.
-- **`zenzic score --stamp`:** Inline, deterministic badge stamping. Add `<!-- zenzic:audit-badge -->` and/or `<!-- zenzic:score-badge -->` markers to files listed in `badge_stamp_files` (config); running `zenzic score --stamp` replaces the Shields.io badge URLs on the following lines with deterministic audit + score telemetry. Eliminates external dependencies (Gist, PAT tokens) and enables Time-Traveling badges: telemetry is crystallised in each commit.
-- **`zenzic score --check-stamp`:** Read-only badge freshness verification. Computes the expected Shields.io URL for the current score, reads `badge_stamp_files` from config, and exits 1 if any configured file contains a stale badge URL. Mutually exclusive with `--stamp`. Replaces the `git diff HEAD --quiet` bash gate in `just verify`, making the freshness check config-aware, git-agnostic, and usable directly from any CI environment. `zenzic-action` runs `--check-stamp` automatically after `check all` (opt-out: `check-stamp: 'false'`).
-- **`badge_stamp_files` config field:** New `[project_metadata]` key listing the files updated by `--stamp` (default: `["README.md"]`).
-- **Domain-Aware Discovery (`CODE_ASSET_SUFFIXES`):**** Source code files (`.py`, `.pyi`, `.ts`, `.tsx`, `.rs`, `.go`, and 20+ other code extensions) are now natively exempt from Z405 `UNUSED_ASSET` enforcement in `find_unused_assets`. Files are still indexed by the discovery engine for link resolution across the docs/source boundary. No configuration change is required.
-- **Strict Local TOML Parsing:** `.zenzic.local.toml` now rejects unknown top-level keys with a fatal `ConfigurationError` (`LOCAL-TOML-STRICT`). Previously, unrecognised keys were silently discarded. Allowed sections: `core`, `build_context`, `project_metadata`, `governance`, `i18n`, `forbidden_patterns`, `secrets`, `debug`, `env`.
+- `zenzic score --stamp`: deterministic, in-file badge stamping for score telemetry.
+- `zenzic score --check-stamp`: config-aware freshness gate for stamped score badges.
+- `badge_stamp_files` project metadata key to declare stamp targets.
+- Domain-aware discovery exemptions for source-code assets in unused-asset analysis.
+- `zenzic lab` command: empirical sandbox gallery covering 100% of Z-codes (20 scenarios).
+- 15 new sandbox directories under `examples/` (z102 through z505), each with `.zenzic.toml`, `README.md`, and a minimal `docs/` tree that reliably triggers the target rule.
+- `zenzic lab all` validation gate: all 20 scenarios emit the expected exit code.
 
 ### Changed
 
-- **Flat-cost suppression model (Breaking Change):** Every inline or per-file suppression now deducts exactly 1 point from the DQS regardless of `governance.suppression_cap`. Previously suppressions within the cap cost 0 points (allowance-based). `suppression_cap` now functions exclusively as a hard-fail threshold: exceeding it causes `zenzic score` to exit with code 1. Projects relying on the allowance model will see their maximum achievable score reduced by their suppression count.
-- **`.zenzic.local.toml.example` eradicated (Phase 83):** The static template file has been deleted
-  from all repositories. Use `zenzic init --local` to generate a fresh `.zenzic.local.toml`
-  aligned to the current engine version.
-- **`zenzic init --local` added (Phase 83):** New flag scaffolds only the machine-local overlay
-  without touching the shared configuration. Ideal for contributors working in repos that already
-  have `.zenzic.toml` committed.
-- **`--dev` flag hard-removed from `zenzic init` (Phase 83):** The deprecated no-op flag has been
-  deleted. Scripts invoking `zenzic init --dev` must be updated.
-- **TOML templates hardened (Phase 83):** All three init templates (`.zenzic.toml`,
-  `.zenzic.local.toml`, `[tool.zenzic]`) now expose every available configuration field with
-  didactic comments. CI/CD snippet updated from `pipx` to `uvx`.
-- **CLI decomposition (Phase 82 — Zero-Regression):** `_check.py` reduced from 1641 → 1478 lines
-  by extracting four helpers into dedicated modules with backward-compatible re-exports:
-  `_apply_per_file_ignores` and `_apply_directory_policies` moved to `_governance.py`;
-  `_resolve_target` and `_apply_target` moved to the new `_target_resolver.py`;
-  command-setup boilerplate consolidated in the new `_command_setup.py`.
-  All 1550 tests pass unchanged.
-- **Governance hardening — `brand_obsolescence` ADDITIVE merge:** `[governance].brand_obsolescence` in `.zenzic.local.toml` now uses additive semantics. Local terms extend the global list; they can never remove globally-configured protected terms. This prevents a non-versioned local override from silently disabling brand protection policy.
-- **Z504 and Exit Code 4 relegated to Reserved/Inactive status:** `Z504 (QUALITY_REGRESSION)` and the corresponding exit code 4 emitted by `zenzic diff` have been removed from the public reference documentation. Both remain in the binary to preserve behavioral continuity but are no longer part of the documented exit-code contract, pending full differential analysis maturity.
-- **`just verify` badge freshness gate replaced with native command:** Step 5 now runs `zenzic score --check-stamp --no-header` instead of the bash `_badge-freshness-check` recipe. The gate is now config-aware (honors `badge_stamp_files`) and git-agnostic.
-- **`just verify` badge freshness gate added:** The `verify` recipe now runs `zenzic score --stamp` then `git diff --exit-code README.md README.it.md`, failing the pipeline if the committed badge does not reflect the actual score. Developers must stamp locally before pushing.
-- **CI workflow renamed to `zenzic-audit` fleet-wide:** The GitHub Actions `name:` field is now `zenzic-audit` across all repos, making the native CI badge show `zenzic-audit | passing` — an unambiguous Dual-Badge signal.
-- **Badge `alt` text normalised to lowercase kebab:** CI badges use `alt="zenzic-audit"`, Score badges use `alt="zenzic-score"` across all READMEs.
-- **Pre-push score gate wired in `.pre-commit-config.yaml`:** A `just-verify` hook with `stages: [pre-push]` is now registered. Previously, `git push` executed the pre-push hook via `pre-commit --hook-type=pre-push`, found no matching hooks, and exited 0 silently — making the score gate invisible in local development. The hook now enforces `just verify` on every push, guaranteeing locale ≡ remote parity.
-
-### Fixed
-
-- **SSoT `CodeDefinition` — Single Source of Truth for code metadata:** Severity, DQS penalty, and scoring category for every Z-code are now defined once in `codes.py` via `CODE_DEFINITIONS`. `scorer.py` derives `_CODE_PENALTY` and `_CODE_CATEGORY` from this structure at module init. `_check.py` derives finding severity via `_finding_severity()`. The `else "error"` catch-all is eliminated.
-- **ADR-031 Paradox Resolution — Z103, Z111, Z113 onboarded to penalty table:** Z103 `ORPHAN_LINK` (−2.0 pts, Structural), Z111 `VIRTUAL_ROUTE_BROKEN` (−8.0 pts, Structural, equivalent to Z101 `LINK_BROKEN`), and Z113 `AUTHOR_KEY_COLLISION` (−2.0 pts, Structural) are now part of the DQS calculation. Previously these codes blocked `zenzic check links` (CI gate) while contributing zero DQS deduction (mathematical paradox).
-- **Z114 CI gate bug fixed:** Z114 `LARGE_PAGINATION_SET` was erroneously classified as `severity="error"` by the `_check.py` catch-all despite being defined as `note` in `CODE_SARIF_LEVELS`. The SSoT migration corrects this: Z114 now correctly maps to `"info"` severity and does not trigger CI failure.
-- **Security bypass fix — ADDITIVE deep merge for `excluded_dirs`, `excluded_file_patterns`, and `custom_rules` in `.zenzic.local.toml`:** All three keys were previously rejected by `LOCAL-TOML-STRICT`, making it impossible to use them in the machine-local overlay. They now use additive merge semantics: local values extend the global baseline and can never remove globally-configured entries. For `[[custom_rules]]`, a local rule sharing an `id` with a global rule overrides that single rule while leaving all other global rules intact. The allowed-keys list and the `LOCAL-TOML-STRICT` error message have been updated accordingly.
-- **`zenzic init` MERGE SEMANTICS comment corrected:** The comment block generated by `zenzic init` in `.zenzic.local.toml` now correctly lists `brand_obsolescence`, `excluded_dirs`, `excluded_file_patterns`, and `custom_rules` as ADDITIVE, and correctly notes that `[governance]` is REPLACEMENT *except* for `brand_obsolescence`. The CI/CD snippet Python baseline has been corrected from `3.12` to `3.10`.
-- **Enforced ADR-012 namespace contract — `custom_rules.id` must start with `ZZ-`:** Custom rule IDs are now validated at config load-time by a Pydantic field validator. Any `id` not starting with the strict uppercase prefix `ZZ-` (e.g. `Z101`, `zz-mycheck`) raises a `ConfigurationError` immediately, preventing namespace collision with Core finding codes and SARIF report pollution.
-- **Governance debt payoff — 7 inline Z601 suppressions eradicated:** `<!-- zenzic:ignore: Z601 -->` markers on `CHANGELOG*.md`, `changelogs/`, and `RELEASE.md` have been removed. The corresponding paths are now covered by zero-debt `[governance.directory_policies]` exemptions (`changelogs/**`, `CHANGELOG*.md`, `RELEASE.md`), which drop findings silently with no DQS cost. `RELEASE.md` is also added to `obsolete_names_exclude_patterns`. Score restored: 94 → 100/100.
-- **`just verify` UX refactoring — actionable badge freshness error:** `git diff --exit-code README.md README.it.md` (which printed a raw diff on failure) has been replaced by a `_badge-freshness-check` private recipe that uses `git diff --quiet` and emits explicit `[ZENZIC FATAL]` / `[ZENZIC SUCCESS]` messages. `zenzic check all --strict` is now executed before `zenzic score --stamp`, ensuring structural audit output is always visible even when the badge changes. Section headers (`==> [N/5]`) make the five-step sequence legible in CI logs.
-- **Hypothesis `_PATH_SEGMENT` filter hardened:** `test_deep_nesting_detects_missing_mirror` in `test_i18n_parity.py` now excludes `SYSTEM_EXCLUDED_DIRS` names from the generated path segments. Previously, `segments=['build']` produced a file at `docs/build/page.mdx` which the scanner correctly skipped (L1 system guardrail), causing a false test failure.
-- **`zenzic score --no-header` flag added:** New flag suppresses the PythonWoods ASCII banner. Use in CI pipelines where `zenzic check all` has already printed the header, preventing banner duplication in sequential invocations. The score ledger and badge stamp output are unaffected.
-- **`just verify` I18N fix — English-only CI messages:** `[ZENZIC FATAL]` / `[ZENZIC SUCCESS]` messages in `_badge-freshness-check` translated to English (CI log language boundary: Italian reserved for user-facing `.md`/`.mdx` documentation).
-- **`just verify` badge freshness gate uses `git diff HEAD`:** Changed from `git diff --quiet` (working tree vs index) to `git diff HEAD --quiet` (working tree vs last commit). This closes a staging bypass: `git add README.md` could previously satisfy the check without an actual commit. The gate now enforces that the badge is committed, not merely staged.
+- Suppression debt model migrated to flat-cost scoring (one point per suppression).
+- `suppression_cap` behavior clarified as an independent hard-fail governance gate.
+- Local overlay parsing hardened with strict unknown-key rejection.
+- `just verify` standardized to a five-step operational sequence (hooks, tests, strict check, stamp, freshness check).
+- **Performance — Z204 (FORBIDDEN_TERM):** `scan_line_for_forbidden_terms` now accepts a pre-compiled RE2 union regex. `ZenzicConfig` builds the union once via `_recompile_forbidden_patterns()` (called in `model_post_init` and after every `_apply_local_toml` merge). Scan complexity reduced from O(N_lines × N_patterns) to O(N_lines).
+- **Performance — Z601 (BRAND_OBSOLESCENCE):** `BrandObsolescenceRule` replaced per-pattern `list[RegexPattern]` with a single RE2 union pattern compiled once at `__init__`. Same O(N_lines) reduction.
 
 ### Removed
 
-- **Static Zenzic Audit Badge eradicated — Dual-Badge Telemetry:** The hardcoded "passing" Audit badge has been replaced fleet-wide by the native GitHub Actions CI badge. Zenzic now exposes two orthogonal signals: CI status (Pass/Fail, real-time, via GitHub Actions) and DQS Score (quality of accepted code, stamped inline via `--stamp`). A red `--stamp` badge in local development is immediate, unambiguous feedback that the commit will be rejected by CI — it will never appear on main.
-- **Breaking change — `--export-shields` removed from `zenzic score`.** The Gist-based dynamic badge workflow is eradicated. Replace with `zenzic score --stamp` (see Added). Remove the `GIST_TOKEN` secret from repository settings manually.
-- **Breaking change — `map_url()` and `classify_route()` removed from `BaseAdapter` protocol.** Custom adapters that implement these methods instead of `get_route_info()` must be updated. Migration: `adapter.map_url(rel)` → `adapter.get_route_info(rel).canonical_url`; `adapter.classify_route(rel, nav_paths)` → `adapter.get_route_info(rel).status`.
-- **Breaking change — `find_orphans()` callback API removed.** The `classify_route` callback parameter is replaced by `adapter: BaseAdapter | None`.
+- Legacy adapter methods `map_url()` and `classify_route()` from the public adapter contract.
+- Legacy score export path `--export-shields` in favor of native stamp/check-stamp telemetry.
 
 ---
 
-## [0.8.0] — 2026-05-15
+## Historical Releases
 
-### Added
-
-- **Scoring Engine 2.0:** Mathematical quality assessment using tiered weights ($\omega_{tier}$) and Technical Debt penalties for suppressions ($\omega_{debt}$).
-- **Integrity Regression Check (`zenzic diff`):** Command to compare documentation state between branches; exits with code 4 on quality regression.
-- **Config Genealogy (`zenzic explain`):** Introspection command to trace rule origin (Default vs Global vs Local TOML).
-- **Rule Z108 (EMPTY_LINK_TEXT):** New validator to detect links with empty or whitespace-only labels.
-- **MDX-Native Suppressions:** Support for JSX comment syntax `{/* zenzic:ignore */}` alongside standard HTML comments.
-- **Sovereign Audit Mode (`--audit`):** Global flag to bypass all suppressions for unfiltered repository inspection.
-- **Privacy Gate (Z204):** Support for `.zenzic.local.toml` to enforce local-only forbidden patterns without repository leakage.
-- **Core Hardening:** Native exclusion of system-critical files (`.zenzic.local.toml.example`, `*.sh`, `LICENSE`) from unused asset detection (Z405).
-
-### Changed
-
-- **Total Rebranding:** Eradication of theatrical terminology (Sentinel, Shield, Blood, Siege, Epoch, Forge) across source code, documentation, and CLI.
-- **Execution Mode Normalization:** "Vanilla Mode" renamed to **"Standalone Mode"**.
-- **Rule Z106 (CIRCULAR_LINK):** Downgraded to `info` severity; no longer penalizes the Quality Score.
-- **CLI Output Standard:** Implemented "Ruff-style" UI with stderr-only headers and clean stdout for machine-readable payloads.
-- **Namespace Finalization:** Formalized Tier Model (Z1xx–Z6xx) as the stable public API for violation codes.
-- **Documentation Strategy:** Transitioned to "Agnostic Prose" (ADR-037); release codenames are treated exclusively as external identifiers.
-
-### Fixed
-
-- **Performance Optimization (ZRT-007):** Pre-compiled module-level RE2 patterns reduced regex overhead (N=10,000 links: 1.18s → 0.78s).
-- **Z108 False Positives:** Implemented raw-line cross-validation to support inline code within reference link labels.
-- **Z104 Resolution:** Eliminated false positives on infrastructure paths by standardizing GitHub Actions badges.
-- **CLI Exception Handling:** Fixed `AttributeError` in `score/diff` path through structured link error API.
-
-### Security
-
-- **DFA-Pure Runtime:** Eradicated standard-library `re` module from production paths in favor of the RE2 Anti-Corruption Layer.
-- **Z2xx Security Override:** Security findings (including Z204) now force a Quality Score of 0/100.
-
----
-
-Looking for older versions? See [Historical Archives](./changelogs/README.md).
+- v0.8.x archive: [changelogs/v0.8.md](./changelogs/v0.8.md)
+- v0.1.x–v0.7.x archive index: [changelogs/README.md](./changelogs/README.md)

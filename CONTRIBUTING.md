@@ -83,12 +83,13 @@ just verify
 ```
 
 `just verify` is the canonical entry point: pre-commit on all files → `pytest tests/` →
-`zenzic check all --strict`. The same sequence runs in GitHub Actions —
+`zenzic check all --strict` → `zenzic score --stamp` → `zenzic score --check-stamp`.
+The same sequence runs in GitHub Actions —
 **locale ≡ remote, no drift**.
 
 ---
 
-## The 4-Gates Standard
+## The 4-Lifecycle-Gates Model
 
 Zenzic enforces a deterministic quality pipeline with one atomic
 entry-point. The same `just verify` runs in three places:
@@ -97,7 +98,7 @@ entry-point. The same `just verify` runs in three places:
 |:------|:--------|:----------|:------|
 | **TDD inner loop** | `just test` | `pytest -n auto` (no coverage, parallel) | ⚡ instant |
 | **Commit** | `git commit` | Light hooks (ruff, format, file hygiene) | < 5 s |
-| **Final Guard** | `just verify` (manual or CI) | pre-commit → `pytest tests/` → `zenzic check all --strict` | < 60 s |
+| **Final Guard** | `just verify` (manual or CI) | pre-commit → `pytest tests/` → `zenzic check all --strict` → `zenzic score --stamp` → `zenzic score --check-stamp` | < 60 s |
 | **CI** | GitHub Actions | `just verify` (identical) | matches local |
 
 ---
@@ -116,7 +117,7 @@ the exact same environment as CI.
 | Test (audit) | `just test-cov` | `nox -s tests` | pytest serial + branch coverage XML (matches CI) |
 | Test (thorough) | `just test-full` | — | pytest with Hypothesis **ci** profile (500 examples) |
 | Mutation testing | — | `nox -s mutation` | mutmut on `rules.py`, `credentials.py`, `reporter.py` |
-| **Final Guard** | **`just verify`** | — | **pre-commit → `pytest tests/` → `zenzic check all --strict`** |
+| **Final Guard** | **`just verify`** | — | **pre-commit → `pytest tests/` → `zenzic check all --strict` → `zenzic score --stamp` → `zenzic score --check-stamp`** |
 | Show version | `just version` | — | Print current version from bump-my-version |
 | Release dry-run | `just release-dry patch` | — | Simulate a bump (full diff output) |
 | Release dry-run (compact) | `just release-dry patch --short` | — | Simulate a bump — 3-line summary only |
@@ -298,7 +299,7 @@ git push && git push --tags
 
 ### Bump Verification
 
-Current release baseline: `v0.8.0`.
+Current release baseline: `v0.9.0`.
 
 Before executing the final bump, maintainers must run a dry-run to identify
 hardcoded version strings that are not covered by the automation:

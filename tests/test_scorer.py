@@ -447,6 +447,9 @@ def test_score_fail_under_triggers(mock_run, mock_load, mock_root, tmp_path: Pat
     mock_load.return_value = (_CFG, True)
     result = runner.invoke(app, ["score", "--fail-under", "90"])
     assert result.exit_code == 1
+    assert (
+        "Quality Score (61) is below the configured 'fail_under' threshold (90)." in result.stdout
+    )
 
 
 @patch("zenzic.cli._standalone.find_repo_root")

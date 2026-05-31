@@ -1,0 +1,14 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# zensical.toml — Z103 ORPHAN_LINK gallery example
+#
+# Only index.md is listed in nav.
+# guide.md exists on disk but is NOT in nav → ORPHAN_BUT_EXISTING.
+# A link from index.md to guide.md triggers Z103 ORPHAN_LINK.
+
+[project]
+site_name = "Z103 Example"
+docs_dir  = "docs"
+nav = [
+    "index.md",
+]

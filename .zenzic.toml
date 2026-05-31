@@ -40,6 +40,8 @@ excluded_external_urls = [
     # contributor-covenant.org consistently times out (> 10 s) from CI environments.
     "https://www.contributor-covenant.org/version/2/1/code_of_conduct.html",
     "https://www.contributor-covenant.org",
+    # zenzic.dev documentation endpoint is intermittently unavailable in CI network paths.
+    "https://zenzic.dev/docs/",
     # Shields.io applies rate-limiting to CI runners (HTTP 429); prefix covers all badge URLs.
     "https://img.shields.io",
 ]
@@ -74,7 +76,7 @@ default_locale = "en"
 
 # --- BRAND INTEGRITY ---
 [project_metadata]
-release_name = "Basalt"
+release_name = "Graphite"
 obsolete_names_exclude_patterns = ["CHANGELOG*.md", "CHANGELOG*.archive.md", "changelogs/*.md", "RELEASE.md"]
 badge_stamp_files = ["README.md", "README.it.md"]
 
@@ -97,6 +99,7 @@ suppression_cap_fail_hard = true
 brand_obsolescence = [
     "Quartz",
     "Obsidian",
+    "Basalt",
 ]
 # suppression_cap_scope = "all"  # Options: all, per-file
 # i18n_parity = false            # Set true when i18n is enabled
