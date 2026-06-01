@@ -12,24 +12,28 @@ For the current release history, see [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
-## v0.8.x (current)
+## v0.8.x
 
 **Theme:** Tiered code governance, frozen security contracts, Sovereign Audit mode.
 
-### Planned for v0.8.x patch releases
+---
+
+## v0.9.x — Graphite (current)
+
+**Theme:** Governance Engine, DQS Suppression Audit, Tiered Penalty Model.
+
+---
+
+## v0.10.x (planned)
+
+**Theme:** File integrity contracts, semantic schema validation, Plugin SDK, config hygiene.
+
+### Planned
 
 - `Z109 STALE_ALLOWLIST_ENTRY`: config-hygiene check for unused `absolute_path_allowlist`
   entries (deferred from the v0.7.x cycle to avoid Pillar 3 violation; requires
   `zenzic config` command).
 - Windows CI matrix parity for all check commands.
-
----
-
-## v0.9.x — Graphite (planned)
-
-**Theme:** File integrity contracts, semantic schema validation, Plugin SDK.
-
-### Planned
 
 - **Logic Site Map (LSM) — Documentation Topology Simplification**: The zenzic-doc
   documentation corpus undergoes a formal deduplication pass following the Logic
@@ -53,7 +57,7 @@ For the current release history, see [CHANGELOG.md](CHANGELOG.md).
 
 - **Plugin SDK** *(WIP)*: Stable AST adapter and rule APIs with semver guarantee.
   Exposure of the two-pass reference pipeline to external rule authors.
-  Deprecation warnings for any v0.8 unstable API surfaces.
+  Deprecation warnings for any v0.9 unstable API surfaces.
 - **Semantic Schemas**: YAML/JSON frontmatter validation against declared schemas
   (e.g. `required_fields: [title, description]`). New finding tier `Z7xx`.
 - **i18n schema parity**: Z907 extended to enforce frontmatter key parity between
@@ -128,4 +132,4 @@ These constraints apply across every future release:
 
 ---
 
-Roadmap last updated: 2026-05-28
+Roadmap last updated: 2026-06-01
