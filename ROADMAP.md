@@ -77,6 +77,15 @@ For the current release history, see [CHANGELOG.md](CHANGELOG.md).
   suppression engine (`suppressions.py`) to track which inline tags are consumed
   during the scan lifecycle, then emitting a new `Z603` finding for unclaimed tags.
 
+- **Docusaurus Cross-Instance Resolver**: Upgrade `_docusaurus.py` to natively resolve
+  root-relative links (e.g., `/developers/page`) across multiple plugin instances,
+  eliminating the need for Z105 suppressions on inter-plugin routing. This includes
+  locale-aware prefix resolution (e.g., `/it/developers/`) so that translated pages
+  can link to sibling plugin instances without triggering Z105. Identified as a
+  structural gap when auditing `zenzic-doc`: Docusaurus rejects `../` relative paths
+  across plugin boundaries, forcing authors to use absolute URLs and manual
+  suppressions.
+
 ---
 
 ## v1.0.0 — Graphite LTS (planned)
