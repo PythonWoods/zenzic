@@ -62,14 +62,14 @@ dei file.
 ```bash
 pip install zenzic
 cd il-mio-repo-docs
-zenzic init       # Stabilisce il perimetro del workspace (crea zenzic.toml)
+zenzic init       # Stabilisce il perimetro del workspace (crea .zenzic.toml)
 zenzic check all  # Analizza la cartella corrente
 ```
 
 ## 🧠 Proposta di Valore
 
 - **Motore puro e deterministico:** input identici producono finding ed exit identici.
-- **Modello codici a tier:** finding Core, Structure e Governance separati per ownership, con cambi di policy espliciti e auditabili.
+- **Modello codici a tier:** finding Core, Structure e Governance raggruppati per tier.
 - **Contratti frozen per integrazioni:** `FROZEN_CODES`, `NON_SUPPRESSIBLE_CODES` e `PLUGIN_FORBIDDEN_EXITS` sono superfici stabili per CI e plugin.
 - **Workflow contributori inspect-first:** usare `zenzic inspect codes` prima di aggiornare esempi documentali o note di rilascio.
 
@@ -85,7 +85,7 @@ zenzic check all  # Analizza la cartella corrente
 | `zenzic check all [PATH]` | Audit documentazione completo — link, credenziali, orfani |
 | `zenzic score [--fail-under N] [--stamp]` | Calcola il Documentation Quality Score (0–100) |
 | `zenzic diff [--base PATH]` | Rileva regressioni di debito rispetto a una baseline salvata |
-| `zenzic guard scan [PATH]` | Pre-gate credenziali Defense-in-Depth (sempre fatale) |
+| `zenzic guard scan [PATH]` | Pre-gate credenziali Defense-in-Depth (fatale su finding di sicurezza: exit 2) |
 | `zenzic inspect codes` | Interroga la semantica live dei codici di errore e la loro sopprimibilità |
 
 ---
@@ -109,7 +109,7 @@ zenzic check all  # Analizza la cartella corrente
 
 | Motore | Adapter | Punti chiave |
 | :--- | :--- | :--- |
-| [Docusaurus v3][docusaurus] | `DocusaurusAdapter` | Versioned docs, alias `@site/`, Ghost Route detection |
+| [Docusaurus][docusaurus] | `DocusaurusAdapter` | Versioned docs, alias `@site/`, Ghost Route detection |
 | [MkDocs][mkdocs] | `MkDocsAdapter` | Modalità i18n suffix + folder, `fallback_to_default` |
 | [Zensical][zensical] | `ZensicalAdapter` | Proxy trasparente per `mkdocs.yml` |
 | Qualsiasi cartella | `StandaloneAdapter` | Controlli integrità — rilevamento orfani disabilitato senza contratto nav |
@@ -120,10 +120,10 @@ Vedi l'[Adapter API][docs-arch] per l'interfaccia plugin. I terzi adapter si ins
 
 ## ⚙️ Configurazione
 
-Zero-config per default. Vedi la [Guida alla Configurazione][docs-it-home] per lo schema completo di `zenzic.toml`.
+Zero-config per default. Vedi la [Guida alla Configurazione][docs-it-home] per lo schema completo di `.zenzic.toml` e l'embedding in `pyproject.toml`.
 
 ```bash
-zenzic init        # Genera zenzic.toml con valori auto-rilevati
+zenzic init        # Genera .zenzic.toml con valori auto-rilevati
 ```
 
 ---
@@ -211,9 +211,9 @@ Apache-2.0 — vedi [LICENSE][license].
 [docs-it-home]:      https://zenzic.dev/it/docs/
 [docs-it-badges]:    https://zenzic.dev/it/docs/how-to/add-badges/
 [docs-it-cicd]:      https://zenzic.dev/it/docs/how-to/configure-ci-cd/
-[docs-arch]:         https://zenzic.dev/developers/explanation/engineering-ledger
+[docs-arch]:         https://zenzic.dev/developers/how-to/implement-adapter
 [docs-developers]:   https://zenzic.dev/developers/
-[docs-eng-ledger]:   https://zenzic.dev/developers/explanation/engineering-ledger
+[docs-eng-ledger]:   https://zenzic.dev/developers/explanation/adr-vault
 [contributing]:      CONTRIBUTING.it.md
 [license]:           LICENSE
 [citation-cff]:      CITATION.cff

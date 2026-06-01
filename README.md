@@ -62,14 +62,14 @@ file integrity.
 ```bash
 pip install zenzic
 cd my-docs-repo
-zenzic init       # Establish the workspace boundary (creates zenzic.toml)
+zenzic init       # Establish the workspace boundary (creates .zenzic.toml)
 zenzic check all  # Audit the current directory
 ```
 
 ## 🧠 Core Pillars
 
 - **Pure, deterministic engine:** identical inputs produce identical findings and exits.
-- **Tiered code model:** Core, Structure, and Governance findings separated by ownership bands.
+- **Tiered code model:** Core, Structure, and Governance findings grouped by tier.
 - **Frozen contracts for integrators:** `FROZEN_CODES`, `NON_SUPPRESSIBLE_CODES`, and `PLUGIN_FORBIDDEN_EXITS` provide stable enforcement surfaces for CI and plugins.
 - **Inspect-first workflow:** use `zenzic inspect codes` to validate live code semantics before touching docs or release notes.
 
@@ -85,7 +85,7 @@ zenzic check all  # Audit the current directory
 | `zenzic check all [PATH]` | Full documentation audit — links, credentials, orphans |
 | `zenzic score [--fail-under N] [--stamp]` | Compute the Documentation Quality Score (0–100) |
 | `zenzic diff [--base PATH]` | Detect debt regression against a saved baseline |
-| `zenzic guard scan [PATH]` | Defense-in-Depth credential pre-gate (always fatal) |
+| `zenzic guard scan [PATH]` | Defense-in-Depth credential pre-gate (fatal on security findings: exit 2) |
 | `zenzic inspect codes` | Query live error-code semantics and suppressibility |
 
 ---
@@ -109,7 +109,7 @@ zenzic check all  # Audit the current directory
 
 | Engine | Adapter | Highlights |
 | :--- | :--- | :--- |
-| [Docusaurus v3][docusaurus] | `DocusaurusAdapter` | Versioned docs, `@site/` alias, Ghost Route detection |
+| [Docusaurus][docusaurus] | `DocusaurusAdapter` | Versioned docs, `@site/` alias, Ghost Route detection |
 | [MkDocs][mkdocs] | `MkDocsAdapter` | i18n suffix + folder modes, `fallback_to_default` |
 | [Zensical][zensical] | `ZensicalAdapter` | Transparent Proxy bridges `mkdocs.yml` |
 | Any folder | `StandaloneAdapter` | File integrity checks — orphan detection disabled without a nav contract |
@@ -120,10 +120,10 @@ See the [Adapter API][docs-arch] for the plugin interface. Third-party adapters 
 
 ## ⚙️ Configuration
 
-Zero-config by default. See the [Configuration Guide][docs-home] for the full `zenzic.toml` schema and `pyproject.toml` embedding.
+Zero-config by default. See the [Configuration Guide][docs-home] for the full `.zenzic.toml` schema and `pyproject.toml` embedding.
 
 ```bash
-zenzic init        # Generate zenzic.toml with auto-detected values
+zenzic init        # Generate .zenzic.toml with auto-detected values
 ```
 
 ---
@@ -211,9 +211,9 @@ Apache-2.0 — see [LICENSE][license].
 [docs-home]:         https://zenzic.dev/docs/
 [docs-badges]:       https://zenzic.dev/docs/how-to/add-badges/
 [docs-cicd]:         https://zenzic.dev/docs/how-to/configure-ci-cd/
-[docs-arch]:         https://zenzic.dev/developers/explanation/engineering-ledger
+[docs-arch]:         https://zenzic.dev/developers/how-to/implement-adapter
 [docs-developers]:   https://zenzic.dev/developers/
-[docs-eng-ledger]:   https://zenzic.dev/developers/explanation/engineering-ledger
+[docs-eng-ledger]:   https://zenzic.dev/developers/explanation/adr-vault
 [contributing]:      CONTRIBUTING.md
 [license]:           LICENSE
 [citation-cff]:      CITATION.cff
