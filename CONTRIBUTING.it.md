@@ -62,9 +62,9 @@ model.
 | Requisito | Versione | Note |
 |:----------|:---------|:-----|
 | **Python** | ≥ 3.10 | Motore core e CLI (Floor); validato su 3.10 & 3.14-dev in CI |
-| **uv** | latest | Package manager — `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
-| **just** | latest | Task runner — `cargo install just` o tramite il package manager del tuo OS |
-| **Node.js** | ≥ 24 | Richiesto per la CI dei docs (`zenzic-doc`) e l'upload coverage (`codecov-action@v6`) |
+| **uv** | richiesto | Package manager — `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
+| **just** | richiesto | Task runner — `cargo install just` o tramite il package manager del tuo OS |
+| **Node.js** | ≥ 24 | Richiesto per la CI dei docs (`zenzic-doc`) |
 
 La libreria Python core e la CLI funzionano senza Node. Node 24 serve solo se
 contribuisci al sito di documentazione o esegui la suite CI completa in
@@ -104,7 +104,8 @@ GitHub Actions — **locale ≡ remoto, no drift**.
 ## Il Modello a 4 Gate di Lifecycle
 
 Zenzic applica una pipeline di qualità deterministica con un singolo
-entry-point atomico. Lo stesso `just verify` gira in tre posti:
+entry-point atomico. `just verify` è il gate Final Guard/CI, mentre gli hook
+di commit eseguono il sottoinsieme light:
 
 | Stage | Trigger | Cosa esegue | Velocità |
 |:------|:--------|:------------|:---------|
@@ -125,7 +126,7 @@ usa `nox` direttamente quando ti serve l'environment esatto della CI.
 | Bootstrap | `just sync` | — | Installa / aggiorna tutti i gruppi di dipendenze |
 | **Self-lint** | **`just check`** | — | **Esegue Zenzic sui propri esempi (strict)** |
 | Test (fast) | `just test` | — | pytest `-n auto`, no coverage (TDD inner loop) |
-| Test (audit) | `just test-cov` | `nox -s tests` | pytest serial + branch coverage XML (matches CI) |
+| Test (audit) | `just test-cov` | `nox -s tests` | pytest serial + branch coverage JSON (coerente con gli artifact CI) |
 | Test (thorough) | `just test-full` | — | pytest con profilo Hypothesis **ci** (500 examples) |
 | Mutation testing | — | `nox -s mutation` | mutmut su `rules.py`, `credentials.py`, `reporter.py` |
 | **Final Guard** | **`just verify`** | — | **pre-commit → `pytest tests/` → `zenzic check all --strict` → `zenzic score --stamp` → `zenzic score --check-stamp`** |
@@ -157,18 +158,14 @@ zenzic inspect codes
 
 ### Compatibilità cross-platform
 
-Zenzic è validato su Ubuntu, Windows e macOS a ogni commit. Quando lavori con
+La validazione CI corrente gira su Ubuntu per eventi push/PR idonei che matchano i path filter del workflow. Quando lavori con
 file path in qualsiasi contributo, usa `pathlib.Path` ovunque — mai
 concatenazione di stringhe o `os.sep`. Regole chiave:
 
 - `Path("a") / "b"` — sempre, mai `"a" + os.sep + "b"` o `"a/b"` come stringa letterale.
 - Usa `.as_posix()` solo al punto di confronto contro URL o valori di config in stile POSIX.
 - Le test fixture che costruiscono path devono usare `tmp_path / "subdir"`, non `"/tmp/subdir"`.
-- Le PR che introducono concatenazione di path con `str` saranno rifiutate dalla CI matrix cross-platform.
-
-> **Nota CI matrix:** l'upload coverage usa `codecov/codecov-action@v6`, che richiede
-> il runner environment Node 24. I runner GitHub-hosted (`ubuntu-latest`) lo
-> soddisfano automaticamente; i runner self-hosted devono usare Node ≥ 24.
+- Le PR che introducono concatenazione di path con `str` saranno rifiutate dai check di governance CI.
 
 ### CI Pillar Matrix
 
@@ -178,8 +175,9 @@ versione intermedia:
 | Slot | OS | Python | Scopo |
 |------|----|--------|-------|
 | **Floor** | ubuntu-latest | `3.10` | Enforce la compatibilità minima. Se passa qui, passa ovunque ≥ 3.10. |
-| **Peak** | ubuntu-latest | `3.14` | Ultima CPython stabile; target di sviluppo primario. |
-| **Windows Anchor** | windows-latest | `3.14` | Valida path separator, encoding binario e shell compat su un anchor stabile. |
+| **Peak** | ubuntu-latest | `3.14` | Contratto CPython di picco e target di sviluppo primario. |
+
+Gli anchor Windows/macOS possono essere abilitati come slot aggiuntivi della matrix quando è pianificata l'espansione cross-platform.
 
 Se `just verify` passa sulla tua Python locale (es. 3.11 o 3.13), un
 fallimento in CI è altamente improbabile — la matrix copre le condizioni al
@@ -193,7 +191,7 @@ contorno del linguaggio, non ogni minor release.
 - **Header SPDX** su ogni file sorgente — `reuse lint` è enforced in CI.
 - Nessun testo segnaposto, `TODO` o commento stub nel codice committato.
 - I test devono passare con ≥ 80% di branch coverage.
-- Tutte le PR devono targettare `main`; i commit diretti sono bloccati dal pre-commit.
+- Tutte le PR dovrebbero targettare `main`; evita commit diretti.
 - Aggiorna `CHANGELOG.md` nello stesso commit del cambio di codice.
 
 ## Sicurezza & Compliance
@@ -303,21 +301,20 @@ Le release sono **semi-automatizzate**: lo sviluppatore decide il tipo di
 bump, un comando fa il resto.
 
 ```bash
-# 1. Ensure main is green (preflight passed)
-nox -s preflight
+# 1. Assicurati che il branch sia pulito e i check siano verdi
+just verify
 
-# 2. Bump version, create commit and tag automatically
-nox -s bump -- patch     # 0.1.0 → 0.1.1  (bug fix)
-nox -s bump -- minor     # 0.1.0 → 0.2.0  (new feature, backward compatible)
-nox -s bump -- major     # 0.1.0 → 1.0.0  (breaking change)
+# 2. Anteprima delle modifiche di versione (dry-run)
+just release-dry patch   # oppure minor/major
 
-# 3. Push — this triggers the release workflow
+# 3. Applica il bump di versione, commit e tag
+just release patch       # oppure minor/major
+
+# 4. Push di commit e tag — questo attiva il workflow di release
 git push && git push --tags
 ```
 
 ### Bump Verification
-
-Baseline di release corrente: `v0.9.0`.
 
 Prima di eseguire il bump finale, i maintainer devono eseguire un dry-run per
 identificare stringhe di versione hardcoded che non sono coperte
@@ -338,8 +335,9 @@ log come atto finale di governance semantica.
 Il workflow `release.yml` poi:
 
 1. Esegue `uv build` (sdist + wheel)
-2. Pubblica su PyPI tramite `uv publish` (richiede il secret `PYPI_TOKEN`)
-3. Crea una GitHub Release con note auto-generate
+2. Impacchetta il brand kit (`assets/brand/`)
+3. Genera l'attestazione di provenienza della build
+4. Crea una GitHub Release con note auto-generate e artifact allegati
 
 Aggiorna `CHANGELOG.md` prima del bump: sposta gli item da `[Unreleased]`
 alla nuova sezione di versione.
