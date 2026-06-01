@@ -211,9 +211,9 @@ Apache-2.0 — see [LICENSE][license].
 [docs-home]:         https://zenzic.dev/docs/
 [docs-badges]:       https://zenzic.dev/docs/how-to/add-badges/
 [docs-cicd]:         https://zenzic.dev/docs/how-to/configure-ci-cd/
-[docs-arch]:         https://zenzic.dev/developers/explanation/engineering-ledger
+[docs-arch]:         https://zenzic.dev/developers/how-to/implement-adapter
 [docs-developers]:   https://zenzic.dev/developers/
-[docs-eng-ledger]:   https://zenzic.dev/developers/explanation/engineering-ledger
+[docs-eng-ledger]:   https://zenzic.dev/developers/explanation/adr-vault
 [contributing]:      CONTRIBUTING.md
 [license]:           LICENSE
 [citation-cff]:      CITATION.cff
