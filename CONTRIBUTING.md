@@ -51,9 +51,9 @@ the live code registry and tier ownership model.
 | Requirement | Version | Notes |
 |:------------|:--------|:------|
 | **Python** | ≥ 3.10 | Core engine and CLI (Floor); validated on 3.10 & 3.14-dev in CI |
-| **uv** | latest | Package manager — `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
-| **just** | latest | Task runner — `cargo install just` or via your OS package manager |
-| **Node.js** | ≥ 24 | Required for docs CI (`zenzic-doc`) and coverage upload (`codecov-action@v6`) |
+| **uv** | required | Package manager — `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
+| **just** | required | Task runner — `cargo install just` or via your OS package manager |
+| **Node.js** | ≥ 24 | Required for docs CI (`zenzic-doc`) |
 
 The core Python library and CLI work without Node. Node 24 is only needed if you are
 contributing to the documentation site or running the full CI suite locally.
@@ -92,7 +92,8 @@ The same sequence runs in GitHub Actions —
 ## The 4-Lifecycle-Gates Model
 
 Zenzic enforces a deterministic quality pipeline with one atomic
-entry-point. The same `just verify` runs in three places:
+entry-point. `just verify` is the Final Guard/CI gate, while commit hooks run
+the light subset:
 
 | Stage | Trigger | What runs | Speed |
 |:------|:--------|:----------|:------|
@@ -114,7 +115,7 @@ the exact same environment as CI.
 | Bootstrap | `just sync` | — | Install / update all dependency groups |
 | **Self-lint** | **`just check`** | — | **Run Zenzic on its own examples (strict)** |
 | Test (fast) | `just test` | — | pytest `-n auto`, no coverage (TDD inner loop) |
-| Test (audit) | `just test-cov` | `nox -s tests` | pytest serial + branch coverage XML (matches CI) |
+| Test (audit) | `just test-cov` | `nox -s tests` | pytest serial + branch coverage JSON (matches CI artifacts) |
 | Test (thorough) | `just test-full` | — | pytest with Hypothesis **ci** profile (500 examples) |
 | Mutation testing | — | `nox -s mutation` | mutmut on `rules.py`, `credentials.py`, `reporter.py` |
 | **Final Guard** | **`just verify`** | — | **pre-commit → `pytest tests/` → `zenzic check all --strict` → `zenzic score --stamp` → `zenzic score --check-stamp`** |
@@ -145,18 +146,14 @@ zenzic inspect codes
 
 ### Cross-platform compatibility
 
-Zenzic is validated on Ubuntu, Windows, and macOS on every commit. When working with file
+Current CI validation runs on Ubuntu for eligible push/PR events that match workflow path filters. When working with file
 paths in any contribution, use `pathlib.Path` throughout — never string concatenation or
 `os.sep`. Key rules:
 
 - `Path("a") / "b"` — always, never `"a" + os.sep + "b"` or `"a/b"` as a string literal.
 - Use `.as_posix()` only at the point of comparison against URLs or POSIX-style config values.
 - Test fixtures that construct paths must use `tmp_path / "subdir"`, not `"/tmp/subdir"`.
-- PRs that introduce `str` path concatenation will be rejected by the cross-platform CI matrix.
-
-> **CI matrix note:** Coverage upload uses `codecov/codecov-action@v6`, which requires the
-> Node 24 runner environment. GitHub-hosted runners (`ubuntu-latest`) satisfy this
-> automatically; self-hosted runners must use Node ≥ 24.
+- PRs that introduce `str` path concatenation will be rejected by CI governance checks.
 
 ### CI Pillar Matrix
 
@@ -166,8 +163,9 @@ intermediate version:
 | Slot | OS | Python | Purpose |
 |------|----|--------|---------|
 | **Floor** | ubuntu-latest | `3.10` | Enforces minimum compatibility. If it passes here, it passes everywhere ≥ 3.10. |
-| **Peak** | ubuntu-latest | `3.14` | Latest stable CPython; primary dev target. |
-| **Windows Anchor** | windows-latest | `3.14` | Validates path separators, binary encoding, and shell compat on a stable anchor. |
+| **Peak** | ubuntu-latest | `3.14` | Peak CPython contract and primary development target. |
+
+Windows/macOS anchors can be enabled as additional matrix slots when cross-platform expansion is scheduled.
 
 If `just verify` passes on your local Python (e.g. 3.11 or 3.13), CI failure is highly
 unlikely — the matrix covers the language boundary conditions, not every minor release.
@@ -180,7 +178,7 @@ unlikely — the matrix covers the language boundary conditions, not every minor
 - **SPDX header** on every source file — `reuse lint` is enforced in CI.
 - No placeholder text, `TODO`, or stub comments in committed code.
 - Tests must pass with ≥ 80% branch coverage.
-- All PRs must target `main`; direct commits are blocked by pre-commit.
+- All PRs should target `main`; avoid direct commits.
 - Update `CHANGELOG.md` in the same commit as the code change.
 
 ## Security & Compliance
@@ -285,21 +283,20 @@ annotation comment automatically. Commit the diff and verify with
 Releases are **semi-automated**: the developer decides the bump type, one command does the rest.
 
 ```bash
-# 1. Ensure main is green (preflight passed)
-nox -s preflight
+# 1. Ensure branch is clean and checks are green
+just verify
 
-# 2. Bump version, create commit and tag automatically
-nox -s bump -- patch     # 0.1.0 → 0.1.1  (bug fix)
-nox -s bump -- minor     # 0.1.0 → 0.2.0  (new feature, backward compatible)
-nox -s bump -- major     # 0.1.0 → 1.0.0  (breaking change)
+# 2. Preview version changes (dry-run)
+just release-dry patch   # or minor/major
 
-# 3. Push — this triggers the release workflow
+# 3. Apply the version bump, commit, and create tag
+just release patch       # or minor/major
+
+# 4. Push commit and tag — this triggers the release workflow
 git push && git push --tags
 ```
 
 ### Bump Verification
-
-Current release baseline: `v0.9.0`.
 
 Before executing the final bump, maintainers must run a dry-run to identify
 hardcoded version strings that are not covered by the automation:
@@ -319,7 +316,8 @@ final act of semantic governance.
 The `release.yml` workflow then:
 
 1. Runs `uv build` (sdist + wheel)
-2. Publishes to PyPI via `uv publish` (requires `PYPI_TOKEN` secret)
-3. Creates a GitHub Release with auto-generated notes
+2. Packages the brand kit assets (`assets/brand/`)
+3. Generates build provenance attestation
+4. Creates a GitHub Release with auto-generated notes and attached artifacts
 
 Update `CHANGELOG.md` before bumping: move items from `[Unreleased]` to the new version section.
