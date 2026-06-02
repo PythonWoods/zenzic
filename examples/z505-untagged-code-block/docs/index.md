@@ -20,7 +20,7 @@ just ` ``` ` without a language tag like `bash` or `text` → **Z505**.
 ## What Zenzic Reports
 
 ```text
-docs/index.md:9:  Z505  UNTAGGED_CODE_BLOCK  fenced code block has no language specifier
+docs/index.md:13:  Z505  UNTAGGED_CODE_BLOCK  fenced code block has no language specifier
 ```
 
 Run `zenzic check content` to reproduce the finding.

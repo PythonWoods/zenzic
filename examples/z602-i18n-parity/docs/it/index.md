@@ -3,7 +3,7 @@
 
 # Avvio rapido
 
-Questo documento è la traduzione IT della pagina principale.
+Questa pagina è la traduzione IT della pagina principale.
 Il file `docs/it/guide.md` è **intenzionalmente assente** — Zenzic emette Z602.
 
 ## Installazione

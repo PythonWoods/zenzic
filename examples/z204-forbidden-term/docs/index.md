@@ -9,7 +9,7 @@ demonstrating **Z204 FORBIDDEN_TERM** detection.
 ## Forbidden Term Occurrence
 
 The development team is building **ProjectX** — our internal codename for the
-next-generation platform. This page was drafted before the public launch and
+next-generation platform. This page was written before the public launch and
 still contains the internal codename that must not appear in published docs.
 
 The staging environment is available at `staging.internal.corp` for QA purposes.
@@ -17,7 +17,7 @@ The staging environment is available at `staging.internal.corp` for QA purposes.
 ## What Zenzic Reports
 
 ```text
-docs/index.md:9:  Z204  FORBIDDEN_TERM  Forbidden term detected — remove from documentation: 'ProjectX'
+docs/index.md:11:  Z204  FORBIDDEN_TERM  Forbidden term detected — remove from documentation: 'ProjectX'
 ```
 
 Z204 is non-suppressible. Exit code 2. The CLI shows "POLICY VIOLATION DETECTED".

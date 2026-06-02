@@ -13,6 +13,5 @@ See the [API documentation][api] for endpoint details.
 The new [API][api] includes a breaking change in `/v2/auth`.
 
 [api]: https://api-v1.example.com
-
 <!-- The `api` reference ID is defined twice above — once for v1, once for v2.
      That is the intentional defect that triggers Z303. -->

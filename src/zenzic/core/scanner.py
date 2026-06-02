@@ -1062,8 +1062,11 @@ def check_image_alt_text(
     findings: list[ReferenceFinding] = []
 
     for lineno, line in enumerate(text.splitlines(), start=1):
+        # Blank out inline code to avoid false matches
+        clean = _INLINE_CODE_RE.sub(lambda m: " " * len(m.group()), line)
+
         # Inline Markdown images
-        for m in _RE_IMAGE_INLINE.finditer(line):
+        for m in _RE_IMAGE_INLINE.finditer(clean):
             alt_text = m.group(1)
             url = m.group(2)
             if not alt_text.strip():
@@ -1078,7 +1081,7 @@ def check_image_alt_text(
                 )
 
         # HTML <img> tags
-        for img_match in _RE_HTML_IMG.finditer(line):
+        for img_match in _RE_HTML_IMG.finditer(clean):
             tag = img_match.group()
             alt_match = _RE_HTML_ALT.search(tag)
             src = tag  # fallback label when src is hard to extract
@@ -1123,6 +1126,7 @@ class ReferenceScanner:
         self.file_path = file_path
         self.ref_map: ReferenceMap = ReferenceMap()
         self._config = config or ZenzicConfig()
+        self.missing_alts: list[ReferenceFinding] = []
 
     # ── Pass 1: Harvesting & Credential Scanner ────────────────────────────────
 
@@ -1210,13 +1214,40 @@ class ReferenceScanner:
                 continue
 
             # ── Alt-text: inline images ───────────────────────────────────────
-            for img_match in _RE_IMAGE_INLINE.finditer(line):
+            clean = _INLINE_CODE_RE.sub(lambda m: " " * len(m.group()), line)
+            for img_match in _RE_IMAGE_INLINE.finditer(clean):
                 alt_text = img_match.group(1)
                 url = img_match.group(2)
                 if alt_text.strip():
                     content_events.append((lineno, "IMG", (alt_text, url)))
                 else:
                     content_events.append((lineno, "MISSING_ALT", url))
+                    self.missing_alts.append(
+                        ReferenceFinding(
+                            file_path=self.file_path,
+                            line_no=lineno,
+                            issue="Z403",
+                            detail=f"Image '{url}' has no alt text.",
+                            is_warning=True,
+                        )
+                    )
+
+            # ── Alt-text: HTML <img> tags ─────────────────────────────────────
+            for img_match in _RE_HTML_IMG.finditer(clean):
+                tag = img_match.group()
+                alt_match = _RE_HTML_ALT.search(tag)
+                src = tag
+                if alt_match is None or not alt_match.group(1).strip():
+                    content_events.append((lineno, "MISSING_ALT", src))
+                    self.missing_alts.append(
+                        ReferenceFinding(
+                            file_path=self.file_path,
+                            line_no=lineno,
+                            issue="Z403",
+                            detail=f"HTML <img> tag has no alt text: {src[:60]}",
+                            is_warning=True,
+                        )
+                    )
 
         # Yield all events in line-number order
         yield from sorted(credential_events + content_events, key=lambda e: e[0])
@@ -1320,6 +1351,8 @@ class ReferenceScanner:
                     is_warning=True,
                 )
             )
+
+        findings.extend(self.missing_alts)
 
         return IntegrityReport(
             file_path=self.file_path,

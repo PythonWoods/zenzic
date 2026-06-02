@@ -20,3 +20,5 @@ locales      = ["it"]
 
 [i18n]
 enabled = true
+base_source = "docs/en"
+targets = { it = "docs/it" }

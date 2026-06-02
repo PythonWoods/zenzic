@@ -18,7 +18,7 @@ The `![](diagram.png)` syntax above has an empty alt attribute → **Z403**.
 ## What Zenzic Reports
 
 ```text
-docs/index.md:9:  Z403  MISSING_ALT  image 'diagram.png' has no alt text
+docs/index.md:14:  Z403  MISSING_ALT  image 'diagram.png' has no alt text
 ```
 
 Run `zenzic check assets` to reproduce the finding.

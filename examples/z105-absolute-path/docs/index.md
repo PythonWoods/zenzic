@@ -12,7 +12,7 @@ This page uses an absolute path link, demonstrating **Z105 ABSOLUTE_PATH** detec
 ## What Zenzic Reports
 
 ```text
-docs/index.md:7:  Z105  ABSOLUTE_PATH  '/guide' — use a relative path
+docs/index.md:10:  Z105  ABSOLUTE_PATH  '/guide' — use a relative path
 ```
 
 Absolute paths break portability when a site is served from a subdirectory.
