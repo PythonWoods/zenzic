@@ -17,7 +17,7 @@ secret_key: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
 ```
 
 > **Security note:** This is a documentation example demonstrating Z201
-> CREDENTIAL_SECRET detection. Replace placeholder values with your actual
+> CREDENTIAL_SECRET detection. Replace example values with your actual
 > credentials via environment variables — never commit real keys to version
 > control.
 

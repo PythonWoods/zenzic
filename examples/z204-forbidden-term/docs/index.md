@@ -9,7 +9,7 @@ demonstrating **Z204 FORBIDDEN_TERM** detection.
 ## Forbidden Term Occurrence
 
 The development team is building **ProjectX** — our internal codename for the
-next-generation platform. This page was drafted before the public launch and
+next-generation platform. This page was written before the public launch and
 still contains the internal codename that must not appear in published docs.
 
 The staging environment is available at `staging.internal.corp` for QA purposes.

@@ -1123,6 +1123,7 @@ class ReferenceScanner:
         self.file_path = file_path
         self.ref_map: ReferenceMap = ReferenceMap()
         self._config = config or ZenzicConfig()
+        self.missing_alts: list[ReferenceFinding] = []
 
     # ── Pass 1: Harvesting & Credential Scanner ────────────────────────────────
 
@@ -1217,6 +1218,32 @@ class ReferenceScanner:
                     content_events.append((lineno, "IMG", (alt_text, url)))
                 else:
                     content_events.append((lineno, "MISSING_ALT", url))
+                    self.missing_alts.append(
+                        ReferenceFinding(
+                            file_path=self.file_path,
+                            line_no=lineno,
+                            issue="Z403",
+                            detail=f"Image '{url}' has no alt text.",
+                            is_warning=True,
+                        )
+                    )
+
+            # ── Alt-text: HTML <img> tags ─────────────────────────────────────
+            for img_match in _RE_HTML_IMG.finditer(line):
+                tag = img_match.group()
+                alt_match = _RE_HTML_ALT.search(tag)
+                src = tag
+                if alt_match is None or not alt_match.group(1).strip():
+                    content_events.append((lineno, "MISSING_ALT", src))
+                    self.missing_alts.append(
+                        ReferenceFinding(
+                            file_path=self.file_path,
+                            line_no=lineno,
+                            issue="Z403",
+                            detail=f"HTML <img> tag has no alt text: {src[:60]}",
+                            is_warning=True,
+                        )
+                    )
 
         # Yield all events in line-number order
         yield from sorted(credential_events + content_events, key=lambda e: e[0])
@@ -1320,6 +1347,8 @@ class ReferenceScanner:
                     is_warning=True,
                 )
             )
+
+        findings.extend(self.missing_alts)
 
         return IntegrityReport(
             file_path=self.file_path,
