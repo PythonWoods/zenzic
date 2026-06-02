@@ -15,6 +15,15 @@ No changes yet.
 
 ---
 
+## [0.9.1] - 2026-06-02
+
+### Fixed
+
+- Core scanner integration fix for `Z403 MISSING_ALT_TEXT` to align fixture coverage with production scan paths.
+- Fixture line-number correction in scanner test cases to keep finding locations deterministic and stable.
+
+---
+
 ## [0.9.0] - 2026-05-31
 
 ### Added
