@@ -17,6 +17,16 @@ No changes yet.
 
 ## [0.9.1] - 2026-06-02
 
+### Added
+
+- Native engine, fixtures, lab, and test validation coverage for `Z107 CIRCULAR_ANCHOR` (self-referential anchor link) and `Z104 FILE_NOT_FOUND`.
+
+### Changed
+
+- **Unified Score Exclusions Pipeline:** Refactored `zenzic score` calculations (`_run_all_checks` in `_standalone.py`) to run the exact same `_collect_all_results` -> `_to_findings` pipeline as `check all`. Suppression exclusions (`per_file_ignores` and `directory_policies`) are now applied identically to ensure DQS aligns perfectly with linter findings.
+- **Repository-Relative Path Resolution:** Refactored path mapping across the core engine scanner (`scanner.py`), CLI check commands (`_check.py`), findings reporter (`reporter.py`), and governance filter (`_governance.py`) to strictly resolve all finding relative paths against `repo_root` instead of `docs_root`, eliminating path inconsistencies.
+- **Badge Stamping Path Resolution:** Fixed `score --stamp` and `score --check-stamp` path resolution so that configured `badge_stamp_files` paths are resolved relative to the target project's `repo_root` instead of the process's working directory.
+
 ### Fixed
 
 - Core scanner integration fix for `Z403 MISSING_ALT_TEXT` to align fixture coverage with production scan paths.
@@ -24,35 +34,8 @@ No changes yet.
 
 ---
 
-## [0.9.0] - 2026-05-31
-
-### Added
-
-- `zenzic score --stamp`: deterministic, in-file badge stamping for score telemetry.
-- `zenzic score --check-stamp`: config-aware freshness gate for stamped score badges.
-- `badge_stamp_files` project metadata key to declare stamp targets.
-- Domain-aware discovery exemptions for source-code assets in unused-asset analysis.
-- `zenzic lab` command: empirical sandbox gallery covering 100% of Z-codes (20 scenarios).
-- 15 new sandbox directories under `examples/` (z102 through z505), each with `.zenzic.toml`, `README.md`, and a minimal `docs/` tree that reliably triggers the target rule.
-- `zenzic lab all` validation gate: all 20 scenarios emit the expected exit code.
-
-### Changed
-
-- Suppression debt model migrated to flat-cost scoring (one point per suppression).
-- `suppression_cap` behavior clarified as an independent hard-fail governance gate.
-- Local overlay parsing hardened with strict unknown-key rejection.
-- `just verify` standardized to a five-step operational sequence (hooks, tests, strict check, stamp, freshness check).
-- **Performance — Z204 (FORBIDDEN_TERM):** `scan_line_for_forbidden_terms` now accepts a pre-compiled RE2 union regex. `ZenzicConfig` builds the union once via `_recompile_forbidden_patterns()` (called in `model_post_init` and after every `_apply_local_toml` merge). Scan complexity reduced from O(N_lines × N_patterns) to O(N_lines).
-- **Performance — Z601 (BRAND_OBSOLESCENCE):** `BrandObsolescenceRule` replaced per-pattern `list[RegexPattern]` with a single RE2 union pattern compiled once at `__init__`. Same O(N_lines) reduction.
-
-### Removed
-
-- Legacy adapter methods `map_url()` and `classify_route()` from the public adapter contract.
-- Legacy score export path `--export-shields` in favor of native stamp/check-stamp telemetry.
-
----
-
 ## Historical Releases
 
+- v0.9.x archive: [changelogs/v0.9.md](./changelogs/v0.9.md)
 - v0.8.x archive: [changelogs/v0.8.md](./changelogs/v0.8.md)
 - v0.1.x–v0.7.x archive index: [changelogs/README.md](./changelogs/README.md)
