@@ -47,18 +47,6 @@ replace = 'dependencies = ["zenzic>={new_version}"]'
 # markers are still present in the file body.
 
 [[tool.bumpversion.files]]
-filename = "CONTRIBUTING.md"
-search = "v{current_version}"
-replace = "v{new_version}"
-serialize = ["{major}.{minor}.{patch}{pre_l}{pre_n}", "{major}.{minor}.{patch}"]
-
-[[tool.bumpversion.files]]
-filename = "CONTRIBUTING.it.md"
-search = "v{current_version}"
-replace = "v{new_version}"
-serialize = ["{major}.{minor}.{patch}{pre_l}{pre_n}", "{major}.{minor}.{patch}"]
-
-[[tool.bumpversion.files]]
 filename = "RELEASE.md"
 search = "{current_version}"
 replace = "{new_version}"
