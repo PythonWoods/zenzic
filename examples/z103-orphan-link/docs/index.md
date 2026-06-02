@@ -18,7 +18,7 @@ The following link points to a page that exists on disk but has no nav entry:
 ## What Zenzic Reports
 
 ```text
-docs/index.md:7:  Z103  ORPHAN_LINK  'guide.md' exists but is not reachable via site navigation
+docs/index.md:16:  Z103  ORPHAN_LINK  'guide.md' exists but is not reachable via site navigation
 ```
 
 Run `zenzic check links` to reproduce the finding.

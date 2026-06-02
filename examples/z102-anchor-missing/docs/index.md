@@ -13,7 +13,7 @@ demonstrating **Z102 ANCHOR_MISSING** detection.
 ## What Zenzic Reports
 
 ```text
-docs/index.md:7:  Z102  ANCHOR_MISSING  guide.md#nonexistent-section — anchor not found on target page
+docs/index.md:11:  Z102  ANCHOR_MISSING  guide.md#nonexistent-section — anchor not found on target page
 ```
 
 Run `zenzic check links` to reproduce the finding.

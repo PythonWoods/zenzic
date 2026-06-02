@@ -21,7 +21,7 @@ expression. Zenzic's `ast`-based validator catches this → **Z503**.
 ## What Zenzic Reports
 
 ```text
-docs/index.md:10:  Z503  SNIPPET_ERROR  Python block has a syntax error: invalid syntax (<unknown>, line 2)
+docs/index.md:13:  Z503  SNIPPET_ERROR  Python block has a syntax error: invalid syntax (<unknown>, line 2)
 ```
 
 Run `zenzic check content` to reproduce the finding.

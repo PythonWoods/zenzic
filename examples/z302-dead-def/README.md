@@ -26,7 +26,7 @@ zenzic check references
 ## Expected output
 
 ```text
-docs/index.md:12:  Z302  DEAD_DEF  reference ID 'setup' defined but never used
+docs/index.md:16:  Z302  DEAD_DEF  reference ID 'setup' defined but never used
 ```
 
 Exit code **1**.

@@ -18,8 +18,8 @@ Coming soon!
 ## What Zenzic Reports
 
 ```text
-docs/index.md:7:   Z501  PLACEHOLDER  placeholder pattern 'TODO:' matched
-docs/index.md:11:  Z501  PLACEHOLDER  placeholder pattern 'Coming soon!' matched
+docs/index.md:10:  Z501  PLACEHOLDER  placeholder pattern 'TODO:' matched
+docs/index.md:16:  Z501  PLACEHOLDER  placeholder pattern 'Coming soon!' matched
 ```
 
 Run `zenzic check content` to reproduce the findings.

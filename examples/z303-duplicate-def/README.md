@@ -26,7 +26,7 @@ zenzic check references
 ## Expected output
 
 ```text
-docs/index.md:13:  Z303  DUPLICATE_DEF  reference ID 'api' defined more than once
+docs/index.md:16:  Z303  DUPLICATE_DEF  reference ID 'api' defined more than once
 ```
 
 Exit code **1**.

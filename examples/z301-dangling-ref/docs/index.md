@@ -17,7 +17,7 @@ anywhere in this file — that is the intentional defect that triggers Z301.
 ## What Zenzic Reports
 
 ```text
-docs/index.md:9:  Z301  DANGLING_REF  reference ID 'missing-ref' is used but never defined
+docs/index.md:12:  Z301  DANGLING_REF  reference ID 'missing-ref' is used but never defined
 ```
 
 Run `zenzic check references` to reproduce the finding.

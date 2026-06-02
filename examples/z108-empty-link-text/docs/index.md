@@ -12,7 +12,7 @@ This page contains a link with an empty label, demonstrating **Z108 EMPTY_LINK_T
 ## What Zenzic Reports
 
 ```text
-docs/index.md:7:  Z108  EMPTY_LINK_TEXT  link to 'guide.md' has no label
+docs/index.md:10:  Z108  EMPTY_LINK_TEXT  link to 'guide.md' has no label
 ```
 
 Run `zenzic check links` to reproduce the finding.

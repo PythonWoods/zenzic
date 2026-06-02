@@ -13,7 +13,7 @@ demonstrating **Z202 PATH_TRAVERSAL** detection.
 ## What Zenzic Reports
 
 ```text
-docs/index.md:7:  Z202  PATH_TRAVERSAL  '../../private/secret.txt' escapes the docs/ root boundary
+docs/index.md:11:  Z202  PATH_TRAVERSAL  '../../private/secret.txt' escapes the docs/ root boundary
 ```
 
 Z202 is non-suppressible. Exit code 2.

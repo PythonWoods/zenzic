@@ -17,7 +17,7 @@ The staging environment is available at `staging.internal.corp` for QA purposes.
 ## What Zenzic Reports
 
 ```text
-docs/index.md:9:  Z204  FORBIDDEN_TERM  Forbidden term detected — remove from documentation: 'ProjectX'
+docs/index.md:11:  Z204  FORBIDDEN_TERM  Forbidden term detected — remove from documentation: 'ProjectX'
 ```
 
 Z204 is non-suppressible. Exit code 2. The CLI shows "POLICY VIOLATION DETECTED".
