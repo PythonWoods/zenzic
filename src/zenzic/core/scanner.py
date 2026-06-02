@@ -191,7 +191,7 @@ def calculate_orphans(all_md: set[str], nav_paths: set[str] | frozenset[str]) ->
     return sorted(all_md - nav_paths)
 
 
-def _map_credential_to_finding(sf: SecurityFinding, docs_root: Path) -> Finding:
+def _map_credential_to_finding(sf: SecurityFinding, repo_root: Path) -> Finding:
     """Convert a :class:`SecurityFinding` into a reporter :class:`Finding`.
 
     This is the **sole authorised bridge** between the credential detection layer
@@ -204,7 +204,7 @@ def _map_credential_to_finding(sf: SecurityFinding, docs_root: Path) -> Finding:
         sf: A secret detection result from :func:`~zenzic.core.credentials.scan_line_for_secrets`,
             :func:`~zenzic.core.credentials.scan_url_for_secrets`, or
             :func:`~zenzic.core.credentials.scan_line_for_forbidden_terms`.
-        docs_root: Absolute path to the docs root directory used to compute
+        repo_root: Absolute path to the repo root directory used to compute
             a project-relative display path.
 
     Returns:
@@ -213,7 +213,7 @@ def _map_credential_to_finding(sf: SecurityFinding, docs_root: Path) -> Finding:
         with code ``"Z204"``; all other credential scanner findings use ``"Z201"``.
     """
     try:
-        rel = str(sf.file_path.relative_to(docs_root))
+        rel = str(sf.file_path.relative_to(repo_root))
     except ValueError:
         rel = str(sf.file_path)
 

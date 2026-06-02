@@ -181,6 +181,28 @@ unlikely — the matrix covers the language boundary conditions, not every minor
 - All PRs should target `main`; avoid direct commits.
 - Update `CHANGELOG.md` in the same commit as the code change.
 
+## REUSE Compliance & Copyright
+
+This project is REUSE-compliant and enforced as a merge gate.
+
+- Significant changes (new logic, new content, or substantial refactors) **MUST** add an author copyright line via SPDX.
+- Trivial edits (for example, typo-only fixes) do not require adding a new copyright line.
+- Any PR that adds new files or significantly modifies existing files without required SPDX attribution is rejected (Exit Code 1 in CI gate policy).
+
+Example header pattern:
+
+```text
+SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+SPDX-FileCopyrightText: 2026 Contributor Name <contributor@example.com>
+SPDX-License-Identifier: Apache-2.0
+```
+
+Legal model:
+
+- No CLA is required.
+- Contributions are governed by DCO (Developer Certificate of Origin) plus REUSE/SPDX attribution.
+- Contributors retain copyright over significant modifications.
+
 ## Security & Compliance
 
 - **Security First:** Any new path resolution MUST be tested against Path Traversal. Use `PathTraversal` logic from `core`.

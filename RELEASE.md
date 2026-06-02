@@ -2,12 +2,14 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 # Release Procedure — Zenzic Core
 
+> **[MAINTAINER SOP]** *This document contains the Standard Operating Procedure for Core Maintainers to cut and publish a new release. If you are an end-user looking for new features, please see the [CHANGELOG](./CHANGELOG.md).*
+
 ## Release Metadata
 
 | Field    | Value      |
 | :------- | :--------- |
 | Version  | v0.9.1     |
-| Codename | Basalt     |
+| Codename | Graphite   |
 | Date     | 2026-06-02 |
 | Status   | Stable     |
 
@@ -32,7 +34,7 @@ Before tagging, every item must be green:
 
 ```bash
 # Bump version
-uv run bump-my-version bump minor
+uv run bump-my-version bump patch
 
 # Build wheel + sdist
 python -m build
@@ -46,8 +48,14 @@ Distribution target: **PyPI** — `pip install zenzic` / `uvx zenzic`.
 ## Tag & Push
 
 ```bash
+# 1. Merge the release branch into main via PR first!
+# 2. Switch to main and pull latest
+git checkout main
+git pull origin main
+
+# 3. Tag the main branch and push
 git tag v0.9.1
-git push origin release/v0.9.1 --tags
+git push origin main --tags
 ```
 
 - [ ] Create GitHub Release from the tag, using the `## v0.9.1` CHANGELOG section as the release body.

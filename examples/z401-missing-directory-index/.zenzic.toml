@@ -1,0 +1,17 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# .zenzic.toml — Z401 MISSING_DIRECTORY_INDEX gallery example
+#
+# docs/guide/ contains guide/page.md but has no index.md.
+# Visiting /guide/ in the built site will return a 404.
+# Zenzic fires Z401 (info) — exit 0.  Run with --show-info to see it.
+#
+# Expected results:
+#   zenzic check all             → EXIT 0  (Z401 ×1, suppressed as info)
+#   zenzic check all --show-info → EXIT 0  (Z401 ×1 visible)
+
+docs_dir = "docs"
+fail_under = 0
+
+[build_context]
+engine = "zensical"

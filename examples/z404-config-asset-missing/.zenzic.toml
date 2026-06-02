@@ -1,0 +1,16 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# .zenzic.toml — Z404 CONFIG_ASSET_MISSING gallery example
+#
+# mkdocs.yml declares theme.logo = assets/logo.svg, but
+# docs/assets/logo.svg does not exist on disk.
+# Zenzic fires Z404 CONFIG_ASSET_MISSING (warning) — exit 0.
+#
+# Expected results:
+#   zenzic check all   → EXIT 0  (Z404 ×1, warning)
+
+docs_dir = "docs"
+fail_under = 0
+
+[build_context]
+engine = "mkdocs"

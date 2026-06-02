@@ -24,11 +24,7 @@ from zenzic.core import regex as re
 from zenzic.core.exceptions import ConfigurationError
 from zenzic.core.exclusion import LayeredExclusionManager
 from zenzic.core.scanner import (
-    find_orphans,
-    find_placeholders,
     find_repo_root,
-    find_unused_assets,
-    scan_docs_references,
 )
 from zenzic.core.scorer import (
     CategoryScore,
@@ -38,11 +34,6 @@ from zenzic.core.scorer import (
     save_snapshot,
 )
 from zenzic.core.ui import ZenzicPalette, emoji
-from zenzic.core.validator import (
-    check_nav_contract,
-    validate_links_structured,
-    validate_snippets,
-)
 from zenzic.models.config import ZenzicConfig
 
 from . import _shared
@@ -68,119 +59,27 @@ def _run_all_checks(
     Builds a ``findings_counts`` dict (Zxxx → count) from all check results
     and passes it to the Zenzic Penalty Scorer.
     """
-    from zenzic.core.adapters import get_adapter
+    from zenzic.cli._check import _collect_all_results, _to_findings
+    from zenzic.cli._governance import _apply_directory_policies, _apply_per_file_ignores
+    from zenzic.core.sovereign_context import sovereign_context
 
-    adapter = get_adapter(config.build_context, docs_root, repo_root)
-    _locale_roots = adapter.get_locale_source_roots(repo_root)
-    locale_roots: list[tuple[Path, str]] | None = _locale_roots if _locale_roots else None
-    _content_roots = adapter.get_extra_content_roots(repo_root)
-    content_roots: list[Path] | None = _content_roots if _content_roots else None
+    with sovereign_context(force_audit=False):
+        results = _collect_all_results(
+            repo_root=repo_root,
+            docs_root=docs_root,
+            config=config,
+            exclusion_mgr=exclusion_mgr,
+            strict=strict,
+            check_external=True,
+        )
+        all_findings = _to_findings(results, docs_root, repo_root)
+        filtered_findings = _apply_per_file_ignores(all_findings, config)
+        filtered_findings = _apply_directory_policies(filtered_findings, config)
 
-    link_errors = validate_links_structured(
-        docs_root,
-        exclusion_mgr,
-        repo_root=repo_root,
-        config=config,
-        strict=strict,
-        locale_roots=locale_roots,
-        check_external=True,
-    )
-    orphans = find_orphans(
-        docs_root,
-        exclusion_mgr,
-        config=config,
-        has_engine_config=adapter.has_engine_config(),
-        nav_paths=adapter.get_nav_paths(),
-        is_locale_dir=adapter.is_locale_dir,
-        ignored_patterns=adapter.get_ignored_patterns(),
-        adapter=adapter,
-    )
-    snippet_errors = validate_snippets(docs_root, exclusion_mgr, config=config)
-    placeholders = find_placeholders(
-        docs_root,
-        exclusion_mgr,
-        config=config,
-        locale_roots=locale_roots,
-        content_roots=content_roots,
-    )
-    unused_assets = find_unused_assets(
-        docs_root,
-        exclusion_mgr,
-        config=config,
-        locale_roots=locale_roots,
-        content_roots=content_roots,
-        adapter_metadata_files=adapter.get_metadata_files(),
-    )
-
-    # Collect rule findings (Z107, Z505, Z601) and security violations (Z201–Z203)
-    # via the Two-Pass Reference Engine.
-    ref_reports, _ = scan_docs_references(
-        docs_root,
-        exclusion_mgr,
-        config=config,
-        validate_links=False,
-        locale_roots=locale_roots,
-        content_roots=content_roots,
-    )
-    nav_errors = check_nav_contract(repo_root, exclusion_mgr)
-
-    # ── Build findings_counts dict (Zenzic Penalty Scorer) ───────────────────────
     findings_counts: dict[str, int] = {}
-
-    # Link errors — split by Zxxx code derived from error_type
-    for err in link_errors:
-        code = err.code
+    for f in filtered_findings:
+        code = f.code.upper().strip()
         findings_counts[code] = findings_counts.get(code, 0) + 1
-
-    # Core check aggregates
-    findings_counts["Z402"] = findings_counts.get("Z402", 0) + len(orphans)
-    findings_counts["Z503"] = findings_counts.get("Z503", 0) + len(snippet_errors)
-    findings_counts["Z405"] = findings_counts.get("Z405", 0) + len(unused_assets)
-    findings_counts["Z406"] = findings_counts.get("Z406", 0) + len(nav_errors)
-
-    # Placeholder findings — Z501 (pattern) vs Z502 (short-content) split (CEO-171)
-    for pf in placeholders:
-        pcode = "Z502" if pf.issue == "Z502" else "Z501"
-        findings_counts[pcode] = findings_counts.get(pcode, 0) + 1
-
-    # Rule-engine findings: Z107, Z505, Z601 (rule_id already a Zxxx code).
-    # ADR-084: apply directory_policies filter (zero-debt exemptions) so that
-    # `zenzic score` honours the same exemptions as `zenzic check`.
-    # IMPORTANT: use r.file_path (IntegrityReport — locale-remapped virtual path),
-    # NOT rule_f.file_path (RuleFinding — raw absolute path on disk).
-    from fnmatch import fnmatch as _fnmatch
-
-    from zenzic.core.codes import NON_SUPPRESSIBLE_CODES
-
-    _dir_policies = (
-        config.governance.directory_policies
-        if hasattr(config.governance, "directory_policies")
-        else {}
-    )
-    for r in ref_reports:
-        # Derive the display-relative path once per report (mirrors _check.py logic).
-        try:
-            _rel = str(r.file_path.relative_to(docs_root))
-        except ValueError:
-            try:
-                _rel = str(r.file_path.relative_to(repo_root))
-            except ValueError:
-                _rel = str(r.file_path)
-        for rule_f in r.rule_findings:
-            code = rule_f.rule_id
-            if code in NON_SUPPRESSIBLE_CODES:
-                findings_counts[code] = findings_counts.get(code, 0) + 1
-                continue
-            if _dir_policies and any(
-                _fnmatch(_rel, pat) and code in codes for pat, codes in _dir_policies.items()
-            ):
-                continue  # policy exemption — zero debt cost
-            findings_counts[code] = findings_counts.get(code, 0) + 1
-
-    # Security violations (Z2xx) — any breach triggers score override
-    security_violations = sum(len(r.security_findings) for r in ref_reports)
-    if security_violations > 0:
-        findings_counts["Z201"] = findings_counts.get("Z201", 0) + security_violations
 
     # Suppression Debt: count all active suppressions (inline + per-file config).
     # Each suppression is a technical debt entry that reduces the final score.
@@ -487,7 +386,7 @@ def score(
         audit_url = _audit_badge_url(audit_ok)
         found_any = False
         for rel in config.project_metadata.badge_stamp_files:
-            p = Path(rel)
+            p = repo_root / rel
             if not p.exists():
                 continue
             content = p.read_text(encoding="utf-8")
@@ -522,7 +421,7 @@ def score(
         audit_url = _audit_badge_url(audit_ok)
         outdated: list[tuple[Path, str]] = []
         for rel in config.project_metadata.badge_stamp_files:
-            p = Path(rel)
+            p = repo_root / rel
             if not _check_stamp_file(p, _SCORE_STAMP_MARKER, score_url):
                 outdated.append((p, "score"))
             if not _check_stamp_file(p, _AUDIT_STAMP_MARKER, audit_url):
