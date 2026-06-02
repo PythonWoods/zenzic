@@ -490,7 +490,7 @@ class TestSuppressionCapE2E:
                 suppression_cap_fail_hard = true
 
                 [governance.per_file_ignores]
-                "index.md" = ["Z104"]
+                "docs/index.md" = ["Z104"]
                 """
             ),
             encoding="utf-8",
@@ -533,7 +533,7 @@ class TestSuppressionCapE2E:
                 brand_obsolescence = ["OldBrand"]
 
                 [governance.directory_policies]
-                "index.md" = ["Z601"]
+                "docs/index.md" = ["Z601"]
                 """
             ),
             encoding="utf-8",

@@ -367,7 +367,30 @@ def build_cap_exceeded_sarif_payload(
 
 
 def _apply_per_file_ignores(findings: list[Finding], config: ZenzicConfig) -> list[Finding]:
-    """Filter findings using governance.per_file_ignores patterns."""
+    """Filter findings using governance.per_file_ignores patterns.
+
+    Security constraint
+    -------------------
+    Findings whose code is in ``NON_SUPPRESSIBLE_CODES`` (credential and path
+    traversal findings) are always forwarded unchanged; they cannot be silenced
+    by ``per_file_ignores`` or any governance mechanism.
+
+    Sovereign audit
+    ---------------
+    When the Sovereign Audit context is active (``--audit`` flag) the entire
+    filter is bypassed: all findings are returned verbatim so reviewers see the
+    complete picture.
+
+    Args:
+        findings:  List of :class:`~zenzic.models.output.Finding` instances
+                   produced by the current scan.
+        config:    Loaded :class:`~zenzic.models.config.ZenzicConfig`; the
+                   ``governance.per_file_ignores`` mapping is read from here.
+
+    Returns:
+        A filtered list of :class:`~zenzic.models.output.Finding` instances
+        with suppressed entries removed.
+    """
     from zenzic.core.codes import NON_SUPPRESSIBLE_CODES
 
     if get_sovereign_context().force_audit:
@@ -397,10 +420,12 @@ def _apply_per_file_ignores(findings: list[Finding], config: ZenzicConfig) -> li
         if code in NON_SUPPRESSIBLE_CODES:
             filtered.append(finding)
             continue
-        if any(
+
+        suppressed = any(
             fnmatch(finding.rel_path, pattern) and code in codes
             for pattern, codes in normalized_map.items()
-        ):
+        )
+        if suppressed:
             continue
         filtered.append(finding)
     return filtered

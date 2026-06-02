@@ -42,7 +42,7 @@ def _run(code: str) -> tuple[list, int, int]:
     docs_root = (example_dir / config.docs_dir).resolve()
     mgr = make_mgr(config, repo_root=example_dir, docs_root=docs_root)
     results = _collect_all_results(example_dir, docs_root, config, mgr, strict=False)
-    findings = _to_findings(results, docs_root)
+    findings = _to_findings(results, docs_root, repo_root=example_dir)
     errors = sum(1 for f in findings if f.severity == "error")
     warnings = sum(1 for f in findings if f.severity == "warning")
     return findings, errors, warnings

@@ -163,8 +163,8 @@ class ZenzicReporter:
         self._docs_dir = docs_dir
 
     def _full_rel(self, rel_path: str) -> str:
-        """Return project-relative path including docs_dir prefix."""
-        return f"{self._docs_dir}/{rel_path}"
+        """Return project-relative path as is."""
+        return rel_path
 
     def _rel(self, path: Path) -> str:
         try:

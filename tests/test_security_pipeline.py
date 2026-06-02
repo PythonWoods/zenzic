@@ -79,8 +79,9 @@ def test_locale_path_remap_applied_to_security_findings() -> None:
         if _sf.file_path in _locale_path_remap:
             _sf.file_path = _locale_path_remap[_sf.file_path]
 
+    repo_root = Path("/repo")
     # After remap, _map_credential_to_finding must produce a clean relative path
-    finding = _map_credential_to_finding(report.security_findings[0], docs_root)
+    finding = _map_credential_to_finding(report.security_findings[0], repo_root)
 
     assert not finding.rel_path.startswith("/"), (
         f"rel_path must be relative, got: {finding.rel_path!r}"
@@ -88,8 +89,8 @@ def test_locale_path_remap_applied_to_security_findings() -> None:
     assert "home" not in finding.rel_path, (
         f"Absolute path leaked into rel_path: {finding.rel_path!r}"
     )
-    assert finding.rel_path == "it/reference/file.mdx", (
-        f"Expected 'it/reference/file.mdx', got: {finding.rel_path!r}"
+    assert finding.rel_path == "docs/it/reference/file.mdx", (
+        f"Expected 'docs/it/reference/file.mdx', got: {finding.rel_path!r}"
     )
 
 

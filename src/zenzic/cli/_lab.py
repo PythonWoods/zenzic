@@ -344,10 +344,10 @@ def _run_act(act: _Act, examples_root: Path) -> _ActResult:
     results = _collect_all_results(example_dir, docs_root, config, exclusion_mgr, strict=False)
     elapsed = time.monotonic() - t0
 
-    findings: list[Finding] = _to_findings(results, docs_root)
+    findings: list[Finding] = _to_findings(results, docs_root, repo_root=example_dir)
 
     if single_file is not None:
-        sf_rel = str(single_file.relative_to(docs_root))
+        sf_rel = str(single_file.relative_to(example_dir))
         findings = [f for f in findings if f.rel_path == sf_rel]
 
     docs_count, assets_count = _count_docs_assets(docs_root, example_dir, exclusion_mgr, config)

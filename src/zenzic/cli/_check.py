@@ -151,7 +151,7 @@ def check_links(
 
     def _rel(path: Path) -> str:
         try:
-            return str(path.relative_to(docs_root))
+            return str(path.relative_to(repo_root))
         except ValueError:
             return str(path)
 
@@ -287,6 +287,12 @@ def check_orphans(
         docs_root = (repo_root / config.docs_dir).resolve()
     exclusion_mgr = _shared._build_exclusion_manager(config, repo_root, docs_root)
 
+    def _rel(path: Path) -> str:
+        try:
+            return str(path.relative_to(repo_root))
+        except ValueError:
+            return str(path)
+
     from zenzic.core.adapters import get_adapter
 
     adapter = get_adapter(config.build_context, docs_root, repo_root)
@@ -306,7 +312,7 @@ def check_orphans(
 
     findings = [
         Finding(
-            rel_path=str(path),
+            rel_path=_rel(docs_root / path),
             line_no=0,
             code="Z402",
             severity="warning",
@@ -390,7 +396,7 @@ def check_snippets(
 
     def _rel(path: Path) -> str:
         try:
-            return str(path.relative_to(docs_root))
+            return str(path.relative_to(repo_root))
         except ValueError:
             return str(path)
 
@@ -518,7 +524,7 @@ def check_references(
 
     def _rel(path: Path) -> str:
         try:
-            return str(path.relative_to(docs_root))
+            return str(path.relative_to(repo_root))
         except ValueError:
             return str(path)
 
@@ -580,7 +586,7 @@ def check_references(
                 )
             )
         for sf in report.security_findings:
-            findings.append(_map_credential_to_finding(sf, docs_root))
+            findings.append(_map_credential_to_finding(sf, repo_root))
 
     for err_str in ext_link_errors:
         findings.append(
@@ -688,6 +694,12 @@ def check_assets(
         config, repo_root, docs_root, adapter_metadata_files=adapter_meta
     )
 
+    def _rel(path: Path) -> str:
+        try:
+            return str(path.relative_to(repo_root))
+        except ValueError:
+            return str(path)
+
     t0 = time.monotonic()
     unused = find_unused_assets(
         docs_root,
@@ -701,7 +713,7 @@ def check_assets(
 
     findings = [
         Finding(
-            rel_path=str(path),
+            rel_path=_rel(docs_root / path),
             line_no=0,
             code="Z405",
             severity="warning",
@@ -788,6 +800,12 @@ def check_placeholders(
     _content_roots = adapter.get_extra_content_roots(repo_root)
     content_roots: list[Path] | None = _content_roots if _content_roots else None
 
+    def _rel(path: Path) -> str:
+        try:
+            return str(path.relative_to(repo_root))
+        except ValueError:
+            return str(path)
+
     t0 = time.monotonic()
     raw_findings = find_placeholders(
         docs_root,
@@ -812,7 +830,7 @@ def check_placeholders(
                     pass
         findings.append(
             Finding(
-                rel_path=str(pf.file_path),
+                rel_path=_rel(docs_root / pf.file_path),
                 line_no=pf.line_no,
                 code=pf.issue,
                 severity="warning",
@@ -993,13 +1011,13 @@ def _collect_all_results(
     )
 
 
-def _to_findings(results: _AllCheckResults, docs_root: Path) -> list[Finding]:
+def _to_findings(results: _AllCheckResults, docs_root: Path, repo_root: Path) -> list[Finding]:
     """Convert all result types into a flat list of :class:`Finding`."""
     findings: list[Finding] = []
 
     def _rel(path: Path) -> str:
         try:
-            return str(path.relative_to(docs_root))
+            return str(path.relative_to(repo_root))
         except ValueError:
             return str(path)
 
@@ -1020,7 +1038,7 @@ def _to_findings(results: _AllCheckResults, docs_root: Path) -> list[Finding]:
     for path in results.orphans:
         findings.append(
             Finding(
-                rel_path=str(path),
+                rel_path=_rel(docs_root / path),
                 line_no=0,
                 code="Z402",
                 severity="warning",
@@ -1061,7 +1079,7 @@ def _to_findings(results: _AllCheckResults, docs_root: Path) -> list[Finding]:
                     pass
         findings.append(
             Finding(
-                rel_path=str(pf.file_path),
+                rel_path=_rel(docs_root / pf.file_path),
                 line_no=pf.line_no,
                 code=pf.issue,
                 severity="warning",
@@ -1075,7 +1093,7 @@ def _to_findings(results: _AllCheckResults, docs_root: Path) -> list[Finding]:
     for path in results.unused_assets:
         findings.append(
             Finding(
-                rel_path=str(path),
+                rel_path=_rel(docs_root / path),
                 line_no=0,
                 code="Z405",
                 severity="warning",
@@ -1142,12 +1160,12 @@ def _to_findings(results: _AllCheckResults, docs_root: Path) -> list[Finding]:
                 )
             )
         for sf in report.security_findings:
-            findings.append(_map_credential_to_finding(sf, docs_root))
+            findings.append(_map_credential_to_finding(sf, repo_root))
 
     for dir_path in results.directory_index_issues:
         findings.append(
             Finding(
-                rel_path=str(dir_path),
+                rel_path=_rel(docs_root / dir_path),
                 line_no=0,
                 code="Z401",
                 severity="info",
@@ -1407,7 +1425,7 @@ def check_all(
         from zenzic import __version__
 
         with sovereign_context(force_audit=audit):
-            all_findings = _to_findings(results, docs_root)
+            all_findings = _to_findings(results, docs_root, repo_root)
         _shared._output_sarif_findings(all_findings, __version__)
         incidents = sum(1 for f in all_findings if f.severity == "security_incident")
         if incidents:
@@ -1423,12 +1441,12 @@ def check_all(
     from zenzic import __version__
 
     with sovereign_context(force_audit=audit):
-        all_findings = _to_findings(results, docs_root)
+        all_findings = _to_findings(results, docs_root, repo_root)
         all_findings = _apply_per_file_ignores(all_findings, config)
         all_findings = _apply_directory_policies(all_findings, config)
 
     if _single_file is not None:
-        _sf_rel = str(_single_file.relative_to(docs_root))
+        _sf_rel = str(_single_file.relative_to(repo_root))
         all_findings = [f for f in all_findings if f.rel_path == _sf_rel]
 
     reporter = ZenzicReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
