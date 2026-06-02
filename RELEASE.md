@@ -47,7 +47,7 @@ Distribution target: **PyPI** — `pip install zenzic` / `uvx zenzic`.
 
 ```bash
 git tag v0.9.1
-git push origin release/v0.9.1 --tags
+git push origin release/v0.9.1-prep --tags
 ```
 
 - [ ] Create GitHub Release from the tag, using the `## v0.9.1` CHANGELOG section as the release body.
