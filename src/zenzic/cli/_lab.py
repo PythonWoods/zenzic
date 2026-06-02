@@ -227,6 +227,42 @@ _GALLERY: dict[str, _Act] = {
         example_dir="z505-untagged-code-block",
         expected_pass=False,
     ),
+    "z104": _Act(
+        code="z104",
+        title="File Not Found",
+        description="Z104 FILE_NOT_FOUND — link target file missing from the filesystem; penalty 8.0, exit 1",
+        example_dir="z104-file-not-found",
+        expected_pass=False,
+    ),
+    "z107": _Act(
+        code="z107",
+        title="Circular Anchor",
+        description="Z107 CIRCULAR_ANCHOR — self-referential anchor whose text slugifies to its own fragment",
+        example_dir="z107-circular-anchor",
+        expected_pass=False,
+    ),
+    "z401": _Act(
+        code="z401",
+        title="Missing Directory Index",
+        description="Z401 MISSING_DIRECTORY_INDEX — directory has docs but no index page; directory URL returns 404",
+        example_dir="z401-missing-directory-index",
+        expected_pass=True,
+        show_info=True,
+    ),
+    "z404": _Act(
+        code="z404",
+        title="Config Asset Missing",
+        description="Z404 CONFIG_ASSET_MISSING — asset declared in mkdocs.yml theme not found on disk",
+        example_dir="z404-config-asset-missing",
+        expected_pass=False,
+    ),
+    "z406": _Act(
+        code="z406",
+        title="Nav Contract",
+        description="Z406 NAV_CONTRACT — extra.alternate link absent from Virtual Site Map; exit 1",
+        example_dir="z406-nav-contract",
+        expected_pass=False,
+    ),
 }
 
 _VALID_CODES: frozenset[str] = frozenset(_GALLERY)

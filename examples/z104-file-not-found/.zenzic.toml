@@ -1,0 +1,16 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# .zenzic.toml — Z104 FILE_NOT_FOUND gallery example
+#
+# docs/index.md references api/reference.md, which does not exist on disk.
+# Zenzic fires Z104 FILE_NOT_FOUND (penalty 8.0) — exit 1.
+#
+# Expected results:
+#   zenzic check links   → EXIT 1  (Z104 ×1)
+#   zenzic check all     → EXIT 1
+
+docs_dir = "docs"
+fail_under = 0
+
+[build_context]
+engine = "standalone"

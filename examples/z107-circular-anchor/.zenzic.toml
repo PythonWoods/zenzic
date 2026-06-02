@@ -1,0 +1,16 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# .zenzic.toml — Z107 CIRCULAR_ANCHOR gallery example
+#
+# docs/guide.md contains a self-referential anchor link: [Setup](#setup)
+# whose link text slugifies to the same fragment as the target.
+# Zenzic fires Z107 CIRCULAR_ANCHOR (warning) — exit 0.
+#
+# Expected results:
+#   zenzic check all   → EXIT 0  (Z107 ×1, warning)
+
+docs_dir = "docs"
+fail_under = 0
+
+[build_context]
+engine = "standalone"

@@ -1,0 +1,16 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# .zenzic.toml — Z406 NAV_CONTRACT gallery example
+#
+# mkdocs.yml declares extra.alternate with link=/it/ but no Italian
+# source pages exist — /it/ is absent from the Virtual Site Map.
+# Zenzic fires Z406 NAV_CONTRACT (error) — exit 1.
+#
+# Expected results:
+#   zenzic check all   → EXIT 1  (Z406 ×1, error)
+
+docs_dir = "docs"
+fail_under = 0
+
+[build_context]
+engine = "mkdocs"
