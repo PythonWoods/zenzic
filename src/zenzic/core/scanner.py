@@ -1062,8 +1062,11 @@ def check_image_alt_text(
     findings: list[ReferenceFinding] = []
 
     for lineno, line in enumerate(text.splitlines(), start=1):
+        # Blank out inline code to avoid false matches
+        clean = _INLINE_CODE_RE.sub(lambda m: " " * len(m.group()), line)
+
         # Inline Markdown images
-        for m in _RE_IMAGE_INLINE.finditer(line):
+        for m in _RE_IMAGE_INLINE.finditer(clean):
             alt_text = m.group(1)
             url = m.group(2)
             if not alt_text.strip():
@@ -1078,7 +1081,7 @@ def check_image_alt_text(
                 )
 
         # HTML <img> tags
-        for img_match in _RE_HTML_IMG.finditer(line):
+        for img_match in _RE_HTML_IMG.finditer(clean):
             tag = img_match.group()
             alt_match = _RE_HTML_ALT.search(tag)
             src = tag  # fallback label when src is hard to extract
@@ -1211,7 +1214,8 @@ class ReferenceScanner:
                 continue
 
             # ── Alt-text: inline images ───────────────────────────────────────
-            for img_match in _RE_IMAGE_INLINE.finditer(line):
+            clean = _INLINE_CODE_RE.sub(lambda m: " " * len(m.group()), line)
+            for img_match in _RE_IMAGE_INLINE.finditer(clean):
                 alt_text = img_match.group(1)
                 url = img_match.group(2)
                 if alt_text.strip():
@@ -1229,7 +1233,7 @@ class ReferenceScanner:
                     )
 
             # ── Alt-text: HTML <img> tags ─────────────────────────────────────
-            for img_match in _RE_HTML_IMG.finditer(line):
+            for img_match in _RE_HTML_IMG.finditer(clean):
                 tag = img_match.group()
                 alt_match = _RE_HTML_ALT.search(tag)
                 src = tag
