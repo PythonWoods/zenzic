@@ -867,6 +867,10 @@ def test_init_standalone_creates_zenzic_toml(
     assert gitignore.is_file()
     assert ".zenzic.local.toml" in gitignore.read_text(encoding="utf-8")
 
+    # Panel must acknowledge both files
+    assert ".zenzic.local.toml" in result.stdout
+    assert "will be scaffolded next" in result.stdout
+
 
 def test_init_standalone_detects_mkdocs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Engine auto-detection writes [build_context] when mkdocs.yml exists."""
@@ -881,6 +885,7 @@ def test_init_standalone_detects_mkdocs(tmp_path: Path, monkeypatch: pytest.Monk
 
     content = (repo / ".zenzic.toml").read_text(encoding="utf-8")
     assert 'engine         = "mkdocs"' in content
+    assert "(auto-detected)" in result.stdout
 
 
 def test_init_standalone_warns_if_exists(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -999,7 +1004,7 @@ def test_init_pyproject_with_mkdocs_engine(tmp_path: Path, monkeypatch: pytest.M
 
     content = (repo / "pyproject.toml").read_text(encoding="utf-8")
     assert "[tool.zenzic.build_context]" in content
-    assert 'engine = "mkdocs"' in content
+    assert 'engine         = "mkdocs"' in content
 
 
 def test_init_pyproject_warns_if_section_exists(
@@ -1038,16 +1043,24 @@ def test_init_pyproject_force_is_rejected(tmp_path: Path, monkeypatch: pytest.Mo
     assert "--force is not supported" in result.stdout
 
 
-def test_init_pyproject_no_file_errors(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """--pyproject without a pyproject.toml file exits with error."""
+def test_init_pyproject_no_file_creates_minimal(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """--pyproject without a pyproject.toml creates a minimal file and appends [tool.zenzic]."""
     repo = tmp_path / "repo"
     repo.mkdir()
     (repo / ".git").mkdir()
     monkeypatch.chdir(repo)
 
     result = runner.invoke(app, ["init", "--pyproject"])
-    assert result.exit_code == 1
-    assert "No" in result.stdout and "pyproject.toml" in result.stdout
+    assert result.exit_code == 0
+
+    pyproject = repo / "pyproject.toml"
+    assert pyproject.is_file()
+    content = pyproject.read_text(encoding="utf-8")
+    assert "[tool.zenzic]" in content
+    assert "[tool.zenzic.governance]" in content
+    assert "suppression_cap = 30" in content
 
 
 def test_init_interactive_prompt_chooses_pyproject(
@@ -1144,6 +1157,79 @@ def test_init_nomad_creates_target_directory(
     result = runner.invoke(app, ["init", str(target)])
     assert result.exit_code == 0, result.stdout
     assert (target / ".zenzic.toml").is_file(), ".zenzic.toml must be created at nested target"
+
+
+# ---------------------------------------------------------------------------
+# init — --engine flag
+# ---------------------------------------------------------------------------
+
+
+def test_init_engine_flag_override(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """--engine ENGINE writes that engine into .zenzic.toml regardless of auto-detection."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / ".git").mkdir()
+    # mkdocs.yml present — auto-detect would pick "mkdocs" — flag must win
+    (repo / "mkdocs.yml").write_text("site_name: test\n", encoding="utf-8")
+    monkeypatch.chdir(repo)
+
+    result = runner.invoke(app, ["init", "--engine", "zensical"])
+    assert result.exit_code == 0
+
+    content = (repo / ".zenzic.toml").read_text(encoding="utf-8")
+    assert 'engine         = "zensical"' in content
+    assert "(manually specified via --engine)" in result.stdout
+
+
+def test_init_engine_flag_invalid(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """--engine <unknown> exits with a clear error listing valid values."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / ".git").mkdir()
+    monkeypatch.chdir(repo)
+
+    result = runner.invoke(app, ["init", "--engine", "hugo"])
+    assert result.exit_code == 1
+    assert "hugo" in result.stdout
+    assert "docusaurus" in result.stdout  # valid engine listed in error
+
+
+def test_init_pyproject_engine_flag_override(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """--pyproject --engine ENGINE writes that engine into [tool.zenzic.build_context]."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / ".git").mkdir()
+    (repo / "pyproject.toml").write_text('[project]\nname = "x"\n', encoding="utf-8")
+    monkeypatch.chdir(repo)
+
+    result = runner.invoke(app, ["init", "--pyproject", "--engine", "docusaurus"])
+    assert result.exit_code == 0
+
+    content = (repo / "pyproject.toml").read_text(encoding="utf-8")
+    assert 'engine         = "docusaurus"' in content
+    assert "(manually specified via --engine)" in result.stdout
+
+
+def test_init_pyproject_template_verbose(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """pyproject.toml template includes didactic comments matching .zenzic.toml quality."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / ".git").mkdir()
+    (repo / "pyproject.toml").write_text('[project]\nname = "myapp"\n', encoding="utf-8")
+    monkeypatch.chdir(repo)
+
+    result = runner.invoke(app, ["init", "--pyproject"])
+    assert result.exit_code == 0
+
+    content = (repo / "pyproject.toml").read_text(encoding="utf-8")
+    assert "ORTHOGONAL CONSTRAINTS" in content
+    assert "suppression_cap" in content
+    assert "CI/CD" in content
+    assert "[tool.zenzic.governance.per_file_ignores]" in content
+    assert "[tool.zenzic.governance.directory_policies]" in content
+    assert "excluded_dirs" in content
 
 
 # ---------------------------------------------------------------------------

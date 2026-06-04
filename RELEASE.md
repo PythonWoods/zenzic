@@ -8,10 +8,10 @@
 
 | Field    | Value      |
 | :------- | :--------- |
-| Version  | v0.9.1     |
+| Version  | v0.9.2     |
 | Codename | Graphite   |
-| Date     | 2026-06-02 |
-| Status   | Stable     |
+| Date     | 2026-06-04 |
+| Status   | In Progress |
 
 ## Release Checklist
 
@@ -21,7 +21,7 @@ Before tagging, every item must be green:
 - [ ] `zenzic lab all` — all 20 scenarios exit with expected code
 - [ ] `zenzic score --stamp` committed — badge in README.md and README.it.md reflects current score
 - [ ] `zenzic check all .` — zero findings in the repo root
-- [ ] `pyproject.toml` version matches the tag (`0.9.1`)
+- [ ] `pyproject.toml` version matches the tag (`0.9.2`)
 - [ ] `CITATION.cff` version and date updated
 - [ ] `CHANGELOG.md` — `[Unreleased]` section moved to the new version heading
 - [ ] Update SECURITY.md support table (Add new release, demote previous to Critical/EOL).
@@ -54,11 +54,11 @@ git checkout main
 git pull origin main
 
 # 3. Tag the main branch and push
-git tag v0.9.1
+git tag v0.9.2
 git push origin main --tags
 ```
 
-- [ ] Create GitHub Release from the tag, using the `## v0.9.1` CHANGELOG section as the release body.
+- [ ] Create GitHub Release from the tag, using the `## v0.9.2` CHANGELOG section as the release body.
 
 ## Changelog Reference
 

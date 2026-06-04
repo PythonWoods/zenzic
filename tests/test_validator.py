@@ -445,6 +445,26 @@ class TestAbsolutePathProhibition:
         mgr = make_mgr(config, repo_root=tmp_path)
         assert validate_links(docs_root, mgr, repo_root=tmp_path, config=config) == []
 
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "http://localhost:8080/api",
+            "http://localhost/path",
+            "https://localhost:443/secure",
+            "http://127.0.0.1:5000",
+            "http://0.0.0.0:8000",
+            "http://::1:3000",
+        ],
+    )
+    def test_loopback_url_not_treated_as_external(self, tmp_path: Path, url: str) -> None:
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        (docs / "index.md").write_text(f"[svc]({url})\n")
+        config = ZenzicConfig()
+        docs_root = tmp_path / config.docs_dir
+        mgr = make_mgr(config, repo_root=tmp_path)
+        assert validate_links(docs_root, mgr, repo_root=tmp_path, config=config) == []
+
     def test_absolute_path_with_anchor_is_error(self, tmp_path: Path) -> None:
         docs = tmp_path / "docs"
         docs.mkdir()

@@ -590,8 +590,12 @@ class MkDocsAdapter(BaseAdapter):
         return self._config_file_found or bool(self._locale_dirs)
 
     def get_metadata_files(self) -> frozenset[str]:
-        """MkDocs configuration file — excluded from Z903."""
-        return frozenset({"mkdocs.yml"})
+        """MkDocs configuration files — excluded from Z405/Z903."""
+        names: set[str] = {"mkdocs.yml"}
+        plugin_names = {name for name, _ in _iter_plugins(self._doc_config)}
+        if "awesome-pages" in plugin_names or "mkdocs-awesome-pages-plugin" in plugin_names:
+            names.add(".pages")
+        return frozenset(names)
 
     # ── VSM integration ────────────────────────────────────────────────────────
 

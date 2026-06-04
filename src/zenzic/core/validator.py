@@ -901,6 +901,8 @@ async def validate_links_async(
 
             # ── External links ────────────────────────────────────────────────
             if parsed.scheme in ("http", "https"):
+                if parsed.hostname in ("localhost", "127.0.0.1", "0.0.0.0", "::1"):
+                    continue  # loopback URLs are not reachable externally; skip silently
                 external_entries.append((url, label, lineno))
                 continue
 
@@ -1165,7 +1167,7 @@ async def validate_links_async(
             line_no=0,
             message=msg,
             source_line="",
-            error_type="EXTERNAL_LINK",
+            error_type="Z109",
         )
         for msg in ext_error_strs
     ]

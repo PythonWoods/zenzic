@@ -106,10 +106,12 @@ def test_load_config_plugins_list(tmp_path: Path) -> None:
 
 def test_placeholder_patterns_compiled_on_init(tmp_path: Path) -> None:
     """placeholder_patterns_compiled is populated automatically from placeholder_patterns."""
-    config = ZenzicConfig(placeholder_patterns=["todo", "wip"])
+    config = ZenzicConfig(placeholder_patterns=[r"\btodo\b", r"\bwip\b"])
     assert len(config.placeholder_patterns_compiled) == 2
     assert config.placeholder_patterns_compiled[0].search("this is a TODO item")
+    assert not config.placeholder_patterns_compiled[0].search("pseudotodo")
     assert config.placeholder_patterns_compiled[1].search("WIP section")
+    assert not config.placeholder_patterns_compiled[1].search("wipe the floor")
 
 
 # ─── pyproject.toml support (ISSUE #5) ───────────────────────────────────────
