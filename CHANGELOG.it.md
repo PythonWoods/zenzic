@@ -84,6 +84,5 @@ Le versioni seguono il [Versionamento Semantico](https://semver.org/).
 
 ## Versioni precedenti
 
-- Archivio v0.9.x: [changelogs/v0.9.md](./changelogs/v0.9.md)
 - Archivio v0.8.x: [changelogs/v0.8.md](./changelogs/v0.8.md)
 - Indice archivi v0.1.x–v0.7.x: [changelogs/README.md](./changelogs/README.md)

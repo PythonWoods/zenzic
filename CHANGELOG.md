@@ -84,6 +84,5 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Historical Releases
 
-- v0.9.x archive: [changelogs/v0.9.md](./changelogs/v0.9.md)
 - v0.8.x archive: [changelogs/v0.8.md](./changelogs/v0.8.md)
 - v0.1.x–v0.7.x archive index: [changelogs/README.md](./changelogs/README.md)
