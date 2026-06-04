@@ -32,6 +32,7 @@ import fnmatch
 import json
 import os
 import sys
+import textwrap
 from collections.abc import Iterator
 
 
@@ -1444,6 +1445,8 @@ def check_snippet_content(
     for lang, snippet, fence_line in _extract_code_blocks(text):
         if len(snippet.strip().splitlines()) < config.snippet_min_lines:
             continue
+
+        snippet = textwrap.dedent(snippet)  # Remove common leading whitespace for accurate parsing
 
         if lang in ("python", "py"):
             try:

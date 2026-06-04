@@ -1116,6 +1116,19 @@ def test_validate_snippets_valid_and_invalid(tmp_path: Path) -> None:
     assert "SyntaxError in Python snippet" in errors[0].message
 
 
+def test_validate_snippets_python_indented(tmp_path: Path) -> None:
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    # Indented code block nested in a list admonition — must still be parsed and validated as Python.
+    (docs / "page.md").write_text(
+        "    ```python\n    def add(a, b):\n        return a + b\n    ```\n"
+    )
+    config = ZenzicConfig(snippet_min_lines=1)
+    docs_root = tmp_path / config.docs_dir
+    mgr = make_mgr(config, repo_root=tmp_path)
+    assert validate_snippets(docs_root, mgr, config=config) == []
+
+
 def test_validate_snippets_no_code_blocks(tmp_path: Path) -> None:
     docs = tmp_path / "docs"
     docs.mkdir()
