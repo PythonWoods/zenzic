@@ -338,6 +338,7 @@ SYSTEM_EXCLUDED_FILE_NAMES: Final[frozenset[str]] = frozenset(
         "NOTICE.txt",
         "COPYING",
         # VCS / coverage / IDE artefacts that may slip into a docs root
+        ".git",
         ".gitignore",
         ".gitattributes",
         ".coverage",
