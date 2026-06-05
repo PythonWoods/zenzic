@@ -8,9 +8,9 @@
 
 | Field    | Value      |
 | :------- | :--------- |
-| Version  | v0.9.1     |
+| Version  | v0.9.2     |
 | Codename | Graphite   |
-| Date     | 2026-06-04 |
+| Date     | 2026-06-05 |
 | Status   | Stable |
 
 ## Release Checklist
