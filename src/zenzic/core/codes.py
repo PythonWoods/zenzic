@@ -195,7 +195,9 @@ CODE_DEFINITIONS: dict[str, CodeDefinition] = {
     "Z302": CodeDefinition("warning", 1.0, "navigation"),  # DEAD_DEF
     "Z303": CodeDefinition("warning", 3.0, "navigation"),  # DUPLICATE_DEF
     # ── Z4xx — Structure ──────────────────────────────────────────────────────
-    "Z401": CodeDefinition("warning", 2.0, "navigation"),  # MISSING_DIRECTORY_INDEX
+    "Z401": CodeDefinition(
+        "note", 0.0, "navigation"
+    ),  # MISSING_DIRECTORY_INDEX — info only, no DQS penalty
     "Z402": CodeDefinition("warning", 4.0, "navigation"),  # ORPHAN_PAGE
     "Z403": CodeDefinition("warning", 1.0, "content"),  # MISSING_ALT
     "Z404": CodeDefinition("warning", 3.0, "brand"),  # CONFIG_ASSET_MISSING

@@ -29,6 +29,8 @@ No changes yet.
 
 ### Fixed
 
+- **Z401 silent DQS penalty eliminated:** `Z401 MISSING_DIRECTORY_INDEX` was defined with `severity = "warning"` and `penalty = 2.0` but emitted at display level `info` (suppressed by default), causing hidden point deductions invisible to the user. The code definition is now `severity = "note"`, `penalty = 0.0` — Z401 findings are purely informational and never alter the DQS score.
+- **Z401 README.md support in Standalone mode:** `StandaloneAdapter.provides_index()` now recognises `README.md` and `README.mdx` (in addition to `index.md` and `index.mdx`) as valid directory index files. Repositories using `README.md` as their section landing page no longer generate spurious Z401 findings.
 - Core: Risolto il problema dei falsi positivi su Z501 restringendo i pattern di default agli standard industriali (TODO, FIXME) con word boundaries espliciti (\b).
 - Adapter: Aggiunto il supporto condizionale per i file .pages in MkDocsAdapter (previene falsi positivi Z405 quando il plugin awesome-pages è attivo).
 - **Loopback URLs no longer flagged as external links:** `http://localhost`, `http://127.0.0.1`, `http://0.0.0.0`, and `http://::1` URLs (any port) are now silently skipped by the link validator. Previously they were collected as external links and triggered a network ping or a spurious `EXTERNAL_LINK` error, which broke Docker-based documentation setups that reference local service URLs in configuration examples.
