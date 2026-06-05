@@ -1,0 +1,15 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# .zenzic.toml — Z109 EXTERNAL_LINK_BROKEN gallery example
+#
+# docs/index.md contains a broken external link.
+# Zenzic's link validator flags it as Z109 EXTERNAL_LINK_BROKEN — exit 1.
+#
+# Expected results:
+#   zenzic check links   → EXIT 1  (Z109 ×1)
+
+docs_dir = "docs"
+fail_under = 0
+
+[build_context]
+engine = "standalone"

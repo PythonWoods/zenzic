@@ -338,6 +338,7 @@ SYSTEM_EXCLUDED_FILE_NAMES: Final[frozenset[str]] = frozenset(
         "NOTICE.txt",
         "COPYING",
         # VCS / coverage / IDE artefacts that may slip into a docs root
+        ".git",
         ".gitignore",
         ".gitattributes",
         ".coverage",
@@ -408,31 +409,25 @@ class ZenzicConfig(BaseModel):
     placeholder_patterns: list[str] = Field(
         default=[
             # English
-            "coming soon",
-            "work in progress",
-            "wip",
-            "todo",
-            "to do",
-            "stub",
-            "placeholder",
-            "fixme",
-            "tbd",
-            "to be written",
-            "to be completed",
-            "to be added",
-            "under construction",
-            "not yet written",
-            "draft",
+            r"\btodo\b",
+            r"\bfixme\b",
+            r"\bwip\b",
+            r"\btbd\b",
+            r"\bstub\b",
+            r"\bxxx\b",
             # Italiano
-            "da completare",
-            "in costruzione",
-            "in lavorazione",
-            "da scrivere",
-            "da aggiungere",
-            "bozza",
-            "prossimamente",
+            r"\bda completare\b",
+            r"\bin costruzione\b",
+            r"\bin lavorazione\b",
+            r"\bbozza\b",
+            r"\bprossimamente\b",
         ],
-        description="Case-insensitive strings that flag a page as a placeholder.",
+        description=(
+            "RE2-compatible regex patterns matched case-insensitively against each line. "
+            "A match flags the page as Z501 PLACEHOLDER. "
+            r"Use \b word boundaries to avoid substring false positives "
+            r"(e.g. r'\bwip\b' matches 'WIP' but not 'wipe')."
+        ),
     )
     excluded_assets: list[str] = Field(
         default=[],
@@ -613,7 +608,7 @@ class ZenzicConfig(BaseModel):
     def model_post_init(self, __context: Any) -> None:
         """Post-init: compile placeholders and enforce system exclusions."""
         self.placeholder_patterns_compiled = [
-            re.compile(re.escape(p), re.IGNORECASE) for p in self.placeholder_patterns
+            re.compile(p, re.IGNORECASE) for p in self.placeholder_patterns
         ]
         self._recompile_forbidden_patterns()
         # Hard Exclusion Policy: system guardrails are always present.

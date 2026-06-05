@@ -293,3 +293,132 @@ LOCAL_TOML_TEMPLATE: str = (
     "# Local environment variables for wrappers and scripts.\n"
     '# ZENZIC_FORCE_COLOR = "true"\n'
 )
+
+# ===========================================================================
+# PYPROJECT_TOML_SECTION_TEMPLATE
+# ===========================================================================
+# Appended to pyproject.toml by `zenzic init --pyproject`.
+# Dynamic placeholders: {engine}, {hint_name}
+# ===========================================================================
+PYPROJECT_TOML_SECTION_TEMPLATE: str = (
+    "\n"
+    "# ---------------------------------------------------------------------------\n"
+    "# Zenzic — Documentation Quality System\n"
+    "# Full reference: https://zenzic.dev/docs/reference/configuration/\n"
+    "# Precedence: pyproject.toml is shared baseline; .zenzic.local.toml overrides locally.\n"
+    "# Keep secrets and workstation-only values in .zenzic.local.toml.\n"
+    "# ---------------------------------------------------------------------------\n"
+    "\n"
+    "[tool.zenzic]\n"
+    "# docs_dir — relative path to your documentation root.\n"
+    '#   Default: "docs" | Use "." to scan the entire repository (L1 exclusions apply).\n'
+    "#\n"
+    '# docs_dir = "docs"\n'
+    "\n"
+    "strict = true\n"
+    "# ORTHOGONAL CONSTRAINTS (Flat-Cost Model):\n"
+    "#   fail_under:      global health gate (active findings + debt).\n"
+    "#   suppression_cap: absolute hard-fail ceiling for hidden debt.\n"
+    "#   Invariant:       fail_under <= (100 - suppression_cap)\n"
+    "#   Example: fail_under = 90, suppression_cap = 30 → score must stay above 90\n"
+    "#            while capping hidden debt at 30 suppressions.\n"
+    "fail_under = 100\n"
+    "# exit_zero = false\n"
+    "# respect_vcs_ignore = true\n"
+    "# validate_same_page_anchors = true\n"
+    "\n"
+    "# External URLs excluded from the broken-link check (--strict only).\n"
+    '# excluded_external_urls = ["https://github.com/YourOrg/YourRepo"]\n'
+    "\n"
+    "# Z204 Privacy Gate — terms that must never appear in published docs.\n"
+    "# forbidden_patterns = []\n"
+    "\n"
+    "# --- PLACEHOLDERS & CODE SNIPPETS (Optional) ---\n"
+    '# placeholder_patterns = ["coming soon", "work in progress", "wip", "todo"]\n'
+    "# placeholder_max_words = 50\n"
+    "# snippet_min_lines = 1\n"
+    "\n"
+    "# --- EXCLUSION ZONES (Full bypass — use sparingly) ---\n"
+    "# Paths listed here are INVISIBLE to Zenzic: no findings, no audit trail.\n"
+    "# Prefer [tool.zenzic.governance.per_file_ignores] for targeted suppression with an audit trail.\n"
+    '# excluded_dirs          = ["legacy/", "third-party/"]\n'
+    '# excluded_file_patterns = ["*.tmp", "*.log"]\n'
+    '# excluded_assets        = ["favicon.ico"]\n'
+    '# excluded_build_artifacts = ["pdf/*.pdf"]\n'
+    "\n"
+    "# --- PLUGINS (Optional) ---\n"
+    "# plugins = []\n"
+    "\n"
+    "[tool.zenzic.build_context]\n"
+    "# engine — auto-detected from project files; override with --engine if needed.\n"
+    "#   Supported: docusaurus, mkdocs, zensical, standalone\n"
+    'engine         = "{engine}"\n'
+    'base_url       = "/"\n'
+    'default_locale = "en"\n'
+    "\n"
+    "[tool.zenzic.project_metadata]\n"
+    '# release_name = "YOUR-RELEASE"\n'
+    "# badge_stamp_files = [\"README.md\"]  # files updated by 'zenzic score --stamp'\n"
+    "\n"
+    "[tool.zenzic.governance]\n"
+    "# suppression_cap — hard-fail threshold for technical debt.\n"
+    "#   BEHAVIOR: if total suppressions > cap → CI fails immediately (Exit Code 1).\n"
+    "#   SCORING:  every suppression costs 1 DQS point (Flat-Cost Model).\n"
+    "#   DEFAULT:  30\n"
+    "suppression_cap           = 30\n"
+    "suppression_cap_fail_hard = true\n"
+    "\n"
+    "# Terms that should no longer appear in your documentation.\n"
+    "# Keep empty until your governance policy defines deprecated brand terms.\n"
+    "brand_obsolescence = []\n"
+    '# suppression_cap_scope = "all"  # Options: all, per-file\n'
+    "# i18n_parity = false            # Set true when i18n is enabled\n"
+    "\n"
+    "# [tool.zenzic.governance.per_file_ignores]\n"
+    "# Silence a rule for specific file globs.\n"
+    "# BEHAVIOR: ADDITIVE — each entry adds 1 pt of Technical Debt (flat-cost).\n"
+    "# IMPACT:   Use directory_policies below for zero-debt strategic exemptions.\n"
+    "#\n"
+    '# "docs/legacy/**"      = ["Z601"]  # intentional brand refs → -1 pt\n'
+    '# "docs/migration/*.md" = ["Z101"]  # known broken links → -1 pt\n'
+    "\n"
+    "# [tool.zenzic.governance.directory_policies]\n"
+    "# Strategic exemptions for entire directory trees or specific files.\n"
+    "# BEHAVIOR: Matched findings are silently dropped — ZERO debt added.\n"
+    "# IMPACT:   In --audit mode, shown with [POLICY_EXEMPTION] label.\n"
+    "#\n"
+    '# "blog/**"      = ["Z601"]  # historical archive\n'
+    "\n"
+    "# --- I18N PARITY (Optional) ---\n"
+    "# [tool.zenzic.i18n]\n"
+    "# enabled   = true\n"
+    '# base_lang = "en"\n'
+    '# base_source = "docs"\n'
+    "# strict_parity = true\n"
+    '# require_frontmatter_parity = ["title", "description"]\n'
+    "# [tool.zenzic.i18n.targets]\n"
+    '# it = "i18n/it/docusaurus-plugin-content-docs/current"\n'
+    "\n"
+    "# --- CUSTOM RULES (Optional) ---\n"
+    "# Declares project-specific regex-based lint rules applied line-by-line.\n"
+    "# [[tool.zenzic.custom_rules]]\n"
+    '# id       = "ZZ-NOCLICKHERE"\n'
+    '# pattern  = "(?i)\\\\bclick here\\\\b"\n'
+    '# message  = "Avoid generic link text. Use a meaningful description."\n'
+    '# severity = "error"\n'
+    "\n"
+    "# --- GATE 4: CI/CD (GitHub Actions, Optional) ---\n"
+    "# Add this workflow snippet to .github/workflows/zenzic.yml\n"
+    "#\n"
+    "# name: zenzic\n"
+    "# on: [pull_request, push]\n"
+    "# jobs:\n"
+    "#   audit:\n"
+    "#     runs-on: ubuntu-latest\n"
+    "#     steps:\n"
+    "#       - uses: actions/checkout@v4\n"
+    "#       - name: Run Zenzic Action\n"
+    "#         uses: pythonwoods/zenzic-action@v1\n"
+    "#       - name: Verify Badge Freshness\n"
+    "#         run: uvx zenzic score --check-stamp\n"
+)

@@ -106,7 +106,10 @@ class StandaloneAdapter(BaseAdapter):
         Returns:
             ``True`` if an ``index.md`` exists in the directory.
         """
-        return (directory_path / "index.md").exists()
+        return any(
+            (directory_path / name).exists()
+            for name in ("index.md", "index.mdx", "README.md", "README.mdx")
+        )
 
     def get_link_scheme_bypasses(self) -> frozenset[str]:
         """Standalone projects have no engine-specific link-scheme bypass."""

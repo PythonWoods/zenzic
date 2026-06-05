@@ -842,7 +842,19 @@ def init(
     local: bool = typer.Option(
         False,
         "--local",
-        help="Scaffold only .zenzic.local.toml (machine-local overlay). Skips main config creation.",
+        help=(
+            "Create only .zenzic.local.toml (machine-local overlay, gitignored). "
+            "Use this when cloning a repo that already has .zenzic.toml committed."
+        ),
+    ),
+    engine: str | None = typer.Option(
+        None,
+        "--engine",
+        help=(
+            "Override the build engine adapter (mkdocs, zensical, docusaurus, standalone). "
+            "Auto-detected from project files when omitted."
+        ),
+        metavar="ENGINE",
     ),
     path: str | None = typer.Argument(
         None,
@@ -911,6 +923,15 @@ def init(
         _shared.print_footer_hint("init")
         return
 
+    _INIT_VALID_ENGINES = {"mkdocs", "zensical", "docusaurus", "standalone"}
+    if engine is not None and engine not in _INIT_VALID_ENGINES:
+        _shared.console.print(
+            f"[red]✘ ERROR:[/] Unknown engine [bold]{engine!r}[/]. "
+            f"Valid values: {', '.join(sorted(_INIT_VALID_ENGINES))}.\n"
+            "Omit [bold cyan]--engine[/] to let Zenzic auto-detect from project files."
+        )
+        raise typer.Exit(1)
+
     if force:
         _shared.console.print(
             "[red]✘ ERROR:[/] --force is not supported for configuration initialization. "
@@ -936,12 +957,22 @@ def init(
         )
 
     if use_pyproject:
-        _init_pyproject(repo_root, pyproject_path)
+        _init_pyproject(repo_root, pyproject_path, engine_override=engine)
     else:
-        _init_standalone(repo_root)
+        _init_standalone(repo_root, engine_override=engine)
 
     # Local Sovereignty: always scaffold machine-local overlay.
     _scaffold_local_toml(repo_root, discovered_name=_discover_project_name(repo_root))
+
+    # Next-steps guidance — printed once after all scaffolding is complete.
+    _shared.console.print(
+        "\n[bold green]✨ Zenzic initialized successfully![/]\n\n"
+        "[bold]Next steps:[/]\n"
+        "  1. Run [bold cyan]zenzic check all[/] to see your baseline.\n"
+        "  2. To automate Zenzic in CI/CD or pre-commit, see:\n"
+        "     [link=https://zenzic.dev/docs/how-to/configure-ci-cd]"
+        "https://zenzic.dev/docs/how-to/configure-ci-cd[/link]"
+    )
     _shared.print_footer_hint("init")
 
 
@@ -1078,7 +1109,7 @@ def _build_governance_ready_toml(*, engine: str, discovered_name: str | None) ->
     return GLOBAL_TOML_TEMPLATE.format(engine=engine, hint_name=hint_name)
 
 
-def _init_standalone(repo_root: Path) -> None:
+def _init_standalone(repo_root: Path, *, engine_override: str | None = None) -> None:
     """Create a standalone ``.zenzic.toml`` configuration file."""
     config_path = repo_root / ".zenzic.toml"
     local_path = repo_root / ".zenzic.local.toml"
@@ -1088,7 +1119,12 @@ def _init_standalone(repo_root: Path) -> None:
     if local_path.exists():
         _raise_existing_configuration_error(local_path)
 
-    detected_engine = _detect_init_engine(repo_root)
+    detected_engine = engine_override or _detect_init_engine(repo_root)
+    engine_hint = (
+        f"[bold cyan]{detected_engine}[/] (manually specified via --engine)."
+        if engine_override
+        else f"[bold cyan]{detected_engine}[/] (auto-detected)."
+    )
     discovered_name = _discover_project_name(repo_root)
     toml_content = _build_governance_ready_toml(
         engine=detected_engine,
@@ -1099,9 +1135,10 @@ def _init_standalone(repo_root: Path) -> None:
 
     _shared.console.print(
         Panel(
-            f"[green]✔[/] [bold].zenzic.toml created.[/]\n"
-            f"[yellow]💡[/] [bold]Auto-discovery:[/] Engine pre-set to "
-            f"[bold cyan]{detected_engine}[/].\n\n"
+            f"[green]✔[/] [bold].zenzic.toml[/] created.\n"
+            f"[green]✔[/] [bold].zenzic.local.toml[/] will be scaffolded next "
+            f"(machine-local, gitignored).\n"
+            f"[yellow]💡[/] [bold]Engine:[/] {engine_hint}\n\n"
             "Run [bold cyan]zenzic check all[/] to verify your documentation.",
             title="[bold]Zenzic Init[/]",
             border_style="green",
@@ -1109,68 +1146,52 @@ def _init_standalone(repo_root: Path) -> None:
     )
 
 
-def _init_pyproject(repo_root: Path, pyproject_path: Path) -> None:
-    """Append a ``[tool.zenzic]`` section to an existing ``pyproject.toml``."""
+def _init_pyproject(
+    repo_root: Path, pyproject_path: Path, *, engine_override: str | None = None
+) -> None:
+    """Append a ``[tool.zenzic]`` section to ``pyproject.toml``, creating it if absent."""
+    from zenzic.cli.templates import PYPROJECT_TOML_SECTION_TEMPLATE
+
+    created_pyproject = False
     if not pyproject_path.is_file():
-        _shared.console.print(
-            "[red]ERROR:[/] No [bold]pyproject.toml[/] found at "
-            f"[{ZenzicPalette.DIM}]{pyproject_path}[/]\n"
-            "Use [bold cyan]zenzic init[/] without --pyproject to create a standalone .zenzic.toml."
+        pyproject_path.write_text(
+            "# pyproject.toml — created by zenzic init\n"
+            "# Add [build-system] and [project] tables as needed for your build tool.\n",
+            encoding="utf-8",
         )
-        raise typer.Exit(1)
+        created_pyproject = True
 
     existing = pyproject_path.read_text(encoding="utf-8")
 
     if "[tool.zenzic]" in existing:
         _raise_existing_configuration_error(pyproject_path)
 
-    detected_engine = _detect_init_engine(repo_root)
-
-    engine_section = (
-        "\n[tool.zenzic.build_context]\n"
-        f'engine = "{detected_engine}"   # Pre-aligned via engine auto-discovery\n'
-        'base_url = "/"\n'
-        'default_locale = "en"\n'
+    detected_engine = engine_override or _detect_init_engine(repo_root)
+    engine_hint = (
+        f"[bold cyan]{detected_engine}[/] (manually specified via --engine)."
+        if engine_override
+        else f"[bold cyan]{detected_engine}[/] (auto-detected)."
     )
+    discovered_name = _discover_project_name(repo_root)
 
-    section = (
-        "\n[tool.zenzic]\n"
-        "# See https://zenzic.dev/docs/reference/configuration/ for full reference.\n"
-        'docs_dir = "docs"\n'
-        "fail_under = 100  # Strict gate: fail if quality score < 100%\n"
-        "strict = true     # Promote all warnings to blocking errors\n"
-        "# excluded_dirs = []\n"
-        "\n"
-        "[tool.zenzic.governance]\n"
-        "suppression_cap = 30\n"
-        "suppression_cap_fail_hard = true\n"
-        "brand_obsolescence = []\n"
-        "# [tool.zenzic.governance.per_file_ignores]\n"
-        "# [tool.zenzic.governance.directory_policies]\n"
-        "\n"
-        "# Uncomment to enable i18n parity checks:\n"
-        "# [tool.zenzic.i18n]\n"
-        "# enabled = true\n"
-        '# base_lang = "en"\n'
-        '# base_source = "docs"\n'
-        "# [tool.zenzic.i18n.targets]\n"
-        '# it = "i18n/it/docusaurus-plugin-content-docs/current"\n'
-        "\n"
-        "# Uncomment to add project-specific lint rules:\n"
-        "# [[tool.zenzic.custom_rules]]\n"
-        '# id      = "ZZ-NOCLICKHERE"\n'
-        '# pattern = "(?i)\\\\bclick here\\\\b"\n'
-        '# message = "Avoid generic link text."\n'
-    ) + engine_section
+    section = PYPROJECT_TOML_SECTION_TEMPLATE.format(
+        engine=detected_engine,
+        hint_name=discovered_name or "your-project",
+    )
 
     pyproject_path.write_text(existing.rstrip("\n") + "\n" + section, encoding="utf-8")
 
+    pyproject_label = (
+        "[bold]pyproject.toml[/] created and [tool.zenzic] added."
+        if created_pyproject
+        else f"[bold][tool.zenzic] added to {pyproject_path.relative_to(repo_root)}.[/]"
+    )
     _shared.console.print(
         Panel(
-            f"[green]✔[/] [bold][tool.zenzic] added to "
-            f"{pyproject_path.relative_to(repo_root)}.[/]\n"
-            f"[yellow]💡[/] [bold]Auto-discovery:[/] Engine pre-set to "
-            f"[bold cyan]{detected_engine}[/].\n\n"
+            f"[green]✔[/] {pyproject_label}\n"
+            f"[green]✔[/] [bold].zenzic.local.toml[/] will be scaffolded next "
+            f"(machine-local, gitignored).\n"
+            f"[yellow]💡[/] [bold]Engine:[/] {engine_hint}\n\n"
             "Edit the section, adjust directories, then run "
             "[bold cyan]zenzic check all[/].",
             title="[bold]Zenzic Init[/]",
@@ -1222,7 +1243,7 @@ version = "0.1.0"
 description = "Custom Zenzic plugin rule package"
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = ["zenzic>=0.9.1"]
+dependencies = ["zenzic>=0.9.2"]
 
 [project.entry-points."zenzic.rules"]
 {project_slug} = "{module_name}.rules:{class_name}"
