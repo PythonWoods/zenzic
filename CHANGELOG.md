@@ -11,14 +11,11 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-### Fixed
+No changes yet.
 
-- **Loopback URLs no longer flagged as external links:** `http://localhost`, `http://127.0.0.1`, `http://0.0.0.0`, and `http://::1` URLs (any port) are now silently skipped by the link validator. Previously they were collected as external links and triggered a network ping or a spurious `EXTERNAL_LINK` error, which broke Docker-based documentation setups that reference local service URLs in configuration examples.
-- **`Z109 EXTERNAL_LINK_BROKEN` — new canonical error code for broken external URLs:** External link errors (HTTP error status, connection timeout, network failure) are now reported with the proper `Z109` code instead of the non-standard `EXTERNAL_LINK` string. The code is registered in `codes.py` with severity `error`, DQS penalty `3.0`, and category `structural`.
-- **`Z501 PLACEHOLDER` — Scunthorpe-safe defaults:** `placeholder_patterns` now ships with RE2-compatible regex patterns using `\b` word boundaries instead of plain literal strings compiled with `re.escape()`. Patterns like `wip` no longer match "wipe"; `stub` no longer matches "Istanbul". The 12 broadest or phrase-only patterns (`draft`, `placeholder`, `to do`, `coming soon`, etc.) are removed from the default set. User-defined patterns are compiled without `re.escape()` and must be valid RE2 regex; `re.IGNORECASE` is applied automatically at compile time.
-- **`MkDocsAdapter.get_metadata_files()` — `.pages` gated on plugin declaration:** `.pages` files are now included in the metadata exempt set only when `awesome-pages` or `mkdocs-awesome-pages-plugin` is declared in `mkdocs.yml`. Projects without the awesome-pages plugin no longer have their `.pages` files silently exempted from Z405 unused-asset analysis.
-- **`zenzic init` — output clarity:** The main confirmation panel (green) now explicitly lists both files created: `.zenzic.toml` and `.zenzic.local.toml will be scaffolded next (machine-local, gitignored)`. The engine line reports `(auto-detected)` or `(manually specified via --engine)` to distinguish the two paths.
-- **`zenzic init --pyproject` — no longer aborts when `pyproject.toml` is absent:** Instead of erroring, the command now creates a minimal `pyproject.toml` stub and appends the full `[tool.zenzic]` section. This makes `--pyproject` usable in greenfield projects.
+---
+
+## [0.9.2] - 2026-06-05
 
 ### Added
 
@@ -28,10 +25,16 @@ Versions follow [Semantic Versioning](https://semver.org/).
 ### Changed
 
 - **`zenzic init --local` help text:** Updated from "Scaffold only .zenzic.local.toml (machine-local overlay). Skips main config creation." to a contributor-focused description that names the primary use case: cloning a repo that already has `.zenzic.toml` committed.
-
-### Changed
-
 - **Snippet validation handles indented Python code blocks:** `textwrap.dedent()` is now applied to each snippet before AST compilation, so Python blocks embedded inside list items, blockquotes, or other indented contexts are parsed correctly instead of raising spurious `IndentationError` findings.
+
+### Fixed
+
+- Core: Risolto il problema dei falsi positivi su Z501 restringendo i pattern di default agli standard industriali (TODO, FIXME) con word boundaries espliciti (\b).
+- Adapter: Aggiunto il supporto condizionale per i file .pages in MkDocsAdapter (previene falsi positivi Z405 quando il plugin awesome-pages è attivo).
+- **Loopback URLs no longer flagged as external links:** `http://localhost`, `http://127.0.0.1`, `http://0.0.0.0`, and `http://::1` URLs (any port) are now silently skipped by the link validator. Previously they were collected as external links and triggered a network ping or a spurious `EXTERNAL_LINK` error, which broke Docker-based documentation setups that reference local service URLs in configuration examples.
+- **`Z109 EXTERNAL_LINK_BROKEN` — new canonical error code for broken external URLs:** External link errors (HTTP error status, connection timeout, network failure) are now reported with the proper `Z109` code instead of the non-standard `EXTERNAL_LINK` string. The code is registered in `codes.py` with severity `error`, DQS penalty `3.0`, and category `structural`.
+- **`zenzic init` — output clarity:** The main confirmation panel (green) now explicitly lists both files created: `.zenzic.toml` and `.zenzic.local.toml will be scaffolded next (machine-local, gitignored)`. The engine line reports `(auto-detected)` or `(manually specified via --engine)` to distinguish the two paths.
+- **`zenzic init --pyproject` — no longer aborts when `pyproject.toml` is absent:** Instead of erroring, the command now creates a minimal `pyproject.toml` stub and appends the full `[tool.zenzic]` section. This makes `--pyproject` usable in greenfield projects.
 
 ---
 
