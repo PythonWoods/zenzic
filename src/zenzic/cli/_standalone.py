@@ -963,6 +963,16 @@ def init(
 
     # Local Sovereignty: always scaffold machine-local overlay.
     _scaffold_local_toml(repo_root, discovered_name=_discover_project_name(repo_root))
+
+    # Next-steps guidance — printed once after all scaffolding is complete.
+    _shared.console.print(
+        "\n[bold green]✨ Zenzic initialized successfully![/]\n\n"
+        "[bold]Next steps:[/]\n"
+        "  1. Run [bold cyan]zenzic check all[/] to see your baseline.\n"
+        "  2. To automate Zenzic in CI/CD or pre-commit, see:\n"
+        "     [link=https://zenzic.dev/docs/how-to/configure-ci-cd]"
+        "https://zenzic.dev/docs/how-to/configure-ci-cd[/link]"
+    )
     _shared.print_footer_hint("init")
 
 
