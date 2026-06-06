@@ -425,6 +425,76 @@ def test_check_all_quiet_with_errors(
 
 
 # ---------------------------------------------------------------------------
+# check all — ci and only flags
+# ---------------------------------------------------------------------------
+
+
+@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
+@patch(
+    "zenzic.cli._check.validate_links_structured",
+    return_value=[
+        LinkError(
+            file_path=_ROOT / "docs" / "index.md",
+            line_no=1,
+            message="broken link",
+            error_type="Z104",
+        )
+    ],
+)
+@patch("zenzic.cli._check.find_orphans", return_value=[])
+@patch("zenzic.cli._check.validate_snippets", return_value=[])
+@patch("zenzic.cli._check.find_placeholders", return_value=[])
+@patch("zenzic.cli._check.find_unused_assets", return_value=[])
+@patch("zenzic.cli._check.check_nav_contract", return_value=[])
+@patch("zenzic.cli._check.scan_docs_references", return_value=([], []))
+def test_check_all_ci_forces_github_annotations(
+    _refs, _nav, _assets, _ph, _snip, _orphans, _links, _cfg, _root
+) -> None:
+    result = runner.invoke(app, ["check", "all", "--ci"])
+    assert result.exit_code == 1
+    # Check that it outputs github-annotations format
+    assert "::error file=docs/index.md,line=1,title=Z104::broken link" in result.stdout
+
+
+@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
+@patch(
+    "zenzic.cli._check.validate_links_structured",
+    return_value=[
+        LinkError(
+            file_path=_ROOT / "docs" / "index.md",
+            line_no=1,
+            message="broken link",
+            error_type="Z104",
+        ),
+        LinkError(
+            file_path=_ROOT / "docs" / "other.md",
+            line_no=2,
+            message="another link",
+            error_type="Z101",
+        ),
+    ],
+)
+@patch("zenzic.cli._check.find_orphans", return_value=[Path("orphan.md")])
+@patch("zenzic.cli._check.validate_snippets", return_value=[])
+@patch("zenzic.cli._check.find_placeholders", return_value=[])
+@patch("zenzic.cli._check.find_unused_assets", return_value=[])
+@patch("zenzic.cli._check.check_nav_contract", return_value=[])
+@patch("zenzic.cli._check.scan_docs_references", return_value=([], []))
+def test_check_all_only_filters_findings(
+    _refs, _nav, _assets, _ph, _snip, _orphans, _links, _cfg, _root
+) -> None:
+    result = runner.invoke(app, ["check", "all", "--format", "json", "--only", "Z104"])
+    assert result.exit_code == 1
+    data = json.loads(result.stdout)
+    assert len(data["links"]) == 1
+    assert "broken link" in data["links"][0]
+    # Orphans (Z402) should be filtered out because only Z104 is allowed
+    assert len(data["orphans"]) == 0
+
+
+# ---------------------------------------------------------------------------
 # check all — strict gate on warnings
 # ---------------------------------------------------------------------------
 

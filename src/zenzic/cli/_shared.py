@@ -283,6 +283,37 @@ def _output_sarif_findings(findings: list[Finding], version: str) -> None:
     print(json.dumps(report, indent=2))
 
 
+# ── GitHub Annotations output ─────────────────────────────────────────────────
+
+
+def _output_github_annotations(findings: list[Finding]) -> None:
+    """Print findings as GitHub Actions workflow commands to stdout."""
+    for f in findings:
+        if f.severity in {"error", "security_breach", "security_incident"}:
+            level = "error"
+        elif f.severity == "warning":
+            level = "warning"
+        else:
+            level = "notice"
+
+        props = []
+        if f.rel_path:
+            props.append(f"file={f.rel_path.replace(os.sep, '/')}")
+        if f.line_no > 0:
+            props.append(f"line={f.line_no}")
+        if f.col_start > 0:
+            props.append(f"col={f.col_start}")
+        if f.code:
+            props.append(f"title={f.code}")
+
+        prop_str = ",".join(props)
+        msg = f.message.replace("\n", "%0A")
+        if prop_str:
+            print(f"::{level} {prop_str}::{msg}")
+        else:
+            print(f"::{level}::{msg}")
+
+
 # ── Link error renderer ───────────────────────────────────────────────────────
 
 

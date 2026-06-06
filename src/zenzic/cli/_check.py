@@ -118,6 +118,14 @@ def check_links(
         ),
         metavar="PREFIX",
     ),
+    ci: bool = typer.Option(
+        False, "--ci", help="Run in CI mode (forces github-annotations and strict)."
+    ),
+    only: str | None = typer.Option(
+        None,
+        "--only",
+        help="Comma-separated list of Z-Codes to filter. Findings not matching these codes are discarded.",
+    ),
     path: str | None = typer.Argument(
         None,
         help="Limit to a directory or file. Accepts paths relative to repository root or docs directory. The path must be inside a project with a .git/ directory or .zenzic.toml (root marker); run 'zenzic init' first if no marker exists.",
@@ -126,6 +134,11 @@ def check_links(
 ) -> None:
     """Check for broken internal links and enforce strict warning policy when requested."""
     from zenzic import __version__
+
+    if ci:
+        strict = True
+        if output_format == "text":
+            output_format = "github-annotations"
 
     _search_from: Path | None = None
     if path is not None:
@@ -186,6 +199,7 @@ def check_links(
         )
         for err in link_errors
     ]
+    findings = _filter_flat_findings(findings, only)
 
     if output_format == "json":
         _shared._output_json_findings(findings, elapsed)
@@ -203,6 +217,16 @@ def check_links(
             raise typer.Exit(3)
         errors_count = sum(1 for f in findings if f.severity == "error")
         if errors_count:
+            raise typer.Exit(1)
+        return
+    elif output_format == "github-annotations":
+        _shared._output_github_annotations(findings)
+        incidents = sum(1 for f in findings if f.severity == "security_incident")
+        if incidents:
+            raise typer.Exit(3)
+        errors_count = sum(1 for f in findings if f.severity == "error")
+        warnings_count = sum(1 for f in findings if f.severity == "warning")
+        if errors_count > 0 or (strict and warnings_count > 0):
             raise typer.Exit(1)
         return
 
@@ -251,6 +275,14 @@ def check_orphans(
     output_format: str = typer.Option(
         "text", "--format", "-f", help="Output format: text, json, or sarif."
     ),
+    ci: bool = typer.Option(
+        False, "--ci", help="Run in CI mode (forces github-annotations and strict)."
+    ),
+    only: str | None = typer.Option(
+        None,
+        "--only",
+        help="Comma-separated list of Z-Codes to filter. Findings not matching these codes are discarded.",
+    ),
     show_info: bool = typer.Option(
         False, "--show-info", help="Show info-level findings (e.g. circular links) in the report."
     ),
@@ -265,6 +297,10 @@ def check_orphans(
 ) -> None:
     """Detect .md files not listed in the nav."""
     from zenzic import __version__
+
+    if ci:
+        if output_format == "text":
+            output_format = "github-annotations"
 
     _search_from: Path | None = None
     if path is not None:
@@ -320,6 +356,7 @@ def check_orphans(
         )
         for path in orphans
     ]
+    findings = _filter_flat_findings(findings, only)
 
     if output_format == "json":
         _shared._output_json_findings(findings, elapsed)
@@ -364,6 +401,14 @@ def check_snippets(
     output_format: str = typer.Option(
         "text", "--format", "-f", help="Output format: text, json, or sarif."
     ),
+    ci: bool = typer.Option(
+        False, "--ci", help="Run in CI mode (forces github-annotations and strict)."
+    ),
+    only: str | None = typer.Option(
+        None,
+        "--only",
+        help="Comma-separated list of Z-Codes to filter. Findings not matching these codes are discarded.",
+    ),
     show_info: bool = typer.Option(
         False, "--show-info", help="Show info-level findings (e.g. circular links) in the report."
     ),
@@ -375,6 +420,10 @@ def check_snippets(
 ) -> None:
     """Validate Python code blocks in documentation Markdown files."""
     from zenzic import __version__
+
+    if ci:
+        if output_format == "text":
+            output_format = "github-annotations"
 
     _search_from: Path | None = None
     if path is not None:
@@ -479,6 +528,14 @@ def check_references(
     output_format: str = typer.Option(
         "text", "--format", "-f", help="Output format: text, json, or sarif."
     ),
+    ci: bool = typer.Option(
+        False, "--ci", help="Run in CI mode (forces github-annotations and strict)."
+    ),
+    only: str | None = typer.Option(
+        None,
+        "--only",
+        help="Comma-separated list of Z-Codes to filter. Findings not matching these codes are discarded.",
+    ),
     show_info: bool = typer.Option(
         False, "--show-info", help="Show info-level findings (e.g. circular links) in the report."
     ),
@@ -503,6 +560,11 @@ def check_references(
       2 — SECURITY CRITICAL: a secret was detected in a reference URL.
     """
     from zenzic import __version__
+
+    if ci:
+        strict = True
+        if output_format == "text":
+            output_format = "github-annotations"
 
     _search_from: Path | None = None
     if path is not None:
@@ -654,6 +716,14 @@ def check_assets(
     output_format: str = typer.Option(
         "text", "--format", "-f", help="Output format: text, json, or sarif."
     ),
+    ci: bool = typer.Option(
+        False, "--ci", help="Run in CI mode (forces github-annotations and strict)."
+    ),
+    only: str | None = typer.Option(
+        None,
+        "--only",
+        help="Comma-separated list of Z-Codes to filter. Findings not matching these codes are discarded.",
+    ),
     show_info: bool = typer.Option(
         False, "--show-info", help="Show info-level findings (e.g. circular links) in the report."
     ),
@@ -665,6 +735,10 @@ def check_assets(
 ) -> None:
     """Detect unused images and assets in the documentation."""
     from zenzic import __version__
+
+    if ci:
+        if output_format == "text":
+            output_format = "github-annotations"
 
     _search_from: Path | None = None
     if path is not None:
@@ -721,6 +795,7 @@ def check_assets(
         )
         for path in unused
     ]
+    findings = _filter_flat_findings(findings, only)
 
     if output_format == "json":
         _shared._output_json_findings(findings, elapsed)
@@ -762,6 +837,17 @@ def check_assets(
 
 @check_app.command(name="placeholders")
 def check_placeholders(
+    output_format: str = typer.Option(
+        "text", "--format", "-f", help="Output format: text, json, or sarif."
+    ),
+    ci: bool = typer.Option(
+        False, "--ci", help="Run in CI mode (forces github-annotations and strict)."
+    ),
+    only: str | None = typer.Option(
+        None,
+        "--only",
+        help="Comma-separated list of Z-Codes to filter. Findings not matching these codes are discarded.",
+    ),
     show_info: bool = typer.Option(
         False, "--show-info", help="Show info-level findings (e.g. circular links) in the report."
     ),
@@ -773,6 +859,10 @@ def check_placeholders(
 ) -> None:
     """Detect pages with < 50 words or containing TODOs/stubs."""
     from zenzic import __version__
+
+    if ci:
+        if output_format == "text":
+            output_format = "github-annotations"
 
     _search_from: Path | None = None
     if path is not None:
@@ -898,6 +988,48 @@ class _AllCheckResults:
             or self.security_events
             or self.i18n_parity_issues
         )
+
+
+def _apply_only_filter(results: _AllCheckResults, only_str: str) -> None:
+    """Destructively filter CheckResults keeping only the specified Z-codes."""
+    if not only_str:
+        return
+    allowed = frozenset(code.strip().upper() for code in only_str.split(",") if code.strip())
+    if not allowed:
+        return
+
+    results.link_errors = [e for e in results.link_errors if e.code in allowed]
+    if "Z402" not in allowed:
+        results.orphans = []
+    if "Z503" not in allowed:
+        results.snippet_errors = []
+    results.placeholders = [p for p in results.placeholders if p.issue in allowed]
+    if "Z405" not in allowed:
+        results.unused_assets = []
+    if "Z406" not in allowed:
+        results.nav_contract_errors = []
+    if "Z602" not in allowed:
+        results.i18n_parity_issues = []
+    if "Z401" not in allowed:
+        results.directory_index_issues = []
+    if "Z404" not in allowed:
+        results.config_asset_issues = []
+
+    for rep in results.reference_reports:
+        rep.findings = [f for f in rep.findings if f.issue in allowed]
+        rep.rule_findings = [f for f in rep.rule_findings if getattr(f, "rule_id", "") in allowed]
+        if "Z201" not in allowed:
+            rep.security_findings = []
+
+
+def _filter_flat_findings(findings: list[Finding], only_str: str | None) -> list[Finding]:
+    """Filter a flat list of findings keeping only the specified Z-codes."""
+    if not only_str:
+        return findings
+    allowed = frozenset(code.strip().upper() for code in only_str.split(",") if code.strip())
+    if not allowed:
+        return findings
+    return [f for f in findings if f.code in allowed]
 
 
 # _apply_per_file_ignores and _apply_directory_policies have moved to _governance.py.
@@ -1204,6 +1336,14 @@ def check_all(
     output_format: str = typer.Option(
         "text", "--format", "-f", help="Output format: text, json, or sarif."
     ),
+    ci: bool = typer.Option(
+        False, "--ci", help="Run in CI mode (forces github-annotations and strict)."
+    ),
+    only: str | None = typer.Option(
+        None,
+        "--only",
+        help="Comma-separated list of Z-Codes to filter. Findings not matching these codes are discarded.",
+    ),
     exit_zero: bool | None = typer.Option(
         None, "--exit-zero", help="Always exit 0; report issues without failing."
     ),
@@ -1289,6 +1429,12 @@ def check_all(
             err=True,
         )
         raise typer.Exit(2)
+
+    if ci:
+        strict = True
+        if output_format == "text":
+            output_format = "github-annotations"
+
     # CEO-052 "The Sovereign Root Fix": when an explicit target PATH is given,
     # derive repo_root by searching upward FROM that path — not from CWD.
     # "The configuration follows the target, not the caller."
@@ -1368,6 +1514,10 @@ def check_all(
                     indent=2,
                 )
             )
+        elif output_format == "github-annotations":
+            print(
+                f"::error title=Zenzic::Suppression CAP exceeded: {suppression_audit.total} > {suppression_audit.cap}"
+            )
         elif output_format == "text":
             if not quiet:
                 _shared.console.print()
@@ -1386,6 +1536,10 @@ def check_all(
             strict=effective_strict,
             check_external=not no_external,
         )
+
+    if only:
+        _apply_only_filter(results, only)
+
     elapsed = time.monotonic() - t0
 
     if output_format == "json":
@@ -1435,6 +1589,31 @@ def check_all(
             raise typer.Exit(2)
         errors_count = sum(1 for f in all_findings if f.severity == "error")
         if errors_count and not effective_exit_zero:
+            raise typer.Exit(1)
+        return
+    elif output_format == "github-annotations":
+        with sovereign_context(force_audit=audit):
+            all_findings = _to_findings(results, docs_root, repo_root)
+            all_findings = _apply_per_file_ignores(all_findings, config)
+            all_findings = _apply_directory_policies(all_findings, config)
+        if _single_file is not None:
+            _sf_rel = str(_single_file.relative_to(repo_root))
+            all_findings = [f for f in all_findings if f.rel_path == _sf_rel]
+
+        _shared._output_github_annotations(all_findings)
+
+        incidents = sum(1 for f in all_findings if f.severity == "security_incident")
+        if incidents:
+            raise typer.Exit(3)
+        breaches = sum(1 for f in all_findings if f.severity == "security_breach")
+        if breaches:
+            raise typer.Exit(2)
+
+        errors_count = sum(1 for f in all_findings if f.severity == "error")
+        warnings_count = sum(1 for f in all_findings if f.severity == "warning")
+        if (
+            errors_count > 0 or (effective_strict and warnings_count > 0)
+        ) and not effective_exit_zero:
             raise typer.Exit(1)
         return
 
