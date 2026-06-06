@@ -76,7 +76,7 @@ default_locale = "en"
 
 # --- BRAND INTEGRITY ---
 [project_metadata]
-release_name = "Diamond"
+release_name = "Magnetite"
 obsolete_names_exclude_patterns = ["CHANGELOG*.md", "CHANGELOG*.archive.md", "changelogs/*.md", "RELEASE.md"]
 badge_stamp_files = ["README.md", "README.it.md"]
 
@@ -97,10 +97,10 @@ suppression_cap_fail_hard = true
 
 # Terms that should no longer appear in your documentation.
 brand_obsolescence = [
-    "Graphite",
+    "Basalt",
     "Quartz",
     "Obsidian",
-    "Basalt",
+    "Graphite"
 ]
 # suppression_cap_scope = "all"  # Options: all, per-file
 # i18n_parity = false            # Set true when i18n is enabled
