@@ -76,7 +76,7 @@ default_locale = "en"
 
 # --- BRAND INTEGRITY ---
 [project_metadata]
-release_name = "Graphite"
+release_name = "Diamond"
 obsolete_names_exclude_patterns = ["CHANGELOG*.md", "CHANGELOG*.archive.md", "changelogs/*.md", "RELEASE.md"]
 badge_stamp_files = ["README.md", "README.it.md"]
 
@@ -97,6 +97,7 @@ suppression_cap_fail_hard = true
 
 # Terms that should no longer appear in your documentation.
 brand_obsolescence = [
+    "Graphite",
     "Quartz",
     "Obsidian",
     "Basalt",
@@ -132,6 +133,7 @@ brand_obsolescence = [
 "changelogs/**" = ["Z601"]  # historical release codenames (Obsidian, Quartz…)
 "CHANGELOG*.md" = ["Z601"]  # release codenames in historical changelogs
 "RELEASE.md"    = ["Z601"]  # current release codename tracking
+"ROADMAP.md"    = ["Z601"]  # historical/planned codenames in roadmap
 
 # Governance Playbook:
 # https://zenzic.dev/developers/how-to/release-governance-protocol
