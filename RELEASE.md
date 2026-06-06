@@ -9,7 +9,7 @@
 | Field    | Value      |
 | :------- | :--------- |
 | Version  | v0.10.0     |
-| Codename | Graphite   |
+| Codename | Magnetite   |
 | Date     | 2026-06-06 |
 | Status   | Stable |
 
