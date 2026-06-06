@@ -1704,7 +1704,8 @@ def scan_docs_references(
             _report_b, secure_scanner_b = _scan_single_file(md_file, config, None)
             if secure_scanner_b is not None:
                 secure_scanners_b.append(secure_scanner_b)
-        validator_b = LinkValidator()
+        _resolved_repo_root = find_repo_root(search_from=docs_root)
+        validator_b = LinkValidator(config, _resolved_repo_root)
         for scanner in secure_scanners_b:
             validator_b.register_from_map(scanner.ref_map, scanner.file_path)
         return reports, validator_b.validate()
@@ -1741,7 +1742,8 @@ def scan_docs_references(
 
     # Phase B — global URL deduplication and async HTTP validation.
     # Uses the already-populated ref_maps from Phase A — no second file read.
-    validator_seq = LinkValidator()
+    _resolved_repo_root = find_repo_root(search_from=docs_root)
+    validator_seq = LinkValidator(config, _resolved_repo_root)
     for scanner in secure_scanners_seq:
         validator_seq.register_from_map(scanner.ref_map, scanner.file_path)
     # Remap locale file paths to their logical display paths.

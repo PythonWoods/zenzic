@@ -266,6 +266,19 @@ class GovernanceConfig(BaseModel):
     )
 
 
+class NetworkConfig(BaseModel):
+    """Network I/O toggles declared in ``[network]``."""
+
+    cache_external_links: bool = Field(
+        default=True,
+        description="Cache external link responses to speed up local execution.",
+    )
+    cache_ttl_hours: int = Field(
+        default=24,
+        description="Time-to-live for cached external links in hours.",
+    )
+
+
 # ── System Guardrails ────────────────────────────────────────────────────────
 # Directories that Zenzic ALWAYS ignores.  These are merged into
 # ``excluded_dirs`` unconditionally in ``model_post_init``.  User entries
@@ -279,6 +292,7 @@ SYSTEM_EXCLUDED_DIRS: Final[frozenset[str]] = frozenset(
         # (ZRT-010 Sovereign Parity). Excluding at L1 eliminates the need for
         # every family repo to declare it in excluded_dirs.
         "_zenzic_core",
+        ".zenzic_cache",
         # Virtual environments and package managers
         ".venv",
         "node_modules",
@@ -568,6 +582,10 @@ class ZenzicConfig(BaseModel):
             "legacy [project_metadata].obsolete_names."
         ),
     )
+    network: NetworkConfig = Field(
+        default_factory=NetworkConfig,
+        description="Network I/O settings for external link validation.",
+    )
     plugins: list[str] = Field(
         default_factory=list,
         description=(
@@ -645,7 +663,7 @@ class ZenzicConfig(BaseModel):
         # header (e.g. `[project]`) causes TOML to nest them under that table,
         # which is then silently dropped because `project` is not a known field.
         _HANDLED_SECTIONS = frozenset(
-            {"build_context", "custom_rules", "project_metadata", "governance", "i18n"}
+            {"build_context", "custom_rules", "project_metadata", "governance", "i18n", "network"}
         )
         for key in data:
             if key not in known_fields and key not in _HANDLED_SECTIONS:
@@ -690,6 +708,10 @@ class ZenzicConfig(BaseModel):
                     for k, v in data["governance"].items()
                     if k in GovernanceConfig.model_fields
                 }
+            )
+        if "network" in data and isinstance(data["network"], dict):
+            filtered_data["network"] = NetworkConfig(
+                **{k: v for k, v in data["network"].items() if k in NetworkConfig.model_fields}
             )
 
         # Legacy migration path (v0.8): [project_metadata].obsolete_names ->

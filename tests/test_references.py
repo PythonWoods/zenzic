@@ -816,22 +816,22 @@ class TestLinkValidator:
     Here we verify the deduplication contract and the register_from_map interface.
     """
 
-    def test_register_non_http_url_ignored(self) -> None:
-        validator = LinkValidator()
+    def test_register_non_http_url_ignored(self, tmp_path: Path) -> None:
+        validator = LinkValidator(ZenzicConfig(), tmp_path)
         validator.register("mailto:user@example.com", Path("doc.md"), 1)
         validator.register("ftp://files.example.com/doc.pdf", Path("doc.md"), 2)
         validator.register("/relative/path", Path("doc.md"), 3)
         assert validator.unique_url_count == 0
 
-    def test_register_http_url_accepted(self) -> None:
-        validator = LinkValidator()
+    def test_register_http_url_accepted(self, tmp_path: Path) -> None:
+        validator = LinkValidator(ZenzicConfig(), tmp_path)
         validator.register("http://example.com", Path("doc.md"), 1)
         validator.register("https://example.com", Path("doc.md"), 2)
         assert validator.unique_url_count == 2
 
     def test_global_deduplication_same_url_multiple_files(self, tmp_path: Path) -> None:
         """50 registrations of the same URL → unique_url_count == 1."""
-        validator = LinkValidator()
+        validator = LinkValidator(ZenzicConfig(), tmp_path)
         shared_url = "https://github.com/PythonWoods/zenzic"
         for i in range(50):
             validator.register(shared_url, tmp_path / f"doc{i}.md", i + 1)
@@ -844,7 +844,7 @@ class TestLinkValidator:
         rm.add_definition("mail", "mailto:user@example.com", 2)
         rm.add_definition("web", "https://example.com", 3)
 
-        validator = LinkValidator()
+        validator = LinkValidator(ZenzicConfig(), tmp_path)
         validator.register_from_map(rm, tmp_path / "doc.md")
         assert validator.unique_url_count == 1  # only the https URL
 
@@ -858,7 +858,7 @@ class TestLinkValidator:
         rm2 = ReferenceMap()
         rm2.add_definition("ref", shared, 3)
 
-        validator = LinkValidator()
+        validator = LinkValidator(ZenzicConfig(), tmp_path)
         validator.register_from_map(rm1, tmp_path / "file1.md")
         validator.register_from_map(rm2, tmp_path / "file2.md")
         assert validator.unique_url_count == 1
@@ -869,13 +869,13 @@ class TestLinkValidator:
         rm.add_definition("b", "https://beta.example.com", 2)
         rm.add_definition("c", "https://gamma.example.com", 3)
 
-        validator = LinkValidator()
+        validator = LinkValidator(ZenzicConfig(), tmp_path)
         validator.register_from_map(rm, tmp_path / "doc.md")
         assert validator.unique_url_count == 3
 
-    def test_validate_returns_empty_when_no_registrations(self) -> None:
+    def test_validate_returns_empty_when_no_registrations(self, tmp_path: Path) -> None:
         """validate() on an empty validator must return [] without raising."""
-        validator = LinkValidator()
+        validator = LinkValidator(ZenzicConfig(), tmp_path)
         errors = validator.validate()
         assert errors == []
 
@@ -901,6 +901,7 @@ class TestLinkValidator:
         """Files with credential scanner findings must not have their URLs registered."""
         docs = tmp_path / "docs"
         docs.mkdir()
+        (tmp_path / ".zenzic.toml").touch()
         (tmp_path / "mkdocs.yml").touch()
         aws_key = "AKIA" + "L" * 16
         (docs / "danger.md").write_text(
