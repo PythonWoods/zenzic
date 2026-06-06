@@ -627,7 +627,7 @@ async def _check_external_links(
 
     cache_file = repo_root / ".zenzic_cache" / "external_links.json"
     cache: dict[str, Any] = {}
-    if config.network.cache_external_links:
+    if config.network.cache_ttl_hours > 0:
         try:
             if cache_file.is_file():
                 with cache_file.open("r", encoding="utf-8") as f:
@@ -640,7 +640,7 @@ async def _check_external_links(
     urls_to_check: list[str] = []
 
     for url in url_occurrences:
-        if config.network.cache_external_links and url in cache:
+        if config.network.cache_ttl_hours > 0 and url in cache:
             entry = cache[url]
             if isinstance(entry, dict) and "timestamp" in entry and "status" in entry:
                 if current_time - entry["timestamp"] < ttl_seconds and entry["status"] == 200:
@@ -679,7 +679,7 @@ async def _check_external_links(
                 for label, lineno in url_occurrences[url]:
                     errors.append(f"{label}:{lineno}: {msg}")
 
-        if config.network.cache_external_links:
+        if config.network.cache_ttl_hours > 0:
             try:
                 cache_file.parent.mkdir(parents=True, exist_ok=True)
                 temp_file = cache_file.with_suffix(".tmp")

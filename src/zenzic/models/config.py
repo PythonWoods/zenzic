@@ -269,10 +269,6 @@ class GovernanceConfig(BaseModel):
 class NetworkConfig(BaseModel):
     """Network I/O toggles declared in ``[network]``."""
 
-    cache_external_links: bool = Field(
-        default=True,
-        description="Cache external link responses to speed up local execution.",
-    )
     cache_ttl_hours: int = Field(
         default=24,
         description="Time-to-live for cached external links in hours.",
