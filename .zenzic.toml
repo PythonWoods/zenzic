@@ -181,3 +181,10 @@ severity = "error"
 #         uses: pythonwoods/zenzic-action@v1
 #       - name: Verify Badge Freshness
 #         run: uvx zenzic score --check-stamp
+
+# --- NETWORK I/O ---
+[network]
+# Cache external link resolution in .zenzic_cache/external_links.json
+# to eliminate network latency in CI and local re-runs.
+# Set to 0 to disable caching entirely (synchronous fallback).
+cache_ttl_hours = 24

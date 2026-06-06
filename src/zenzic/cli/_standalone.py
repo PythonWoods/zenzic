@@ -1024,27 +1024,32 @@ def _scaffold_local_toml(repo_root: Path, *, discovered_name: str | None = None)
         local_toml.write_text(LOCAL_TOML_TEMPLATE, encoding="utf-8")
         created_now = True
 
-    # Ensure local overlay is ignored in Git repositories.
+    # Ensure local overlay and cache are ignored in Git repositories.
     is_git_repo = (repo_root / ".git").exists()
     gitignore = repo_root / ".gitignore"
     gitignore_line = ""
     if is_git_repo:
         existing = gitignore.read_text(encoding="utf-8") if gitignore.is_file() else ""
+        additions = []
         if ".zenzic.local.toml" not in existing:
+            additions.append(".zenzic.local.toml")
+        if ".zenzic_cache/" not in existing:
+            additions.append(".zenzic_cache/")
+
+        if additions:
             separator = "" if (not existing or existing.endswith("\n")) else "\n"
-            gitignore.write_text(existing + separator + ".zenzic.local.toml\n", encoding="utf-8")
+            gitignore.write_text(
+                existing + separator + "\n".join(additions) + "\n", encoding="utf-8"
+            )
+            added_str = " and ".join(f"[bold]{a}[/]" for a in additions)
             gitignore_line = (
-                "[yellow]🛡️ Security Note:[/] Added [bold].zenzic.local.toml[/] "
-                "to your [bold].gitignore[/] to preserve local sovereignty.\n"
+                f"[yellow]🛡️ Security Note:[/] Added {added_str} "
+                "to your [bold].gitignore[/] to preserve local sovereignty.\\n"
             )
         else:
-            gitignore_line = (
-                f"[{ZenzicPalette.DIM}].gitignore already protects .zenzic.local.toml.[/]\n"
-            )
+            gitignore_line = f"[{ZenzicPalette.DIM}].gitignore already protects .zenzic.local.toml and .zenzic_cache/.[/]\\n"
     else:
-        gitignore_line = (
-            "[yellow]⚠[/] No Git repository detected. Keep .zenzic.local.toml private.\n"
-        )
+        gitignore_line = "[yellow]⚠[/] No Git repository detected. Keep .zenzic.local.toml and .zenzic_cache/ private.\\n"
 
     _shared.console.print(
         Panel(
@@ -1243,7 +1248,7 @@ version = "0.1.0"
 description = "Custom Zenzic plugin rule package"
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = ["zenzic>=0.9.2"]
+dependencies = ["zenzic>=0.10.0"]
 
 [project.entry-points."zenzic.rules"]
 {project_slug} = "{module_name}.rules:{class_name}"

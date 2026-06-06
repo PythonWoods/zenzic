@@ -33,6 +33,7 @@ import json
 import os
 import sys
 import textwrap
+import time
 from collections.abc import Iterator
 
 
@@ -571,7 +572,9 @@ def extract_ref_links(text: str, ref_map: dict[str, str]) -> list[LinkInfo]:
 # ─── Async I/O helpers ────────────────────────────────────────────────────────
 
 
-async def _ping_url(client: httpx.AsyncClient, url: str) -> str | None:
+async def _ping_url(
+    client: httpx.AsyncClient, url: str, cache: dict[str, Any], timestamp: float
+) -> str | None:
     """HEAD-ping a single URL; returns an error string or ``None`` if reachable.
 
     Falls back to GET when the server returns 405 Method Not Allowed.
@@ -581,11 +584,22 @@ async def _ping_url(client: httpx.AsyncClient, url: str) -> str | None:
     try:
         response = await client.head(url)
         if response.status_code == 405:
-            response = await client.get(url)
+            async with client.stream("GET", url) as stream_resp:
+                if stream_resp.status_code in (401, 403, 429):
+                    cache[url] = {"status": 200, "timestamp": timestamp}
+                    return None
+                if stream_resp.status_code >= 400:
+                    return f"external link '{url}' returned HTTP {stream_resp.status_code}"
+                cache[url] = {"status": 200, "timestamp": timestamp}
+                return None
+
         if response.status_code in (401, 403, 429):
+            cache[url] = {"status": 200, "timestamp": timestamp}
             return None
         if response.status_code >= 400:
             return f"external link '{url}' returned HTTP {response.status_code}"
+
+        cache[url] = {"status": 200, "timestamp": timestamp}
         return None
     except httpx.TimeoutException:
         return f"external link '{url}' timed out (>10 s)"
@@ -595,17 +609,13 @@ async def _ping_url(client: httpx.AsyncClient, url: str) -> str | None:
 
 async def _check_external_links(
     entries: list[tuple[str, str, int]],
+    config: ZenzicConfig,
+    repo_root: Path,
 ) -> list[str]:
     """Concurrently validate a batch of external URLs.
 
     Deduplicates URLs so each is pinged exactly once, then maps any error back
     to every ``(file_label, lineno)`` pair that referenced that URL.
-
-    Args:
-        entries: List of ``(url, file_label, line_no)`` tuples.
-
-    Returns:
-        Sorted list of human-readable error strings.
     """
     if not entries:
         return []
@@ -614,6 +624,28 @@ async def _check_external_links(
     url_occurrences: dict[str, list[tuple[str, int]]] = {}
     for url, label, lineno in entries:
         url_occurrences.setdefault(url, []).append((label, lineno))
+
+    cache_file = repo_root / ".zenzic_cache" / "external_links.json"
+    cache: dict[str, Any] = {}
+    if config.network.cache_ttl_hours > 0:
+        try:
+            if cache_file.is_file():
+                with cache_file.open("r", encoding="utf-8") as f:
+                    cache = json.load(f)
+        except Exception:
+            cache = {}
+
+    current_time = time.time()
+    ttl_seconds = config.network.cache_ttl_hours * 3600
+    urls_to_check: list[str] = []
+
+    for url in url_occurrences:
+        if config.network.cache_ttl_hours > 0 and url in cache:
+            entry = cache[url]
+            if isinstance(entry, dict) and "timestamp" in entry and "status" in entry:
+                if current_time - entry["timestamp"] < ttl_seconds and entry["status"] == 200:
+                    continue  # Valid and fresh
+        urls_to_check.append(url)
 
     headers = {
         "User-Agent": (
@@ -626,26 +658,36 @@ async def _check_external_links(
 
     async def _bounded_ping(client: httpx.AsyncClient, url: str) -> str | None:
         async with semaphore:
-            return await _ping_url(client, url)
+            return await _ping_url(client, url, cache, current_time)
 
     errors: list[str] = []
-    async with httpx.AsyncClient(
-        follow_redirects=True,
-        timeout=10.0,
-        headers=headers,
-    ) as client:
-        unique_urls = list(url_occurrences)
-        results = await asyncio.gather(
-            *(_bounded_ping(client, u) for u in unique_urls),
-            return_exceptions=True,
-        )
+    if urls_to_check:
+        async with httpx.AsyncClient(
+            follow_redirects=True,
+            timeout=10.0,
+            headers=headers,
+        ) as client:
+            results = await asyncio.gather(
+                *(_bounded_ping(client, u) for u in urls_to_check),
+                return_exceptions=True,
+            )
 
-        for url, result in zip(unique_urls, results, strict=True):
-            if result is None:
-                continue
-            msg = str(result) if isinstance(result, Exception) else result
-            for label, lineno in url_occurrences[url]:
-                errors.append(f"{label}:{lineno}: {msg}")
+            for url, result in zip(urls_to_check, results, strict=True):
+                if result is None:
+                    continue
+                msg = str(result) if isinstance(result, Exception) else result
+                for label, lineno in url_occurrences[url]:
+                    errors.append(f"{label}:{lineno}: {msg}")
+
+        if config.network.cache_ttl_hours > 0:
+            try:
+                cache_file.parent.mkdir(parents=True, exist_ok=True)
+                temp_file = cache_file.with_suffix(".tmp")
+                with temp_file.open("w", encoding="utf-8") as f:
+                    json.dump(cache, f)
+                temp_file.replace(cache_file)
+            except Exception:
+                pass
 
     return sorted(errors)
 
@@ -1160,7 +1202,7 @@ async def validate_links_async(
             for url, label, lineno in external_entries
             if not any(url.startswith(prefix) for prefix in excluded)
         ]
-    ext_error_strs = await _check_external_links(external_entries)
+    ext_error_strs = await _check_external_links(external_entries, config, repo_root)
     ext_link_errors = [
         LinkError(
             file_path=docs_root,  # no single file context for external errors
@@ -1543,7 +1585,9 @@ class LinkValidator:
             when multiple files define the same URL.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, config: ZenzicConfig, repo_root: Path) -> None:
+        self._config = config
+        self._repo_root = repo_root
         # url → [(file_path, line_no), ...]  — deduplication key is the URL
         self._registrations: dict[str, list[tuple[Path, int]]] = {}
 
@@ -1600,7 +1644,7 @@ class LinkValidator:
             (url, str(occurrences[0][0]), occurrences[0][1])
             for url, occurrences in self._registrations.items()
         ]
-        return await _check_external_links(entries)
+        return await _check_external_links(entries, self._config, self._repo_root)
 
     def validate(self) -> list[str]:
         """Synchronous wrapper around :meth:`validate_async`.
