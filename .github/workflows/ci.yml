@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
 
-name: zenzic-audit
+name: Zenzic Core CI
 
 on:
   push:
@@ -25,7 +25,7 @@ permissions:
 
 jobs:
   verify:
-    name: Verify (Py ${{ matrix.python-version }} on ${{ matrix.os }})
+    name: Audit
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -41,12 +41,13 @@ jobs:
         #     python-version: "3.12"
 
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Checkout Repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Install just
         uses: taiki-e/install-action@ea85faa6acd705ad6d40586db99f1a70b09c2929 # just
 
-      - name: Install uv
+      - name: Setup uv
         uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
         with:
           enable-cache: true
@@ -60,8 +61,8 @@ jobs:
       - name: Run unit tests
         run: just test
 
-      - name: Self-Bootstrap Quality Gate
+      - name: Run Zenzic Quality Gate
         run: uv run zenzic check all . --strict --ci
 
-      - name: Check badge freshness
+      - name: Verify Badge Freshness
         run: uv run zenzic score --check-stamp --ci
