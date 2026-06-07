@@ -18,31 +18,24 @@ For the current release history, see [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
-## v0.9.x — Graphite (current)
+## v0.9.x — Graphite
 
 **Theme:** Governance Engine, DQS Suppression Audit, Tiered Penalty Model.
 
 ---
 
-## v0.10.x (planned)
+## v0.10.x — Magnetite (current)
 
-**Theme:** File integrity contracts, semantic schema validation, Plugin SDK, config hygiene.
+**Theme:** Native CI/CD Integration, Orthogonal Filtering, and Debt Eradication.
 
-### Planned
+### Completed
 
-- `Z109 STALE_ALLOWLIST_ENTRY`: config-hygiene check for unused `absolute_path_allowlist`
-  entries (deferred from the v0.7.x cycle to avoid Pillar 3 violation; requires
-  `zenzic config` command).
-- Windows CI matrix parity for all check commands.
+- **Native CI/CD Integration**: Native support for `--ci`, `github-annotations` output format, and automatic header suppression.
+- **Orthogonal Filtering**: Runtime filtering via `--only` for targeted, isolated gate checks.
 
-- **Logic Site Map (LSM) — Documentation Topology Simplification**: The zenzic-doc
-  documentation corpus undergoes a formal deduplication pass following the Logic
-  Site Map protocol. Duplicate conceptual coverage (scoring, configuration reference,
-  ecosystem) is consolidated into canonical master pages; zombie files and superseded
-  ADRs are purged. Target: ≥30% reduction in total page count, 100% retention of
-  information fidelity.
+### Planned (WIP)
 
-- **Z405 BROKEN_CODE_REFERENCE — File Integrity Check**: Zenzic will scan Markdown
+- **Z407 BROKEN_CODE_REFERENCE — File Integrity Check**: Zenzic will scan Markdown
   for backtick-quoted paths (e.g. `` `core/credentials.py` ``) and local file links,
   then verify their physical existence in the repository at scan time. Missing targets
   raise a Level 4 (Structure) finding. This eliminates "Phantom References" — stale
@@ -54,6 +47,43 @@ For the current release history, see [CHANGELOG.md](CHANGELOG.md).
   Architectural note: the implementation extends `Resolver` with a new
   `resolve_code_reference(path: str) -> Finding | None` method, reusing the
   existing `_allowed_roots` boundary contract. No new subprocess calls.
+
+- **Dead Suppression Elimination (Z603)**: Detects inline `zenzic:ignore` directives
+  that do not correspond to any active finding. Prevents projects from accumulating
+  "phantom debt" — paying the 1-point DQS penalty for a suppression no longer needed
+  due to code fixes or configuration changes. Analogous to Ruff `RUF100` and ESLint
+  `--report-unused-disable-directives`. Implementation requires extending the
+  suppression engine (`suppressions.py`) to track which inline tags are consumed
+  during the scan lifecycle, then emitting a new `Z603` finding for unclaimed tags.
+
+- **Docusaurus Cross-Instance Resolver**: Upgrade `_docusaurus.py` to natively resolve
+  root-relative links (e.g., `/developers/page`) across multiple plugin instances,
+  eliminating the need for Z105 suppressions on inter-plugin routing. This includes
+  locale-aware prefix resolution (e.g., `/it/developers/`) so that translated pages
+  can link to sibling plugin instances without triggering Z105. Identified as a
+  structural gap when auditing `zenzic-doc`: Docusaurus rejects `../` relative paths
+  across plugin boundaries, forcing authors to use absolute URLs and manual
+  suppressions.
+
+---
+
+## v0.11.x (planned)
+
+**Theme:** File integrity contracts, semantic schema validation, Plugin SDK, config hygiene.
+
+### Planned
+
+- `Z108 STALE_ALLOWLIST_ENTRY` (Issue #70): config-hygiene check for unused `absolute_path_allowlist`
+  entries (deferred from the v0.7.x cycle to avoid Pillar 3 violation; requires
+  `zenzic config` command).
+- Windows CI matrix parity for all check commands.
+
+- **Logic Site Map (LSM) — Documentation Topology Simplification**: The zenzic-doc
+  documentation corpus undergoes a formal deduplication pass following the Logic
+  Site Map protocol. Duplicate conceptual coverage (scoring, configuration reference,
+  ecosystem) is consolidated into canonical master pages; zombie files and superseded
+  ADRs are purged. Target: ≥30% reduction in total page count, 100% retention of
+  information fidelity.
 
 - **Plugin SDK** *(WIP)*: Stable AST adapter and rule APIs with semver guarantee.
   Exposure of the two-pass reference pipeline to external rule authors.
@@ -73,22 +103,6 @@ For the current release history, see [CHANGELOG.md](CHANGELOG.md).
   cycle, Phase 40.2).
 - **Configurable finding tiers**: allow projects to promote/demote finding severity
   via `[governance]` TOML section, with audit log of all overrides.
-- **Dead Suppression Elimination (Z603)**: Detects inline `zenzic:ignore` directives
-  that do not correspond to any active finding. Prevents projects from accumulating
-  "phantom debt" — paying the 1-point DQS penalty for a suppression no longer needed
-  due to code fixes or configuration changes. Analogous to Ruff `RUF100` and ESLint
-  `--report-unused-disable-directives`. Implementation requires extending the
-  suppression engine (`suppressions.py`) to track which inline tags are consumed
-  during the scan lifecycle, then emitting a new `Z603` finding for unclaimed tags.
-
-- **Docusaurus Cross-Instance Resolver**: Upgrade `_docusaurus.py` to natively resolve
-  root-relative links (e.g., `/developers/page`) across multiple plugin instances,
-  eliminating the need for Z105 suppressions on inter-plugin routing. This includes
-  locale-aware prefix resolution (e.g., `/it/developers/`) so that translated pages
-  can link to sibling plugin instances without triggering Z105. Identified as a
-  structural gap when auditing `zenzic-doc`: Docusaurus rejects `../` relative paths
-  across plugin boundaries, forcing authors to use absolute URLs and manual
-  suppressions.
 
 ---
 
@@ -115,6 +129,9 @@ For the current release history, see [CHANGELOG.md](CHANGELOG.md).
   (Security) findings — those require human review. Implementation is pure Python
   with zero subprocess calls (Pillar 2 invariant). Status: design phase; no code
   merged. Identified as GAP-001 in the Technical Debt Ledger.
+- **Readability & Style Engine (Issue #9)**: Integrate pure readability metrics (Flesch-Kincaid) and style checks tailored for technical documentation.
+- **Semantic Linting (Issue #8)**: Implement AST-based rules to detect semantically duplicate headings, empty sections, and inconsistent heading jumps.
+- **Smart Link Graph & Connectivity Analysis (Issue #7)**: Build a directed graph of the documentation to detect unlinked pages and navigation cycles.
 
 ---
 
@@ -132,4 +149,4 @@ These constraints apply across every future release:
 
 ---
 
-Roadmap last updated: 2026-06-01
+Roadmap last updated: 2026-06-07
