@@ -58,9 +58,11 @@ jobs:
       - name: Sync dependencies
         run: uv sync --all-groups --frozen
 
-      - name: Run unified verification
-        shell: bash
-        env:
-          # Runtime-only injection point for local isolation checks in CI.
-          ZENZIC_EXTRA_ARGS: ${{ secrets.ZENZIC_EXTRA_ARGS }}
-        run: just verify
+      - name: Run unit tests
+        run: just test
+
+      - name: Self-Bootstrap Quality Gate
+        run: uv run zenzic check all . --strict --ci
+
+      - name: Check badge freshness
+        run: uv run zenzic score --check-stamp --ci
