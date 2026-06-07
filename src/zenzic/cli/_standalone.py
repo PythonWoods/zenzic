@@ -223,8 +223,16 @@ def score(
         "--no-header",
         help="Suppress the Zenzic banner. Use in CI pipelines where check all already printed it.",
     ),
+    ci: bool = typer.Option(
+        False,
+        "--ci",
+        help="CI shorthand: sets --no-header.",
+    ),
 ) -> None:
     """Compute a 0–100 documentation quality score across all checks."""
+    if ci:
+        no_header = True
+
     # CEO-056 "Universal Path Awareness": derive repo_root from the explicit
     # target path so that `zenzic score ../project-B` loads project-B's config.
     _search_from: Path | None = None
@@ -484,6 +492,16 @@ def diff(
         help="Path to a JSON report file to use as baseline instead of the saved snapshot.",
         show_default=False,
     ),
+    no_header: bool = typer.Option(
+        False,
+        "--no-header",
+        help="Suppress the Zenzic banner.",
+    ),
+    ci: bool = typer.Option(
+        False,
+        "--ci",
+        help="CI shorthand: sets --no-header.",
+    ),
 ) -> None:
     """Compare current documentation score against the saved snapshot.
 
@@ -491,6 +509,9 @@ def diff(
     or an explicit JSON report passed via ``--base <file>``.
     Exits non-zero if the score dropped by more than ``--threshold`` points.
     """
+    if ci:
+        no_header = True
+
     # CEO-056 "Universal Path Awareness": derive repo_root from the explicit
     # target path so that `zenzic diff ../project-B` loads project-B's config
     # and compares against project-B's snapshot (total sovereignty).
@@ -600,14 +621,15 @@ def diff(
             f"Delta: [{delta_colour}]{sign}{delta}[/]\n"
         )
         _shared.console.print()
-        _shared._ui.print_header(__version__)
-        if path is not None:
-            try:
-                _hint = str(docs_root.relative_to(Path.cwd()))
-            except ValueError:
-                _hint = str(docs_root)
-            _shared.console.print(f"[{ZenzicPalette.DIM}]  Comparing: {_hint}[/]")
-        _shared.console.print()
+        if not no_header:
+            _shared._ui.print_header(__version__)
+            if path is not None:
+                try:
+                    _hint = str(docs_root.relative_to(Path.cwd()))
+                except ValueError:
+                    _hint = str(docs_root)
+                _shared.console.print(f"[{ZenzicPalette.DIM}]  Comparing: {_hint}[/]")
+            _shared.console.print()
         _shared.console.print(body)
         _shared.console.print(diff_table)
         _shared.console.print()
