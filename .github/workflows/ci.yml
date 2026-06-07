@@ -5,7 +5,7 @@ name: zenzic-audit
 
 on:
   push:
-    branches: [main, 'release/**']
+    branches: [main]
     paths:
       - 'src/**'
       - 'tests/**'
@@ -13,7 +13,6 @@ on:
       - 'uv.lock'
       - '.github/workflows/ci.yml'
   pull_request:
-    branches: [main, 'release/**']
     paths:
       - 'src/**'
       - 'tests/**'
