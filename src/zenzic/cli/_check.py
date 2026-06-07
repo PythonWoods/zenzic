@@ -1414,6 +1414,11 @@ def check_all(
             "(inline zenzic-ignore and governance.per_file_ignores)."
         ),
     ),
+    no_header: bool = typer.Option(
+        False,
+        "--no-header",
+        help="Suppress the Zenzic ASCII art header.",
+    ),
 ) -> None:
     """Run all checks: links, orphans, snippets, placeholders, assets, references.
 
@@ -1432,6 +1437,7 @@ def check_all(
 
     if ci:
         strict = True
+        no_header = True
         if output_format == "text":
             output_format = "github-annotations"
 
@@ -1458,7 +1464,7 @@ def check_all(
             update={"excluded_external_urls": config.excluded_external_urls + list(exclude_url)}
         )
 
-    if not quiet and output_format == "text":
+    if not quiet and not no_header and output_format == "text":
         from zenzic import __version__
 
         _shared._ui.print_header(__version__)

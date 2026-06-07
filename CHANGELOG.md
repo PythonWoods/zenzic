@@ -15,6 +15,14 @@ No changes yet.
 
 ---
 
+## [0.10.1] - 2026-06-07
+
+### Changed
+
+- Refactored `--ci` to act as a global macro-flag, implicitly suppressing ASCII headers across all commands.
+
+---
+
 ## [0.10.0] - 2026-06-06
 
 ### Added
@@ -22,10 +30,10 @@ No changes yet.
 - **Native GitHub Annotations:** Added `--format github-annotations` which outputs findings using the `::error::` workflow command syntax, allowing GitHub Actions to natively inject inline review comments directly into PR diffs.
 - **CI Shorthand:** Added `--ci` flag, which automatically sets `--strict` mode (warnings become errors) and enables `--format github-annotations`, standardizing the CI integration.
 - **Targeted Filtering:** Added `--only` flag (e.g. `--only Z104,Z201`) to perform destructive filtering of findings at the engine level. This enables progressive adoption of Zenzic on legacy repositories by letting teams start with critical rules before expanding scope.
-- **Added:** Motore di rete asincrono basato su asyncio e httpx per la validazione concorrente dei link esterni (Z109).
-- **Added:** Caching locale atomico (`.zenzic_cache/external_links.json`) con TTL configurabile a 24h per azzerare la latenza nelle esecuzioni ripetute.
-- **Added:** Smart Fallback (HEAD -> GET stream) per aggirare i server che bloccano le richieste HEAD (es. 403/405).
-- **Added:** Nuova configurazione TOML `[network]` per il controllo granulare della cache.
+- **Added:** Asynchronous network engine based on `asyncio` and `httpx` for concurrent external link validation (Z109).
+- **Added:** Atomic local caching (`.zenzic_cache/external_links.json`) with configurable 24h TTL to eliminate latency in repeated executions.
+- **Added:** Smart Fallback (HEAD -> GET stream) to bypass servers blocking HEAD requests (e.g., 403/405).
+- **Added:** New TOML configuration `[network]` for granular cache control.
 
 ---
 

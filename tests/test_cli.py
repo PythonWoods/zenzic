@@ -453,8 +453,11 @@ def test_check_all_ci_forces_github_annotations(
 ) -> None:
     result = runner.invoke(app, ["check", "all", "--ci"])
     assert result.exit_code == 1
-    # Check that it outputs github-annotations format
-    assert "::error file=docs/index.md,line=1,title=Z104::broken link" in result.stdout
+    # Check that it outputs github-annotations format.
+    # On Windows with mock absolute paths without drive letters, relpath may fallback to absolute.
+    out_normalized = result.stdout.replace("\\", "/")
+    assert "::error file=" in out_normalized
+    assert "docs/index.md,line=1,title=Z104::broken link" in out_normalized
 
 
 @patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)

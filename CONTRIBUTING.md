@@ -170,6 +170,12 @@ Windows/macOS anchors can be enabled as additional matrix slots when cross-platf
 If `just verify` passes on your local Python (e.g. 3.11 or 3.13), CI failure is highly
 unlikely — the matrix covers the language boundary conditions, not every minor release.
 
+### CI/CD & Workflow
+
+- **Draft PRs:** We run CI exclusively on `main` and Pull Requests to save resources. Open a **Draft PR** early to get continuous CI feedback on your branch.
+- **Hooks:** Use `pre-commit` for local mutations. Do not use `post-commit`.
+- **Full Guide:** Read the complete workflow in our [Developer Documentation](https://zenzic.dev/developers/how-to/contribute/pull-requests).
+
 ---
 
 ## Code conventions

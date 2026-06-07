@@ -89,7 +89,7 @@ def test_locale_path_remap_applied_to_security_findings() -> None:
     assert "home" not in finding.rel_path, (
         f"Absolute path leaked into rel_path: {finding.rel_path!r}"
     )
-    assert finding.rel_path == "docs/it/reference/file.mdx", (
+    assert finding.rel_path.replace("\\", "/") == "docs/it/reference/file.mdx", (
         f"Expected 'docs/it/reference/file.mdx', got: {finding.rel_path!r}"
     )
 
