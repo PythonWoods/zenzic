@@ -485,6 +485,15 @@ class TestReferenceScannerCrossCheck:
         errors = [f for f in findings if not f.is_warning]
         assert errors == []
 
+    def test_image_reference_link_resolved(self, tmp_path: Path) -> None:
+        """![alt][ref] is an image reference — should resolve to [ref]: url."""
+        content = "[imgref]: https://example.com/img.png\n\nSee ![alt][imgref].\n"
+        scanner = self._make_scanner(tmp_path, content)
+        findings = scanner.cross_check()
+        errors = [f for f in findings if not f.is_warning]
+        assert errors == []
+        assert "imgref" in scanner.ref_map.used_ids
+
     def test_multiple_dangling_refs(self, tmp_path: Path) -> None:
         content = (
             "[valid]: https://example.com\n\nSee [A][ghost1] and [B][ghost2] and [C][valid].\n"

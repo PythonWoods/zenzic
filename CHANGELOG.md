@@ -15,6 +15,15 @@ No changes yet.
 
 ---
 
+## [0.10.2] - 2026-06-07
+
+### Fixed
+
+- **Core Engine (AST Parser):** Fixed a blindspot in the AST parser where image nodes (`![alt][id]`) were not being harvested into the `used_ids` set, causing false-positive Z302 (Orphan Definition) warnings.
+- **Core Engine (Path Resolver):** The local path resolver now strips URL fragments (`#...`) and query strings (`?...`) before interrogating the filesystem. This prevents false-positive Z101/Z104 errors when using GFM suffixes on local file links (e.g., `../assets/img.png#gh-light-mode-only`).
+
+---
+
 ## [0.10.1] - 2026-06-07
 
 ### Changed
