@@ -15,6 +15,14 @@ No changes yet.
 
 ---
 
+## [0.10.3] - Unreleased
+
+### Fixed
+
+- **Core Engine (Snippet Validator):** Fixed Z503 false positives on MkDocs custom YAML tags (e.g., `!ENV`) by adding a fallback multi-constructor to the snippet validator.
+
+---
+
 ## [0.10.2] - 2026-06-07
 
 ### Fixed

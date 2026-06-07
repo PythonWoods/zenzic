@@ -82,7 +82,17 @@ class _PermissiveSafeLoader(yaml.SafeLoader):
     """SafeLoader that silently ignores unknown YAML tags (e.g. MkDocs !ENV)."""
 
 
-_PermissiveSafeLoader.add_multi_constructor("", lambda loader, tag_suffix, node: None)  # type: ignore[no-untyped-call]
+def _construct_undefined(loader: yaml.SafeLoader, tag_suffix: str, node: yaml.Node) -> Any:
+    if isinstance(node, yaml.ScalarNode):
+        return loader.construct_scalar(node)
+    elif isinstance(node, yaml.SequenceNode):
+        return loader.construct_sequence(node)
+    elif isinstance(node, yaml.MappingNode):
+        return loader.construct_mapping(node)
+    return None
+
+
+_PermissiveSafeLoader.add_multi_constructor("!", _construct_undefined)  # type: ignore[no-untyped-call]
 
 
 # ─── Regexes ──────────────────────────────────────────────────────────────────
@@ -1514,7 +1524,7 @@ def check_snippet_content(
 
         elif lang in ("yaml", "yml"):
             try:
-                list(yaml.safe_load_all(snippet))
+                list(yaml.load_all(snippet, Loader=_PermissiveSafeLoader))
             except yaml.YAMLError as exc:
                 mark = getattr(exc, "problem_mark", None)
                 offset = (mark.line + 1) if mark is not None else 1

@@ -1204,6 +1204,18 @@ def test_validate_snippets_yaml_valid(tmp_path: Path) -> None:
     assert validate_snippets(docs_root, mgr, config=config) == []
 
 
+def test_validate_snippets_yaml_custom_tags(tmp_path: Path) -> None:
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "page.md").write_text(
+        "```yaml\nkey: !ENV [VAR, default]\nanother: !custom {a: b}\n```\n"
+    )
+    config = ZenzicConfig(snippet_min_lines=1)
+    docs_root = tmp_path / config.docs_dir
+    mgr = make_mgr(config, repo_root=tmp_path)
+    assert validate_snippets(docs_root, mgr, config=config) == []
+
+
 def test_validate_snippets_yaml_invalid(tmp_path: Path) -> None:
     docs = tmp_path / "docs"
     docs.mkdir()
