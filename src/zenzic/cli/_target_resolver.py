@@ -26,6 +26,7 @@ def _resolve_target(repo_root: Path, config: ZenzicConfig, raw: str) -> Path:
     *repo_root/docs_dir*.  Files must have the ``.md`` extension.
     Exits with code 1 if nothing is found or the extension is wrong.
     """
+    raw = raw.split("#")[0].split("?")[0]
     p = Path(raw)
     candidates: list[Path] = (
         [p] if p.is_absolute() else [repo_root / p, repo_root / config.docs_dir / p]

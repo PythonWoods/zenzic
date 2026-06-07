@@ -1271,8 +1271,6 @@ class ReferenceScanner:
             clean = _INLINE_CODE_RE.sub(lambda m: " " * len(m.group()), line)
 
             for m in _RE_REF_LINK.finditer(clean):
-                if m.start() > 0 and clean[m.start() - 1] == "!":
-                    continue
                 text = m.group(2)
                 ref_id = m.group(3) if m.group(3) else text  # collapsed ref
                 url = self.ref_map.resolve(ref_id)
@@ -1292,10 +1290,12 @@ class ReferenceScanner:
 
             # Shortcut reference links: [text] (CommonMark §4.7)
             for m in _RE_REF_SHORTCUT.finditer(clean):
-                if m.start() > 0 and clean[m.start() - 1] in "!]":
+                if m.start() > 0 and clean[m.start() - 1] == "]":
                     continue
                 tail = clean[m.end() : m.end() + 1]
-                if tail in "[:(":
+                if tail in "[(":
+                    continue
+                if tail == ":" and clean[: m.start()].strip() == "":
                     continue
                 ref_id = m.group(1)
                 self.ref_map.resolve(ref_id)  # mark as used if defined
