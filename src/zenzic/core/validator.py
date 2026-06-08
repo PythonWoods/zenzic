@@ -82,7 +82,18 @@ class _PermissiveSafeLoader(yaml.SafeLoader):
     """SafeLoader that silently ignores unknown YAML tags (e.g. MkDocs !ENV)."""
 
 
-_PermissiveSafeLoader.add_multi_constructor("", lambda loader, tag_suffix, node: None)  # type: ignore[no-untyped-call]
+def _construct_undefined(loader: yaml.SafeLoader, tag_suffix: str, node: yaml.Node) -> Any:
+    if isinstance(node, yaml.ScalarNode):
+        return loader.construct_scalar(node)
+    elif isinstance(node, yaml.SequenceNode):
+        return loader.construct_sequence(node)
+    elif isinstance(node, yaml.MappingNode):
+        return loader.construct_mapping(node)
+    return None
+
+
+_PermissiveSafeLoader.add_multi_constructor("!", _construct_undefined)  # type: ignore[no-untyped-call]
+_PermissiveSafeLoader.add_multi_constructor("tag:yaml.org,2002:python/", _construct_undefined)  # type: ignore[no-untyped-call]
 
 
 # ─── Regexes ──────────────────────────────────────────────────────────────────
@@ -112,6 +123,8 @@ _HEADING_RE = re.compile(r"^#{1,6}\s+(.+)", re.MULTILINE)
 
 # Matches MkDocs Material explicit anchor attribute: ``{ #custom-id }``
 _EXPLICIT_ANCHOR_RE = re.compile(r"\{[^}]*#([\w-]+)[^}]*\}")
+_ATTR_LIST_RE = re.compile(r"\s+\{[^}]*\}$")
+_FN_DEF_RE = re.compile(r"^ {0,3}\[\^([^\]]+)\]:")
 
 # Matches HTML tags to strip from heading text before slugification.
 _HTML_TAG_RE = re.compile(r"<[^>]+>")
@@ -436,10 +449,11 @@ def slug_heading(heading: str) -> str:
     """
     import unicodedata
 
-    explicit = _EXPLICIT_ANCHOR_RE.search(heading)
+    heading_clean = _ATTR_LIST_RE.sub("", heading).strip()
+    explicit = _EXPLICIT_ANCHOR_RE.search(heading_clean)
     if explicit:
         return explicit.group(1).lower()
-    slug = _HTML_TAG_RE.sub("", heading).strip()
+    slug = _HTML_TAG_RE.sub("", heading_clean).strip()
     # Decompose accented characters and drop combining marks so that e.g.
     # "Integrità" → "integrita" (matching MkDocs toc extension behaviour).
     # Lowercase AFTER NFKD so that mathematical/styled Unicode codepoints
@@ -453,10 +467,10 @@ def slug_heading(heading: str) -> str:
 
 
 def anchors_in_file(content: str) -> set[str]:
-    """Return anchor slugs for every ATX heading in *content*.
+    """Return anchor slugs for every ATX heading and custom/footnote anchor in *content*.
 
-    Recognises MkDocs Material explicit anchors (``{ #id }``) and strips HTML
-    tags from heading text before slugification.
+    Recognises MkDocs Material explicit anchors (``{ #id }``), block-level custom ID
+    anchors, footnote targets, and strips HTML tags from heading text before slugification.
 
     Args:
         content: Raw markdown content (no I/O).
@@ -464,7 +478,31 @@ def anchors_in_file(content: str) -> set[str]:
     Returns:
         Set of lowercase anchor slugs, e.g. ``{'introduction', 'quick-start'}``.
     """
-    return {slug_heading(m.group(1)) for m in _HEADING_RE.finditer(content)}
+    anchors: set[str] = set()
+    # 1. Extract heading slugs
+    for m in _HEADING_RE.finditer(content):
+        anchors.add(slug_heading(m.group(1)))
+
+    # 2. Extract block-level explicit anchors & footnote anchors (skipping code blocks)
+    in_block = False
+    for line in content.splitlines():
+        stripped = line.strip()
+        if not in_block:
+            if stripped.startswith("```") or stripped.startswith("~~~"):
+                in_block = True
+                continue
+            # Search for explicit inline/block anchors { #id }
+            for m in _EXPLICIT_ANCHOR_RE.finditer(line):
+                anchors.add(m.group(1).lower())
+            # Search for footnote definitions [^label]:
+            fn_match = _FN_DEF_RE.match(line)
+            if fn_match:
+                label = fn_match.group(1).strip()
+                anchors.add(f"fn:{label}")
+        else:
+            if stripped.startswith("```") or stripped.startswith("~~~"):
+                in_block = False
+    return anchors
 
 
 # ─── Reference link pure helpers (S4-4) ──────────────────────────────────────
@@ -493,7 +531,10 @@ def _build_ref_map(text: str) -> dict[str, str]:
                 continue
             m = _REF_DEF_RE.match(line)
             if m:
-                norm_id = m.group(1).lower().strip()
+                label = m.group(1)
+                if label.startswith("^"):
+                    continue
+                norm_id = label.lower().strip()
                 if norm_id not in ref_map:  # first-definition-wins
                     ref_map[norm_id] = m.group(2)
         else:
@@ -1514,7 +1555,7 @@ def check_snippet_content(
 
         elif lang in ("yaml", "yml"):
             try:
-                list(yaml.safe_load_all(snippet))
+                list(yaml.load_all(snippet, Loader=_PermissiveSafeLoader))
             except yaml.YAMLError as exc:
                 mark = getattr(exc, "problem_mark", None)
                 offset = (mark.line + 1) if mark is not None else 1

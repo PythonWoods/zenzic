@@ -15,6 +15,16 @@ No changes yet.
 
 ---
 
+## [0.10.3] - 2026-06-08
+
+### Fixed
+
+- **Core Engine (AST Parser):** Fixed Z104 false positives by correctly ignoring footnote definitions (e.g., `[^1]:`) in the AST reference builder.
+- **Core Engine (AST Parser):** Fixed Z102 false positives by stripping markdown attribute lists (e.g., `{...}`) from headings before slugification and adding native support for explicit block-level and footnote anchors.
+- **Core Engine (Snippet Validator):** Fixed Z503 false positives on MkDocs configurations and custom tags by registering PyYAML custom tags (e.g., `!!python/*`) and unregistered custom tags (e.g., `!ENV`) in the `PermissiveSafeLoader`.
+
+---
+
 ## [0.10.2] - 2026-06-07
 
 ### Fixed

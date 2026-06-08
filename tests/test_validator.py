@@ -113,6 +113,8 @@ class TestSlugHeading:
             ("foo-bar", "foo-bar"),
             ("  foo   bar  ", "foo-bar"),
             ("API Reference (v2)", "api-reference-v2"),
+            ('Install with uv { data-toc-label="with uv" }', "install-with-uv"),
+            ("Caret, Mark & Tilde { #caret-mark-tilde }", "caret-mark-tilde"),
             ("", ""),
         ],
     )
@@ -142,6 +144,19 @@ class TestAnchorsInFile:
 
     def test_heading_with_special_chars(self) -> None:
         assert "api-reference-v2" in anchors_in_file("## API Reference (v2)\n")
+
+    def test_explicit_anchors_and_footnotes(self) -> None:
+        content = (
+            "# Heading\n"
+            "This is a paragraph with an anchor { #custom-id }.\n"
+            "&nbsp;\n"
+            '{ #feedback style="color: red" }\n'
+            "[^1]: This is a footnote definition.\n"
+            "```\n"
+            "Ignore this { #ignored-inside-code-block }\n"
+            "```\n"
+        )
+        assert anchors_in_file(content) == {"heading", "custom-id", "feedback", "fn:1"}
 
 
 # ─── Internal link validation ─────────────────────────────────────────────────
@@ -1198,6 +1213,18 @@ def test_validate_snippets_yaml_valid(tmp_path: Path) -> None:
     docs = tmp_path / "docs"
     docs.mkdir()
     (docs / "page.md").write_text("```yaml\nkey: value\nlist:\n  - a\n  - b\n```\n")
+    config = ZenzicConfig(snippet_min_lines=1)
+    docs_root = tmp_path / config.docs_dir
+    mgr = make_mgr(config, repo_root=tmp_path)
+    assert validate_snippets(docs_root, mgr, config=config) == []
+
+
+def test_validate_snippets_yaml_custom_tags(tmp_path: Path) -> None:
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "page.md").write_text(
+        "```yaml\nkey: !ENV [VAR, default]\nanother: !custom {a: b}\n```\n"
+    )
     config = ZenzicConfig(snippet_min_lines=1)
     docs_root = tmp_path / config.docs_dir
     mgr = make_mgr(config, repo_root=tmp_path)

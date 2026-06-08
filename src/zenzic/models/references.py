@@ -59,6 +59,13 @@ class ReferenceMap:
     used_ids: set[str] = field(default_factory=set)
     duplicate_ids: set[str] = field(default_factory=set)
 
+    def _normalize(self, ref_id: str) -> str:
+        """Normalize reference ID per CommonMark §4.7: lowercase, stripped, internal whitespace collapsed."""
+        if not isinstance(ref_id, str):
+            return str(ref_id)
+        # Collapse consecutive internal whitespace (including newlines) to a single space
+        return " ".join(ref_id.split()).lower()
+
     def add_definition(self, ref_id: str, url: str, line_no: int) -> bool:
         """Register a reference-link definition (first-wins per CommonMark §4.7).
 
@@ -71,7 +78,7 @@ class ReferenceMap:
             ``True`` if the definition was accepted (first occurrence),
             ``False`` if it was a duplicate (already registered, ignored).
         """
-        key = ref_id.lower().strip()
+        key = self._normalize(ref_id)
         if key in self.definitions:
             self.duplicate_ids.add(key)
             return False  # duplicate ignored — first wins (CommonMark §4.7)
@@ -87,7 +94,7 @@ class ReferenceMap:
         Returns:
             The target URL string, or ``None`` if the ID has no definition.
         """
-        key = ref_id.lower().strip()
+        key = self._normalize(ref_id)
         if key in self.definitions:
             self.used_ids.add(key)
             return self.definitions[key][0]
@@ -95,20 +102,20 @@ class ReferenceMap:
 
     def get_definition_line(self, ref_id: str) -> int | None:
         """Return the source line number for a definition, or ``None``."""
-        key = ref_id.lower().strip()
+        key = self._normalize(ref_id)
         entry = self.definitions.get(key)
         return entry[1] if entry is not None else None
 
     def __getitem__(self, ref_id: str) -> str:
         """Case-insensitive item access — returns URL only.  Raises ``KeyError``."""
-        key = ref_id.lower().strip()
+        key = self._normalize(ref_id)
         return self.definitions[key][0]
 
     def __contains__(self, ref_id: object) -> bool:
         """Case-insensitive membership test."""
         if not isinstance(ref_id, str):
             return False
-        return ref_id.lower().strip() in self.definitions
+        return self._normalize(ref_id) in self.definitions
 
     @property
     def orphan_definitions(self) -> set[str]:

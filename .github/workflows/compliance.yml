@@ -1,0 +1,48 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+
+name: Zenzic Core Compliance
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  pr-title:
+    name: Lint PR Title
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate PR Title
+        uses: amannn/action-semantic-pull-request@0723387faaf9b38adef4775cd42cfd5155ed6017 # v5.5.3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  dco:
+    name: Check DCO
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Verify Signed-off-by
+        run: |
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+
+          echo "Checking commits between $BASE_SHA and $HEAD_SHA"
+
+          # Check each commit in the range
+          git log --no-merges --format='%H' "$BASE_SHA..$HEAD_SHA" | while read -r commit_sha; do
+            commit_msg=$(git log -1 --format='%B' "$commit_sha")
+            if ! echo "$commit_msg" | grep -q "^Signed-off-by:"; then
+              echo "::error::Commit $commit_sha is missing 'Signed-off-by:' sign-off."
+              exit 1
+            fi
+          done
+          echo "All commits have valid DCO sign-offs."
