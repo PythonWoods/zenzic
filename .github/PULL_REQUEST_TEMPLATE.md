@@ -56,6 +56,16 @@ must satisfy all that apply.
 
 ---
 
+## Enterprise governance compliance
+
+- [ ] This PR addresses an approved Issue #___ and complies with the **Issue-First Policy**.
+- [ ] Every commit in this PR is **cryptographically signed** (GPG/SSH/S/MIME) and shows as "Verified" on GitHub.
+- [ ] Every commit has a valid **Developer Certificate of Origin (DCO)** sign-off (`Signed-off-by:` via `git commit -s`).
+- [ ] I have verified and can architecturally justify every single line of code proposed in this PR (**No AI Slop**).
+- [ ] All commit messages comply with the **Conventional Commits** specification.
+
+---
+
 ## Quality gates
 
 - [ ] `just verify` passes end-to-end (pre-commit + coverage ≥ 80% + `zenzic check all --strict` self-dogfood).

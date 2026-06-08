@@ -46,6 +46,18 @@ the live code registry and tier ownership model.
 
 ---
 
+## Enterprise Governance & Contribution Policy
+
+To maintain the security, architectural integrity, and legal compliance of Zenzic, all contributions must adhere to the following Enterprise Governance guidelines:
+
+1. **Issue-First Policy**: No Pull Request will be reviewed, merged, or discussed unless it is preceded by a corresponding Issue that has been formally discussed and approved by the maintainers. Always link the approved Issue in your PR description.
+2. **Mandatory Cryptographic Commit Signatures**: Every commit must be cryptographically signed using GPG, SSH, or S/MIME keypairs (appearing as "Verified" on GitHub). Unsigned commits will be rejected by the merge gates.
+3. **No AI Slop Clause**: We enforce a strict policy against unverified AI-generated code. Contributors must fully understand, explain, and architecturally justify every single line of code proposed in a PR. Proposing code that you cannot explain will lead to immediate rejection of the contribution.
+4. **Developer Certificate of Origin (DCO)**: All commits must include a `Signed-off-by:` line (using `git commit -s`) to certify compliance with the DCO.
+5. **Conventional Commits**: Commit messages must strictly follow the Conventional Commits specification (e.g., `feat: add block anchor support (#123)`).
+
+---
+
 ## Prerequisites
 
 | Requirement | Version | Notes |

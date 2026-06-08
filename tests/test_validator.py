@@ -113,6 +113,8 @@ class TestSlugHeading:
             ("foo-bar", "foo-bar"),
             ("  foo   bar  ", "foo-bar"),
             ("API Reference (v2)", "api-reference-v2"),
+            ('Install with uv { data-toc-label="with uv" }', "install-with-uv"),
+            ("Caret, Mark & Tilde { #caret-mark-tilde }", "caret-mark-tilde"),
             ("", ""),
         ],
     )
@@ -142,6 +144,19 @@ class TestAnchorsInFile:
 
     def test_heading_with_special_chars(self) -> None:
         assert "api-reference-v2" in anchors_in_file("## API Reference (v2)\n")
+
+    def test_explicit_anchors_and_footnotes(self) -> None:
+        content = (
+            "# Heading\n"
+            "This is a paragraph with an anchor { #custom-id }.\n"
+            "&nbsp;\n"
+            '{ #feedback style="color: red" }\n'
+            "[^1]: This is a footnote definition.\n"
+            "```\n"
+            "Ignore this { #ignored-inside-code-block }\n"
+            "```\n"
+        )
+        assert anchors_in_file(content) == {"heading", "custom-id", "feedback", "fn:1"}
 
 
 # ─── Internal link validation ─────────────────────────────────────────────────
