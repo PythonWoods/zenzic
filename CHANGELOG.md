@@ -11,7 +11,9 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-No changes yet.
+### Changed
+
+- **Core CI gate hardening:** Removed `pull_request.paths` filters from `.github/workflows/ci.yml` so required `Audit` checks are always created for every PR and cannot remain in expected/pending due to skipped workflow runs.
 
 ---
 
