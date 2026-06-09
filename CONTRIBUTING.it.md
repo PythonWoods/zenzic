@@ -100,6 +100,19 @@ Installa gli hook pre-commit immediatamente dopo la sync (obbligatorio):
 uvx pre-commit install              # commit-stage: light hooks (ruff, format, hygiene)
 ```
 
+Configura la firma SSH dei commit (obbligatoria — tutti i commit devono apparire come **Verified** su GitHub):
+
+```bash
+# Configurazione globale una-tantum (salta se già configurata)
+git config --global gpg.format ssh
+git config --global user.signingkey ~/.ssh/id_ed25519.pub   # adatta il percorso se necessario
+git config --global commit.gpgsign true
+```
+
+Registra poi la tua chiave pubblica come **Signing Key** (non Authentication Key) su
+<https://github.com/settings/ssh>. I commit firmati con una chiave non registrata
+verranno rifiutati dal ruleset del branch.
+
 Esegui il gate di verifica completo prima del push:
 
 ```bash
