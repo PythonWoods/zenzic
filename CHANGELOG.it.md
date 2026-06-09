@@ -11,6 +11,10 @@ Le versioni seguono il [Versionamento Semantico](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- **Hardening del gate CI core:** Rimossi i filtri `pull_request.paths` da `.github/workflows/ci.yml` in modo che i check `Audit` obbligatori vengano sempre creati su ogni PR, senza stati expected/pending dovuti a workflow saltati.
+
 ### Fixed
 
 - **Gli URL di loopback non vengono più segnalati come link esterni:** Gli URL `http://localhost`, `http://127.0.0.1`, `http://0.0.0.0` e `http://::1` (su qualsiasi porta) vengono ora ignorati silenziosamente dal validatore. In precedenza venivano raccolti come link esterni e provocavano un ping di rete o un errore `EXTERNAL_LINK` spurio, rendendo inutilizzabile la validazione in ambienti Docker che referenziano URL di servizi locali negli esempi di configurazione.
