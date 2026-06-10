@@ -41,8 +41,6 @@ from zenzic.core.reporter import Finding
 from zenzic.core.rules import AdaptiveRuleEngine, BaseRule
 from zenzic.core.validator import LinkValidator
 from zenzic.models.config import (
-    SYSTEM_EXCLUDED_FILE_NAMES,
-    SYSTEM_EXCLUDED_FILE_PATTERNS,
     ZenzicConfig,
 )
 from zenzic.models.references import IntegrityReport, ReferenceFinding, ReferenceMap
@@ -824,15 +822,15 @@ def find_unused_assets(
     for file_path in walk_files(docs_root, asset_extra_prune, exclusion_manager):
         if file_path.is_dir() or file_path.is_symlink() or file_path.suffix in DOC_SUFFIXES:
             continue
-        # L1: System file guardrails + adapter metadata (CEO-050)
-        name = file_path.name
-        if (
-            name in SYSTEM_EXCLUDED_FILE_NAMES
-            or any(fnmatch.fnmatch(name, p) for p in SYSTEM_EXCLUDED_FILE_PATTERNS)
-            or name in adapter_metadata_files
-        ):
+        # Apply VCS and core engine exclusions
+        if exclusion_manager.should_exclude_file(file_path, docs_root):
             continue
         rel_path = file_path.relative_to(docs_root)
+        # Z405 must never consider dotfiles or files in dotdirectories as document assets
+        if rel_path.name.startswith(".") or any(
+            part.startswith(".") for part in rel_path.parts[:-1]
+        ):
+            continue
         if rel_path.suffix in {".css", ".js", ".yml", ".sarif", ".license", ".j2"}:
             continue
         if rel_path.suffix in CODE_ASSET_SUFFIXES:
