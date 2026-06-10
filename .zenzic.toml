@@ -78,7 +78,7 @@ default_locale = "en"
 [project_metadata]
 release_name = "Magnetite"
 obsolete_names_exclude_patterns = ["CHANGELOG*.md", "CHANGELOG*.archive.md", "changelogs/*.md", "RELEASE.md"]
-badge_stamp_files = ["README.md", "README.it.md"]
+badge_stamp_files = ["README.md"]
 
 [governance]
 # ---------------------------------------------------------------------------
