@@ -1044,6 +1044,7 @@ def _collect_all_results(
     exclusion_mgr: LayeredExclusionManager,
     strict: bool,
     check_external: bool = True,
+    show_progress: bool = False,
 ) -> _AllCheckResults:
     """Run all seven checks and return results as a typed container."""
     from zenzic.core.adapters import get_adapter
@@ -1065,6 +1066,7 @@ def _collect_all_results(
         validate_links=False,
         locale_roots=locale_roots,
         content_roots=content_roots,
+        show_progress=show_progress,
     )
     security_events = sum(len(r.security_findings) for r in ref_reports)
 
@@ -1533,6 +1535,8 @@ def check_all(
             )
         raise typer.Exit(1)
 
+    show_progress = not (ci or no_header or quiet or output_format != "text")
+
     with sovereign_context(force_audit=audit):
         results = _collect_all_results(
             repo_root,
@@ -1541,6 +1545,7 @@ def check_all(
             exclusion_mgr,
             strict=effective_strict,
             check_external=not no_external,
+            show_progress=show_progress,
         )
 
     if only:

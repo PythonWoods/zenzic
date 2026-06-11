@@ -118,6 +118,7 @@ class ScoreReport:
     debt_status: str = "CLEAN"
     suppression_debt_pts: int = 0  # points deducted for inline/per-file suppressions
     categories: list[CategoryScore] = field(default_factory=list)
+    findings_counts: dict[str, int] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, object]:
         if self.security_override:
@@ -221,6 +222,7 @@ def compute_score(
             suppression_cap=normalized_suppression_cap,
             debt_status=debt_status,
             categories=categories,
+            findings_counts=findings_counts,
         )
 
     categories: list[CategoryScore] = []  # type: ignore[no-redef]
@@ -282,6 +284,7 @@ def compute_score(
         debt_status=debt_status,
         suppression_debt_pts=debt_pts,
         categories=categories,
+        findings_counts=findings_counts,
     )
 
 

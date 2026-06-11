@@ -115,6 +115,22 @@ def find_docusaurus_config(repo_root: Path) -> Path | None:
     return None
 
 
+def find_docusaurus_site_root(docs_root: Path, repo_root: Path) -> Path:
+    """Walk up the directory tree from docs_root to repo_root looking for docusaurus.config.ts or .js.
+
+    If not found, falls back to repo_root.
+    """
+    curr = docs_root.resolve()
+    target_repo = repo_root.resolve()
+    while True:
+        if (curr / "docusaurus.config.ts").is_file() or (curr / "docusaurus.config.js").is_file():
+            return curr
+        if curr == target_repo or curr == curr.parent:
+            break
+        curr = curr.parent
+    return repo_root
+
+
 # ── Static value extraction ──────────────────────────────────────────────────
 
 # All patterns match the key in object-literal syntax:  key: 'value'
@@ -215,10 +231,53 @@ def _extract_route_base_path(config_path: Path) -> str | None:
     if _is_dynamic_config(content):
         return None
 
-    match = _ROUTE_BASE_PATH_RE.search(content)
-    if match is None:
+    def find_braced_block(start_pos: int) -> str | None:
+        brace_pos = content.find("{", start_pos)
+        if brace_pos == -1:
+            return None
+        depth = 1
+        i = brace_pos + 1
+        while i < len(content) and depth > 0:
+            char = content[i]
+            if char == "{":
+                depth += 1
+            elif char == "}":
+                depth -= 1
+            i += 1
+        if depth == 0:
+            return content[brace_pos:i]
         return None
-    return match.group(1)
+
+    # 1. Search for docs: { config block (typically inside preset options)
+    for match in re.finditer(r"\bdocs\s*:\s*\{", content):
+        block = find_braced_block(match.end() - 1)
+        if block:
+            rbp_match = _ROUTE_BASE_PATH_RE.search(block)
+            if rbp_match:
+                return rbp_match.group(1)
+
+    # 2. Search for @docusaurus/plugin-content-docs config block
+    for match in re.finditer(r"['\"]@docusaurus/plugin-content-docs['\"]", content):
+        block = find_braced_block(match.end())
+        if block:
+            # Check if this instance is default (no id, or id: 'default')
+            id_match = _PLUGIN_ID_RE.search(block)
+            is_default = True
+            if id_match:
+                inst_id = id_match.group(1).strip()
+                if inst_id != "default":
+                    is_default = False
+            if is_default:
+                rbp_match = _ROUTE_BASE_PATH_RE.search(block)
+                if rbp_match:
+                    return rbp_match.group(1)
+
+    # 3. Fallback to global routeBasePath match if nothing more specific was found
+    fallback_match = _ROUTE_BASE_PATH_RE.search(content)
+    if fallback_match:
+        return fallback_match.group(1)
+
+    return None
 
 
 # ── Blog plugin discovery ───────────────────────────────────────────────────
@@ -711,14 +770,18 @@ class DocusaurusAdapter(BaseAdapter):
         base_url: str = "/",
         route_base_path: str | None = None,
         versions: list[str] | None = None,
+        site_root: Path | None = None,
     ) -> None:
         self._docs_root = docs_root
         self._context = context
+        self._docusaurus_site_root = site_root if site_root is not None else docs_root.parent
         self._base_url = base_url.rstrip("/") or ""
         # Docusaurus default routeBasePath is 'docs', but when docs are at
-        # the site root it is ''.  None means "not set in config" → use
-        # no prefix (docs are already relative to docs_root).
-        self._route_base_path = route_base_path
+        # the site root it is ''.
+        if route_base_path is not None:
+            self._route_base_path = route_base_path.strip("/")
+        else:
+            self._route_base_path = "docs"
         self._versions: tuple[str, ...] = tuple(versions or [])
         # The first entry in versions.json is the "latest" version; it serves
         # docs at the routeBasePath root (no version label in URL).
@@ -941,7 +1004,15 @@ class DocusaurusAdapter(BaseAdapter):
         """
         rel_posix = rel.as_posix()
 
-        # ── Blog plugin routing ──
+        # ── Partial / private file guard ──
+        # Docusaurus does not generate public routes for files or directories
+        # that start with ``_`` (e.g. ``_category_.json``, ``_partials/``).  The
+        # ``_version_`` prefix is an internal Zenzic marker — never a user dir.
+        # Returning an empty string signals «no URL» to all callers.
+        non_marker_parts = [p for p in rel.parts if p != "_version_"]
+        if any(part.startswith("_") for part in non_marker_parts):
+            return ""
+
         # Blog files arrive with the route_base_path prefix injected by the
         # caller (e.g. ``blog/2026-04-12-foo.mdx``).  Routing rules diverge
         # from docs:
@@ -982,7 +1053,10 @@ class DocusaurusAdapter(BaseAdapter):
                             break
                 url = mapped_slug.rstrip("/") or ""
                 if rbp:
-                    return "/" + rbp + url + "/"
+                    rbp_norm = rbp.strip("/")
+                    if url == f"/{rbp_norm}" or url.startswith(f"/{rbp_norm}/"):
+                        return url + "/" if url else "/"
+                    return "/" + rbp_norm + url + "/"
                 return url + "/" if url else "/"
             # Relative slug: replace the last path segment
             parent = rel.parent
@@ -1163,6 +1237,25 @@ class DocusaurusAdapter(BaseAdapter):
 
         slug = self._slug_map.get(rel_posix)
 
+        # ── Early-return for partials / private Docusaurus files ──
+        # Files or directories prefixed with ``_`` are not routed by Docusaurus
+        # (e.g. ``_category_.json``, ``_partials/intro.mdx``).  Return an IGNORED
+        # result with an empty URL *before* calling _map_url to avoid computing a
+        # phantom URL that would trigger Z405 (UNDECLARED_SNIPPET) false-positives.
+        # The ``_version_`` prefix is a Zenzic-internal marker and is excluded.
+        non_marker_parts = [p for p in rel.parts if p != "_version_"]
+        if any(part.startswith("_") for part in non_marker_parts):
+            return RouteMetadata(
+                canonical_url="",
+                status="IGNORED",
+                slug=None,
+                route_base_path=self._route_base_path
+                if self._route_base_path is not None
+                else "docs",
+                is_proxy=False,
+                version=None,
+            )
+
         canonical_url = self._map_url(rel)
         nav_paths = self.get_nav_paths()
         status = self._classify_route(rel, nav_paths)
@@ -1256,9 +1349,12 @@ class DocusaurusAdapter(BaseAdapter):
         Returns:
             Configured ``DocusaurusAdapter`` instance.
         """
+        # Walk up from docs_root to find site_root containing Docusaurus config.
+        site_root = find_docusaurus_site_root(docs_root, repo_root)
+
         # Prefer the explicit base_url from .zenzic.toml [build_context]
         # over static extraction from the JS/TS config file.
-        config_path = find_docusaurus_config(repo_root)
+        config_path = find_docusaurus_config(site_root)
         if context.base_url:
             base_url = context.base_url
         elif config_path:
@@ -1269,7 +1365,7 @@ class DocusaurusAdapter(BaseAdapter):
         import json
 
         versions: list[str] = []
-        versions_json = repo_root / "versions.json"
+        versions_json = site_root / "versions.json"
         if versions_json.is_file():
             try:
                 parsed = json.loads(versions_json.read_text(encoding="utf-8"))
@@ -1282,7 +1378,7 @@ class DocusaurusAdapter(BaseAdapter):
 
         sidebar_path: Path | None = None
         for _sidebar_name in ("sidebars.ts", "sidebars.js"):
-            _candidate = repo_root / _sidebar_name
+            _candidate = site_root / _sidebar_name
             if _candidate.is_file():
                 sidebar_path = _candidate
                 break
@@ -1293,7 +1389,7 @@ class DocusaurusAdapter(BaseAdapter):
                 config_path, docs_root, base_url, route_base_path
             )
 
-        inst = cls(context, docs_root, base_url, route_base_path, versions)
+        inst = cls(context, docs_root, base_url, route_base_path, versions, site_root=site_root)
         inst._sidebar_path = sidebar_path
         inst._navbar_paths = navbar_paths
 
@@ -1306,11 +1402,11 @@ class DocusaurusAdapter(BaseAdapter):
         blog_meta: tuple[str, str] | None = None
         if config_path is not None:
             blog_meta = _extract_blog_config(config_path)
-        if blog_meta is None and (repo_root / "blog").is_dir():
+        if blog_meta is None and (site_root / "blog").is_dir():
             blog_meta = ("blog", "blog")
         if blog_meta is not None:
             blog_path_str, blog_rbp = blog_meta
-            blog_root = (repo_root / blog_path_str).resolve()
+            blog_root = (site_root / blog_path_str).resolve()
             if blog_root.is_dir():
                 inst._blog_root = blog_root
                 inst._blog_route_base_path = blog_rbp
@@ -1329,7 +1425,7 @@ class DocusaurusAdapter(BaseAdapter):
             instances.extend(_extract_content_docs_instances(config_path))
 
         if not instances:
-            i18n_root = repo_root / "i18n"
+            i18n_root = site_root / "i18n"
             if i18n_root.is_dir():
                 seen: set[str] = set()
                 for locale_dir in sorted(p for p in i18n_root.iterdir() if p.is_dir()):
@@ -1341,7 +1437,7 @@ class DocusaurusAdapter(BaseAdapter):
                         instance_id = name[len(prefix) :]
                         if not instance_id or instance_id in seen:
                             continue
-                        if (repo_root / instance_id).is_dir():
+                        if (site_root / instance_id).is_dir():
                             seen.add(instance_id)
                             instances.append((instance_id, instance_id))
 
@@ -1369,21 +1465,22 @@ class DocusaurusAdapter(BaseAdapter):
             none of their directories exist.
         """
         result: list[tuple[Path, str]] = []
+        site_root = self._docusaurus_site_root
         for locale in sorted(self._locale_dirs):
-            root = (repo_root / self._i18n_prefix / locale / self._plugin_docs_segment).resolve()
+            root = (site_root / self._i18n_prefix / locale / self._plugin_docs_segment).resolve()
             if root.is_dir():
                 result.append((root, locale))
 
         for version in self._versions:
             # Default locale versioned docs
-            v_root = (repo_root / f"versioned_docs/version-{version}").resolve()
+            v_root = (site_root / f"versioned_docs/version-{version}").resolve()
             if v_root.is_dir():
                 result.append((v_root, f"_version_/{version}"))
 
             # Translated versioned docs
             for locale in sorted(self._locale_dirs):
                 vl_root = (
-                    repo_root
+                    site_root
                     / self._i18n_prefix
                     / locale
                     / "docusaurus-plugin-content-docs"
@@ -1401,7 +1498,7 @@ class DocusaurusAdapter(BaseAdapter):
             roots.append(self._blog_root.resolve())
 
         for instance_id, _route_base_path in self._content_docs_instances:
-            candidate = (repo_root / instance_id).resolve()
+            candidate = (self._docusaurus_site_root / instance_id).resolve()
             if candidate.is_dir() and candidate != self._docs_root.resolve():
                 roots.append(candidate)
 

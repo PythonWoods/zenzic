@@ -362,7 +362,7 @@ def check_placeholder_content(
     patterns = config.placeholder_patterns_compiled
 
     visible = _visible_word_count(text)
-    if visible < config.placeholder_max_words:
+    if not path.name.startswith("_") and visible < config.placeholder_max_words:
         findings.append(
             PlaceholderFinding(
                 file_path=path,
@@ -1519,6 +1519,7 @@ def scan_docs_references(
     verbose: bool = False,
     locale_roots: list[tuple[Path, str]] | None = None,
     content_roots: list[Path] | None = None,
+    show_progress: bool = False,
 ) -> tuple[list[IntegrityReport], list[str]]:
     """Run the Three-Phase Pipeline over every .md file in docs/.
 
@@ -1572,6 +1573,7 @@ def scan_docs_references(
                         mode only).  Defaults to ``False``.
         locale_roots:   Optional locale trees injected by caller.
         content_roots:  Optional extra markdown roots injected by caller.
+        show_progress:  When ``True``, display a rich progress bar on stderr.
 
     Returns:
         A ``(reports, link_errors)`` tuple where:
@@ -1618,116 +1620,158 @@ def scan_docs_references(
 
     use_parallel = workers != 1 and len(md_files) >= ADAPTIVE_PARALLEL_THRESHOLD
 
+    # Initialise Visual Progress Bar context if requested.
+    progress = None
+    task_id = None
+    if show_progress:
+        from rich.progress import BarColumn, Progress, TaskProgressColumn, TextColumn
+
+        progress = Progress(
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TaskProgressColumn(),
+        )
+        progress.start()
+        task_id = progress.add_task("[cyan]Parsing documents...", total=len(md_files))
+
     _t0 = time.monotonic()
 
-    if use_parallel:
-        import concurrent.futures
-        import os
+    try:
+        if use_parallel:
+            import concurrent.futures
+            import os
 
-        actual_workers = workers if workers is not None else os.cpu_count() or 1
-        work_items = [(f, config, rule_engine) for f in md_files]
-        # GA-1 fix: use actual_workers for the executor (not the raw `workers`
-        # marker) so max_workers always matches what telemetry reports.
-        with concurrent.futures.ProcessPoolExecutor(max_workers=actual_workers) as executor:
-            # CEO-298 fail-fast + ZRT-002: use wait(FIRST_COMPLETED) to process
-            # results in completion order and cancel queued tasks immediately on
-            # the first security breach (Z201–Z203).
-            # ZRT-002 preserved: if no future completes within _WORKER_TIMEOUT_S,
-            # all remaining workers are emitted as Z902 (deadlock guard).
-            futures_map = {executor.submit(_worker, item): item[0] for item in work_items}
-            raw: list[IntegrityReport] = []
-            _abort = False
-            _pending: set[concurrent.futures.Future[IntegrityReport]] = set(futures_map)
-            while _pending:
-                done, _pending = concurrent.futures.wait(
-                    _pending,
-                    timeout=_WORKER_TIMEOUT_S,
-                    return_when=concurrent.futures.FIRST_COMPLETED,
+            actual_workers = workers if workers is not None else os.cpu_count() or 1
+            work_items = [(f, config, rule_engine) for f in md_files]
+            # GA-1 fix: use actual_workers for the executor (not the raw `workers`
+            # marker) so max_workers always matches what telemetry reports.
+            with concurrent.futures.ProcessPoolExecutor(max_workers=actual_workers) as executor:
+                # CEO-298 fail-fast + ZRT-002: use wait(FIRST_COMPLETED) to process
+                # results in completion order and cancel queued tasks immediately on
+                # the first security breach (Z201–Z203).
+                # ZRT-002 preserved: if no future completes within _WORKER_TIMEOUT_S,
+                # all remaining workers are emitted as Z902 (deadlock guard).
+                futures_map = {executor.submit(_worker, item): item[0] for item in work_items}
+                raw: list[IntegrityReport] = []
+                _abort = False
+                _pending: set[concurrent.futures.Future[IntegrityReport]] = set(futures_map)
+                while _pending:
+                    done, _pending = concurrent.futures.wait(
+                        _pending,
+                        timeout=_WORKER_TIMEOUT_S,
+                        return_when=concurrent.futures.FIRST_COMPLETED,
+                    )
+                    if not done:
+                        # ZRT-002 deadlock guard: no worker completed within the
+                        # timeout window — treat all stalled workers as Z902.
+                        for fut in _pending:
+                            raw.append(_make_timeout_report(futures_map[fut]))
+                            fut.cancel()
+                            if progress and task_id is not None:
+                                progress.advance(task_id)
+                        break
+                    for fut in done:
+                        md_file = futures_map[fut]
+                        if _abort:
+                            if progress and task_id is not None:
+                                progress.advance(task_id)
+                            continue  # discard results after a security breach
+                        try:
+                            report = fut.result()
+                            raw.append(report)
+                            if report.security_findings:
+                                # CEO-298: cancel all still-queued (PENDING) tasks.
+                                # RUNNING workers cannot be interrupted — they
+                                # complete and their results are discarded above.
+                                _abort = True
+                                for pending_fut in _pending:
+                                    pending_fut.cancel()
+                                    if progress and task_id is not None:
+                                        progress.advance(task_id)
+                        except concurrent.futures.CancelledError:
+                            pass  # intentional abort — no report emitted
+                        except Exception as exc:  # noqa: BLE001
+                            raw.append(_make_error_report(md_file, exc))
+
+                        if progress and task_id is not None:
+                            progress.advance(task_id)
+
+            reports: list[IntegrityReport] = sorted(raw, key=lambda r: r.file_path)
+
+            # Remap locale file paths to their logical display paths.
+            if _locale_path_remap:
+                for _r in reports:
+                    if _r.file_path in _locale_path_remap:
+                        _r.file_path = _locale_path_remap[_r.file_path]
+                    for _sf in _r.security_findings:
+                        if _sf.file_path in _locale_path_remap:
+                            _sf.file_path = _locale_path_remap[_sf.file_path]
+
+            elapsed = time.monotonic() - _t0
+            if verbose:
+                _emit_telemetry(
+                    mode="Parallel",
+                    workers=actual_workers,
+                    n_files=len(md_files),
+                    elapsed=elapsed,
                 )
-                if not done:
-                    # ZRT-002 deadlock guard: no worker completed within the
-                    # timeout window — treat all stalled workers as Z902.
-                    for fut in _pending:
-                        raw.append(_make_timeout_report(futures_map[fut]))
-                        fut.cancel()
-                    break
-                for fut in done:
-                    md_file = futures_map[fut]
-                    if _abort:
-                        continue  # discard results after a security breach
-                    try:
-                        report = fut.result()
-                        raw.append(report)
-                        if report.security_findings:
-                            # CEO-298: cancel all still-queued (PENDING) tasks.
-                            # RUNNING workers cannot be interrupted — they
-                            # complete and their results are discarded above.
-                            _abort = True
-                            for pending_fut in _pending:
-                                pending_fut.cancel()
-                    except concurrent.futures.CancelledError:
-                        pass  # intentional abort — no report emitted
-                    except Exception as exc:  # noqa: BLE001
-                        raw.append(_make_error_report(md_file, exc))
 
-        reports: list[IntegrityReport] = sorted(raw, key=lambda r: r.file_path)
+            if not validate_links:
+                return reports, []
 
-        # Remap locale file paths to their logical display paths.
-        if _locale_path_remap:
-            for _r in reports:
-                if _r.file_path in _locale_path_remap:
-                    _r.file_path = _locale_path_remap[_r.file_path]
-                for _sf in _r.security_findings:
-                    if _sf.file_path in _locale_path_remap:
-                        _sf.file_path = _locale_path_remap[_sf.file_path]
+            # Phase B in main process: lightweight sequential pass for URL
+            # registration.  Workers discard scanners; we re-collect ref_maps here
+            # for deduplication.  This is an additional O(N) read but preserves the
+            # credential-scanner-as-firewall guarantee (no URLs from compromised files).
+            secure_scanners_b: list[ReferenceScanner] = []
+            for md_file in md_files:
+                _report_b, secure_scanner_b = _scan_single_file(md_file, config, None)
+                if secure_scanner_b is not None:
+                    secure_scanners_b.append(secure_scanner_b)
+            _resolved_repo_root = find_repo_root(search_from=docs_root)
+            validator_b = LinkValidator(config, _resolved_repo_root)
+            for scanner in secure_scanners_b:
+                validator_b.register_from_map(scanner.ref_map, scanner.file_path)
+            return reports, validator_b.validate()
 
-        elapsed = time.monotonic() - _t0
+        # Sequential path — zero overhead, full O(N) link-validation support.
+        reports_seq: list[IntegrityReport] = []
+        secure_scanners_seq: list[ReferenceScanner] = []
+
+        for md_file in md_files:
+            report, secure_scanner = _scan_single_file(md_file, config, rule_engine)
+            reports_seq.append(report)
+            if validate_links and secure_scanner is not None:
+                secure_scanners_seq.append(secure_scanner)
+            if progress and task_id is not None:
+                progress.advance(task_id)
+
+        elapsed_seq = time.monotonic() - _t0
         if verbose:
             _emit_telemetry(
-                mode="Parallel",
-                workers=actual_workers,
+                mode="Sequential",
+                workers=1,
                 n_files=len(md_files),
-                elapsed=elapsed,
+                elapsed=elapsed_seq,
             )
 
         if not validate_links:
-            return reports, []
+            # Remap locale file paths to their logical display paths.
+            if _locale_path_remap:
+                for _r in reports_seq:
+                    if _r.file_path in _locale_path_remap:
+                        _r.file_path = _locale_path_remap[_r.file_path]
+                    for _sf in _r.security_findings:
+                        if _sf.file_path in _locale_path_remap:
+                            _sf.file_path = _locale_path_remap[_sf.file_path]
+            return reports_seq, []
 
-        # Phase B in main process: lightweight sequential pass for URL
-        # registration.  Workers discard scanners; we re-collect ref_maps here
-        # for deduplication.  This is an additional O(N) read but preserves the
-        # credential-scanner-as-firewall guarantee (no URLs from compromised files).
-        secure_scanners_b: list[ReferenceScanner] = []
-        for md_file in md_files:
-            _report_b, secure_scanner_b = _scan_single_file(md_file, config, None)
-            if secure_scanner_b is not None:
-                secure_scanners_b.append(secure_scanner_b)
+        # Phase B — global URL deduplication and async HTTP validation.
+        # Uses the already-populated ref_maps from Phase A — no second file read.
         _resolved_repo_root = find_repo_root(search_from=docs_root)
-        validator_b = LinkValidator(config, _resolved_repo_root)
-        for scanner in secure_scanners_b:
-            validator_b.register_from_map(scanner.ref_map, scanner.file_path)
-        return reports, validator_b.validate()
-
-    # Sequential path — zero overhead, full O(N) link-validation support.
-    reports_seq: list[IntegrityReport] = []
-    secure_scanners_seq: list[ReferenceScanner] = []
-
-    for md_file in md_files:
-        report, secure_scanner = _scan_single_file(md_file, config, rule_engine)
-        reports_seq.append(report)
-        if validate_links and secure_scanner is not None:
-            secure_scanners_seq.append(secure_scanner)
-
-    elapsed_seq = time.monotonic() - _t0
-    if verbose:
-        _emit_telemetry(
-            mode="Sequential",
-            workers=1,
-            n_files=len(md_files),
-            elapsed=elapsed_seq,
-        )
-
-    if not validate_links:
+        validator_seq = LinkValidator(config, _resolved_repo_root)
+        for scanner in secure_scanners_seq:
+            validator_seq.register_from_map(scanner.ref_map, scanner.file_path)
         # Remap locale file paths to their logical display paths.
         if _locale_path_remap:
             for _r in reports_seq:
@@ -1736,23 +1780,10 @@ def scan_docs_references(
                 for _sf in _r.security_findings:
                     if _sf.file_path in _locale_path_remap:
                         _sf.file_path = _locale_path_remap[_sf.file_path]
-        return reports_seq, []
-
-    # Phase B — global URL deduplication and async HTTP validation.
-    # Uses the already-populated ref_maps from Phase A — no second file read.
-    _resolved_repo_root = find_repo_root(search_from=docs_root)
-    validator_seq = LinkValidator(config, _resolved_repo_root)
-    for scanner in secure_scanners_seq:
-        validator_seq.register_from_map(scanner.ref_map, scanner.file_path)
-    # Remap locale file paths to their logical display paths.
-    if _locale_path_remap:
-        for _r in reports_seq:
-            if _r.file_path in _locale_path_remap:
-                _r.file_path = _locale_path_remap[_r.file_path]
-            for _sf in _r.security_findings:
-                if _sf.file_path in _locale_path_remap:
-                    _sf.file_path = _locale_path_remap[_sf.file_path]
-    return reports_seq, validator_seq.validate()
+        return reports_seq, validator_seq.validate()
+    finally:
+        if progress:
+            progress.stop()
 
 
 # ─── Adaptive parallel worker ─────────────────────────────────────────────────

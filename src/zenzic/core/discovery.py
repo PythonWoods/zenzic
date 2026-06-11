@@ -68,10 +68,32 @@ def build_content_mounts(
     ]
 
 
+def _is_docusaurus_active(config: ZenzicConfig, root: Path) -> bool:
+    """Return True if the Docusaurus engine is active.
+
+    Checks config.build_context.engine directly, or probes parent directories
+    in auto mode.
+    """
+    if config.build_context.engine == "docusaurus":
+        return True
+    if config.build_context.engine == "auto":
+        curr = root.resolve()
+        while True:
+            if (curr / "docusaurus.config.ts").is_file() or (
+                curr / "docusaurus.config.js"
+            ).is_file():
+                return True
+            if curr == curr.parent:
+                break
+            curr = curr.parent
+    return False
+
+
 def walk_files(
     root: Path,
     excluded_dirs: set[str] | frozenset[str],
     exclusion_manager: LayeredExclusionManager,
+    config: ZenzicConfig | None = None,
 ) -> Generator[Path, None, None]:
     """Yield all regular files under *root*, pruning excluded directories.
 
@@ -83,13 +105,34 @@ def walk_files(
     :meth:`~LayeredExclusionManager.should_exclude_dir`.  The
     *excluded_dirs* set provides an additional hard-prune layer (used by
     ``find_unused_assets`` for ``excluded_asset_dirs``).
+
+    .. important::
+        Docusaurus partial files (names starting with ``_``) are **not**
+        excluded here.  Physical I/O pruning would render the credential
+        scanner (Z201/Z204) blind to secrets hidden in partials.  Routing
+        exclusions (URL mapping, Z402, Z502) happen at the logical layer
+        inside the adapter and rule engine.
     """
+    repo_root = getattr(exclusion_manager, "_repo_root", None)
     for dirpath, dirnames, filenames in os.walk(root):
-        dirnames[:] = sorted(
-            d
-            for d in dirnames
-            if not exclusion_manager.should_exclude_dir(d) and d not in excluded_dirs
-        )
+        filtered_dirnames = []
+        for d in dirnames:
+            rel_path = None
+            if repo_root is not None:
+                try:
+                    rel_path = (Path(dirpath) / d).relative_to(repo_root).as_posix()
+                except ValueError:
+                    pass
+
+            if exclusion_manager.should_exclude_dir(d, rel_path):
+                continue
+            if d in excluded_dirs:
+                continue
+            if rel_path and rel_path in excluded_dirs:
+                continue
+
+            filtered_dirnames.append(d)
+        dirnames[:] = sorted(filtered_dirnames)
         for fname in sorted(filenames):
             yield Path(dirpath) / fname
 
@@ -126,7 +169,7 @@ def iter_locale_markdown_sources(
     if not locale_root.is_dir():
         return
     excluded_dirs = set(config.excluded_dirs)
-    for md_file in walk_files(locale_root, excluded_dirs, exclusion_manager):
+    for md_file in walk_files(locale_root, excluded_dirs, exclusion_manager, config):
         if md_file.suffix not in DOC_SUFFIXES:
             continue
         if md_file.is_symlink():
@@ -173,7 +216,7 @@ def iter_extra_content_markdown_sources(
         return
     excluded_dirs = set(config.excluded_dirs)
     prefix_path = Path(url_prefix) if url_prefix else None
-    for md_file in walk_files(content_root, excluded_dirs, exclusion_manager):
+    for md_file in walk_files(content_root, excluded_dirs, exclusion_manager, config):
         if md_file.suffix not in DOC_SUFFIXES:
             continue
         if md_file.is_symlink():
@@ -212,7 +255,7 @@ def iter_markdown_sources(
         in deterministic sorted order (imposed by :func:`walk_files`).
     """
     excluded_dirs = set(config.excluded_dirs)
-    for md_file in walk_files(docs_root, excluded_dirs, exclusion_manager):
+    for md_file in walk_files(docs_root, excluded_dirs, exclusion_manager, config):
         if md_file.suffix not in DOC_SUFFIXES:
             continue
         if md_file.is_symlink():

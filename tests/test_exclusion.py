@@ -446,3 +446,37 @@ class TestSystemFileGuardrails:
             adapter_metadata_files=frozenset({"docusaurus.config.ts"}),
         )
         assert not mgr.should_exclude_file(docs / "guide.md", docs)
+
+
+def test_translate_glob_to_re2() -> None:
+    from zenzic.core import regex as re
+    from zenzic.core.exclusion import translate_glob_to_re2
+
+    # Test basic wildcard translations
+    pat1 = re.compile(translate_glob_to_re2("*.md"))
+    assert pat1.match("foo.md")
+    assert pat1.match("bar.md")
+    assert not pat1.match("foo.mdx")
+    assert not pat1.match("md")
+
+    # Test question mark wildcard
+    pat2 = re.compile(translate_glob_to_re2("test?.md"))
+    assert pat2.match("test1.md")
+    assert pat2.match("testa.md")
+    assert not pat2.match("test12.md")
+    assert not pat2.match("test.md")
+
+    # Test character classes
+    pat3 = re.compile(translate_glob_to_re2("test[0-9].md"))
+    assert pat3.match("test1.md")
+    assert not pat3.match("testa.md")
+
+    # Test character class negation
+    pat4 = re.compile(translate_glob_to_re2("test[!0-9].md"))
+    assert pat4.match("testa.md")
+    assert not pat4.match("test1.md")
+
+    # Test regex escape characters in glob
+    pat5 = re.compile(translate_glob_to_re2("test.file.md"))
+    assert pat5.match("test.file.md")
+    assert not pat5.match("test-file.md")

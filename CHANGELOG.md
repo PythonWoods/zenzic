@@ -9,10 +9,20 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [Unreleased]
+## [0.11.0] - Unreleased
+
+### Added
+
+- **Dynamic Site Root:** Support for Docusaurus monorepos by dynamically searching upward from docs/ to repo root.
+- **RE2 Glob Translator:** High-performance glob translator compiled directly to Google RE2 syntax for compatibility on Python 3.12+.
+- **Partial Guard:** Logical routing exclusion of partial files (those starting with `_` or inside `_` folders) in Docusaurus.
+- **Breakdown Flag:** Option `--breakdown` for `zenzic score` to show detailed category breakdowns and transparent DQS math.
+- **Progress Bar:** Interactive progress indicator (`rich.progress.Progress`) during file scanning and parsing in `zenzic check all`.
 
 ### Changed
 
+- **Path-aware Exclusion Engine upgrade (.gitignore semantics):** `excluded_dirs` now evaluates against the repository-relative path if the entry contains a slash (`/`), and globally against the directory basename if it does not.
+- **Severity Downgrade for Z106:** Downgraded `Z106` (circular link) severity to `note` and penalty to `0.0`, ensuring circular links never block strict pipelines.
 - **Core CI gate hardening:** Removed `pull_request.paths` filters from `.github/workflows/ci.yml` so required `Audit` checks are always created for every PR and cannot remain in expected/pending due to skipped workflow runs.
 
 ---

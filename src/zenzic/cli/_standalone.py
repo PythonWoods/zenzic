@@ -228,6 +228,11 @@ def score(
         "--ci",
         help="CI shorthand: sets --no-header.",
     ),
+    breakdown: bool = typer.Option(
+        False,
+        "--breakdown",
+        help="Explode scoring categories showing individual occurred Z-Codes and transparent math.",
+    ),
 ) -> None:
     """Compute a 0–100 documentation quality score across all checks."""
     if ci:
@@ -294,6 +299,7 @@ def score(
             f"{emoji('sparkles')} "
             f"[bold {ZenzicPalette.SUCCESS}]Quality Score:[/bold {ZenzicPalette.SUCCESS}]"
             f" [{score_style}]{report.score}/100[/{score_style}]\n"
+            f"  [bold]Base Score:[/bold] 100\n"
         )
 
         table = Table(
@@ -312,6 +318,7 @@ def score(
         table.add_column("Raw Pts", justify="right", style=ZenzicPalette.DIM)
         table.add_column("Applied Pts", justify="right")
 
+        total_category_penalties = 0
         for cat in report.categories:
             if cat.issues == 0:
                 status_icon = f"[green]{emoji('check')}[/]"
@@ -323,7 +330,8 @@ def score(
             raw_display = f"-{raw_pts}" if raw_pts > 0 else "0"
             applied_penalty = round(cat.weight * 100 - cat.contribution * 100)
             applied_display = f"-{applied_penalty}" if applied_penalty > 0 else "0"
-            capped_suffix = " [yellow](CAPPED)[/yellow]" if cat.is_capped else ""
+            total_category_penalties += applied_penalty
+            capped_suffix = " [yellow](Max limit reached)[/yellow]" if cat.is_capped else ""
             table.add_row(
                 status_icon,
                 cat.name,
@@ -333,20 +341,22 @@ def score(
                 f"{applied_display}{capped_suffix}",
             )
 
-        subtotal = sum(round(c.contribution * 100) for c in report.categories)
         table.add_section()
         table.add_row(
             "",
-            "[dim]Σ Subtotal[/dim]",
+            "[dim]Σ Category Penalties[/dim]",
             "",
             "",
             "",
-            f"[bold]{subtotal}[/bold]",
+            f"[bold]-{total_category_penalties}[/bold]"
+            if total_category_penalties > 0
+            else "[bold]0[/bold]",
         )
 
         _shared.console.print(score_summary)
         _shared.console.print(table)
 
+        subtotal = sum(round(c.contribution * 100) for c in report.categories)
         gravity_loss = subtotal - (report.score + report.suppression_debt_pts)
         if gravity_loss > 0:
             _shared.console.print(
@@ -361,10 +371,145 @@ def score(
             f" ({report.suppression_count} suppressions):[/]"
             f" [{debt_style}]{debt_sign}{debt_pts} pts[/{debt_style}]"
         )
+        total_penalties = total_category_penalties + gravity_loss + debt_pts
         _shared.console.print(
-            f"  [dim]=[/dim] [bold]Final Quality Score[/bold]"
-            f" [{score_style}]{report.score} / 100[/{score_style}]"
+            f"  [dim]=[/dim] [bold]Final Score: 100 - {total_penalties} = {report.score}[/bold]"
         )
+
+        if breakdown:
+            from zenzic.core.codes import CODE_DEFINITIONS, CODE_NAMES
+
+            _shared.console.print()
+            _shared.console.print("[bold cyan]DETAILED CATEGORY BREAKDOWN[/]")
+            _shared.console.print("[dim]━[/]" * 50)
+
+            # Helper to map codes to display categories
+            def get_display_category(c: str) -> str:
+                from zenzic.core.scorer import _CODE_CATEGORY
+
+                cat = _CODE_CATEGORY.get(c)
+                if cat is not None:
+                    return cat
+                if c.startswith("Z1"):
+                    return "structural"
+                if c.startswith("Z3"):
+                    return "navigation"
+                if c.startswith("Z5"):
+                    return "content"
+                if c.startswith("Z6"):
+                    return "brand"
+                if c.startswith("Z2"):
+                    return "security"
+                return "other"
+
+            # Group findings by display category
+            grouped_findings: dict[str, list[tuple[str, int]]] = {
+                "structural": [],
+                "navigation": [],
+                "content": [],
+                "brand": [],
+                "security": [],
+                "other": [],
+            }
+
+            for code, count in sorted(report.findings_counts.items()):
+                if count > 0:
+                    display_cat = get_display_category(code)
+                    grouped_findings.setdefault(display_cat, []).append((code, count))
+
+            # Print each DQS category
+            for cat_score in report.categories:
+                cat_name = cat_score.name
+                cap_pts = cat_score.weight * 100
+
+                _shared.console.print(
+                    f"\n[bold]{cat_name.upper()} CATEGORY[/] (Weight: {cat_score.weight:.0%}, Max: {cap_pts:.1f} pts)"
+                )
+
+                cat_findings = grouped_findings.get(cat_name, [])
+                if not cat_findings:
+                    _shared.console.print("  [green]✓ No issues detected[/]")
+                else:
+                    for code, count in cat_findings:
+                        defn = CODE_DEFINITIONS.get(code)
+                        penalty = defn.penalty if defn else 0.0
+                        name = CODE_NAMES.get(code, "UNKNOWN")
+                        deduction = penalty * count
+                        _shared.console.print(
+                            f"  [red]✗[/] [bold]{code}[/] ({name}): {count} occurrence(s) x -{penalty:.1f} pts = [red]-{deduction:.1f} pts[/]"
+                        )
+
+                raw_display = (
+                    f"-{cat_score.raw_penalty:.1f}" if cat_score.raw_penalty > 0 else "0.0"
+                )
+                applied_penalty = round(cat_score.weight * 100 - cat_score.contribution * 100)
+                applied_display = f"-{applied_penalty:.1f}" if applied_penalty > 0 else "0.0"
+                capped_str = " [yellow](CAPPED)[/yellow]" if cat_score.is_capped else ""
+
+                _shared.console.print(f"  [dim]Category Raw Penalty:[/]  {raw_display} pts")
+                _shared.console.print(
+                    f"  [dim]Category Net Score:[/]    {cat_score.contribution * 100:.1f} / {cap_pts:.1f} pts{capped_str}"
+                )
+
+            # Print security findings if any occurred
+            sec_findings = grouped_findings.get("security", [])
+            if sec_findings:
+                _shared.console.print("\n[bold red]SECURITY GATE (Zero-Tolerance Override)[/]")
+                for code, count in sec_findings:
+                    name = CODE_NAMES.get(code, "UNKNOWN")
+                    _shared.console.print(
+                        f"  [red]✗[/] [bold]{code}[/] ({name}): {count} occurrence(s) [red]→ COLLAPSES SCORE TO 0[/]"
+                    )
+
+            # Print other/uncategorized findings if any occurred
+            other_findings = grouped_findings.get("other", [])
+            if other_findings:
+                _shared.console.print("\n[bold yellow]UNCATEGORIZED FINDINGS[/]")
+                for code, count in other_findings:
+                    name = CODE_NAMES.get(code, "UNKNOWN")
+                    _shared.console.print(
+                        f"  [yellow]![/] [bold]{code}[/] ({name}): {count} occurrence(s) (no DQS penalty)"
+                    )
+
+            _shared.console.print("\n[dim]━[/]" * 50)
+            _shared.console.print("[bold cyan]DQS MATHEMATICAL TRANSPARENCY[/]")
+            _shared.console.print("  [bold]Base Score:[/bold]                100.0 pts")
+
+            total_cat_penalties = 0.0
+            for cat_score in report.categories:
+                penalty = (cat_score.weight * 100) - (cat_score.contribution * 100)
+                _shared.console.print(
+                    f"  [dim]-[/] [bold]{cat_score.name.capitalize()} Penalty:[/]        -{penalty:.1f} pts"
+                    + (" (Max limit reached)" if cat_score.is_capped else "")
+                )
+                total_cat_penalties += penalty
+
+            _shared.console.print("  [dim]─────────────────────────────────────[/]")
+            _shared.console.print(
+                f"  [bold]Total Category Penalties:[/]   -{total_cat_penalties:.1f} pts"
+            )
+
+            brand_cat = next((cs for cs in report.categories if cs.name == "brand"), None)
+            subtotal_val = sum(cs.contribution * 100 for cs in report.categories)
+            if brand_cat is not None and brand_cat.category_score == 0.0:
+                gravity_loss_val = max(0.0, subtotal_val - 70.0)
+            else:
+                gravity_loss_val = 0.0
+            _shared.console.print(
+                f"  [dim]-[/] [bold]Gravity Cap Loss:[/]           -{gravity_loss_val:.1f} pts (Brand bucket zeroed cap)"
+            )
+
+            debt_pts = report.suppression_debt_pts
+            _shared.console.print(
+                f"  [dim]-[/] [bold]Technical Debt Penalty:[/]     -{debt_pts:.1f} pts ({report.suppression_count} suppression(s) x -1.0 pt)"
+            )
+
+            total_penalties_val = total_cat_penalties + gravity_loss_val + debt_pts
+            _shared.console.print("  [dim]─────────────────────────────────────[/]")
+            _shared.console.print(
+                f"  [bold]Final Score: 100 - {total_penalties_val:.1f} = {report.score:.1f}[/bold]"
+            )
+            _shared.console.print("[dim]━[/]" * 50)
 
         if report.score == 100:
             from rich.console import Group
@@ -600,24 +745,85 @@ def diff(
             padding=(0, 1),
         )
         diff_table.add_column("Category", style="bold", min_width=14)
-        diff_table.add_column("Baseline", justify="right")
-        diff_table.add_column("Current", justify="right")
-        diff_table.add_column("Delta", justify="right")
+        diff_table.add_column("Baseline Issues", justify="right")
+        diff_table.add_column("Current Issues", justify="right")
+        diff_table.add_column("Baseline Penalty", justify="right")
+        diff_table.add_column("Current Penalty", justify="right")
+        diff_table.add_column("Penalty Delta", justify="right")
+
+        total_base_cat_penalties = 0
+        total_curr_cat_penalties = 0
         for cat in current.categories:
             base_cat = next((b for b in baseline.categories if b.name == cat.name), None)
             base_issues = base_cat.issues if base_cat else 0
-            issue_delta = cat.issues - base_issues
-            sign_i = "+" if issue_delta > 0 else ""
-            colour = "red" if issue_delta > 0 else "green" if issue_delta < 0 else "dim"
+
+            curr_penalty = round(cat.weight * 100 - cat.contribution * 100)
+            base_penalty = (
+                round(base_cat.weight * 100 - base_cat.contribution * 100) if base_cat else 0
+            )
+
+            total_curr_cat_penalties += curr_penalty
+            total_base_cat_penalties += base_penalty
+
+            penalty_change = base_penalty - curr_penalty
+            if penalty_change > 0:
+                delta_display = f"[green]+{penalty_change}[/]"
+            elif penalty_change < 0:
+                delta_display = f"[red]{penalty_change}[/]"
+            else:
+                delta_display = "[dim]0[/]"
+
+            capped_suffix = " [yellow](Max limit reached)[/yellow]" if cat.is_capped else ""
+
             diff_table.add_row(
                 cat.name,
                 str(base_issues),
                 str(cat.issues),
-                f"[{colour}]{sign_i}{issue_delta}[/]",
+                f"-{base_penalty}" if base_penalty > 0 else "0",
+                (f"-{curr_penalty}" if curr_penalty > 0 else "0") + capped_suffix,
+                delta_display,
             )
+
+        # Compute gravity loss & technical debt for both baseline and current
+        # Baseline gravity loss
+        base_subtotal = sum(round(c.contribution * 100) for c in baseline.categories)
+        base_debt_pts = getattr(baseline, "suppression_debt_pts", 0)
+        base_gravity_loss = base_subtotal - (baseline.score + base_debt_pts)
+        if base_gravity_loss < 0:
+            base_gravity_loss = 0
+
+        # Current gravity loss & debt
+        curr_subtotal = sum(round(c.contribution * 100) for c in current.categories)
+        curr_gravity_loss = curr_subtotal - (current.score + current.suppression_debt_pts)
+        if curr_gravity_loss < 0:
+            curr_gravity_loss = 0
+        curr_debt_pts = current.suppression_debt_pts
+
+        diff_table.add_section()
+        penalty_subtotal_change = total_base_cat_penalties - total_curr_cat_penalties
+        if penalty_subtotal_change > 0:
+            subtotal_delta_display = f"[green]+{penalty_subtotal_change}[/]"
+        elif penalty_subtotal_change < 0:
+            subtotal_delta_display = f"[red]{penalty_subtotal_change}[/]"
+        else:
+            subtotal_delta_display = "[dim]0[/]"
+
+        diff_table.add_row(
+            "[dim]Σ Category Penalties[/dim]",
+            "",
+            "",
+            f"[bold]-{total_base_cat_penalties}[/bold]"
+            if total_base_cat_penalties > 0
+            else "[bold]0[/bold]",
+            f"[bold]-{total_curr_cat_penalties}[/bold]"
+            if total_curr_cat_penalties > 0
+            else "[bold]0[/bold]",
+            subtotal_delta_display,
+        )
+
         body = Text.from_markup(
-            f"  Baseline: [bold]{baseline.score}/100[/]   "
-            f"Current: [bold {delta_colour}]{current.score}/100[/]   "
+            f"  Baseline Score: [bold]{baseline.score}/100[/]   "
+            f"Current Score: [bold {delta_colour}]{current.score}/100[/]   "
             f"Delta: [{delta_colour}]{sign}{delta}[/]\n"
         )
         _shared.console.print()
@@ -632,6 +838,13 @@ def diff(
             _shared.console.print()
         _shared.console.print(body)
         _shared.console.print(diff_table)
+
+        total_base_penalties = total_base_cat_penalties + base_gravity_loss + base_debt_pts
+        total_curr_penalties = total_curr_cat_penalties + curr_gravity_loss + curr_debt_pts
+        _shared.console.print(
+            f"  Baseline: 100 - {total_base_penalties} = {baseline.score}\n"
+            f"  Current:  100 - {total_curr_penalties} = {current.score}"
+        )
         _shared.console.print()
 
     dropped = -delta

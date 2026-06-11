@@ -1481,6 +1481,39 @@ def test_score_no_header_suppresses_banner(_run: object, _cfg: object, _root: ob
 @patch("zenzic.cli._standalone.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._standalone.ZenzicConfig.load", return_value=(_CFG, False))
 @patch("zenzic.cli._standalone._run_all_checks")
+def test_score_breakdown(_run: object, _cfg: object, _root: object) -> None:
+    """score --breakdown must print category explosion and mathematical transparency."""
+    from zenzic.core.scorer import CategoryScore, ScoreReport
+
+    _run.return_value = ScoreReport(  # type: ignore[attr-defined]
+        score=85,
+        categories=[
+            CategoryScore("structural", 0.30, 1, 0.80, 0.24, raw_penalty=8.0, is_capped=False),
+            CategoryScore("navigation", 0.25, 1, 0.90, 0.225, raw_penalty=4.0, is_capped=False),
+            CategoryScore("content", 0.20, 0, 1.0, 0.20, raw_penalty=0.0, is_capped=False),
+            CategoryScore("brand", 0.25, 0, 1.0, 0.25, raw_penalty=0.0, is_capped=False),
+        ],
+        findings_counts={"Z101": 1, "Z402": 1, "Z106": 2},
+        suppression_count=3,
+        suppression_cap=30,
+        debt_status="MANAGED",
+        suppression_debt_pts=3,
+    )
+    result = runner.invoke(app, ["score", "--breakdown"])
+    assert result.exit_code == 0
+    assert "DETAILED CATEGORY BREAKDOWN" in result.stdout
+    assert "STRUCTURAL CATEGORY" in result.stdout
+    assert "Z101 (LINK_BROKEN)" in result.stdout
+    assert "Z106 (CIRCULAR_LINK)" in result.stdout
+    assert "DQS MATHEMATICAL TRANSPARENCY" in result.stdout
+    assert "Base Score:" in result.stdout
+    assert "Total Category Penalties:" in result.stdout
+    assert "Technical Debt Penalty:" in result.stdout
+
+
+@patch("zenzic.cli._standalone.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._standalone.ZenzicConfig.load", return_value=(_CFG, False))
+@patch("zenzic.cli._standalone._run_all_checks")
 @patch("zenzic.cli._standalone._check_stamp_file", return_value=True)
 def test_score_check_stamp_passes_when_current(
     _chk: object, _run: object, _cfg: object, _root: object
@@ -1731,3 +1764,73 @@ def test_diff_runtime_error_exits_1(_root) -> None:
     result = runner.invoke(app, ["diff"])
     assert result.exit_code == 1, result.output
     assert "ERROR" in result.output or "error" in result.output.lower()
+
+
+@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, False))
+@patch(
+    "zenzic.cli._check.validate_links_structured",
+    return_value=[
+        LinkError(
+            file_path=_ROOT / "docs" / "index.md",
+            line_no=1,
+            message="circular link",
+            source_line="[foo](foo.md)",
+            error_type="Z106",
+        )
+    ],
+)
+def test_check_links_circular_link_note_strict_exits_0(_links, _cfg, _root) -> None:
+    """Z106 circular link note must not fail check links under --strict."""
+    result = runner.invoke(app, ["check", "links", "--strict"])
+    assert result.exit_code == 0
+
+
+@patch("zenzic.cli._shared._count_docs_assets", return_value=(5, 0))
+@patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
+@patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
+@patch("zenzic.cli._check.validate_links_structured", return_value=[])
+@patch("zenzic.cli._check.find_orphans", return_value=[])
+@patch("zenzic.cli._check.validate_snippets", return_value=[])
+@patch("zenzic.cli._check.find_placeholders", return_value=[])
+@patch("zenzic.cli._check.find_unused_assets", return_value=[])
+@patch("zenzic.cli._check.check_nav_contract", return_value=[])
+@patch("zenzic.cli._check.scan_docs_references", return_value=([], []))
+def test_check_all_progress_bar_activation(
+    mock_scan, _nav, _assets, _ph, _snip, _orphans, _links, _cfg, _root, _count
+) -> None:
+    """Verify that progress bar show_progress parameter obeys strict gate rules."""
+    runner.invoke(app, ["check", "all"])
+    mock_scan.assert_called_with(
+        ANY,
+        ANY,
+        config=ANY,
+        validate_links=ANY,
+        locale_roots=ANY,
+        content_roots=ANY,
+        show_progress=True,
+    )
+    mock_scan.reset_mock()
+
+    runner.invoke(app, ["check", "all", "--no-header"])
+    mock_scan.assert_called_with(
+        ANY,
+        ANY,
+        config=ANY,
+        validate_links=ANY,
+        locale_roots=ANY,
+        content_roots=ANY,
+        show_progress=False,
+    )
+    mock_scan.reset_mock()
+
+    runner.invoke(app, ["check", "all", "--ci"])
+    mock_scan.assert_called_with(
+        ANY,
+        ANY,
+        config=ANY,
+        validate_links=ANY,
+        locale_roots=ANY,
+        content_roots=ANY,
+        show_progress=False,
+    )

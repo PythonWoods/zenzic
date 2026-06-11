@@ -26,7 +26,6 @@ Public API
 
 from __future__ import annotations
 
-import fnmatch
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -70,6 +69,59 @@ def _load_vcs_pathspec(
     return None
 
 
+def translate_glob_to_re2(pattern: str) -> str:
+    """Translate a shell PATTERN to a regular expression compatible with Google RE2.
+
+    RE2 does not support atomic groups (?>...) or lookarounds.
+    We convert standard glob patterns (like *.md, build/*) into strict RE2-compatible
+    regex strings without using atomic groups or lookarounds.
+    """
+    i, n = 0, len(pattern)
+    res = []
+    while i < n:
+        c = pattern[i]
+        i += 1
+        if c == "*":
+            res.append(".*")
+        elif c == "?":
+            res.append(".")
+        elif c == "[":
+            j = i
+            if j < n and pattern[j] == "!":
+                j += 1
+            if j < n and pattern[j] == "]":
+                j += 1
+            while j < n and pattern[j] != "]":
+                j += 1
+            if j >= n:
+                res.append("\\[")
+            else:
+                stuff = pattern[i:j]
+                if stuff.startswith("!"):
+                    stuff = "^" + stuff[1:]
+                elif stuff.startswith("^"):
+                    stuff = "\\^" + stuff[1:]
+
+                escaped_stuff = []
+                for char in stuff:
+                    if char in ("\\", "[", "]"):
+                        escaped_stuff.append("\\" + char)
+                    else:
+                        escaped_stuff.append(char)
+                res.append("[" + "".join(escaped_stuff) + "]")
+                i = j + 1
+        else:
+            res.append(re.escape(c))
+    return r"(?s:\A" + "".join(res) + r"\Z)"
+
+
+# Pre-compiled RE2 patterns for system-level file guardrails (L1a).
+# Built once at import time so the hot path in should_exclude_file is O(1).
+_SYSTEM_EXCLUDED_FILE_PATTERNS_RE: tuple[re.RegexPattern, ...] = tuple(
+    re.compile(translate_glob_to_re2(p)) for p in SYSTEM_EXCLUDED_FILE_PATTERNS
+)
+
+
 # ── Layered Exclusion Manager ────────────────────────────────────────────────
 
 
@@ -101,6 +153,7 @@ class LayeredExclusionManager:
         "_config_included_patterns",
         "_vcs_pathspec",
         "_respect_vcs",
+        "_repo_root",
     )
 
     def __init__(
@@ -115,6 +168,7 @@ class LayeredExclusionManager:
     ) -> None:
         self._system_dirs: frozenset[str] = SYSTEM_EXCLUDED_DIRS
         self._adapter_metadata_files: frozenset[str] = adapter_metadata_files
+        self._repo_root: Path | None = repo_root
 
         # Config-level dirs — strip system guardrails to keep layers clean
         raw_excluded = getattr(config, "excluded_dirs", []) or []
@@ -132,10 +186,10 @@ class LayeredExclusionManager:
         raw_excl_patterns = getattr(config, "excluded_file_patterns", []) or []
         raw_incl_patterns = getattr(config, "included_file_patterns", []) or []
         self._config_excluded_patterns: list[re.RegexPattern] = [
-            re.compile(fnmatch.translate(p)) for p in raw_excl_patterns
+            re.compile(translate_glob_to_re2(p)) for p in raw_excl_patterns
         ]
         self._config_included_patterns: list[re.RegexPattern] = [
-            re.compile(fnmatch.translate(p)) for p in raw_incl_patterns
+            re.compile(translate_glob_to_re2(p)) for p in raw_incl_patterns
         ]
 
         # VCS
@@ -174,6 +228,8 @@ class LayeredExclusionManager:
         # L3: Config excluded_dirs
         if dir_name in self._config_excluded_dirs:
             return True
+        if rel_path and rel_path in self._config_excluded_dirs:
+            return True
 
         # L7: Default — included
         return False
@@ -192,7 +248,7 @@ class LayeredExclusionManager:
         # L1a: System file guardrails — immutable (infrastructure + adapter metadata)
         if (
             filename in SYSTEM_EXCLUDED_FILE_NAMES
-            or any(fnmatch.fnmatch(filename, p) for p in SYSTEM_EXCLUDED_FILE_PATTERNS)
+            or any(p.match(filename) for p in _SYSTEM_EXCLUDED_FILE_PATTERNS_RE)
             or filename in self._adapter_metadata_files
         ):
             return True
@@ -232,10 +288,21 @@ class LayeredExclusionManager:
             if any(p.match(filename) for p in self._config_excluded_patterns):
                 return True
 
-        # L3: Config excluded_dirs (check path components)
+        # L3: Config excluded_dirs (check path components against basename)
         for part in Path(rel_path).parts[:-1]:
             if part in self._config_excluded_dirs:
                 return True
+
+        # L3: Config excluded_dirs (check full repo-relative paths)
+        if self._repo_root:
+            try:
+                repo_rel = file_path.relative_to(self._repo_root).as_posix()
+                repo_rel_path = Path(repo_rel)
+                for parent in repo_rel_path.parents:
+                    if parent.as_posix() in self._config_excluded_dirs:
+                        return True
+            except ValueError:
+                pass
 
         # L7: Default — included
         return False

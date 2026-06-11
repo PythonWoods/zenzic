@@ -398,6 +398,49 @@ export default async function() {
         p = tmp_path / "nonexistent.config.ts"
         assert _extract_route_base_path(p) is None
 
+    def test_route_base_path_braced_plugin_override(self, tmp_path: Path) -> None:
+        cfg = """
+export default {
+  presets: [
+    [
+      'classic',
+      {
+        docs: {
+          routeBasePath: 'my-docs',
+        },
+      },
+    ],
+  ],
+  plugins: [
+    [
+      '@docusaurus/plugin-content-docs',
+      {
+        id: 'community',
+        routeBasePath: 'community',
+      },
+    ],
+  ],
+};
+"""
+        p = _write_config(tmp_path, cfg)
+        assert _extract_route_base_path(p) == "my-docs"
+
+    def test_route_base_path_braced_plugin_default(self, tmp_path: Path) -> None:
+        cfg = """
+export default {
+  plugins: [
+    [
+      '@docusaurus/plugin-content-docs',
+      {
+        routeBasePath: 'main-docs',
+      },
+    ],
+  ],
+};
+"""
+        p = _write_config(tmp_path, cfg)
+        assert _extract_route_base_path(p) == "main-docs"
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # SLUG-01: Frontmatter slug support
@@ -499,6 +542,17 @@ class TestSLUG01FrontmatterSlug:
         # slug: / is the doc-relative root; full permalink = /docs/ (routeBasePath prefix).
         assert url == "/docs/"
 
+    def test_absolute_slug_double_prefix_avoided(self, tmp_path: Path) -> None:
+        adapter = _make_adapter(tmp_path, route_base_path="docs")
+        docs = tmp_path / "docs"
+        docs.mkdir(exist_ok=True)
+        md = docs / "intro.mdx"
+        md.write_text("---\nslug: /docs/intro\n---\n# Intro\n")
+
+        adapter.set_slug_map({md: md.read_text()})
+        url = adapter.get_route_info(Path("intro.mdx")).canonical_url
+        assert url == "/docs/intro/"
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Dynamic config detection unit tests
@@ -583,7 +637,7 @@ export default {
 
         adapter = DocusaurusAdapter.from_repo(ctx, docs, tmp_path)
         assert adapter._base_url == ""
-        assert adapter._route_base_path is None
+        assert adapter._route_base_path == "docs"
 
     def test_dynamic_config_warning(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
         cfg = "export default async function() { return { baseUrl: '/x/' }; }"
@@ -1306,3 +1360,54 @@ class TestZ105AdapterDrivenSuppression:
         assert any("absolute" in str(e).lower() for e in errors), (
             f"Trailing-slash boundary must keep Z105 active on /developers-only/. Got: {errors}"
         )
+
+
+class TestDynamicSiteRoot:
+    """Tests for DocusaurusMonorepoSupport (Dynamic site root resolution)."""
+
+    def test_find_docusaurus_site_root_direct(self, tmp_path: Path) -> None:
+        from zenzic.core.adapters._docusaurus import find_docusaurus_site_root
+
+        repo_root = tmp_path
+        site_root = tmp_path / "website"
+        site_root.mkdir()
+        docs_root = site_root / "docs"
+        docs_root.mkdir()
+
+        # Create config file in site_root
+        config_file = site_root / "docusaurus.config.ts"
+        config_file.touch()
+
+        resolved_site_root = find_docusaurus_site_root(docs_root, repo_root)
+        assert resolved_site_root.resolve() == site_root.resolve()
+
+    def test_from_repo_resolves_against_dynamic_site_root(self, tmp_path: Path) -> None:
+        cfg = """\
+export default {
+  baseUrl: "/monorepo-site/",
+  presets: [[
+    "@docusaurus/preset-classic",
+    { docs: { routeBasePath: "kb" } },
+  ]],
+};
+"""
+        repo_root = tmp_path
+        site_root = tmp_path / "website"
+        site_root.mkdir()
+        docs_root = site_root / "docs"
+        docs_root.mkdir()
+
+        # Write config to website/docusaurus.config.ts, and versions.json there too
+        (site_root / "docusaurus.config.ts").write_text(cfg)
+        (site_root / "versions.json").write_text('["1.0.0"]')
+        (site_root / "sidebars.ts").write_text("export default {};")
+
+        ctx = BuildContext(engine="docusaurus")
+        adapter = DocusaurusAdapter.from_repo(ctx, docs_root, repo_root)
+
+        assert adapter._docusaurus_site_root.resolve() == site_root.resolve()
+        assert adapter._base_url == "/monorepo-site"
+        assert adapter._route_base_path == "kb"
+        assert adapter._versions == ("1.0.0",)
+        assert adapter._sidebar_path is not None
+        assert adapter._sidebar_path.name == "sidebars.ts"
