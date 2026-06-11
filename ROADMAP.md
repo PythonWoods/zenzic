@@ -5,6 +5,8 @@ SPDX-License-Identifier: Apache-2.0
 
 # Zenzic Roadmap
 
+> **Governance Note (ADR-020):** This document is a root governance file. It is strictly **English-Only**. It must not be translated or mirrored in the `i18n/` directory.
+
 This document describes the planned milestone trajectory for Zenzic.
 Dates are targets, not commitments. All milestones are subject to revision.
 
@@ -24,7 +26,7 @@ For the current release history, see [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
-## v0.10.x — Magnetite (current)
+## v0.10.x — Magnetite
 
 **Theme:** Native CI/CD Integration, Orthogonal Filtering, and Debt Eradication.
 
@@ -67,9 +69,16 @@ For the current release history, see [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
-## v0.11.x (planned)
+## v0.11.x — Monorepo & DX (current)
 
 **Theme:** File integrity contracts, semantic schema validation, Plugin SDK, config hygiene.
+
+### Completed
+
+- **Monorepo Scalability**: Dynamic root resolution for Docusaurus (`docusaurus_site_root`), allowing Zenzic to operate seamlessly in nested `website/` architectures.
+- **Path-Aware Exclusion Engine**: Upgraded `excluded_dirs` to support `.gitignore` slash semantics, enabling strictly repo_root-relative targeting without false positives.
+- **Python 3.12+ RE2 Parity**: Custom `translate_glob_to_re2` implementation, eradicating `fnmatch` atomic group crashes and preserving DFA linear-time guarantees.
+- **DX Redesign**: Implementation of a visual progress bar and mathematical transparency via the `--breakdown` flag for DQS scoring.
 
 ### Planned
 
@@ -149,4 +158,4 @@ These constraints apply across every future release:
 
 ---
 
-Roadmap last updated: 2026-06-07
+Roadmap last updated: 2026-06-11
