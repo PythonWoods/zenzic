@@ -1062,7 +1062,11 @@ async def validate_links_async(
                     # unconditional bypass (Zero-Config invariant preserved).
                     if any(parsed.path.startswith(p) for p in _scanned_vsm_prefixes):
                         _abs_parts = [p for p in parsed.path.split("/") if p]
-                        _canonical = "/" + "/".join(_abs_parts) + "/" if _abs_parts else "/"
+                        if parsed.path.endswith((".md", ".mdx", ".json")):
+                            _canonical = adapter.get_route_info(Path(*_abs_parts)).canonical_url
+                        else:
+                            _canonical = "/" + "/".join(_abs_parts) + "/" if _abs_parts else "/"
+                        
                         if vsm.get(_canonical) is None:
                             _suggestions = difflib.get_close_matches(
                                 _canonical.strip("/"), [k.strip("/") for k in vsm], n=1, cutoff=0.6

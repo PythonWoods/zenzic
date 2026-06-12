@@ -13,6 +13,7 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Docusaurus Native Routing Emulation:** Full support for `routeBasePath` concatenation, Frontmatter `slug` absolute/relative parsing, and Blog Date Extraction (`YYYY-MM-DD-slug`) to accurately map Docusaurus URLs into the Virtual Site Map without false positive broken links.
 - **Dynamic Site Root:** Support for Docusaurus monorepos by dynamically searching upward from docs/ to repo root.
 - **RE2 Glob Translator:** High-performance glob translator compiled directly to Google RE2 syntax for compatibility on Python 3.12+.
 - **Partial Guard:** Logical routing exclusion of partial files (those starting with `_` or inside `_` folders) in Docusaurus.
