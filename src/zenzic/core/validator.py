@@ -1019,7 +1019,7 @@ async def validate_links_async(
                     config.validate_same_page_anchors or md_file in locale_file_set
                 ) and parsed.fragment:
                     anchor = parsed.fragment
-                    if anchor not in anchors_cache.get(md_file, set()):
+                    if anchor.lower() not in anchors_cache.get(md_file, set()):
                         internal_errors.append(
                             LinkError(
                                 file_path=md_file,
@@ -1066,7 +1066,7 @@ async def validate_links_async(
                             _canonical = adapter.get_route_info(Path(*_abs_parts)).canonical_url
                         else:
                             _canonical = "/" + "/".join(_abs_parts) + "/" if _abs_parts else "/"
-                        
+
                         if vsm.get(_canonical) is None:
                             _suggestions = difflib.get_close_matches(
                                 _canonical.strip("/"), [k.strip("/") for k in vsm], n=1, cutoff=0.6
@@ -1143,10 +1143,10 @@ async def validate_links_async(
                             str(docs_root) + os.sep + path_part[len("@site/docs/") :]
                         )
                     elif path_part.startswith("@site/"):
-                        # Docusaurus alias: @site/ maps to repo_root.
+                        # Docusaurus alias: @site/ maps to repo_root (site_root in monorepos).
                         # known_assets is built from repo_root so this resolves correctly.
                         asset_str = os.path.normpath(
-                            str(repo_root) + os.sep + path_part[len("@site/") :]
+                            str(resolver_repo_root) + os.sep + path_part[len("@site/") :]
                         )
                     else:
                         asset_str = os.path.normpath(str(md_file.parent) + os.sep + path_part)

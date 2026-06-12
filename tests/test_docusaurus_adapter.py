@@ -697,7 +697,6 @@ class TestSLUG02BlogSlugRouting:
 
 
 class TestDynamicConfigDetection:
-
     """Unit tests for _is_dynamic_config()."""
 
     @pytest.mark.parametrize(
@@ -850,8 +849,14 @@ class TestMapUrlFileBasedLinking:
         adapter._blog_root = tmp_path / "blog"
         adapter._blog_route_base_path = "blog"
         # The URL for blog/2021-03-09-release.mdx is /blog/2021/03/09/release/
-        assert adapter.get_route_info(Path("blog/2021-03-09-release.mdx")).canonical_url == "/blog/2021/03/09/release/"
-        assert adapter.get_route_info(Path("blog/2022/01-24-recap.md")).canonical_url == "/blog/2022/01/24/recap/"
+        assert (
+            adapter.get_route_info(Path("blog/2021-03-09-release.mdx")).canonical_url
+            == "/blog/2021/03/09/release/"
+        )
+        assert (
+            adapter.get_route_info(Path("blog/2022/01-24-recap.md")).canonical_url
+            == "/blog/2022/01/24/recap/"
+        )
 
     def test_static_absolute_image_resolution(self, adapter: DocusaurusAdapter) -> None:
         """Absolute path to an image e.g. /img/logo.png should resolve to static/img/logo.png."""
@@ -865,6 +870,7 @@ class TestMapUrlFileBasedLinking:
         # Wait, the adapter maps files to URLs. Zenzic checks links by seeing if they match a known URL.
         # For absolute paths, we need a test that they map to `static/` or are tolerated.
         pass
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Route classification regression

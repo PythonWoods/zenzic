@@ -473,6 +473,7 @@ _BLOG_DATE_FILENAME_RE = re.compile(
 _SLUG_NONWORD_ASCII_RE = re.compile(r"[^\w\s-]", re.ASCII)
 _SLUG_SPACES_RE = re.compile(r"\s+")
 
+
 def _slugify_tag(tag: str) -> str:
     """Convert a raw frontmatter tag string to a Docusaurus-compatible URL slug.
 
@@ -1069,13 +1070,11 @@ class DocusaurusAdapter(BaseAdapter):
 
         # Resolve the plugin instance and its routeBasePath.
         # Default to the main docs instance.
-        rbp: str = self._route_base_path if self._route_base_path is not None else "docs"
+        rbp = self._route_base_path if self._route_base_path is not None else "docs"
         logical_rel = rel
 
         is_docs_subfolder = (
-            rel.parts 
-            and rel.parts[0] == "docs" 
-            and (self._docs_root / "docs").is_dir()
+            rel.parts and rel.parts[0] == "docs" and (self._docs_root / "docs").is_dir()
         )
 
         if rel.parts:
@@ -1088,7 +1087,7 @@ class DocusaurusAdapter(BaseAdapter):
                         logical_rel = Path(*rel.parts[1:])
                         matched_instance = True
                         break
-            
+
             # If not matched to sibling, check if it is default docs subfolder
             if not matched_instance and is_docs_subfolder:
                 rbp = self._route_base_path if self._route_base_path is not None else "docs"
@@ -1308,9 +1307,7 @@ class DocusaurusAdapter(BaseAdapter):
         # Resolve the plugin instance and its routeBasePath.
         rbp = self._route_base_path if self._route_base_path is not None else "docs"
         is_docs_subfolder = (
-            rel.parts 
-            and rel.parts[0] == "docs" 
-            and (self._docs_root / "docs").is_dir()
+            rel.parts and rel.parts[0] == "docs" and (self._docs_root / "docs").is_dir()
         )
         if rel.parts:
             matched_instance = False
@@ -1642,7 +1639,7 @@ class DocusaurusAdapter(BaseAdapter):
         tag_sources: dict[str, set[str]] = {}
         all_tagged_files: set[str] = set()
         all_blog_files: set[str] = set()
-        
+
         # Track author keys/slugs to generate virtual routes
         author_keys: set[tuple[str, str | None]] = set()
 
@@ -1651,7 +1648,8 @@ class DocusaurusAdapter(BaseAdapter):
         if authors_yml.is_file():
             try:
                 import yaml
-                with open(authors_yml, "r", encoding="utf-8") as f:
+
+                with open(authors_yml, encoding="utf-8") as f:
                     yml_data = yaml.safe_load(f)
                 if isinstance(yml_data, dict):
                     for key, val in yml_data.items():
@@ -1736,7 +1734,7 @@ class DocusaurusAdapter(BaseAdapter):
                     url=f"/{self._blog_route_base_path}/authors/",
                     label="authors_index",
                     source_files=frozenset(all_blog_files),
-                    kind="authors_index",
+                    kind="authors_index",  # type: ignore[arg-type]
                 )
             )
 
@@ -1746,7 +1744,7 @@ class DocusaurusAdapter(BaseAdapter):
 def _slugify_author(name: str) -> str:
     """Convert an author name/key to a Docusaurus-compatible URL slug (lodash kebabCase)."""
     # Handle camelCase: insert hyphen before uppercase letter if preceded by lowercase letter
-    s = re.sub(r'([a-z0-9])([A-Z])', r'\1-\2', name)
+    s = re.sub(r"([a-z0-9])([A-Z])", r"\1-\2", name)
     slug = unicodedata.normalize("NFKD", s)
     slug = "".join(c for c in slug if not unicodedata.combining(c))
     slug = slug.lower()
@@ -1762,6 +1760,7 @@ def _extract_frontmatter_authors(content: str) -> list[str]:
         return []
     try:
         import yaml
+
         data = yaml.safe_load(fm.group(1))
     except Exception:
         return []
@@ -1770,7 +1769,7 @@ def _extract_frontmatter_authors(content: str) -> list[str]:
     author_val = data.get("authors") or data.get("author")
     if not author_val:
         return []
-    
+
     if isinstance(author_val, str):
         return [author_val.strip()]
     elif isinstance(author_val, list):
