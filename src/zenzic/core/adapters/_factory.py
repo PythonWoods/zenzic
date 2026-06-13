@@ -35,12 +35,11 @@ from __future__ import annotations
 import threading
 from importlib.metadata import entry_points
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 from zenzic.models.config import BuildContext
 
 from ._base import BaseAdapter
-from ._docusaurus import DocusaurusAdapter
 from ._mkdocs import MkDocsAdapter
 from ._standalone import StandaloneAdapter
 from ._zensical import ZensicalAdapter
@@ -50,32 +49,26 @@ from ._zensical import ZensicalAdapter
 # override these, but they are always available even when the package is
 # installed in a venv that pre-dates the ``zenzic.adapters`` entry-point group.
 _BUILTIN_ADAPTERS: dict[str, type[Any]] = {
-    "docusaurus": DocusaurusAdapter,
     "mkdocs": MkDocsAdapter,
     "zensical": ZensicalAdapter,
     "standalone": StandaloneAdapter,
 }
 
 
-def discover_engine(repo_root: Path) -> str:
+def discover_engine(repo_root: Path) -> Literal["mkdocs", "zensical", "standalone"]:
     """Probe *repo_root* for known engine config files and return the canonical engine name.
 
     Priority order (Engine Discovery Logic):
 
     1. ``zensical.toml``      → ``"zensical"``
-    2. ``docusaurus.config.ts`` or ``docusaurus.config.js`` → ``"docusaurus"``
-    3. ``mkdocs.yml``         → ``"mkdocs"``
-    4. No marker found        → ``"standalone"`` (universal fallback mode)
+    2. ``mkdocs.yml``         → ``"mkdocs"``
+    3. No marker found        → ``"standalone"`` (universal fallback mode)
 
     This function is called when ``BuildContext.engine == "auto"`` (the default),
     replacing the previous implicit assumption that the engine was MkDocs.
     """
     if (repo_root / "zensical.toml").is_file():
         return "zensical"
-    if (repo_root / "docusaurus.config.ts").is_file() or (
-        repo_root / "docusaurus.config.js"
-    ).is_file():
-        return "docusaurus"
     if (repo_root / "mkdocs.yml").is_file():
         return "mkdocs"
     return "standalone"

@@ -2,7 +2,7 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 # ZENZIC: ARCHITECTURAL HANDOFF LEDGER
 
-**TIMESTAMP:** 2026-06-10
+**TIMESTAMP:** 2026-06-13
 **TARGET AUDIENCE:** NEW AI INSTANCE (MAKER/ORCHESTRATOR)
 
 > **THE GOLDEN RULE OF MEMORY (OUROBOROS PROTOCOL):**
@@ -19,19 +19,15 @@
 
 ## 2. ARCHITECTURAL BOUNDARIES
 
-- **Dynamic Sidebar Categories:** Zenzic operates strictly via static AST/I/O analysis (Pure Python). It cannot evaluate `sidebars.js/ts` to dynamically inject generated `/category/` routes into the VSM. Links to these virtual routes will yield Z101. Users should suppress Z101 on these specific links via `.zenzic.local.toml`.
-  - See ADR-080-inversion-of-control.md for the permanent strategic solution (The Bridge Architecture).
-- **React Runtime Invisibility:** Zenzic's AST parser cannot see DOM nodes (e.g., `id` attributes) generated dynamically by React components (like `<APITable>`). Links targeting these nodes will yield `Z102`.
-- **MDX Bundler Invisibility:** Zenzic parses files in isolation. It does not resolve MDX `import` statements to aggregate anchors from partials into the parent file. Links targeting partial anchors will yield `Z102`.
+- **Ontological Incompatibility (Docusaurus Eradicated):** Zenzic strictly targets Pure Static Documentation Engines (e.g., MkDocs, Sphinx, Zensical). SPA/MDX frameworks that generate DOM elements at runtime via JavaScript/React (e.g., Docusaurus) are ontologically out-of-scope, as they mathematically prevent zero-false-positive static analysis. Support for Docusaurus has been completely removed in v0.12.0.
 
 ## 3. RECENT ARCHITECTURAL WINS (Do not regress)
 
-- **Docusaurus Native Routing Emulation:** Full support for `routeBasePath` concatenation, Frontmatter `slug` absolute/relative parsing, and Blog Date Extraction to map Docusaurus URLs into the Virtual Site Map without false positive broken links.
 - **External Air-Gap Policy:** AI Agents are strictly forbidden from executing upstream contributions to third-party repositories. The AI drafts the payload; the Human Tech Lead executes the submission.
 - **Python 3.12+ RE2 Compatibility:** Custom `translate_glob_to_re2` implemented.
 - **DX Redesign:** Visual Progress Bar and `--breakdown` flag implemented.
 - **Path-Aware Exclusion Engine:** `excluded_dirs` now supports `.gitignore` slash semantics for `repo_root`-relative targeting.
-- **Monorepo Scalability:** Docusaurus dynamic root resolution implemented and baseline established.
+
 - **AST Parser Fixes:** Z104 ignores footnotes (`[^1]:`). Z102 strips attribute lists (`{...}`) and supports explicit block anchors. Z302 tracks image nodes.
 - **YAML Validator:** `_PermissiveSafeLoader` tolerates PyYAML custom tags (`!!python/name:`, `!ENV`) to support MkDocs configurations without throwing Z503.
 - **CLI DX:** `--ci` is a macro-flag that implicitly sets `no_header = True`.
@@ -41,7 +37,7 @@
 
 The next development cycle MUST focus exclusively on the following target:
 
-- [ ] Implement ADR-080 (The Bridge Architecture) via `docusaurus-plugin-zenzic`.
+- [x] Surgical Eradication of Docusaurus completed (v0.12.0).
 
 ## 5. KNOWN TECHNICAL DEBT (Backlog)
 

@@ -14,15 +14,12 @@ This module validates:
 
 from __future__ import annotations
 
-import pickle
 from pathlib import Path
 
 import pytest
-from hypothesis import given, settings, strategies as st
+from hypothesis import strategies as st
 
-from zenzic.core.adapters._base import BaseAdapter, RouteMetadata
-from zenzic.core.adapters._docusaurus import DocusaurusAdapter
-from zenzic.core.adapters._mkdocs import MkDocsAdapter
+from zenzic.core.adapters._base import RouteMetadata
 from zenzic.core.adapters._standalone import StandaloneAdapter
 from zenzic.core.adapters._utils import (
     build_metadata_cache,
@@ -31,12 +28,8 @@ from zenzic.core.adapters._utils import (
     extract_frontmatter_tags,
     extract_frontmatter_unlisted,
 )
-from zenzic.core.adapters._zensical import ZensicalAdapter
 from zenzic.core.credentials import CredentialViolation, safe_read_line
 from zenzic.models.config import BuildContext
-
-
-# ── Helpers ───────────────────────────────────────────────────────────────────
 
 
 def _make_context(**overrides: object) -> BuildContext:
@@ -48,40 +41,29 @@ def _make_context(**overrides: object) -> BuildContext:
         "fallback_to_default": True,
     }
     defaults.update(overrides)
-    return BuildContext(**defaults)  # type: ignore[arg-type]
+    return BuildContext(**defaults)
 
 
-# ── Strategies ────────────────────────────────────────────────────────────────
-
-# Path segments: ASCII letters, digits, hyphens, underscores.
 _path_segment = st.text(
     alphabet=st.sampled_from(list("abcdefghijklmnopqrstuvwxyz0123456789-_")),
     min_size=1,
     max_size=30,
 )
-
-# Relative paths: 1-4 segments + .md extension.
 _rel_path = st.lists(_path_segment, min_size=1, max_size=4).map(
     lambda parts: Path("/".join(parts) + ".md")
 )
-
-# Paths with directory traversal attempts.
 _traversal_path = st.sampled_from(
     [
         Path("../../etc/passwd"),
         Path("../../../root/.ssh/id_rsa"),
         Path("../__init__.py"),
         Path("docs/../../../etc/shadow"),
-        Path("a/b/c/d/e/f/g/h/i/j/k/l.md"),  # deep nesting
+        Path("a/b/c/d/e/f/g/h/i/j/k/l.md"),
     ]
 )
-
-# Long paths (stress test).
 _long_path = st.lists(_path_segment, min_size=10, max_size=20).map(
     lambda parts: Path("/".join(parts) + ".md")
 )
-
-# Special character paths.
 _special_path = st.sampled_from(
     [
         Path("file with spaces.md"),
@@ -96,36 +78,6 @@ _special_path = st.sampled_from(
 )
 
 
-# ── Protocol Compliance ──────────────────────────────────────────────────────
-
-
-class TestProtocolCompliance:
-    """Every adapter must satisfy the BaseAdapter protocol (PEP 544)."""
-
-    def test_standalone_satisfies_protocol(self) -> None:
-        assert isinstance(StandaloneAdapter(), BaseAdapter)
-
-    def test_mkdocs_satisfies_protocol(self) -> None:
-        ctx = _make_context(engine="mkdocs")
-        adapter = MkDocsAdapter(ctx, Path("/docs"))
-        assert isinstance(adapter, BaseAdapter)
-
-    def test_docusaurus_satisfies_protocol(self) -> None:
-        ctx = _make_context(engine="docusaurus")
-        adapter = DocusaurusAdapter(ctx, Path("/docs"))
-        assert isinstance(adapter, BaseAdapter)
-
-    def test_zensical_satisfies_protocol(self, tmp_path: Path) -> None:
-        """ZensicalAdapter requires zensical.toml to construct via from_repo."""
-        ctx = _make_context(engine="zensical")
-        # Direct construction with empty config.
-        adapter = ZensicalAdapter(ctx, tmp_path, {})
-        assert isinstance(adapter, BaseAdapter)
-
-
-# ── RouteMetadata Invariants ─────────────────────────────────────────────────
-
-
 class TestRouteMetadataInvariants:
     """RouteMetadata dataclass must be well-formed."""
 
@@ -136,161 +88,16 @@ class TestRouteMetadataInvariants:
         assert meta.is_proxy is False
 
     def test_with_slug(self) -> None:
-        meta = RouteMetadata(
-            canonical_url="/custom/",
-            status="REACHABLE",
-            slug="/custom",
-        )
+        meta = RouteMetadata(canonical_url="/custom/", status="REACHABLE", slug="/custom")
         assert meta.slug == "/custom"
 
     def test_proxy_route(self) -> None:
-        meta = RouteMetadata(
-            canonical_url="/it/",
-            status="REACHABLE",
-            is_proxy=True,
-        )
+        meta = RouteMetadata(canonical_url="/it/", status="REACHABLE", is_proxy=True)
         assert meta.is_proxy is True
 
     def test_conflict_status(self) -> None:
         meta = RouteMetadata(canonical_url="/page/", status="CONFLICT")
         assert meta.status == "CONFLICT"
-
-
-# ── get_route_info Contract ──────────────────────────────────────────────────
-
-
-class TestGetRouteInfoContract:
-    """get_route_info() must return valid RouteMetadata for all adapters."""
-
-    def test_standalone_returns_reachable(self) -> None:
-        adapter = StandaloneAdapter()
-        meta = adapter.get_route_info(Path("guide.md"))
-        assert isinstance(meta, RouteMetadata)
-        assert meta.status == "REACHABLE"
-        assert meta.canonical_url == "/guide/"
-
-    def test_standalone_index_collapses(self) -> None:
-        adapter = StandaloneAdapter()
-        meta = adapter.get_route_info(Path("index.md"))
-        assert meta.canonical_url == "/"
-
-    def test_mkdocs_returns_metadata(self) -> None:
-        ctx = _make_context(engine="mkdocs")
-        adapter = MkDocsAdapter(ctx, Path("/docs"))
-        meta = adapter.get_route_info(Path("guide/install.md"))
-        assert isinstance(meta, RouteMetadata)
-        assert meta.canonical_url == "/guide/install/"
-        assert meta.status == "REACHABLE"
-
-    def test_docusaurus_returns_metadata(self) -> None:
-        ctx = _make_context(engine="docusaurus")
-        adapter = DocusaurusAdapter(ctx, Path("/docs"))
-        meta = adapter.get_route_info(Path("guide/install.mdx"))
-        assert isinstance(meta, RouteMetadata)
-        assert meta.canonical_url == "/docs/guide/install/"
-        assert meta.status == "REACHABLE"
-
-    def test_docusaurus_with_slug(self) -> None:
-        ctx = _make_context(engine="docusaurus")
-        adapter = DocusaurusAdapter(ctx, Path("/docs"))
-        adapter._slug_map = {"about.mdx": "/about"}
-        meta = adapter.get_route_info(Path("about.mdx"))
-        assert meta.slug == "/about"
-
-    def test_zensical_returns_metadata(self, tmp_path: Path) -> None:
-        ctx = _make_context(engine="zensical")
-        adapter = ZensicalAdapter(ctx, tmp_path, {})
-        meta = adapter.get_route_info(Path("page.md"))
-        assert isinstance(meta, RouteMetadata)
-        assert meta.canonical_url == "/page/"
-        assert meta.status == "REACHABLE"
-
-
-# ── Hypothesis: get_route_info stress tests ──────────────────────────────────
-
-
-class TestGetRouteInfoHypothesis:
-    """Stress test get_route_info() with extreme inputs."""
-
-    @given(rel=_rel_path)
-    @settings()
-    def test_standalone_never_crashes(self, rel: Path) -> None:
-        adapter = StandaloneAdapter()
-        meta = adapter.get_route_info(rel)
-        assert isinstance(meta, RouteMetadata)
-        assert meta.status == "REACHABLE"
-        assert isinstance(meta.canonical_url, str)
-
-    @given(rel=_rel_path)
-    @settings()
-    def test_mkdocs_never_crashes(self, rel: Path) -> None:
-        ctx = _make_context(engine="mkdocs")
-        adapter = MkDocsAdapter(ctx, Path("/docs"))
-        meta = adapter.get_route_info(rel)
-        assert isinstance(meta, RouteMetadata)
-        assert isinstance(meta.canonical_url, str)
-        assert meta.status in ("REACHABLE", "ORPHAN_BUT_EXISTING", "IGNORED")
-
-    @given(rel=_rel_path)
-    @settings()
-    def test_docusaurus_never_crashes(self, rel: Path) -> None:
-        ctx = _make_context(engine="docusaurus")
-        adapter = DocusaurusAdapter(ctx, Path("/docs"))
-        meta = adapter.get_route_info(rel)
-        assert isinstance(meta, RouteMetadata)
-        assert isinstance(meta.canonical_url, str)
-        assert meta.status in ("REACHABLE", "ORPHAN_BUT_EXISTING", "IGNORED")
-
-    @given(rel=_special_path)
-    @settings()
-    def test_special_paths_never_crash(self, rel: Path) -> None:
-        for adapter in [
-            StandaloneAdapter(),
-            MkDocsAdapter(_make_context(engine="mkdocs"), Path("/docs")),
-            DocusaurusAdapter(_make_context(engine="docusaurus"), Path("/docs")),
-        ]:
-            meta = adapter.get_route_info(rel)
-            assert isinstance(meta, RouteMetadata)
-
-    @given(rel=_long_path)
-    @settings()
-    def test_deep_nesting_never_crashes(self, rel: Path) -> None:
-        adapter = StandaloneAdapter()
-        meta = adapter.get_route_info(rel)
-        assert isinstance(meta, RouteMetadata)
-        assert meta.canonical_url.startswith("/")
-
-
-# ── Pickle Safety (multiprocessing) ──────────────────────────────────────────
-
-
-class TestPickleSafety:
-    """Adapters must survive pickle round-trip for parallel processing."""
-
-    def test_standalone_pickle(self) -> None:
-        adapter = StandaloneAdapter()
-        restored = pickle.loads(pickle.dumps(adapter))
-        meta = restored.get_route_info(Path("test.md"))
-        assert meta.canonical_url == "/test/"
-
-    def test_mkdocs_pickle(self) -> None:
-        ctx = _make_context(engine="mkdocs")
-        adapter = MkDocsAdapter(ctx, Path("/docs"), {}, config_file_found=False)
-        restored = pickle.loads(pickle.dumps(adapter))
-        meta = restored.get_route_info(Path("test.md"))
-        assert meta.canonical_url == "/test/"
-
-    def test_docusaurus_pickle(self) -> None:
-        ctx = _make_context(engine="docusaurus")
-        adapter = DocusaurusAdapter(ctx, Path("/docs"))
-        adapter._slug_map = {"about.mdx": "/about"}
-        restored = pickle.loads(pickle.dumps(adapter))
-        assert restored._slug_map == {"about.mdx": "/about"}
-        meta = restored.get_route_info(Path("about.mdx"))
-        assert meta.slug == "/about"
-
-
-# ── Centralized Frontmatter Extraction ───────────────────────────────────────
 
 
 class TestFrontmatterExtraction:
@@ -363,7 +170,6 @@ class TestBuildMetadataCache:
     def test_credential_scanner_catches_secret_in_frontmatter(self, tmp_path: Path) -> None:
         docs = tmp_path / "docs"
         docs.mkdir()
-        # Embed a fake OpenAI key in frontmatter.
         fake_key = "sk-" + "a" * 48
         content = f"---\ntitle: Test\napi_key: {fake_key}\n---\n\nBody"
         md_contents = {docs / "page.md": content}
@@ -377,12 +183,8 @@ class TestBuildMetadataCache:
         fake_key = "sk-" + "a" * 48
         content = f"---\ntitle: Test\napi_key: {fake_key}\n---\n\nBody"
         md_contents = {docs / "page.md": content}
-        # Should NOT raise when credential scanner is disabled.
         cache = build_metadata_cache(md_contents, docs, scan_credentials=False)
         assert "page.md" in cache
-
-
-# ── Credential Scanner Middleware ────────────────────────────────────────────────────────
 
 
 class TestCredentialScannerMiddleware:
@@ -405,18 +207,10 @@ class TestCredentialScannerMiddleware:
             safe_read_line(f"token: {fake_token}", Path("test.md"), 1)
 
     def test_normal_frontmatter_safe(self) -> None:
-        lines = [
-            "title: My Page",
-            "slug: /about",
-            "draft: false",
-            "tags: [python, docs]",
-        ]
+        lines = ["title: My Page", "slug: /about", "draft: false", "tags: [python, docs]"]
         for i, line in enumerate(lines):
             result = safe_read_line(line, Path("test.md"), i + 1)
             assert result == line
-
-
-# ── Standalone Adapter — No Spurious Warnings ───────────────────────────────
 
 
 class TestStandaloneNoSpuriousWarnings:

@@ -68,27 +68,6 @@ def build_content_mounts(
     ]
 
 
-def _is_docusaurus_active(config: ZenzicConfig, root: Path) -> bool:
-    """Return True if the Docusaurus engine is active.
-
-    Checks config.build_context.engine directly, or probes parent directories
-    in auto mode.
-    """
-    if config.build_context.engine == "docusaurus":
-        return True
-    if config.build_context.engine == "auto":
-        curr = root.resolve()
-        while True:
-            if (curr / "docusaurus.config.ts").is_file() or (
-                curr / "docusaurus.config.js"
-            ).is_file():
-                return True
-            if curr == curr.parent:
-                break
-            curr = curr.parent
-    return False
-
-
 def walk_files(
     root: Path,
     excluded_dirs: set[str] | frozenset[str],

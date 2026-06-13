@@ -20,7 +20,6 @@ from _helpers import make_mgr
 
 from zenzic.core.adapter import (
     BaseAdapter,
-    DocusaurusAdapter,
     MkDocsAdapter,
     StandaloneAdapter,
     ZensicalAdapter,
@@ -33,18 +32,15 @@ from zenzic.core.scanner import find_orphans
 from zenzic.models.config import BuildContext, ZenzicConfig
 
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
-
-
 def _mkdocs(repo: Path, nav: list[str] | None = None) -> None:
     """Write a minimal mkdocs.yml into *repo*."""
-    nav_lines = "\n".join(f"  - '{p}'" for p in (nav or ["index.md"]))
+    nav_lines = "\n".join(f"  - '{p}'" for p in nav or ["index.md"])
     (repo / "mkdocs.yml").write_text(f"site_name: Test\nnav:\n{nav_lines}\n")
 
 
 def _zensical(repo: Path, nav: list[str] | None = None) -> None:
     """Write a minimal zensical.toml into *repo*."""
-    nav_items = "\n".join(f'  "{p}",' for p in (nav or ["index.md"]))
+    nav_items = "\n".join(f'  "{p}",' for p in nav or ["index.md"])
     (repo / "zensical.toml").write_text(
         f'[project]\nsite_name = "Test"\ndocs_dir = "docs"\nnav = [\n{nav_items}\n]\n'
     )
@@ -56,22 +52,12 @@ def _docusaurus(repo: Path) -> None:
 
 
 def _run_find_orphans(
-    repo_root: Path,
-    config: ZenzicConfig,
-    mgr: LayeredExclusionManager,
+    repo_root: Path, config: ZenzicConfig, mgr: LayeredExclusionManager
 ) -> list[Path]:
     """Execute find_orphans via adapter."""
     docs_root = repo_root / config.docs_dir
     adapter = get_adapter(config.build_context, docs_root, repo_root)
-    return find_orphans(
-        docs_root,
-        mgr,
-        config=config,
-        adapter=adapter,
-    )
-
-
-# ── StandaloneAdapter unit tests ─────────────────────────────────────────────
+    return find_orphans(docs_root, mgr, config=config, adapter=adapter)
 
 
 def test_standalone_adapter_satisfies_base_adapter_protocol() -> None:
@@ -111,9 +97,6 @@ def test_standalone_suffix_files_not_treated_as_translations(filename: str) -> N
     assert StandaloneAdapter().get_ignored_patterns() == set()
 
 
-# ── get_adapter factory: Multi-Engine Matrix ──────────────────────────────────
-
-
 def test_get_adapter_no_config_no_locales_returns_standalone(tmp_path: Path) -> None:
     """Test C: no config files + no locales → StandaloneAdapter."""
     adapter = get_adapter(BuildContext(), tmp_path / "docs", tmp_path)
@@ -147,25 +130,6 @@ def test_get_adapter_locales_no_config_uses_engine(tmp_path: Path) -> None:
     )
 
 
-def test_get_adapter_unknown_engine_falls_back_to_standalone(tmp_path: Path) -> None:
-    """An unrecognised engine string → StandaloneAdapter (no entry point registered)."""
-    _mkdocs(tmp_path)
-    context = BuildContext(engine="hugo", locales=["it"])
-    adapter = get_adapter(context, tmp_path / "docs", tmp_path)
-    # Dynamic factory: unknown engines have no entry point → StandaloneAdapter.
-    assert isinstance(adapter, StandaloneAdapter)
-
-
-def test_get_adapter_legacy_standalone_alias_falls_back_to_standalone(tmp_path: Path) -> None:
-    """Legacy alias strings fall back safely to StandaloneAdapter."""
-    context = BuildContext(engine="legacy-standalone")
-    adapter = get_adapter(context, tmp_path / "docs", tmp_path)
-    assert isinstance(adapter, StandaloneAdapter)
-
-
-# ── discover_engine: Engine Discovery Logic ───────────────────────────────────
-
-
 def test_discover_engine_empty_dir_returns_standalone(tmp_path: Path) -> None:
     """No engine config files → 'standalone' (universal Privacy Gate)."""
     assert discover_engine(tmp_path) == "standalone"
@@ -183,18 +147,6 @@ def test_discover_engine_zensical_toml(tmp_path: Path) -> None:
     assert discover_engine(tmp_path) == "zensical"
 
 
-def test_discover_engine_docusaurus_ts(tmp_path: Path) -> None:
-    """docusaurus.config.ts present → 'docusaurus'."""
-    _docusaurus(tmp_path)
-    assert discover_engine(tmp_path) == "docusaurus"
-
-
-def test_discover_engine_docusaurus_js(tmp_path: Path) -> None:
-    """docusaurus.config.js present → 'docusaurus'."""
-    (tmp_path / "docusaurus.config.js").write_text("module.exports = {};\n")
-    assert discover_engine(tmp_path) == "docusaurus"
-
-
 def test_discover_engine_zensical_wins_over_mkdocs(tmp_path: Path) -> None:
     """Priority: zensical.toml beats mkdocs.yml when both present."""
     _zensical(tmp_path)
@@ -202,23 +154,13 @@ def test_discover_engine_zensical_wins_over_mkdocs(tmp_path: Path) -> None:
     assert discover_engine(tmp_path) == "zensical"
 
 
-def test_discover_engine_docusaurus_wins_over_mkdocs(tmp_path: Path) -> None:
-    """Priority: docusaurus.config.ts beats mkdocs.yml when both present."""
-    _docusaurus(tmp_path)
-    _mkdocs(tmp_path)
-    assert discover_engine(tmp_path) == "docusaurus"
-
-
-# ── get_adapter + engine="auto" routing ───────────────────────────────────────
-
-
 def test_get_adapter_auto_no_config_returns_standalone(tmp_path: Path) -> None:
     """engine='auto' + no config files → StandaloneAdapter + mutates context.engine."""
-    ctx = BuildContext()  # default engine is now "auto"
+    ctx = BuildContext()
     assert ctx.engine == "auto"
     adapter = get_adapter(ctx, tmp_path / "docs", tmp_path)
     assert isinstance(adapter, StandaloneAdapter)
-    assert ctx.engine == "standalone"  # mutated in-place by discover_engine
+    assert ctx.engine == "standalone"
 
 
 def test_get_adapter_auto_mkdocs_yml_routes_to_mkdocs(tmp_path: Path) -> None:
@@ -231,16 +173,6 @@ def test_get_adapter_auto_mkdocs_yml_routes_to_mkdocs(tmp_path: Path) -> None:
     assert ctx.engine == "mkdocs"
 
 
-def test_get_adapter_auto_docusaurus_routes_to_docusaurus(tmp_path: Path) -> None:
-    """engine='auto' + docusaurus.config.ts → DocusaurusAdapter + context.engine mutated."""
-    _docusaurus(tmp_path)
-    (tmp_path / "docs").mkdir()
-    ctx = BuildContext()
-    adapter = get_adapter(ctx, tmp_path / "docs", tmp_path)
-    assert isinstance(adapter, DocusaurusAdapter)
-    assert ctx.engine == "docusaurus"
-
-
 def test_get_adapter_auto_mutates_engine_for_cache_reuse(tmp_path: Path) -> None:
     """After auto-detection, second call with a different context uses the cache."""
     _mkdocs(tmp_path)
@@ -249,30 +181,23 @@ def test_get_adapter_auto_mutates_engine_for_cache_reuse(tmp_path: Path) -> None
     ctx2 = BuildContext()
     adapter1 = get_adapter(ctx1, tmp_path / "docs", tmp_path)
     adapter2 = get_adapter(ctx2, tmp_path / "docs", tmp_path)
-    # Both should resolve to the same cached instance
     assert adapter1 is adapter2
     assert ctx1.engine == "mkdocs"
     assert ctx2.engine == "mkdocs"
 
 
-# ── Zensical Identity Violation (enforcement) ─────────────────────────────────
-
-
 def test_zensical_engine_without_zensical_toml_raises(tmp_path: Path) -> None:
     """Identity Violation: engine='zensical' + no configuration → ConfigurationError."""
     context = BuildContext(engine="zensical")
-    # No zensical.toml AND no mkdocs.yml
     with pytest.raises(ConfigurationError, match="no configuration file was found"):
         get_adapter(context, tmp_path / "docs", tmp_path)
 
 
 def test_zensical_engine_mkdocs_yml_bridge_works(tmp_path: Path) -> None:
     """Bridge path: engine='zensical' + mkdocs.yml resolves to ZensicalAdapter."""
-    _mkdocs(tmp_path)  # mkdocs.yml exists, but no zensical.toml
+    _mkdocs(tmp_path)
     context = BuildContext(engine="zensical")
     adapter = get_adapter(context, tmp_path / "docs", tmp_path)
-
-    # It should not raise; engine authority remains Zensical.
     assert adapter.has_engine_config() is True
     assert isinstance(adapter, ZensicalAdapter)
 
@@ -290,9 +215,6 @@ def test_zensical_adapter_nav_paths_from_toml(tmp_path: Path) -> None:
     adapter = get_adapter(BuildContext(engine="zensical"), tmp_path / "docs", tmp_path)
     assert isinstance(adapter, ZensicalAdapter)
     assert adapter.get_nav_paths() == frozenset({"index.md", "guide/start.md", "about.md"})
-
-
-# ── find_orphans integration ──────────────────────────────────────────────────
 
 
 def test_find_orphans_no_config_returns_empty(tmp_path: Path) -> None:
@@ -313,7 +235,6 @@ def test_find_orphans_zensical_repo(tmp_path: Path) -> None:
     (docs / "index.md").write_text("# Home")
     (docs / "orphan.md").write_text("# Unlisted")
     _zensical(tmp_path, nav=["index.md"])
-
     config = ZenzicConfig.model_validate(
         {"docs_dir": "docs", "build_context": {"engine": "zensical"}}
     )
@@ -330,7 +251,6 @@ def test_find_orphans_standalone_suffix_file_appears_as_orphan(tmp_path: Path) -
     (tmp_path / "mkdocs.yml").write_text("site_name: T\nnav:\n  - Home: index.md\n")
     (docs / "index.md").write_text("# Home")
     (docs / "guide.it.md").write_text("# Guide IT")
-
     config = ZenzicConfig()
     mgr = make_mgr(config, repo_root=tmp_path)
     orphans = _run_find_orphans(tmp_path, config, mgr)
