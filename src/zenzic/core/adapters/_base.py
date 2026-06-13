@@ -22,7 +22,9 @@ if TYPE_CHECKING:
 # ── Route metadata types ─────────────────────────────────────────────────────
 
 
-VirtualRouteKind = Literal["tag", "tag_index", "pagination", "author", "author_index"]
+VirtualRouteKind = Literal[
+    "tag", "tag_index", "pagination", "author", "author_index", "category_index"
+]
 
 
 @dataclass(frozen=True, slots=True)

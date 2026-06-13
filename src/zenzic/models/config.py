@@ -122,15 +122,12 @@ class BuildContext(BaseModel):
 
     Tells Zenzic which documentation engine produced the site and which locale
     directories are non-default translations.  Used by adapters to resolve
-    asset and page paths correctly across locale boundaries.
+    asset and page paths correctly.
     """
 
-    engine: str = Field(
+    engine: Literal["mkdocs", "zensical", "standalone", "auto"] = Field(
         default="auto",
-        description=(
-            "Build engine: 'auto' (file-driven discovery), 'mkdocs', 'zensical', "
-            "'docusaurus', or 'standalone'."
-        ),
+        description="The build engine used by the documentation. Can be 'mkdocs', 'zensical', 'standalone', or 'auto'.",
     )
     default_locale: str = Field(default="en", description="ISO 639-1 code of the default locale.")
     locales: list[str] = Field(
@@ -139,19 +136,13 @@ class BuildContext(BaseModel):
     )
     base_url: str = Field(
         default="",
-        description=(
-            "Site base URL (e.g. '/' or '/docs/'). When set, the adapter uses "
-            "this value instead of attempting static extraction from the build "
-            "tool's config file.  Recommended when the config file uses dynamic "
-            "patterns (async, import(), require()) that cannot be parsed statically."
-        ),
+        description="The root URL where the documentation is hosted (e.g. `https://docs.pythonwoods.dev/`).",
     )
     fallback_to_default: bool = Field(
         default=True,
         description=(
             "When True, missing locale-tree assets/pages fall back to the "
-            "default-locale tree (mirrors fallback_to_default in mkdocs-i18n). "
-            "Set to False to report every missing locale file as an error."
+            "default-locale tree. Set to False to report every missing locale file as an error."
         ),
     )
     offline_mode: bool = Field(
@@ -163,8 +154,7 @@ class BuildContext(BaseModel):
 class I18nSource(BaseModel):
     """A single base/targets pair for Z907 I18N_PARITY.
 
-    Supports N Docusaurus plugin instances (e.g. user docs + developer docs)
-    by allowing multiple sources via :attr:`I18nConfig.extra_sources`.
+    Supports N site plugin instances by allowing multiple sources via :attr:`I18nConfig.extra_sources`.
     """
 
     base_source: Path = Field(description="Base-language root (e.g. 'docs' or 'developers').")
@@ -205,8 +195,8 @@ class I18nConfig(BaseModel):
     extra_sources: list[I18nSource] = Field(
         default_factory=list,
         description=(
-            "Additional base/targets pairs (e.g. for a second Docusaurus "
-            "plugin instance such as 'developers')."
+            "Additional base/targets pairs "
+            "mapping a base URL to one or more physical filesystem roots. "
         ),
     )
 
@@ -232,7 +222,7 @@ class GovernanceConfig(BaseModel):
         default_factory=dict,
         description=(
             "Per-file suppression map (glob pattern -> finding codes). "
-            "Example: {'blog/*.mdx': ['Z601']}. Security findings remain "
+            "Example: {'blog/*.md': ['Z601']}. Security findings remain "
             "non-suppressible regardless of this map."
         ),
     )
@@ -298,9 +288,6 @@ SYSTEM_EXCLUDED_DIRS: Final[frozenset[str]] = frozenset(
         ".pytest_cache",
         ".mypy_cache",
         ".ruff_cache",
-        "__pycache__",
-        ".docusaurus",
-        ".cache",
         ".hypothesis",
         # Universal build / temporary artefact directories (v0.7.0, Zero-Config)
         # Previously required users to declare these in `excluded_dirs` of
@@ -401,11 +388,6 @@ class ZenzicConfig(BaseModel):
             "Directories inside docs/ to exclude from orphan and snippet checks. "
             "User-provided entries are merged with the system guardrails "
             "(SYSTEM_EXCLUDED_DIRS) — they can never be removed. "
-            "Note: 'hooks' was removed from the default in v0.8.0 to prevent "
-            "false negatives on legitimate docs/hooks/ documentation directories "
-            "(e.g. React Hooks, Git Hooks, Webhook API docs). MkDocs projects "
-            "with build-time hook scripts in docs/ should add 'hooks' explicitly "
-            "to excluded_dirs in their .zenzic.toml."
         ),
     )
     snippet_min_lines: int = Field(
@@ -443,8 +425,7 @@ class ZenzicConfig(BaseModel):
             "Asset paths (relative to docs_dir) excluded from the unused-assets check. "
             "Entries may be literal paths or glob patterns (fnmatch syntax: *, ?, []). "
             "Use this for files that are referenced by the build tool or theme templates "
-            "rather than by Markdown pages — e.g. favicons, logos, social preview images, "
-            "or Docusaurus _category_.json sidebar metadata."
+            "rather than by Markdown pages. Ignores files that do not exist such as virtual indices."
         ),
     )
     excluded_asset_dirs: list[str] = Field(

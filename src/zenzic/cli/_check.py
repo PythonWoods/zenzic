@@ -1072,16 +1072,7 @@ def _collect_all_results(
 
     config_asset_issues: list[tuple[str, str]] = []
     _engine = config.build_context.engine
-    if _engine == "docusaurus":
-        from zenzic.core.adapters._docusaurus import (
-            check_config_assets as _docusaurus_check_assets,
-            find_docusaurus_config,
-        )
-
-        dc_config = find_docusaurus_config(repo_root)
-        if dc_config is not None:
-            config_asset_issues = _docusaurus_check_assets(dc_config, repo_root)
-    elif _engine == "mkdocs":
+    if _engine == "mkdocs":
         from zenzic.core.adapters._mkdocs import check_config_assets as _mkdocs_check_assets
 
         config_asset_issues = _mkdocs_check_assets(repo_root)

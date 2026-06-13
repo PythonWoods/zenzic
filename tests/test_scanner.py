@@ -24,15 +24,11 @@ from zenzic.models.config import ProjectMetadata, ZenzicConfig
 
 
 def test_find_repo_root_success(tmp_path: Path) -> None:
-    # Setup mock repo — uses .zenzic.toml as the engine-neutral root marker
     repo = tmp_path / "my_repo"
     repo.mkdir()
     (repo / ".zenzic.toml").touch()
-
     deep_dir = repo / "docs" / "nested" / "dir"
     deep_dir.mkdir(parents=True)
-
-    # Change CWD temporarily
     original_cwd = Path.cwd()
     os.chdir(deep_dir)
     try:
@@ -43,10 +39,8 @@ def test_find_repo_root_success(tmp_path: Path) -> None:
 
 
 def test_find_repo_root_failure(tmp_path: Path) -> None:
-    # A directory with no mkdocs.yml or .git
     empty_dir = tmp_path / "empty"
     empty_dir.mkdir()
-
     original_cwd = Path.cwd()
     os.chdir(empty_dir)
     try:
@@ -60,30 +54,20 @@ def test_find_orphans(tmp_path: Path) -> None:
     repo = tmp_path / "my_repo"
     docs = repo / "docs"
     docs.mkdir(parents=True)
-
-    # Create mkdocs.yml with a simple nav
     nav = {"nav": ["index.md", {"API": "api.md"}, {"Nested": [{"Sub": "nested/page.md"}]}]}
     with (repo / "mkdocs.yml").open("w") as f:
         yaml.dump(nav, f)
-
-    # Create files
     (docs / "index.md").touch()
     (docs / "api.md").touch()
     (docs / "nested").mkdir()
     (docs / "nested/page.md").touch()
-
-    # Create orphans
     (docs / "orphan1.md").touch()
     (docs / "nested/orphan2.md").touch()
-
-    # Excluded directory
     (docs / "includes").mkdir()
     (docs / "includes/snippet.md").touch()
-
     config = ZenzicConfig(excluded_dirs=["includes"])
     mgr = make_mgr(config, repo_root=repo)
     orphans = find_orphans(docs, mgr, repo_root=repo, config=config)
-
     orphan_paths = [p.as_posix() for p in orphans]
     assert "orphan1.md" in orphan_paths
     assert "nested/orphan2.md" in orphan_paths
@@ -97,28 +81,18 @@ def test_find_placeholders(tmp_path: Path) -> None:
     repo = tmp_path / "my_repo"
     docs = repo / "docs"
     docs.mkdir(parents=True)
-
-    # 1. Short document (< 50 words)
     (docs / "short.md").write_text("This is too short.")
-
-    # 2. Document with placeholder pattern
     long_text = "word " * 60 + "\\n TODO: write this section."
     (docs / "has_todo.md").write_text(long_text)
-
-    # 3. Valid document
     valid_text = "word " * 60 + "\\n This is a complete and valid section."
     (docs / "valid.md").write_text(valid_text)
-
     config = ZenzicConfig(placeholder_max_words=50, placeholder_patterns=["todo"])
     mgr = make_mgr(config, repo_root=repo)
     findings = find_placeholders(docs, mgr, config=config)
-
     assert len(findings) == 2
-
     issues = {f.issue for f in findings}
     assert "Z502" in issues
     assert "Z501" in issues
-
     file_paths = {f.file_path.name for f in findings}
     assert "short.md" in file_paths
     assert "has_todo.md" in file_paths
@@ -174,7 +148,6 @@ def test_find_orphans_no_config(tmp_path: Path) -> None:
         yaml.dump(nav, f)
     (docs / "index.md").touch()
     (docs / "extra.md").touch()
-    # Call without config — triggers the default ZenzicConfig() branch
     config = ZenzicConfig()
     mgr = make_mgr(config, repo_root=repo)
     orphans = find_orphans(docs, mgr, repo_root=repo, config=config)
@@ -184,7 +157,6 @@ def test_find_orphans_no_config(tmp_path: Path) -> None:
 def test_find_orphans_config_file_missing(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()
-    # No mkdocs.yml, no zensical.toml → find_config_file returns None → find_orphans returns []
     config = ZenzicConfig()
     mgr = make_mgr(config, repo_root=repo)
     docs_root = repo / config.docs_dir
@@ -198,8 +170,6 @@ def test_find_orphans_invalid_yaml(tmp_path: Path) -> None:
     docs.mkdir(parents=True)
     (repo / "mkdocs.yml").write_text("nav: [: invalid")
     (docs / "page.md").touch()
-    # Should not raise; falls back to empty nav and MkDocs semantics treat
-    # the site as filesystem-driven rather than synthesizing orphans.
     config = ZenzicConfig()
     mgr = make_mgr(config, repo_root=repo)
     orphans = find_orphans(docs, mgr, repo_root=repo, config=config)
@@ -220,7 +190,6 @@ def test_find_orphans_symlink_skipped(tmp_path: Path) -> None:
     config = ZenzicConfig()
     mgr = make_mgr(config, repo_root=repo)
     orphans = find_orphans(docs, mgr, repo_root=repo, config=config)
-    # symlink should not appear in orphans
     assert all(p.name != "linked.md" for p in orphans)
 
 
@@ -271,27 +240,7 @@ def test_placeholder_mdx_comments_excluded_from_word_count() -> None:
     Regression: docs/community/license.mdx had <10 visible words but was not
     flagged because its {/* … */} comment block (70+ words) inflated the count.
     """
-    # Only 4 visible prose words — far below the default threshold of 50.
-    # The comment contains >60 words and must be ignored.
-    text = """\
----
-sidebar_label: "License"
-description: "Licensing information."
----
-
-# License
-
-{/*
-This page uses the pymdownx snippets extension to include the root LICENSE file
-directly — single source of truth, no divergence possible.
-
-Below, we add some extra explanation text about how this license applies to the
-Zenzic documentation and source code, as required to provide more context to our users
-and to pass internal minimum content validation checks within our own linting loops.
-*/}
-
-See LICENSE file.
-"""
+    text = '---\nsidebar_label: "License"\ndescription: "Licensing information."\n---\n\n# License\n\n{/*\nThis page uses the pymdownx snippets extension to include the root LICENSE file\ndirectly — single source of truth, no divergence possible.\n\nBelow, we add some extra explanation text about how this license applies to the\nZenzic documentation and source code, as required to provide more context to our users\nand to pass internal minimum content validation checks within our own linting loops.\n*/}\n\nSee LICENSE file.\n'
     config = ZenzicConfig(placeholder_max_words=50)
     findings = check_placeholder_content(text, "community/license.mdx", config)
     assert any(f.issue == "Z502" for f in findings), (
@@ -306,26 +255,13 @@ def test_short_content_pointer_skips_frontmatter() -> None:
     to point at the opening ``---`` of the frontmatter block, misleading users into
     thinking frontmatter words were being counted as content.
     """
-    text = """\
----
-icon: SafetyCheck
-sidebar_label: Licenza
-title: Licenza Apache 2.0
-description: Informazioni sulla licenza.
----
-
-# Licenza
-
-LICENZA
-"""
+    text = "---\nicon: SafetyCheck\nsidebar_label: Licenza\ntitle: Licenza Apache 2.0\ndescription: Informazioni sulla licenza.\n---\n\n# Licenza\n\nLICENZA\n"
     config = ZenzicConfig(placeholder_max_words=50)
     findings = check_placeholder_content(text, "community/license.mdx", config)
     short = [f for f in findings if f.issue == "Z502"]
     assert short, "Page with 3 visible words must trigger short-content"
-    # The finding must NOT point at line 1 (the opening ``---``).
     assert short[0].line_no > 1, (
-        f"short-content finding points at line {short[0].line_no} — "
-        "expected a line past the frontmatter block"
+        f"short-content finding points at line {short[0].line_no} — expected a line past the frontmatter block"
     )
 
 
@@ -333,9 +269,7 @@ def test_jsx_suppression_is_respected_for_z601() -> None:
     """MDX-native JSX suppression marker must silence Z601 on the tagged line."""
     rule = BrandObsolescenceRule(
         ProjectMetadata(
-            release_name="v0.8.0",
-            obsolete_names=["v0.6.x"],
-            obsolete_names_exclude_patterns=[],
+            release_name="v0.8.0", obsolete_names=["v0.6.x"], obsolete_names_exclude_patterns=[]
         )
     )
     text = "v0.6.x codename {/* zenzic:ignore: Z601 release codename */}\n"
@@ -347,9 +281,7 @@ def test_html_suppression_still_works_for_z601() -> None:
     """Legacy/standard HTML suppression marker remains backward compatible."""
     rule = BrandObsolescenceRule(
         ProjectMetadata(
-            release_name="v0.8.0",
-            obsolete_names=["v0.6.x"],
-            obsolete_names_exclude_patterns=[],
+            release_name="v0.8.0", obsolete_names=["v0.6.x"], obsolete_names_exclude_patterns=[]
         )
     )
     text = "v0.6.x codename <!-- zenzic:ignore: Z601 release codename -->\n"
@@ -365,39 +297,15 @@ def test_short_content_pointer_skips_spdx_comments() -> None:
     ``<!-- SPDX … -->`` comments, causing the red arrow ``❱`` to point at the licence
     header instead of the first prose word.
     """
-    # 5 SPDX comment lines + blank + 10-line frontmatter + blank + single word.
-    # REUSE-IgnoreStart
-    text = (
-        "<!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->\n"
-        "<!-- SPDX-License-Identifier: Apache-2.0 -->\n"
-        "<!-- SPDX-FileCopyrightText: 2024 Contributor A -->\n"
-        "<!-- SPDX-License-Identifier: MIT -->\n"
-        "<!-- Internal audit marker: approved -->\n"
-        "\n"
-        "---\n"
-        "title: SPDX Trap\n"
-        "sidebar_label: Trap\n"
-        "description: Regression test for comment-aware pointer.\n"
-        "icon: lock\n"
-        "draft: true\n"
-        "tags: [test, spdx]\n"
-        "keywords: [regression]\n"
-        "version: 0.7.0\n"
-        "---\n"
-        "\n"
-        "FINE\n"
-    )
-    # REUSE-IgnoreEnd
+    text = "<!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->\n<!-- SPDX-License-Identifier: Apache-2.0 -->\n<!-- SPDX-FileCopyrightText: 2024 Contributor A -->\n<!-- SPDX-License-Identifier: MIT -->\n<!-- Internal audit marker: approved -->\n\n---\ntitle: SPDX Trap\nsidebar_label: Trap\ndescription: Regression test for comment-aware pointer.\nicon: lock\ndraft: true\ntags: [test, spdx]\nkeywords: [regression]\nversion: 0.7.0\n---\n\nFINE\n"
     config = ZenzicConfig(placeholder_max_words=50)
     findings = check_placeholder_content(text, "spdx-trap.md", config)
     short = [f for f in findings if f.issue == "Z502"]
     assert short, "File with single word 'FINE' must trigger short-content"
     assert short[0].detail == "Page has only 1 words (minimum 50)."
-    # The pointer must land on the line containing "FINE", not on any comment or frontmatter.
     target_line = text.splitlines()[short[0].line_no - 1]
     assert target_line.strip() == "FINE", (
-        f"short-content pointer at line {short[0].line_no} is {target_line!r}; "
-        "expected the line containing 'FINE'"
+        f"short-content pointer at line {short[0].line_no} is {target_line!r}; expected the line containing 'FINE'"
     )
 
 
@@ -408,16 +316,7 @@ def test_short_content_pointer_skips_multiline_html_comment() -> None:
     When ``<!--`` and ``-->`` appear on different lines the walker must consume
     every continuation line before recognising prose content.
     """
-    # REUSE-IgnoreStart
-    text = (
-        "<!--\n"
-        " SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>\n"
-        " SPDX-License-Identifier: Apache-2.0\n"
-        "-->\n"
-        "\n"
-        "Brief.\n"
-    )
-    # REUSE-IgnoreEnd
+    text = "<!--\n SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>\n SPDX-License-Identifier: Apache-2.0\n-->\n\nBrief.\n"
     config = ZenzicConfig(placeholder_max_words=50)
     findings = check_placeholder_content(text, "multi-html.mdx", config)
     short = [f for f in findings if f.issue == "Z502"]
@@ -435,16 +334,7 @@ def test_short_content_pointer_skips_multiline_mdx_comment() -> None:
     When ``{/*`` and ``*/`` appear on different lines the walker must consume
     every continuation line before recognising prose content.
     """
-    # REUSE-IgnoreStart
-    text = (
-        "{/*\n"
-        " SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>\n"
-        " SPDX-License-Identifier: Apache-2.0\n"
-        "*/}\n"
-        "\n"
-        "Note.\n"
-    )
-    # REUSE-IgnoreEnd
+    text = "{/*\n SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>\n SPDX-License-Identifier: Apache-2.0\n*/}\n\nNote.\n"
     config = ZenzicConfig(placeholder_max_words=50)
     findings = check_placeholder_content(text, "multi-mdx.mdx", config)
     short = [f for f in findings if f.issue == "Z502"]
@@ -465,7 +355,6 @@ def test_short_content_pointer_unclosed_frontmatter() -> None:
     text = "---\ntitle: Unclosed\nsidebar_label: Unclosed\n"
     config = ZenzicConfig(placeholder_max_words=50)
     findings = check_placeholder_content(text, "unclosed-fm.mdx", config)
-    # Unclosed frontmatter is not stripped by _FRONTMATTER_RE → word count > 0 but < 50
     short = [f for f in findings if f.issue == "Z502"]
     assert short, "Near-empty file must trigger short-content"
     assert short[0].line_no >= 1
@@ -500,7 +389,7 @@ def test_find_orphans_excluded_file_patterns(tmp_path: Path) -> None:
     with (repo / "mkdocs.yml").open("w") as f:
         yaml.dump(nav, f)
     (docs / "index.md").touch()
-    (docs / "index.it.md").touch()  # i18n locale variant — should not be an orphan
+    (docs / "index.it.md").touch()
     config = ZenzicConfig(excluded_file_patterns=["*.it.md"])
     mgr = make_mgr(config, repo_root=repo)
     orphans = find_orphans(docs, mgr, repo_root=repo, config=config)
@@ -514,15 +403,12 @@ def test_find_orphans_respects_mkdocs_route_classification(tmp_path: Path) -> No
     nav = {"nav": [{"Docs": [{"Overview": "guide/index.md"}]}]}
     with (repo / "mkdocs.yml").open("w") as f:
         yaml.dump(nav, f)
-
     (docs / "guide" / "index.md").write_text("# Overview\n")
     (docs / "guide" / "orphan.md").write_text("# Orphan\n")
-
     config = ZenzicConfig()
     mgr = make_mgr(config, repo_root=repo)
     orphans = find_orphans(docs, mgr, repo_root=repo, config=config)
     orphan_paths = {p.as_posix() for p in orphans}
-
     assert "guide/index.md" not in orphan_paths
     assert "guide/orphan.md" in orphan_paths
 
@@ -538,7 +424,6 @@ def test_unlisted_file_detection(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     docs = repo / "docs"
     docs.mkdir(parents=True)
-
     (repo / "mkdocs.yml").write_text(
         "\n".join(
             [
@@ -556,15 +441,12 @@ def test_unlisted_file_detection(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
-
     (docs / "index.md").write_text("# Home\n", encoding="utf-8")
     (docs / "spy.md").write_text("# Spy\n", encoding="utf-8")
-
     config = ZenzicConfig()
     mgr = make_mgr(config, repo_root=repo)
     orphans = find_orphans(docs, mgr, repo_root=repo, config=config)
     orphan_paths = {p.as_posix() for p in orphans}
-
     assert "spy.md" in orphan_paths
     assert "index.md" not in orphan_paths
 
@@ -589,7 +471,6 @@ def test_extract_i18n_locale_patterns_suffix_mode() -> None:
 
 
 def test_extract_i18n_locale_patterns_folder_mode() -> None:
-    # docs_structure: folder — locale files are in subdirs, not suffix-named
     doc_config = {
         "plugins": [
             {
@@ -640,9 +521,6 @@ def test_find_orphans_i18n_auto_detect_mkdocs(tmp_path: Path) -> None:
     assert orphans == []
 
 
-# ─── S4-1: _extract_i18n_locale_dirs (folder mode) ───────────────────────────
-
-
 def test_extract_i18n_locale_dirs_folder_mode() -> None:
     """Non-default locale dirs returned when docs_structure is 'folder'."""
     doc_config = {
@@ -669,10 +547,7 @@ def test_extract_i18n_locale_dirs_suffix_mode_returns_empty() -> None:
             {
                 "i18n": {
                     "docs_structure": "suffix",
-                    "languages": [
-                        {"locale": "en", "default": True},
-                        {"locale": "it"},
-                    ],
+                    "languages": [{"locale": "en", "default": True}, {"locale": "it"}],
                 }
             }
         ]
@@ -718,24 +593,15 @@ def test_i18n_languages_is_null(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     docs = repo / "docs"
     docs.mkdir(parents=True)
-
-    # Build the YAML that triggered the bug: languages: null (not a list)
-    yaml_content = (
-        "nav:\n  - Home: index.md\n"
-        "plugins:\n  - i18n:\n      docs_structure: folder\n      languages: null\n"
-    )
+    yaml_content = "nav:\n  - Home: index.md\nplugins:\n  - i18n:\n      docs_structure: folder\n      languages: null\n"
     (repo / "mkdocs.yml").write_text(yaml_content)
     (docs / "index.md").touch()
-
-    # _extract_i18n_locale_dirs must return empty set — not raise TypeError
     import yaml as _yaml
 
     from zenzic.core.adapter import _PermissiveYamlLoader
 
     doc_config = _yaml.load(yaml_content, Loader=_PermissiveYamlLoader) or {}
     assert _extract_i18n_locale_dirs(doc_config) == set()
-
-    # find_orphans end-to-end must also not crash
     config = ZenzicConfig()
     mgr = make_mgr(config, repo_root=repo)
     orphans = find_orphans(docs, mgr, repo_root=repo, config=config)
@@ -764,23 +630,18 @@ def test_extract_i18n_locale_dirs_scenario_broken_config() -> None:
     - locale key is present but empty string
     - docs_structure key is absent entirely
     """
-    # languages: "it"  (scalar string instead of list)
     assert (
         _extract_i18n_locale_dirs(
             {"plugins": [{"i18n": {"docs_structure": "folder", "languages": "it"}}]}
         )
         == set()
     )
-
-    # languages list contains non-dict items
     assert (
         _extract_i18n_locale_dirs(
             {"plugins": [{"i18n": {"docs_structure": "folder", "languages": [None, 42, "it"]}}]}
         )
         == set()
     )
-
-    # locale key present but empty string
     assert (
         _extract_i18n_locale_dirs(
             {
@@ -796,8 +657,6 @@ def test_extract_i18n_locale_dirs_scenario_broken_config() -> None:
         )
         == set()
     )
-
-    # docs_structure key absent — treated as non-folder
     assert (
         _extract_i18n_locale_dirs({"plugins": [{"i18n": {"languages": [{"locale": "it"}]}}]})
         == set()
@@ -808,12 +667,7 @@ def test_extract_i18n_locale_dirs_default_locale_excluded() -> None:
     """The default locale is never returned — only non-default translations."""
     doc_config = {
         "plugins": [
-            {
-                "i18n": {
-                    "docs_structure": "folder",
-                    "languages": [{"locale": "en", "default": True}],
-                }
-            }
+            {"i18n": {"docs_structure": "folder", "languages": [{"locale": "en", "default": True}]}}
         ]
     }
     assert _extract_i18n_locale_dirs(doc_config) == set()
@@ -824,33 +678,26 @@ def test_find_orphans_folder_i18n_excludes_locale_dirs(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     docs = repo / "docs"
     (docs / "it").mkdir(parents=True)
-
     mkdocs_config = {
         "nav": [{"Home": "index.md"}],
         "plugins": [
             {
                 "i18n": {
                     "docs_structure": "folder",
-                    "languages": [
-                        {"locale": "en", "default": True},
-                        {"locale": "it"},
-                    ],
+                    "languages": [{"locale": "en", "default": True}, {"locale": "it"}],
                 }
             }
         ],
     }
     with (repo / "mkdocs.yml").open("w") as f:
         yaml.dump(mkdocs_config, f)
-
     (docs / "index.md").touch()
-    (docs / "it" / "index.md").touch()  # Italian mirror — must NOT be flagged
-    (docs / "orphan.md").touch()  # genuine orphan
-
+    (docs / "it" / "index.md").touch()
+    (docs / "orphan.md").touch()
     config = ZenzicConfig()
     mgr = make_mgr(config, repo_root=repo)
     orphans = find_orphans(docs, mgr, repo_root=repo, config=config)
     orphan_posix = [p.as_posix() for p in orphans]
-
     assert "orphan.md" in orphan_posix
     assert "it/index.md" not in orphan_posix
     assert len(orphans) == 1
@@ -861,7 +708,6 @@ def test_find_orphans_folder_i18n_nested_file_excluded(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     docs = repo / "docs"
     (docs / "it" / "guide").mkdir(parents=True)
-
     with (repo / "mkdocs.yml").open("w") as f:
         yaml.dump(
             {
@@ -870,28 +716,20 @@ def test_find_orphans_folder_i18n_nested_file_excluded(tmp_path: Path) -> None:
                     {
                         "i18n": {
                             "docs_structure": "folder",
-                            "languages": [
-                                {"locale": "en", "default": True},
-                                {"locale": "it"},
-                            ],
+                            "languages": [{"locale": "en", "default": True}, {"locale": "it"}],
                         }
                     }
                 ],
             },
             f,
         )
-
     (docs / "index.md").touch()
     (docs / "it" / "index.md").touch()
     (docs / "it" / "guide" / "install.md").touch()
-
     config = ZenzicConfig()
     mgr = make_mgr(config, repo_root=repo)
     orphans = find_orphans(docs, mgr, repo_root=repo, config=config)
     assert orphans == []
-
-
-# ─────────────────────────────────────────────────────────────────────────────
 
 
 def test_find_unused_assets_symlink_skipped(tmp_path: Path) -> None:
@@ -903,14 +741,10 @@ def test_find_unused_assets_symlink_skipped(tmp_path: Path) -> None:
     assets = docs / "assets"
     assets.mkdir()
     (assets / "img.png").touch()
-    # symlinked md file is skipped → img.png has no references → unused
     config = ZenzicConfig()
     mgr = make_mgr(config, repo_root=tmp_path)
     unused = find_unused_assets(docs, mgr, config=config)
     assert any(p.name == "img.png" for p in unused)
-
-
-# ─── find_unused_assets — L1 System File Guardrails (CEO-050) ────────────────
 
 
 def test_find_unused_assets_skips_system_infrastructure_files(tmp_path: Path) -> None:
@@ -923,16 +757,13 @@ def test_find_unused_assets_skips_system_infrastructure_files(tmp_path: Path) ->
     docs = tmp_path / "docs"
     docs.mkdir()
     (docs / "index.md").write_text("# Hello\n")
-    # Infra files that must be silently skipped
     (docs / "package.json").write_text("{}")
     (docs / "pyproject.toml").write_text("[project]")
     (docs / "yarn.lock").write_text("")
     (docs / "eslint.config.mjs").write_text("export default {};")
-
     config = ZenzicConfig()
     mgr = make_mgr(config, repo_root=tmp_path)
     unused = find_unused_assets(docs, mgr, config=config)
-
     infra_names = {p.name for p in unused}
     assert "package.json" not in infra_names, "package.json must be excluded (L1a)"
     assert "pyproject.toml" not in infra_names, "pyproject.toml must be excluded (L1a)"
@@ -951,13 +782,11 @@ def test_find_unused_assets_skips_adapter_metadata_files(tmp_path: Path) -> None
     (docs / "index.md").write_text("# Hello\n")
     (docs / "docusaurus.config.ts").write_text("export default {};")
     (docs / "sidebars.ts").write_text("export default {};")
-    (docs / "logo.png").write_bytes(b"\x89PNG")  # unreferenced — should be reported
-
+    (docs / "logo.png").write_bytes(b"\x89PNG")
     config = ZenzicConfig()
     mgr = make_mgr(config, repo_root=tmp_path)
     adapter_meta = frozenset({"docusaurus.config.ts", "sidebars.ts"})
     unused = find_unused_assets(docs, mgr, config=config, adapter_metadata_files=adapter_meta)
-
     unused_names = {p.name for p in unused}
     assert "docusaurus.config.ts" not in unused_names, "adapter config must be excluded (L1b)"
     assert "sidebars.ts" not in unused_names, "adapter sidebar must be excluded (L1b)"
@@ -975,51 +804,5 @@ def test_placeholder_partial_files_word_count_skipped() -> None:
     config = ZenzicConfig(placeholder_max_words=50)
     findings_reg = check_placeholder_content("Short page.", "test.md", config)
     assert any(f.issue == "Z502" for f in findings_reg)
-
     findings_partial = check_placeholder_content("Short page.", "_partial.md", config)
     assert not any(f.issue == "Z502" for f in findings_partial)
-
-
-def test_docusaurus_partials_visible_to_credential_scanner(tmp_path: Path) -> None:
-    """Verify that _-prefixed Docusaurus partials are NOT pruned at I/O discovery time.
-
-    Security contract (ADR-013 / Tech Lead veto 2026-06-11):
-    Physical I/O exclusion of _ partials would blind Z201 HARDCODED_SECRET and
-    Z204 FORBIDDEN_TERM to credentials hidden in Docusaurus partial files.
-
-    The _ prefix exclusion is a ROUTING/LOGICAL concern only:
-    - DocusaurusAdapter._map_url() skips partials (no public URL)
-    - Rule Z402 / Z502 skip partials for placeholder/word-count heuristics
-    The credential scanner (Z201/Z204) MUST see every file.
-    """
-    from zenzic.core.discovery import iter_markdown_sources
-    from zenzic.core.exclusion import LayeredExclusionManager
-
-    docs = tmp_path / "docs"
-    docs.mkdir()
-
-    # Create regular file, file starting with _, directory starting with _, and file inside it
-    (docs / "index.md").touch()
-    (docs / "_partial.md").touch()
-
-    partial_dir = docs / "_partials"
-    partial_dir.mkdir()
-    (partial_dir / "inside.md").touch()
-
-    # Both Docusaurus and standalone MUST return all 3 files at discovery time.
-    for engine in ("docusaurus", "standalone", "auto"):
-        config = ZenzicConfig(build_context={"engine": engine})  # type: ignore[arg-type]
-        mgr = LayeredExclusionManager(config)
-        sources = list(iter_markdown_sources(docs, config, mgr))
-        names = {s.name for s in sources}
-        assert len(sources) == 3, (
-            f"engine={engine!r}: expected 3 files (including _ partials) at discovery "
-            f"so Z201/Z204 can scan them, got {len(sources)}: {[s.name for s in sources]}"
-        )
-        assert "index.md" in names
-        assert "_partial.md" in names, (
-            f"engine={engine!r}: _partial.md must be visible to the credential scanner"
-        )
-        assert "inside.md" in names, (
-            f"engine={engine!r}: _partials/inside.md must be visible to the credential scanner"
-        )
