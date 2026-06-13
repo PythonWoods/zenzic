@@ -1738,6 +1738,54 @@ class DocusaurusAdapter(BaseAdapter):
                 )
             )
 
+        # sidebars.json Data Contract for generated categories
+        sidebars_json = self._docusaurus_site_root / "sidebars.json"
+        if sidebars_json.is_file():
+            import json
+
+            try:
+                with open(sidebars_json, encoding="utf-8") as f:
+                    sidebars_data = json.load(f)
+
+                def _scan_sidebars(items: object, route_base: str) -> None:
+                    if isinstance(items, list):
+                        for item in items:
+                            if isinstance(item, dict):
+                                if item.get("type") == "category":
+                                    link = item.get("link")
+                                    if (
+                                        isinstance(link, dict)
+                                        and link.get("type") == "generated-index"
+                                    ):
+                                        slug = link.get("slug")
+                                        if not slug:
+                                            label = item.get("label", "category")
+                                            slug = f"/category/{_slugify_tag(str(label))}"
+
+                                        rbp = route_base.strip("/")
+                                        slug_str = str(slug).strip("/")
+                                        if rbp:
+                                            url = f"/{rbp}/{slug_str}/" if slug_str else f"/{rbp}/"
+                                        else:
+                                            url = f"/{slug_str}/" if slug_str else "/"
+
+                                        routes.append(
+                                            VirtualRoute(
+                                                url=url,
+                                                label=str(item.get("label", slug_str)),
+                                                source_files=frozenset({sidebars_json.as_posix()}),
+                                                kind="category_index",
+                                            )
+                                        )
+                                    _scan_sidebars(item.get("items", []), route_base)
+                    elif isinstance(items, dict):
+                        for val in items.values():
+                            _scan_sidebars(val, route_base)
+
+                _scan_sidebars(sidebars_data, self._route_base_path or "docs")
+            except Exception:
+                pass
+
         return routes  # type: ignore[return-value]
 
 

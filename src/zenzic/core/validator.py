@@ -1018,8 +1018,8 @@ async def validate_links_async(
                 if (
                     config.validate_same_page_anchors or md_file in locale_file_set
                 ) and parsed.fragment:
-                    anchor = parsed.fragment
-                    if anchor.lower() not in anchors_cache.get(md_file, set()):
+                    anchor = parsed.fragment.lower()
+                    if anchor not in anchors_cache.get(md_file, set()):
                         internal_errors.append(
                             LinkError(
                                 file_path=md_file,
