@@ -119,6 +119,10 @@ For the current release history, see [CHANGELOG.md](CHANGELOG.md).
 
 **Strategic Focus:** Deepen native support for Pure Static Engines (MkDocs, Sphinx, Hugo) where AST parsing guarantees 100% deterministic accuracy without bundler interference.
 
+### The Great Migration
+
+Tactical Bridge: zenzic-doc will migrate to MkDocs Material to immediately restore CI linting and ADR-020 (i18n) compliance. Strategic Goal: Final migration to Zensical is deferred until Zensical achieves i18n parity.
+
 ---
 
 ## v1.0.0 — Graphite LTS (planned)

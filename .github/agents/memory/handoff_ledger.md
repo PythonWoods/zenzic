@@ -38,6 +38,8 @@
 The next development cycle MUST focus exclusively on the following target:
 
 - [x] Surgical Eradication of Docusaurus completed (v0.12.0).
+- [ ] Tactical Bridge: zenzic-doc will migrate to MkDocs Material to immediately restore CI linting and ADR-020 (i18n) compliance.
+- [ ] Strategic Goal: Final migration to Zensical is deferred until Zensical achieves i18n parity.
 
 ## 5. KNOWN TECHNICAL DEBT (Backlog)
 
