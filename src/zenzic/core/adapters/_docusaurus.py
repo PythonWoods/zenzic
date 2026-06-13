@@ -115,6 +115,22 @@ def find_docusaurus_config(repo_root: Path) -> Path | None:
     return None
 
 
+def find_docusaurus_site_root(docs_root: Path, repo_root: Path) -> Path:
+    """Walk up the directory tree from docs_root to repo_root looking for docusaurus.config.ts or .js.
+
+    If not found, falls back to repo_root.
+    """
+    curr = docs_root.resolve()
+    target_repo = repo_root.resolve()
+    while True:
+        if (curr / "docusaurus.config.ts").is_file() or (curr / "docusaurus.config.js").is_file():
+            return curr
+        if curr == target_repo or curr == curr.parent:
+            break
+        curr = curr.parent
+    return repo_root
+
+
 # ── Static value extraction ──────────────────────────────────────────────────
 
 # All patterns match the key in object-literal syntax:  key: 'value'
@@ -215,10 +231,53 @@ def _extract_route_base_path(config_path: Path) -> str | None:
     if _is_dynamic_config(content):
         return None
 
-    match = _ROUTE_BASE_PATH_RE.search(content)
-    if match is None:
+    def find_braced_block(start_pos: int) -> str | None:
+        brace_pos = content.find("{", start_pos)
+        if brace_pos == -1:
+            return None
+        depth = 1
+        i = brace_pos + 1
+        while i < len(content) and depth > 0:
+            char = content[i]
+            if char == "{":
+                depth += 1
+            elif char == "}":
+                depth -= 1
+            i += 1
+        if depth == 0:
+            return content[brace_pos:i]
         return None
-    return match.group(1)
+
+    # 1. Search for docs: { config block (typically inside preset options)
+    for match in re.finditer(r"\bdocs\s*:\s*\{", content):
+        block = find_braced_block(match.end() - 1)
+        if block:
+            rbp_match = _ROUTE_BASE_PATH_RE.search(block)
+            if rbp_match:
+                return rbp_match.group(1)
+
+    # 2. Search for @docusaurus/plugin-content-docs config block
+    for match in re.finditer(r"['\"]@docusaurus/plugin-content-docs['\"]", content):
+        block = find_braced_block(match.end())
+        if block:
+            # Check if this instance is default (no id, or id: 'default')
+            id_match = _PLUGIN_ID_RE.search(block)
+            is_default = True
+            if id_match:
+                inst_id = id_match.group(1).strip()
+                if inst_id != "default":
+                    is_default = False
+            if is_default:
+                rbp_match = _ROUTE_BASE_PATH_RE.search(block)
+                if rbp_match:
+                    return rbp_match.group(1)
+
+    # 3. Fallback to global routeBasePath match if nothing more specific was found
+    fallback_match = _ROUTE_BASE_PATH_RE.search(content)
+    if fallback_match:
+        return fallback_match.group(1)
+
+    return None
 
 
 # ── Blog plugin discovery ───────────────────────────────────────────────────
@@ -405,18 +464,14 @@ def check_config_assets(config_path: Path, repo_root: Path) -> list[tuple[str, s
 _FRONTMATTER_RE = re.compile(r"\A\s*---\s*\n(.*?)\n---", re.DOTALL)
 _SLUG_RE = re.compile(r"^slug\s*:\s*['\"]?([^'\"#\n]+?)['\"]?\s*$", re.MULTILINE)
 
-# Docusaurus blog filename convention is ``YYYY-MM-DD-<slug>.mdx``.
-# When no frontmatter slug is declared, the engine derives the URL slug by
-# stripping the leading date.  Mirror that here.
-_BLOG_DATE_PREFIX_RE = re.compile(r"^\d{4}-\d{2}-\d{2}-")
+# Docusaurus blog filename convention is ``YYYY-MM-DD-<slug>.mdx`` or ``YYYY/MM/DD-slug.mdx``.
+_BLOG_DATE_FILENAME_RE = re.compile(
+    r"^(?P<folder>.*?)(?P<date>\d{4}[-/]\d{1,2}[-/]\d{1,2})[-/]?(?P<text>.*?)(?:/index)?$"
+)
+
 # Slugification helpers (tag slugs — ASCII-only, mirrors MkDocs behaviour).
 _SLUG_NONWORD_ASCII_RE = re.compile(r"[^\w\s-]", re.ASCII)
 _SLUG_SPACES_RE = re.compile(r"\s+")
-
-
-def _strip_blog_date_prefix(stem: str) -> str:
-    """Strip a leading ``YYYY-MM-DD-`` blog filename prefix, if any."""
-    return _BLOG_DATE_PREFIX_RE.sub("", stem, count=1)
 
 
 def _slugify_tag(tag: str) -> str:
@@ -711,14 +766,18 @@ class DocusaurusAdapter(BaseAdapter):
         base_url: str = "/",
         route_base_path: str | None = None,
         versions: list[str] | None = None,
+        site_root: Path | None = None,
     ) -> None:
         self._docs_root = docs_root
         self._context = context
+        self._docusaurus_site_root = site_root if site_root is not None else docs_root.parent
         self._base_url = base_url.rstrip("/") or ""
         # Docusaurus default routeBasePath is 'docs', but when docs are at
-        # the site root it is ''.  None means "not set in config" → use
-        # no prefix (docs are already relative to docs_root).
-        self._route_base_path = route_base_path
+        # the site root it is ''.
+        if route_base_path is not None:
+            self._route_base_path = route_base_path.strip("/")
+        else:
+            self._route_base_path = "docs"
         self._versions: tuple[str, ...] = tuple(versions or [])
         # The first entry in versions.json is the "latest" version; it serves
         # docs at the routeBasePath root (no version label in URL).
@@ -905,12 +964,16 @@ class DocusaurusAdapter(BaseAdapter):
     def _map_url(self, rel: Path) -> str:
         """Map a physical source path to its Docusaurus canonical URL.
 
-        Resolution order:
+        Resolution order and semantics:
 
         1. **Frontmatter slug** — if ``slug:`` is declared in frontmatter,
-           it overrides the filesystem-derived URL.  An absolute slug
-           (starts with ``/``) is used as-is; a relative slug replaces the
-           last path segment.
+           it overrides the filesystem-derived URL.
+           - For **Docs**: An absolute slug (starts with ``/``) is joined with
+             the ``routeBasePath`` (``normalizeUrl([routeBasePath, slug])``).
+             A relative slug replaces the last path segment (``resolvePathname(slug, dirSlug)``).
+           - For **Blogs**: The ``routeBasePath`` is ALWAYS prepended, even for
+             absolute slugs (e.g. ``slug: /custom`` -> ``/blog/custom/``).
+
         2. **Filesystem derivation** — strip extensions, collapse ``index``
            files to their parent directory.
 
@@ -918,20 +981,24 @@ class DocusaurusAdapter(BaseAdapter):
 
         - Strip ``.md`` and ``.mdx`` extensions.
         - ``index.md(x)`` collapses to the parent directory URL.
+        - **Blog dates**: If a blog file is prefixed with a date (e.g.
+          ``2026-04-12-foo.mdx``), the date is extracted and transformed into
+          path segments (``/2026/04/12/foo/``).
         - Files prefixed with a numeric ordering (e.g. ``01-intro.mdx``) are
           served without the prefix **only** when ``_category_.json`` is
           present.  For safety, we preserve the full slug by default.
 
         Examples::
 
-            guide/install.mdx   → /guide/install/
-            guide/index.mdx     → /guide/
-            index.mdx           → /
-            checks.mdx          → /checks/
+            guide/install.mdx       → /guide/install/
+            guide/index.mdx         → /guide/
+            index.mdx               → /
+            blog/2026-04-12-foo.mdx → /blog/2026/04/12/foo/
 
         With frontmatter ``slug: /custom-path``::
 
-            guide/install.mdx   → /custom-path/
+            guide/install.mdx   → /docs/custom-path/  (assuming docs routeBasePath is "docs")
+            blog/my-post.mdx    → /blog/custom-path/  (assuming blog routeBasePath is "blog")
 
         Args:
             rel: Path of the source file relative to ``docs_root``.
@@ -941,58 +1008,152 @@ class DocusaurusAdapter(BaseAdapter):
         """
         rel_posix = rel.as_posix()
 
-        # ── Blog plugin routing ──
+        rel_posix = rel.as_posix()
+
+        # ── Partial / private file guard ──
+        # Docusaurus does not generate public routes for files or directories
+        # that start with ``_`` (e.g. ``_category_.json``, ``_partials/``).  The
+        # ``_version_`` prefix is an internal Zenzic marker — never a user dir.
+        # Returning an empty string signals «no URL» to all callers.
+        non_marker_parts = [p for p in rel.parts if p != "_version_"]
+        if any(part.startswith("_") for part in non_marker_parts):
+            return ""
+
         # Blog files arrive with the route_base_path prefix injected by the
         # caller (e.g. ``blog/2026-04-12-foo.mdx``).  Routing rules diverge
         # from docs:
-        #   • No routeBasePath stacking: the blog prefix IS the route base.
-        #   • Slug derivation strips the leading ``YYYY-MM-DD-`` date segment
-        #     when present (Docusaurus blog convention).
-        #   • Frontmatter ``slug:`` always wins.
+        #   • Docusaurus blog plugin ALWAYS prepends routeBasePath, even for
+        #     absolute frontmatter slugs (blogUtils.ts:303):
+        #       normalizeUrl([baseUrl, routeBasePath, slug])
+        #   • Date segment stripped from filename when no slug is present.
+        #   • Frontmatter ``slug:`` always wins over the filename derivation.
         if self._blog_root is not None and rel.parts and rel.parts[0] == self._blog_route_base_path:
             slug_override = self._slug_map.get(rel_posix)
             if slug_override is not None:
+                # normalizeUrl([baseUrl, "blog", slug]) — rbp unconditionally prepended.
+                # Strip leading/trailing slashes from the slug value before joining.
                 clean = slug_override.strip("/")
+                rbp = self._blog_route_base_path
                 if not clean:
-                    return "/" + self._blog_route_base_path + "/"
-                if slug_override.startswith("/"):
-                    # Absolute slug bypasses the blog prefix per Docusaurus spec.
-                    return "/" + clean + "/"
-                return "/" + self._blog_route_base_path + "/" + clean + "/"
-            # Filename-derived slug: strip extension and leading date.
-            stem = rel.with_suffix("").name
-            if stem.lower() in ("readme", "index"):
-                return "/" + self._blog_route_base_path + "/"
-            slug = _strip_blog_date_prefix(stem)
-            return "/" + self._blog_route_base_path + "/" + slug + "/"
+                    # slug: "/" → normalizeUrl(["/", "blog", "/"]) = "/blog/"
+                    return "/" + rbp + "/"
+                return "/" + rbp + "/" + clean + "/"
+            # Filename-derived slug: extract date segment from the path.
+            # Docusaurus: parseBlogFileName.
+            sub_path = Path(*rel.parts[1:]).with_suffix("").as_posix()
 
-        # ── Stage 1: frontmatter slug override ──
+            match = _BLOG_DATE_FILENAME_RE.match(sub_path)
+            if match:
+                folder = match.group("folder") or ""
+                date_str = match.group("date")
+                text = match.group("text") or ""
+                slug_date = date_str.replace("-", "/")
+                parts = [slug_date]
+                clean_folder = folder.strip("/")
+                if clean_folder:
+                    parts.append(clean_folder)
+                if text:
+                    parts.append(text)
+                slug = "/" + "/".join(parts)
+            else:
+                if sub_path.lower() == "index":
+                    slug = "/"
+                elif sub_path.lower().endswith("/index"):
+                    slug = "/" + sub_path[:-6]
+                else:
+                    slug = "/" + sub_path
+
+            clean_slug = slug.strip("/")
+            if not clean_slug:
+                return "/" + self._blog_route_base_path + "/"
+            return "/" + self._blog_route_base_path + "/" + clean_slug + "/"
+
+        # Resolve the plugin instance and its routeBasePath.
+        # Default to the main docs instance.
+        rbp = self._route_base_path if self._route_base_path is not None else "docs"
+        logical_rel = rel
+
+        is_docs_subfolder = (
+            rel.parts and rel.parts[0] == "docs" and (self._docs_root / "docs").is_dir()
+        )
+
+        if rel.parts:
+            matched_instance = False
+            # Check sibling instances first
+            if self._content_docs_instances:
+                for _inst_id, _inst_rbp in self._content_docs_instances:
+                    if rel.parts[0] == _inst_id:
+                        rbp = _inst_rbp
+                        logical_rel = Path(*rel.parts[1:])
+                        matched_instance = True
+                        break
+
+            # If not matched to sibling, check if it is default docs subfolder
+            if not matched_instance and is_docs_subfolder:
+                rbp = self._route_base_path if self._route_base_path is not None else "docs"
+                logical_rel = Path(*rel.parts[1:])
+
+        # ── Stage 1: frontmatter slug override (Docs plugin) ──
+        # Pre-computed by set_slug_map() from already-in-memory content.
+        # NEVER reads files here — all I/O happens in the VSM construction phase.
         mapped_slug = self._slug_map.get(rel_posix)
+
+        rbp_norm = rbp.strip("/") if rbp else ""
+
         if mapped_slug is not None:
             if mapped_slug.startswith("/"):
-                # Absolute slug: prefixed with the effective routeBasePath.
-                # For files from sibling content-docs plugin instances (extra
-                # content roots), use that plugin's routeBasePath rather than
-                # the default docs prefix (instance-aware routing).
-                rbp = self._route_base_path if self._route_base_path is not None else "docs"
-                if rel.parts and self._content_docs_instances:
-                    for _inst_id, _inst_rbp in self._content_docs_instances:
-                        if rel.parts[0] == _inst_id:
-                            rbp = _inst_rbp
-                            break
-                url = mapped_slug.rstrip("/") or ""
-                if rbp:
-                    return "/" + rbp + url + "/"
-                return url + "/" if url else "/"
-            # Relative slug: replace the last path segment
-            parent = rel.parent
-            if parent == Path("."):
-                return "/" + mapped_slug.strip("/") + "/"
-            return "/" + parent.as_posix() + "/" + mapped_slug.strip("/") + "/"
+                # ── Absolute slug ─────────────────────────────────────────────
+                # Docusaurus docs.ts:185:
+                #   permalink = normalizeUrl([versionMetadata.path, docSlug])
+                #   normalizeUrl(["/docs/", "/absolute"]) → "/docs/absolute/"
+                #
+                # The absolute slug replaces the *directory component* but
+                # routeBasePath (versionMetadata.path) is still prepended.
+                # Only slug: "/" with no rbp yields the site root "/".
+                clean = mapped_slug.strip("/")
+                if rbp_norm:
+                    if not clean:
+                        # slug: "/" + rbp="docs" → "/docs/"
+                        return "/" + rbp_norm + "/"
+                    return "/" + rbp_norm + "/" + clean + "/"
+                else:
+                    # routeBasePath="" (docs-only mode): slug IS the full path
+                    if not clean:
+                        return "/"
+                    return "/" + clean + "/"
+            else:
+                # ── Relative slug ─────────────────────────────────────────────
+                # Docusaurus slug.ts: resolvePathname(slug, getDirNameSlug())
+                # resolvePathname("rel-slug", "/guide/") → "/guide/rel-slug"
+                # Then docs.ts: normalizeUrl(["/docs/", "/guide/rel-slug"]) →
+                #   "/docs/guide/rel-slug/"
+                #
+                # getDirNameSlug(): sourceDirName="." → "/" else "/dir/"
+                source_dir = logical_rel.parent
+                if source_dir == Path("."):
+                    dir_slug = "/"
+                else:
+                    dir_slug = "/" + source_dir.as_posix() + "/"
+
+                # resolvePathname(slug, dir_slug): for non-traversal slugs,
+                # this is simply dir_slug.rstrip("/") + "/" + clean.
+                clean = mapped_slug.strip("/")
+                resolved = dir_slug.rstrip("/") + "/" + clean if clean else dir_slug
+
+                # Now prepend routeBasePath (normalizeUrl semantics).
+                resolved_clean = resolved.strip("/")
+                if rbp_norm:
+                    if not resolved_clean:
+                        return "/" + rbp_norm + "/"
+                    return "/" + rbp_norm + "/" + resolved_clean + "/"
+                else:
+                    if not resolved_clean:
+                        return "/"
+                    return "/" + resolved_clean + "/"
 
         # ── Stage 2: filesystem-derived URL ──
         # Strip .md / .mdx extension
-        stem_path = rel.with_suffix("")
+        stem_path = logical_rel.with_suffix("")
         if stem_path.suffix == ".":
             # Handle edge case: file with no real stem after stripping
             stem_path = stem_path.with_suffix("")
@@ -1026,28 +1187,8 @@ class DocusaurusAdapter(BaseAdapter):
         if locale:
             url_parts.append(locale)
 
-        # ── Instance-aware routing (sibling content-docs plugin support) ──
-        # When the first remaining path segment matches a sibling plugin
-        # instance_id, use that plugin's routeBasePath and strip the
-        # filesystem-organiser prefix from the URL segments.
-        # Example: developers/explanation/foo.mdx → /developers/explanation/foo/
-        # instead of /docs/developers/explanation/foo/ (the False Trust Bug).
-        instance_rbp: str | None = None
-        if parts and self._content_docs_instances:
-            first_seg = parts[0]
-            for _inst_id, _inst_rbp in self._content_docs_instances:
-                if first_seg == _inst_id:
-                    parts = parts[1:]
-                    instance_rbp = _inst_rbp
-                    break
-        rbp = (
-            instance_rbp
-            if instance_rbp is not None
-            else (self._route_base_path if self._route_base_path is not None else "docs")
-        )
-        if rbp:
-            # Note: root routeBasePath is empty string
-            url_parts.append(rbp)
+        if rbp_norm:
+            url_parts.append(rbp_norm)
 
         # The latest version (first entry in versions.json) is served at the
         # routeBasePath root — no version label in the URL.
@@ -1163,6 +1304,39 @@ class DocusaurusAdapter(BaseAdapter):
 
         slug = self._slug_map.get(rel_posix)
 
+        # Resolve the plugin instance and its routeBasePath.
+        rbp = self._route_base_path if self._route_base_path is not None else "docs"
+        is_docs_subfolder = (
+            rel.parts and rel.parts[0] == "docs" and (self._docs_root / "docs").is_dir()
+        )
+        if rel.parts:
+            matched_instance = False
+            if self._content_docs_instances:
+                for _inst_id, _inst_rbp in self._content_docs_instances:
+                    if rel.parts[0] == _inst_id:
+                        rbp = _inst_rbp
+                        matched_instance = True
+                        break
+            if not matched_instance and is_docs_subfolder:
+                rbp = self._route_base_path if self._route_base_path is not None else "docs"
+
+        # ── Early-return for partials / private Docusaurus files ──
+        # Files or directories prefixed with ``_`` are not routed by Docusaurus
+        # (e.g. ``_category_.json``, ``_partials/intro.mdx``).  Return an IGNORED
+        # result with an empty URL *before* calling _map_url to avoid computing a
+        # phantom URL that would trigger Z405 (UNDECLARED_SNIPPET) false-positives.
+        # The ``_version_`` prefix is a Zenzic-internal marker and is excluded.
+        non_marker_parts = [p for p in rel.parts if p != "_version_"]
+        if any(part.startswith("_") for part in non_marker_parts):
+            return RouteMetadata(
+                canonical_url="",
+                status="IGNORED",
+                slug=None,
+                route_base_path=rbp,
+                is_proxy=False,
+                version=None,
+            )
+
         canonical_url = self._map_url(rel)
         nav_paths = self.get_nav_paths()
         status = self._classify_route(rel, nav_paths)
@@ -1183,7 +1357,7 @@ class DocusaurusAdapter(BaseAdapter):
             canonical_url=canonical_url,
             status=status,
             slug=slug,
-            route_base_path=self._route_base_path if self._route_base_path is not None else "docs",
+            route_base_path=rbp,
             is_proxy=is_proxy,
             version=version,
         )
@@ -1256,9 +1430,12 @@ class DocusaurusAdapter(BaseAdapter):
         Returns:
             Configured ``DocusaurusAdapter`` instance.
         """
+        # Walk up from docs_root to find site_root containing Docusaurus config.
+        site_root = find_docusaurus_site_root(docs_root, repo_root)
+
         # Prefer the explicit base_url from .zenzic.toml [build_context]
         # over static extraction from the JS/TS config file.
-        config_path = find_docusaurus_config(repo_root)
+        config_path = find_docusaurus_config(site_root)
         if context.base_url:
             base_url = context.base_url
         elif config_path:
@@ -1269,7 +1446,7 @@ class DocusaurusAdapter(BaseAdapter):
         import json
 
         versions: list[str] = []
-        versions_json = repo_root / "versions.json"
+        versions_json = site_root / "versions.json"
         if versions_json.is_file():
             try:
                 parsed = json.loads(versions_json.read_text(encoding="utf-8"))
@@ -1282,7 +1459,7 @@ class DocusaurusAdapter(BaseAdapter):
 
         sidebar_path: Path | None = None
         for _sidebar_name in ("sidebars.ts", "sidebars.js"):
-            _candidate = repo_root / _sidebar_name
+            _candidate = site_root / _sidebar_name
             if _candidate.is_file():
                 sidebar_path = _candidate
                 break
@@ -1293,7 +1470,7 @@ class DocusaurusAdapter(BaseAdapter):
                 config_path, docs_root, base_url, route_base_path
             )
 
-        inst = cls(context, docs_root, base_url, route_base_path, versions)
+        inst = cls(context, docs_root, base_url, route_base_path, versions, site_root=site_root)
         inst._sidebar_path = sidebar_path
         inst._navbar_paths = navbar_paths
 
@@ -1306,11 +1483,11 @@ class DocusaurusAdapter(BaseAdapter):
         blog_meta: tuple[str, str] | None = None
         if config_path is not None:
             blog_meta = _extract_blog_config(config_path)
-        if blog_meta is None and (repo_root / "blog").is_dir():
+        if blog_meta is None and (site_root / "blog").is_dir():
             blog_meta = ("blog", "blog")
         if blog_meta is not None:
             blog_path_str, blog_rbp = blog_meta
-            blog_root = (repo_root / blog_path_str).resolve()
+            blog_root = (site_root / blog_path_str).resolve()
             if blog_root.is_dir():
                 inst._blog_root = blog_root
                 inst._blog_route_base_path = blog_rbp
@@ -1329,7 +1506,7 @@ class DocusaurusAdapter(BaseAdapter):
             instances.extend(_extract_content_docs_instances(config_path))
 
         if not instances:
-            i18n_root = repo_root / "i18n"
+            i18n_root = site_root / "i18n"
             if i18n_root.is_dir():
                 seen: set[str] = set()
                 for locale_dir in sorted(p for p in i18n_root.iterdir() if p.is_dir()):
@@ -1341,7 +1518,7 @@ class DocusaurusAdapter(BaseAdapter):
                         instance_id = name[len(prefix) :]
                         if not instance_id or instance_id in seen:
                             continue
-                        if (repo_root / instance_id).is_dir():
+                        if (site_root / instance_id).is_dir():
                             seen.add(instance_id)
                             instances.append((instance_id, instance_id))
 
@@ -1369,21 +1546,22 @@ class DocusaurusAdapter(BaseAdapter):
             none of their directories exist.
         """
         result: list[tuple[Path, str]] = []
+        site_root = self._docusaurus_site_root
         for locale in sorted(self._locale_dirs):
-            root = (repo_root / self._i18n_prefix / locale / self._plugin_docs_segment).resolve()
+            root = (site_root / self._i18n_prefix / locale / self._plugin_docs_segment).resolve()
             if root.is_dir():
                 result.append((root, locale))
 
         for version in self._versions:
             # Default locale versioned docs
-            v_root = (repo_root / f"versioned_docs/version-{version}").resolve()
+            v_root = (site_root / f"versioned_docs/version-{version}").resolve()
             if v_root.is_dir():
                 result.append((v_root, f"_version_/{version}"))
 
             # Translated versioned docs
             for locale in sorted(self._locale_dirs):
                 vl_root = (
-                    repo_root
+                    site_root
                     / self._i18n_prefix
                     / locale
                     / "docusaurus-plugin-content-docs"
@@ -1401,7 +1579,7 @@ class DocusaurusAdapter(BaseAdapter):
             roots.append(self._blog_root.resolve())
 
         for instance_id, _route_base_path in self._content_docs_instances:
-            candidate = (repo_root / instance_id).resolve()
+            candidate = (self._docusaurus_site_root / instance_id).resolve()
             if candidate.is_dir() and candidate != self._docs_root.resolve():
                 roots.append(candidate)
 
@@ -1449,24 +1627,9 @@ class DocusaurusAdapter(BaseAdapter):
     def get_virtual_routes(self, md_contents: dict[Path, str]) -> list[object]:
         """Return engine-generated virtual routes derived from blog frontmatter.
 
-        Reads ``tags:`` from every blog post in
-        ``md_contents``, slugifies each tag value, and emits one
-        :class:`~zenzic.core.adapters._base.VirtualRoute` per unique slug plus
-        one ``tag_index`` route for the ``/{blog_rbp}/tags/`` listing page.
-
-        Complements :meth:`get_extra_content_roots`: where that
-        method makes the physical blog posts visible to the VSM, this method
-        makes the *engine-generated pages* (tag listing pages, etc.) visible
-        so that links pointing at them are not incorrectly flagged as broken.
-
-        Args:
-            md_contents: Pre-loaded mapping of absolute ``Path`` \u2192 raw Markdown.
-                         Same object passed to ``build_vsm()``.
-
-        Returns:
-            List of :class:`VirtualRoute` objects.  Empty when
-            ``_blog_root`` is ``None`` (blog plugin disabled) or when no
-            blog posts carry any ``tags:`` frontmatter.
+        Reads ``tags:`` and ``authors:`` from every blog post in
+        ``md_contents``, slugifies each value, and emits the corresponding
+        virtual routes (tags, authors, indices).
         """
         from zenzic.core.adapters._base import VirtualRoute
 
@@ -1475,12 +1638,41 @@ class DocusaurusAdapter(BaseAdapter):
 
         tag_sources: dict[str, set[str]] = {}
         all_tagged_files: set[str] = set()
+        all_blog_files: set[str] = set()
+
+        # Track author keys/slugs to generate virtual routes
+        author_keys: set[tuple[str, str | None]] = set()
+
+        # Try to load global authors from authors.yml if it exists
+        authors_yml = self._blog_root / "authors.yml"
+        if authors_yml.is_file():
+            try:
+                import yaml
+
+                with open(authors_yml, encoding="utf-8") as f:
+                    yml_data = yaml.safe_load(f)
+                if isinstance(yml_data, dict):
+                    for key, val in yml_data.items():
+                        if isinstance(val, dict):
+                            page_val = val.get("page")
+                            if page_val is False:
+                                continue
+                            custom_permalink = None
+                            if isinstance(page_val, dict):
+                                custom_permalink = page_val.get("permalink")
+                            author_slug = _slugify_author(key)
+                            author_keys.add((author_slug, custom_permalink))
+            except Exception:
+                pass
 
         for abs_path, content in md_contents.items():
             if not abs_path.is_relative_to(self._blog_root):
                 continue
             inner = abs_path.relative_to(self._blog_root)
             logical_rel = (Path(self._blog_route_base_path) / inner).as_posix()
+            all_blog_files.add(logical_rel)
+
+            # Extract tags
             tags = extract_frontmatter_tags(content)
             has_valid_tag = False
             for raw_tag in tags:
@@ -1490,6 +1682,14 @@ class DocusaurusAdapter(BaseAdapter):
                     has_valid_tag = True
             if has_valid_tag:
                 all_tagged_files.add(logical_rel)
+
+            # Extract authors from blog posts to cover inline authors and dynamically referenced keys
+            post_authors = _extract_frontmatter_authors(content)
+            for author_item in post_authors:
+                author_slug = _slugify_author(author_item)
+                # Check if this slug is already added (e.g. from authors.yml)
+                if not any(ak[0] == author_slug for ak in author_keys):
+                    author_keys.add((author_slug, None))
 
         routes: list[VirtualRoute] = []
         for slug, sources in tag_sources.items():
@@ -1502,8 +1702,6 @@ class DocusaurusAdapter(BaseAdapter):
                 )
             )
 
-        # tag_index: /{blog_rbp}/tags/ — index of all tag listing pages.
-        # source_files = union of all blog files with at least one valid tag.
         if all_tagged_files:
             routes.append(
                 VirtualRoute(
@@ -1514,4 +1712,82 @@ class DocusaurusAdapter(BaseAdapter):
                 )
             )
 
+        # Generate author details virtual routes
+        for author_slug, custom_permalink in author_keys:
+            if custom_permalink:
+                url = "/" + custom_permalink.strip("/") + "/"
+            else:
+                url = f"/{self._blog_route_base_path}/authors/{author_slug}/"
+            routes.append(
+                VirtualRoute(
+                    url=url,
+                    label=f"author:{author_slug}",
+                    source_files=frozenset(all_blog_files),
+                    kind="author",
+                )
+            )
+
+        # Generate authors index virtual route
+        if author_keys:
+            routes.append(
+                VirtualRoute(
+                    url=f"/{self._blog_route_base_path}/authors/",
+                    label="authors_index",
+                    source_files=frozenset(all_blog_files),
+                    kind="authors_index",  # type: ignore[arg-type]
+                )
+            )
+
         return routes  # type: ignore[return-value]
+
+
+def _slugify_author(name: str) -> str:
+    """Convert an author name/key to a Docusaurus-compatible URL slug (lodash kebabCase)."""
+    # Handle camelCase: insert hyphen before uppercase letter if preceded by lowercase letter
+    s = re.sub(r"([a-z0-9])([A-Z])", r"\1-\2", name)
+    slug = unicodedata.normalize("NFKD", s)
+    slug = "".join(c for c in slug if not unicodedata.combining(c))
+    slug = slug.lower()
+    slug = _SLUG_NONWORD_ASCII_RE.sub("", slug)
+    slug = _SLUG_SPACES_RE.sub("-", slug).strip("-")
+    return slug or "unknown"
+
+
+def _extract_frontmatter_authors(content: str) -> list[str]:
+    """Extract author keys/slugs from YAML frontmatter."""
+    fm = _FRONTMATTER_RE.match(content)
+    if fm is None:
+        return []
+    try:
+        import yaml
+
+        data = yaml.safe_load(fm.group(1))
+    except Exception:
+        return []
+    if not isinstance(data, dict):
+        return []
+    author_val = data.get("authors") or data.get("author")
+    if not author_val:
+        return []
+
+    if isinstance(author_val, str):
+        return [author_val.strip()]
+    elif isinstance(author_val, list):
+        slugs = []
+        for item in author_val:
+            if isinstance(item, str):
+                slugs.append(item.strip())
+            elif isinstance(item, dict):
+                slug = item.get("slug")
+                if slug:
+                    slugs.append(str(slug).strip())
+                elif item.get("key"):
+                    slugs.append(str(item["key"]).strip())
+        return slugs
+    elif isinstance(author_val, dict):
+        slug = author_val.get("slug")
+        if slug:
+            return [str(slug).strip()]
+        elif author_val.get("key"):
+            return [str(author_val["key"]).strip()]
+    return []

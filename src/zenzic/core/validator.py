@@ -128,6 +128,8 @@ _FN_DEF_RE = re.compile(r"^ {0,3}\[\^([^\]]+)\]:")
 
 # Matches HTML tags to strip from heading text before slugification.
 _HTML_TAG_RE = re.compile(r"<[^>]+>")
+# Matches id="..." or id='...' attributes inside standard HTML tags
+_HTML_ID_RE = re.compile(r"""<[^>]*\bid\s*=\s*['"]([^'"]+)['"]""", re.IGNORECASE)
 
 # Reference definition: [id]: url  (up to 3 leading spaces per CommonMark §4.7)
 _REF_DEF_RE = re.compile(r"^ {0,3}\[([^\]]+)\]:\s+(\S+)")
@@ -148,6 +150,12 @@ _SLUG_SPACES_RE = re.compile(r"\s+")
 
 # URL schemes that are valid syntax but point to non-HTTP targets we skip.
 _SKIP_SCHEMES = ("mailto:", "data:", "ftp:", "tel:", "javascript:", "irc:", "xmpp:")
+
+# Matches Docusaurus highlighting comments within snippets
+_HIGHLIGHT_COMMENT_RE = re.compile(
+    r"^\s*(?://|#|/\*|\*)\s*highlight-(?:start|end|next-line)(?:\s*\*/)?\s*$",
+    re.IGNORECASE,
+)
 
 # Maximum number of simultaneous outbound HTTP connections during external link checks.
 # Prevents exhausting OS file descriptors and avoids triggering rate-limits on target servers.
@@ -491,14 +499,19 @@ def anchors_in_file(content: str) -> set[str]:
             if stripped.startswith("```") or stripped.startswith("~~~"):
                 in_block = True
                 continue
+            # Remove inline code spans to avoid false positives inside backticks
+            clean_line = _INLINE_CODE_RE.sub("", line)
             # Search for explicit inline/block anchors { #id }
-            for m in _EXPLICIT_ANCHOR_RE.finditer(line):
+            for m in _EXPLICIT_ANCHOR_RE.finditer(clean_line):
                 anchors.add(m.group(1).lower())
             # Search for footnote definitions [^label]:
-            fn_match = _FN_DEF_RE.match(line)
+            fn_match = _FN_DEF_RE.match(clean_line)
             if fn_match:
                 label = fn_match.group(1).strip()
                 anchors.add(f"fn:{label}")
+            # Search for HTML inline anchors: id="..." inside tags
+            for m in _HTML_ID_RE.finditer(clean_line):
+                anchors.add(m.group(1).lower())
         else:
             if stripped.startswith("```") or stripped.startswith("~~~"):
                 in_block = False
@@ -827,7 +840,7 @@ async def validate_links_async(
     # the exclusion_manager so the walk remains fast even for large repos.
     known_assets: frozenset[str] = frozenset(
         str(f.resolve())
-        for f in walk_files(repo_root, set(), exclusion_manager)
+        for f in walk_files(repo_root, set(), exclusion_manager, config)
         if f.is_file() and not f.is_symlink() and f.suffix not in DOC_SUFFIXES
     )
 
@@ -872,8 +885,13 @@ async def validate_links_async(
     # Instantiating inside the file loop would regenerate the map N times,
     # cancelling the 14× performance gain from the pre-computed flat dict.
     # allowed_roots extends the credential scanner boundary to authorised locale directories.
+    resolver_repo_root = getattr(adapter, "_docusaurus_site_root", repo_root)
     resolver = InMemoryPathResolver(
-        docs_root, md_contents, anchors_cache, allowed_roots=_allowed_roots
+        docs_root,
+        md_contents,
+        anchors_cache,
+        repo_root=resolver_repo_root,
+        allowed_roots=_allowed_roots,
     )
 
     # ── Build the Virtual Site Map (VSM) ──────────────────────────────────────
@@ -1001,7 +1019,7 @@ async def validate_links_async(
                     config.validate_same_page_anchors or md_file in locale_file_set
                 ) and parsed.fragment:
                     anchor = parsed.fragment
-                    if anchor not in anchors_cache.get(md_file, set()):
+                    if anchor.lower() not in anchors_cache.get(md_file, set()):
                         internal_errors.append(
                             LinkError(
                                 file_path=md_file,
@@ -1044,7 +1062,11 @@ async def validate_links_async(
                     # unconditional bypass (Zero-Config invariant preserved).
                     if any(parsed.path.startswith(p) for p in _scanned_vsm_prefixes):
                         _abs_parts = [p for p in parsed.path.split("/") if p]
-                        _canonical = "/" + "/".join(_abs_parts) + "/" if _abs_parts else "/"
+                        if parsed.path.endswith((".md", ".mdx", ".json")):
+                            _canonical = adapter.get_route_info(Path(*_abs_parts)).canonical_url
+                        else:
+                            _canonical = "/" + "/".join(_abs_parts) + "/" if _abs_parts else "/"
+
                         if vsm.get(_canonical) is None:
                             _suggestions = difflib.get_close_matches(
                                 _canonical.strip("/"), [k.strip("/") for k in vsm], n=1, cutoff=0.6
@@ -1121,10 +1143,10 @@ async def validate_links_async(
                             str(docs_root) + os.sep + path_part[len("@site/docs/") :]
                         )
                     elif path_part.startswith("@site/"):
-                        # Docusaurus alias: @site/ maps to repo_root.
+                        # Docusaurus alias: @site/ maps to repo_root (site_root in monorepos).
                         # known_assets is built from repo_root so this resolves correctly.
                         asset_str = os.path.normpath(
-                            str(repo_root) + os.sep + path_part[len("@site/") :]
+                            str(resolver_repo_root) + os.sep + path_part[len("@site/") :]
                         )
                     else:
                         asset_str = os.path.normpath(str(md_file.parent) + os.sep + path_part)
@@ -1528,6 +1550,10 @@ def check_snippet_content(
     errors: list[SnippetError] = []
 
     for lang, snippet, fence_line in _extract_code_blocks(text):
+        lines = snippet.splitlines()
+        cleaned_lines = ["" if _HIGHLIGHT_COMMENT_RE.match(line) else line for line in lines]
+        snippet = "\n".join(cleaned_lines)
+
         if len(snippet.strip().splitlines()) < config.snippet_min_lines:
             continue
 
@@ -1721,8 +1747,7 @@ def validate_snippets(
         return errors
 
     for md_file in sorted(iter_markdown_sources(docs_root, config, exclusion_manager)):
-        rel_path = md_file.relative_to(docs_root)
         content = md_file.read_text(encoding="utf-8")
-        errors.extend(check_snippet_content(content, rel_path, config))
+        errors.extend(check_snippet_content(content, md_file, config))
 
     return errors

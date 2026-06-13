@@ -9,57 +9,28 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [Unreleased]
-
-### Changed
-
-- **Core CI gate hardening:** Removed `pull_request.paths` filters from `.github/workflows/ci.yml` so required `Audit` checks are always created for every PR and cannot remain in expected/pending due to skipped workflow runs.
-
----
-
-## [0.10.3] - 2026-06-08
-
-### Fixed
-
-- **Core Engine (AST Parser):** Fixed Z104 false positives by correctly ignoring footnote definitions (e.g., `[^1]:`) in the AST reference builder.
-- **Core Engine (AST Parser):** Fixed Z102 false positives by stripping markdown attribute lists (e.g., `{...}`) from headings before slugification and adding native support for explicit block-level and footnote anchors.
-- **Core Engine (Snippet Validator):** Fixed Z503 false positives on MkDocs configurations and custom tags by registering PyYAML custom tags (e.g., `!!python/*`) and unregistered custom tags (e.g., `!ENV`) in the `PermissiveSafeLoader`.
-
----
-
-## [0.10.2] - 2026-06-07
-
-### Fixed
-
-- **Core Engine (AST Parser):** Fixed a blindspot in the AST parser where image nodes (`![alt][id]`) were not being harvested into the `used_ids` set, causing false-positive Z302 (Orphan Definition) warnings.
-- **Core Engine (Path Resolver):** The local path resolver now strips URL fragments (`#...`) and query strings (`?...`) before interrogating the filesystem. This prevents false-positive Z101/Z104 errors when using GFM suffixes on local file links (e.g., `../assets/img.png#gh-light-mode-only`).
-
----
-
-## [0.10.1] - 2026-06-07
-
-### Changed
-
-- Refactored `--ci` to act as a global macro-flag, implicitly suppressing ASCII headers across all commands.
-
----
-
-## [0.10.0] - 2026-06-06
+## [0.11.0] - 2026-06-13
 
 ### Added
 
-- **Native GitHub Annotations:** Added `--format github-annotations` which outputs findings using the `::error::` workflow command syntax, allowing GitHub Actions to natively inject inline review comments directly into PR diffs.
-- **CI Shorthand:** Added `--ci` flag, which automatically sets `--strict` mode (warnings become errors) and enables `--format github-annotations`, standardizing the CI integration.
-- **Targeted Filtering:** Added `--only` flag (e.g. `--only Z104,Z201`) to perform destructive filtering of findings at the engine level. This enables progressive adoption of Zenzic on legacy repositories by letting teams start with critical rules before expanding scope.
-- **Added:** Asynchronous network engine based on `asyncio` and `httpx` for concurrent external link validation (Z109).
-- **Added:** Atomic local caching (`.zenzic_cache/external_links.json`) with configurable 24h TTL to eliminate latency in repeated executions.
-- **Added:** Smart Fallback (HEAD -> GET stream) to bypass servers blocking HEAD requests (e.g., 403/405).
-- **Added:** New TOML configuration `[network]` for granular cache control.
+- **Docusaurus Native Routing Emulation:** Full support for `routeBasePath` concatenation, Frontmatter `slug` absolute/relative parsing, and Blog Date Extraction (`YYYY-MM-DD-slug`) to accurately map Docusaurus URLs into the Virtual Site Map without false positive broken links.
+- **Dynamic Site Root:** Support for Docusaurus monorepos by dynamically searching upward from docs/ to repo root.
+- **RE2 Glob Translator:** High-performance glob translator compiled directly to Google RE2 syntax for compatibility on Python 3.12+.
+- **Partial Guard:** Logical routing exclusion of partial files (those starting with `_` or inside `_` folders) in Docusaurus.
+- **Breakdown Flag:** Option `--breakdown` for `zenzic score` to show detailed category breakdowns and transparent DQS math.
+- **Progress Bar:** Interactive progress indicator (`rich.progress.Progress`) during file scanning and parsing in `zenzic check all`.
+
+### Changed
+
+- **Path-aware Exclusion Engine upgrade (.gitignore semantics):** `excluded_dirs` now evaluates against the repository-relative path if the entry contains a slash (`/`), and globally against the directory basename if it does not.
+- **Severity Downgrade for Z106:** Downgraded `Z106` (circular link) severity to `note` and penalty to `0.0`, ensuring circular links never block strict pipelines.
+- **Core CI gate hardening:** Removed `pull_request.paths` filters from `.github/workflows/ci.yml` so required `Audit` checks are always created for every PR and cannot remain in expected/pending due to skipped workflow runs.
 
 ---
 
 ## Historical Releases
 
+- v0.10.x archive: [changelogs/v0.10.md](./changelogs/v0.10.md)
 - v0.9.x archive: [changelogs/v0.9.md](./changelogs/v0.9.md)
 - v0.8.x archive: [changelogs/v0.8.md](./changelogs/v0.8.md)
 - v0.1.x–v0.7.x archive index: [changelogs/README.md](./changelogs/README.md)

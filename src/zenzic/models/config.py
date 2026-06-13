@@ -418,13 +418,11 @@ class ZenzicConfig(BaseModel):
     )
     placeholder_patterns: list[str] = Field(
         default=[
-            # English
             r"\btodo\b",
             r"\bfixme\b",
             r"\bwip\b",
             r"\btbd\b",
             r"\bstub\b",
-            r"\bxxx\b",
             # Italiano
             r"\bda completare\b",
             r"\bin costruzione\b",

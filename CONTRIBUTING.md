@@ -268,8 +268,8 @@ Zenzic's user-facing documentation lives in a separate repository:
 
 This core repository contains only:
 
-- `README.md` / `README.it.md` — project overview and quick start.
-- `CONTRIBUTING.md` / `CONTRIBUTING.it.md` — developer guide (this file).
+- `README.md` — project overview and quick start.
+- `CONTRIBUTING.md` — developer guide (this file).
 - `examples/` — maintained fixtures that Zenzic self-validates.
 
 To contribute documentation improvements, open a PR in the `zenzic-doc` repository.

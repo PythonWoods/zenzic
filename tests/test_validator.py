@@ -26,7 +26,7 @@ from zenzic.core.validator import (
 from zenzic.models.config import ZenzicConfig
 
 
-def _ul(links: list) -> list[tuple[str, int]]:
+def _ul(links: list) -> list[tuple[str, int]]:  # type: ignore[type-arg]
     """Extract (url, lineno) pairs for easy assertion comparison."""
     return [(link.url, link.lineno) for link in links]
 
@@ -157,6 +157,16 @@ class TestAnchorsInFile:
             "```\n"
         )
         assert anchors_in_file(content) == {"heading", "custom-id", "feedback", "fn:1"}
+
+    def test_html_inline_id_anchors(self) -> None:
+        content = (
+            "Here is <a id='my-anchor'>a link</a> and <span id=\"another-anchor\">span</span>.\n"
+            "Inside code: `not <a id='ignored'>`.\n"
+            "```\n"
+            "<div id='code-block-ignored'>\n"
+            "```\n"
+        )
+        assert anchors_in_file(content) == {"my-anchor", "another-anchor"}
 
 
 # ─── Internal link validation ─────────────────────────────────────────────────
@@ -632,7 +642,7 @@ class TestAssetPreMap:
 
         original_exists = Path.exists
 
-        def spy_exists(self: Path) -> bool:  # type: ignore[override]
+        def spy_exists(self: Path) -> bool:
             call_log.append(str(self))
             return original_exists(self)
 
@@ -1317,6 +1327,32 @@ def test_validate_snippets_toml_invalid(tmp_path: Path) -> None:
     errors = validate_snippets(docs_root, mgr, config=config)
     assert len(errors) == 1
     assert "SyntaxError in TOML snippet" in errors[0].message
+
+
+def test_validate_snippets_with_highlight_comments(tmp_path: Path) -> None:
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    content = """
+```python
+# highlight-start
+def foo():
+    # highlight-next-line
+    print("hello")
+# highlight-end
+```
+
+```yaml
+# highlight-start
+key: value
+# highlight-end
+```
+"""
+    (docs / "page.md").write_text(content)
+    config = ZenzicConfig(snippet_min_lines=1)
+    docs_root = tmp_path / config.docs_dir
+    mgr = make_mgr(config, repo_root=tmp_path)
+    errors = validate_snippets(docs_root, mgr, config=config)
+    assert errors == [], f"Expected no errors, got: {errors}"
 
 
 # ─── Cycle detection ──────────────────────────────────────────────────────────

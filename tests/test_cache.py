@@ -127,7 +127,7 @@ def test_cache_preserves_matched_line() -> None:
         line_no=5,
         rule_id="Z201",
         message="secret",
-        severity="security_breach",
+        severity="security_breach",  # type: ignore[arg-type]
         matched_line="aws_key = AKIA...",
     )
     cache = CacheManager()

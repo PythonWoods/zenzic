@@ -132,9 +132,9 @@ class TestVsmIngestion:
             md_contents,
             extra_content_roots=[(repo / "blog").resolve()],
         )
-        # Date prefix is stripped; URL lives under /blog/.
-        assert "/blog/welcome/" in vsm
-        assert vsm["/blog/welcome/"].status == "REACHABLE"
+        # Date prefix is formatted into path; URL lives under /blog/YYYY/MM/DD/.
+        assert "/blog/2026/04/12/welcome/" in vsm
+        assert vsm["/blog/2026/04/12/welcome/"].status == "REACHABLE"
         # docs/intro.md is still routed normally (default routeBasePath = 'docs').
         assert "/docs/intro/" in vsm
 

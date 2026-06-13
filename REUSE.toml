@@ -42,9 +42,9 @@ SPDX-License-Identifier = "Apache-2.0"
 # Markdown supports comments but inline SPDX would appear in rendered output.
 
 [[annotations]]
-path = ["README.md", "README.it.md", "CHANGELOG.md", "CHANGELOG.it.md",
-        "CHANGELOG.archive.md", "CHANGELOG.it.archive.md",
-        "CONTRIBUTING.md", "CONTRIBUTING.it.md",
+path = ["README.md", "CHANGELOG.md",
+        "CHANGELOG.archive.md",
+        "CONTRIBUTING.md",
         "SECURITY.md", "CODE_OF_CONDUCT.md", "RELEASE.md"]
 SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
 SPDX-License-Identifier = "Apache-2.0"

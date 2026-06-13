@@ -439,12 +439,14 @@ def _apply_directory_policies(findings: list[Finding], config: ZenzicConfig) -> 
     ``[POLICY_EXEMPTION]`` so reviewers can see what is strategically exempt.
     Security findings (NON_SUPPRESSIBLE_CODES) always bypass this filter.
     """
+    import zenzic.core.regex as re
     from zenzic.core.codes import NON_SUPPRESSIBLE_CODES
+    from zenzic.core.exclusion import translate_glob_to_re2
 
     if not config.governance.directory_policies:
         return findings
 
-    normalized_map: dict[str, set[str]] = {}
+    normalized_map: list[tuple[Any, set[str]]] = []
     for pattern, codes in config.governance.directory_policies.items():
         if not isinstance(pattern, str) or not isinstance(codes, list):
             continue
@@ -454,7 +456,12 @@ def _apply_directory_policies(findings: list[Finding], config: ZenzicConfig) -> 
             if isinstance(code, str) and str(code).upper().startswith("Z")
         }
         if normalized_codes:
-            normalized_map[pattern] = normalized_codes
+            try:
+                regex_str = translate_glob_to_re2(pattern)
+                compiled = re.compile(regex_str)
+                normalized_map.append((compiled, normalized_codes))
+            except Exception:
+                pass
 
     if not normalized_map:
         return findings
@@ -467,8 +474,8 @@ def _apply_directory_policies(findings: list[Finding], config: ZenzicConfig) -> 
             filtered.append(finding)
             continue
         is_exempt = any(
-            fnmatch(finding.rel_path, pattern) and code in codes
-            for pattern, codes in normalized_map.items()
+            bool(compiled.fullmatch(finding.rel_path)) and code in codes
+            for compiled, codes in normalized_map
         )
         if is_exempt:
             if audit_mode:

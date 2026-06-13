@@ -8,11 +8,12 @@ import hashlib
 import json
 import subprocess
 import sys
+import typing
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-from typer.testing import CliRunner
+from typer.testing import CliRunner, Result  # type: ignore[attr-defined]
 
 from zenzic.core import regex as re
 from zenzic.main import app
@@ -41,16 +42,16 @@ def _make_docusaurus_repo(tmp_path: Path) -> None:
     )
 
 
-def _invoke_json(tmp_path: Path, extra_args: list[str] | None = None) -> dict:
+def _invoke_json(tmp_path: Path, extra_args: list[str] | None = None) -> dict[str, typing.Any]:
     """Invoke `zenzic inspect routes --json` against tmp_path and return parsed dict."""
     args = ["inspect", "routes", "--json"] + (extra_args or [])
     with patch("zenzic.cli._inspect.find_repo_root", return_value=tmp_path):
         result = runner.invoke(app, args)
     assert result.exit_code == 0, f"CLI exited {result.exit_code}:\n{result.output}"
-    return json.loads(result.stdout)
+    return typing.cast(dict[str, typing.Any], json.loads(result.stdout))
 
 
-def _invoke_raw(tmp_path: Path, args: list[str]) -> CliRunner:
+def _invoke_raw(tmp_path: Path, args: list[str]) -> Result:
     """Return the raw CliRunner result (no assertions)."""
     with patch("zenzic.cli._inspect.find_repo_root", return_value=tmp_path):
         return runner.invoke(app, args)

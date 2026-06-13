@@ -160,3 +160,49 @@ def test_excluded_assets_wildcard_pattern(tmp_path: Path) -> None:
     assert "logo.svg" not in names
     assert "icon.svg" not in names
     assert "screenshot.png" in names
+
+
+def test_z405_respects_exclusions_and_dotfiles(tmp_path: Path) -> None:
+    """Verify VCS-ignored files and dotfiles/dotdirectories are skipped by Z405, but security scans remain active."""
+    from zenzic.core.scanner import ReferenceScanner
+
+    repo = tmp_path / "my_repo"
+    docs = repo / "docs"
+    docs.mkdir(parents=True)
+
+    # 1. Create a dotfile in docs that is unreferenced
+    (docs / ".config_pubblica").touch()
+
+    # 2. Create a file inside a dotdirectory
+    dotdir = docs / ".github" / "workflows"
+    dotdir.mkdir(parents=True)
+    (dotdir / "ci.yml").touch()
+
+    # 3. Create a gitignored file in docs (VCS ignore simulation)
+    (repo / ".gitignore").write_text(".clinerules\n")
+    (docs / ".clinerules").touch()
+
+    # 4. Create an unreferenced normal asset that SHOULD be flagged by Z405
+    (docs / "orphan.png").touch()
+
+    # 5. Create a dotfile `.env` that contains an OpenAI secret
+    env_file = docs / ".env"
+    env_file.write_text("OPENAI_KEY = sk-" + "A" * 48 + "\n")
+
+    # Run find_unused_assets to verify Z405 ignores dotfiles and gitignored files
+    config = ZenzicConfig(respect_vcs_ignore=True)
+    mgr = make_mgr(config, repo_root=repo, docs_root=docs)
+    unused = find_unused_assets(docs, mgr, config=config)
+
+    unused_names = [p.as_posix() for p in unused]
+    assert "orphan.png" in unused_names
+    assert ".config_pubblica" not in unused_names
+    assert ".github/workflows/ci.yml" not in unused_names
+    assert ".clinerules" not in unused_names
+    assert ".env" not in unused_names
+
+    # Verify that Z201 is active on the .env file when scanned via ReferenceScanner
+    scanner = ReferenceScanner(env_file, config)
+    findings = [data for _, evt, data in scanner.harvest() if evt == "SECRET"]
+    assert len(findings) == 1
+    assert findings[0].secret_type == "openai-api-key"

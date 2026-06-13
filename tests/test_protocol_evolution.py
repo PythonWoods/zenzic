@@ -48,7 +48,7 @@ def _make_context(**overrides: object) -> BuildContext:
         "fallback_to_default": True,
     }
     defaults.update(overrides)
-    return BuildContext(**defaults)
+    return BuildContext(**defaults)  # type: ignore[arg-type]
 
 
 # ── Strategies ────────────────────────────────────────────────────────────────

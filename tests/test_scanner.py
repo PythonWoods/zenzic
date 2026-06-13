@@ -962,3 +962,64 @@ def test_find_unused_assets_skips_adapter_metadata_files(tmp_path: Path) -> None
     assert "docusaurus.config.ts" not in unused_names, "adapter config must be excluded (L1b)"
     assert "sidebars.ts" not in unused_names, "adapter sidebar must be excluded (L1b)"
     assert "logo.png" in unused_names, "genuine unused asset must still be reported"
+
+
+def test_placeholder_xxx_removed_from_defaults() -> None:
+    config = ZenzicConfig()
+    assert all("xxx" not in pat for pat in config.placeholder_patterns)
+    findings = check_placeholder_content("This is xxx section.", "test.md", config)
+    assert not any(f.issue == "Z501" for f in findings)
+
+
+def test_placeholder_partial_files_word_count_skipped() -> None:
+    config = ZenzicConfig(placeholder_max_words=50)
+    findings_reg = check_placeholder_content("Short page.", "test.md", config)
+    assert any(f.issue == "Z502" for f in findings_reg)
+
+    findings_partial = check_placeholder_content("Short page.", "_partial.md", config)
+    assert not any(f.issue == "Z502" for f in findings_partial)
+
+
+def test_docusaurus_partials_visible_to_credential_scanner(tmp_path: Path) -> None:
+    """Verify that _-prefixed Docusaurus partials are NOT pruned at I/O discovery time.
+
+    Security contract (ADR-013 / Tech Lead veto 2026-06-11):
+    Physical I/O exclusion of _ partials would blind Z201 HARDCODED_SECRET and
+    Z204 FORBIDDEN_TERM to credentials hidden in Docusaurus partial files.
+
+    The _ prefix exclusion is a ROUTING/LOGICAL concern only:
+    - DocusaurusAdapter._map_url() skips partials (no public URL)
+    - Rule Z402 / Z502 skip partials for placeholder/word-count heuristics
+    The credential scanner (Z201/Z204) MUST see every file.
+    """
+    from zenzic.core.discovery import iter_markdown_sources
+    from zenzic.core.exclusion import LayeredExclusionManager
+
+    docs = tmp_path / "docs"
+    docs.mkdir()
+
+    # Create regular file, file starting with _, directory starting with _, and file inside it
+    (docs / "index.md").touch()
+    (docs / "_partial.md").touch()
+
+    partial_dir = docs / "_partials"
+    partial_dir.mkdir()
+    (partial_dir / "inside.md").touch()
+
+    # Both Docusaurus and standalone MUST return all 3 files at discovery time.
+    for engine in ("docusaurus", "standalone", "auto"):
+        config = ZenzicConfig(build_context={"engine": engine})  # type: ignore[arg-type]
+        mgr = LayeredExclusionManager(config)
+        sources = list(iter_markdown_sources(docs, config, mgr))
+        names = {s.name for s in sources}
+        assert len(sources) == 3, (
+            f"engine={engine!r}: expected 3 files (including _ partials) at discovery "
+            f"so Z201/Z204 can scan them, got {len(sources)}: {[s.name for s in sources]}"
+        )
+        assert "index.md" in names
+        assert "_partial.md" in names, (
+            f"engine={engine!r}: _partial.md must be visible to the credential scanner"
+        )
+        assert "inside.md" in names, (
+            f"engine={engine!r}: _partials/inside.md must be visible to the credential scanner"
+        )

@@ -570,7 +570,7 @@ class TestReferenceScannerIntegrityReport:
                 security_findings.append(data)
 
         # Simulate CLI behavior: skip Pass 2 if secrets found
-        cross_findings: list = []
+        cross_findings: list = []  # type: ignore[type-arg]
         if not security_findings:
             cross_findings = scanner.cross_check()
 

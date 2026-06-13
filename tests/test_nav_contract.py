@@ -22,7 +22,7 @@ from zenzic.models.config import ZenzicConfig
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 
 
-def _write_mkdocs(repo: Path, content: dict) -> None:
+def _write_mkdocs(repo: Path, content: dict) -> None:  # type: ignore[type-arg]
     with (repo / "mkdocs.yml").open("w", encoding="utf-8") as f:
         yaml.dump(content, f, default_flow_style=False, allow_unicode=True)
 
