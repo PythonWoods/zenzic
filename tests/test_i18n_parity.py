@@ -237,7 +237,11 @@ _PATH_SEGMENT = st.text(
     max_size=12,
 ).filter(
     lambda s: (
-        s not in (".", "..") and "/" not in s and "\\" not in s and s not in SYSTEM_EXCLUDED_DIRS
+        s not in (".", "..")
+        and "/" not in s
+        and "\\" not in s
+        and s not in SYSTEM_EXCLUDED_DIRS
+        and s not in {"includes", "stylesheets", "overrides"}
     )
 )
 
