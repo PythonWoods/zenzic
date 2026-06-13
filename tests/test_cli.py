@@ -1314,7 +1314,7 @@ class TestShowInfoFilter:
     """Verify that info-severity findings are suppressed by default and shown with --show-info."""
 
     @staticmethod
-    def _make_reporter(buf):  # type: ignore[no-untyped-def]
+    def _make_reporter(buf):
         from rich.console import Console
 
         from zenzic.core.reporter import ZenzicReporter
@@ -1323,7 +1323,7 @@ class TestShowInfoFilter:
         return ZenzicReporter(con, Path("/fake/docs"), docs_dir="docs")
 
     @staticmethod
-    def _info_finding():  # type: ignore[no-untyped-def]
+    def _info_finding():
         from zenzic.core.reporter import Finding
 
         return Finding(

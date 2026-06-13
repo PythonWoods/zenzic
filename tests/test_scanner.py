@@ -1008,7 +1008,7 @@ def test_docusaurus_partials_visible_to_credential_scanner(tmp_path: Path) -> No
 
     # Both Docusaurus and standalone MUST return all 3 files at discovery time.
     for engine in ("docusaurus", "standalone", "auto"):
-        config = ZenzicConfig(build_context={"engine": engine})
+        config = ZenzicConfig(build_context={"engine": engine})  # type: ignore[arg-type]
         mgr = LayeredExclusionManager(config)
         sources = list(iter_markdown_sources(docs, config, mgr))
         names = {s.name for s in sources}

@@ -13,7 +13,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "zenzic"
-version = "0.10.4"
+version = "0.11.0"
 description = "Engineering-grade, engine-agnostic static analyzer and credential scanner for Markdown documentation"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -157,6 +157,7 @@ indent-style = "space"
 python_version = "3.10"
 strict = true
 ignore_missing_imports = true
+warn_unused_configs = false
 
 # ─── Pytest ───────────────────────────────────────────────────────────────────
 
@@ -209,3 +210,13 @@ pytest_add_cli_args = ["--import-mode=prepend"]
 # This section removed to prevent governance duplication across version sources.
 # All version bump config now maintained in single .bumpversion.toml file.
 # ────────────────────────────────────────────────────────────────────────────────
+
+[[tool.mypy.overrides]]
+module = [
+    "tests.*",
+    "tests.integrity.*"
+]
+disallow_untyped_defs = false
+check_untyped_defs = false
+disallow_untyped_calls = false
+disallow_incomplete_defs = false

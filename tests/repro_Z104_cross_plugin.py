@@ -124,7 +124,7 @@ class TestReproB_ValidLink:
         )
 
         config = ZenzicConfig(
-            docs_dir="docs",
+            docs_dir="docs",  # type: ignore[arg-type]
             build_context=BuildContext(engine="docusaurus"),
         )
         em = LayeredExclusionManager(config, docs_root=docs, repo_root=repo_root)
@@ -164,7 +164,7 @@ class TestReproC_BrokenLink:
         )
 
         config = ZenzicConfig(
-            docs_dir="docs",
+            docs_dir="docs",  # type: ignore[arg-type]
             build_context=BuildContext(engine="docusaurus"),
         )
         em = LayeredExclusionManager(config, docs_root=docs, repo_root=repo_root)
@@ -192,7 +192,7 @@ class TestReproC_BrokenLink:
         )
 
         config = ZenzicConfig(
-            docs_dir="docs",
+            docs_dir="docs",  # type: ignore[arg-type]
             build_context=BuildContext(engine="docusaurus"),
         )
         em = LayeredExclusionManager(config, docs_root=docs, repo_root=repo_root)
@@ -236,7 +236,7 @@ class TestReproD_SystemExcludedDirs:
         )
 
         config = ZenzicConfig(
-            docs_dir="docs",
+            docs_dir="docs",  # type: ignore[arg-type]
             build_context=BuildContext(engine="docusaurus"),
         )
         em = LayeredExclusionManager(config, docs_root=docs, repo_root=repo_root)

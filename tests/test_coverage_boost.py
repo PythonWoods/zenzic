@@ -537,7 +537,7 @@ class TestShared:
 
     # ── _output_json_findings ─────────────────────────────────────────────────
 
-    def test_output_json_findings_empty(self, capsys: pytest.CaptureFixture) -> None:
+    def test_output_json_findings_empty(self, capsys: pytest.CaptureFixture) -> None:  # type: ignore[type-arg]
         import json
 
         from zenzic.cli._shared import _output_json_findings
@@ -548,7 +548,7 @@ class TestShared:
         assert data["summary"]["errors"] == 0
         assert data["summary"]["elapsed_seconds"] == pytest.approx(0.1, abs=0.01)
 
-    def test_output_json_findings_with_findings(self, capsys: pytest.CaptureFixture) -> None:
+    def test_output_json_findings_with_findings(self, capsys: pytest.CaptureFixture) -> None:  # type: ignore[type-arg]
         import json
 
         from zenzic.cli._shared import _output_json_findings
@@ -579,7 +579,7 @@ class TestShared:
 
     # ── _output_sarif_findings ────────────────────────────────────────────────
 
-    def test_output_sarif_findings_empty(self, capsys: pytest.CaptureFixture) -> None:
+    def test_output_sarif_findings_empty(self, capsys: pytest.CaptureFixture) -> None:  # type: ignore[type-arg]
         import json
 
         from zenzic.cli._shared import _output_sarif_findings
@@ -590,7 +590,7 @@ class TestShared:
         assert data["version"] == "2.1.0"
         assert data["runs"][0]["results"] == []
 
-    def test_output_sarif_findings_with_security(self, capsys: pytest.CaptureFixture) -> None:
+    def test_output_sarif_findings_with_security(self, capsys: pytest.CaptureFixture) -> None:  # type: ignore[type-arg]
         """Cover the security-severity properties branch."""
         import json
 

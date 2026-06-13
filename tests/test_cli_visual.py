@@ -45,7 +45,7 @@ _SANDBOX_ZENSICAL = _HERE / "sandboxes" / "zensical"
 # ---------------------------------------------------------------------------
 
 
-def _invoke_with_errors(errors: list[LinkError]):  # type: ignore[return]
+def _invoke_with_errors(errors: list[LinkError]):
     with (
         patch("zenzic.cli._check.find_repo_root", return_value=_ROOT),
         patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True)),

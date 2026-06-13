@@ -30,7 +30,7 @@ def _examples() -> Path:
     return _examples_root()
 
 
-def _run(code: str) -> tuple[list, int, int]:
+def _run(code: str) -> tuple[list, int, int]:  # type: ignore[type-arg]
     """Return (findings, errors, warnings) for a gallery act.
 
     Runs the act through the same path as ``zenzic lab <code>`` but

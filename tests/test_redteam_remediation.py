@@ -42,11 +42,11 @@ try:
 except ImportError:
     _normalize_line_for_scan = None  # type: ignore[assignment]
     scan_line_for_secrets = None  # type: ignore[assignment]
-    ReferenceScanner = None  # type: ignore[assignment]
+    ReferenceScanner = None  # type: ignore[assignment,misc]
     _map_credential_to_finding = None  # type: ignore[assignment]
-    SecurityFinding = None  # type: ignore[assignment]
-    Finding = None  # type: ignore[assignment]
-    ZenzicReporter = None  # type: ignore[assignment]
+    SecurityFinding = None  # type: ignore[assignment,misc]
+    Finding = None  # type: ignore[assignment,misc]
+    ZenzicReporter = None  # type: ignore[assignment,misc]
     _obfuscate_secret = None  # type: ignore[assignment]
     _CREDENTIALS_AVAILABLE = False
 
@@ -374,7 +374,7 @@ class TestVSMContextAwareResolution:
             source_file=self._DOCS_ROOT / source_rel,
         )
 
-    def _run_with_ctx(self, text: str, vsm: dict, source_rel: str) -> list[Violation]:
+    def _run_with_ctx(self, text: str, vsm: dict, source_rel: str) -> list[Violation]:  # type: ignore[type-arg]
         ctx = self._ctx(source_rel)
         return self._RULE.check_vsm(self._DOCS_ROOT / source_rel, text, vsm, {}, ctx)
 

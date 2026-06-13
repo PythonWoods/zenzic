@@ -27,7 +27,7 @@ def _docusaurus(tmp_path: Path, locales: list[str] | None = None) -> DocusaurusA
     return DocusaurusAdapter(ctx, docs)
 
 
-def _mkdocs(docs_root: Path, config: dict | None = None) -> MkDocsAdapter:
+def _mkdocs(docs_root: Path, config: dict | None = None) -> MkDocsAdapter:  # type: ignore[type-arg]
     return MkDocsAdapter(BuildContext(), docs_root, config or {})
 
 

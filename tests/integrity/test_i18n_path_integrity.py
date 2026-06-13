@@ -48,7 +48,7 @@ def _run(
     tmp_path: Path,
     locale_root: Path,
     locale: str = "it",
-) -> list:
+) -> list:  # type: ignore[type-arg]
     """Run validate_links_structured with a single locale root."""
     docs = tmp_path / "docs"
     docs.mkdir(exist_ok=True)

@@ -251,7 +251,7 @@ def test_build_rule_engine_always_built() -> None:
     config = ZenzicConfig()
     engine = _build_rule_engine(config)
     assert engine is not None
-    rule_ids = {r.rule_id for r in engine._rules}  # type: ignore[attr-defined]
+    rule_ids = {r.rule_id for r in engine._rules}
     assert "Z107" in rule_ids
     assert "Z505" in rule_ids
 
@@ -448,7 +448,7 @@ class TestVSMBrokenLinkRule:
     _RULE = VSMBrokenLinkRule()
     _EMPTY_ANCHORS: dict[Path, set[str]] = {}
 
-    def _run(self, text: str, vsm: dict) -> list[Violation]:
+    def _run(self, text: str, vsm: dict) -> list[Violation]:  # type: ignore[type-arg]
         return self._RULE.check_vsm(_FILE, text, vsm, self._EMPTY_ANCHORS)
 
     # ── check() is a no-op ────────────────────────────────────────────────────
@@ -551,7 +551,7 @@ class TestAdaptiveRuleEngineTortureTest:
             f"/page-{i}/": Route(
                 url=f"/page-{i}/",
                 source=f"page-{i}.md",
-                status="REACHABLE",  # type: ignore[arg-type]
+                status="REACHABLE",
             )
             for i in range(self._N)
         }
@@ -756,7 +756,7 @@ class TestVSMBrokenLinkRuleMutantKill:
     _RULE = VSMBrokenLinkRule()
     _EMPTY_ANCHORS: dict[Path, set[str]] = {}
 
-    def _run(self, text: str, vsm: dict, file_path: Path = _FILE) -> list[Violation]:
+    def _run(self, text: str, vsm: dict, file_path: Path = _FILE) -> list[Violation]:  # type: ignore[type-arg]
         return self._RULE.check_vsm(file_path, text, vsm, self._EMPTY_ANCHORS)
 
     # ── Exact field assertions on violations (kill string mutations) ──────────
@@ -793,7 +793,7 @@ class TestVSMBrokenLinkRuleMutantKill:
 
     def test_unreachable_link_violation_exact_fields(self) -> None:
         """UNREACHABLE status emits error — kills `not in ("REACHABLE",)` mutations."""
-        vsm = {"/page/": Route(url="/page/", source="page.md", status="UNREACHABLE")}
+        vsm = {"/page/": Route(url="/page/", source="page.md", status="UNREACHABLE")}  # type: ignore[arg-type]
         violations = self._run("[Page](page.md)", vsm)
         assert len(violations) == 1
         v = violations[0]
@@ -805,7 +805,7 @@ class TestVSMBrokenLinkRuleMutantKill:
 
     def test_custom_status_not_reachable_emits_error(self) -> None:
         """Any status other than REACHABLE should trigger an error."""
-        vsm = {"/page/": Route(url="/page/", source="page.md", status="SOME_OTHER_STATUS")}
+        vsm = {"/page/": Route(url="/page/", source="page.md", status="SOME_OTHER_STATUS")}  # type: ignore[arg-type]
         violations = self._run("[Page](page.md)", vsm)
         assert len(violations) == 1
         assert violations[0].code == "Z101"
@@ -827,7 +827,7 @@ class TestVSMBrokenLinkRuleMutantKill:
 
     def test_unreachable_violation_carries_file_path(self) -> None:
         custom_file = Path("docs/other.md")
-        vsm = {"/target/": Route(url="/target/", source="target.md", status="BLOCKED")}
+        vsm = {"/target/": Route(url="/target/", source="target.md", status="BLOCKED")}  # type: ignore[arg-type]
         violations = self._run("[T](target.md)", vsm, file_path=custom_file)
         assert len(violations) == 1
         assert violations[0].file_path == custom_file
@@ -949,7 +949,7 @@ class TestVSMBrokenLinkRuleMutantKill:
 
     def test_unreachable_violation_all_fields_precise(self) -> None:
         """Assert every field of UNREACHABLE violation, including line_no and context."""
-        vsm = {"/page/": Route(url="/page/", source="page.md", status="UNREACHABLE")}
+        vsm = {"/page/": Route(url="/page/", source="page.md", status="UNREACHABLE")}  # type: ignore[arg-type]
         text = "Lead text.\n\n[Check](page.md)\n"
         violations = self._run(text, vsm)
         assert len(violations) == 1
@@ -1758,7 +1758,7 @@ def _meta(
     release: str = "NextRelease",
     exclude: list[str] | None = None,
 ) -> ProjectMetadata:
-    kwargs: dict = {"release_name": release, "obsolete_names": obsolete or []}
+    kwargs: dict = {"release_name": release, "obsolete_names": obsolete or []}  # type: ignore[type-arg]
     if exclude is not None:
         kwargs["obsolete_names_exclude_patterns"] = exclude
     return ProjectMetadata(**kwargs)

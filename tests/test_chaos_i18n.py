@@ -23,7 +23,7 @@ from zenzic.models.config import ZenzicConfig
 # ─── ISO 639-1 guard in _extract_i18n_locale_patterns ────────────────────────
 
 
-def _suffix_config(*locales: str, default: str = "en") -> dict:
+def _suffix_config(*locales: str, default: str = "en") -> dict:  # type: ignore[type-arg]
     """Build a minimal mkdocs.yml-style plugin config for suffix mode."""
     languages = [{"locale": default, "default": True}]
     languages += [{"locale": loc} for loc in locales]

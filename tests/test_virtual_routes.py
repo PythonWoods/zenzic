@@ -139,20 +139,20 @@ class TestDocusaurusTagGenerator:
         adapter = DocusaurusAdapter.from_repo(BuildContext(engine="docusaurus"), docs, repo)
         md = {post.resolve(): post.read_text(encoding="utf-8")}
         vrs = adapter.get_virtual_routes(md)
-        by_url = {vr.url: vr for vr in vrs}
+        by_url = {vr.url: vr for vr in vrs}  # type: ignore[attr-defined]
 
         # tag routes
         assert "/blog/tags/python/" in by_url
         assert "/blog/tags/tutorial/" in by_url
-        assert by_url["/blog/tags/python/"].kind == "tag"
-        assert by_url["/blog/tags/tutorial/"].kind == "tag"
-        assert by_url["/blog/tags/python/"].source_files == frozenset({"blog/2026-04-12-post.md"})
-        assert by_url["/blog/tags/tutorial/"].source_files == frozenset({"blog/2026-04-12-post.md"})
+        assert by_url["/blog/tags/python/"].kind == "tag"  # type: ignore[attr-defined]
+        assert by_url["/blog/tags/tutorial/"].kind == "tag"  # type: ignore[attr-defined]
+        assert by_url["/blog/tags/python/"].source_files == frozenset({"blog/2026-04-12-post.md"})  # type: ignore[attr-defined]
+        assert by_url["/blog/tags/tutorial/"].source_files == frozenset({"blog/2026-04-12-post.md"})  # type: ignore[attr-defined]
 
         # tag_index route
         assert "/blog/tags/" in by_url
-        assert by_url["/blog/tags/"].kind == "tag_index"
-        assert "blog/2026-04-12-post.md" in by_url["/blog/tags/"].source_files
+        assert by_url["/blog/tags/"].kind == "tag_index"  # type: ignore[attr-defined]
+        assert "blog/2026-04-12-post.md" in by_url["/blog/tags/"].source_files  # type: ignore[attr-defined]
 
     def test_untagged_post_produces_no_routes(self, tmp_path: Path) -> None:
         docs, repo = _build_sandbox(tmp_path)
@@ -192,13 +192,13 @@ class TestDocusaurusTagGenerator:
             post_b.resolve(): post_b.read_text(encoding="utf-8"),
         }
         vrs = adapter.get_virtual_routes(md)
-        by_url = {vr.url: vr for vr in vrs}
+        by_url = {vr.url: vr for vr in vrs}  # type: ignore[attr-defined]
 
         python_route = by_url["/blog/tags/python/"]
-        assert python_route.source_files == frozenset(
+        assert python_route.source_files == frozenset(  # type: ignore[attr-defined]
             {"blog/2026-04-12-post-a.md", "blog/2026-04-13-post-b.md"}
         )
 
         tag_index = by_url["/blog/tags/"]
-        assert "blog/2026-04-12-post-a.md" in tag_index.source_files
-        assert "blog/2026-04-13-post-b.md" in tag_index.source_files
+        assert "blog/2026-04-12-post-a.md" in tag_index.source_files  # type: ignore[attr-defined]
+        assert "blog/2026-04-13-post-b.md" in tag_index.source_files  # type: ignore[attr-defined]

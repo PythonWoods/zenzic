@@ -36,7 +36,7 @@ def _make_docs(root: Path, files: dict[str, str]) -> None:
         p.write_text(content, encoding="utf-8")
 
 
-def _write_mkdocs(root: Path, config: dict) -> None:
+def _write_mkdocs(root: Path, config: dict) -> None:  # type: ignore[type-arg]
     with (root / "mkdocs.yml").open("w", encoding="utf-8") as f:
         yaml.dump(config, f, default_flow_style=False, allow_unicode=True)
 
@@ -121,7 +121,7 @@ class TestDetectCollisions:
 
 
 class TestMkDocsAdapterMapUrl:
-    def _make_adapter(self, config: dict | None = None) -> MkDocsAdapter:
+    def _make_adapter(self, config: dict | None = None) -> MkDocsAdapter:  # type: ignore[type-arg]
         ctx = BuildContext()
         return MkDocsAdapter(ctx, Path("/docs"), config or {})
 
@@ -231,7 +231,7 @@ _NAV_PATHS = frozenset({"index.md"})
 class TestGhostRouteReconfigureMaterial:
     """Dev 4 mandated Ghost Route integration tests."""
 
-    def _make_adapter(self, config: dict) -> MkDocsAdapter:
+    def _make_adapter(self, config: dict) -> MkDocsAdapter:  # type: ignore[type-arg]
         ctx = BuildContext()
         return MkDocsAdapter(ctx, Path("/docs"), config)
 
@@ -373,11 +373,14 @@ class TestZensicalAdapterMapUrl:
 
 class TestBuildVsm:
     def _adapter_and_contents(
-        self, tmp_path: Path, files: dict[str, str], nav: list | None = None
+        self,
+        tmp_path: Path,
+        files: dict[str, str],
+        nav: list | None = None,  # type: ignore[type-arg]
     ) -> tuple[MkDocsAdapter, Path, dict[Path, str]]:
         _make_docs(tmp_path, files)
         docs_root = (tmp_path / "docs").resolve()
-        cfg: dict = {"nav": nav} if nav is not None else {}
+        cfg: dict = {"nav": nav} if nav is not None else {}  # type: ignore[type-arg]
         adapter = MkDocsAdapter(BuildContext(), docs_root, cfg)
         md_contents = {(docs_root / rel).resolve(): content for rel, content in files.items()}
         return adapter, docs_root, md_contents

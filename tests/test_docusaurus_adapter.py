@@ -932,7 +932,7 @@ class TestPathnameProtocolSupport:
             encoding="utf-8",
         )
         config = ZenzicConfig(
-            docs_dir="docs",
+            docs_dir="docs",  # type: ignore[arg-type]
             build_context=BuildContext(engine="docusaurus"),
         )
         em = LayeredExclusionManager(config, docs_root=docs, repo_root=tmp_path)
@@ -956,7 +956,7 @@ class TestPathnameProtocolSupport:
             encoding="utf-8",
         )
         config = ZenzicConfig(
-            docs_dir="docs",
+            docs_dir="docs",  # type: ignore[arg-type]
             build_context=BuildContext(engine="mkdocs"),
         )
         em = LayeredExclusionManager(config, docs_root=docs, repo_root=tmp_path)
@@ -1484,7 +1484,7 @@ class TestZ105AdapterDrivenSuppression:
             encoding="utf-8",
         )
         config = ZenzicConfig(
-            docs_dir="docs",
+            docs_dir="docs",  # type: ignore[arg-type]
             build_context=BuildContext(engine="docusaurus"),
         )
         em = LayeredExclusionManager(config, docs_root=docs, repo_root=tmp_path)
@@ -1506,7 +1506,7 @@ class TestZ105AdapterDrivenSuppression:
             encoding="utf-8",
         )
         config = ZenzicConfig(
-            docs_dir="docs",
+            docs_dir="docs",  # type: ignore[arg-type]
             build_context=BuildContext(engine="docusaurus"),
         )
         em = LayeredExclusionManager(config, docs_root=docs, repo_root=tmp_path)
@@ -1534,7 +1534,7 @@ class TestZ105AdapterDrivenSuppression:
             encoding="utf-8",
         )
         config = ZenzicConfig(
-            docs_dir="docs",
+            docs_dir="docs",  # type: ignore[arg-type]
             build_context=BuildContext(engine="docusaurus"),
         )
         em = LayeredExclusionManager(config, docs_root=docs, repo_root=tmp_path)

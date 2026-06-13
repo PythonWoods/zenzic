@@ -26,7 +26,7 @@ from zenzic.core.validator import (
 from zenzic.models.config import ZenzicConfig
 
 
-def _ul(links: list) -> list[tuple[str, int]]:
+def _ul(links: list) -> list[tuple[str, int]]:  # type: ignore[type-arg]
     """Extract (url, lineno) pairs for easy assertion comparison."""
     return [(link.url, link.lineno) for link in links]
 
@@ -642,7 +642,7 @@ class TestAssetPreMap:
 
         original_exists = Path.exists
 
-        def spy_exists(self: Path) -> bool:  # type: ignore[override]
+        def spy_exists(self: Path) -> bool:
             call_log.append(str(self))
             return original_exists(self)
 
