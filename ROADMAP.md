@@ -115,6 +115,12 @@ For the current release history, see [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
+## v0.12.0 — The Static Purity Pivot (planned)
+
+**Strategic Focus:** Deepen native support for Pure Static Engines (MkDocs, Sphinx, Hugo) where AST parsing guarantees 100% deterministic accuracy without bundler interference.
+
+---
+
 ## v1.0.0 — Graphite LTS (planned)
 
 **Theme:** Long-Term Support release. Stability, portability, and production confidence.
