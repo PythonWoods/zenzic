@@ -183,3 +183,7 @@ Desktop.ini
 # AI Agent Private Memory
 .clinerules
 .github/agents/
+
+# AI Agents Configuration
+.github/agents/
+.clinerules
