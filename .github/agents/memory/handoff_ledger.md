@@ -11,9 +11,9 @@
 ## 1. CURRENT STATE (CRISTALLIZZATO)
 
 - **Versioning Law:** `zenzic` and `zenzic-doc` MUST share the exact same SemVer (e.g., v0.10.x). `zenzic-action` has an independent lifecycle (e.g., v1.x.y) but its `action.yml` default MUST point to the latest Core version.
-- **Core Engine:** `v0.12.0-prep`
-- **Documentation:** `v0.12.0-prep`
-- **GitHub Action:** `v1.4.0` (Floating tag `@v1` forced to this commit)
+- **Core Engine:** `v0.12.0 (Stable)`
+- **Documentation:** `v0.12.0 (Stable)`
+- **GitHub Action:** `v2.0.0 (Stable)` (Floating tag `@v2` forced to this commit)
 - **Documentation:** Diátaxis framework strictly enforced. Legacy `<ZenzicOutput>` eradicated, 100% `<ZenzicTerminal>` usage.
 - **Governance:** Enterprise-grade. DCO (`-s`) and Cryptographic Signatures (`-S`) are mandatory and enforced by GitHub Branch Protection. PRs require an approved Issue (Issue-First Policy).
 
