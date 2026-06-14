@@ -320,12 +320,29 @@ def score(
 
         total_category_penalties = 0
         for cat in report.categories:
-            if cat.issues == 0:
+            # Split issues into punitive (penalty > 0) vs. informational (penalty == 0).
+            from zenzic.core.scorer import _CODE_CATEGORY, _CODE_PENALTY
+
+            info_issue_count = sum(
+                count
+                for code, count in report.findings_counts.items()
+                if _CODE_CATEGORY.get(code) == cat.name
+                and count > 0
+                and _CODE_PENALTY.get(code, 0.0) == 0.0
+            )
+            punitive_issue_count = cat.issues - info_issue_count
+
+            if punitive_issue_count > 0:
+                status_icon = f"[red]{emoji('cross')}[/]"
+                issue_display = f"[red]{punitive_issue_count}[/]"
+                if info_issue_count > 0:
+                    issue_display += f" [dim](+ {info_issue_count} info)[/dim]"
+            elif info_issue_count > 0:
+                status_icon = f"[green]{emoji('check')}[/]"
+                issue_display = f"[dim]{info_issue_count} info[/dim]"
+            else:
                 status_icon = f"[green]{emoji('check')}[/]"
                 issue_display = f"[green]{cat.issues}[/]"
-            else:
-                status_icon = f"[red]{emoji('cross')}[/]"
-                issue_display = f"[red]{cat.issues}[/]"
             raw_pts = round(cat.raw_penalty)
             raw_display = f"-{raw_pts}" if raw_pts > 0 else "0"
             applied_penalty = round(cat.weight * 100 - cat.contribution * 100)
@@ -556,6 +573,12 @@ def score(
                 changed_audit = _stamp_file(p, _AUDIT_STAMP_MARKER, audit_url)
             if changed_score or changed_audit:
                 _shared.console.print(f"[dim]Badge stamped → {p}[/]")
+                _shared.console.print(
+                    f"\n[bold yellow]NOTICE:[/bold yellow] The DQS badge in "
+                    f"[bold]{p.name}[/bold] was out of date and has been automatically "
+                    f"updated. Pre-commit will exit with 1 to allow staging.\n"
+                    f"  [dim]→ Run:[/dim] [bold]git add {p}[/bold] and commit again."
+                )
         if not found_any:
             _shared.stderr_console.print(
                 "[red]--stamp: no recognized stamp markers found in any configured file "
