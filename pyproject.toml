@@ -58,7 +58,6 @@ dependencies = [
 zenzic = "zenzic.main:cli_main"
 
 [project.entry-points."zenzic.adapters"]
-docusaurus = "zenzic.core.adapters:DocusaurusAdapter"
 mkdocs     = "zenzic.core.adapters:MkDocsAdapter"
 zensical   = "zenzic.core.adapters:ZensicalAdapter"
 standalone = "zenzic.core.adapters:StandaloneAdapter"

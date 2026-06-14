@@ -187,3 +187,6 @@ Desktop.ini
 # AI Agents Configuration
 .github/agents/
 .clinerules
+
+# Architect Planning Sandbox
+.architect/
