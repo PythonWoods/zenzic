@@ -885,11 +885,12 @@ async def validate_links_async(
     # Instantiating inside the file loop would regenerate the map N times,
     # cancelling the 14× performance gain from the pre-computed flat dict.
     # allowed_roots extends the credential scanner boundary to authorised locale directories.
+    resolver_repo_root = repo_root
     resolver = InMemoryPathResolver(
         docs_root,
         md_contents,
         anchors_cache,
-        repo_root=repo_root,
+        repo_root=resolver_repo_root,
         allowed_roots=_allowed_roots,
     )
 
@@ -897,11 +898,6 @@ async def validate_links_async(
     # The VSM maps every .md file to its canonical URL and routing status.
     # It is only meaningful when the adapter has a nav (MkDocs with mkdocs.yml);
     # for StandaloneAdapter / Zensical every file is REACHABLE by definition.
-    #
-    # v0.7.x: populate the adapter's slug map BEFORE building the VSM so that
-    # ``map_url()`` resolves frontmatter ``slug:`` overrides correctly.
-    # Without this call the slug map is empty and all blog URLs are derived from
-    # the physical filename — mismatching the URLs that Docusaurus actually serves.
     #
 
     vsm = build_vsm(
@@ -1131,6 +1127,17 @@ async def validate_links_async(
                     if path_part.startswith("/"):
                         asset_str = os.path.normpath(
                             str(docs_root) + os.sep + path_part.lstrip("/")
+                        )
+                    elif path_part.startswith("@site/docs/"):
+                        # Docusaurus alias: @site/docs/ maps to docs_root.
+                        asset_str = os.path.normpath(
+                            str(docs_root) + os.sep + path_part[len("@site/docs/") :]
+                        )
+                    elif path_part.startswith("@site/"):
+                        # Docusaurus alias: @site/ maps to repo_root (site_root in monorepos).
+                        # known_assets is built from repo_root so this resolves correctly.
+                        asset_str = os.path.normpath(
+                            str(resolver_repo_root) + os.sep + path_part[len("@site/") :]
                         )
                     else:
                         asset_str = os.path.normpath(str(md_file.parent) + os.sep + path_part)

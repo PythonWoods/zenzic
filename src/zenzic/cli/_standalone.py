@@ -1109,7 +1109,7 @@ def init(
         None,
         "--engine",
         help=(
-            "Override the build engine adapter (mkdocs, zensical, docusaurus, standalone). "
+            "Override the build engine adapter (mkdocs, zensical, standalone). "
             "Auto-detected from project files when omitted."
         ),
         metavar="ENGINE",
@@ -1181,7 +1181,7 @@ def init(
         _shared.print_footer_hint("init")
         return
 
-    _INIT_VALID_ENGINES = {"mkdocs", "zensical", "docusaurus", "standalone"}
+    _INIT_VALID_ENGINES = {"mkdocs", "zensical", "standalone"}
     if engine is not None and engine not in _INIT_VALID_ENGINES:
         _shared.console.print(
             f"[red]✘ ERROR:[/] Unknown engine [bold]{engine!r}[/]. "

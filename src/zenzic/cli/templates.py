@@ -66,7 +66,7 @@ GLOBAL_TOML_TEMPLATE: str = (
     "# --- ENGINE CONTEXT ---\n"
     "[build_context]\n"
     'engine         = "{engine}"'
-    " # Supported: docusaurus, mkdocs, zensical, standalone\n"
+    " # Supported: mkdocs, zensical, standalone\n"
     'base_url       = "/"\n'
     'default_locale = "en"\n'
     "\n"
@@ -164,7 +164,7 @@ GLOBAL_TOML_TEMPLATE: str = (
     "# strict_parity = true\n"
     '# require_frontmatter_parity = ["title", "description"]\n'
     "# [i18n.targets]\n"
-    '# it = "i18n/it/docusaurus-plugin-content-docs/current"\n'
+    '# it = "docs-it"\n'
     "\n"
     "# --- GATE 4: CI/CD (GitHub Actions, Optional) ---\n"
     "# Add this workflow snippet to .github/workflows/zenzic.yml\n"
@@ -242,7 +242,7 @@ LOCAL_TOML_TEMPLATE: str = (
     "# ---------------------------------------------------------------------------\n"
     "# Mirrors global structure for safe local overrides only when needed.\n"
     "#\n"
-    '# engine = "docusaurus"\n'
+    '# engine = "zensical"\n'
     '# base_url = "/"\n'
     '# default_locale = "en"\n'
     "\n"
@@ -356,7 +356,7 @@ PYPROJECT_TOML_SECTION_TEMPLATE: str = (
     "\n"
     "[tool.zenzic.build_context]\n"
     "# engine — auto-detected from project files; override with --engine if needed.\n"
-    "#   Supported: docusaurus, mkdocs, zensical, standalone\n"
+    "#   Supported: mkdocs, zensical, standalone\n"
     'engine         = "{engine}"\n'
     'base_url       = "/"\n'
     'default_locale = "en"\n'
@@ -407,7 +407,7 @@ PYPROJECT_TOML_SECTION_TEMPLATE: str = (
     "# strict_parity = true\n"
     '# require_frontmatter_parity = ["title", "description"]\n'
     "# [tool.zenzic.i18n.targets]\n"
-    '# it = "i18n/it/docusaurus-plugin-content-docs/current"\n'
+    '# it = "docs-it"\n'
     "\n"
     "# --- CUSTOM RULES (Optional) ---\n"
     "# Declares project-specific regex-based lint rules applied line-by-line.\n"
