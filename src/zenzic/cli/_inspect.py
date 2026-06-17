@@ -141,13 +141,6 @@ def _inspect_capabilities() -> None:
 
     _BYPASS_ROWS = [
         (
-            "docusaurus",
-            "DocusaurusAdapter",
-            Text.from_markup(
-                f"[bold]pathname:[/bold]  [{ZenzicPalette.DIM}](static-asset routing escape hatch)[/{ZenzicPalette.DIM}]"
-            ),
-        ),
-        (
             "mkdocs",
             "MkDocsAdapter",
             Text.from_markup(f"[{ZenzicPalette.DIM}](none)[/{ZenzicPalette.DIM}]"),

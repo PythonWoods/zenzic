@@ -1264,7 +1264,7 @@ def test_init_engine_flag_invalid(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
     result = runner.invoke(app, ["init", "--engine", "hugo"])
     assert result.exit_code == 1
     assert "hugo" in result.stdout
-    assert "docusaurus" in result.stdout  # valid engine listed in error
+    assert "mkdocs" in result.stdout  # valid engine listed in error
 
 
 def test_init_pyproject_engine_flag_override(
@@ -1277,11 +1277,11 @@ def test_init_pyproject_engine_flag_override(
     (repo / "pyproject.toml").write_text('[project]\nname = "x"\n', encoding="utf-8")
     monkeypatch.chdir(repo)
 
-    result = runner.invoke(app, ["init", "--pyproject", "--engine", "docusaurus"])
+    result = runner.invoke(app, ["init", "--pyproject", "--engine", "zensical"])
     assert result.exit_code == 0
 
     content = (repo / "pyproject.toml").read_text(encoding="utf-8")
-    assert 'engine         = "docusaurus"' in content
+    assert 'engine         = "zensical"' in content
     assert "(manually specified via --engine)" in result.stdout
 
 
@@ -1399,8 +1399,7 @@ def test_inspect_capabilities_shows_bypass_table() -> None:
     result = runner.invoke(app, ["inspect", "capabilities"])
     assert result.exit_code == 0
     assert "Engine-specific Link Bypasses" in result.stdout
-    assert "pathname:" in result.stdout
-    assert "docusaurus" in result.stdout
+    assert "zensical" in result.stdout
     assert "R21" in result.stdout
 
 
