@@ -11,6 +11,11 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [0.13.0] - Unreleased
 
+### Added
+
+- **Active Defense:** Implemented strict TOML schema validation to instantly detect and reject root keys silently swallowed by nested `[tables]` in `.zenzic.toml` and `pyproject.toml`.
+- **D.I.A. Compliance:** Added the "TOML Root Key Law" documentation enforcing explicit ordering for configuration boundaries.
+
 ### Changed
 
 - **Engine-Neutral Configuration Templates:** Removed Docusaurus from initialized `.zenzic.toml` templates and CLI help descriptions, defaulting to `mkdocs` and `zensical`.

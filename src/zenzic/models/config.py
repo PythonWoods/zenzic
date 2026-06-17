@@ -766,13 +766,17 @@ class ZenzicConfig(BaseModel):
             for table in tables_to_check:
                 swallowed = set(table.keys()) & root_keys
                 if swallowed:
+                    from rich.markup import escape
+
                     from zenzic.core.exceptions import ConfigurationError
 
                     swallowed_key = next(iter(swallowed))
+                    table_str = escape(f"[{table_name}]")
+                    tables_str = escape("[tables]")
                     raise ConfigurationError(
                         f"FATAL CONFIGURATION ERROR: The root key '{swallowed_key}' was found inside "
-                        f"the '[{table_name}]' section. In TOML, root keys must be declared at the "
-                        f"absolute top of the file before any [tables] are opened."
+                        f"the '{table_str}' section. In TOML, root keys must be declared at the "
+                        f"absolute top of the file before any {tables_str} are opened."
                     )
 
     @classmethod
