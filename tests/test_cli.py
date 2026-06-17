@@ -1833,3 +1833,27 @@ def test_check_all_progress_bar_activation(
         content_roots=ANY,
         show_progress=False,
     )
+
+
+def test_templates_root_keys_not_swallowed() -> None:
+    """Ensure root keys like excluded_dirs are not swallowed by tables in TOML templates."""
+    import re
+
+    import tomllib
+
+    from zenzic.cli.templates import GLOBAL_TOML_TEMPLATE, LOCAL_TOML_TEMPLATE
+
+    # Test global template: we uncomment specific root keys to ensure they parse into the root dict.
+    for key in ["excluded_dirs", "forbidden_patterns", "plugins", "docs_dir"]:
+        # Uncomment the key
+        template = re.sub(rf"(?m)^#\s*({key}\s*=.*)", r"\1", GLOBAL_TOML_TEMPLATE)
+        template = template.format(engine="standalone", hint_name="test")
+
+        data = tomllib.loads(template)
+        assert key in data, f"'{key}' was swallowed by a table in GLOBAL_TOML_TEMPLATE!"
+
+    # Test local template: forbidden_patterns is already uncommented
+    local_data = tomllib.loads(LOCAL_TOML_TEMPLATE)
+    assert "forbidden_patterns" in local_data, (
+        "'forbidden_patterns' was swallowed in LOCAL_TOML_TEMPLATE!"
+    )
