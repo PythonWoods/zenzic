@@ -728,6 +728,53 @@ class ZenzicConfig(BaseModel):
             filtered_data["i18n"] = I18nConfig(extra_sources=extra, **i18n_filtered)
         return cls(**filtered_data)
 
+    @staticmethod
+    def _validate_no_swallowed_root_keys(data: dict[str, Any]) -> None:
+        """Active Defense: intercept root keys swallowed by TOML tables."""
+        root_keys = frozenset(
+            {
+                "docs_dir",
+                "strict",
+                "fail_under",
+                "exit_zero",
+                "respect_vcs_ignore",
+                "validate_same_page_anchors",
+                "excluded_external_urls",
+                "forbidden_patterns",
+                "excluded_dirs",
+                "placeholder_patterns",
+                "placeholder_max_words",
+                "snippet_min_lines",
+                "excluded_file_patterns",
+                "excluded_assets",
+                "excluded_asset_dirs",
+                "excluded_build_artifacts",
+                "included_dirs",
+                "included_file_patterns",
+                "plugins",
+                "custom_rules",
+            }
+        )
+
+        for table_name, value in data.items():
+            tables_to_check = []
+            if isinstance(value, dict):
+                tables_to_check.append(value)
+            elif isinstance(value, list) and value and isinstance(value[0], dict):
+                tables_to_check.extend(value)
+
+            for table in tables_to_check:
+                swallowed = set(table.keys()) & root_keys
+                if swallowed:
+                    from zenzic.core.exceptions import ConfigurationError
+
+                    swallowed_key = next(iter(swallowed))
+                    raise ConfigurationError(
+                        f"FATAL CONFIGURATION ERROR: The root key '{swallowed_key}' was found inside "
+                        f"the '[{table_name}]' section. In TOML, root keys must be declared at the "
+                        f"absolute top of the file before any [tables] are opened."
+                    )
+
     @classmethod
     def load(cls, repo_root: Path) -> tuple[ZenzicConfig, bool]:
         """Load configuration following the Agnostic Citizen priority chain.
@@ -770,6 +817,7 @@ class ZenzicConfig(BaseModel):
                     "Fix the TOML syntax error and re-run Zenzic.",
                     context={"config_path": str(zenzic_toml)},
                 ) from exc
+            cls._validate_no_swallowed_root_keys(data)
             config = cls._build_from_data(data)
             cls._apply_local_toml(config, repo_root)
             return config, True
@@ -791,6 +839,7 @@ class ZenzicConfig(BaseModel):
             tool_section = pyproject_data.get("tool", {})
             zenzic_section = tool_section.get("zenzic", {})
             if zenzic_section:
+                cls._validate_no_swallowed_root_keys(zenzic_section)
                 config = cls._build_from_data(zenzic_section)
                 cls._apply_local_toml(config, repo_root)
                 return config, True
