@@ -13,11 +13,14 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
-- Full documentation migration to Zensical/MkDocs.
+- **Engine-Neutral Configuration Templates:** Removed Docusaurus from initialized `.zenzic.toml` templates and CLI help descriptions, defaulting to `mkdocs` and `zensical`.
+- **Simplification of VSM Routing:** Eradicated Docusaurus-specific slug map initialization and routing rules during Virtual Site Map (VSM) construction.
+- **Improved Resolver Robustness:** Standardized site root resolution and monorepo path checks inside `InMemoryPathResolver`.
+- **Full documentation migration to Zensical/MkDocs.**
 
 ### Fixed
 
-- REUSE compliance updates and Z-Code parity fixes across the bilingual documentation.
+- **REUSE compliance updates and Z-Code parity fixes across the bilingual documentation.**
 
 ---
 
