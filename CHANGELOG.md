@@ -9,6 +9,20 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.13.0] - Unreleased
+
+### Removed
+
+- Docusaurus adapter eradication.
+
+### Changed
+
+- Full documentation migration to Zensical/MkDocs.
+
+### Fixed
+
+- REUSE compliance updates and Z-Code parity fixes.
+
 ## [0.12.0] - 2026-06-13
 
 ### Removed
