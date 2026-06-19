@@ -9,6 +9,14 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.13.1] - 2026-06-19
+
+### Fixed
+
+- **SARIF Formatter Bypass:** Fixed a critical bug in `check` where the SARIF JSON output bypassed `per_file_ignores` and `directory_policies` filtering. Zenzic now correctly applies governance exclusions to the SARIF output, ensuring only active (unsuppressed) findings are exported to GitHub Advanced Security.
+
+---
+
 ## [0.13.0] - 2026-06-19
 
 ### Added
