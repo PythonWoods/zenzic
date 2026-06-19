@@ -2013,8 +2013,12 @@ def test_check_all_progress_bar_activation(
 def test_templates_root_keys_not_swallowed() -> None:
     """Ensure root keys like excluded_dirs are not swallowed by tables in TOML templates."""
     import re
+    import sys
 
-    import tomllib
+    if sys.version_info >= (3, 11):
+        import tomllib
+    else:
+        import tomli as tomllib
 
     from zenzic.cli.templates import GLOBAL_TOML_TEMPLATE, LOCAL_TOML_TEMPLATE
 
