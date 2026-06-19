@@ -125,6 +125,16 @@ Tactical Bridge: zenzic-doc will migrate to MkDocs Material to immediately resto
 
 ---
 
+## v0.14.0 — The Bridge (planned)
+
+**Theme:** Inversion of Control via TS Plugins.
+
+### Planned
+
+- **The Bridge Architecture (Inversion of Control)**: Implementation of ADR-080. Introduces the PrebuiltVSMAdapter to ingest static `.zenzic-vsm.json` routing payloads from dynamic frameworks, and initializes the `@zenzic/plugin-docusaurus` TypeScript bridge.
+
+---
+
 ## v1.0.0 — Graphite LTS (planned)
 
 **Theme:** Long-Term Support release. Stability, portability, and production confidence.

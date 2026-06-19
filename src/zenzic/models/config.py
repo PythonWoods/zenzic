@@ -125,7 +125,7 @@ class BuildContext(BaseModel):
     asset and page paths correctly.
     """
 
-    engine: Literal["mkdocs", "zensical", "standalone", "auto"] = Field(
+    engine: Literal["prebuilt", "vsm", "mkdocs", "zensical", "standalone", "auto"] = Field(
         default="auto",
         description="The build engine used by the documentation. Can be 'mkdocs', 'zensical', 'standalone', or 'auto'.",
     )
