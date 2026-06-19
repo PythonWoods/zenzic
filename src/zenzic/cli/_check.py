@@ -1583,6 +1583,8 @@ def check_all(
 
         with sovereign_context(force_audit=audit):
             all_findings = _to_findings(results, docs_root, repo_root)
+            all_findings = _apply_per_file_ignores(all_findings, config)
+            all_findings = _apply_directory_policies(all_findings, config)
         _shared._output_sarif_findings(all_findings, __version__)
         incidents = sum(1 for f in all_findings if f.severity == "security_incident")
         if incidents:
