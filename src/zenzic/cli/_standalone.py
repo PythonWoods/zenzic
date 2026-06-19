@@ -732,6 +732,24 @@ def diff(
     current = _run_all_checks(repo_root, docs_root, config, exclusion_mgr, strict=config.strict)
     delta = current.score - baseline.score
 
+    # ── FATAL / HALT semantic detection ──────────────────────────────────────
+    # Z0xx (config abort) and Z2xx (security) collapse score to 0 unconditionally.
+    from zenzic.core.codes import CODE_DEFINITIONS
+
+    _fatal_codes = sorted(
+        c for c in current.findings_counts if c.startswith("Z0") or c.startswith("Z2")
+    )
+    has_fatal = bool(_fatal_codes) or current.security_override
+    # warnings with 0.0 penalty = governance gate / pipeline block (e.g. Z504).
+    _halt_codes = sorted(
+        c
+        for c in current.findings_counts
+        if CODE_DEFINITIONS.get(c)
+        and CODE_DEFINITIONS[c].severity == "warning"
+        and CODE_DEFINITIONS[c].penalty == 0.0
+    )
+    has_halt = bool(_halt_codes) and not has_fatal
+
     if output_format == "json":
         print(
             json.dumps(
@@ -739,6 +757,10 @@ def diff(
                     "baseline": baseline.score,
                     "current": current.score,
                     "delta": delta,
+                    "fatal_override": has_fatal,
+                    "fatal_codes": _fatal_codes,
+                    "halt": has_halt,
+                    "halt_codes": _halt_codes,
                     "categories": [
                         {
                             "name": cat.name,
@@ -844,9 +866,18 @@ def diff(
             subtotal_delta_display,
         )
 
+        if has_fatal:
+            _codes_hint = f" ({', '.join(_fatal_codes)})" if _fatal_codes else ""
+            _current_score_display = f"[bold red]{current.score}/100 \u26d4 FATAL{_codes_hint}[/]"
+        elif has_halt:
+            _codes_hint = f" ({', '.join(_halt_codes)})" if _halt_codes else ""
+            _current_score_display = f"[bold red]{current.score}/100 \u26a0 HALT{_codes_hint}[/]"
+        else:
+            _current_score_display = f"[bold {delta_colour}]{current.score}/100[/]"
+
         body = Text.from_markup(
             f"  Baseline Score: [bold]{baseline.score}/100[/]   "
-            f"Current Score: [bold {delta_colour}]{current.score}/100[/]   "
+            f"Current Score: {_current_score_display}   "
             f"Delta: [{delta_colour}]{sign}{delta}[/]\n"
         )
         _shared.console.print()
@@ -868,7 +899,25 @@ def diff(
             f"  Baseline: 100 - {total_base_penalties} = {baseline.score}\n"
             f"  Current:  100 - {total_curr_penalties} = {current.score}"
         )
+        if has_fatal:
+            _codes_str = ", ".join(_fatal_codes) if _fatal_codes else "security override"
+            _shared.console.print(
+                f"\n[bold red]\u26d4 FATAL OVERRIDE:[/bold red]"
+                f" current state contains pipeline-blocking codes ([bold]{_codes_str}[/bold])."
+                f" Score collapses to 0 \u2014 pipeline halted non-suppressibly."
+            )
+        elif has_halt:
+            _shared.console.print(
+                f"\n[bold red]\u26a0 HALT:[/bold red]"
+                f" current state contains {len(_halt_codes)} pipeline-blocking"
+                f" warning(s) ([bold]{', '.join(_halt_codes)}[/bold]). CI pipeline blocked."
+            )
         _shared.console.print()
+
+    if has_fatal:
+        raise typer.Exit(2)
+    if has_halt:
+        raise typer.Exit(1)
 
     dropped = -delta
     if dropped > threshold:
@@ -932,15 +981,41 @@ def explain(
     meta_table.add_row("Rule", f"[bold cyan]{rule_id}[/] — {name}")
     meta_table.add_row("Description", description)
     meta_table.add_row("Severity", f"[{'red' if severity == 'error' else 'yellow'}]{severity}[/]")
+    from zenzic.core.codes import CODE_DEFINITIONS as _CODE_DEFS
+
+    _defn = _CODE_DEFS.get(rule_id)
+    _is_fatal = rule_id.startswith("Z0") or rule_id.startswith("Z2")
+    _is_halt = (
+        _defn is not None and _defn.severity == "warning" and _defn.penalty == 0.0 and not _is_fatal
+    )
+
     if is_security:
         meta_table.add_row(
             "Scoring Tier", "[bold red]SECURITY GATE[/] — score collapses to 0 on any occurrence"
+        )
+        meta_table.add_row("Penalty", "[bold red]FATAL[/bold red] — non-suppressible (Exit 2/3)")
+    elif _is_fatal:
+        # Z0xx: config-abort codes that are not in NON_SUPPRESSIBLE_CODES
+        meta_table.add_row(
+            "Scoring Tier", "[bold red]FATAL[/] — config abort; pipeline cannot proceed"
+        )
+        meta_table.add_row(
+            "Penalty", "[bold red]FATAL[/bold red] — pipeline aborted before scoring"
         )
     elif bucket != "—":
         cap = weight * 100
         penalty_str = f"{penalty:.1f} pt/occurrence" if penalty else "not penalised"
         meta_table.add_row("Scoring Tier", f"{bucket} (weight {weight:.0%}, cap {cap:.0f} pts)")
         meta_table.add_row("Penalty", penalty_str)
+    elif _is_halt:
+        meta_table.add_row(
+            "Scoring Tier",
+            f"[{ZenzicPalette.DIM}]not in DQS penalty table[/] — governance gate",
+        )
+        meta_table.add_row(
+            "Penalty",
+            "[bold red]HALT[/bold red] — pipeline-blocking warning; CI exits non-zero regardless of score",
+        )
     else:
         meta_table.add_row("Scoring Tier", f"[{ZenzicPalette.DIM}]not included in DQS[/]")
 
