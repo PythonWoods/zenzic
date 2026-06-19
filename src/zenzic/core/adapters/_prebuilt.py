@@ -1,0 +1,70 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+"""PrebuiltVSMAdapter — ingests a precomputed .zenzic-vsm.json routing table."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+from zenzic.core.adapters._standalone import StandaloneAdapter
+from zenzic.core.exceptions import ConfigurationError
+
+
+if TYPE_CHECKING:
+    from zenzic.core.adapters._base import RouteMetadata
+    from zenzic.models.config import BuildContext
+
+
+class PrebuiltVSMAdapter(StandaloneAdapter):
+    """Adapter that reads a static .zenzic-vsm.json file for routing.
+
+    This is used for the Bridge Architecture (ADR-080), where a TS plugin
+    generates the routing map and Zenzic simply consumes it.
+    """
+
+    def __init__(
+        self, context: BuildContext, docs_root: Path, repo_root: Path | None = None
+    ) -> None:
+        self._routes: dict[str, dict[str, str]] = {}
+        self._has_config = False
+
+        root = repo_root if repo_root else docs_root.parent
+        vsm_file = root / ".zenzic-vsm.json"
+
+        if vsm_file.is_file():
+            self._has_config = True
+            try:
+                with vsm_file.open("r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    # Assume JSON is a dict of rel_path -> { "url": "...", "status": "..." }
+                    self._routes = data
+            except Exception as e:
+                raise ConfigurationError(f"Failed to parse {vsm_file}: {e}") from e
+
+    @classmethod
+    def from_repo(
+        cls, context: BuildContext, docs_root: Path, repo_root: Path
+    ) -> PrebuiltVSMAdapter:
+        return cls(context, docs_root, repo_root)
+
+    def has_engine_config(self) -> bool:
+        return self._has_config
+
+    def get_route_info(self, rel: Path) -> RouteMetadata:
+        from zenzic.core.adapters._base import RouteMetadata
+
+        rel_str = rel.as_posix()
+        if rel_str in self._routes:
+            data = self._routes[rel_str]
+            return RouteMetadata(
+                canonical_url=data.get("url", super()._map_url(rel)),
+                status=data.get("status", "REACHABLE"),  # type: ignore
+                slug=data.get("slug"),
+            )
+
+        return RouteMetadata(
+            canonical_url=super()._map_url(rel),
+            status="IGNORED" if self._has_config else "REACHABLE",
+        )

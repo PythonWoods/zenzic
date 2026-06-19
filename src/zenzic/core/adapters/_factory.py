@@ -41,6 +41,7 @@ from zenzic.models.config import BuildContext
 
 from ._base import BaseAdapter
 from ._mkdocs import MkDocsAdapter
+from ._prebuilt import PrebuiltVSMAdapter
 from ._standalone import StandaloneAdapter
 from ._zensical import ZensicalAdapter
 
@@ -52,21 +53,26 @@ _BUILTIN_ADAPTERS: dict[str, type[Any]] = {
     "mkdocs": MkDocsAdapter,
     "zensical": ZensicalAdapter,
     "standalone": StandaloneAdapter,
+    "prebuilt": PrebuiltVSMAdapter,
+    "vsm": PrebuiltVSMAdapter,
 }
 
 
-def discover_engine(repo_root: Path) -> Literal["mkdocs", "zensical", "standalone"]:
+def discover_engine(repo_root: Path) -> Literal["prebuilt", "mkdocs", "zensical", "standalone"]:
     """Probe *repo_root* for known engine config files and return the canonical engine name.
 
     Priority order (Engine Discovery Logic):
 
-    1. ``zensical.toml``      → ``"zensical"``
-    2. ``mkdocs.yml``         → ``"mkdocs"``
-    3. No marker found        → ``"standalone"`` (universal fallback mode)
+    1. ``.zenzic-vsm.json``   → ``"prebuilt"``
+    2. ``zensical.toml``      → ``"zensical"``
+    3. ``mkdocs.yml``         → ``"mkdocs"``
+    4. No marker found        → ``"standalone"`` (universal fallback mode)
 
     This function is called when ``BuildContext.engine == "auto"`` (the default),
     replacing the previous implicit assumption that the engine was MkDocs.
     """
+    if (repo_root / ".zenzic-vsm.json").is_file():
+        return "prebuilt"
     if (repo_root / "zensical.toml").is_file():
         return "zensical"
     if (repo_root / "mkdocs.yml").is_file():

@@ -1173,6 +1173,181 @@ def test_init_interactive_prompt_chooses_standalone(
     assert "[tool.zenzic]" not in content
 
 
+# ---------------------------------------------------------------------------
+# diff — FATAL / HALT semantic parity
+# ---------------------------------------------------------------------------
+
+
+def _diff_baseline_json(tmp_path: Path, score: int = 100) -> Path:
+    """Write a minimal baseline JSON snapshot for --base tests."""
+    payload = {
+        "score": score,
+        "threshold": 0,
+        "categories": [
+            {
+                "name": "structural",
+                "weight": 0.30,
+                "issues": 0,
+                "category_score": 1.0,
+                "contribution": 0.30,
+            },
+            {
+                "name": "navigation",
+                "weight": 0.25,
+                "issues": 0,
+                "category_score": 1.0,
+                "contribution": 0.25,
+            },
+            {
+                "name": "content",
+                "weight": 0.20,
+                "issues": 0,
+                "category_score": 1.0,
+                "contribution": 0.20,
+            },
+            {
+                "name": "brand",
+                "weight": 0.25,
+                "issues": 0,
+                "category_score": 1.0,
+                "contribution": 0.25,
+            },
+        ],
+    }
+    p = tmp_path / "baseline.json"
+    p.write_text(json.dumps(payload), encoding="utf-8")
+    return p
+
+
+def _fatal_report() -> object:
+    """ScoreReport simulating a Z201 credential leak (FATAL / security_override)."""
+    from zenzic.core.scorer import CategoryScore, ScoreReport
+
+    cats = [
+        CategoryScore(
+            name="structural", weight=0.30, issues=0, category_score=0.0, contribution=0.0
+        ),
+        CategoryScore(
+            name="navigation", weight=0.25, issues=0, category_score=0.0, contribution=0.0
+        ),
+        CategoryScore(name="content", weight=0.20, issues=0, category_score=0.0, contribution=0.0),
+        CategoryScore(name="brand", weight=0.25, issues=0, category_score=0.0, contribution=0.0),
+    ]
+    return ScoreReport(
+        score=0,
+        security_override=True,
+        security_findings=1,
+        findings_counts={"Z201": 1},
+        categories=cats,
+    )
+
+
+def _halt_report() -> object:
+    """ScoreReport simulating a Z504 Quality Regression gate (HALT, warning+0.0 penalty)."""
+    from zenzic.core.scorer import CategoryScore, ScoreReport
+
+    cats = [
+        CategoryScore(
+            name="structural", weight=0.30, issues=0, category_score=1.0, contribution=0.30
+        ),
+        CategoryScore(
+            name="navigation", weight=0.25, issues=0, category_score=1.0, contribution=0.25
+        ),
+        CategoryScore(name="content", weight=0.20, issues=0, category_score=1.0, contribution=0.20),
+        CategoryScore(name="brand", weight=0.25, issues=0, category_score=1.0, contribution=0.25),
+    ]
+    return ScoreReport(score=100, findings_counts={"Z504": 1}, categories=cats)
+
+
+@patch("zenzic.cli._shared._build_exclusion_manager")
+@patch("zenzic.cli._standalone._run_all_checks")
+@patch("zenzic.cli._standalone.ZenzicConfig.load", return_value=(_CFG, True))
+@patch("zenzic.cli._standalone.find_repo_root", return_value=_ROOT)
+def test_diff_fatal_z201_exits_2(_root, _cfg, mock_run, _excl, tmp_path: Path) -> None:
+    """zenzic diff exits 2 (non-suppressible) when current state has Z201."""
+    mock_run.return_value = _fatal_report()
+    baseline = _diff_baseline_json(tmp_path, score=100)
+    result = runner.invoke(app, ["diff", "--base", str(baseline)])
+    assert result.exit_code == 2
+
+
+@patch("zenzic.cli._shared._build_exclusion_manager")
+@patch("zenzic.cli._standalone._run_all_checks")
+@patch("zenzic.cli._standalone.ZenzicConfig.load", return_value=(_CFG, True))
+@patch("zenzic.cli._standalone.find_repo_root", return_value=_ROOT)
+def test_diff_fatal_output_surfaces_fatal_banner(
+    _root, _cfg, mock_run, _excl, tmp_path: Path
+) -> None:
+    """zenzic diff text output shows FATAL OVERRIDE banner and Z201 code."""
+    mock_run.return_value = _fatal_report()
+    baseline = _diff_baseline_json(tmp_path, score=100)
+    result = runner.invoke(app, ["diff", "--base", str(baseline)])
+    assert "FATAL" in result.stdout
+    assert "Z201" in result.stdout
+    # Standard numeric delta must NOT be mistaken for the whole story
+    assert "REGRESSION" not in result.stdout
+
+
+@patch("zenzic.cli._shared._build_exclusion_manager")
+@patch("zenzic.cli._standalone._run_all_checks")
+@patch("zenzic.cli._standalone.ZenzicConfig.load", return_value=(_CFG, True))
+@patch("zenzic.cli._standalone.find_repo_root", return_value=_ROOT)
+def test_diff_fatal_json_fields(_root, _cfg, mock_run, _excl, tmp_path: Path) -> None:
+    """zenzic diff --format json includes fatal_override, fatal_codes, halt, halt_codes."""
+    mock_run.return_value = _fatal_report()
+    baseline = _diff_baseline_json(tmp_path, score=100)
+    result = runner.invoke(app, ["diff", "--format", "json", "--base", str(baseline)])
+    assert result.exit_code == 2
+    data = json.loads(result.stdout)
+    assert data["fatal_override"] is True
+    assert "Z201" in data["fatal_codes"]
+    assert data["halt"] is False
+    assert data["halt_codes"] == []
+
+
+@patch("zenzic.cli._shared._build_exclusion_manager")
+@patch("zenzic.cli._standalone._run_all_checks")
+@patch("zenzic.cli._standalone.ZenzicConfig.load", return_value=(_CFG, True))
+@patch("zenzic.cli._standalone.find_repo_root", return_value=_ROOT)
+def test_diff_halt_z504_exits_1(_root, _cfg, mock_run, _excl, tmp_path: Path) -> None:
+    """zenzic diff exits 1 and surfaces HALT when current state has Z504 (pipeline gate)."""
+    mock_run.return_value = _halt_report()
+    baseline = _diff_baseline_json(tmp_path, score=100)
+    result = runner.invoke(app, ["diff", "--base", str(baseline)])
+    assert result.exit_code == 1
+    assert "HALT" in result.stdout
+    assert "Z504" in result.stdout
+
+
+@patch("zenzic.cli._shared._build_exclusion_manager")
+@patch("zenzic.cli._standalone._run_all_checks")
+@patch("zenzic.cli._standalone.ZenzicConfig.load", return_value=(_CFG, True))
+@patch("zenzic.cli._standalone.find_repo_root", return_value=_ROOT)
+def test_diff_standard_regression_no_fatal_halt(
+    _root, _cfg, mock_run, _excl, tmp_path: Path
+) -> None:
+    """A plain score drop (Z101, no Z2xx/Z0xx/halt gate) must not trigger FATAL or HALT."""
+    from zenzic.core.scorer import CategoryScore, ScoreReport
+
+    cats = [
+        CategoryScore(
+            name="structural", weight=0.30, issues=2, category_score=0.467, contribution=0.14
+        ),
+        CategoryScore(
+            name="navigation", weight=0.25, issues=0, category_score=1.0, contribution=0.25
+        ),
+        CategoryScore(name="content", weight=0.20, issues=0, category_score=1.0, contribution=0.20),
+        CategoryScore(name="brand", weight=0.25, issues=0, category_score=1.0, contribution=0.25),
+    ]
+    mock_run.return_value = ScoreReport(score=84, findings_counts={"Z101": 2}, categories=cats)
+    baseline = _diff_baseline_json(tmp_path, score=100)
+    result = runner.invoke(app, ["diff", "--base", str(baseline)])
+    assert result.exit_code == 1
+    assert "FATAL" not in result.stdout
+    assert "HALT" not in result.stdout
+    assert "REGRESSION" in result.stdout
+
+
 def test_init_standalone_no_engine_detected(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -1264,7 +1439,7 @@ def test_init_engine_flag_invalid(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
     result = runner.invoke(app, ["init", "--engine", "hugo"])
     assert result.exit_code == 1
     assert "hugo" in result.stdout
-    assert "docusaurus" in result.stdout  # valid engine listed in error
+    assert "mkdocs" in result.stdout  # valid engine listed in error
 
 
 def test_init_pyproject_engine_flag_override(
@@ -1277,11 +1452,11 @@ def test_init_pyproject_engine_flag_override(
     (repo / "pyproject.toml").write_text('[project]\nname = "x"\n', encoding="utf-8")
     monkeypatch.chdir(repo)
 
-    result = runner.invoke(app, ["init", "--pyproject", "--engine", "docusaurus"])
+    result = runner.invoke(app, ["init", "--pyproject", "--engine", "zensical"])
     assert result.exit_code == 0
 
     content = (repo / "pyproject.toml").read_text(encoding="utf-8")
-    assert 'engine         = "docusaurus"' in content
+    assert 'engine         = "zensical"' in content
     assert "(manually specified via --engine)" in result.stdout
 
 
@@ -1399,8 +1574,7 @@ def test_inspect_capabilities_shows_bypass_table() -> None:
     result = runner.invoke(app, ["inspect", "capabilities"])
     assert result.exit_code == 0
     assert "Engine-specific Link Bypasses" in result.stdout
-    assert "pathname:" in result.stdout
-    assert "docusaurus" in result.stdout
+    assert "zensical" in result.stdout
     assert "R21" in result.stdout
 
 
@@ -1833,4 +2007,32 @@ def test_check_all_progress_bar_activation(
         locale_roots=ANY,
         content_roots=ANY,
         show_progress=False,
+    )
+
+
+def test_templates_root_keys_not_swallowed() -> None:
+    """Ensure root keys like excluded_dirs are not swallowed by tables in TOML templates."""
+    import re
+    import sys
+
+    if sys.version_info >= (3, 11):
+        import tomllib
+    else:
+        import tomli as tomllib
+
+    from zenzic.cli.templates import GLOBAL_TOML_TEMPLATE, LOCAL_TOML_TEMPLATE
+
+    # Test global template: we uncomment specific root keys to ensure they parse into the root dict.
+    for key in ["excluded_dirs", "forbidden_patterns", "plugins", "docs_dir"]:
+        # Uncomment the key
+        template = re.sub(rf"(?m)^#\s*({key}\s*=.*)", r"\1", GLOBAL_TOML_TEMPLATE)
+        template = template.format(engine="standalone", hint_name="test")
+
+        data = tomllib.loads(template)
+        assert key in data, f"'{key}' was swallowed by a table in GLOBAL_TOML_TEMPLATE!"
+
+    # Test local template: forbidden_patterns is already uncommented
+    local_data = tomllib.loads(LOCAL_TOML_TEMPLATE)
+    assert "forbidden_patterns" in local_data, (
+        "'forbidden_patterns' was swallowed in LOCAL_TOML_TEMPLATE!"
     )

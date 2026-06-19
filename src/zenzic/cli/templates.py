@@ -63,17 +63,32 @@ GLOBAL_TOML_TEMPLATE: str = (
     "# Z204 Privacy Gate — terms that must never appear in published docs.\n"
     "# forbidden_patterns = []\n"
     "\n"
-    "# --- ENGINE CONTEXT ---\n"
-    "[build_context]\n"
-    'engine         = "{engine}"'
-    " # Supported: docusaurus, mkdocs, zensical, standalone\n"
-    'base_url       = "/"\n'
-    'default_locale = "en"\n'
-    "\n"
     "# --- PLACEHOLDERS & CODE SNIPPETS (Optional) ---\n"
     '# placeholder_patterns = ["coming soon", "work in progress", "wip", "todo"]\n'
     "# placeholder_max_words = 50\n"
     "# snippet_min_lines = 1\n"
+    "\n"
+    "# --- EXCLUSION ZONES (Full bypass — use sparingly) ---\n"
+    "# Paths listed here are INVISIBLE to Zenzic: no findings, no audit trail.\n"
+    "# Prefer [governance.per_file_ignores] for targeted suppression with an"
+    " audit trail.\n"
+    '# excluded_dirs = ["legacy/", "third-party/"]\n'
+    '# excluded_file_patterns = ["*.tmp", "*.log"]\n'
+    '# excluded_assets = ["favicon.ico"]\n'
+    '# excluded_asset_dirs = ["theme/"]\n'
+    '# excluded_build_artifacts = ["pdf/*.pdf"]\n'
+    "# included_dirs = []\n"
+    "# included_file_patterns = []\n"
+    "\n"
+    "# --- PLUGINS (Optional) ---\n"
+    "# plugins = []\n"
+    "\n"
+    "# --- ENGINE CONTEXT ---\n"
+    "[build_context]\n"
+    'engine         = "{engine}"'
+    " # Supported: mkdocs, zensical, standalone\n"
+    'base_url       = "/"\n'
+    'default_locale = "en"\n'
     "\n"
     "# --- BRAND INTEGRITY ---\n"
     "[project_metadata]\n"
@@ -133,21 +148,6 @@ GLOBAL_TOML_TEMPLATE: str = (
     "# Cache external link responses to speed up local execution.\n"
     "cache_ttl_hours = 24\n"
     "\n"
-    "# --- EXCLUSION ZONES (Full bypass — use sparingly) ---\n"
-    "# Paths listed here are INVISIBLE to Zenzic: no findings, no audit trail.\n"
-    "# Prefer [governance.per_file_ignores] for targeted suppression with an"
-    " audit trail.\n"
-    '# excluded_dirs = ["legacy/", "third-party/"]\n'
-    '# excluded_file_patterns = ["*.tmp", "*.log"]\n'
-    '# excluded_assets = ["favicon.ico"]\n'
-    '# excluded_asset_dirs = ["theme/"]\n'
-    '# excluded_build_artifacts = ["pdf/*.pdf"]\n'
-    "# included_dirs = []\n"
-    "# included_file_patterns = []\n"
-    "\n"
-    "# --- PLUGINS (Optional) ---\n"
-    "# plugins = []\n"
-    "\n"
     "# --- CUSTOM RULES (Optional) ---\n"
     "# Declares project-specific regex-based lint rules applied line-by-line.\n"
     "# [[custom_rules]]\n"
@@ -164,7 +164,7 @@ GLOBAL_TOML_TEMPLATE: str = (
     "# strict_parity = true\n"
     '# require_frontmatter_parity = ["title", "description"]\n'
     "# [i18n.targets]\n"
-    '# it = "i18n/it/docusaurus-plugin-content-docs/current"\n'
+    '# it = "docs-it"\n'
     "\n"
     "# --- GATE 4: CI/CD (GitHub Actions, Optional) ---\n"
     "# Add this workflow snippet to .github/workflows/zenzic.yml\n"
@@ -211,7 +211,6 @@ LOCAL_TOML_TEMPLATE: str = (
     "#       - i18n\n"
     "# ===========================================================================\n"
     "\n"
-    "[core]\n"
     "# ---------------------------------------------------------------------------\n"
     "# docs_dir\n"
     "# ---------------------------------------------------------------------------\n"
@@ -242,7 +241,7 @@ LOCAL_TOML_TEMPLATE: str = (
     "# ---------------------------------------------------------------------------\n"
     "# Mirrors global structure for safe local overrides only when needed.\n"
     "#\n"
-    '# engine = "docusaurus"\n'
+    '# engine = "zensical"\n'
     '# base_url = "/"\n'
     '# default_locale = "en"\n'
     "\n"
@@ -356,7 +355,7 @@ PYPROJECT_TOML_SECTION_TEMPLATE: str = (
     "\n"
     "[tool.zenzic.build_context]\n"
     "# engine — auto-detected from project files; override with --engine if needed.\n"
-    "#   Supported: docusaurus, mkdocs, zensical, standalone\n"
+    "#   Supported: mkdocs, zensical, standalone\n"
     'engine         = "{engine}"\n'
     'base_url       = "/"\n'
     'default_locale = "en"\n'
@@ -407,7 +406,7 @@ PYPROJECT_TOML_SECTION_TEMPLATE: str = (
     "# strict_parity = true\n"
     '# require_frontmatter_parity = ["title", "description"]\n'
     "# [tool.zenzic.i18n.targets]\n"
-    '# it = "i18n/it/docusaurus-plugin-content-docs/current"\n'
+    '# it = "docs-it"\n'
     "\n"
     "# --- CUSTOM RULES (Optional) ---\n"
     "# Declares project-specific regex-based lint rules applied line-by-line.\n"

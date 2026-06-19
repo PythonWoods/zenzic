@@ -885,7 +885,7 @@ async def validate_links_async(
     # Instantiating inside the file loop would regenerate the map N times,
     # cancelling the 14× performance gain from the pre-computed flat dict.
     # allowed_roots extends the credential scanner boundary to authorised locale directories.
-    resolver_repo_root = getattr(adapter, "_docusaurus_site_root", repo_root)
+    resolver_repo_root = repo_root
     resolver = InMemoryPathResolver(
         docs_root,
         md_contents,
@@ -899,15 +899,6 @@ async def validate_links_async(
     # It is only meaningful when the adapter has a nav (MkDocs with mkdocs.yml);
     # for StandaloneAdapter / Zensical every file is REACHABLE by definition.
     #
-    # v0.7.x: populate the adapter's slug map BEFORE building the VSM so that
-    # ``map_url()`` resolves frontmatter ``slug:`` overrides correctly.
-    # Without this call the slug map is empty and all blog URLs are derived from
-    # the physical filename — mismatching the URLs that Docusaurus actually serves.
-    #
-    # ``set_slug_map()`` is a DocusaurusAdapter-specific method (other adapters
-    # don't use frontmatter slugs in the same way), hence the hasattr guard.
-    if hasattr(adapter, "set_slug_map"):
-        adapter.set_slug_map(md_contents)
 
     vsm = build_vsm(
         adapter,
@@ -1156,38 +1147,6 @@ async def validate_links_async(
                         # copy is absent.  Suppress the error when the fallback exists.
                         if adapter.resolve_asset(Path(asset_str), docs_root) is not None:
                             continue
-
-                        # ── Root-Relative Fallback (Docusaurus Magic) ────────
-                        # If a physical Markdown link does not explicitly start with a relative
-                        # marker (./ or ../) or absolute marker (/), Docusaurus magically resolves
-                        # it relative to the docs_root (or plugin root).
-                        if (
-                            adapter.__class__.__name__ == "DocusaurusAdapter"
-                            and path_part.endswith((".md", ".mdx"))
-                            and not url.startswith(("./", "../", "/"))
-                        ):
-                            try:
-                                plugin_root_name = md_file.relative_to(docs_root).parts[0]
-                                plugin_root = docs_root / plugin_root_name
-                            except (ValueError, IndexError):
-                                plugin_root = docs_root
-
-                            fallback_outcome = resolver.resolve(plugin_root / "index.md", url)
-                            if isinstance(fallback_outcome, Resolved):
-                                continue
-                            if isinstance(fallback_outcome, AnchorMissing):
-                                internal_errors.append(
-                                    LinkError(
-                                        file_path=md_file,
-                                        line_no=lineno,
-                                        message=f"{label}:{lineno}: anchor '#{fallback_outcome.anchor}' not found in '{fallback_outcome.resolved_file.name}'",
-                                        source_line=_source_line(md_file, lineno),
-                                        error_type="Z102",
-                                        col_start=link.col_start,
-                                        match_text=link.match_text,
-                                    )
-                                )
-                                continue
 
                         # Suppress errors for build-time generated artifacts
                         # (e.g. PDFs from to-pdf plugin, ZIPs assembled in CI).

@@ -26,6 +26,7 @@ from zenzic.core.scanner import (
     find_unused_assets,
     scan_docs_references,
 )
+from zenzic.core.scorer import compute_score
 from zenzic.core.sovereign_context import sovereign_context
 from zenzic.core.ui import ZenzicPalette
 from zenzic.core.validator import (
@@ -1658,6 +1659,40 @@ def check_all(
                 f"[{ZenzicPalette.DIM}]💡 External link validation skipped (--no-external). "
                 f"Credential scanner (Z201) remains active.[/]"
             )
+
+        # ── DQS Score injection ────────────────────────────────────────────
+        _findings_counts: dict[str, int] = {}
+        for _f in all_findings:
+            _findings_counts[_f.code] = _findings_counts.get(_f.code, 0) + 1
+        _score_report = compute_score(
+            _findings_counts,
+            suppression_count=suppression_audit.total,
+            suppression_cap=suppression_audit.cap,
+        )
+        if _score_report.security_override:
+            _dqs_line = (
+                f"[bold red]DQS Final Score: 0/100[/bold red] "
+                f"[{ZenzicPalette.DIM}](Security Override — "
+                f"{_score_report.security_findings} non-suppressible finding"
+                f"{'s' if _score_report.security_findings != 1 else ''} detected)[/]"
+            )
+        else:
+            _pre_errors = sum(1 for _f in all_findings if _f.severity == "error")
+            _pre_breaches = sum(
+                1 for _f in all_findings if _f.severity in {"security_breach", "security_incident"}
+            )
+            _pre_warnings = sum(1 for _f in all_findings if _f.severity == "warning")
+            _gate_failed = (
+                _pre_breaches > 0 or _pre_errors > 0 or (effective_strict and _pre_warnings > 0)
+            )
+            _gate_label = "Gate Failed" if _gate_failed else "Gate Passed"
+            _gate_style = ZenzicPalette.ERROR if _gate_failed else ZenzicPalette.SUCCESS
+            _dqs_line = (
+                f"[bold {_gate_style}]DQS Final Score: "
+                f"{_score_report.score}/100[/bold {_gate_style}] "
+                f"[{ZenzicPalette.DIM}]({_gate_label})[/]"
+            )
+        _footer_lines.insert(0, _dqs_line)
 
         errors, warnings = reporter.render(
             all_findings,

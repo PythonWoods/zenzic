@@ -1623,16 +1623,36 @@ def scan_docs_references(
     # Initialise Visual Progress Bar context if requested.
     progress = None
     task_id = None
+    task_validate_id = None
     if show_progress:
-        from rich.progress import BarColumn, Progress, TaskProgressColumn, TextColumn
+        from rich.progress import (
+            BarColumn,
+            Progress,
+            SpinnerColumn,
+            TaskProgressColumn,
+            TextColumn,
+            TimeElapsedColumn,
+        )
 
         progress = Progress(
+            SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
             BarColumn(),
             TaskProgressColumn(),
+            TimeElapsedColumn(),
         )
         progress.start()
-        task_id = progress.add_task("[cyan]Parsing documents...", total=len(md_files))
+        _mode_label = "parallel" if use_parallel else "sequential"
+        task_id = progress.add_task(
+            f"[cyan]Parsing[/cyan] [dim]{len(md_files)} files ({_mode_label})...[/dim]",
+            total=len(md_files),
+        )
+        if validate_links:
+            task_validate_id = progress.add_task(
+                "[blue]Validating links...[/blue]",
+                total=None,  # indeterminate until parsing completes
+                start=False,
+            )
 
     _t0 = time.monotonic()
 
@@ -1780,7 +1800,23 @@ def scan_docs_references(
                 for _sf in _r.security_findings:
                     if _sf.file_path in _locale_path_remap:
                         _sf.file_path = _locale_path_remap[_sf.file_path]
-        return reports_seq, validator_seq.validate()
+        if progress and task_validate_id is not None:
+            n_external = sum(
+                1
+                for s in secure_scanners_seq
+                for url, _ in s.ref_map.definitions.values()
+                if url.startswith("http")
+            )
+            progress.update(
+                task_validate_id,
+                description=f"[blue]Validating links[/blue] [dim]({n_external} external URLs)...[/dim]",
+                total=1,
+            )
+            progress.start_task(task_validate_id)
+        link_errors = validator_seq.validate()
+        if progress and task_validate_id is not None:
+            progress.advance(task_validate_id)
+        return reports_seq, link_errors
     finally:
         if progress:
             progress.stop()

@@ -320,12 +320,29 @@ def score(
 
         total_category_penalties = 0
         for cat in report.categories:
-            if cat.issues == 0:
+            # Split issues into punitive (penalty > 0) vs. informational (penalty == 0).
+            from zenzic.core.scorer import _CODE_CATEGORY, _CODE_PENALTY
+
+            info_issue_count = sum(
+                count
+                for code, count in report.findings_counts.items()
+                if _CODE_CATEGORY.get(code) == cat.name
+                and count > 0
+                and _CODE_PENALTY.get(code, 0.0) == 0.0
+            )
+            punitive_issue_count = cat.issues - info_issue_count
+
+            if punitive_issue_count > 0:
+                status_icon = f"[red]{emoji('cross')}[/]"
+                issue_display = f"[red]{punitive_issue_count}[/]"
+                if info_issue_count > 0:
+                    issue_display += f" [dim](+ {info_issue_count} info)[/dim]"
+            elif info_issue_count > 0:
+                status_icon = f"[green]{emoji('check')}[/]"
+                issue_display = f"[dim]{info_issue_count} info[/dim]"
+            else:
                 status_icon = f"[green]{emoji('check')}[/]"
                 issue_display = f"[green]{cat.issues}[/]"
-            else:
-                status_icon = f"[red]{emoji('cross')}[/]"
-                issue_display = f"[red]{cat.issues}[/]"
             raw_pts = round(cat.raw_penalty)
             raw_display = f"-{raw_pts}" if raw_pts > 0 else "0"
             applied_penalty = round(cat.weight * 100 - cat.contribution * 100)
@@ -556,6 +573,12 @@ def score(
                 changed_audit = _stamp_file(p, _AUDIT_STAMP_MARKER, audit_url)
             if changed_score or changed_audit:
                 _shared.console.print(f"[dim]Badge stamped → {p}[/]")
+                _shared.console.print(
+                    f"\n[bold yellow]NOTICE:[/bold yellow] The DQS badge in "
+                    f"[bold]{p.name}[/bold] was out of date and has been automatically "
+                    f"updated. Pre-commit will exit with 1 to allow staging.\n"
+                    f"  [dim]→ Run:[/dim] [bold]git add {p}[/bold] and commit again."
+                )
         if not found_any:
             _shared.stderr_console.print(
                 "[red]--stamp: no recognized stamp markers found in any configured file "
@@ -709,6 +732,24 @@ def diff(
     current = _run_all_checks(repo_root, docs_root, config, exclusion_mgr, strict=config.strict)
     delta = current.score - baseline.score
 
+    # ── FATAL / HALT semantic detection ──────────────────────────────────────
+    # Z0xx (config abort) and Z2xx (security) collapse score to 0 unconditionally.
+    from zenzic.core.codes import CODE_DEFINITIONS
+
+    _fatal_codes = sorted(
+        c for c in current.findings_counts if c.startswith("Z0") or c.startswith("Z2")
+    )
+    has_fatal = bool(_fatal_codes) or current.security_override
+    # warnings with 0.0 penalty = governance gate / pipeline block (e.g. Z504).
+    _halt_codes = sorted(
+        c
+        for c in current.findings_counts
+        if CODE_DEFINITIONS.get(c)
+        and CODE_DEFINITIONS[c].severity == "warning"
+        and CODE_DEFINITIONS[c].penalty == 0.0
+    )
+    has_halt = bool(_halt_codes) and not has_fatal
+
     if output_format == "json":
         print(
             json.dumps(
@@ -716,6 +757,10 @@ def diff(
                     "baseline": baseline.score,
                     "current": current.score,
                     "delta": delta,
+                    "fatal_override": has_fatal,
+                    "fatal_codes": _fatal_codes,
+                    "halt": has_halt,
+                    "halt_codes": _halt_codes,
                     "categories": [
                         {
                             "name": cat.name,
@@ -821,9 +866,18 @@ def diff(
             subtotal_delta_display,
         )
 
+        if has_fatal:
+            _codes_hint = f" ({', '.join(_fatal_codes)})" if _fatal_codes else ""
+            _current_score_display = f"[bold red]{current.score}/100 \u26d4 FATAL{_codes_hint}[/]"
+        elif has_halt:
+            _codes_hint = f" ({', '.join(_halt_codes)})" if _halt_codes else ""
+            _current_score_display = f"[bold red]{current.score}/100 \u26a0 HALT{_codes_hint}[/]"
+        else:
+            _current_score_display = f"[bold {delta_colour}]{current.score}/100[/]"
+
         body = Text.from_markup(
             f"  Baseline Score: [bold]{baseline.score}/100[/]   "
-            f"Current Score: [bold {delta_colour}]{current.score}/100[/]   "
+            f"Current Score: {_current_score_display}   "
             f"Delta: [{delta_colour}]{sign}{delta}[/]\n"
         )
         _shared.console.print()
@@ -845,7 +899,25 @@ def diff(
             f"  Baseline: 100 - {total_base_penalties} = {baseline.score}\n"
             f"  Current:  100 - {total_curr_penalties} = {current.score}"
         )
+        if has_fatal:
+            _codes_str = ", ".join(_fatal_codes) if _fatal_codes else "security override"
+            _shared.console.print(
+                f"\n[bold red]\u26d4 FATAL OVERRIDE:[/bold red]"
+                f" current state contains pipeline-blocking codes ([bold]{_codes_str}[/bold])."
+                f" Score collapses to 0 \u2014 pipeline halted non-suppressibly."
+            )
+        elif has_halt:
+            _shared.console.print(
+                f"\n[bold red]\u26a0 HALT:[/bold red]"
+                f" current state contains {len(_halt_codes)} pipeline-blocking"
+                f" warning(s) ([bold]{', '.join(_halt_codes)}[/bold]). CI pipeline blocked."
+            )
         _shared.console.print()
+
+    if has_fatal:
+        raise typer.Exit(2)
+    if has_halt:
+        raise typer.Exit(1)
 
     dropped = -delta
     if dropped > threshold:
@@ -909,15 +981,41 @@ def explain(
     meta_table.add_row("Rule", f"[bold cyan]{rule_id}[/] — {name}")
     meta_table.add_row("Description", description)
     meta_table.add_row("Severity", f"[{'red' if severity == 'error' else 'yellow'}]{severity}[/]")
+    from zenzic.core.codes import CODE_DEFINITIONS as _CODE_DEFS
+
+    _defn = _CODE_DEFS.get(rule_id)
+    _is_fatal = rule_id.startswith("Z0") or rule_id.startswith("Z2")
+    _is_halt = (
+        _defn is not None and _defn.severity == "warning" and _defn.penalty == 0.0 and not _is_fatal
+    )
+
     if is_security:
         meta_table.add_row(
             "Scoring Tier", "[bold red]SECURITY GATE[/] — score collapses to 0 on any occurrence"
+        )
+        meta_table.add_row("Penalty", "[bold red]FATAL[/bold red] — non-suppressible (Exit 2/3)")
+    elif _is_fatal:
+        # Z0xx: config-abort codes that are not in NON_SUPPRESSIBLE_CODES
+        meta_table.add_row(
+            "Scoring Tier", "[bold red]FATAL[/] — config abort; pipeline cannot proceed"
+        )
+        meta_table.add_row(
+            "Penalty", "[bold red]FATAL[/bold red] — pipeline aborted before scoring"
         )
     elif bucket != "—":
         cap = weight * 100
         penalty_str = f"{penalty:.1f} pt/occurrence" if penalty else "not penalised"
         meta_table.add_row("Scoring Tier", f"{bucket} (weight {weight:.0%}, cap {cap:.0f} pts)")
         meta_table.add_row("Penalty", penalty_str)
+    elif _is_halt:
+        meta_table.add_row(
+            "Scoring Tier",
+            f"[{ZenzicPalette.DIM}]not in DQS penalty table[/] — governance gate",
+        )
+        meta_table.add_row(
+            "Penalty",
+            "[bold red]HALT[/bold red] — pipeline-blocking warning; CI exits non-zero regardless of score",
+        )
     else:
         meta_table.add_row("Scoring Tier", f"[{ZenzicPalette.DIM}]not included in DQS[/]")
 
@@ -1086,7 +1184,7 @@ def init(
         None,
         "--engine",
         help=(
-            "Override the build engine adapter (mkdocs, zensical, docusaurus, standalone). "
+            "Override the build engine adapter (mkdocs, zensical, standalone). "
             "Auto-detected from project files when omitted."
         ),
         metavar="ENGINE",
@@ -1158,7 +1256,7 @@ def init(
         _shared.print_footer_hint("init")
         return
 
-    _INIT_VALID_ENGINES = {"mkdocs", "zensical", "docusaurus", "standalone"}
+    _INIT_VALID_ENGINES = {"mkdocs", "zensical", "standalone"}
     if engine is not None and engine not in _INIT_VALID_ENGINES:
         _shared.console.print(
             f"[red]✘ ERROR:[/] Unknown engine [bold]{engine!r}[/]. "
@@ -1483,7 +1581,7 @@ version = "0.1.0"
 description = "Custom Zenzic plugin rule package"
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = ["zenzic>=0.12.0"]
+dependencies = ["zenzic>=0.13.0"]
 
 [project.entry-points."zenzic.rules"]
 {project_slug} = "{module_name}.rules:{class_name}"

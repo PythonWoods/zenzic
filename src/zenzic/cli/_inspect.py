@@ -9,7 +9,7 @@ from rich import box
 from rich.table import Table
 from rich.text import Text
 
-from zenzic.core.codes import CODE_NAMES, CORE_SCANNERS
+from zenzic.core.codes import CODE_DEFINITIONS, CODE_NAMES, CORE_SCANNERS
 from zenzic.core.scanner import find_repo_root
 from zenzic.core.ui import ZenzicPalette
 from zenzic.models.config import ZenzicConfig
@@ -141,13 +141,6 @@ def _inspect_capabilities() -> None:
 
     _BYPASS_ROWS = [
         (
-            "docusaurus",
-            "DocusaurusAdapter",
-            Text.from_markup(
-                f"[bold]pathname:[/bold]  [{ZenzicPalette.DIM}](static-asset routing escape hatch)[/{ZenzicPalette.DIM}]"
-            ),
-        ),
-        (
             "mkdocs",
             "MkDocsAdapter",
             Text.from_markup(f"[{ZenzicPalette.DIM}](none)[/{ZenzicPalette.DIM}]"),
@@ -208,12 +201,37 @@ def inspect_codes(
     repo_root = find_repo_root()
     config, _ = ZenzicConfig.load(repo_root)
 
-    def _badge(active: bool) -> str:
-        return (
-            "[bold green][ACTIVE][/bold green]" if active else f"[{ZenzicPalette.DIM}][inactive][/]"
-        )
+    _SEVERITY_STYLE: dict[str, str] = {
+        "error": "bold red",
+        "warning": "bold yellow",
+        "note": "bold blue",
+    }
 
-    rows: dict[str, list[tuple[str, str, str]]] = {
+    def _severity_markup(code: str) -> str:
+        defn = CODE_DEFINITIONS.get(code)
+        if defn is None:
+            return f"[{ZenzicPalette.DIM}]—[/{ZenzicPalette.DIM}]"
+        sty = _SEVERITY_STYLE.get(defn.severity, ZenzicPalette.DIM)
+        return f"[{sty}]{defn.severity}[/{sty}]"
+
+    def _penalty_markup(code: str) -> str:
+        defn = CODE_DEFINITIONS.get(code)
+        if defn is None:
+            return f"[{ZenzicPalette.DIM}]—[/{ZenzicPalette.DIM}]"
+        # Z0xx (config abort) and Z2xx (security codes) collapse the score to 0
+        # and halt the pipeline unconditionally — show FATAL, not 0.0.
+        if code.startswith("Z0") or code.startswith("Z2"):
+            return "[bold red]FATAL[/bold red]"
+        # warning + 0.0 penalty = governance gate / pipeline block (e.g. Z504,
+        # Z602, Z901, Z902) — show HALT to signal CI exit rather than math cost.
+        if defn.severity == "warning" and defn.penalty == 0.0:
+            return "[bold red]HALT[/bold red]"
+        # note + 0.0 = genuinely informational; never blocks CI (Fail-Visible rule).
+        if defn.penalty == 0.0:
+            return f"[{ZenzicPalette.DIM}]0.0[/{ZenzicPalette.DIM}]"
+        return f"[bold]-{defn.penalty:.1f}[/bold]"
+
+    rows: dict[str, list[tuple[str, str, str, str]]] = {
         "core": [],
         "governance": [],
         "plugin": [],
@@ -223,25 +241,36 @@ def inspect_codes(
     # Core + Governance (from canonical registry)
     for code in sorted(CODE_NAMES.keys(), key=lambda c: int(c[1:])):
         if code.startswith("Z6"):
-            is_active = True
-            if code == "Z601":
-                is_active = bool(config.governance.brand_obsolescence)
-            elif code == "Z602":
-                is_active = config.governance.i18n_parity
-            rows["governance"].append((code, CODE_NAMES[code], _badge(is_active)))
+            rows["governance"].append(
+                (code, CODE_NAMES[code], _severity_markup(code), _penalty_markup(code))
+            )
         else:
-            rows["core"].append((code, CODE_NAMES[code], _badge(True)))
+            rows["core"].append(
+                (code, CODE_NAMES[code], _severity_markup(code), _penalty_markup(code))
+            )
 
     # Plugin tier (third-party only; core-origin entry points excluded)
     plugin_infos = [info for info in list_plugin_rules() if info.origin != "zenzic"]
     for info in plugin_infos:
         rows["plugin"].append(
-            (info.rule_id, info.source, _badge(info.source in set(config.plugins)))
+            (
+                info.rule_id,
+                info.source,
+                _severity_markup(info.rule_id),
+                _penalty_markup(info.rule_id),
+            )
         )
 
     # Custom tier (local TOML custom rules)
     for cr in config.custom_rules:
-        rows["custom"].append((cr.id, "custom rule", _badge(True)))
+        rows["custom"].append(
+            (
+                cr.id,
+                "custom rule",
+                f"[{ZenzicPalette.DIM}]—[/{ZenzicPalette.DIM}]",
+                f"[{ZenzicPalette.DIM}]—[/{ZenzicPalette.DIM}]",
+            )
+        )
 
     if tier_normalized == "all":
         selected_tiers = ["core", "governance", "plugin", "custom"]
@@ -260,7 +289,8 @@ def inspect_codes(
     table.add_column("Tier", style="bold cyan", min_width=12, no_wrap=True)
     table.add_column("Code", style="bold", min_width=10, no_wrap=True)
     table.add_column("Name", min_width=20)
-    table.add_column("Status", min_width=10, no_wrap=True)
+    table.add_column("Severity", min_width=9, no_wrap=True)
+    table.add_column("Penalty", min_width=7, no_wrap=True, justify="right")
 
     title_map = {
         "core": "Core",
@@ -272,11 +302,15 @@ def inspect_codes(
         tier_rows = rows[tier_name]
         if not tier_rows:
             table.add_row(
-                title_map[tier_name], "—", "No entries", f"[{ZenzicPalette.DIM}][inactive][/]"
+                title_map[tier_name],
+                "—",
+                "No entries",
+                f"[{ZenzicPalette.DIM}]—[/{ZenzicPalette.DIM}]",
+                f"[{ZenzicPalette.DIM}]—[/{ZenzicPalette.DIM}]",
             )
         else:
-            for code, name, status in tier_rows:
-                table.add_row(title_map[tier_name], code, name, status)
+            for code, name, severity, penalty in tier_rows:
+                table.add_row(title_map[tier_name], code, name, severity, penalty)
         if idx < len(selected_tiers) - 1:
             table.add_section()
 

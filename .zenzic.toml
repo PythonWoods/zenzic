@@ -60,6 +60,15 @@ excluded_dirs = [
     "assets",
     "LICENSES",
 ]
+# excluded_file_patterns = ["*.tmp", "*.log"]
+# excluded_assets = ["favicon.ico"]
+# excluded_asset_dirs = ["theme/"]
+# excluded_build_artifacts = ["pdf/*.pdf"]
+# included_dirs = []
+# included_file_patterns = []
+
+# --- PLUGINS (Optional) ---
+# plugins = []
 
 # --- PLACEHOLDERS & CODE SNIPPETS (Optional) ---
 # Pattern matching disabled: the README, CHANGELOG, and CONTRIBUTING files
@@ -138,18 +147,7 @@ brand_obsolescence = [
 # Governance Playbook:
 # https://zenzic.dev/developers/how-to/release-governance-protocol
 
-# --- EXCLUSION ZONES (Full bypass — use sparingly) ---
-# Paths listed here are INVISIBLE to Zenzic: no findings, no audit trail.
-# Prefer [governance.per_file_ignores] for targeted suppression with an audit trail.
-# excluded_file_patterns = ["*.tmp", "*.log"]
-# excluded_assets = ["favicon.ico"]
-# excluded_asset_dirs = ["theme/"]
-# excluded_build_artifacts = ["pdf/*.pdf"]
-# included_dirs = []
-# included_file_patterns = []
 
-# --- PLUGINS (Optional) ---
-# plugins = []
 
 # --- CUSTOM RULES (Optional) ---
 # Declares project-specific regex-based lint rules applied line-by-line.

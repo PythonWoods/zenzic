@@ -446,3 +446,61 @@ def test_build_from_data_i18n_with_extra_sources(tmp_path: Path) -> None:
     assert config.i18n.enabled is True
     assert len(config.i18n.extra_sources) == 1
     assert config.i18n.extra_sources[0].base_source == Path("developers")
+
+
+def test_config_rejects_swallowed_root_keys(tmp_path: Path) -> None:
+    """A root key placed after a table declaration is swallowed by TOML.
+
+    The config loader must detect this and crash with a fatal error
+    instead of silently ignoring the configuration.
+    """
+    toml_content = """\
+[network]
+cache_ttl_hours = 24
+excluded_dirs = ["docs/"]
+"""
+    (tmp_path / ".zenzic.toml").write_text(toml_content)
+
+    with pytest.raises(ConfigurationError, match="FATAL CONFIGURATION ERROR") as exc_info:
+        ZenzicConfig.load(tmp_path)
+
+    assert "excluded_dirs" in str(exc_info.value)
+    assert "network" in str(exc_info.value)
+
+
+def test_config_rejects_swallowed_root_keys_in_pyproject(tmp_path: Path) -> None:
+    """Namespace isolation audit for pyproject.toml."""
+    # Valid pyproject.toml: root keys under [tool.zenzic]
+    valid_pyproject = """\
+[tool.poetry]
+name = "my-project"
+[tool.zenzic]
+excluded_dirs = ["docs/"]
+[tool.zenzic.network]
+cache_ttl_hours = 24
+"""
+    pyproject_file = tmp_path / "pyproject.toml"
+    pyproject_file.write_text(valid_pyproject)
+
+    config, loaded = ZenzicConfig.load(tmp_path)
+    assert loaded is True
+    assert "docs/" in config.excluded_dirs
+    assert config.network.cache_ttl_hours == 24
+
+    # Invalid pyproject.toml: root key swallowed by [tool.zenzic.network]
+    invalid_pyproject = """\
+[tool.poetry]
+name = "my-project"
+[tool.zenzic]
+fail_under = 80
+[tool.zenzic.network]
+cache_ttl_hours = 24
+excluded_dirs = ["docs/"]
+"""
+    pyproject_file.write_text(invalid_pyproject)
+
+    with pytest.raises(ConfigurationError, match="FATAL CONFIGURATION ERROR") as exc_info:
+        ZenzicConfig.load(tmp_path)
+
+    assert "excluded_dirs" in str(exc_info.value)
+    assert "network" in str(exc_info.value)
