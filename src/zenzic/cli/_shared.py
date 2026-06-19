@@ -403,7 +403,7 @@ def _count_docs_assets(
     """Return ``(docs_count, assets_count)`` for the analysis telemetry line.
 
     When *config* is provided and the adapter exposes ``get_locale_source_roots()``,
-    locale translation trees (e.g. Docusaurus ``i18n/``) are counted in
+    locale translation trees (e.g. MkDocs or Zensical ``docs-it/``) are counted in
     ``docs_count`` as well.
     """
     from zenzic.core.discovery import walk_files

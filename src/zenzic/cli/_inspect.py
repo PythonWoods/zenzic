@@ -9,7 +9,7 @@ from rich import box
 from rich.table import Table
 from rich.text import Text
 
-from zenzic.core.codes import CODE_NAMES, CORE_SCANNERS
+from zenzic.core.codes import CODE_DEFINITIONS, CODE_NAMES, CORE_SCANNERS
 from zenzic.core.scanner import find_repo_root
 from zenzic.core.ui import ZenzicPalette
 from zenzic.models.config import ZenzicConfig
@@ -206,7 +206,28 @@ def inspect_codes(
             "[bold green][ACTIVE][/bold green]" if active else f"[{ZenzicPalette.DIM}][inactive][/]"
         )
 
-    rows: dict[str, list[tuple[str, str, str]]] = {
+    _SEVERITY_STYLE: dict[str, str] = {
+        "error": "bold red",
+        "warning": "bold yellow",
+        "note": "bold blue",
+    }
+
+    def _severity_markup(code: str) -> str:
+        defn = CODE_DEFINITIONS.get(code)
+        if defn is None:
+            return f"[{ZenzicPalette.DIM}]—[/{ZenzicPalette.DIM}]"
+        sty = _SEVERITY_STYLE.get(defn.severity, ZenzicPalette.DIM)
+        return f"[{sty}]{defn.severity}[/{sty}]"
+
+    def _penalty_markup(code: str) -> str:
+        defn = CODE_DEFINITIONS.get(code)
+        if defn is None:
+            return f"[{ZenzicPalette.DIM}]—[/{ZenzicPalette.DIM}]"
+        if defn.penalty == 0.0:
+            return f"[{ZenzicPalette.DIM}]0.0[/{ZenzicPalette.DIM}]"
+        return f"[bold]-{defn.penalty:.1f}[/bold]"
+
+    rows: dict[str, list[tuple[str, str, str, str, str]]] = {
         "core": [],
         "governance": [],
         "plugin": [],
@@ -221,20 +242,50 @@ def inspect_codes(
                 is_active = bool(config.governance.brand_obsolescence)
             elif code == "Z602":
                 is_active = config.governance.i18n_parity
-            rows["governance"].append((code, CODE_NAMES[code], _badge(is_active)))
+            rows["governance"].append(
+                (
+                    code,
+                    CODE_NAMES[code],
+                    _badge(is_active),
+                    _severity_markup(code),
+                    _penalty_markup(code),
+                )
+            )
         else:
-            rows["core"].append((code, CODE_NAMES[code], _badge(True)))
+            rows["core"].append(
+                (
+                    code,
+                    CODE_NAMES[code],
+                    _badge(True),
+                    _severity_markup(code),
+                    _penalty_markup(code),
+                )
+            )
 
     # Plugin tier (third-party only; core-origin entry points excluded)
     plugin_infos = [info for info in list_plugin_rules() if info.origin != "zenzic"]
     for info in plugin_infos:
         rows["plugin"].append(
-            (info.rule_id, info.source, _badge(info.source in set(config.plugins)))
+            (
+                info.rule_id,
+                info.source,
+                _badge(info.source in set(config.plugins)),
+                _severity_markup(info.rule_id),
+                _penalty_markup(info.rule_id),
+            )
         )
 
     # Custom tier (local TOML custom rules)
     for cr in config.custom_rules:
-        rows["custom"].append((cr.id, "custom rule", _badge(True)))
+        rows["custom"].append(
+            (
+                cr.id,
+                "custom rule",
+                _badge(True),
+                f"[{ZenzicPalette.DIM}]—[/{ZenzicPalette.DIM}]",
+                f"[{ZenzicPalette.DIM}]—[/{ZenzicPalette.DIM}]",
+            )
+        )
 
     if tier_normalized == "all":
         selected_tiers = ["core", "governance", "plugin", "custom"]
@@ -254,6 +305,8 @@ def inspect_codes(
     table.add_column("Code", style="bold", min_width=10, no_wrap=True)
     table.add_column("Name", min_width=20)
     table.add_column("Status", min_width=10, no_wrap=True)
+    table.add_column("Severity", min_width=9, no_wrap=True)
+    table.add_column("Penalty", min_width=7, no_wrap=True, justify="right")
 
     title_map = {
         "core": "Core",
@@ -265,11 +318,16 @@ def inspect_codes(
         tier_rows = rows[tier_name]
         if not tier_rows:
             table.add_row(
-                title_map[tier_name], "—", "No entries", f"[{ZenzicPalette.DIM}][inactive][/]"
+                title_map[tier_name],
+                "—",
+                "No entries",
+                f"[{ZenzicPalette.DIM}][inactive][/]",
+                f"[{ZenzicPalette.DIM}]—[/{ZenzicPalette.DIM}]",
+                f"[{ZenzicPalette.DIM}]—[/{ZenzicPalette.DIM}]",
             )
         else:
-            for code, name, status in tier_rows:
-                table.add_row(title_map[tier_name], code, name, status)
+            for code, name, status, severity, penalty in tier_rows:
+                table.add_row(title_map[tier_name], code, name, status, severity, penalty)
         if idx < len(selected_tiers) - 1:
             table.add_section()
 

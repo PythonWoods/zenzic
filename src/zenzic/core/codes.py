@@ -391,11 +391,11 @@ CORE_SCANNERS: list[CoreScanner] = [
         non_suppressible=True,
     ),
     CoreScanner(
-        codes="Z101\u2013106",
+        codes="Z101–106, Z108–109",
         name="Link Validator",
         capability=(
             "Broken links, dead anchors, circular refs, "
-            "absolute internal links, proactive suggestions"
+            "absolute internal links, empty link text, external URL validation"
         ),
         primary_exit=1,
         non_suppressible=False,
@@ -427,6 +427,23 @@ CORE_SCANNERS: list[CoreScanner] = [
         codes="Z405",
         name="Asset Sentry",
         capability="Unused images and media files not referenced anywhere in the docs tree",
+        primary_exit=1,
+        non_suppressible=False,
+    ),
+    CoreScanner(
+        codes="Z406",
+        name="Nav Contract Enforcer",
+        capability="Navigation contract violation — page presence against declared nav structure",
+        primary_exit=1,
+        non_suppressible=False,
+    ),
+    CoreScanner(
+        codes="Z111, Z113–114",
+        name="Blog Integrity Guard",
+        capability=(
+            "Zensical blog integrity — virtual route resolution (tag/author/paginated), "
+            "duplicate author keys, large pagination set threshold"
+        ),
         primary_exit=1,
         non_suppressible=False,
     ),
