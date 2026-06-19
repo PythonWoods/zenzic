@@ -18,6 +18,7 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **Refined CLI UX:** `inspect codes` now displays Severity and explicit `FATAL`/`HALT` pipeline blockers instead of misleading `0.0` penalties for security and governance-gate codes. `check` command now explicitly prints the final DQS score and gate status (`DQS Final Score: X/100 (Gate Passed/Failed)`) in the report footer.
 - **Engine-Neutral Configuration Templates:** Removed Docusaurus from initialized `.zenzic.toml` templates and CLI help descriptions, defaulting to `mkdocs` and `zensical`.
 - **Simplification of VSM Routing:** Eradicated Docusaurus-specific slug map initialization and routing rules during Virtual Site Map (VSM) construction.
 - **Improved Resolver Robustness:** Standardized site root resolution and monorepo path checks inside `InMemoryPathResolver`.
