@@ -211,6 +211,69 @@ def _output_json_findings(
     print(json.dumps(report, indent=2))
 
 
+def _output_check_all_json_findings(
+    results: Any,
+    all_findings: list[Finding],
+    repo_root: Path,
+    docs_root: Path,
+    config: ZenzicConfig,
+    suppression_audit: Any | None = None,
+) -> None:
+    """Format and print the checkAllReport JSON payload."""
+
+    def _rel(path: Path) -> str:
+        try:
+            return str(path.relative_to(repo_root))
+        except ValueError:
+            return str(path)
+
+    allowed_keys = {(f.rel_path, f.line_no, f.code) for f in all_findings}
+
+    def _is_allowed(rel_path: str, line_no: int, code: str) -> bool:
+        return (rel_path, line_no, code) in allowed_keys
+
+    ref_errors = []
+    for r in results.reference_reports:
+        rel = _rel(r.file_path)
+        for f in r.findings:
+            if not f.is_warning:
+                if _is_allowed(rel, f.line_no, f.issue):
+                    try:
+                        rel_d = r.file_path.relative_to(repo_root / config.docs_dir)
+                    except ValueError:
+                        rel_d = r.file_path
+                    ref_errors.append(f"{rel_d}:{f.line_no} [{f.issue}] — {f.detail}")
+
+    report = {
+        "links": [
+            str(e) for e in results.link_errors if _is_allowed(_rel(e.file_path), e.line_no, e.code)
+        ],
+        "orphans": [str(p) for p in results.orphans if _is_allowed(_rel(docs_root / p), 0, "Z402")],
+        "snippets": [
+            {"file": str(e.file_path), "line": e.line_no, "message": e.message}
+            for e in results.snippet_errors
+            if _is_allowed(_rel(e.file_path), e.line_no, "Z503")
+        ],
+        "placeholders": [
+            {"file": str(p.file_path), "line": p.line_no, "issue": p.issue, "detail": p.detail}
+            for p in results.placeholders
+            if _is_allowed(_rel(docs_root / p.file_path), p.line_no, p.issue)
+        ],
+        "unused_assets": [
+            str(p) for p in results.unused_assets if _is_allowed(_rel(docs_root / p), 0, "Z405")
+        ],
+        "nav_contract": [
+            msg for msg in results.nav_contract_errors if _is_allowed("(nav)", 0, "Z406")
+        ],
+        "references": ref_errors,
+        "suppression_count": suppression_audit.total if suppression_audit else 0,
+        "suppression_cap": suppression_audit.cap if suppression_audit else 0,
+        "suppression_debt_pts": suppression_audit.excess if suppression_audit else 0,
+        "debt_status": suppression_audit.debt_status if suppression_audit else "CLEAN",
+    }
+    print(json.dumps(report, indent=2))
+
+
 # ── SARIF output ──────────────────────────────────────────────────────────────
 # Rule metadata (names, descriptions, levels, helpUri) is derived dynamically
 # from zenzic.core.codes — the single source of truth.  Do NOT add hardcoded

@@ -11,6 +11,10 @@ from pathlib import Path
 
 import typer
 
+from zenzic import __version__
+from zenzic.core.adapters import get_adapter
+from zenzic.core.adapters._mkdocs import check_config_assets as _mkdocs_check_assets
+from zenzic.core.adapters._zensical import check_config_assets as _zensical_check_assets
 from zenzic.core.codes import CODE_DEFINITIONS
 from zenzic.core.exclusion import LayeredExclusionManager
 from zenzic.core.reporter import Finding, ZenzicReporter
@@ -134,7 +138,6 @@ def check_links(
     ),
 ) -> None:
     """Check for broken internal links and enforce strict warning policy when requested."""
-    from zenzic import __version__
 
     if ci:
         strict = True
@@ -170,7 +173,6 @@ def check_links(
             return str(path)
 
     t0 = time.monotonic()
-    from zenzic.core.adapters import get_adapter
 
     adapter = get_adapter(config.build_context, docs_root, repo_root)
     _roots = adapter.get_locale_source_roots(repo_root)
@@ -297,7 +299,6 @@ def check_orphans(
     ),
 ) -> None:
     """Detect .md files not listed in the nav."""
-    from zenzic import __version__
 
     if ci:
         if output_format == "text":
@@ -329,8 +330,6 @@ def check_orphans(
             return str(path.relative_to(repo_root))
         except ValueError:
             return str(path)
-
-    from zenzic.core.adapters import get_adapter
 
     adapter = get_adapter(config.build_context, docs_root, repo_root)
 
@@ -420,7 +419,6 @@ def check_snippets(
     ),
 ) -> None:
     """Validate Python code blocks in documentation Markdown files."""
-    from zenzic import __version__
 
     if ci:
         if output_format == "text":
@@ -560,7 +558,6 @@ def check_references(
       1 — Dangling References or (with --strict) warnings found.
       2 — SECURITY CRITICAL: a secret was detected in a reference URL.
     """
-    from zenzic import __version__
 
     if ci:
         strict = True
@@ -590,8 +587,6 @@ def check_references(
             return str(path.relative_to(repo_root))
         except ValueError:
             return str(path)
-
-    from zenzic.core.adapters import get_adapter
 
     adapter = get_adapter(config.build_context, docs_root, repo_root)
 
@@ -735,7 +730,6 @@ def check_assets(
     ),
 ) -> None:
     """Detect unused images and assets in the documentation."""
-    from zenzic import __version__
 
     if ci:
         if output_format == "text":
@@ -757,7 +751,6 @@ def check_assets(
             repo_root = docs_root
     else:
         docs_root = (repo_root / config.docs_dir).resolve()
-    from zenzic.core.adapters import get_adapter
 
     adapter = get_adapter(config.build_context, docs_root, repo_root)
     adapter_meta = adapter.get_metadata_files()
@@ -859,7 +852,6 @@ def check_placeholders(
     ),
 ) -> None:
     """Detect pages with < 50 words or containing TODOs/stubs."""
-    from zenzic import __version__
 
     if ci:
         if output_format == "text":
@@ -882,8 +874,6 @@ def check_placeholders(
     else:
         docs_root = (repo_root / config.docs_dir).resolve()
     exclusion_mgr = _shared._build_exclusion_manager(config, repo_root, docs_root)
-
-    from zenzic.core.adapters import get_adapter
 
     adapter = get_adapter(config.build_context, docs_root, repo_root)
     _locale_roots = adapter.get_locale_source_roots(repo_root)
@@ -1048,7 +1038,6 @@ def _collect_all_results(
     show_progress: bool = False,
 ) -> _AllCheckResults:
     """Run all seven checks and return results as a typed container."""
-    from zenzic.core.adapters import get_adapter
 
     adapter = get_adapter(config.build_context, docs_root, repo_root)
     _locale_roots = adapter.get_locale_source_roots(repo_root)
@@ -1074,12 +1063,8 @@ def _collect_all_results(
     config_asset_issues: list[tuple[str, str]] = []
     _engine = config.build_context.engine
     if _engine == "mkdocs":
-        from zenzic.core.adapters._mkdocs import check_config_assets as _mkdocs_check_assets
-
         config_asset_issues = _mkdocs_check_assets(repo_root)
     elif _engine == "zensical":
-        from zenzic.core.adapters._zensical import check_config_assets as _zensical_check_assets
-
         config_asset_issues = _zensical_check_assets(repo_root)
 
     return _AllCheckResults(
@@ -1459,8 +1444,6 @@ def check_all(
         )
 
     if not quiet and not no_header and output_format == "text":
-        from zenzic import __version__
-
         _shared._ui.print_header(__version__)
 
     _single_file: Path | None = None
@@ -1506,8 +1489,6 @@ def check_all(
         if output_format == "json":
             print(json.dumps(build_cap_exceeded_json_payload(suppression_audit), indent=2))
         elif output_format == "sarif":
-            from zenzic import __version__
-
             print(
                 json.dumps(
                     build_cap_exceeded_sarif_payload(suppression_audit, version=__version__),
@@ -1550,7 +1531,11 @@ def check_all(
             all_findings = _to_findings(results, docs_root, repo_root)
             all_findings = _apply_per_file_ignores(all_findings, config)
             all_findings = _apply_directory_policies(all_findings, config)
-        _shared._output_json_findings(all_findings, elapsed, suppression_audit)
+
+        _shared._output_check_all_json_findings(
+            results, all_findings, repo_root, docs_root, config, suppression_audit
+        )
+
         incidents = sum(1 for f in all_findings if f.severity == "security_incident")
         if incidents:
             raise typer.Exit(3)
@@ -1562,8 +1547,6 @@ def check_all(
             raise typer.Exit(1)
         return
     elif output_format == "sarif":
-        from zenzic import __version__
-
         with sovereign_context(force_audit=audit):
             all_findings = _to_findings(results, docs_root, repo_root)
             all_findings = _apply_per_file_ignores(all_findings, config)
@@ -1604,8 +1587,6 @@ def check_all(
         ) and not effective_exit_zero:
             raise typer.Exit(1)
         return
-
-    from zenzic import __version__
 
     with sovereign_context(force_audit=audit):
         all_findings = _to_findings(results, docs_root, repo_root)
