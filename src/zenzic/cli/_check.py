@@ -1546,36 +1546,19 @@ def check_all(
     elapsed = time.monotonic() - t0
 
     if output_format == "json":
-        ref_errors = []
-        for r in results.reference_reports:
-            for f in r.findings:
-                if not f.is_warning:
-                    try:
-                        rel = r.file_path.relative_to(repo_root / config.docs_dir)
-                    except ValueError:
-                        rel = r.file_path
-                    ref_errors.append(f"{rel}:{f.line_no} [{f.issue}] — {f.detail}")
-        report = {
-            "links": [str(e) for e in results.link_errors],
-            "orphans": [str(p) for p in results.orphans],
-            "snippets": [
-                {"file": str(e.file_path), "line": e.line_no, "message": e.message}
-                for e in results.snippet_errors
-            ],
-            "placeholders": [
-                {"file": str(p.file_path), "line": p.line_no, "issue": p.issue, "detail": p.detail}
-                for p in results.placeholders
-            ],
-            "unused_assets": [str(p) for p in results.unused_assets],
-            "nav_contract": results.nav_contract_errors,
-            "references": ref_errors,
-            "suppression_count": suppression_audit.total,
-            "suppression_cap": suppression_audit.cap,
-            "suppression_debt_pts": suppression_audit.excess,
-            "debt_status": suppression_audit.debt_status,
-        }
-        print(json.dumps(report, indent=2))
-        if results.failed and not effective_exit_zero:
+        with sovereign_context(force_audit=audit):
+            all_findings = _to_findings(results, docs_root, repo_root)
+            all_findings = _apply_per_file_ignores(all_findings, config)
+            all_findings = _apply_directory_policies(all_findings, config)
+        _shared._output_json_findings(all_findings, elapsed, suppression_audit)
+        incidents = sum(1 for f in all_findings if f.severity == "security_incident")
+        if incidents:
+            raise typer.Exit(3)
+        breaches = sum(1 for f in all_findings if f.severity == "security_breach")
+        if breaches:
+            raise typer.Exit(2)
+        errors_count = sum(1 for f in all_findings if f.severity == "error")
+        if errors_count and not effective_exit_zero:
             raise typer.Exit(1)
         return
     elif output_format == "sarif":

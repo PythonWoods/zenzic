@@ -12,6 +12,7 @@ import difflib
 import json
 import os
 from pathlib import Path
+from typing import Any
 
 import typer
 from rich.console import Console
@@ -176,7 +177,9 @@ def _apply_engine_override(config: ZenzicConfig, engine: str | None) -> ZenzicCo
 # ── JSON output ───────────────────────────────────────────────────────────────
 
 
-def _output_json_findings(findings: list[Finding], elapsed: float) -> None:
+def _output_json_findings(
+    findings: list[Finding], elapsed: float, suppression_audit: Any | None = None
+) -> None:
     """Serialize findings list to JSON and print to stdout."""
     report = {
         "findings": [
@@ -198,6 +201,13 @@ def _output_json_findings(findings: list[Finding], elapsed: float) -> None:
             "elapsed_seconds": round(elapsed, 3),
         },
     }
+    if suppression_audit is not None:
+        report["suppression"] = {
+            "suppression_count": suppression_audit.total,
+            "suppression_cap": suppression_audit.cap,
+            "suppression_debt_pts": suppression_audit.excess,
+            "debt_status": suppression_audit.debt_status,
+        }
     print(json.dumps(report, indent=2))
 
 

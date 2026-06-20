@@ -835,6 +835,8 @@ def find_unused_assets(
             continue
         if rel_path.suffix in CODE_ASSET_SUFFIXES:
             continue
+        if rel_path.name in {"robots.txt", "_redirects", "CNAME", "sitemap.xml"}:
+            continue
         if any(part in config.excluded_asset_dirs for part in rel_path.parts):
             continue
         rel_posix = rel_path.as_posix()

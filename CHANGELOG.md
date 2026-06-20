@@ -9,6 +9,15 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.13.2] - 2026-06-20
+
+### Fixed
+
+- **JSON Formatter Bypass:** Fixed a critical bug in `check` where the JSON output bypassed governance filtering. Zenzic now correctly applies `per_file_ignores` and `directory_policies` to the JSON output.
+- **Z405 Infrastructure Exclusions:** Natively exempted standard infrastructure files (`robots.txt`, `_redirects`, `CNAME`, `sitemap.xml`) from the Z405 Unused Assets check.
+
+---
+
 ## [0.13.1] - 2026-06-19
 
 ### Fixed
