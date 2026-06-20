@@ -379,15 +379,6 @@ def test_custom_rule_id_namespace_accepts_valid_prefix(tmp_path: Path) -> None:
     assert config.custom_rules[0].id == "ZZ-MYCHECK"
 
 
-def test_apply_local_toml_overrides_i18n(tmp_path: Path) -> None:
-    """[i18n] in .zenzic.local.toml merges into config.i18n."""
-    (tmp_path / ".zenzic.toml").write_text("docs_dir = 'docs'\n")
-    (tmp_path / ".zenzic.local.toml").write_text("[i18n]\nenabled = true\nbase_lang = 'fr'\n")
-    config, _ = ZenzicConfig.load(tmp_path)
-    assert config.i18n.enabled is True
-    assert config.i18n.base_lang == "fr"
-
-
 # ─── _build_from_data coverage ───────────────────────────────────────────────
 
 
@@ -429,23 +420,6 @@ def test_build_from_data_legacy_obsolete_names_migrated(
     assert "OldBrand" in config.governance.brand_obsolescence
     assert "AnotherOld" in config.governance.brand_obsolescence
     assert any("Deprecated" in r.message for r in caplog.records)
-
-
-def test_build_from_data_i18n_with_extra_sources(tmp_path: Path) -> None:
-    """[i18n] with extra_sources is parsed correctly."""
-    (tmp_path / ".zenzic.toml").write_text(
-        "[i18n]\n"
-        "enabled = true\n"
-        "base_lang = 'en'\n"
-        "[[i18n.extra_sources]]\n"
-        "base_source = 'developers'\n"
-        "[i18n.extra_sources.targets]\n"
-        "it = 'i18n/it/docusaurus-plugin-content-docs-developers/current'\n"
-    )
-    config, _ = ZenzicConfig.load(tmp_path)
-    assert config.i18n.enabled is True
-    assert len(config.i18n.extra_sources) == 1
-    assert config.i18n.extra_sources[0].base_source == Path("developers")
 
 
 def test_config_rejects_swallowed_root_keys(tmp_path: Path) -> None:

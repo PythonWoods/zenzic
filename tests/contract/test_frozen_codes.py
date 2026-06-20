@@ -87,11 +87,6 @@ class TestFrozenCodesContract:
                 "description": "Deprecated brand term found in documentation source",
                 "sarif_level": "warning",
             },
-            "Z602": {
-                "name": "I18N_PARITY",
-                "description": "Translation mirror missing or frontmatter parity violation",
-                "sarif_level": "warning",
-            },
         }
 
         for code, expected_meta in golden_snapshot.items():

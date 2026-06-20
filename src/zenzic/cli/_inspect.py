@@ -211,6 +211,8 @@ def inspect_codes(
         defn = CODE_DEFINITIONS.get(code)
         if defn is None:
             return f"[{ZenzicPalette.DIM}]—[/{ZenzicPalette.DIM}]"
+        if getattr(defn, "status", "active") == "inactive":
+            return f"[{ZenzicPalette.DIM}]inactive[/{ZenzicPalette.DIM}]"
         sty = _SEVERITY_STYLE.get(defn.severity, ZenzicPalette.DIM)
         return f"[{sty}]{defn.severity}[/{sty}]"
 
@@ -218,12 +220,15 @@ def inspect_codes(
         defn = CODE_DEFINITIONS.get(code)
         if defn is None:
             return f"[{ZenzicPalette.DIM}]—[/{ZenzicPalette.DIM}]"
+        # Inactive codes are never emitted — show dim dash, not a penalty.
+        if getattr(defn, "status", "active") == "inactive":
+            return f"[{ZenzicPalette.DIM}]—[/{ZenzicPalette.DIM}]"
         # Z0xx (config abort) and Z2xx (security codes) collapse the score to 0
         # and halt the pipeline unconditionally — show FATAL, not 0.0.
         if code.startswith("Z0") or code.startswith("Z2"):
             return "[bold red]FATAL[/bold red]"
         # warning + 0.0 penalty = governance gate / pipeline block (e.g. Z504,
-        # Z602, Z901, Z902) — show HALT to signal CI exit rather than math cost.
+        # Z901, Z902) — show HALT to signal CI exit rather than math cost.
         if defn.severity == "warning" and defn.penalty == 0.0:
             return "[bold red]HALT[/bold red]"
         # note + 0.0 = genuinely informational; never blocks CI (Fail-Visible rule).

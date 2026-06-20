@@ -18,6 +18,7 @@ from zenzic.core.rules import (
     BrandObsolescenceRule,
     CircularAnchorRule,
     CustomRule,
+    MalformedFrontmatterRule,
     PluginRegistry,
     RuleFinding,
     UntaggedCodeBlockRule,
@@ -245,7 +246,7 @@ def test_scan_docs_with_custom_rules_from_config(tmp_path: Path) -> None:
 
 
 def test_build_rule_engine_always_built() -> None:
-    """Engine is always built: Z107 and Z505 are always-active built-in rules."""
+    """Engine is always built: Z107, Z505, and Z506 are always-active built-in rules."""
     from zenzic.core.scanner import _build_rule_engine
 
     config = ZenzicConfig()
@@ -1838,3 +1839,121 @@ class TestBrandObsolescenceRule:
         assert len(findings) == 2
         codes = {f.rule_id for f in findings}
         assert codes == {"Z601"}
+
+
+# ─── MalformedFrontmatterRule (Z506) ──────────────────────────────────────────
+
+
+class TestMalformedFrontmatterRule:
+    """Suite for Z506 MALFORMED_FRONTMATTER — built-in always-active rule."""
+
+    def _rule(self) -> MalformedFrontmatterRule:
+        return MalformedFrontmatterRule()
+
+    def test_double_dash_opening_fires_z506(self, tmp_path: Path) -> None:
+        """First line '--' (2 dashes) instead of '---' → Z506."""
+        text = "--\ntitle: test\n---\n\nContent here.\n"
+        f = tmp_path / "bad.md"
+        findings = self._rule().check(f, text)
+        assert len(findings) == 1
+        assert findings[0].rule_id == "Z506"
+        assert findings[0].line_no == 1
+        assert findings[0].severity == "error"
+
+    def test_four_dashes_fires_z506(self, tmp_path: Path) -> None:
+        """First line '----' (4 dashes) → Z506."""
+        text = "----\ntitle: test\n---\n\nContent.\n"
+        f = tmp_path / "bad.md"
+        findings = self._rule().check(f, text)
+        assert len(findings) == 1
+        assert findings[0].rule_id == "Z506"
+        assert findings[0].line_no == 1
+
+    def test_trailing_chars_fires_z506(self, tmp_path: Path) -> None:
+        """First line '--- trailing stuff' → Z506 (not a clean '---')."""
+        text = "--- trailing stuff\ntitle: test\n---\n\nContent.\n"
+        f = tmp_path / "bad.md"
+        findings = self._rule().check(f, text)
+        assert len(findings) == 1
+        assert findings[0].rule_id == "Z506"
+
+    def test_valid_frontmatter_no_finding(self, tmp_path: Path) -> None:
+        """Correct '---' on line 1 → no Z506."""
+        text = "---\ntitle: test\n---\n\nContent here.\n"
+        f = tmp_path / "ok.md"
+        findings = self._rule().check(f, text)
+        assert findings == []
+
+    def test_no_frontmatter_no_finding(self, tmp_path: Path) -> None:
+        """File with no frontmatter at all → no Z506."""
+        text = "# Heading\n\nContent here.\n"
+        f = tmp_path / "ok.md"
+        findings = self._rule().check(f, text)
+        assert findings == []
+
+    def test_single_dash_no_finding(self, tmp_path: Path) -> None:
+        """First line '-' (single dash) is not malformed frontmatter → no Z506."""
+        text = "-\ntitle: test\n---\n\nContent.\n"
+        f = tmp_path / "ok.md"
+        findings = self._rule().check(f, text)
+        assert findings == []
+
+    def test_empty_file_no_finding(self, tmp_path: Path) -> None:
+        """Empty file → no Z506."""
+        f = tmp_path / "empty.md"
+        findings = self._rule().check(f, "")
+        assert findings == []
+
+    def test_z506_finding_exact_fields(self, tmp_path: Path) -> None:
+        """Assert all RuleFinding fields for a Z506 violation."""
+        text = "--\ntitle: test\n---\n"
+        f = tmp_path / "bad.md"
+        findings = self._rule().check(f, text)
+        assert len(findings) == 1
+        v = findings[0]
+        assert v.file_path == f
+        assert v.line_no == 1
+        assert v.rule_id == "Z506"
+        assert v.severity == "error"
+        assert v.is_error
+        assert "'--'" in v.message
+        assert "---" in v.message
+        assert v.match_text == "--"
+        assert v.col_start == 0
+
+    def test_z506_five_dashes_fires(self, tmp_path: Path) -> None:
+        """'-----' also triggers Z506."""
+        text = "-----\ntitle: x\n---\n"
+        findings = self._rule().check(tmp_path / "f.md", text)
+        assert len(findings) == 1
+        assert findings[0].rule_id == "Z506"
+
+    def test_z506_only_fires_once_per_file(self, tmp_path: Path) -> None:
+        """Z506 fires at most once per file (line 1 only)."""
+        text = "--\n--\n--\n"
+        findings = self._rule().check(tmp_path / "f.md", text)
+        assert len(findings) == 1
+
+    def test_z506_suppression_honored(self, tmp_path: Path) -> None:
+        """<!-- zenzic:ignore: Z506 --> on line 1 suppresses the finding."""
+        text = "-- <!-- zenzic:ignore: Z506 -->\ntitle: test\n---\n"
+        findings = self._rule().check(tmp_path / "ok.md", text)
+        assert findings == []
+
+    def test_z506_integrated_in_rule_engine(self, tmp_path: Path) -> None:
+        """MalformedFrontmatterRule fires when run through AdaptiveRuleEngine."""
+        engine = AdaptiveRuleEngine([MalformedFrontmatterRule()])
+        text = "--\ntitle: test\n---\n\nContent.\n"
+        findings = engine.run(tmp_path / "bad.md", text)
+        assert len(findings) == 1
+        assert findings[0].rule_id == "Z506"
+
+    def test_z506_built_in_via_build_rule_engine(self) -> None:
+        """Z506 must be in the built-in always-active rule set."""
+        from zenzic.core.scanner import _build_rule_engine
+
+        config = ZenzicConfig()
+        engine = _build_rule_engine(config)
+        assert engine is not None
+        rule_ids = {r.rule_id for r in engine._rules}
+        assert "Z506" in rule_ids

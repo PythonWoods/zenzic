@@ -114,7 +114,6 @@ GLOBAL_TOML_TEMPLATE: str = (
     "# Keep empty until your governance policy defines deprecated brand terms.\n"
     "brand_obsolescence = []\n"
     '# suppression_cap_scope = "all"  # Options: all, per-file\n'
-    "# i18n_parity = false            # Set true when i18n is enabled\n"
     "\n"
     "# ---------------------------------------------------------------------------\n"
     "# per_file_ignores\n"
@@ -376,7 +375,6 @@ PYPROJECT_TOML_SECTION_TEMPLATE: str = (
     "# Keep empty until your governance policy defines deprecated brand terms.\n"
     "brand_obsolescence = []\n"
     '# suppression_cap_scope = "all"  # Options: all, per-file\n'
-    "# i18n_parity = false            # Set true when i18n is enabled\n"
     "\n"
     "# [tool.zenzic.governance.per_file_ignores]\n"
     "# Silence a rule for specific file globs.\n"
@@ -405,7 +403,6 @@ PYPROJECT_TOML_SECTION_TEMPLATE: str = (
     '# base_source = "docs"\n'
     "# strict_parity = true\n"
     '# require_frontmatter_parity = ["title", "description"]\n'
-    "# [tool.zenzic.i18n.targets]\n"
     '# it = "docs-it"\n'
     "\n"
     "# --- CUSTOM RULES (Optional) ---\n"

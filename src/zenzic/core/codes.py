@@ -50,10 +50,11 @@ Z5xx — Content Quality
     Z503  SNIPPET_ERROR        — fenced code block fails syntax validation
     Z504  QUALITY_REGRESSION   — quality scorer detected score drop vs saved baseline
     Z505  UNTAGGED_CODE_BLOCK  — fenced code block has no language specifier
+    Z506  MALFORMED_FRONTMATTER — frontmatter opening delimiter is malformed (e.g., '--' instead of '---')
 
 Z6xx — Governance (opt-in)
      Z601  BRAND_OBSOLESCENCE   — deprecated brand term found in documentation source
-     Z602  I18N_PARITY          — base-language doc lacks mirror in a target language, or frontmatter parity mismatch
+     Z602  I18N_PARITY          — [INACTIVE] bilingual parity deferred to future adapter plugins; not enforced in v0.14.0
 
 Z9xx — Engine / System
     Z901  RULE_ENGINE_ERROR    — plugin rule raised an unexpected exception
@@ -85,11 +86,16 @@ class CodeDefinition(NamedTuple):
         category: DQS bucket — ``"structural"``, ``"navigation"``,
             ``"content"``, ``"brand"``, or ``None`` for codes outside the
             penalty table.
+        status:   Lifecycle state — ``"active"`` (default) or ``"inactive"``
+            for codes whose scanner logic has been deferred or removed.
+            Inactive codes remain in the namespace for config compatibility
+            but are never emitted by the engine.
     """
 
     severity: str
     penalty: float
     category: str | None
+    status: str = "active"
 
 
 # ── Exit Code Contract ────────────────────────────────────────────────────────
@@ -132,7 +138,6 @@ FROZEN_CODES: frozenset[str] = frozenset(
         "Z405",
         "Z406",
         "Z601",
-        "Z602",
     }
 )
 
@@ -146,13 +151,6 @@ NON_SUPPRESSIBLE_CODES: frozenset[str] = frozenset(
 )
 
 PLUGIN_FORBIDDEN_EXITS: frozenset[int] = frozenset({2, 3})
-
-LEGACY_TO_CODE: dict[str, str] = {
-    "Z903": "Z405",
-    "Z904": "Z406",
-    "Z905": "Z601",
-    "Z907": "Z602",
-}
 
 
 # ── Code Definitions (SSoT) ───────────────────────────────────────────────────
@@ -209,9 +207,12 @@ CODE_DEFINITIONS: dict[str, CodeDefinition] = {
     "Z503": CodeDefinition("warning", 10.0, "content"),  # SNIPPET_ERROR
     "Z504": CodeDefinition("warning", 0.0, None),  # QUALITY_REGRESSION — governance gate
     "Z505": CodeDefinition("warning", 1.0, "content"),  # UNTAGGED_CODE_BLOCK
+    "Z506": CodeDefinition("error", 5.0, "content"),  # MALFORMED_FRONTMATTER
     # ── Z6xx — Governance ─────────────────────────────────────────────────────
     "Z601": CodeDefinition("warning", 2.0, "brand"),  # BRAND_OBSOLESCENCE (escalates exponentially)
-    "Z602": CodeDefinition("warning", 0.0, None),  # I18N_PARITY — binary governance gate
+    "Z602": CodeDefinition(
+        "warning", 0.0, None, "inactive"
+    ),  # I18N_PARITY — INACTIVE; deferred to future adapter plugins
     # ── Z9xx — Engine / System ────────────────────────────────────────────────
     "Z901": CodeDefinition("warning", 0.0, None),  # RULE_ENGINE_ERROR
     "Z902": CodeDefinition("warning", 0.0, None),  # RULE_TIMEOUT
@@ -252,8 +253,9 @@ CODE_NAMES: dict[str, str] = {
     "Z503": "SNIPPET_ERROR",
     "Z504": "QUALITY_REGRESSION",
     "Z505": "UNTAGGED_CODE_BLOCK",
+    "Z506": "MALFORMED_FRONTMATTER",
     "Z601": "BRAND_OBSOLESCENCE",
-    "Z602": "I18N_PARITY",
+    "Z602": "I18N_PARITY",  # inactive
     "Z901": "RULE_ENGINE_ERROR",
     "Z902": "RULE_TIMEOUT",
     "Z906": "NO_FILES_FOUND",
@@ -299,9 +301,10 @@ CODE_DESCRIPTIONS: dict[str, str] = {
     "Z503": "Fenced code block contains a syntax error",
     "Z504": "Documentation quality score regressed below the saved baseline",
     "Z505": "Fenced code block has no language specifier",
+    "Z506": "Frontmatter boundary is malformed (e.g., opening delimiter is '--' instead of '---')",
     # Z6xx — Governance
     "Z601": "Deprecated brand term found in documentation source",
-    "Z602": "Translation mirror missing or frontmatter parity violation",
+    "Z602": "[INACTIVE] Bilingual parity deferred to future adapter plugins — not enforced in v0.14.0",
     # Z9xx — Engine / System
     "Z901": "Plugin rule raised an unexpected exception",
     "Z902": "Plugin rule exceeded the per-file time limit (ReDoS guard)",
@@ -417,9 +420,12 @@ CORE_SCANNERS: list[CoreScanner] = [
         non_suppressible=False,
     ),
     CoreScanner(
-        codes="Z501\u2013503",
+        codes="Z501\u2013503, Z506",
         name="Content Guard",
-        capability=("Placeholder / stub text, overly short pages, syntax errors in code snippets"),
+        capability=(
+            "Placeholder / stub text, overly short pages, syntax errors in code snippets, "
+            "malformed frontmatter delimiters"
+        ),
         primary_exit=1,
         non_suppressible=False,
     ),
@@ -470,17 +476,6 @@ CORE_SCANNERS: list[CoreScanner] = [
         capability=(
             "Deprecated brand term detection \u2014 configurable via [governance], "
             "suppressed per-line with <!-- zenzic:ignore: Z601 --> (Markdown) or {/* zenzic:ignore: Z601 */} (MDX)"
-        ),
-        primary_exit=1,
-        non_suppressible=False,
-    ),
-    CoreScanner(
-        codes="Z602",
-        name="I18N Parity Guard",
-        capability=(
-            "Cross-language mirror integrity \u2014 every base-language doc must "
-            "have a translation in each configured target root, with matching "
-            "frontmatter keys (opt-in via [governance] section, language-agnostic)"
         ),
         primary_exit=1,
         non_suppressible=False,

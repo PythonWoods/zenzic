@@ -19,10 +19,8 @@ from zenzic.core.codes import CODE_DEFINITIONS
 from zenzic.core.exclusion import LayeredExclusionManager
 from zenzic.core.reporter import Finding, ZenzicReporter
 from zenzic.core.scanner import (
-    I18nParityIssue,
     PlaceholderFinding,
     _map_credential_to_finding,
-    find_i18n_parity,
     find_missing_directory_indices,
     find_orphans,
     find_placeholders,
@@ -962,8 +960,6 @@ class _AllCheckResults:
     security_events: int
     directory_index_issues: list[Path]
     config_asset_issues: list[tuple[str, str]] = field(default_factory=list)
-    i18n_parity_issues: list[I18nParityIssue] = field(default_factory=list)
-    i18n_strict: bool = True
 
     @property
     def failed(self) -> bool:
@@ -977,7 +973,6 @@ class _AllCheckResults:
             or self.nav_contract_errors
             or ref_errors
             or self.security_events
-            or self.i18n_parity_issues
         )
 
 
@@ -999,8 +994,6 @@ def _apply_only_filter(results: _AllCheckResults, only_str: str) -> None:
         results.unused_assets = []
     if "Z406" not in allowed:
         results.nav_contract_errors = []
-    if "Z602" not in allowed:
-        results.i18n_parity_issues = []
     if "Z401" not in allowed:
         results.directory_index_issues = []
     if "Z404" not in allowed:
@@ -1045,9 +1038,6 @@ def _collect_all_results(
 
     _content_roots = adapter.get_extra_content_roots(repo_root)
     content_roots: list[Path] | None = _content_roots if _content_roots else None
-
-    def _mk_i18n_exclusion_mgr(base_root: Path) -> LayeredExclusionManager:
-        return _shared._build_exclusion_manager(config, repo_root, base_root)
 
     ref_reports, _ = scan_docs_references(
         docs_root,
@@ -1113,12 +1103,6 @@ def _collect_all_results(
             provides_index=adapter.provides_index,
         ),
         config_asset_issues=config_asset_issues,
-        i18n_parity_issues=find_i18n_parity(
-            repo_root,
-            config=config,
-            exclusion_manager_factory=_mk_i18n_exclusion_mgr,
-        ),
-        i18n_strict=config.i18n.strict_parity,
     )
 
 
@@ -1220,18 +1204,6 @@ def _to_findings(results: _AllCheckResults, docs_root: Path, repo_root: Path) ->
                 code="Z406",
                 severity="error",
                 message=msg,
-            )
-        )
-
-    _i18n_strict = results.i18n_strict
-    for issue in results.i18n_parity_issues:
-        findings.append(
-            Finding(
-                rel_path=_rel(issue.file_path),
-                line_no=0,
-                code="Z602",
-                severity="error" if _i18n_strict else "warning",
-                message=issue.message,
             )
         )
 
