@@ -99,17 +99,7 @@ For the current release history, see [CHANGELOG.md](CHANGELOG.md).
   Deprecation warnings for any v0.9 unstable API surfaces.
 - **Semantic Schemas**: YAML/JSON frontmatter validation against declared schemas
   (e.g. `required_fields: [title, description]`). New finding tier `Z7xx`.
-- **i18n schema parity**: Z907 extended to enforce frontmatter key parity between
-  base and target language files (not just file existence).
-- **Enhanced i18n Link Discovery (GAP-003)**: The Virtual Site Map (VSM) currently
-  resolves links against the primary locale (EN). Translation files in `i18n/` that
-  introduce links absent from their EN counterpart are not validated by Zenzic —
-  only the Docusaurus build engine catches them at compile time. The planned fix
-  extends the Docusaurus adapter to recurse into all locales declared in
-  `docusaurus.config.ts` and cross-validate locale-specific links against the full
-  multi-locale VSM. Structurally divergent links (present in IT but not EN) will
-  raise a new `Z602 I18N_STRUCTURAL_DRIFT` finding. Identified in ADR-048 (v0.8.0
-  cycle, Phase 40.2).
+- ~~**i18n schema parity (Z907)**~~ — **CANCELLED (ADR-034):** The Z602/Z907 I18N_PARITY scanner was eradicated in v0.14.0. Bilingual parity enforcement is deferred to future adapter plugins and will not be implemented in the core engine.
 - **Configurable finding tiers**: allow projects to promote/demote finding severity
   via `[governance]` TOML section, with audit log of all overrides.
 
@@ -121,17 +111,21 @@ For the current release history, see [CHANGELOG.md](CHANGELOG.md).
 
 ### The Great Migration
 
-Tactical Bridge: zenzic-doc will migrate to MkDocs Material to immediately restore CI linting and ADR-020 (i18n) compliance. Strategic Goal: Final migration to Zensical is deferred until Zensical achieves i18n parity.
+Tactical Bridge: zenzic-doc migrated to MkDocs Material and then to Zensical — completed in v0.13.0. ADR-020 (Mirror Law) has been deprecated; Zenzic is now English-Only.
 
 ---
 
-## v0.14.0 — The Bridge (planned)
+## v0.14.0 — The Great Eradication (in progress)
 
-**Theme:** Inversion of Control via TS Plugins.
+**Theme:** Surgical removal of dead weight. Zero accumulation of inactive code paths.
 
-### Planned
+### Delivered
 
-- **The Bridge Architecture (Inversion of Control)**: Implementation of ADR-080. Introduces the PrebuiltVSMAdapter to ingest static `.zenzic-vsm.json` routing payloads from dynamic frameworks, and initializes the `@zenzic/plugin-docusaurus` TypeScript bridge.
+- **Z602 I18N_PARITY Engine Eradicated (ADR-034):** `find_i18n_parity()` and 443 lines of bilingual scanner logic removed from the core. Z602 remains in the code namespace as `status="inactive"` for config forward-compatibility. `I18nConfig`/`I18nSource` models removed from `zenzic.models.config`.
+- **`LEGACY_TO_CODE` Deleted:** The `Z9xx → Zxxx` migration alias dictionary removed. All canonical code references updated.
+- **CodeDefinition.status field:** `NamedTuple` gains a `status: str = "active"` field. INACTIVE codes render as dim in `inspect codes`.
+- **Z506 MALFORMED_FRONTMATTER:** New built-in always-active rule that detects malformed YAML frontmatter opening delimiters on line 1. Severity `error`, −5.0 pts (Content). Gallery page and finding-codes reference updated.
+- **Breaking Changes:** Full list in CHANGELOG.md under `## [0.14.0]`.
 
 ---
 

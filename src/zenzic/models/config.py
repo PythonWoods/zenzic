@@ -151,56 +151,6 @@ class BuildContext(BaseModel):
     )
 
 
-class I18nSource(BaseModel):
-    """A single base/targets pair for Z907 I18N_PARITY.
-
-    Supports N site plugin instances by allowing multiple sources via :attr:`I18nConfig.extra_sources`.
-    """
-
-    base_source: Path = Field(description="Base-language root (e.g. 'docs' or 'developers').")
-    targets: dict[str, Path] = Field(
-        default_factory=dict,
-        description=(
-            "Mapping of target language code to mirror root, e.g. "
-            "{'it': 'i18n/it/.../current', 'es': 'i18n/es/.../current'}."
-        ),
-    )
-
-
-class I18nConfig(BaseModel):
-    """Configuration for Z907 I18N_PARITY check.
-
-    Language-agnostic: knows nothing about specific locales — only the
-    association between a base-language tree and one or more target trees.
-    """
-
-    enabled: bool = Field(default=False, description="Activate the Z907 I18N_PARITY check.")
-    base_lang: str = Field(default="en", description="ISO 639-1 code of the base language.")
-    base_source: Path = Field(
-        default=Path("docs"),
-        description="Primary base-language root.",
-    )
-    targets: dict[str, Path] = Field(
-        default_factory=dict,
-        description=("Mapping of target language code to mirror root for the primary source."),
-    )
-    strict_parity: bool = Field(
-        default=True,
-        description="When True, missing mirror is an error; when False, a warning.",
-    )
-    require_frontmatter_parity: list[str] = Field(
-        default_factory=lambda: ["title", "description"],
-        description="Frontmatter keys that must be present in every translation.",
-    )
-    extra_sources: list[I18nSource] = Field(
-        default_factory=list,
-        description=(
-            "Additional base/targets pairs "
-            "mapping a base URL to one or more physical filesystem roots. "
-        ),
-    )
-
-
 class GovernanceConfig(BaseModel):
     """Governance toggles declared in ``[governance]``.
 
@@ -359,7 +309,7 @@ SYSTEM_EXCLUDED_FILE_PATTERNS: Final[tuple[str, ...]] = (
     # Project metadata / build manifests promoted to Layer 1 in v0.7.0.
     # Honours Zero-Config for "Prose-only Maintenance" repos (engine = standalone)
     # whose docs_root is the repository root: every TOML/YAML/JSON config file
-    # was previously triggering Z903 unless individually declared.
+    # was previously triggering Z405 unless individually declared.
     "*.toml",
     "*.yaml",
     "*.yml",
@@ -569,13 +519,6 @@ class ZenzicConfig(BaseModel):
             "always enabled."
         ),
     )
-    i18n: I18nConfig = Field(
-        default_factory=I18nConfig,
-        description=(
-            "Z907 I18N_PARITY config. When ``enabled=True``, every base-language "
-            "file must have a mirror in each target language root."
-        ),
-    )
     forbidden_patterns: list[str] = Field(
         default=[],
         description=(
@@ -712,20 +655,6 @@ class ZenzicConfig(BaseModel):
             metadata_cfg = filtered_data.get("project_metadata", ProjectMetadata())
             metadata_cfg.obsolete_names = list(governance_cfg.brand_obsolescence)
             filtered_data["project_metadata"] = metadata_cfg
-        if "i18n" in data and isinstance(data["i18n"], dict):
-            i18n_raw = data["i18n"]
-            extra_raw = i18n_raw.get("extra_sources", []) or []
-            extra = [
-                I18nSource(**{k: v for k, v in s.items() if k in I18nSource.model_fields})
-                for s in extra_raw
-                if isinstance(s, dict)
-            ]
-            i18n_filtered = {
-                k: v
-                for k, v in i18n_raw.items()
-                if k in I18nConfig.model_fields and k != "extra_sources"
-            }
-            filtered_data["i18n"] = I18nConfig(extra_sources=extra, **i18n_filtered)
         return cls(**filtered_data)
 
     @staticmethod
@@ -986,17 +915,6 @@ class ZenzicConfig(BaseModel):
                     merged_governance[key] = governance_local[key]
             try:
                 config.governance = GovernanceConfig(**merged_governance)
-            except Exception:
-                pass
-
-        i18n_local = local_data.get("i18n")
-        if isinstance(i18n_local, dict):
-            merged_i18n = config.i18n.model_dump()
-            for key in I18nConfig.model_fields:
-                if key in i18n_local:
-                    merged_i18n[key] = i18n_local[key]
-            try:
-                config.i18n = I18nConfig(**merged_i18n)
             except Exception:
                 pass
 

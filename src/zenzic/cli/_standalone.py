@@ -344,9 +344,13 @@ def score(
                 status_icon = f"[green]{emoji('check')}[/]"
                 issue_display = f"[green]{cat.issues}[/]"
             raw_pts = round(cat.raw_penalty)
-            raw_display = f"-{raw_pts}" if raw_pts > 0 else "0"
+            raw_display = f"[bold red]-{raw_pts}[/bold red]" if raw_pts > 0 else "[dim]0[/dim]"
             applied_penalty = round(cat.weight * 100 - cat.contribution * 100)
-            applied_display = f"-{applied_penalty}" if applied_penalty > 0 else "0"
+            applied_display = (
+                f"[bold red]-{applied_penalty}[/bold red]"
+                if applied_penalty > 0
+                else "[dim]0[/dim]"
+            )
             total_category_penalties += applied_penalty
             capped_suffix = " [yellow](Max limit reached)[/yellow]" if cat.is_capped else ""
             table.add_row(
@@ -365,7 +369,7 @@ def score(
             "",
             "",
             "",
-            f"[bold]-{total_category_penalties}[/bold]"
+            f"[bold red]-{total_category_penalties}[/bold red]"
             if total_category_penalties > 0
             else "[bold]0[/bold]",
         )
@@ -1581,7 +1585,7 @@ version = "0.1.0"
 description = "Custom Zenzic plugin rule package"
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = ["zenzic>=0.13.1"]
+dependencies = ["zenzic>=0.14.0"]
 
 [project.entry-points."zenzic.rules"]
 {project_slug} = "{module_name}.rules:{class_name}"

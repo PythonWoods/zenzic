@@ -532,7 +532,7 @@ class AdaptiveRuleEngine:
         return findings
 
 
-# ─── Built-in core rules (Z107, Z505, Z905) ──────────────────────────────────
+# ─── Built-in core rules (Z107, Z505, Z506) ──────────────────────────────────
 
 #: Matches a same-page anchor link: [text](#fragment) — not cross-file.
 _ANCHOR_LINK_RE = re.compile(r"\[([^\[\]]+)\]\(#([^)]+)\)")
@@ -741,6 +741,56 @@ class UntaggedCodeBlockRule(BaseRule):
                         open_char = ""
                         open_count = 0
         return findings
+
+
+class MalformedFrontmatterRule(BaseRule):
+    """Z506 — Detect malformed frontmatter boundary delimiters.
+
+    The opening frontmatter delimiter MUST be exactly ``---`` on line 1 of the
+    file (after optional BOM whitespace).  Any first line that starts with two
+    or more dashes but is not exactly ``---`` (e.g. ``--``, ``----``,
+    ``--- trailing chars``) is silently discarded by most static-site engines.
+    The consequence is that the ``template:``, ``title:``, and all other
+    metadata keys are never parsed — they are rendered as raw prose instead.
+
+    This rule fires once per file (line 1 only) since a file cannot have more
+    than one frontmatter opening delimiter.
+    """
+
+    @property
+    def rule_id(self) -> str:
+        return "Z506"
+
+    def check(self, file_path: Path, text: str) -> list[RuleFinding]:
+        lines = text.splitlines()
+        if not lines:
+            return []
+        first_line = lines[0]
+        stripped = first_line.strip()
+        # Trigger when the line starts with "--" (at least 2 dashes) but is NOT
+        # exactly "---".  Examples: "--", "----", "--- trailing chars".
+        if stripped.startswith("--") and stripped != "---":
+            if _is_suppressed(first_line, self.rule_id):
+                return []
+            return [
+                RuleFinding(
+                    file_path=file_path,
+                    line_no=1,
+                    rule_id=self.rule_id,
+                    message=(
+                        f"Malformed frontmatter delimiter on line 1: {stripped!r} "
+                        "is not a valid YAML frontmatter boundary. "
+                        "Use exactly '---' (three dashes) on its own line to open the "
+                        "frontmatter block; 'template:', 'title:', and all metadata "
+                        "directives will be ignored by most engines otherwise."
+                    ),
+                    severity="error",
+                    matched_line=first_line,
+                    col_start=0,
+                    match_text=stripped,
+                )
+            ]
+        return []
 
 
 if TYPE_CHECKING:

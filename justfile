@@ -136,6 +136,10 @@ release-contracts:
         echo "release-contracts failed: release part must not create tags"
         exit 1
     fi
+    if ! grep -q 'git commit -S -s' justfile; then
+        echo "release-contracts failed: all git commits must use DCO (-s) and GPG signing (-S)"
+        exit 1
+    fi
 
 # Release orchestration: explicit, transparent, and lockfile-first.
 release part:
@@ -149,7 +153,7 @@ release part:
         uv sync
         version="$(uv run --active bump-my-version show current_version)"
         git add -u
-        git commit -m "release: bump version to ${version}"
+        git commit -S -s -m "release: bump version to ${version}"
 
 # Show the current project version
 version:

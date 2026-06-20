@@ -24,7 +24,6 @@ from zenzic.core.ui import ZenzicPalette, emoji
 from zenzic.models.config import (
     BuildContext,
     GovernanceConfig,
-    I18nConfig,
     ZenzicConfig,
 )
 
@@ -271,21 +270,4 @@ def explain(
     console.print(gov_table)
     console.print()
 
-    # ── Section D: I18n ───────────────────────────────────────────────────
-    i18n = config.i18n
-    i18n_table = _make_table(f"{emoji('sparkles')}  I18n")
-    i18n_table.add_column("Field", style="bold", min_width=24, no_wrap=True)
-    i18n_table.add_column("Active Value", min_width=24)
-    i18n_table.add_column("Source", min_width=8, justify="center")
-    i18n_table.add_column("Origin", min_width=22)
-
-    for field in I18nConfig.model_fields:
-        if field == "extra_sources":
-            value = f"[{len(i18n.extra_sources)} source(s)]"
-        else:
-            value = getattr(i18n, field)
-        source = _source_of(field, raw_global, raw_local, section="i18n")
-        _add_row(i18n_table, field, value, source)
-    console.print(i18n_table)
-    console.print()
     _shared.print_footer_hint("config")
