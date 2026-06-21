@@ -9,6 +9,16 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.14.1] - Unreleased
+
+### Added
+
+- **Semantic Metadata Cross-Validation (Z507)**: Added to the planned roadmap for v0.15.0.
+
+### Fixed
+
+- **Core Link Parsing**: Extended `_MARKDOWN_ASSET_LINK_RE` to parse standard markdown links `[text](url)` and HTML `<a>` tags, resolving false positive `Z405` errors for non-markdown assets.
+
 ## [0.14.0] - Unreleased
 
 ### Breaking Changes
