@@ -39,12 +39,22 @@ For the current release history, see [CHANGELOG.md](CHANGELOG.md).
 - **The Bridge Architecture (TypeScript Docusaurus Plugin)**: Official plugin interface to support edge-case runtime frameworks outside the core engine.
 - **Z108 STALE_ALLOWLIST_ENTRY**: Config-hygiene check for unused `absolute_path_allowlist` entries.
 - **Semantic Schemas Validation**: YAML/JSON frontmatter validation against declared schemas (e.g. `required_fields: [title, description]`).
-- **Z407 BROKEN_CODE_REFERENCE**: Scan Markdown for backtick-quoted paths and verify their physical existence.
+
 - **Dead Suppression Elimination (Z603)** ✅ **Implemented in v0.15.0 sprint:** Detects inline `zenzic:ignore` directives that do not correspond to any active finding.
 - **Configurable Finding Tiers**: Allow projects to promote/demote finding severity via `[governance]` TOML section.
 - **Readability & Style Engine**: Integrate pure readability metrics (Flesch-Kincaid) and style checks.
 - **Semantic Linting**: Implement AST-based rules to detect semantically duplicate headings and empty sections.
 - **Smart Link Graph & Connectivity Analysis**: Build a directed graph of the documentation to detect unlinked pages and navigation cycles.
+
+---
+
+## v0.16.0 (planned)
+
+**Theme:** Future Enhancements.
+
+### Planned Features
+
+- **Z407 BROKEN_CODE_REFERENCE**: Scan Markdown for backtick-quoted paths and verify their physical existence. [BLOCKED: Global heuristics generate false positives on hypothetical tutorial paths. Implementation deferred until explicit Markdown attribute opt-in (e.g., {: .verify-path }) is supported by the AST parser.]
 
 ---
 
