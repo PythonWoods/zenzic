@@ -73,6 +73,7 @@ from zenzic.models.vsm import build_vsm
 
 if TYPE_CHECKING:
     from zenzic.core.exclusion import LayeredExclusionManager
+    from zenzic.core.suppressions import SuppressionTracker
 
 
 # ─── YAML loader (boundary layer — ignores unknown tags like MkDocs !ENV) ────
@@ -759,6 +760,7 @@ async def validate_links_async(
     structured: bool = False,
     locale_roots: list[tuple[Path, str]] | None = None,
     check_external: bool = True,
+    trackers: dict[Path, SuppressionTracker] | None = None,
 ) -> list[str] | list[LinkError]:
     """Native link validator — no subprocesses, no MkDocs dependency.
 
@@ -797,7 +799,12 @@ async def validate_links_async(
     md_contents: dict[Path, str] = {}
     for md_file in sorted(iter_markdown_sources(docs_root, config, exclusion_manager)):
         try:
-            md_contents[md_file.resolve()] = md_file.read_text(encoding="utf-8")
+            content = md_file.read_text(encoding="utf-8")
+            md_contents[md_file.resolve()] = content
+            if trackers is not None and md_file.resolve() not in trackers:
+                from zenzic.core.suppressions import SuppressionTracker
+
+                trackers[md_file.resolve()] = SuppressionTracker(md_file.resolve(), content)
         except OSError:
             continue
 
@@ -813,7 +820,14 @@ async def validate_links_async(
                 locale_root, locale_name, config, exclusion_manager
             ):
                 try:
-                    md_contents[abs_path.resolve()] = abs_path.read_text(encoding="utf-8")
+                    content = abs_path.read_text(encoding="utf-8")
+                    md_contents[abs_path.resolve()] = content
+                    if trackers is not None and abs_path.resolve() not in trackers:
+                        from zenzic.core.suppressions import SuppressionTracker
+
+                        trackers[abs_path.resolve()] = SuppressionTracker(
+                            abs_path.resolve(), content
+                        )
                 except OSError:
                     continue
 
@@ -829,7 +843,12 @@ async def validate_links_async(
             content_root, url_prefix, config, exclusion_manager
         ):
             try:
-                md_contents[abs_path.resolve()] = abs_path.read_text(encoding="utf-8")
+                content = abs_path.read_text(encoding="utf-8")
+                md_contents[abs_path.resolve()] = content
+                if trackers is not None and abs_path.resolve() not in trackers:
+                    from zenzic.core.suppressions import SuppressionTracker
+
+                    trackers[abs_path.resolve()] = SuppressionTracker(abs_path.resolve(), content)
             except OSError:
                 continue
 
@@ -1242,6 +1261,15 @@ async def validate_links_async(
                                     )
                                 )
 
+    if trackers is not None:
+        filtered = []
+        for e in internal_errors:
+            t = trackers.get(e.file_path.resolve())
+            if t and t.is_suppressed(e.line_no, e.error_type):
+                continue
+            filtered.append(e)
+        internal_errors = filtered
+
     internal_errors.sort(key=lambda e: e.message)
 
     if not strict or not check_external:
@@ -1435,6 +1463,7 @@ def validate_links_structured(
     strict: bool = False,
     locale_roots: list[tuple[Path, str]] | None = None,
     check_external: bool = True,
+    trackers: dict[Path, SuppressionTracker] | None = None,
 ) -> list[LinkError]:
     """Synchronous wrapper that returns rich :class:`LinkError` objects.
 
@@ -1461,6 +1490,7 @@ def validate_links_structured(
             structured=True,
             locale_roots=locale_roots,
             check_external=check_external,
+            trackers=trackers,
         )
     )
     assert isinstance(result, list)

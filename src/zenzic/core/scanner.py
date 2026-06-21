@@ -1174,7 +1174,21 @@ def _scan_single_file(
     # Rule Engine pass — applied after reference pipeline, only when configured.
     if rule_engine:
         text = md_file.read_text(encoding="utf-8")
-        report.rule_findings = rule_engine.run(md_file, text)
+
+        # Build SuppressionTracker for this file — required for Z603 DEAD_SUPPRESSION.
+        # Importing here (deferred) avoids circular imports at module level.
+        from zenzic.core.suppressions import SuppressionTracker
+
+        tracker = SuppressionTracker(md_file, text)
+        report.suppression_tracker = tracker
+
+        # Use the tracker-aware variant so that:
+        #   1. Suppressed findings are silently dropped.
+        #   2. Each matching directive is marked consumed=True.
+        report.rule_findings = rule_engine.run_with_tracker(md_file, text, tracker)
+
+        # Z603 DEAD_SUPPRESSION — emit for every directive never consumed above.
+        report.rule_findings += tracker.get_dead_suppressions()
 
     # Return scanner only when the file is secure — callers must not register
     # URLs from files that failed the credential scanner (they may embed leaked credentials).

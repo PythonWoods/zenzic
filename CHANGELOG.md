@@ -9,51 +9,31 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [0.14.1] - Unreleased
+## [0.15.0] - Unreleased
 
 ### Added
 
-- **Semantic Metadata Cross-Validation (Z507)**: Added to the planned roadmap for v0.15.0.
+- **Z603 DEAD_SUPPRESSION (governance, always-active):** Detects inline `zenzic:ignore`
+  directives that do not correspond to any active finding.  A suppression comment that
+  silences nothing is **Phantom Debt** — it consumes part of the 30-point governance
+  budget without justification.  Severity `warning`, −1.0 pt (Governance), suppressible
+  (the suppression of a Z603 is itself tracked recursively).  Implemented via a new
+  `SuppressionTracker` per-file registry (`src/zenzic/core/suppressions.py`) that marks
+  each directive as `consumed` when an active finding is suppressed; any unconsumed
+  directive at end-of-file is reported as Z603.
+  - **Inviolability Law preserved:** Z201/Z202/Z203/Z204 remain non-suppressible;
+    attempting to suppress them with `zenzic:ignore` creates a dead directive, which
+    itself triggers Z603.
+  - **Fence-aware (ADR-084):** Directives inside fenced code blocks or backtick inline
+    code spans are excluded from the tracker.
 
-### Fixed
-
-- **Core Link Parsing**: Extended `_MARKDOWN_ASSET_LINK_RE` to parse standard markdown links `[text](url)` and HTML `<a>` tags, resolving false positive `Z405` errors for non-markdown assets.
-
-## [0.14.0] - Unreleased
-
-### Breaking Changes
-
-- **Z602 I18N_PARITY Engine Removed (ADR-034):** The bilingual parity scanner (`find_i18n_parity`) has been completely removed from the Zenzic engine. Z602 remains in the code namespace as **INACTIVE** for configuration forward-compatibility, but the scanner emits **zero findings**. Projects using `[i18n]` configuration will no longer trigger Z602 — the section is silently ignored by the config loader. The `I18nConfig` and `I18nSource` models have been removed from `zenzic.models.config`.
-- **`LEGACY_TO_CODE` removed from `zenzic.core.codes`:** The migration alias dictionary mapping legacy `Z9xx` codes (`Z903`, `Z904`, `Z905`, `Z907`) to their canonical successors has been deleted. Direct consumers of this symbol must update to the canonical codes directly.
-- **`ZenzicConfig.i18n` field removed:** The `i18n: I18nConfig` field no longer exists on `ZenzicConfig`. Runtime access will raise `AttributeError`.
-- **`CodeDefinition` gains a `status` field:** The `NamedTuple` now has a fourth field `status: str = "active"`. This is backward-compatible for structural pattern matching but may affect code doing positional tuple construction.
-
-### Removed
-
-- `find_i18n_parity()` function from `zenzic.core.scanner` — 443 lines of scanner logic deleted.
-- `I18nParityIssue` dataclass from `zenzic.core.scanner`.
-- `I18nConfig` and `I18nSource` models from `zenzic.models.config`.
-- `ZenzicConfig.i18n` field.
-- `LEGACY_TO_CODE` dict from `zenzic.core.codes`.
-- Z602 entry from `FROZEN_CODES` (code remains in registry as `status="inactive"`).
-- Z602 `CoreScanner` descriptor from `CORE_SCANNERS`.
-- `tests/test_i18n_parity.py` — 100+ contract tests for the now-removed scanner.
-- `# i18n_parity = false` commented field from all `zenzic init` templates.
-
-### Added
-
-- **Z506 MALFORMED_FRONTMATTER (built-in always-active):** New rule that detects malformed YAML frontmatter delimiters on line 1 of a Markdown file. Any opening line that starts with `--` but is not exactly `---` (e.g. `--`, `----`, `--- trailing chars`) causes the entire frontmatter block to be silently discarded by most static-site engines, rendering `title:` and all metadata keys as raw prose. Severity `error`, −5.0 pts (Content), suppressible via `<!-- zenzic:ignore: Z506 -->`.
-
-### Fixed
-
-- **JSON Formatter Bypass:** Fixed a critical bug in `check` where the JSON output bypassed governance filtering. Zenzic now correctly applies `per_file_ignores` and `directory_policies` to the JSON output.
-- **Z405 Infrastructure Exclusions:** Natively exempted standard infrastructure files (`robots.txt`, `_redirects`, `CNAME`, `sitemap.xml`) from the Z405 Unused Assets check.
-- **Obsolete Code References:** All internal comments referencing legacy `Z903`/`Z905` codes updated to the canonical `Z405`/`Z601` codes.
+---
 
 ---
 
 ## Historical Releases
 
+- v0.14.x archive: [changelogs/v0.14.md](./changelogs/v0.14.md)
 - v0.13.x archive: [changelogs/v0.13.md](./changelogs/v0.13.md)
 - v0.12.x archive: [changelogs/v0.12.md](./changelogs/v0.12.md)
 - v0.11.x archive: [changelogs/v0.11.md](./changelogs/v0.11.md)
