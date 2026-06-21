@@ -1860,6 +1860,15 @@ class TestMalformedFrontmatterRule:
         assert findings[0].line_no == 1
         assert findings[0].severity == "error"
 
+    def test_physical_fixture_fires_z506(self) -> None:
+        """Reads a physical fixture from disk to assert Z506 fires on line 1."""
+        fixture_path = Path(__file__).parent / "fixtures" / "z506_malformed.md"
+        text = fixture_path.read_text(encoding="utf-8")
+        findings = self._rule().check(fixture_path, text)
+        assert len(findings) == 1
+        assert findings[0].rule_id == "Z506"
+        assert findings[0].line_no == 1
+
     def test_four_dashes_fires_z506(self, tmp_path: Path) -> None:
         """First line '----' (4 dashes) → Z506."""
         text = "----\ntitle: test\n---\n\nContent.\n"

@@ -23,6 +23,7 @@ For the current release history, see [CHANGELOG.md](CHANGELOG.md).
 - **Zensical Migration & Docusaurus Eradication:** Complete architectural pivot to pure Markdown statics, purging legacy React AST dependencies.
 - **RE2 Enforcement:** Python 3.12+ RE2 parity with linear-time guarantees.
 - **TOML Strict Validation:** Path-aware exclusion engine and strict configuration hygiene.
+- **Z506 MALFORMED_FRONTMATTER:** Native built-in rule detecting malformed YAML frontmatter boundaries.
 
 ---
 
@@ -34,7 +35,7 @@ For the current release history, see [CHANGELOG.md](CHANGELOG.md).
 
 - **The Auto-Fix Engine (`zenzic fix`)**: Semantic `--dry-run` / `--apply` repair semantics for Z1xx and Z3xx findings.
 - **Custom Rules API v2 (AST Walker)**: Stable AST adapter and rule APIs with semver guarantee. Exposure of the two-pass reference pipeline to external rule authors.
-- **Z506 MALFORMED_FRONTMATTER & Z507 AUTHOR_NOT_FOUND**: Native support for cross-referencing Markdown frontmatter entities against framework-specific metadata files.
+- **Z507 AUTHOR_NOT_FOUND**: Native support for cross-referencing Markdown frontmatter entities against framework-specific metadata files.
 - **The Bridge Architecture (TypeScript Docusaurus Plugin)**: Official plugin interface to support edge-case runtime frameworks outside the core engine.
 - **Z108 STALE_ALLOWLIST_ENTRY**: Config-hygiene check for unused `absolute_path_allowlist` entries.
 - **Semantic Schemas Validation**: YAML/JSON frontmatter validation against declared schemas (e.g. `required_fields: [title, description]`).
