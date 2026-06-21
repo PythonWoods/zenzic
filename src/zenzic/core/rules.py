@@ -77,6 +77,7 @@ from zenzic.core.sovereign_context import get_sovereign_context
 if TYPE_CHECKING:
     from importlib.metadata import EntryPoint
 
+    from zenzic.core.suppressions import SuppressionTracker
     from zenzic.models.config import ProjectMetadata
     from zenzic.models.vsm import VSM, Route
 
@@ -482,6 +483,37 @@ class AdaptiveRuleEngine:
                     )
                 )
         return findings
+
+    def run_with_tracker(
+        self,
+        file_path: Path,
+        text: str,
+        tracker: SuppressionTracker,
+    ) -> list[RuleFinding]:
+        """Run all rules, filter suppressed findings through *tracker*, and return results.
+
+        This is the Z603-aware variant of :meth:`run`.  Every finding produced by
+        the rule engine is checked against *tracker*; if the corresponding inline
+        suppression directive exists the finding is silently dropped **and** the
+        directive is marked as ``consumed = True``.  At the end of a full file
+        scan, any directive still ``consumed = False`` will be flagged by
+        :meth:`~zenzic.core.suppressions.SuppressionTracker.get_dead_suppressions`
+        as a Z603 DEAD_SUPPRESSION.
+
+        Args:
+            file_path: Path to the file being checked (labelling only).
+            text: Raw Markdown content of the file.
+            tracker: :class:`~zenzic.core.suppressions.SuppressionTracker` for
+                *file_path*, instantiated during the I/O phase.
+
+        Returns:
+            Flat list of :class:`RuleFinding` objects from all rules, with
+            suppressed findings removed.
+        """
+        from zenzic.core.suppressions import SuppressionTracker as _ST  # noqa: F401
+
+        raw = self.run(file_path, text)
+        return [f for f in raw if not tracker.is_suppressed(f.line_no, f.rule_id)]
 
     def run_vsm(
         self,

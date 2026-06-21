@@ -40,7 +40,7 @@ For the current release history, see [CHANGELOG.md](CHANGELOG.md).
 - **Z108 STALE_ALLOWLIST_ENTRY**: Config-hygiene check for unused `absolute_path_allowlist` entries.
 - **Semantic Schemas Validation**: YAML/JSON frontmatter validation against declared schemas (e.g. `required_fields: [title, description]`).
 - **Z407 BROKEN_CODE_REFERENCE**: Scan Markdown for backtick-quoted paths and verify their physical existence.
-- **Dead Suppression Elimination (Z603)**: Detects inline `zenzic:ignore` directives that do not correspond to any active finding.
+- **Dead Suppression Elimination (Z603)** ✅ **Implemented in v0.15.0 sprint:** Detects inline `zenzic:ignore` directives that do not correspond to any active finding.
 - **Configurable Finding Tiers**: Allow projects to promote/demote finding severity via `[governance]` TOML section.
 - **Readability & Style Engine**: Integrate pure readability metrics (Flesch-Kincaid) and style checks.
 - **Semantic Linting**: Implement AST-based rules to detect semantically duplicate headings and empty sections.

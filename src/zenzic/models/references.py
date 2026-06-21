@@ -27,6 +27,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from zenzic.core.credentials import SecurityFinding
     from zenzic.core.rules import RuleFinding
+    from zenzic.core.suppressions import SuppressionTracker
 
 
 # ─── ReferenceMap ─────────────────────────────────────────────────────────────
@@ -184,6 +185,7 @@ class IntegrityReport:
     findings: list[ReferenceFinding] = field(default_factory=list)
     security_findings: list[SecurityFinding] = field(default_factory=list)
     rule_findings: list[RuleFinding] = field(default_factory=list)
+    suppression_tracker: SuppressionTracker | None = None
 
     @property
     def is_secure(self) -> bool:

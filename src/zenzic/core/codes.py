@@ -213,6 +213,7 @@ CODE_DEFINITIONS: dict[str, CodeDefinition] = {
     "Z602": CodeDefinition(
         "warning", 0.0, None, "inactive"
     ),  # I18N_PARITY — INACTIVE; deferred to future adapter plugins
+    "Z603": CodeDefinition("warning", 1.0, "governance"),  # DEAD_SUPPRESSION
     # ── Z9xx — Engine / System ────────────────────────────────────────────────
     "Z901": CodeDefinition("warning", 0.0, None),  # RULE_ENGINE_ERROR
     "Z902": CodeDefinition("warning", 0.0, None),  # RULE_TIMEOUT
@@ -256,6 +257,7 @@ CODE_NAMES: dict[str, str] = {
     "Z506": "MALFORMED_FRONTMATTER",
     "Z601": "BRAND_OBSOLESCENCE",
     "Z602": "I18N_PARITY",  # inactive
+    "Z603": "DEAD_SUPPRESSION",
     "Z901": "RULE_ENGINE_ERROR",
     "Z902": "RULE_TIMEOUT",
     "Z906": "NO_FILES_FOUND",
@@ -305,6 +307,7 @@ CODE_DESCRIPTIONS: dict[str, str] = {
     # Z6xx — Governance
     "Z601": "Deprecated brand term found in documentation source",
     "Z602": "[INACTIVE] Bilingual parity deferred to future adapter plugins — not enforced in v0.14.0",
+    "Z603": "Inline suppression directive does not suppress any active finding. Remove the dead comment.",
     # Z9xx — Engine / System
     "Z901": "Plugin rule raised an unexpected exception",
     "Z902": "Plugin rule exceeded the per-file time limit (ReDoS guard)",
@@ -477,6 +480,13 @@ CORE_SCANNERS: list[CoreScanner] = [
             "Deprecated brand term detection \u2014 configurable via [governance], "
             "suppressed per-line with <!-- zenzic:ignore: Z601 --> (Markdown) or {/* zenzic:ignore: Z601 */} (MDX)"
         ),
+        primary_exit=1,
+        non_suppressible=False,
+    ),
+    CoreScanner(
+        codes="Z603",
+        name="Suppression Governance",
+        capability="Detects dead inline suppressions that do not suppress any active finding",
         primary_exit=1,
         non_suppressible=False,
     ),

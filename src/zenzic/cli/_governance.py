@@ -22,8 +22,8 @@ from rich.text import Text
 from zenzic.core.discovery import iter_markdown_sources
 from zenzic.core.exclusion import LayeredExclusionManager
 from zenzic.core.reporter import Finding
-from zenzic.core.rules import count_inline_suppressions
 from zenzic.core.sovereign_context import get_sovereign_context
+from zenzic.core.suppressions import count_inline_suppressions
 from zenzic.core.ui import ZenzicPalette, emoji
 from zenzic.models.config import ZenzicConfig
 

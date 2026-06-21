@@ -9,6 +9,26 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.15.0] - Unreleased
+
+### Added
+
+- **Z603 DEAD_SUPPRESSION (governance, always-active):** Detects inline `zenzic:ignore`
+  directives that do not correspond to any active finding.  A suppression comment that
+  silences nothing is **Phantom Debt** — it consumes part of the 30-point governance
+  budget without justification.  Severity `warning`, −1.0 pt (Governance), suppressible
+  (the suppression of a Z603 is itself tracked recursively).  Implemented via a new
+  `SuppressionTracker` per-file registry (`src/zenzic/core/suppressions.py`) that marks
+  each directive as `consumed` when an active finding is suppressed; any unconsumed
+  directive at end-of-file is reported as Z603.
+  - **Inviolability Law preserved:** Z201/Z202/Z203/Z204 remain non-suppressible;
+    attempting to suppress them with `zenzic:ignore` creates a dead directive, which
+    itself triggers Z603.
+  - **Fence-aware (ADR-084):** Directives inside fenced code blocks or backtick inline
+    code spans are excluded from the tracker.
+
+---
+
 ## [0.14.1] - Unreleased
 
 ### Added
