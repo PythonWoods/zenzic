@@ -129,6 +129,14 @@ Tactical Bridge: zenzic-doc migrated to MkDocs Material and then to Zensical —
 
 ---
 
+## v0.15.0 — Semantic Validation (planned)
+
+### Planned
+
+- **Semantic Metadata Cross-Validation (Z507)**: Native support for cross-referencing Markdown frontmatter entities against framework-specific metadata files (e.g., verifying authors in MkDocs against .authors.yml). This extends Zenzic's capability from pure Markdown AST analysis into framework-aware semantic validation.
+
+---
+
 ## v1.0.0 — Graphite LTS (planned)
 
 **Theme:** Long-Term Support release. Stability, portability, and production confidence.
