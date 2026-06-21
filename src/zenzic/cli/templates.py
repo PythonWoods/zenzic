@@ -155,16 +155,6 @@ GLOBAL_TOML_TEMPLATE: str = (
     '# message  = "Avoid generic link text. Use a meaningful description."\n'
     '# severity = "error"\n'
     "\n"
-    "# --- I18N PARITY (Optional) ---\n"
-    "# [i18n]\n"
-    "# enabled = true\n"
-    '# base_lang = "en"\n'
-    '# base_source = "docs"\n'
-    "# strict_parity = true\n"
-    '# require_frontmatter_parity = ["title", "description"]\n'
-    "# [i18n.targets]\n"
-    '# it = "docs-it"\n'
-    "\n"
     "# --- GATE 4: CI/CD (GitHub Actions, Optional) ---\n"
     "# Add this workflow snippet to .github/workflows/zenzic.yml\n"
     "#\n"
@@ -207,7 +197,6 @@ LOCAL_TOML_TEMPLATE: str = (
     "#       - governance (except brand_obsolescence)\n"
     "#       - build_context\n"
     "#       - project_metadata\n"
-    "#       - i18n\n"
     "# ===========================================================================\n"
     "\n"
     "# ---------------------------------------------------------------------------\n"
@@ -274,10 +263,6 @@ LOCAL_TOML_TEMPLATE: str = (
     "# Directory policy — silent exemption (0 pt debt, shown in --audit).\n"
     "# [governance.directory_policies]\n"
     '# "blog/**" = ["Z601"]\n'
-    "\n"
-    "[i18n]\n"
-    "# Local i18n experiments (mirrors global section shape).\n"
-    "# enabled = true\n"
     "\n"
     "[secrets]\n"
     "# ---------------------------------------------------------------------------\n"
@@ -395,15 +380,6 @@ PYPROJECT_TOML_SECTION_TEMPLATE: str = (
     "[tool.zenzic.network]\n"
     "# Cache external link responses to speed up local execution.\n"
     "cache_ttl_hours = 24\n"
-    "\n"
-    "# --- I18N PARITY (Optional) ---\n"
-    "# [tool.zenzic.i18n]\n"
-    "# enabled   = true\n"
-    '# base_lang = "en"\n'
-    '# base_source = "docs"\n'
-    "# strict_parity = true\n"
-    '# require_frontmatter_parity = ["title", "description"]\n'
-    '# it = "docs-it"\n'
     "\n"
     "# --- CUSTOM RULES (Optional) ---\n"
     "# Declares project-specific regex-based lint rules applied line-by-line.\n"

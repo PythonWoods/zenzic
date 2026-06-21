@@ -157,16 +157,6 @@ pattern  = "(?i)\\bclick here\\b|\\bclicca qui\\b"
 message  = "Avoid generic link text. Use a meaningful description for accessibility."
 severity = "error"
 
-# --- I18N PARITY (Optional) ---
-# [i18n]
-# enabled = true
-# base_lang = "en"
-# base_source = "docs"
-# strict_parity = true
-# require_frontmatter_parity = ["title", "description"]
-# [i18n.targets]
-# it = "i18n/it/docusaurus-plugin-content-docs/current"
-
 # --- GATE 4: CI/CD (GitHub Actions, Optional) ---
 # Add this workflow snippet to .github/workflows/zenzic.yml
 #
