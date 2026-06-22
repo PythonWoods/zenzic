@@ -1,0 +1,164 @@
+---
+sidebar_position: 9
+sidebar_label: "GitHub Action"
+description: "Complete reference for the Zenzic GitHub Action — inputs, outputs, exit codes, and the Zenzic Quality Gate protocol."
+---
+
+<!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
+# Zenzic GitHub Action Reference
+
+The `PythonWoods/zenzic-action` action is the official CI enforcement point for the Zenzic documentation quality system. In non-audit mode it executes a three-stage validation pipeline: `zenzic check all` (structural findings), `zenzic score` (DQS governance: `fail_under` + `suppression_cap`), and `zenzic score --check-stamp` (badge freshness, enabled by default). Findings are surfaced in GitHub Code Scanning, and quality regression gating is handled via `zenzic diff` when a baseline is configured.
+
+Source: [github.com/PythonWoods/zenzic-action](https://github.com/PythonWoods/zenzic-action)
+
+---
+
+## Inputs {#inputs}
+
+| Input | Default | Required | Description |
+| :--- | :--- | :---: | :--- |
+| `version` | `<version>` | No | Zenzic version to install (`latest` or an exact version pin). Pin to a specific version for reproducible CI. |
+| `format` | `sarif` | No | Output format: `text`, `json`, or `sarif`. |
+| `sarif-file` | `zenzic-results.sarif` | No | SARIF output path. Must be a **relative** path inside the workspace. Absolute paths and `..` traversal sequences are rejected by the wrapper. |
+| `upload-sarif` | `true` | No | Upload SARIF to GitHub Code Scanning. Requires `security-events: write` permission. |
+| `strict` | `false` | No | Treat warnings as errors — promotes all `warning`-severity findings to `error`. |
+| `ci` | `false` | No | Run with `--ci` to enable `--strict` and inline GitHub PR annotations. |
+| `only` | `""` | No | Comma-separated list of Z-Codes to filter. Enables Progressive Adoption. |
+| `fail-on-error` | `true` | No | Fail the workflow step on exit 1 (quality findings). Does **not** suppress exit 2 or 3. |
+| `config-file` | *(auto)* | No | Explicit path to a `.zenzic.toml` config file. Auto-discovers `.zenzic.toml` → `.github/.zenzic.toml` when omitted. |
+| `audit` | `false` | No | Sovereign audit mode — bypasses all `zenzic:ignore` inline comments and `governance.per_file_ignores` entries. Reveals the true, unfiltered documentation state. |
+| `diff-base` | *(snapshot)* | No | Path to a JSON baseline file for `zenzic diff` comparison. When set, the action compares the current score against this file instead of the saved `.zenzic-score.json`. Use an artifact from `main` to implement the Zenzic Quality Gate. |
+| `guard-scan` | `false` | No | Run `zenzic guard scan` as a Defense-in-Depth step **before** the main quality gate. Catches hardcoded credentials and forbidden patterns that bypassed pre-commit hooks. Failure is always fatal — not governed by `fail-on-error`. |
+| `check-stamp` | `true` | No | Run `zenzic score --check-stamp` after governance scoring. Fails the workflow when badge markers in `badge_stamp_files` are stale. Set to `false` to opt out. |
+
+---
+
+## Outputs {#outputs}
+
+| Output | Description |
+| :--- | :--- |
+| `sarif-file` | Path to the generated SARIF file. |
+| `findings-count` | Total number of findings reported. Security findings (exit 2/3) force a minimum of 1. |
+| `score` | Documentation Quality Score (0–100). Populated when `format: json` or when `diff-base` is set. Empty string in other modes. |
+| `suppression-debt-pts` | Technical Debt points deducted from the score due to active suppressions. `0` when no suppressions are active or when audit mode is enabled. |
+| `cap-exceeded` | `"true"` when the suppression CAP was exceeded and blocked the build; `"false"` otherwise. |
+
+---
+
+## Exit Code Contract {#exit-codes}
+
+| Code | Name | Meaning | Suppressible? |
+| :---: | :--- | :--- | :---: |
+| `0` | Clean | All checks passed — score at or above `fail_under` | — |
+| `1` | Quality | One or more findings; score may be below `fail_under` | Yes (`fail-on-error: "false"`) |
+| **`2`** | **Credential** | **Z201 CREDENTIAL_SECRET detected — scan aborted** | **Never** |
+| **`3`** | **Path Traversal** | **Z202/Z203 PATH_TRAVERSAL detected — scan aborted** | **Never** |
+
+Exit codes 2 and 3 are **never suppressed** by `fail-on-error: "false"`, `--exit-zero`, or any other flag. The wrapper enforces this unconditionally — security findings are facts, not findings to be negotiated.
+
+---
+
+## The Zenzic Quality Gate {#quality-gate}
+
+The Zenzic Quality Gate is the recommended PR enforcement setup. It combines structural checks, governance scoring, optional badge freshness, and regression comparison to block merges that decrease documentation quality.
+
+**Implementation:** see [CI/CD Integration → Diff Protocol](../how-to/configure-ci-cd.md#diff-protocol) for the full `zenzic-quality-gate.yml` workflow.
+
+### Gate Logic
+
+```text
+PR opened
+  └─ zenzic check all → exit 0/1/2/3 (findings)
+  └─ zenzic score → exit 0/1 (fail_under + suppression_cap)
+  └─ zenzic score --check-stamp (default: true) → exit 0/1 (freshness)
+  └─ zenzic diff --base <main-baseline>
+       ├─ score stable or improved → exit 0 ✅ PR can merge
+```
+
+The suppression debt is included in the score used for comparison. A PR that adds suppressions to hide findings will show a lower score. Security exits (2/3) remain non-suppressible and always fail the run.
+
+---
+
+## Sovereign Audit Mode {#audit}
+
+When `audit: "true"` is set, the action runs with the `--audit` flag, which bypasses:
+
+- All inline `<!-- zenzic:ignore ZXXX -->` comments
+- All `[governance.per_file_ignores]` entries in `.zenzic.toml`
+
+Exclusion zones (`excluded_dirs`, `excluded_file_patterns`) are **not** bypassed by audit mode — they define the scan perimeter, not the suppression policy.
+
+**Use cases:**
+
+- **Nightly builds** — verify suppressed debt remains intentional.
+- **Security Review** — surface all Z2xx findings regardless of suppression.
+- **Pre-release audit** — measure the true (unfiltered) documentation state before shipping.
+
+> Note: `fail-on-error: "false"` is available for observational audit workflows where findings should not block the run.
+
+---
+
+## Configuration Discovery {#config-discovery}
+
+| Priority | Location | When used |
+| :---: | :--- | :--- |
+| 1 | Explicit `config-file` input | Always honoured when provided |
+| 2 | `.zenzic.toml` in repository root | Auto-discovered when no explicit override |
+| 3 | `.github/.zenzic.toml` | Fallback when root file is absent |
+| — | *(none found)* | Zenzic uses its built-in defaults |
+
+**Sovereign Intent Contract:** if you supply `config-file: path/to/custom.toml` and the file does not exist, the action does **not** fall back to auto-discovery. You receive a `::warning` annotation (or a fatal `::error` with `strict: "true"`).
+
+---
+
+## Security Architecture {#security}
+
+| Guard | What it blocks |
+| :--- | :--- |
+| SARIF Jailbreak guard | `sarif-file` with absolute path or `..` traversal — rejected before execution |
+| Config Jailbreak guard | `config-file` with absolute path or `..` traversal — rejected before execution |
+| diff-base Jailbreak guard | `diff-base` with absolute path or `..` traversal — rejected before execution |
+| SARIF integrity check | Truncated SARIF JSON (from SIGKILL/runtime abort) — emits `::warning`, uploads anyway |
+| Exit Code Contract | Exit 2/3 always propagate — cannot be silenced by any input or env var |
+
+---
+
+## Permissions {#permissions}
+
+Minimum permissions required for the most common configurations:
+
+| Scenario | Permissions |
+| :--- | :--- |
+| SARIF upload to Code Scanning | `contents: read`, `security-events: write` |
+| Artifact upload (baseline) | `contents: read` |
+| Audit only (no upload) | `contents: read` |
+
+---
+
+## Environment Variables (Advanced) {#env}
+
+The `ZENZIC_EXTRA_ARGS` environment variable passes additional flags directly to the Zenzic CLI without modifying action inputs:
+
+```yaml
+- uses: PythonWoods/zenzic-action@<version>
+  with:
+    version: "<version>"
+  env:
+    ZENZIC_EXTRA_ARGS: >-
+      --exclude-url https://staging.example.com
+      --exclude-url https://example.com/blog/unreleased-post
+```
+
+Word-split is intentional (each `--exclude-url <url>` pair becomes separate `argv` elements). Glob expansion is disabled in the wrapper before constructing the argument array.
+
+---
+
+## See Also {#see-also}
+
+- [CI/CD Integration](../how-to/configure-ci-cd.md) — Full workflow examples including the Zenzic Quality Gate.
+- [Handle Technical Debt](../how-to/handle-technical-debt.md) — How to audit and reduce suppression debt.
+- [Suppression Policy](./suppression-policy.md) — The three suppression levels and the debt cost formula.
+- [Scoring Algorithm](./scoring-algorithm.md) — How the quality score is computed.
+- [Finding Codes](./finding-codes.md) — Full catalog of all Zxxx codes.

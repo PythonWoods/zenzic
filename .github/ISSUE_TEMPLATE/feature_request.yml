@@ -83,3 +83,5 @@ body:
       options:
         - label: I have searched existing issues and this is not already proposed.
           required: true
+        - label: Documentation updated (if applicable)
+          required: false

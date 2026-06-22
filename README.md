@@ -20,7 +20,7 @@ SPDX-License-Identifier: Apache-2.0
   <!-- zenzic:audit-badge -->
   <img src="https://img.shields.io/badge/%F0%9F%9B%A1%EF%B8%8F_zenzic--audit-passing-22c55e?style=flat-square" alt="zenzic-audit">
   <!-- zenzic:score-badge -->
-  <img src="https://img.shields.io/badge/%F0%9F%9B%A1%EF%B8%8F_zenzic--score-100_%2F_100-4f46e5?style=flat-square" alt="zenzic-score">
+  <img src="https://img.shields.io/badge/%F0%9F%9B%A1%EF%B8%8F_zenzic--score-99_%2F_100-f59e0b?style=flat-square" alt="zenzic-score">
   <a href="https://reuse.software/">
     <img src="https://img.shields.io/badge/REUSE-3.x%20compliant-0d9488?style=flat-square" alt="REUSE 3.x compliant">
   </a>
@@ -92,7 +92,7 @@ zenzic check all  # Audit the current directory
 > 🚀 **CI/CD Ready:** Use the [Official Zenzic Action](https://github.com/PythonWoods/zenzic-action) to run Zenzic in GitHub Actions — findings surface directly in Code Scanning, PR annotations, and the Security tab.
 >
 > ```yaml
-> - uses: PythonWoods/zenzic-action@v1
+> - uses: PythonWoods/zenzic-action@v2
 >   with:
 >     format: sarif
 >     upload-sarif: "true"
@@ -108,7 +108,6 @@ zenzic check all  # Audit the current directory
 
 | Engine | Adapter | Highlights |
 | :--- | :--- | :--- |
-| [Docusaurus][docusaurus] | `DocusaurusAdapter` | Versioned docs, `@site/` alias, Ghost Route detection |
 | [MkDocs][mkdocs] | `MkDocsAdapter` | i18n suffix + folder modes, `fallback_to_default` |
 | [Zensical][zensical] | `ZensicalAdapter` | Transparent Proxy bridges `mkdocs.yml` |
 | Any folder | `StandaloneAdapter` | File integrity checks — orphan detection disabled without a nav contract |
@@ -130,7 +129,7 @@ zenzic init        # Generate .zenzic.toml with auto-detected values
 ## 🔄 CI/CD Integration
 
 ```yaml
-- uses: PythonWoods/zenzic-action@v1
+- uses: PythonWoods/zenzic-action@v2
   with:
     format: sarif
     upload-sarif: "true"
@@ -141,6 +140,8 @@ For zero-install `uvx` integration and regression gates, see the [CI/CD guide][d
 ---
 
 ## 📦 Installation
+
+> 🏗️ **Monorepo Architecture**: Zenzic contains its own documentation portal. To develop locally, install the documentation toolchain with `uv sync --extra docs`.
 
 ```bash
 # Zero-install, one-shot audit (recommended for CI and exploration)
@@ -162,7 +163,7 @@ pip install zenzic
 
 | Area | URL | Audience |
 | :--- | :--- | :--- |
-| 👤 User Guide | [zenzic.dev/docs][docs-home] | Install, configure, CI/CD, finding codes |
+| 👤 User Guide | [zenzic.dev][docs-home] | Install, configure, CI/CD, finding codes |
 | 🔧 Developer Portal | [zenzic.dev/developers][docs-developers] | Adapters, ADRs, CLI architecture, mutation testing |
 | 🛡️ Security | [Engineering Ledger][docs-eng-ledger] · [SECURITY.md][security] | Security reviewer |
 
@@ -204,12 +205,11 @@ Apache-2.0 — see [LICENSE][license].
 <!-- ─── Reference link definitions ──────────────────────────────────────────── -->
 
 [mkdocs]:            https://www.mkdocs.org/
-[docusaurus]:        https://docusaurus.io/
 [zensical]:          https://zensical.org/
 [uv]:                https://docs.astral.sh/uv/
-[docs-home]:         https://zenzic.dev/docs/
-[docs-badges]:       https://zenzic.dev/docs/how-to/add-badges/
-[docs-cicd]:         https://zenzic.dev/docs/how-to/configure-ci-cd/
+[docs-home]:         https://zenzic.dev/
+[docs-badges]:       https://zenzic.dev/how-to/add-badges/
+[docs-cicd]:         https://zenzic.dev/how-to/configure-ci-cd/
 [docs-arch]:         https://zenzic.dev/developers/how-to/implement-adapter
 [docs-developers]:   https://zenzic.dev/developers/
 [docs-eng-ledger]:   https://zenzic.dev/developers/explanation/adr-vault

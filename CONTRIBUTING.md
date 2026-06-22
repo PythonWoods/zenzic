@@ -13,13 +13,13 @@ Zenzic is split into two independent repositories:
 | Repository | Purpose | Stack |
 |:-----------|:--------|:------|
 | **[zenzic](https://github.com/PythonWoods/zenzic)** (this repo) | Core analysis engine — the Python library and CLI | Python 3.10+, `uv`, `pytest`, `mypy` |
-| **[zenzic-doc](https://github.com/PythonWoods/zenzic-doc)** | User-facing documentation site | React, Docusaurus v3, MDX |
+| **[zenzic-doc](https://github.com/PythonWoods/zenzic)** | User-facing documentation site | React, Docusaurus v3, MDX |
 
 **If you want to contribute to the analysis engine** (new checks, adapters, bug fixes,
 performance improvements) — you are in the right place.
 
 **If you want to contribute to the documentation** (guides, tutorials, translations) —
-head to [zenzic-doc](https://github.com/PythonWoods/zenzic-doc).
+head to [zenzic-doc](https://github.com/PythonWoods/zenzic).
 
 > **Brand System** — The visual identity and color palette reference live at
 > <https://zenzic.dev/assets/brand/zenzic-brand-system.html>
@@ -238,7 +238,7 @@ Legal model:
 
 - **Security First:** Any new path resolution MUST be tested against Path Traversal. Use `PathTraversal` logic from `core`.
 - **Credential Scanner Obfuscation Tests:** Every new credential pattern or normalizer rule MUST include obfuscation regression tests: Unicode format characters (category Cf), HTML entity encoding, comment interleaving (HTML `<!-- -->` and MDX `{/* */}`), and cross-line split tokens. See `tests/test_credentials_obfuscation.py` for reference.
-- **Bilingual Parity:** Documentation lives in [zenzic-doc](https://github.com/PythonWoods/zenzic-doc). Refer documentation contributors there.
+- **Bilingual Parity:** Documentation lives in [zenzic-doc](https://github.com/PythonWoods/zenzic). Refer documentation contributors there.
 - **Machine-Local Config:** Project-specific secrets (forbidden terms for Z204) go in `.zenzic.local.toml` — never committed. Run `zenzic init --local` to generate a fresh local config aligned to your engine version.
 
 ### Supply-chain Requirements
@@ -264,7 +264,7 @@ For advanced guides on writing new checks, extending adapters, CLI architecture,
 ## Documentation
 
 Zenzic's user-facing documentation lives in a separate repository:
-**[zenzic-doc](https://github.com/PythonWoods/zenzic-doc)** (Docusaurus v3, React, MDX).
+**[zenzic-doc](https://github.com/PythonWoods/zenzic)** (Docusaurus v3, React, MDX).
 
 This core repository contains only:
 

@@ -178,3 +178,11 @@ release-dry part *args:
 # Remove generated artefacts (.nox is kept — reuse avoids reinstalling deps)
 clean:
     rm -rf dist/ .pytest_cache/ .hypothesis/ .zenzic-score.json coverage.json
+
+
+# Serve the documentation site locally
+docs-serve +args="":
+    uv run mkdocs serve {{args}}
+
+docs-build:
+	uv run mkdocs build --strict
