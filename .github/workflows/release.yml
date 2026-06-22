@@ -29,7 +29,7 @@ jobs:
           enable-cache: true
 
       - name: Sync dependencies (frozen lockfile)
-        run: uv sync --all-groups --frozen
+        run: uv sync --all-groups --all-extras --frozen
 
       - name: Build
         run: uv build

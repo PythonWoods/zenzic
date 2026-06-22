@@ -1,0 +1,120 @@
+---
+sidebar_label: "API JSON Contract"
+description: "Canonical machine-readable JSON contract for check all, score, and suppression CAP fail-hard outputs."
+---
+
+<!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
+# API JSON Contract
+
+This page defines the stable JSON contract consumed by CI/CD tooling and downstream automations.
+
+Covered outputs:
+
+- `zenzic check all --format json`
+- `zenzic score --format json`
+- `zenzic check all --format json` when suppression CAP fail-hard triggers
+
+The canonical schema is `zenzic-output.schema.json` in the root of the `zenzic` repository.
+
+## Mandatory Suppression Fields
+
+All contract outputs above include these fields, always:
+
+| Field | Type | Meaning |
+| :--- | :--- | :--- |
+| `suppression_count` | integer | Active suppressions (`inline + per-file`) |
+| `suppression_cap` | integer | Configured governance CAP |
+| `suppression_debt_pts` | integer | Debt points (`max(0, suppression_count - suppression_cap)`) |
+| `debt_status` | enum | Governance debt posture |
+
+`debt_status` values:
+
+- `CLEAN`: `suppression_count == 0`
+- `MANAGED`: `0 < suppression_count <= suppression_cap` and `suppression_cap <= 30`
+- `EXTENDED`: `0 < suppression_count <= suppression_cap` and `suppression_cap > 30`
+- `CRITICAL`: `suppression_count > suppression_cap`
+
+## Shape: check all JSON
+
+```json
+{
+  "links": [],
+  "orphans": [],
+  "snippets": [],
+  "placeholders": [],
+  "unused_assets": [],
+  "references": [],
+  "nav_contract": [],
+  "suppression_count": 0,
+  "suppression_cap": 30,
+  "suppression_debt_pts": 0,
+  "debt_status": "CLEAN"
+}
+```
+
+## Shape: score JSON
+
+```json
+{
+  "project": "zenzic",
+  "score": 100,
+  "threshold": 0,
+  "status": "success",
+  "timestamp": "2026-05-17T10:00:00+00:00",
+  "categories": [
+    {
+      "name": "structural",
+      "weight": 0.3,
+      "issues": 0,
+      "category_score": 1.0,
+      "contribution": 0.3,
+      "raw_penalty": 0.0,
+      "is_capped": false
+    }
+  ],
+  "suppression_count": 0,
+  "suppression_cap": 30,
+  "suppression_debt_pts": 0,
+  "debt_status": "CLEAN"
+}
+```
+
+Optional score fields (`security_override`, `security_findings`) appear when the Security Override fires.
+
+## Shape: CAP Fail-Hard JSON
+
+```json
+{
+  "error": "SUPPRESSION_CAP_EXCEEDED",
+  "severity": "error",
+  "message": "Suppression cap exceeded: 31/30. Architectural debt limit reached.",
+  "suppression_count": 31,
+  "suppression_cap": 30,
+  "suppression_debt_pts": 1,
+  "debt_status": "CRITICAL",
+  "statistics": {
+    "active_suppressions": 31,
+    "configured_global_cap": 30,
+    "excess_debt": 1,
+    "inline_ignores": 31,
+    "per_file_ignores": 0
+  },
+  "hotspots": [
+    {
+      "path": "docs/index.md",
+      "count": 31
+    }
+  ],
+  "remediation": [
+    "Review hotspots and remove suppressions where possible."
+  ],
+  "playbook": "https://zenzic.dev/developers/how-to/release-governance-protocol"
+}
+```
+
+## Validation Guidance
+
+For strict machine consumers, validate payloads against `zenzic-output.schema.json` during CI.
+This prevents silent contract drift across minor releases.

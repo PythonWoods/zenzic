@@ -9,7 +9,13 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [0.15.0] - Unreleased
+## [0.15.0] - 2026-06-20
+
+### Added
+
+- **Monorepo Unification**: Merged core and documentation into a single repository.
+
+## [0.15.0] - 2026-06-20
 
 ### Added
 

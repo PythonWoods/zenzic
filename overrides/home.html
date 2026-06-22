@@ -1,0 +1,36 @@
+{# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> #}
+{# SPDX-License-Identifier: Apache-2.0 #}
+{#
+  home.html — Zensical/MkDocs Material homepage override
+  Used when docs/index.md has `template: home.html` in frontmatter.
+  Assembles the full landing page from Jinja2 partials (ADR-020: EN-Only).
+  Translated from: src/pages/index.tsx (Docusaurus)
+  ADR-037: No hardcoded SemVer. All version strings use {{ config.extra.zenzic_version }}.
+#}
+{% extends "main.html" %}
+
+{# Escaping the documentation grid entirely #}
+{% block tabs %}
+  <style>
+    /* Hide the default MkDocs main container to prevent blank space below our full-width layout */
+    .md-main { display: none !important; }
+  </style>
+    <div class="zz-tailwind-root flex flex-col min-h-screen relative w-full dark:bg-zinc-950 bg-white" style="margin-top: -64px;">
+    <main class="flex-grow pt-16">
+      {% include "partials/homepage/hero.html" %}
+      <div class="px-6 py-2"><div class="max-w-[1400px] mx-auto text-[10px] font-mono font-semibold tracking-[0.16em] uppercase dark:text-zinc-500 text-zinc-500"><span>// EXECUTION_LAYER</span></div></div>
+      {% include "partials/homepage/execution_layer.html" %}
+      <div class="px-6 py-2"><div class="max-w-[1400px] mx-auto text-[10px] font-mono font-semibold tracking-[0.16em] uppercase dark:text-zinc-500 text-zinc-500"><span>// FAILURE_TOPOLOGY</span></div></div>
+      {% include "partials/homepage/failure_topology.html" %}
+      <div class="px-6 py-2"><div class="max-w-[1400px] mx-auto text-[10px] font-mono font-semibold tracking-[0.16em] uppercase dark:text-zinc-500 text-zinc-500"><span>// DIAGNOSTIC_OUTPUT</span></div></div>
+      {% include "partials/homepage/diagnostic_output.html" %}
+      <div class="px-6 py-2"><div class="max-w-[1400px] mx-auto text-[10px] font-mono font-semibold tracking-[0.16em] uppercase dark:text-zinc-500 text-zinc-500"><span>// ADAPTER_SURFACE</span></div></div>
+      {% include "partials/homepage/adapter_surface.html" %}
+      {% include "partials/homepage/enterprise_section.html" %}
+      <div class="px-6 py-2"><div class="max-w-[1400px] mx-auto text-[10px] font-mono font-semibold tracking-[0.16em] uppercase dark:text-zinc-500 text-zinc-500"><span>// GOVERNANCE_GATE</span></div></div>
+      {% include "partials/homepage/governance_gate.html" %}
+      <div class="px-6 py-2"><div class="max-w-[1400px] mx-auto text-[10px] font-mono font-semibold tracking-[0.16em] uppercase dark:text-zinc-500 text-zinc-500"><span>// SUPPRESSION_POLICY</span></div></div>
+      {% include "partials/homepage/suppression_policy.html" %}
+    </main>
+  </div>
+{% endblock %}

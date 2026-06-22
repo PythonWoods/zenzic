@@ -1,0 +1,207 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+#
+# mkdocs.yml — MkDocs Material configuration for zenzic-doc
+# Migrated from zensical.toml in Sprint 0.14.1.
+# ADR-037 Compliance: No hardcoded SemVer. Version injected via extra.zenzic_version.
+
+site_name: Zenzic
+site_url: https://zenzic.dev/
+docs_dir: docs
+site_dir: site
+repo_url: https://github.com/PythonWoods/zenzic
+repo_name: PythonWoods/zenzic
+copyright: "Copyright &copy; 2026 PythonWoods &mdash; Apache-2.0 License"
+
+extra_css:
+  - assets/css/zenzic-tailwind.min.css
+  - assets/css/extra.css
+  # EXTERNAL BUILD ARTIFACT — compiled by human-run Tailwind CLI (no Node.js in CI).
+  # Preflight (CSS Reset) is DISABLED to prevent interference with Material base typography.
+  # See docs/assets/css/README.md for the build protocol.
+
+# --- Navigation (4 tabs: Home / User Documentation / Developer Documentation / Blog)
+# navigation.tabs maps each top-level nav entry to a tab in the header.
+nav:
+  - Home: index.md
+
+  - User Documentation:
+    - Tutorials:
+      - tutorials/first-audit.md
+      - Examples:
+        - tutorials/examples/index.md
+        - tutorials/examples/z1xx-links/z101-broken-links.md
+        - tutorials/examples/z1xx-links/z102-anchor-missing.md
+        - tutorials/examples/z1xx-links/z103-orphan-link.md
+        - tutorials/examples/z1xx-links/z104-file-not-found.md
+        - tutorials/examples/z1xx-links/z105-absolute-path.md
+        - tutorials/examples/z1xx-links/z107-circular-anchor.md
+        - tutorials/examples/z1xx-links/z108-empty-link-text.md
+        - tutorials/examples/z1xx-links/z109-external-link-broken.md
+        - tutorials/examples/z2xx-security/z201-credentials.md
+        - tutorials/examples/z2xx-security/z202-path-traversal.md
+        - tutorials/examples/z2xx-security/z204-forbidden-term.md
+        - tutorials/examples/z3xx-references/z301-dangling-ref.md
+        - tutorials/examples/z3xx-references/z302-dead-def.md
+        - tutorials/examples/z3xx-references/z303-duplicate-def.md
+        - tutorials/examples/z4xx-topology/z401-missing-directory-index.md
+        - tutorials/examples/z4xx-topology/z402-orphan-page.md
+        - tutorials/examples/z4xx-topology/z403-missing-alt.md
+        - tutorials/examples/z4xx-topology/z404-config-asset-missing.md
+        - tutorials/examples/z4xx-topology/z405-unused-assets.md
+        - tutorials/examples/z4xx-topology/z406-nav-contract.md
+        - tutorials/examples/z5xx-content/z501-placeholder.md
+        - tutorials/examples/z5xx-content/z502-short-content.md
+        - tutorials/examples/z5xx-content/z503-snippet-error.md
+        - tutorials/examples/z5xx-content/z505-untagged-code-block.md
+        - tutorials/examples/z5xx-content/z506-malformed-frontmatter.md
+        - tutorials/examples/z6xx-brand/z601-brand-obsolescence.md
+        - tutorials/examples/z6xx-brand/z603-dead-suppression.md
+    - How-to Guides:
+      - how-to/install.md
+      - how-to/initialize-configuration.md
+      - how-to/configure-ci-cd.md
+      - how-to/add-badges.md
+      - how-to/handle-technical-debt.md
+      - how-to/add-custom-rules.md
+      - how-to/configure-adapter.md
+      - how-to/configure-privacy-gate.md
+      - how-to/configuration-strategy.md
+      - how-to/manage-cross-site-links.md
+      - how-to/migrate-engines.md
+      - how-to/use-brand-system.md
+      - how-to/workflow-integration.md
+      - how-to/configure-social-metadata.md
+    - Reference:
+      - reference/index.md
+      - reference/finding-codes.md
+      - reference/checks.md
+      - reference/cli.md
+      - reference/configuration-reference.md
+      - reference/scoring-algorithm.md
+      - reference/suppression-policy.md
+      - reference/engines.md
+      - reference/advanced-features.md
+      - reference/api-json.md
+      - reference/brand-kit.md
+      - reference/brand-system.md
+      - reference/glossary.md
+      - reference/zenzic-action.md
+    - Explanation:
+      - explanation/why-zenzic.md
+      - explanation/architecture.md
+      - explanation/core-mechanics.md
+      - explanation/scoring-design.md
+      - explanation/scoring-system.md
+      - explanation/discovery.md
+      - explanation/configuration-loading.md
+      - explanation/exclusion-design.md
+      - explanation/structural-integrity.md
+      - explanation/engine-migration-design.md
+      - explanation/the-zenzic-trinity.md
+      - explanation/github-action-internals.md
+      - explanation/privacy-gate.md
+      - explanation/mineral-path.md
+      - explanation/brand-philosophy.md
+      - explanation/community-index.md
+
+  - Developer Documentation:
+    - developers/index.md
+    - How-to:
+      - Contribute:
+        - developers/how-to/contribute/index.md
+        - developers/how-to/contribute/pull-requests.md
+        - developers/how-to/contribute/report-a-bug.md
+        - developers/how-to/contribute/report-a-docs-issue.md
+        - developers/how-to/contribute/request-a-change.md
+      - developers/how-to/implement-adapter.md
+      - developers/how-to/release-governance-protocol.md
+      - developers/how-to/write-a-check.md
+      - developers/how-to/write-plugin.md
+    - Reference:
+      - developers/reference/adapter-api.md
+      - developers/reference/adapter-examples.md
+      - developers/reference/cli-architecture.md
+      - developers/reference/credential-scanner-obligations.md
+      - developers/reference/supply-chain-assurance-profile.md
+      - developers/reference/zenzic-style.md
+    - Explanation:
+      - developers/explanation/adapter-internals.md
+      - developers/explanation/adr-agnostic-universalism.md
+      - developers/explanation/adr-bilingual-structural.md
+      - developers/explanation/adr-decentralized-cli.md
+      - developers/explanation/adr-discovery.md
+      - developers/explanation/adr-lint-source.md
+      - developers/explanation/adr-native-telemetry.md
+      - developers/explanation/adr-parallel-early-termination.md
+      - developers/explanation/adr-path-sovereignty.md
+      - developers/explanation/adr-regex-acl.md
+      - developers/explanation/adr-unified-perimeter.md
+      - developers/explanation/adr-vault.md
+      - developers/explanation/core-laws.md
+      - developers/explanation/mdx-asset-rationale.md
+      - developers/explanation/sovereign-verification-model.md
+      - developers/explanation/tailwind-mkdocs-bridge.md
+      - Governance:
+        - developers/explanation/governance/index.md
+        - developers/explanation/governance/evolution_policy.md
+        - developers/explanation/governance/exit_strategy.md
+        - developers/explanation/governance/licensing.md
+        - developers/explanation/governance/technical-debt.md
+
+  - Blog: blog/
+
+
+theme:
+  name: material
+  custom_dir: overrides
+  logo: assets/brand/svg/zenzic-icon.svg
+  favicon: assets/brand/svg/zenzic-icon.svg
+  language: en
+  palette:
+    - scheme: slate
+      primary: black
+      accent: indigo
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.breadcrumbs
+    - navigation.path
+    - navigation.top
+    - toc.follow
+    - content.action.edit
+    - content.action.view
+    - content.code.copy
+
+extra:
+  # ADR-037: No hardcoded SemVer in any .html or .md source.
+  # CI pipeline passes the current version at build time, e.g.:
+  #   uv run mkdocs build --extra zenzic_version=0.14.1
+  zenzic_version: "0.15.1"
+
+markdown_extensions:
+  - attr_list
+  - tables
+  - admonition
+  - toc:
+      permalink: true
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+
+plugins:
+  - search
+  - blog:
+      blog_dir: blog
+      archive: true
+      categories: false
+
+# MkDocs strict-mode link validation.
+# tutorials/examples/ pages intentionally contain extensionless/malformed links
+# to demonstrate Zenzic's own rule findings (Z101, Z103, etc.) — docs-as-code
+# test fixtures. Suppress INFO-level warnings that would abort --strict build.
+validation:
+  links:
+    unrecognized_links: ignore
+  nav:
+    not_found: ignore

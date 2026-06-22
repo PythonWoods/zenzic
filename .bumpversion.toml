@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 [tool.bumpversion]
-current_version = "0.15.0"
+current_version = "0.15.1"
 parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)((?P<pre_l>a|b|rc)(?P<pre_n>\\d+))?"
 serialize = [
     "{major}.{minor}.{patch}{pre_l}{pre_n}",
@@ -15,6 +15,16 @@ optional_value = "final"
 
 [tool.bumpversion.parts.pre_n]
 first_value = 1
+
+[[tool.bumpversion.files]]
+filename = "mkdocs.yml"
+search = 'zenzic_version: "{current_version}"'
+replace = 'zenzic_version: "{new_version}"'
+
+[[tool.bumpversion.files]]
+filename = "CHANGELOG.md"
+search = "## [{current_version}] - Unreleased"
+replace = "## [{new_version}] - Unreleased"
 
 [[tool.bumpversion.files]]
 filename = "pyproject.toml"

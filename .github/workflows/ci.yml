@@ -50,13 +50,16 @@ jobs:
         run: uv python install ${{ matrix.python-version }}
 
       - name: Sync dependencies
-        run: uv sync --all-groups --frozen
+        run: uv sync --all-groups --all-extras --frozen
 
       - name: Run unit tests
         run: just test
 
       - name: Run Zenzic Quality Gate
-        run: uv run zenzic check all . --strict --ci
+        run: uv run zenzic check all --strict --format github-annotations --ci
+
+      - name: Build Docs
+        run: uv run mkdocs build --strict
 
       - name: Verify Badge Freshness
         run: uv run zenzic score --check-stamp --ci

@@ -1,0 +1,9 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+#
+# robots.txt — Zenzic Documentation Portal
+# Deployed to https://zenzic.dev/robots.txt via Cloudflare Pages.
+
+User-agent: *
+Allow: /
+Sitemap: https://zenzic.dev/sitemap.xml
