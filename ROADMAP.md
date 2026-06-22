@@ -14,37 +14,41 @@ For the current release history, see [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
-## Horizon 1: Current Focus (Now)
+## Layer 1: Core Engine & Foundations
 
-(Items actively being worked on or immediately next).
+*Architectural prerequisites required to unlock advanced tooling and automation.*
 
-- **The Bridge Architecture** (TypeScript Docusaurus Plugin)
-- **Custom Rules API v2** (AST Walker)
-- **Configuration Hygiene: Z108 STALE_ALLOWLIST_ENTRY** (Issue #70)
+- **Deterministic Markdown Renderer** (Issue #11): A stable AST-to-Markdown rendering engine. Requirement for a loss-less AST-to-string serializer that perfectly preserves original whitespace, lists, and HTML artifacts, ensuring automated fixes do not reformat unrelated text. Required to persist automated fixes while preserving the author's original formatting intent.
+- **Custom Rules API v2 (AST Walker):** Stable AST adapter and rule APIs with a semver guarantee. Exposes the internal CommonMark walker to third-party authors, moving beyond line-by-line regex. The `BaseASTRule` signature must pass `MdASTNode` objects and enforce a strict RE2 execution boundary with a 50ms timeout (`Z902`) per file to prevent third-party ReDoS.
+- **Semantic Schemas Validation:** YAML/JSON frontmatter validation against strictly declared schemas (e.g., `required_fields: [title, description]`).
 
----
+## Layer 2: Developer Experience & Automation
 
-## Horizon 2: Core Expansion (Next)
+*Features dependent on Layer 1 foundations to shift documentation quality left.*
 
-(Major engine capabilities and auto-remediation).
+- **Deterministic Auto-Fix Engine (`zenzic fix`)** (Issue #10): Semantic `--dry-run` / `--apply` repair semantics for `Z1xx` and `Z3xx` findings. Powered by the Deterministic Markdown Renderer. Implements an exact 3-Tier safety model:
+  - **Tier 1 (Structural-safe auto-apply):** Safe transformations applied directly.
+  - **Tier 2 (Proposal-only patch files):** Non-trivial fixes saved as patches for human review.
+  - **Tier 3 (Security FATALs):** Security codes (`Z2xx`) which are explicitly banned from auto-fix.
+- **Zenzic LSP (Language Server Protocol)** (Issue #12): A lightweight LSP implementation providing real-time IDE diagnostics and code-actions. Implements the JSON-RPC standard and hooks into the Auto-Fix engine to provide native IDE "Quick Fix" actions directly in the editor.
 
-- **Deterministic Auto-Fix Engine (`zenzic fix`)** (Issue #10)
-- **Deterministic Markdown Renderer** (Issue #11)
-- **Semantic Schemas Validation** (YAML/JSON frontmatter schemas)
-- **Z407 BROKEN_CODE_REFERENCE** (Pending explicit AST opt-in via Markdown attributes)
+## Layer 3: Advanced Semantic Rules
 
----
+*Deep-inspection rules utilizing the expanded AST Walker.*
 
-## Horizon 3: Ecosystem & Advanced Analysis (Later)
+- **Z108 STALE_ALLOWLIST_ENTRY** (Issue #70): Config-hygiene check for unused `absolute_path_allowlist` entries in `.zenzic.toml`. Implements config-parsing logic to cross-reference allowlist entries against the resolved file tree and detect unmatched absolute path exclusions.
+- **Z407 BROKEN_CODE_REFERENCE:** Scan Markdown for backtick-quoted paths and verify their physical existence. **Implementation blocker:** Global RE2 heuristics generate false positives on hypothetical tutorial paths. The spec MUST mandate an explicit Markdown attribute opt-in (e.g., `` `src/main.py`{: .verify-path } ``) via the AST parser before this rule can be safely implemented.
+- **Semantic Linting** (Issue #8): AST-based rules to detect semantically duplicate headings and empty/stub sections. Implements an AST state-machine required to track heading hierarchy and flag identical text content at the same tree depth.
+- **Readability & Style Engine** (Issue #9): Integration of deterministic readability metrics (e.g., Flesch-Kincaid) and tone checks without relying on non-deterministic LLMs.
+- **Smart Link Graph & Connectivity Analysis** (Issue #7): Build a directed graph of the documentation to detect unlinked pages (islands) and navigation cycles.
 
-(Integrations and deep semantic checks).
+## Layer 4: Ecosystem & Interoperability
 
-- **Zenzic LSP (Language Server Protocol)** (Issue #12)
-- **Semantic Linting & Duplicate Headings** (Issue #8)
-- **Readability & Style Engine** (Issue #9)
-- **Smart Link Graph & Connectivity Analysis** (Issue #7)
-- **Community: Sphinx Adapter** (Issue #51)
-- **Community: Hugo Adapter** (Issue #50)
+*Expanding the Zenzic perimeter to external frameworks and formats.*
+
+- **The Bridge Architecture (TypeScript Docusaurus Plugin):** An official NPM plugin (`@zenzic/plugin-docusaurus`) that dumps a `.zenzic-vsm.json` artifact during the build, allowing the Python core to audit dynamic React/Webpack routes.
+- **Community: Sphinx Adapter** (Issue #51): Support for parsing Sphinx `.rst` and `.md` documentation trees.
+- **Community: Hugo Adapter** (Issue #50): Support for Hugo's specific `hugo.toml` configuration and frontmatter conventions.
 
 ---
 
