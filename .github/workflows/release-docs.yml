@@ -35,7 +35,7 @@ jobs:
 
       - name: Build Docs
         run: |
-          uv run mkdocs build --strict
+          uv run --extra docs mkdocs build --strict
 
       - name: Set artifact name
         id: vars
