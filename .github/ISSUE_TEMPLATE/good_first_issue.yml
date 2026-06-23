@@ -1,0 +1,20 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+
+name: Good First Issue
+description: Claim an easy task to get started with contributing to Zenzic
+title: "[Claim] <Task Name>"
+labels: ["good first issue"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Welcome to Zenzic! This is a great place to start contributing.
+        Please describe the task you are claiming or asking about.
+  - type: textarea
+    id: task_description
+    attributes:
+      label: Task Description
+      description: What task are you planning to work on?
+    validations:
+      required: true

@@ -1,0 +1,40 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+
+name: Custom Rule Proposal
+description: Propose a new Z-Code rule to catch documentation flaws
+title: "[Rule] <Rule Name>"
+labels: ["enhancement", "rule-proposal"]
+body:
+  - type: textarea
+    id: flaw
+    attributes:
+      label: What documentation flaw do you want to catch?
+      description: Describe the issue in detail.
+      placeholder: "e.g., Missing alt text on images..."
+    validations:
+      required: true
+  - type: textarea
+    id: failing_markdown
+    attributes:
+      label: Example of failing Markdown
+      description: Provide an example that should trigger this rule.
+      render: markdown
+    validations:
+      required: true
+  - type: textarea
+    id: passing_markdown
+    attributes:
+      label: Example of passing Markdown
+      description: Provide the corrected version.
+      render: markdown
+    validations:
+      required: true
+  - type: input
+    id: proposed_zcode
+    attributes:
+      label: Proposed Z-Code name
+      description: "e.g., Z7xx"
+      placeholder: "Z7xx"
+    validations:
+      required: true
