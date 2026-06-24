@@ -11,6 +11,8 @@
 
 
 # --- EXACT 1-TO-1 OVERRIDES (Overrides Cloudflare Wildcard/Splat Failures) ---
+/it/developers/explanation/governance/technical-debt/           /developers/explanation/governance/technical-debt/       301
+/it/developers/explanation/governance/technical-debt            /developers/explanation/governance/technical-debt/       301
 /developers/reference/sentinel-style/                            /developers/reference/zenzic-style/                      301
 /developers/reference/sentinel-style                             /developers/reference/zenzic-style/                      301
 /docs/community/developers/reference/sentinel-style              /developers/reference/zenzic-style/                      301
