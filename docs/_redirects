@@ -9,6 +9,15 @@
 # Legacy Framework served docs under /docs/<path>; Zensical serves from site root.
 # MkDocs use_directory_urls=true: foo.md → /foo/, index.md → /
 
+# --- NUCLEAR DIRECTORY SPLATS (One-Hop Legacy Catch-All) ---
+/it/docs/how-to/examples/*           /tutorials/examples/:splat  301
+/docs/how-to/examples/*              /tutorials/examples/:splat  301
+/it/docs/tutorials/examples/*        /tutorials/examples/:splat  301
+/docs/tutorials/examples/*           /tutorials/examples/:splat  301
+/it/developers/*                     /developers/:splat          301
+/docs/developers/*                   /developers/:splat          301
+/it/docs/guides/*                    /how-to/:splat              301
+/docs/guides/*                       /how-to/:splat              301
 
 # --- EXACT 1-TO-1 OVERRIDES (Overrides Cloudflare Wildcard/Splat Failures) ---
 /it/developers/explanation/governance/technical-debt/           /developers/explanation/governance/technical-debt/       301
