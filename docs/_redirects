@@ -16,63 +16,63 @@
 /blog/docs-pipeline-security*                 /blog/  301
 
 # --- Legacy Developer & Internals Routes ---
-/developers/reference/sentinel-style          /developers/reference/zenzic-style/  301
-/internals/sentinel-style-guide               /developers/reference/zenzic-style/  301
-/developers/explanation/adr-zero-subprocesses /developers/explanation/core-laws/  301
-/developers/explanation/adr-sovereign-sandbox /developers/explanation/sovereign-verification-model/  301
-/developers/explanation/architecture-gaps     /developers/explanation/  301
-/internals/arch_gaps                          /developers/explanation/  301
-/internals/architecture-overview              /explanation/architecture/  301
-/internals/adr/*                              /developers/explanation/:splat  301
-/internals/developers/writing-an-adapter      /developers/how-to/implement-adapter/  301
-/internals/developers/plugins                 /developers/how-to/write-plugin/  301
-/internals/developers/examples                /developers/reference/adapter-examples/  301
-/internals/*                                  /developers/:splat  301
+/docs/developers/reference/sentinel-style          /developers/reference/zenzic-style/  301
+/docs/internals/sentinel-style-guide               /developers/reference/zenzic-style/  301
+/docs/developers/explanation/adr-zero-subprocesses /developers/explanation/core-laws/  301
+/docs/developers/explanation/adr-sovereign-sandbox /developers/explanation/sovereign-verification-model/  301
+/docs/developers/explanation/architecture-gaps     /developers/explanation/  301
+/docs/internals/arch_gaps                          /developers/explanation/  301
+/docs/internals/architecture-overview              /explanation/architecture/  301
+/docs/internals/adr/*                              /developers/explanation/:splat  301
+/docs/internals/developers/writing-an-adapter      /developers/how-to/implement-adapter/  301
+/docs/internals/developers/plugins                 /developers/how-to/write-plugin/  301
+/docs/internals/developers/examples                /developers/reference/adapter-examples/  301
+/docs/internals/*                                  /developers/:splat  301
 
 # --- Legacy Community Routes ---
-/community/faqs                               /explanation/community-index/  301
-/community/license                            /developers/explanation/governance/licensing/  301
-/community/brand-kit                          /reference/brand-kit/  301
-/community/developers/*                       /developers/:splat  301
-/community/contribute/*                       /developers/how-to/contribute/:splat  301
-/tags/community                               /explanation/community-index/  301
+/docs/community/faqs                               /explanation/community-index/  301
+/docs/community/license                            /developers/explanation/governance/licensing/  301
+/docs/community/brand-kit                          /reference/brand-kit/  301
+/docs/community/developers/*                       /developers/:splat  301
+/docs/community/contribute/*                       /developers/how-to/contribute/:splat  301
+/docs/tags/community                               /explanation/community-index/  301
 
 # --- Legacy Governance Routes ---
-/developers/governance/*                      /developers/explanation/governance/:splat  301
-/explanation/safe-harbor                      /developers/explanation/governance/exit_strategy/  301
+/docs/developers/governance/*                      /developers/explanation/governance/:splat  301
+/docs/explanation/safe-harbor                      /developers/explanation/governance/exit_strategy/  301
 
 # --- Legacy Guides & Usage Routes ---
-/guides/adapters-config                       /how-to/configure-adapter/  301
-/guides/configuration-reference               /reference/configuration-reference/  301
-/guides/discovery                             /explanation/discovery/  301
-/guides/ci-cd                                 /how-to/configure-ci-cd/  301
-/guides/custom-rules-dsl                      /how-to/add-custom-rules/  301
-/guides/migration                             /how-to/migrate-engines/  301
-/guides/checks                                /reference/checks/  301
-/guides/glossary                              /reference/glossary/  301
-/guides/engines                               /reference/engines/  301
-/guides/*                                     /how-to/:splat  301
+/docs/guides/adapters-config                       /how-to/configure-adapter/  301
+/docs/guides/configuration-reference               /reference/configuration-reference/  301
+/docs/guides/discovery                             /explanation/discovery/  301
+/docs/guides/ci-cd                                 /how-to/configure-ci-cd/  301
+/docs/guides/custom-rules-dsl                      /how-to/add-custom-rules/  301
+/docs/guides/migration                             /how-to/migrate-engines/  301
+/docs/guides/checks                                /reference/checks/  301
+/docs/guides/glossary                              /reference/glossary/  301
+/docs/guides/engines                               /reference/engines/  301
+/docs/guides/*                                     /how-to/:splat  301
 
-/usage/badges                                 /how-to/add-badges/  301
-/usage/commands                               /reference/cli/  301
-/usage/*                                      /how-to/install/  301
-/how-to/reference/cli                         /reference/cli/  301
-/intro                                        /  301
-/architecture                                 /explanation/architecture/  301
-/changelog                                    /  301
-/ci-cd                                        /how-to/configure-ci-cd/  301
-/ecosystem/overview                           /explanation/the-zenzic-trinity/  301
-/philosophy                                   /explanation/brand-philosophy/  301
+/docs/usage/badges                                 /how-to/add-badges/  301
+/docs/usage/commands                               /reference/cli/  301
+/docs/usage/*                                      /how-to/install/  301
+/docs/how-to/reference/cli                         /reference/cli/  301
+/docs/intro                                        /  301
+/docs/architecture                                 /explanation/architecture/  301
+/docs/changelog                                    /  301
+/docs/ci-cd                                        /how-to/configure-ci-cd/  301
+/docs/ecosystem/overview                           /explanation/the-zenzic-trinity/  301
+/docs/philosophy                                   /explanation/brand-philosophy/  301
 
 # --- Legacy Category & Example Routes ---
-/category/reference                           /reference/  301
-/category/examples                            /tutorials/examples/  301
-/category/user-guide                          /  301
-/category/developers                          /developers/  301
-/category/*                                   /  301
+/docs/category/reference                           /reference/  301
+/docs/category/examples                            /tutorials/examples/  301
+/docs/category/user-guide                          /  301
+/docs/category/developers                          /developers/  301
+/docs/category/*                                   /  301
 
-/how-to/examples/*                            /tutorials/examples/:splat  301
-/examples/*                                   /tutorials/examples/:splat  301
+/docs/how-to/examples/*                            /tutorials/examples/:splat  301
+/docs/examples/*                                   /tutorials/examples/:splat  301
 
 # ── User Documentation ─────────────────────────────────────────────────────────
 
@@ -239,6 +239,14 @@
 
 # ADR-020 Deprecation: Gracefully degrade all legacy Italian traffic to the English source
 /it/*  /:splat  301
+
+# --- Legacy Root-Level Routes (Indexed without /docs/) ---
+/developers/reference/sentinel-style*          /developers/reference/zenzic-style/  301
+/developers/explanation/adr-zero-subprocesses* /developers/explanation/core-laws/  301
+/developers/explanation/adr-sovereign-sandbox* /developers/explanation/sovereign-verification-model/  301
+/developers/explanation/architecture-gaps*     /developers/explanation/  301
+/developers/governance/*                       /developers/explanation/governance/:splat  301
+/developers/explanation                        /developers/  301
 
 # Legacy Docusaurus routing fallback
 /docs/*  /:splat  301
