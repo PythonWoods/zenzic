@@ -10,6 +10,48 @@
 # MkDocs use_directory_urls=true: foo.md → /foo/, index.md → /
 
 
+# --- EXACT 1-TO-1 OVERRIDES (Overrides Cloudflare Wildcard/Splat Failures) ---
+/developers/reference/sentinel-style/                            /developers/reference/zenzic-style/                      301
+/developers/reference/sentinel-style                             /developers/reference/zenzic-style/                      301
+/docs/community/developers/reference/sentinel-style              /developers/reference/zenzic-style/                      301
+/it/blog/governance-of-quartz                                    /blog/                                                   301
+/it/developers/explanation/adr-sovereign-sandbox                 /developers/explanation/sovereign-verification-model/    301
+/it/developers/explanation/adr-sovereign-sandbox/                /developers/explanation/sovereign-verification-model/    301
+/developers/explanation/adr-sovereign-sandbox/                   /developers/explanation/sovereign-verification-model/    301
+/developers/governance/licensing/                                /developers/explanation/governance/licensing/            301
+/developers/governance/licensing                                 /developers/explanation/governance/licensing/            301
+/it/developers/governance/licensing/                             /developers/explanation/governance/licensing/            301
+/it/developers/governance/licensing                              /developers/explanation/governance/licensing/            301
+/it/docs/how-to/examples/z1xx-links/z108-empty-link-text         /tutorials/examples/z1xx-links/z108-empty-link-text/     301
+/it/docs/how-to/examples/z3xx-references/z303-duplicate-def      /tutorials/examples/z3xx-references/z303-duplicate-def/   301
+/it/docs/how-to/examples/z5xx-content/z502-short-content         /tutorials/examples/z5xx-content/z502-short-content/     301
+/it/docs/how-to/examples/z3xx-references/z301-dangling-ref       /tutorials/examples/z3xx-references/z301-dangling-ref/   301
+/it/developers/explanation/adr-zero-subprocesses/                /developers/explanation/core-laws/                       301
+/it/developers/explanation/adr-zero-subprocesses                 /developers/explanation/core-laws/                       301
+/developers/explanation/adr-zero-subprocesses/                   /developers/explanation/core-laws/                       301
+/developers/explanation/adr-zero-subprocesses                    /developers/explanation/core-laws/                       301
+/it/docs/ecosystem/overview                                      /tutorials/examples/                                     301
+/it/docs/how-to/examples/z1xx-links/z104-file-not-found/         /tutorials/examples/z1xx-links/z104-file-not-found/     301
+/developers/governance/exit_strategy/                            /developers/explanation/governance/exit_strategy/        301
+/developers/governance/exit_strategy                             /developers/explanation/governance/exit_strategy/        301
+/developers/explanation/architecture-gaps/                       /developers/explanation/                                 301
+/developers/explanation/architecture-gaps                        /developers/explanation/                                 301
+/docs/community/developers/explanation/architecture-gaps         /developers/explanation/                                 301
+/it/blog/log-v080-historical-note/                               /blog/                                                   301
+/it/docs/category/reference                                      /reference/                                              301
+/it/docs/usage/                                                  /how-to/install/                                         301
+/it/docs/intro                                                   /                                                        301
+/it/docs/category/user-guide                                     /                                                        301
+/it/docs/guides/discovery                                        /how-to/install/                                         301
+/it/docs/usage/commands                                          /reference/cli/                                          301
+/it/docs/category/examples                                       /tutorials/examples/                                     301
+/developers/explanation/                                         /developers/                                             301
+/docs/internals/arch_gaps                                        /developers/explanation/                                 301
+/it/docs/usage/badges                                            /how-to/add-badges/                                      301
+/it/docs/category/developers                                     /developers/                                             301
+/it/docs/philosophy                                              /explanation/brand-philosophy/                           301
+/it/docs/how-to/examples/z2xx-security/z202-path-traversal       /tutorials/examples/z2xx-security/z202-path-traversal/   301
+
 # --- Explicit Tabella.csv 404 Fixes ---
 # Trailing slash variants for legacy paths
 /docs/community/brand-kit/                          /reference/brand-kit/  301
