@@ -10,14 +10,6 @@
 # MkDocs use_directory_urls=true: foo.md → /foo/, index.md → /
 
 
-# --- EXACT 1-TO-1 HOTFIXES (Overrides Cloudflare Splat Failures) ---
-/developers/explanation/architecture-gaps/                      /developers/explanation/                                 301
-/it/developers/governance/licensing/                            /developers/explanation/governance/licensing/            301
-/it/docs/how-to/examples/z5xx-content/z502-short-content        /tutorials/examples/z5xx-content/z502-short-content/     301
-/it/docs/how-to/examples/z3xx-references/z301-dangling-ref      /tutorials/examples/z3xx-references/z301-dangling-ref/   301
-/it/developers/explanation/adr-sovereign-sandbox/               /developers/explanation/sovereign-verification-model/    301
-/it/developers/explanation/governance/technical-debt/           /developers/explanation/governance/technical-debt/       301
-
 # --- Explicit Tabella.csv 404 Fixes ---
 # Trailing slash variants for legacy paths
 /docs/community/brand-kit/                          /reference/brand-kit/  301
