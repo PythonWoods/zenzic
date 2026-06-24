@@ -237,16 +237,81 @@
 # Replaces 80+ individual /it/* → /it/* dead routes with a single edge-level splat.
 # All legacy Italian traffic is gracefully degraded to the English source (1:1 path).
 
+# --- Legacy Italian One-Hop Routes ---
+/it/developers/reference/sentinel-style          /developers/reference/zenzic-style/  301
+/it/internals/sentinel-style-guide               /developers/reference/zenzic-style/  301
+/it/developers/explanation/adr-zero-subprocesses /developers/explanation/core-laws/  301
+/it/developers/explanation/adr-sovereign-sandbox /developers/explanation/sovereign-verification-model/  301
+/it/developers/explanation/architecture-gaps     /developers/explanation/  301
+/it/internals/arch_gaps                          /developers/explanation/  301
+/it/internals/architecture-overview              /explanation/architecture/  301
+/it/internals/adr/*                              /developers/explanation/:splat  301
+/it/internals/developers/writing-an-adapter      /developers/how-to/implement-adapter/  301
+/it/internals/developers/plugins                 /developers/how-to/write-plugin/  301
+/it/internals/developers/examples                /developers/reference/adapter-examples/  301
+/it/internals/*                                  /developers/:splat  301
+
+# --- Italian Legacy Community Routes ---
+/it/community/faqs                               /explanation/community-index/  301
+/it/community/license                            /developers/explanation/governance/licensing/  301
+/it/community/brand-kit                          /reference/brand-kit/  301
+/it/community/developers/*                       /developers/:splat  301
+/it/community/contribute/*                       /developers/how-to/contribute/:splat  301
+/it/tags/community                               /explanation/community-index/  301
+
+# --- Italian Legacy Governance Routes ---
+/it/developers/governance/*                      /developers/explanation/governance/:splat  301
+/it/explanation/safe-harbor                      /developers/explanation/governance/exit_strategy/  301
+
+# --- Italian Legacy Guides & Usage Routes ---
+/it/guides/adapters-config                       /how-to/configure-adapter/  301
+/it/guides/configuration-reference               /reference/configuration-reference/  301
+/it/guides/discovery                             /explanation/discovery/  301
+/it/guides/ci-cd                                 /how-to/configure-ci-cd/  301
+/it/guides/custom-rules-dsl                      /how-to/add-custom-rules/  301
+/it/guides/migration                             /how-to/migrate-engines/  301
+/it/guides/checks                                /reference/checks/  301
+/it/guides/glossary                              /reference/glossary/  301
+/it/guides/engines                               /reference/engines/  301
+/it/guides/*                                     /how-to/:splat  301
+
+/it/usage/badges                                 /how-to/add-badges/  301
+/it/usage/commands                               /reference/cli/  301
+/it/usage/*                                      /how-to/install/  301
+/it/how-to/reference/cli                         /reference/cli/  301
+/it/intro                                        /  301
+/it/architecture                                 /explanation/architecture/  301
+/it/changelog                                    /  301
+/it/ci-cd                                        /how-to/configure-ci-cd/  301
+/it/ecosystem/overview                           /explanation/the-zenzic-trinity/  301
+/it/philosophy                                   /explanation/brand-philosophy/  301
+
+# --- Italian Legacy Category & Example Routes ---
+/it/category/reference                           /reference/  301
+/it/category/examples                            /tutorials/examples/  301
+/it/category/user-guide                          /  301
+/it/category/developers                          /developers/  301
+/it/category/*                                   /  301
+
+/it/how-to/examples/*                            /tutorials/examples/:splat  301
+/it/examples/*                                   /tutorials/examples/:splat  301
+
+
 # ADR-020 Deprecation: Gracefully degrade all legacy Italian traffic to the English source
 /it/*  /:splat  301
 
 # --- Legacy Root-Level Routes (Indexed without /docs/) ---
-/developers/reference/sentinel-style*          /developers/reference/zenzic-style/  301
-/developers/explanation/adr-zero-subprocesses* /developers/explanation/core-laws/  301
-/developers/explanation/adr-sovereign-sandbox* /developers/explanation/sovereign-verification-model/  301
-/developers/explanation/architecture-gaps*     /developers/explanation/  301
+/developers/reference/sentinel-style           /developers/reference/zenzic-style/  301
+/developers/reference/sentinel-style/          /developers/reference/zenzic-style/  301
+/developers/explanation/adr-zero-subprocesses  /developers/explanation/core-laws/  301
+/developers/explanation/adr-zero-subprocesses/ /developers/explanation/core-laws/  301
+/developers/explanation/adr-sovereign-sandbox  /developers/explanation/sovereign-verification-model/  301
+/developers/explanation/adr-sovereign-sandbox/ /developers/explanation/sovereign-verification-model/  301
+/developers/explanation/architecture-gaps      /developers/explanation/  301
+/developers/explanation/architecture-gaps/     /developers/explanation/  301
 /developers/governance/*                       /developers/explanation/governance/:splat  301
 /developers/explanation                        /developers/  301
+/developers/explanation/                       /developers/  301
 
 # Legacy Docusaurus routing fallback
 /docs/*  /:splat  301
