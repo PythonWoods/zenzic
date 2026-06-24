@@ -9,6 +9,45 @@
 # Legacy Framework served docs under /docs/<path>; Zensical serves from site root.
 # MkDocs use_directory_urls=true: foo.md → /foo/, index.md → /
 
+
+# --- Explicit Tabella.csv 404 Fixes ---
+# Trailing slash variants for legacy paths
+/docs/community/brand-kit/                          /reference/brand-kit/  301
+/docs/explanation/safe-harbor/                      /developers/explanation/governance/exit_strategy/  301
+/docs/guides/adapters-config/                       /how-to/configure-adapter/  301
+/docs/guides/ci-cd/                                 /how-to/configure-ci-cd/  301
+/docs/guides/engines/                               /reference/engines/  301
+/docs/ci-cd/                                        /how-to/configure-ci-cd/  301
+/docs/architecture/                                 /explanation/architecture/  301
+/docs/internals/architecture-overview/              /explanation/architecture/  301
+
+# Outdated/Incorrect destinations
+/docs/examples/overview                             /tutorials/examples/  301
+/docs/examples/overview/                            /tutorials/examples/  301
+/docs/internals/developers/                         /developers/  301
+/docs/guides/                                       /how-to/install/  301
+/docs/guides                                        /how-to/install/  301
+/docs/internals/adr/discovery-logic                 /developers/explanation/adr-discovery/  301
+/docs/internals/adr/discovery-logic/                /developers/explanation/adr-discovery/  301
+/docs/how-to/advanced-options                       /reference/advanced-features/  301
+/docs/how-to/advanced-options/                      /reference/advanced-features/  301
+/developers/governance/adversarial-ai               /developers/explanation/governance/  301
+/developers/governance/adversarial-ai/              /developers/explanation/governance/  301
+
+# Italian (one-hop) variants for the above
+/it/docs/guides/adapters-config/                    /how-to/configure-adapter/  301
+/it/docs/guides/adapters-config                     /how-to/configure-adapter/  301
+/it/docs/examples/overview                          /tutorials/examples/  301
+/it/docs/examples/overview/                         /tutorials/examples/  301
+/it/examples/overview                               /tutorials/examples/  301
+/it/examples/overview/                              /tutorials/examples/  301
+/it/docs/guides/engines/                            /reference/engines/  301
+/it/docs/guides/engines                             /reference/engines/  301
+/it/docs/guides/                                    /how-to/install/  301
+/it/docs/guides                                     /how-to/install/  301
+/it/guides/                                         /how-to/install/  301
+/it/guides                                          /how-to/install/  301
+
 # --- Legacy Blog & Codename Routes ---
 /blog/log-v080-historical-note*               /blog/  301
 /blog/governance-of-quartz*                   /blog/  301
@@ -296,6 +335,124 @@
 /it/how-to/examples/*                            /tutorials/examples/:splat  301
 /it/examples/*                                   /tutorials/examples/:splat  301
 
+
+# --- Legacy Italian Docs One-Hop Routes ---
+/it/docs/developers/reference/sentinel-style          /developers/reference/zenzic-style/  301
+/it/docs/internals/sentinel-style-guide               /developers/reference/zenzic-style/  301
+/it/docs/developers/explanation/adr-zero-subprocesses /developers/explanation/core-laws/  301
+/it/docs/developers/explanation/adr-sovereign-sandbox /developers/explanation/sovereign-verification-model/  301
+/it/docs/developers/explanation/architecture-gaps     /developers/explanation/  301
+/it/docs/internals/arch_gaps                          /developers/explanation/  301
+/it/docs/internals/architecture-overview              /explanation/architecture/  301
+/it/docs/internals/adr/*                              /developers/explanation/:splat  301
+/it/docs/internals/developers/writing-an-adapter      /developers/how-to/implement-adapter/  301
+/it/docs/internals/developers/plugins                 /developers/how-to/write-plugin/  301
+/it/docs/internals/developers/examples                /developers/reference/adapter-examples/  301
+/it/docs/internals/*                                  /developers/:splat  301
+
+# --- Italian Docs Legacy Community Routes ---
+/it/docs/community/faqs                               /explanation/community-index/  301
+/it/docs/community/license                            /developers/explanation/governance/licensing/  301
+/it/docs/community/brand-kit                          /reference/brand-kit/  301
+/it/docs/community/developers/*                       /developers/:splat  301
+/it/docs/community/contribute/*                       /developers/how-to/contribute/:splat  301
+/it/docs/tags/community                               /explanation/community-index/  301
+
+# --- Italian Docs Legacy Governance Routes ---
+/it/docs/developers/governance/*                      /developers/explanation/governance/:splat  301
+/it/docs/explanation/safe-harbor                      /developers/explanation/governance/exit_strategy/  301
+
+# --- Italian Docs Legacy Guides & Usage Routes ---
+/it/docs/guides/adapters-config                       /how-to/configure-adapter/  301
+/it/docs/guides/configuration-reference               /reference/configuration-reference/  301
+/it/docs/guides/discovery                             /explanation/discovery/  301
+/it/docs/guides/ci-cd                                 /how-to/configure-ci-cd/  301
+/it/docs/guides/custom-rules-dsl                      /how-to/add-custom-rules/  301
+/it/docs/guides/migration                             /how-to/migrate-engines/  301
+/it/docs/guides/checks                                /reference/checks/  301
+/it/docs/guides/glossary                              /reference/glossary/  301
+/it/docs/guides/engines                               /reference/engines/  301
+/it/docs/guides/*                                     /how-to/:splat  301
+
+/it/docs/usage/badges                                 /how-to/add-badges/  301
+/it/docs/usage/commands                               /reference/cli/  301
+/it/docs/usage/*                                      /how-to/install/  301
+/it/docs/how-to/reference/cli                         /reference/cli/  301
+/it/docs/intro                                        /  301
+/it/docs/architecture                                 /explanation/architecture/  301
+/it/docs/changelog                                    /  301
+/it/docs/ci-cd                                        /how-to/configure-ci-cd/  301
+/it/docs/ecosystem/overview                           /explanation/the-zenzic-trinity/  301
+/it/docs/philosophy                                   /explanation/brand-philosophy/  301
+
+# --- Italian Docs Legacy Category & Example Routes ---
+/it/docs/category/reference                           /reference/  301
+/it/docs/category/examples                            /tutorials/examples/  301
+/it/docs/category/user-guide                          /  301
+/it/docs/category/developers                          /developers/  301
+/it/docs/category/*                                   /  301
+
+/it/docs/how-to/examples/*                            /tutorials/examples/:splat  301
+/it/docs/examples/*                                   /tutorials/examples/:splat  301
+
+# --- Legacy Italian One-Hop Routes ---
+/it/developers/reference/sentinel-style          /developers/reference/zenzic-style/  301
+/it/internals/sentinel-style-guide               /developers/reference/zenzic-style/  301
+/it/developers/explanation/adr-zero-subprocesses /developers/explanation/core-laws/  301
+/it/developers/explanation/adr-sovereign-sandbox /developers/explanation/sovereign-verification-model/  301
+/it/developers/explanation/architecture-gaps     /developers/explanation/  301
+/it/internals/arch_gaps                          /developers/explanation/  301
+/it/internals/architecture-overview              /explanation/architecture/  301
+/it/internals/adr/*                              /developers/explanation/:splat  301
+/it/internals/developers/writing-an-adapter      /developers/how-to/implement-adapter/  301
+/it/internals/developers/plugins                 /developers/how-to/write-plugin/  301
+/it/internals/developers/examples                /developers/reference/adapter-examples/  301
+/it/internals/*                                  /developers/:splat  301
+
+# --- Italian Legacy Community Routes ---
+/it/community/faqs                               /explanation/community-index/  301
+/it/community/license                            /developers/explanation/governance/licensing/  301
+/it/community/brand-kit                          /reference/brand-kit/  301
+/it/community/developers/*                       /developers/:splat  301
+/it/community/contribute/*                       /developers/how-to/contribute/:splat  301
+/it/tags/community                               /explanation/community-index/  301
+
+# --- Italian Legacy Governance Routes ---
+/it/developers/governance/*                      /developers/explanation/governance/:splat  301
+/it/explanation/safe-harbor                      /developers/explanation/governance/exit_strategy/  301
+
+# --- Italian Legacy Guides & Usage Routes ---
+/it/guides/adapters-config                       /how-to/configure-adapter/  301
+/it/guides/configuration-reference               /reference/configuration-reference/  301
+/it/guides/discovery                             /explanation/discovery/  301
+/it/guides/ci-cd                                 /how-to/configure-ci-cd/  301
+/it/guides/custom-rules-dsl                      /how-to/add-custom-rules/  301
+/it/guides/migration                             /how-to/migrate-engines/  301
+/it/guides/checks                                /reference/checks/  301
+/it/guides/glossary                              /reference/glossary/  301
+/it/guides/engines                               /reference/engines/  301
+/it/guides/*                                     /how-to/:splat  301
+
+/it/usage/badges                                 /how-to/add-badges/  301
+/it/usage/commands                               /reference/cli/  301
+/it/usage/*                                      /how-to/install/  301
+/it/how-to/reference/cli                         /reference/cli/  301
+/it/intro                                        /  301
+/it/architecture                                 /explanation/architecture/  301
+/it/changelog                                    /  301
+/it/ci-cd                                        /how-to/configure-ci-cd/  301
+/it/ecosystem/overview                           /explanation/the-zenzic-trinity/  301
+/it/philosophy                                   /explanation/brand-philosophy/  301
+
+# --- Italian Legacy Category & Example Routes ---
+/it/category/reference                           /reference/  301
+/it/category/examples                            /tutorials/examples/  301
+/it/category/user-guide                          /  301
+/it/category/developers                          /developers/  301
+/it/category/*                                   /  301
+
+/it/how-to/examples/*                            /tutorials/examples/:splat  301
+/it/examples/*                                   /tutorials/examples/:splat  301
 
 # ADR-020 Deprecation: Gracefully degrade all legacy Italian traffic to the English source
 /it/*  /:splat  301
