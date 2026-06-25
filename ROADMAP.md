@@ -31,13 +31,17 @@ For the current release history, see [CHANGELOG.md](CHANGELOG.md).
 - **Z407 BROKEN_CODE_REFERENCE:** Scan Markdown for backtick-quoted paths and verify their physical existence. *(Depends on Custom Rules API to support explicit Markdown attribute opt-in like `{: .verify-path }` before implementation).*
 - **CLI Live URL Resolution (DX Rewrite):** Enhance the terminal reporter to reconstruct and output clickable live production URLs for failing files. (Note: Requires architectural refactoring of VSM state exposure to maintain Pure Function invariants without hacky dictionary mutations).
 
-## [v0.17.0] - The Automation Era
+## v0.17.0 (planned)
 
-*Leveraging v0.16.0 foundations to shift documentation quality left.*
+**Theme:** Shift-Left to the Keystroke (IDE Integration & LSP)
 
-- **Deterministic Auto-Fix Engine (`zenzic fix`)** (Issue #10): Semantic `--dry-run` / `--apply` repair semantics for `Z1xx` and `Z3xx` findings. Powered by the Deterministic Markdown Renderer. Implements an exact 3-Tier safety model (Tier 1: Auto-apply, Tier 2: Patches, Tier 3: Security FATALs banned).
-- **Zenzic LSP (Language Server Protocol)** (Issue #12): A lightweight LSP implementation providing real-time IDE diagnostics and code-actions. Hooks into the Auto-Fix engine to provide native IDE "Quick Fix" actions.
-- **Semantic Linting & Readability** (Issues #8, #9): AST-based rules to detect semantically duplicate headings, empty/stub sections, and integration of deterministic readability metrics (Flesch-Kincaid).
+### Planned
+
+- **Zenzic Language Server (ZLS) & VS Code Extension:** To push the "Hostile Precision" feedback loop from the CI/CD pipeline directly into the authoring environment, Zenzic will implement a native Language Server Protocol (LSP) interface.
+  - **The Architecture:** The core engine will expose a `zenzic.lsp` module (JSON-RPC over stdio). An official, thin VS Code Extension (written in TypeScript) will act purely as an LSP client.
+  - **The Single Source of Truth:** The VS Code extension will contain zero AST parsing or regex logic. It will stream `textDocument/didChange` events to the local Python backend. The Python core remains the sole arbiter of Document Quality.
+  - **Real-Time Governance:** Z-Codes will render as real-time editor diagnostics (red/yellow squiggly lines). Hovering over a broken link (`Z104`), a missing anchor (`Z102`), or a leaked credential (`Z201`) will display the exact DQS penalty and remediation steps natively extracted from the Python `CodeDefinition` registry.
+  - **Performance Invariant:** Leveraging the $O(N)$ RE2 DFA engine and atomic caching, the ZLS will guarantee sub-50ms diagnostic responses, ensuring zero typing latency degradation for the end-user.
 
 ## [v0.18.0] - Ecosystem & Interoperability
 
@@ -64,4 +68,4 @@ These constraints apply across every future release:
 
 ---
 
-Roadmap last updated: 2026-06-22
+Roadmap last updated: 2026-06-25
