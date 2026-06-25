@@ -29,6 +29,7 @@ For the current release history, see [CHANGELOG.md](CHANGELOG.md).
 - **Deterministic Markdown Renderer** (Issue #11): A stable AST-to-Markdown rendering engine. Requirement for a loss-less AST-to-string serializer that perfectly preserves original whitespace, lists, and HTML artifacts.
 - **Custom Rules API v2 (AST Walker):** Stable AST adapter and rule APIs with a semver guarantee. The `BaseASTRule` signature must pass `MdASTNode` objects and enforce a strict RE2 execution boundary with a 50ms timeout (`Z902`).
 - **Z407 BROKEN_CODE_REFERENCE:** Scan Markdown for backtick-quoted paths and verify their physical existence. *(Depends on Custom Rules API to support explicit Markdown attribute opt-in like `{: .verify-path }` before implementation).*
+- **CLI Live URL Resolution (DX Rewrite):** Enhance the terminal reporter to reconstruct and output clickable live production URLs for failing files. (Note: Requires architectural refactoring of VSM state exposure to maintain Pure Function invariants without hacky dictionary mutations).
 
 ## [v0.17.0] - The Automation Era
 
