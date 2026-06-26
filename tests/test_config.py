@@ -478,3 +478,54 @@ excluded_dirs = ["docs/"]
 
     assert "excluded_dirs" in str(exc_info.value)
     assert "network" in str(exc_info.value)
+
+
+def test_config_raises_zenzic_config_error_on_swallowed_keys(tmp_path: Path) -> None:
+    """Verify that a swallowed key error raises ZenzicConfigError with Z108 code."""
+    from zenzic.core.exceptions import ZenzicConfigError
+
+    toml_content = """\
+[network]
+cache_ttl_hours = 24
+excluded_dirs = ["docs/"]
+"""
+    (tmp_path / ".zenzic.toml").write_text(toml_content)
+
+    with pytest.raises(ZenzicConfigError) as exc_info:
+        ZenzicConfig.load(tmp_path)
+
+    assert exc_info.value.code == "Z108"
+    assert "FATAL CONFIGURATION ERROR" in str(exc_info.value)
+
+
+def test_config_raises_zenzic_config_error_on_validation_error(tmp_path: Path) -> None:
+    """Verify that a validation error raises ZenzicConfigError with Z108 code."""
+    from zenzic.core.exceptions import ZenzicConfigError
+
+    # suppression_cap must be >= 0 (governed by ge=0)
+    toml_content = """\
+[governance]
+suppression_cap = -10
+"""
+    (tmp_path / ".zenzic.toml").write_text(toml_content)
+
+    with pytest.raises(ZenzicConfigError) as exc_info:
+        ZenzicConfig.load(tmp_path)
+
+    assert exc_info.value.code == "Z108"
+    assert "Configuration validation failed" in str(exc_info.value)
+
+
+def test_config_raises_zenzic_config_error_on_local_strict_keys(tmp_path: Path) -> None:
+    """Verify that an unknown key in .zenzic.local.toml raises ZenzicConfigError with Z108 code."""
+    from zenzic.core.exceptions import ZenzicConfigError
+
+    (tmp_path / ".zenzic.toml").write_text("[core]\n")
+    # Write an invalid key in local config
+    (tmp_path / ".zenzic.local.toml").write_text("[rules.governance.banned_terms]\nfoo = 'bar'\n")
+
+    with pytest.raises(ZenzicConfigError) as exc_info:
+        ZenzicConfig.load(tmp_path)
+
+    assert exc_info.value.code == "Z108"
+    assert "[LOCAL-TOML-STRICT]" in str(exc_info.value)

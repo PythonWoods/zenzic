@@ -159,6 +159,67 @@ def _print_banner() -> None:
     get_console().print()
 
 
+def _handle_machine_readable_error(exc: ZenzicError, output_format: str) -> bool:
+    """If the output format is json or sarif, serialize the error to stdout and return True.
+
+    Otherwise, return False.
+    """
+    import json
+
+    filename = exc.context.get("file", exc.context.get("config_path", ".zenzic.toml"))
+    if not isinstance(filename, str):
+        filename = str(filename)
+
+    code = getattr(exc, "code", "Z108")
+
+    if output_format == "json":
+        report = {
+            "file": filename,
+            "line": 1,
+            "code": code,
+            "tier": "Core",
+            "severity": "fatal",
+            "message": exc.message,
+        }
+        print(json.dumps(report, indent=2))
+        return True
+
+    elif output_format == "sarif":
+        report = {
+            "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+            "version": "2.1.0",
+            "runs": [
+                {
+                    "tool": {
+                        "driver": {
+                            "name": "zenzic",
+                            "version": __version__,
+                            "informationUri": "https://zenzic.dev",
+                            "rules": [],
+                        }
+                    },
+                    "invocations": [
+                        {
+                            "executionSuccessful": False,
+                            "toolExecutionNotifications": [
+                                {
+                                    "descriptor": {"id": code},
+                                    "level": "error",
+                                    "message": {"text": exc.message},
+                                }
+                            ],
+                        }
+                    ],
+                    "results": [],
+                }
+            ],
+        }
+        print(json.dumps(report, indent=2))
+        return True
+
+    return False
+
+
 def cli_main() -> None:
     """Wired as the `zenzic` console_scripts entry point."""
     from rich.traceback import install as _rich_tb_install
@@ -190,6 +251,16 @@ def cli_main() -> None:
         )
         sys.exit(1)
     except ZenzicError as exc:
+        output_format = "text"
+        for i, arg in enumerate(sys.argv):
+            if arg in ("--format", "-f") and i + 1 < len(sys.argv):
+                output_format = sys.argv[i + 1]
+            elif arg.startswith("--format="):
+                output_format = arg.split("=", 1)[1]
+
+        if _handle_machine_readable_error(exc, output_format):
+            sys.exit(1)
+
         _error_panel(
             exc,
             border_style=ZenzicPalette.STYLE_ERR,

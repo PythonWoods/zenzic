@@ -697,12 +697,12 @@ class ZenzicConfig(BaseModel):
                 if swallowed:
                     from rich.markup import escape
 
-                    from zenzic.core.exceptions import ConfigurationError
+                    from zenzic.core.exceptions import ZenzicConfigError
 
                     swallowed_key = next(iter(swallowed))
                     table_str = escape(f"[{table_name}]")
                     tables_str = escape("[tables]")
-                    raise ConfigurationError(
+                    raise ZenzicConfigError(
                         f"FATAL CONFIGURATION ERROR: The root key '{swallowed_key}' was found inside "
                         f"the '{table_str}' section. In TOML, root keys must be declared at the "
                         f"absolute top of the file before any {tables_str} are opened."
@@ -734,7 +734,12 @@ class ZenzicConfig(BaseModel):
             :class:`~zenzic.core.exceptions.ConfigurationError`: When a
                 config file is present but cannot be parsed.
         """
-        from zenzic.core.exceptions import ConfigurationError  # deferred to avoid circular import
+        from pydantic import ValidationError
+
+        from zenzic.core.exceptions import (
+            ConfigurationError,  # deferred to avoid circular import
+            ZenzicConfigError,
+        )
 
         # ── Priority 1: .zenzic.toml ───────────────────────────────────────────
         zenzic_toml = repo_root / ".zenzic.toml"
@@ -751,8 +756,18 @@ class ZenzicConfig(BaseModel):
                     context={"config_path": str(zenzic_toml)},
                 ) from exc
             cls._validate_no_swallowed_root_keys(data)
-            config = cls._build_from_data(data)
-            cls._apply_local_toml(config, repo_root)
+            try:
+                config = cls._build_from_data(data)
+                cls._apply_local_toml(config, repo_root)
+            except ValidationError as exc:
+                errors_str = "\n".join(
+                    f"  - {'.'.join(str(loc) for loc in err['loc'])}: {err['msg']}"
+                    for err in exc.errors()
+                )
+                raise ZenzicConfigError(
+                    f"Configuration validation failed in [bold red].zenzic.toml[/]:\n{errors_str}",
+                    context={"errors": exc.errors(), "file": str(zenzic_toml)},
+                ) from exc
             return config, True
 
         # ── Priority 2: [tool.zenzic] in pyproject.toml ──────────────────────
@@ -773,13 +788,33 @@ class ZenzicConfig(BaseModel):
             zenzic_section = tool_section.get("zenzic", {})
             if zenzic_section:
                 cls._validate_no_swallowed_root_keys(zenzic_section)
-                config = cls._build_from_data(zenzic_section)
-                cls._apply_local_toml(config, repo_root)
+                try:
+                    config = cls._build_from_data(zenzic_section)
+                    cls._apply_local_toml(config, repo_root)
+                except ValidationError as exc:
+                    errors_str = "\n".join(
+                        f"  - {'.'.join(str(loc) for loc in err['loc'])}: {err['msg']}"
+                        for err in exc.errors()
+                    )
+                    raise ZenzicConfigError(
+                        f"Configuration validation failed in [bold red]pyproject.toml[/]:\n{errors_str}",
+                        context={"errors": exc.errors(), "file": str(pyproject_toml)},
+                    ) from exc
                 return config, True
 
         # ── Priority 3: built-in defaults ─────────────────────────────────────
-        config = cls()
-        cls._apply_local_toml(config, repo_root)
+        try:
+            config = cls()
+            cls._apply_local_toml(config, repo_root)
+        except ValidationError as exc:
+            errors_str = "\n".join(
+                f"  - {'.'.join(str(loc) for loc in err['loc'])}: {err['msg']}"
+                for err in exc.errors()
+            )
+            raise ZenzicConfigError(
+                f"Configuration validation failed for default/local config:\n{errors_str}",
+                context={"errors": exc.errors()},
+            ) from exc
         return config, False
 
     @classmethod
@@ -845,10 +880,10 @@ class ZenzicConfig(BaseModel):
         )
         unknown_keys = set(local_data.keys()) - _ALLOWED_LOCAL_KEYS
         if unknown_keys:
-            from zenzic.core.exceptions import ConfigurationError
+            from zenzic.core.exceptions import ZenzicConfigError
 
             pretty = ", ".join(f"'{k}'" for k in sorted(unknown_keys))
-            raise ConfigurationError(
+            raise ZenzicConfigError(
                 f"[LOCAL-TOML-STRICT] .zenzic.local.toml contains unsupported top-level "
                 f"key(s): {pretty}.\n"
                 "Allowed sections: core, build_context, project_metadata, governance, i18n, "

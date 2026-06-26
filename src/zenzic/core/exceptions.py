@@ -44,10 +44,13 @@ class ZenzicError(Exception):
             )
     """
 
-    def __init__(self, message: str, context: dict[str, Any] | None = None) -> None:
+    def __init__(
+        self, message: str, context: dict[str, Any] | None = None, code: str | None = None
+    ) -> None:
         super().__init__(message)
         self.message = message
         self.context: dict[str, Any] = context or {}
+        self.code = code
 
     def __str__(self) -> str:
         if self.context:
@@ -69,6 +72,22 @@ class ConfigurationError(ZenzicError):
             context={"searched": str(repo_root)},
         )
     """
+
+
+class ZenzicConfigError(ConfigurationError):
+    """Raised when the project configuration structure is semantically invalid (Z108)."""
+
+    def __init__(self, message: str, context: dict[str, Any] | None = None) -> None:
+        super().__init__(message, context, code="Z108")
+
+
+class ZenzicViolation(ZenzicError):
+    """Raised when a specific scan rule or policy is violated."""
+
+    def __init__(
+        self, message: str, context: dict[str, Any] | None = None, code: str | None = None
+    ) -> None:
+        super().__init__(message, context, code=code)
 
 
 class EngineError(ConfigurationError):
