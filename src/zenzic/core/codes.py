@@ -9,6 +9,7 @@ Schema
 ------
 Z0xx — Migration & Compatibility
     Z000  UNSUPPORTED_ENGINE   — unsupported/removed engine identifier; ConfigurationError before analysis
+    Z001  CORE_CONFIG_STRUCTURE — invalid configuration structure; ZenzicConfigError before analysis
 
 Z1xx — Link Integrity
     Z101  LINK_BROKEN          — target file not found in the Virtual Site Map
@@ -162,6 +163,7 @@ CODE_DEFINITIONS: dict[str, CodeDefinition] = {
     # ── Z0xx — Migration & Compatibility ──────────────────────────────────────
     # Aborts config loading before any analysis; not in the DQS penalty table.
     "Z000": CodeDefinition("error", 0.0, None),
+    "Z001": CodeDefinition("error", 0.0, None),  # CORE_CONFIG_STRUCTURE
     # ── Z1xx — Link Integrity ─────────────────────────────────────────────────
     "Z101": CodeDefinition("error", 8.0, "structural"),  # LINK_BROKEN
     "Z102": CodeDefinition("error", 5.0, "structural"),  # ANCHOR_MISSING
@@ -224,6 +226,7 @@ CODE_DEFINITIONS: dict[str, CodeDefinition] = {
 #: Human-readable name for each code (for report headers).
 CODE_NAMES: dict[str, str] = {
     "Z000": "UNSUPPORTED_ENGINE",
+    "Z001": "CORE_CONFIG_STRUCTURE",
     "Z101": "LINK_BROKEN",
     "Z102": "ANCHOR_MISSING",
     "Z103": "ORPHAN_LINK",
@@ -268,6 +271,7 @@ CODE_NAMES: dict[str, str] = {
 CODE_DESCRIPTIONS: dict[str, str] = {
     # Z0xx — Migration & Compatibility
     "Z000": "Unsupported or removed engine identifier in .zenzic.toml — configuration guard raised before analysis begins",
+    "Z001": "Invalid configuration structure — configuration guard raised before analysis begins",
     # Z1xx — Link Integrity
     "Z101": "Link target not found in the Virtual Site Map",
     "Z102": "Fragment anchor (#anchor) not defined on the target page",

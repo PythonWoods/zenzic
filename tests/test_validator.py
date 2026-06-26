@@ -1553,7 +1553,7 @@ class TestCheckExternalFlag:
         )
 
 
-def test_validator_short_circuits_analysis_on_z108(
+def test_validator_short_circuits_analysis_on_z001(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
 ) -> None:
     """Verify that a malformed config structure causes a short-circuit before scanning starts."""
@@ -1567,7 +1567,7 @@ def test_validator_short_circuits_analysis_on_z108(
     docs.mkdir()
     (docs / "index.md").write_text("[broken](ghost.md)")
 
-    # Write invalid config to trigger Z108
+    # Write invalid config to trigger Z001
     (repo / ".zenzic.toml").write_text("[governance]\nsuppression_cap = -5\n")
 
     monkeypatch.chdir(repo)
@@ -1585,10 +1585,10 @@ def test_validator_short_circuits_analysis_on_z108(
     assert "Analysis complete" not in captured.out
 
 
-def test_cli_z108_outputs_json(
+def test_cli_z001_outputs_json(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
 ) -> None:
-    """Verify that a Z108 error is correctly formatted as JSON."""
+    """Verify that a Z001 error is correctly formatted as JSON."""
     import json
     import sys
 
@@ -1608,17 +1608,17 @@ def test_cli_z108_outputs_json(
 
     captured = capsys.readouterr()
     data = json.loads(captured.out)
-    assert data["code"] == "Z108"
+    assert data["code"] == "Z001"
     assert data["tier"] == "Core"
     assert data["severity"] == "fatal"
     assert "Configuration validation failed" in data["message"]
     assert ".zenzic.toml" in data["file"]
 
 
-def test_cli_z108_outputs_sarif(
+def test_cli_z001_outputs_sarif(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
 ) -> None:
-    """Verify that a Z108 error is correctly formatted as SARIF."""
+    """Verify that a Z001 error is correctly formatted as SARIF."""
     import json
     import sys
 
@@ -1645,6 +1645,6 @@ def test_cli_z108_outputs_sarif(
     invocation = run["invocations"][0]
     assert invocation["executionSuccessful"] is False
     notification = invocation["toolExecutionNotifications"][0]
-    assert notification["descriptor"]["id"] == "Z108"
+    assert notification["descriptor"]["id"] == "Z001"
     assert notification["level"] == "error"
     assert "Configuration validation failed" in notification["message"]["text"]

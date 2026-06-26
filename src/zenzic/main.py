@@ -170,7 +170,7 @@ def _handle_machine_readable_error(exc: ZenzicError, output_format: str) -> bool
     if not isinstance(filename, str):
         filename = str(filename)
 
-    code = getattr(exc, "code", "Z108")
+    code = getattr(exc, "code", "Z001")
 
     if output_format == "json":
         report = {

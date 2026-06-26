@@ -75,10 +75,10 @@ class ConfigurationError(ZenzicError):
 
 
 class ZenzicConfigError(ConfigurationError):
-    """Raised when the project configuration structure is semantically invalid (Z108)."""
+    """Raised when the project configuration structure is semantically invalid (Z001)."""
 
     def __init__(self, message: str, context: dict[str, Any] | None = None) -> None:
-        super().__init__(message, context, code="Z108")
+        super().__init__(message, context, code="Z001")
 
 
 class ZenzicViolation(ZenzicError):
