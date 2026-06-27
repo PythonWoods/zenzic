@@ -14,17 +14,19 @@ For the current release history, see [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
-## [v0.15.0] - The Semantic Hygiene Update (Next)
+## Recent Releases
 
-*Immediate focus. Zero blocking architectural dependencies.*
+### [v0.15.0] - The Semantic Hygiene Update
 
-- **Z603 DEAD_SUPPRESSION:** Detects inline `zenzic:ignore` directives that do not correspond to any active finding. Eliminates phantom technical debt.
-- **Z108 STALE_ALLOWLIST_ENTRY** (Issue #70): Config-hygiene check for unused `absolute_path_allowlist` entries in `.zenzic.toml`. Implements config-parsing logic to cross-reference allowlist entries against the resolved file tree.
-- **Semantic Schemas Validation:** YAML/JSON frontmatter validation against strictly declared schemas (e.g., `required_fields: [title, description]`).
+- [x] **Z603 DEAD_SUPPRESSION:** Detects inline `zenzic:ignore` directives that do not correspond to any active finding. (Completed)
+- [x] **Z108 STALE_ALLOWLIST_ENTRY** (now Z110, Issue #70): Config-hygiene check for unused `absolute_path_allowlist` entries. (Completed)
+- [x] **Semantic Schemas Validation** (Z001): TOML/JSON/YAML schema structure validation during bootstrap. (Completed)
 
-## [v0.16.0] - The AST Foundations
+---
 
-*Laying the groundwork for automation and third-party rules.*
+## [v0.16.0] - The AST Foundations (Current)
+
+*AST foundations completed. Laying the groundwork for automation and third-party rules.*
 
 - **Deterministic Markdown Renderer** (Issue #11): A stable AST-to-Markdown rendering engine. Requirement for a loss-less AST-to-string serializer that perfectly preserves original whitespace, lists, and HTML artifacts.
 - **Custom Rules API v2 (AST Walker):** Stable AST adapter and rule APIs with a semver guarantee. The `BaseASTRule` signature must pass `MdASTNode` objects and enforce a strict RE2 execution boundary with a 50ms timeout (`Z902`).
@@ -70,4 +72,4 @@ These constraints apply across every future release:
 
 ---
 
-Roadmap last updated: 2026-06-25
+Roadmap last updated: 2026-06-27
