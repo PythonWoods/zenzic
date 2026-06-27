@@ -139,6 +139,63 @@ For zero-install `uvx` integration and regression gates, see the [CI/CD guide][d
 
 ---
 
+## 🧩 Ecosystem & CI Integration
+
+### Responsibility Matrix: Core vs Action
+
+Zenzic Core is **radically unaware** of any CI platform. It produces portable, self-contained artefacts (SARIF, JSON, text) via a stable exit-code contract. Platform-specific behaviour — GitHub Annotations, Code Scanning upload, PR decoration — is the sole responsibility of the [Zenzic Action][zenzic-action].
+
+| Concern | Zenzic Core | [Zenzic Action][zenzic-action] |
+| :--- | :---: | :---: |
+| Link validation (Z1xx) | ✅ | — |
+| Credential scanner (Z2xx) | ✅ | — |
+| Topology / orphan detection (Z3xx–Z6xx) | ✅ | — |
+| SARIF / JSON / text output | ✅ | — |
+| Exit-code contract (0 / 1 / 2 / 3) | ✅ | enforced |
+| GitHub Annotations (`::error::`) | — | ✅ |
+| Code Scanning SARIF upload | — | ✅ |
+| PR inline diff annotations | — | ✅ |
+| DQS regression blocking (`zenzic diff`) | — | ✅ |
+| Sovereign nightly audit (`--audit`) | — | ✅ |
+| GitLab / Bitbucket / other CI adapters | — | future adapters |
+
+> **Design law (ADR-075):** logic that maps Zenzic output to a CI platform's native format must live in the Adapter, never in the Core. Exit codes 2 and 3 propagate unchanged through every adapter — they are never remapped or suppressed.
+
+---
+
+## 🛡️ Why Zenzic?
+
+### Determinism
+
+Every Zenzic run is a pure function of its inputs. Given the same repository state and `.zenzic.toml`, the output — finding codes, severity levels, exit code, SARIF structure — is **bit-for-bit identical** across machines, platforms, and time. There are no probabilistic judgements, no sampling, and no network-dependent results injected into the analysis path.
+
+| Property | Guarantee |
+| :--- | :--- |
+| Same inputs → same output | ✅ Always |
+| RE2-backed regex engine | ✅ No backtracking, no catastrophic matching |
+| Frozen finding codes | ✅ `FROZEN_CODES` set; never renamed or silently retired |
+| Reproducible CI artefacts | ✅ Identical SARIF across runner OS and time |
+
+### Documentation Security
+
+Zenzic treats documentation as a **security surface**, not just a quality metric. The tiered code model enforces a hard boundary between quality findings (suppressible, exit 1) and security findings (non-suppressible, exit 2 / 3):
+
+- **Z201 — Credential Scanner:** hardcoded tokens, API keys, and secret patterns detected before they reach a PR.
+- **Z202 / Z203 — Path Traversal Guard:** filesystem boundary violations caught at the scan boundary — `fail-on-error: false` has zero effect.
+- **Suppression CAP:** a configurable ceiling on the total number of active `zenzic:ignore` suppressions. Exceeding it blocks the build, preventing systematic suppression debt from accumulating silently.
+
+### Zero Hallucinations
+
+Zenzic reports only what is **statically verifiable** in the repository at scan time. It never:
+
+- infers intent or "probable" correctness from surrounding context,
+- approximates link validity without a deterministic check,
+- emits a finding it cannot reproduce on a re-run with identical inputs.
+
+This makes every Zenzic finding a **falsifiable, reproducible fact** — suitable as audit evidence, not just developer feedback.
+
+---
+
 ## 📦 Installation
 
 > 🏗️ **Monorepo Architecture**: Zenzic contains its own documentation portal. To develop locally, install the documentation toolchain with `uv sync --extra docs`.
@@ -207,6 +264,7 @@ Apache-2.0 — see [LICENSE][license].
 [mkdocs]:            https://www.mkdocs.org/
 [zensical]:          https://zensical.org/
 [uv]:                https://docs.astral.sh/uv/
+[zenzic-action]:     https://github.com/PythonWoods/zenzic-action
 [docs-home]:         https://zenzic.dev/
 [docs-badges]:       https://zenzic.dev/how-to/add-badges/
 [docs-cicd]:         https://zenzic.dev/how-to/configure-ci-cd/
