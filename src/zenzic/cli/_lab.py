@@ -105,6 +105,13 @@ _GALLERY: dict[str, _Act] = {
         example_dir="z101-broken-links",
         expected_pass=False,
     ),
+    "z109": _Act(
+        code="z109",
+        title="External Link Broken",
+        description="Z109 EXTERNAL_LINK_BROKEN — external URL references that resolve to missing pages",
+        example_dir="z109-external-link-broken",
+        expected_pass=False,
+    ),
     "z201": _Act(
         code="z201",
         title="Credential Scanner",
@@ -132,7 +139,7 @@ _GALLERY: dict[str, _Act] = {
         title="i18n Parity",
         description="Z602 I18N_PARITY — guide.md present in EN locale, absent from IT",
         example_dir="z602-i18n-parity",
-        expected_pass=False,
+        expected_pass=True,
     ),
     "z102": _Act(
         code="z102",
@@ -371,7 +378,9 @@ def _run_act(act: _Act, examples_root: Path) -> _ActResult:
     exclusion_mgr = LayeredExclusionManager(config, repo_root=example_dir, docs_root=docs_root)
 
     t0 = time.monotonic()
-    results = _collect_all_results(example_dir, docs_root, config, exclusion_mgr, strict=False)
+    results = _collect_all_results(
+        example_dir, docs_root, config, exclusion_mgr, strict=(act.code == "z109")
+    )
     elapsed = time.monotonic() - t0
 
     findings: list[Finding] = _to_findings(results, docs_root, repo_root=example_dir)
