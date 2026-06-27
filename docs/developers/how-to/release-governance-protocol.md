@@ -267,3 +267,11 @@ When a significant architectural decision is made — one that constrains future
 Per governance policy, ADR entries are append-only records. To amend a decision, add a new ADR that references the original and documents the amendment — never rewrite history.
 
 ---
+
+## 10) Release Checklist Automation
+
+The `RELEASE.md` file acts as the primary governance checklist for release verification. In accordance with the Mirror Law (ADR-020), this file is now fully integrated into the version bumping automation (`bump-my-version`).
+
+**Mandatory Rule:** Do not manually edit the version strings or dates within `RELEASE.md` or `CITATION.cff`. The `just release <part>` command will automatically and deterministically synchronize the metadata table and checklist items to reflect the target release version.
+
+---
