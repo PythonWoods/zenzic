@@ -1,0 +1,18 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# .zenzic.toml — Z001 CORE_CONFIG_STRUCTURE gallery example
+#
+# This file contains a type error in the configuration schema under the [governance] section.
+# Zenzic flags it as Z001 CORE_CONFIG_STRUCTURE — exit 1 during bootstrap.
+#
+# Expected results:
+#   zenzic check all   → EXIT 1  (Z001)
+
+docs_dir = "docs"
+fail_under = 0
+
+[build_context]
+engine = "standalone"
+
+[governance]
+suppression_cap = "high"

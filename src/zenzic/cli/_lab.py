@@ -83,8 +83,21 @@ class _Act:
     single_file: str | None = None
 
 
-# Z-code keyed gallery — each entry is a self-contained violation example.
 _GALLERY: dict[str, _Act] = {
+    "z001": _Act(
+        code="z001",
+        title="Config Structure",
+        description="Z001 CORE_CONFIG_STRUCTURE — invalid configuration structure; ZenzicConfigError before analysis",
+        example_dir="z001-config-error",
+        expected_pass=False,
+    ),
+    "z110": _Act(
+        code="z110",
+        title="Stale Allowlist",
+        description="Z110 STALE_ALLOWLIST_ENTRY — stale absolute path allowlist entry; exit 0 (warning)",
+        example_dir="z110-stale-allowlist",
+        expected_pass=True,
+    ),
     "z101": _Act(
         code="z101",
         title="Link Integrity",
@@ -327,7 +340,24 @@ class _ActResult:
 def _run_act(act: _Act, examples_root: Path) -> _ActResult:
     """Run all checks for *act* against its example directory."""
     example_dir = examples_root / act.example_dir
-    config, _ = ZenzicConfig.load(example_dir)
+    from zenzic.core.exceptions import ConfigurationError
+
+    t0 = time.monotonic()
+    try:
+        config, _ = ZenzicConfig.load(example_dir)
+    except ConfigurationError as exc:
+        elapsed = time.monotonic() - t0
+        get_console().print(f"[bold red]Error:[/] Configuration validation failed.\n{exc}")
+        return _ActResult(
+            act=act,
+            errors=1,
+            warnings=0,
+            has_breach=False,
+            elapsed=elapsed,
+            engine="standalone",
+            docs_count=0,
+            assets_count=0,
+        )
 
     single_file: Path | None = None
     target_hint: str | None = None
