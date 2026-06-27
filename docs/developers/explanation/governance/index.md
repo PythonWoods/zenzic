@@ -48,7 +48,7 @@ Governance documents are not written for today. They are written for the enginee
 who will maintain Zenzic in 2030, under pressures that do not yet exist, facing
 architectural temptations that have not yet been named.
 
-The [ADR Vault](../adr-vault.md)
+The [ADR Vault](../adr-vault/index.md)
 is the operational memory of the project. This Governance section is its
 **constitutional layer** — the principles the Ledger itself cannot override.
 

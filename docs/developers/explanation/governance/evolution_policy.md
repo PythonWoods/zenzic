@@ -36,7 +36,7 @@ A change that violates Pillar II or Pillar III — even temporarily, even for a
 well-motivated reason — requires:
 
 1. **A Major version increment**
-2. **A formal [ADR](../adr-vault.md)** added to the Zenzic Ledger
+2. **A formal [ADR](../adr-vault/index.md)** added to the Zenzic Ledger
 3. **A structural stress-test** of the proposed replacement architecture
 
 This ensures that the trust model is not abandoned lightly or by accident.

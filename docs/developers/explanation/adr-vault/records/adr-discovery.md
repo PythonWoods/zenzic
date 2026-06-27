@@ -120,7 +120,7 @@ marker to *already exist* before `init` can run is a Catch-22.
 
 **Resolution:** `find_repo_root()` gains a keyword-only parameter `fallback_to_cwd` (default `False`). When `fallback_to_cwd=True` and no root marker is found, the function returns `Path.cwd()` instead of raising. This is called the **Genesis Fallback**.
 
-For the parameter specification, see [API Reference — `find_repo_root`](../reference/adapter-api.md#find_repo_root-fallback_to_cwd-bool--false---path).
+For the parameter specification, see [API Reference — `find_repo_root`](../../../reference/adapter-api.md#find_repo_root-fallback_to_cwd-bool--false---path).
 
 **Authorisation scope:** The Genesis Fallback is a single-point exemption. Only the `init` command passes `fallback_to_cwd=True` (in `src/zenzic/cli/_standalone.py`). Every other command (`check`, `guard`, `score`, `diff`, `clean`) retains the strict default (`fallback_to_cwd=False`) and will continue to fail loudly outside a project scan scope.
 

@@ -130,17 +130,22 @@ nav:
       - developers/reference/zenzic-style.md
     - Explanation:
       - developers/explanation/adapter-internals.md
-      - developers/explanation/adr-agnostic-universalism.md
-      - developers/explanation/adr-bilingual-structural.md
-      - developers/explanation/adr-decentralized-cli.md
-      - developers/explanation/adr-discovery.md
-      - developers/explanation/adr-lint-source.md
-      - developers/explanation/adr-native-telemetry.md
-      - developers/explanation/adr-parallel-early-termination.md
-      - developers/explanation/adr-path-sovereignty.md
-      - developers/explanation/adr-regex-acl.md
-      - developers/explanation/adr-unified-perimeter.md
-      - developers/explanation/adr-vault.md
+      - ADR Vault:
+        - developers/explanation/adr-vault/index.md
+        - developers/explanation/adr-vault/records/adr-002-zero-subprocesses.md
+        - developers/explanation/adr-vault/records/adr-007-sovereign-sandbox.md
+        - developers/explanation/adr-vault/records/adr-020-mirror-law.md
+        - developers/explanation/adr-vault/records/adr-021-parallel-audit.md
+        - developers/explanation/adr-vault/records/adr-075-radical-unawareness.md
+        - developers/explanation/adr-vault/records/adr-agnostic-universalism.md
+        - developers/explanation/adr-vault/records/adr-bilingual-structural.md
+        - developers/explanation/adr-vault/records/adr-decentralized-cli.md
+        - developers/explanation/adr-vault/records/adr-discovery.md
+        - developers/explanation/adr-vault/records/adr-lint-source.md
+        - developers/explanation/adr-vault/records/adr-native-telemetry.md
+        - developers/explanation/adr-vault/records/adr-path-sovereignty.md
+        - developers/explanation/adr-vault/records/adr-regex-acl.md
+        - developers/explanation/adr-vault/records/adr-unified-perimeter.md
       - developers/explanation/core-laws.md
       - developers/explanation/mdx-asset-rationale.md
       - developers/explanation/sovereign-verification-model.md

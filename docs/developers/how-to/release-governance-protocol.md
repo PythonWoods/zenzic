@@ -261,7 +261,7 @@ When a significant architectural decision is made — one that constrains future
 
 1. Create `docs/developers/explanation/adr-<slug>.md` with the next available ADR number.
 2. Create the Italian mirror at the corresponding path in `docs-it/developers/explanation/`.
-3. Add both files to the index table in [ADR Vault](../explanation/adr-vault.md).
+3. Add both files to the index table in [ADR Vault](../explanation/adr-vault/index.md).
 4. Record the decision in the `[ADR]` section of the relevant repository governance log.
 
 Per governance policy, ADR entries are append-only records. To amend a decision, add a new ADR that references the original and documents the amendment — never rewrite history.

@@ -56,12 +56,35 @@ excluded_external_urls = [
 # Prefer [governance.per_file_ignores]
 
 [governance.directory_policies]
-"docs/reference/**" = ["Z501"]
-"docs/index.md" = ["Z502", "Z501"]
+"docs/index.md" = ["Z502"]
 "docs/blog/index.md" = ["Z502"]
-"docs/assets/**" = ["Z402", "Z405"]
-"docs/blog/**"                    = ["Z601", "Z503", "Z402", "Z101"]
-"docs/blog/posts/**"              = ["Z402"]
-"docs/explanation/mineral-path.md"    = ["Z601"]
-"docs/tutorials/examples/**" = ["Z101", "Z102", "Z103", "Z104", "Z105", "Z107", "Z108", "Z109", "Z201", "Z202", "Z204", "Z301", "Z302", "Z303", "Z402", "Z403", "Z405", "Z501", "Z502", "Z503", "Z505", "Z506", "Z601", "Z603"]
+"docs/assets/**" = ["Z405"]
+"docs/blog/**" = ["Z503", "Z402", "Z101"]
+"docs/blog/posts/**" = ["Z402"]
+"docs/tutorials/examples/**" = [
+    "Z101",
+    "Z102",
+    "Z103",
+    "Z104",
+    "Z105",
+    "Z107",
+    "Z108",
+    "Z109",
+    "Z201",
+    "Z202",
+    "Z204",
+    "Z301",
+    "Z302",
+    "Z303",
+    "Z402",
+    "Z403",
+    "Z405",
+    "Z501",
+    "Z502",
+    "Z503",
+    "Z505",
+    "Z506",
+    "Z601",
+    "Z603",
+]
 "docs/developers/how-to/contribute/**" = ["Z107"]
