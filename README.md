@@ -101,9 +101,48 @@ zenzic check all  # Audit the current directory
 >     upload-sarif: "true"
 > ```
 
-<p align="center">
-  <img alt="GitHub Code Scanning showing Zenzic findings" src="https://raw.githubusercontent.com/PythonWoods/zenzic-action/main/assets/sarif-showcase.svg" width="760">
-</p>
+### 📊 Headless Data Pipeline (SARIF Output)
+
+Zenzic Core is headless and emits standardized **SARIF** (Static Analysis Results Interchange Format) JSON, ensuring seamless integration with modern CI dashboards and scanning services:
+
+```json
+{
+  "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+  "version": "2.1.0",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "zenzic",
+          "version": "0.16.0",
+          "rules": [
+            {
+              "id": "Z101",
+              "name": "BrokenLink",
+              "shortDescription": { "text": "Broken documentation link" }
+            }
+          ]
+        }
+      },
+      "results": [
+        {
+          "ruleId": "Z101",
+          "level": "error",
+          "message": { "text": "Broken documentation link — ./setup.md#prerequisites" },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": { "uri": "docs/getting-started.md" },
+                "region": { "startLine": 23 }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
 
 ---
 
