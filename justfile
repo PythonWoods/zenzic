@@ -142,7 +142,7 @@ release-contracts:
     fi
 
 # Release orchestration: explicit, transparent, and lockfile-first.
-release part:
+release part: release-contracts
         #!/usr/bin/env bash
         set -euo pipefail
         case "{{ part }}" in

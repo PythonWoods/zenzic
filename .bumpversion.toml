@@ -56,10 +56,22 @@ replace = 'dependencies = ["zenzic>={new_version}"]'
 # Historical versioned documentation is tracked where explicit release
 # markers are still present in the file body.
 
+# Aggiornamento Tabella Metadati in RELEASE.md
 [[tool.bumpversion.files]]
 filename = "RELEASE.md"
-search = "{current_version}"
-replace = "{new_version}"
+search = "| Version  | v{current_version}"
+replace = "| Version  | v{new_version}"
+
+# Aggiornamento Checklist in RELEASE.md
+[[tool.bumpversion.files]]
+filename = "RELEASE.md"
+search = "- [ ] `pyproject.toml` version matches the tag (`{current_version}`)"
+replace = "- [ ] `pyproject.toml` version matches the tag (`{new_version}`)"
+
+[[tool.bumpversion.files]]
+filename = "RELEASE.md"
+search = "git tag v{current_version}"
+replace = "git tag v{new_version}"
 
 [[tool.bumpversion.files]]
 filename = "RELEASE.md"
