@@ -72,7 +72,7 @@ If a `slug:` value is changed in an English file, it must be changed identically
 
 Before committing any change that touches the filesystem structure, structural symmetry must be verified.
 
-> For step-by-step CLI commands and workflow details on how to perform the symmetry check, see the [Bilingual Parity contribution checklist in the Release Protocol](../how-to/release-governance-protocol.md#bilingual-parity-symmetry-check).
+> For step-by-step CLI commands and workflow details on how to perform the symmetry check, see the [Bilingual Parity contribution checklist in the Release Protocol](../../../how-to/release-governance-protocol.md#bilingual-parity-symmetry-check).
 
 ---
 

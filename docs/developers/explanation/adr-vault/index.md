@@ -20,7 +20,7 @@ the Zenzic project. Each ADR documents a major technical decision: its context
 For day-to-day contribution flow, release checks, and governance enforcement,
 follow the operational runbook instead:
 
-- [Developer Release and Governance Protocol](../how-to/release-governance-protocol.md)
+- [Developer Release and Governance Protocol](../../how-to/release-governance-protocol.md)
 
 ADRs are the **immutable memory** of the project. They explain not only what
 Zenzic does, but why. Operational behavior at commit and push time is governed
@@ -35,8 +35,8 @@ subsequent decisions rest.
 
 | ADR | Title |
 |-----|-------|
-| [ADR 001](./adr-lint-source.md) | Lint the Source, Not the Build |
-| ADR 002 | Zero Subprocesses Policy *(Maintainer Only)* |
+| [ADR 001](./records/adr-lint-source.md) | Lint the Source, Not the Build |
+| [ADR 002](./records/adr-002-zero-subprocesses.md) | Zero Subprocesses Policy *(Maintainer Only)* |
 
 ---
 
@@ -46,15 +46,17 @@ These ADRs document the structural decisions for the current architecture.
 
 | ADR | Title |
 |-----|-------|
-| [ADR 003](./adr-discovery.md) | Root Discovery Protocol |
-| [ADR 004](./adr-decentralized-cli.md) | Decentralized CLI Package |
-| [ADR 005](./adr-agnostic-universalism.md) | Z404 Agnostic Universalism |
-| ADR 007 | Sovereign Sandbox *(Maintainer Only)* |
-| [ADR 008](./adr-bilingual-structural.md) | Bilingual Structural Invariant |
-| [ADR 009](./adr-path-sovereignty.md) | Path Sovereignty |
-| [ADR 013](./adr-regex-acl.md) | The Regex Anti-Corruption Layer (ReDoS Protection) |
-| [ADR 015](./adr-native-telemetry.md) | Native Telemetry Validation |
-| [ADR 020](./adr-parallel-early-termination.md) | Parallel Audit Completeness vs. Fail-Fast |
+| [ADR 003](./records/adr-discovery.md) | Root Discovery Protocol |
+| [ADR 004](./records/adr-decentralized-cli.md) | Decentralized CLI Package |
+| [ADR 005](./records/adr-agnostic-universalism.md) | Z404 Agnostic Universalism |
+| [ADR 007](./records/adr-007-sovereign-sandbox.md) | Sovereign Sandbox *(Maintainer Only)* |
+| [ADR 008](./records/adr-bilingual-structural.md) | Bilingual Structural Invariant |
+| [ADR 009](./records/adr-path-sovereignty.md) | Path Sovereignty |
+| [ADR 013](./records/adr-regex-acl.md) | The Regex Anti-Corruption Layer (ReDoS Protection) |
+| [ADR 015](./records/adr-native-telemetry.md) | Native Telemetry Validation |
+| [ADR 020](./records/adr-020-mirror-law.md) | Mirror Law |
+| [ADR 021](./records/adr-021-parallel-audit.md) | Parallel Audit Completeness vs. Fail-Fast |
+| [ADR 075](./records/adr-075-radical-unawareness.md) | Radical Unawareness |
 
 ---
 
@@ -66,7 +68,7 @@ maintained.
 
 | ADR | Title |
 |-----|-------|
-| [ADR 006](./adr-unified-perimeter.md) | Unified Scan Scope (Storage + Blog) |
+| [ADR 006](./records/adr-unified-perimeter.md) | Unified Scan Scope (Storage + Blog) |
 
 ---
 
@@ -103,4 +105,4 @@ Each ADR follows a consistent structure:
 
 ## Adding a New ADR
 
-For the step-by-step procedure on how to propose and record a new Architectural Decision Record, see the [ADR contribution guide](../how-to/release-governance-protocol.md#9-adding-a-new-adr).
+For the step-by-step procedure on how to propose and record a new Architectural Decision Record, see the [ADR contribution guide](../../how-to/release-governance-protocol.md#9-adding-a-new-adr).

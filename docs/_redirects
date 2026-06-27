@@ -692,3 +692,7 @@
 
 # Legacy Docusaurus routing fallback (keep last)
 /docs/*  /:splat  301
+/developers/explanation/adr-vault/adr-lint-source  /developers/explanation/adr-vault/records/adr-lint-source 301
+/developers/explanation/adr-vault/adr-discovery    /developers/explanation/adr-vault/records/adr-discovery 301
+/developers/explanation/adr-vault/adr-020          /developers/explanation/adr-vault/records/adr-020-mirror-law 301
+/blog/2026/06/27/zenzic-v0160-engineering-determinism-into-documentation-pipelines/  /blog/2026/06/27/zenzic-v0160-engineering-determinism-into-documentation-pipelines/ 200

@@ -57,7 +57,7 @@ console = Console(...)          # breaks shared state
 ui = LegacyInterfaceV1(console) # creates an orphaned instance
 ```
 
-For the design rationale behind UI state sharing, see [ADR 004 — Unified Console State](../explanation/adr-decentralized-cli.md#4-unified-console-state-visual-state-manager).
+For the design rationale behind UI state sharing, see [ADR 004 — Unified Console State](../explanation/adr-vault/records/adr-decentralized-cli.md#4-unified-console-state-visual-state-manager).
 
 **UI output conventions:**
 
