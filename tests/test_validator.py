@@ -1551,3 +1551,156 @@ class TestCheckExternalFlag:
         assert len(credential_findings) >= 1, (
             "Credential scanner must detect the credential independently of check_external"
         )
+
+
+def test_validator_short_circuits_analysis_on_z001(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+) -> None:
+    """Verify that a malformed config structure causes a short-circuit before scanning starts."""
+    import sys
+
+    from zenzic.main import cli_main
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    docs = repo / "docs"
+    docs.mkdir()
+    (docs / "index.md").write_text("[broken](ghost.md)")
+
+    # Write invalid config to trigger Z001
+    (repo / ".zenzic.toml").write_text("[governance]\nsuppression_cap = -5\n")
+
+    monkeypatch.chdir(repo)
+    monkeypatch.setattr(sys, "argv", ["zenzic", "check", "all"])
+
+    with pytest.raises(SystemExit) as exc_info:
+        cli_main()
+
+    assert exc_info.value.code == 1
+
+    captured = capsys.readouterr()
+    # Verify that the link validation was short-circuited (never actually run)
+    assert "ghost.md" not in captured.out
+    assert "No broken links found" not in captured.out
+    assert "Analysis complete" not in captured.out
+
+
+def test_cli_z001_outputs_json(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+) -> None:
+    """Verify that a Z001 error is correctly formatted as JSON."""
+    import json
+    import sys
+
+    from zenzic.main import cli_main
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / ".zenzic.toml").write_text("[governance]\nsuppression_cap = -5\n")
+
+    monkeypatch.chdir(repo)
+    monkeypatch.setattr(sys, "argv", ["zenzic", "check", "all", "--format", "json"])
+
+    with pytest.raises(SystemExit) as exc_info:
+        cli_main()
+
+    assert exc_info.value.code == 1
+
+    captured = capsys.readouterr()
+    data = json.loads(captured.out)
+    assert data["code"] == "Z001"
+    assert data["tier"] == "Core"
+    assert data["severity"] == "fatal"
+    assert "Configuration validation failed" in data["message"]
+    assert ".zenzic.toml" in data["file"]
+
+
+def test_cli_z001_outputs_sarif(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+) -> None:
+    """Verify that a Z001 error is correctly formatted as SARIF."""
+    import json
+    import sys
+
+    from zenzic.main import cli_main
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / ".zenzic.toml").write_text("[governance]\nsuppression_cap = -5\n")
+
+    monkeypatch.chdir(repo)
+    monkeypatch.setattr(sys, "argv", ["zenzic", "check", "all", "--format", "sarif"])
+
+    with pytest.raises(SystemExit) as exc_info:
+        cli_main()
+
+    assert exc_info.value.code == 1
+
+    captured = capsys.readouterr()
+    data = json.loads(captured.out)
+    assert data["version"] == "2.1.0"
+    assert "runs" in data
+    run = data["runs"][0]
+    assert "invocations" in run
+    invocation = run["invocations"][0]
+    assert invocation["executionSuccessful"] is False
+    notification = invocation["toolExecutionNotifications"][0]
+    assert notification["descriptor"]["id"] == "Z001"
+    assert notification["level"] == "error"
+    assert "Configuration validation failed" in notification["message"]["text"]
+
+
+def test_stale_allowlist_entry(tmp_path: Path) -> None:
+    """Verify that Z110 STALE_ALLOWLIST_ENTRY detects unused allowlist entries and maps to origin_file."""
+    from zenzic.core.validator import validate_links_structured
+    from zenzic.models.config import ZenzicConfig
+
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "index.md").write_text(
+        "[Allowed](/allowed/foo.html) [Not Allowed](/notallowed/foo.html)\n"
+    )
+    (tmp_path / ".zenzic.toml").write_text("[project]\n")
+
+    # Case 1: origin_file is None, falls back to .zenzic.toml
+    config = ZenzicConfig(absolute_path_allowlist=["/allowed/", "/unused/"])
+    mgr = make_mgr(config, repo_root=tmp_path)
+
+    errors = validate_links_structured(
+        docs,
+        mgr,
+        repo_root=tmp_path,
+        config=config,
+        strict=False,
+        check_external=False,
+    )
+
+    z110_errors = [e for e in errors if e.error_type == "Z110"]
+    assert len(z110_errors) == 1
+    assert z110_errors[0].error_type == "Z110"
+    assert "/unused/" in z110_errors[0].message
+    assert z110_errors[0].file_path == tmp_path / ".zenzic.toml"
+    assert ".zenzic.toml:1: Stale absolute_path_allowlist entry" in z110_errors[0].message
+
+    # Case 2: origin_file is pyproject.toml
+    config_pyproject = ZenzicConfig(absolute_path_allowlist=["/allowed/", "/unused/"])
+    config_pyproject.origin_file = tmp_path / "pyproject.toml"
+    mgr_pyproject = make_mgr(config_pyproject, repo_root=tmp_path)
+
+    errors_pyproject = validate_links_structured(
+        docs,
+        mgr_pyproject,
+        repo_root=tmp_path,
+        config=config_pyproject,
+        strict=False,
+        check_external=False,
+    )
+
+    z110_errors_pyproject = [e for e in errors_pyproject if e.error_type == "Z110"]
+    assert len(z110_errors_pyproject) == 1
+    assert z110_errors_pyproject[0].error_type == "Z110"
+    assert "/unused/" in z110_errors_pyproject[0].message
+    assert z110_errors_pyproject[0].file_path == tmp_path / "pyproject.toml"
+    assert (
+        "pyproject.toml:1: Stale absolute_path_allowlist entry" in z110_errors_pyproject[0].message
+    )

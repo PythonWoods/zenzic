@@ -9,36 +9,27 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [0.15.1] - 2026-06-22
+## [v0.16.0] - In Development
 
 ### Added
 
-- **Monorepo Unification**: Merged core and documentation into a single repository.
+- Support for Z110 STALE_ALLOWLIST_ENTRY config-hygiene check.
+- Code Z001 CORE_CONFIG_STRUCTURE for fatal TOML schema configuration errors.
 
-## [0.15.0] - 2026-06-20
+### Changed
 
-### Added
+- Comprehensive refactoring of the exception hierarchy (ZenzicViolation).
+- Migration of MkDocs and Zensical adapters to the Z001 typed error system.
 
-- **Z603 DEAD_SUPPRESSION (governance, always-active):** Detects inline `zenzic:ignore`
-  directives that do not correspond to any active finding.  A suppression comment that
-  silences nothing is **Phantom Debt** — it consumes part of the 30-point governance
-  budget without justification.  Severity `warning`, −1.0 pt (Governance), suppressible
-  (the suppression of a Z603 is itself tracked recursively).  Implemented via a new
-  `SuppressionTracker` per-file registry (`src/zenzic/core/suppressions.py`) that marks
-  each directive as `consumed` when an active finding is suppressed; any unconsumed
-  directive at end-of-file is reported as Z603.
-  - **Inviolability Law preserved:** Z201/Z202/Z203/Z204 remain non-suppressible;
-    attempting to suppress them with `zenzic:ignore` creates a dead directive, which
-    itself triggers Z603.
-  - **Fence-aware (ADR-084):** Directives inside fenced code blocks or backtick inline
-    code spans are excluded from the tracker.
+### Fixed
 
----
+- Dynamic error file target resolution for configuration violations.
 
 ---
 
 ## Historical Releases
 
+- v0.15.x archive: [changelogs/v0.15.x.md](./changelogs/v0.15.x.md)
 - v0.14.x archive: [changelogs/v0.14.md](./changelogs/v0.14.md)
 - v0.13.x archive: [changelogs/v0.13.md](./changelogs/v0.13.md)
 - v0.12.x archive: [changelogs/v0.12.md](./changelogs/v0.12.md)

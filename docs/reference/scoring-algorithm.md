@@ -99,6 +99,7 @@ $$
 | Z107 | CIRCULAR_ANCHOR | 1.0 pts | Structural |
 | Z106 | CIRCULAR_LINK | 0.0 pts | Informational (no DQS impact) |
 | Z108 | EMPTY_LINK_TEXT | 1.0 pts | Structural |
+| Z110 | STALE_ALLOWLIST_ENTRY | 1.0 pts | Structural |
 | Z111 | VIRTUAL_ROUTE_BROKEN | 8.0 pts | Structural |
 | Z113 | AUTHOR_KEY_COLLISION | 2.0 pts | Structural |
 | Z301 | DANGLING_REF | 4.0 pts | Navigation |

@@ -39,7 +39,7 @@ from typing import TYPE_CHECKING, Any
 from zenzic.core.adapters._base import BaseAdapter
 from zenzic.core.adapters._mkdocs_config import find_mkdocs_config_file, load_mkdocs_config
 from zenzic.core.adapters._utils import case_sensitive_exists, remap_to_default_locale
-from zenzic.core.exceptions import ConfigurationError
+from zenzic.core.exceptions import ZenzicConfigError
 from zenzic.models.config import BuildContext
 
 
@@ -468,7 +468,7 @@ class ZensicalAdapter(BaseAdapter):
                 config_source="mkdocs",
             )
 
-        raise ConfigurationError(
+        raise ZenzicConfigError(
             "engine 'zensical' declared in .zenzic.toml but no configuration file was found",
             context={
                 "repo_root": str(repo_root),

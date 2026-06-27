@@ -31,6 +31,7 @@ nav:
       - tutorials/first-audit.md
       - Examples:
         - tutorials/examples/index.md
+        - tutorials/examples/z0xx-core/z001-config-error.md
         - tutorials/examples/z1xx-links/z101-broken-links.md
         - tutorials/examples/z1xx-links/z102-anchor-missing.md
         - tutorials/examples/z1xx-links/z103-orphan-link.md
@@ -39,6 +40,7 @@ nav:
         - tutorials/examples/z1xx-links/z107-circular-anchor.md
         - tutorials/examples/z1xx-links/z108-empty-link-text.md
         - tutorials/examples/z1xx-links/z109-external-link-broken.md
+        - tutorials/examples/z1xx-links/z110-stale-allowlist.md
         - tutorials/examples/z2xx-security/z201-credentials.md
         - tutorials/examples/z2xx-security/z202-path-traversal.md
         - tutorials/examples/z2xx-security/z204-forbidden-term.md

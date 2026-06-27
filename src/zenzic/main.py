@@ -159,6 +159,110 @@ def _print_banner() -> None:
     get_console().print()
 
 
+def _handle_machine_readable_error(exc: ZenzicError, output_format: str) -> bool:
+    """If the output format is json or sarif, serialize the error to stdout and return True.
+
+    Otherwise, return False.
+    """
+    import json
+
+    from zenzic.core.codes import CODE_DEFINITIONS
+
+    filename = exc.context.get(
+        "file", exc.context.get("file_path", exc.context.get("config_path", ".zenzic.toml"))
+    )
+    if not isinstance(filename, str):
+        filename = str(filename)
+
+    line = exc.context.get("line", exc.context.get("line_no", 1))
+    code = getattr(exc, "code", "Z001") or "Z001"
+
+    severity = exc.context.get("severity")
+    if not severity:
+        if code.startswith("Z0"):
+            severity = "fatal"
+        else:
+            defn = CODE_DEFINITIONS.get(code)
+            if defn:
+                severity = "info" if defn.severity == "note" else defn.severity
+            else:
+                severity = "error"
+
+    tier = exc.context.get("tier")
+    if not tier:
+        if code.startswith("Z0"):
+            tier = "Core"
+        elif code.startswith("Z1"):
+            tier = "Link Integrity"
+        elif code.startswith("Z2"):
+            tier = "Security"
+        elif code.startswith("Z3"):
+            tier = "Reference Integrity"
+        elif code.startswith("Z4"):
+            tier = "Structure"
+        elif code.startswith("Z5"):
+            tier = "Content Quality"
+        elif code.startswith("Z6"):
+            tier = "Governance"
+        else:
+            tier = "Core"
+
+    if output_format == "json":
+        report = {
+            "file": filename,
+            "line": line,
+            "code": code,
+            "tier": tier,
+            "severity": severity,
+            "message": exc.message,
+        }
+        print(json.dumps(report, indent=2))
+        return True
+
+    elif output_format == "sarif":
+        sarif_level = "error"
+        if severity in ("error", "fatal"):
+            sarif_level = "error"
+        elif severity == "warning":
+            sarif_level = "warning"
+        elif severity in ("info", "note"):
+            sarif_level = "note"
+
+        report = {
+            "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+            "version": "2.1.0",
+            "runs": [
+                {
+                    "tool": {
+                        "driver": {
+                            "name": "zenzic",
+                            "version": __version__,
+                            "informationUri": "https://zenzic.dev",
+                            "rules": [],
+                        }
+                    },
+                    "invocations": [
+                        {
+                            "executionSuccessful": False,
+                            "toolExecutionNotifications": [
+                                {
+                                    "descriptor": {"id": code},
+                                    "level": sarif_level,
+                                    "message": {"text": exc.message},
+                                }
+                            ],
+                        }
+                    ],
+                    "results": [],
+                }
+            ],
+        }
+        print(json.dumps(report, indent=2))
+        return True
+
+    return False
+
+
 def cli_main() -> None:
     """Wired as the `zenzic` console_scripts entry point."""
     from rich.traceback import install as _rich_tb_install
@@ -190,6 +294,16 @@ def cli_main() -> None:
         )
         sys.exit(1)
     except ZenzicError as exc:
+        output_format = "text"
+        for i, arg in enumerate(sys.argv):
+            if arg in ("--format", "-f") and i + 1 < len(sys.argv):
+                output_format = sys.argv[i + 1]
+            elif arg.startswith("--format="):
+                output_format = arg.split("=", 1)[1]
+
+        if _handle_machine_readable_error(exc, output_format):
+            sys.exit(1)
+
         _error_panel(
             exc,
             border_style=ZenzicPalette.STYLE_ERR,

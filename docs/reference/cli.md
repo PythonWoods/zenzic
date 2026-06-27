@@ -652,6 +652,7 @@ in this reference page.
 | Z106 CIRCULAR_LINK | `Z106` | `note` |
 | Z107 CIRCULAR_ANCHOR | `Z107` | `error` |
 | Z108 EMPTY_LINK_TEXT | `Z108` | `error` |
+| Z110 STALE_ALLOWLIST_ENTRY | `Z110` | `warning` |
 | Z111 VIRTUAL_ROUTE_BROKEN | `Z111` | `error` |
 | Z113 AUTHOR_KEY_COLLISION | `Z113` | `error` |
 | Z114 LARGE_PAGINATION_SET | `Z114` | `note` |
