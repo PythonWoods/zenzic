@@ -336,13 +336,16 @@ annotation comment automatically. Commit the diff and verify with
 Releases are **semi-automated**: the developer decides the bump type, one command does the rest.
 
 ```bash
-# 1. Ensure branch is clean and checks are green
+# 1. Ensure branch is clean and checks are green.
+# just verify is the mandatory pre-commit gate (Lint + Tests + Zenzic Check).
 just verify
 
 # 2. Preview version changes (dry-run)
 just release-dry patch   # or minor/major
 
-# 3. Apply the version bump, commit, and create tag
+# 3. Apply the version bump, commit, and create tag.
+# just release <part> is the ONLY authorized method for version increments
+# and automatic synchronization of metadata (RELEASE.md, CITATION.cff).
 just release patch       # or minor/major
 
 # 4. Push commit and tag — this triggers the release workflow

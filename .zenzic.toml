@@ -52,6 +52,7 @@ excluded_external_urls = [
 # forbidden_patterns = []
 
 # --- EXCLUSION ZONES (Full bypass — use sparingly) ---
+excluded_file_patterns = ["RELEASE.md", "CITATION.cff"]
 # Paths listed here are INVISIBLE to Zenzic: no findings, no audit trail.
 # Prefer [governance.per_file_ignores]
 

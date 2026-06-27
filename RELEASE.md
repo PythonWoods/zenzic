@@ -23,6 +23,7 @@ Before tagging, every item must be green:
 - [ ] `zenzic check all .` — zero findings in the repo root
 - [ ] `pyproject.toml` version matches the tag (`0.16.0`)
 - [ ] `CITATION.cff` version and date updated
+- [ ] Parità bilingue Z602 verificata (docs vs i18n/it/)
 - [ ] `CHANGELOG.md` — `[Unreleased]` section moved to the new version heading
 - [ ] Update SECURITY.md support table (Add new release, demote previous to Critical/EOL).
 - [ ] Bilingual sync verified — `Z602 I18N_PARITY` clean on `zenzic-doc`
