@@ -28,7 +28,6 @@ keywords:
   - markdown
   - security-auditing
   - re2
-  - docusaurus
   - mkdocs
 references:
   - type: website
@@ -37,4 +36,4 @@ references:
     repository-code: "https://github.com/PythonWoods/zenzic-doc"
     abstract: >-
       Official Diátaxis documentation corpus for Zenzic, covering tutorials,
-      how-to guides, reference, and explanation — available in English and Italian.
+      how-to guides, reference, and explanation — available in English.
