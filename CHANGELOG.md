@@ -13,17 +13,17 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- Supporto per `Z110 STALE_ALLOWLIST_ENTRY` per l'igiene della configurazione.
-- Codice `Z001 CORE_CONFIG_STRUCTURE` per errori fatali di schema TOML.
+- Support for Z110 STALE_ALLOWLIST_ENTRY config-hygiene check.
+- Code Z001 CORE_CONFIG_STRUCTURE for fatal TOML schema configuration errors.
 
 ### Changed
 
-- Refactoring integrale della gerarchia delle eccezioni (`ZenzicViolation`).
-- Migrazione degli adapter MkDocs e Zensical verso il sistema di errori tipizzati Z001.
+- Comprehensive refactoring of the exception hierarchy (ZenzicViolation).
+- Migration of MkDocs and Zensical adapters to the Z001 typed error system.
 
 ### Fixed
 
-- Dinamismo nel puntamento dei file di errore per le violazioni di configurazione.
+- Dynamic error file target resolution for configuration violations.
 
 ---
 
