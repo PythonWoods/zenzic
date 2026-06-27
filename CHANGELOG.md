@@ -13,7 +13,17 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- **Z001 CORE_CONFIG_STRUCTURE (Tier 0, fatal):** Enforces strict schema validations and structural integrity gates (swallowed TOML root keys, strict local TOML key validation) during bootstrap, immediately short-circuiting downstream static analysis operations.
+- Supporto per `Z110 STALE_ALLOWLIST_ENTRY` per l'igiene della configurazione.
+- Codice `Z001 CORE_CONFIG_STRUCTURE` per errori fatali di schema TOML.
+
+### Changed
+
+- Refactoring integrale della gerarchia delle eccezioni (`ZenzicViolation`).
+- Migrazione degli adapter MkDocs e Zensical verso il sistema di errori tipizzati Z001.
+
+### Fixed
+
+- Dinamismo nel puntamento dei file di errore per le violazioni di configurazione.
 
 ---
 
