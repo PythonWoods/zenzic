@@ -242,6 +242,8 @@ A [`CITATION.cff`][citation-cff] is present at the root. Click **"Cite this repo
 
 Apache-2.0 — see [LICENSE][license].
 
+This project strictly adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
 ---
 
 <div align="center">
