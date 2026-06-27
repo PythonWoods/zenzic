@@ -21,7 +21,7 @@ from zenzic.core.adapters._mkdocs_config import (
     load_mkdocs_config_file,
 )
 from zenzic.core.adapters._utils import case_sensitive_exists, dedupe_roots, remap_to_default_locale
-from zenzic.core.exceptions import ConfigurationError
+from zenzic.core.exceptions import ZenzicConfigError
 from zenzic.models.config import BuildContext
 
 
@@ -382,7 +382,7 @@ def _validate_i18n_fallback_config(doc_config: dict[str, Any]) -> None:
         if not locale_dirs and not default_locale:
             break
         if not default_locale:
-            raise ConfigurationError(
+            raise ZenzicConfigError(
                 "i18n plugin has fallback_to_default: true but no language with "
                 "default: true — Zenzic cannot determine the fallback target locale.",
                 context={"docs_structure": "folder", "fallback_to_default": True},

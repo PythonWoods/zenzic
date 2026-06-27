@@ -250,6 +250,17 @@ An external URL returned an HTTP error status code (e.g. 404, 500) or was comple
 1. Check the target URL in a web browser.
 2. Correct the URL if misspelled, or remove the link if the destination has ceased to exist.
 
+### Z110: STALE_ALLOWLIST_ENTRY {#z110}
+
+**Severity:** `warning` · **Penalty:** −1.0 pt (Structural) · **Exit:** 1 · **Suppressible:** Yes
+
+An entry in the `absolute_path_allowlist` configuration was never matched by any scanned absolute path link. This indicates that the entry is stale and no longer needed.
+
+**Fix:**
+
+1. Open `.zenzic.toml` (or `pyproject.toml`) and locate `absolute_path_allowlist`.
+2. Remove the unused entry from the list.
+
 ### Z111: VIRTUAL_ROUTE_BROKEN {#z111}
 
 **Severity:** `error` · **Penalty:** −8.0 pt (Structural) · **Exit:** 1 · **Suppressible:** Yes

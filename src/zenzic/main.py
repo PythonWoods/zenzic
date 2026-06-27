@@ -166,25 +166,68 @@ def _handle_machine_readable_error(exc: ZenzicError, output_format: str) -> bool
     """
     import json
 
-    filename = exc.context.get("file", exc.context.get("config_path", ".zenzic.toml"))
+    from zenzic.core.codes import CODE_DEFINITIONS
+
+    filename = exc.context.get(
+        "file", exc.context.get("file_path", exc.context.get("config_path", ".zenzic.toml"))
+    )
     if not isinstance(filename, str):
         filename = str(filename)
 
-    code = getattr(exc, "code", "Z001")
+    line = exc.context.get("line", exc.context.get("line_no", 1))
+    code = getattr(exc, "code", "Z001") or "Z001"
+
+    severity = exc.context.get("severity")
+    if not severity:
+        if code.startswith("Z0"):
+            severity = "fatal"
+        else:
+            defn = CODE_DEFINITIONS.get(code)
+            if defn:
+                severity = "info" if defn.severity == "note" else defn.severity
+            else:
+                severity = "error"
+
+    tier = exc.context.get("tier")
+    if not tier:
+        if code.startswith("Z0"):
+            tier = "Core"
+        elif code.startswith("Z1"):
+            tier = "Link Integrity"
+        elif code.startswith("Z2"):
+            tier = "Security"
+        elif code.startswith("Z3"):
+            tier = "Reference Integrity"
+        elif code.startswith("Z4"):
+            tier = "Structure"
+        elif code.startswith("Z5"):
+            tier = "Content Quality"
+        elif code.startswith("Z6"):
+            tier = "Governance"
+        else:
+            tier = "Core"
 
     if output_format == "json":
         report = {
             "file": filename,
-            "line": 1,
+            "line": line,
             "code": code,
-            "tier": "Core",
-            "severity": "fatal",
+            "tier": tier,
+            "severity": severity,
             "message": exc.message,
         }
         print(json.dumps(report, indent=2))
         return True
 
     elif output_format == "sarif":
+        sarif_level = "error"
+        if severity in ("error", "fatal"):
+            sarif_level = "error"
+        elif severity == "warning":
+            sarif_level = "warning"
+        elif severity in ("info", "note"):
+            sarif_level = "note"
+
         report = {
             "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
             "version": "2.1.0",
@@ -204,7 +247,7 @@ def _handle_machine_readable_error(exc: ZenzicError, output_format: str) -> bool
                             "toolExecutionNotifications": [
                                 {
                                     "descriptor": {"id": code},
-                                    "level": "error",
+                                    "level": sarif_level,
                                     "message": {"text": exc.message},
                                 }
                             ],

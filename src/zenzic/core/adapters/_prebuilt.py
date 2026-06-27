@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from zenzic.core.adapters._standalone import StandaloneAdapter
-from zenzic.core.exceptions import ConfigurationError
+from zenzic.core.exceptions import ZenzicConfigError
 
 
 if TYPE_CHECKING:
@@ -41,7 +41,7 @@ class PrebuiltVSMAdapter(StandaloneAdapter):
                     # Assume JSON is a dict of rel_path -> { "url": "...", "status": "..." }
                     self._routes = data
             except Exception as e:
-                raise ConfigurationError(f"Failed to parse {vsm_file}: {e}") from e
+                raise ZenzicConfigError(f"Failed to parse {vsm_file}: {e}") from e
 
     @classmethod
     def from_repo(

@@ -67,10 +67,11 @@ from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 from urllib.parse import unquote, urlsplit
 
 from zenzic.core import regex as re
+from zenzic.core.exceptions import ZenzicViolation
 from zenzic.core.sovereign_context import get_sovereign_context
 
 
@@ -109,8 +110,7 @@ class ResolutionContext:
 Severity = Literal["error", "warning", "info"]
 
 
-@dataclass(slots=True)
-class RuleFinding:
+class RuleFinding(ZenzicViolation):
     """A single issue found by a rule.
 
     Attributes:
@@ -124,14 +124,64 @@ class RuleFinding:
             that do not provide line context.
     """
 
-    file_path: Path
-    line_no: int
-    rule_id: str
-    message: str
-    severity: Severity = "error"
-    matched_line: str = field(default="")
-    col_start: int = 0
-    match_text: str = ""
+    def __init__(
+        self,
+        file_path: Path,
+        line_no: int,
+        rule_id: str,
+        message: str,
+        severity: Severity = "error",
+        matched_line: str = "",
+        col_start: int = 0,
+        match_text: str = "",
+    ) -> None:
+        self.file_path = file_path
+        self.line_no = line_no
+        self.rule_id = rule_id
+        super().__init__(
+            message=message,
+            code=rule_id,
+            context={
+                "file_path": file_path,
+                "line_no": line_no,
+                "severity": severity,
+                "matched_line": matched_line,
+                "col_start": col_start,
+                "match_text": match_text,
+            },
+        )
+
+    @property
+    def severity(self) -> Severity:
+        return self.context["severity"]  # type: ignore[no-any-return]
+
+    @severity.setter
+    def severity(self, value: Severity) -> None:
+        self.context["severity"] = value
+
+    @property
+    def matched_line(self) -> str:
+        return self.context["matched_line"]  # type: ignore[no-any-return]
+
+    @matched_line.setter
+    def matched_line(self, value: str) -> None:
+        self.context["matched_line"] = value
+
+    @property
+    def col_start(self) -> int:
+        return self.context["col_start"]  # type: ignore[no-any-return]
+
+    @col_start.setter
+    def col_start(self, value: int) -> None:
+        self.context["col_start"] = value
+
+    @property
+    def match_text(self) -> str:
+        return self.context["match_text"]  # type: ignore[no-any-return]
+
+    @match_text.setter
+    def match_text(self, value: str) -> None:
+        self.context["match_text"] = value
 
     @property
     def is_error(self) -> bool:
@@ -142,8 +192,7 @@ class RuleFinding:
 # ─── Violation (structured finding for VSM-aware rules) ──────────────────────
 
 
-@dataclass(slots=True)
-class Violation:
+class Violation(ZenzicViolation):
     """A structured finding produced by a VSM-aware rule.
 
     This is the richer counterpart to :class:`RuleFinding` for rules that
@@ -174,14 +223,47 @@ class Violation:
         context:    Raw source line that triggered the violation (stripped).
     """
 
-    file_path: Path
-    line_no: int
-    code: str
-    message: str
-    level: Severity = "error"
-    context: str = field(default="")
-    col_start: int = 0
-    match_text: str = ""
+    def __init__(
+        self,
+        file_path: Path,
+        line_no: int,
+        code: str,
+        message: str,
+        level: Severity = "error",
+        context: str = "",
+        col_start: int = 0,
+        match_text: str = "",
+    ) -> None:
+        self.file_path = file_path
+        self.line_no = line_no
+        self.code = code
+        self.level = level
+        self.col_start = col_start
+        self.match_text = match_text
+        super().__init__(
+            message=message,
+            code=code,
+            context={
+                "file_path": file_path,
+                "line_no": line_no,
+                "severity": level,
+                "matched_line": context,
+                "col_start": col_start,
+                "match_text": match_text,
+            },
+        )
+
+    @property
+    def context(self) -> Any:
+        return self._context_str
+
+    @context.setter
+    def context(self, value: Any) -> None:
+        if isinstance(value, dict):
+            self._context_dict = value
+            self._context_str = value.get("matched_line", "")
+        else:
+            self._context_str = str(value)
 
     @property
     def is_error(self) -> bool:
@@ -193,7 +275,7 @@ class Violation:
         return RuleFinding(
             file_path=self.file_path,
             line_no=self.line_no,
-            rule_id=self.code,
+            rule_id=self.code or "",
             message=self.message,
             severity=self.level,
             matched_line=self.context,

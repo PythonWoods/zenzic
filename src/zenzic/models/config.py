@@ -458,6 +458,20 @@ class ZenzicConfig(BaseModel):
             'Example: ["https://github.com/PythonWoods/zenzic"]'
         ),
     )
+    absolute_path_allowlist: list[str] = Field(
+        default=[],
+        description=(
+            "List of absolute path prefixes allowed in links. "
+            "Absolute path links matching any pattern in this list do not trigger Z105. "
+            "If an entry in this list is never matched by any scanned absolute path link, "
+            "it is reported as Z110 STALE_ALLOWLIST_ENTRY."
+        ),
+    )
+    origin_file: Path | None = Field(
+        default=None,
+        exclude=True,
+        description="Path to the file this configuration was loaded from.",
+    )
     build_context: BuildContext = Field(
         default_factory=BuildContext,
         description="Build engine context for locale-aware path resolution.",
@@ -719,7 +733,7 @@ class ZenzicConfig(BaseModel):
         3. Built-in defaults (``loaded_from_file`` returned as ``False``).
 
         When the winning file exists but cannot be parsed, a
-        :class:`~zenzic.core.exceptions.ConfigurationError` is raised with a
+        :class:`~zenzic.core.exceptions.ZenzicConfigError` is raised with a
         Rich-formatted message — silent fallback would hide user mistakes.
 
         Args:
@@ -731,14 +745,13 @@ class ZenzicConfig(BaseModel):
             found and parsed, ``False`` when built-in defaults are in use.
 
         Raises:
-            :class:`~zenzic.core.exceptions.ConfigurationError`: When a
+            :class:`~zenzic.core.exceptions.ZenzicConfigError`: When a
                 config file is present but cannot be parsed.
         """
         from pydantic import ValidationError
 
         from zenzic.core.exceptions import (
-            ConfigurationError,  # deferred to avoid circular import
-            ZenzicConfigError,
+            ZenzicConfigError,  # deferred to avoid circular import
         )
 
         # ── Priority 1: .zenzic.toml ───────────────────────────────────────────
@@ -748,16 +761,17 @@ class ZenzicConfig(BaseModel):
                 with zenzic_toml.open("rb") as f:
                     data = tomllib.load(f)
             except tomllib.TOMLDecodeError as exc:
-                raise ConfigurationError(
+                raise ZenzicConfigError(
                     f"[bold red].zenzic.toml[/] contains a syntax error and cannot be loaded.\n"
                     f"  [{ZenzicPalette.DIM}]{zenzic_toml}[/]\n\n"
                     f"  [red]{exc}[/]\n\n"
                     "Fix the TOML syntax error and re-run Zenzic.",
-                    context={"config_path": str(zenzic_toml)},
+                    context={"config_path": str(zenzic_toml), "file": str(zenzic_toml)},
                 ) from exc
             cls._validate_no_swallowed_root_keys(data)
             try:
                 config = cls._build_from_data(data)
+                config.origin_file = zenzic_toml
                 cls._apply_local_toml(config, repo_root)
             except ValidationError as exc:
                 errors_str = "\n".join(
@@ -777,12 +791,12 @@ class ZenzicConfig(BaseModel):
                 with pyproject_toml.open("rb") as f:
                     pyproject_data = tomllib.load(f)
             except tomllib.TOMLDecodeError as exc:
-                raise ConfigurationError(
+                raise ZenzicConfigError(
                     f"[bold red]pyproject.toml[/] contains a syntax error and cannot be loaded.\n"
                     f"  [{ZenzicPalette.DIM}]{pyproject_toml}[/]\n\n"
                     f"  [red]{exc}[/]\n\n"
                     "Fix the TOML syntax error and re-run Zenzic.",
-                    context={"config_path": str(pyproject_toml)},
+                    context={"config_path": str(pyproject_toml), "file": str(pyproject_toml)},
                 ) from exc
             tool_section = pyproject_data.get("tool", {})
             zenzic_section = tool_section.get("zenzic", {})
@@ -790,6 +804,7 @@ class ZenzicConfig(BaseModel):
                 cls._validate_no_swallowed_root_keys(zenzic_section)
                 try:
                     config = cls._build_from_data(zenzic_section)
+                    config.origin_file = pyproject_toml
                     cls._apply_local_toml(config, repo_root)
                 except ValidationError as exc:
                     errors_str = "\n".join(
@@ -805,6 +820,7 @@ class ZenzicConfig(BaseModel):
         # ── Priority 3: built-in defaults ─────────────────────────────────────
         try:
             config = cls()
+            config.origin_file = repo_root / ".zenzic.toml"
             cls._apply_local_toml(config, repo_root)
         except ValidationError as exc:
             errors_str = "\n".join(
@@ -838,14 +854,15 @@ class ZenzicConfig(BaseModel):
         legacy_toml = repo_root / ".zenzic.dev.toml"
         if legacy_toml.is_file():
             from zenzic.core.exceptions import (
-                ConfigurationError,  # deferred to avoid circular import
+                ZenzicConfigError,  # deferred to avoid circular import
             )
 
-            raise ConfigurationError(
+            raise ZenzicConfigError(
                 "Legacy local config [bold].zenzic.dev.toml[/] is no longer supported in v0.7.0.\n"
                 f"  [{ZenzicPalette.DIM}]{legacy_toml}[/]\n\n"
                 "Migrate to [bold].zenzic.local.toml[/] and remove the legacy file.\n"
-                "Run [bold cyan]zenzic init[/] to scaffold the new local template."
+                "Run [bold cyan]zenzic init[/] to scaffold the new local template.",
+                context={"file": str(legacy_toml)},
             )
 
         local_toml = repo_root / ".zenzic.local.toml"
@@ -857,10 +874,7 @@ class ZenzicConfig(BaseModel):
         except tomllib.TOMLDecodeError:
             return  # malformed local file — silently skip to avoid hard failures
 
-        # Strict key validation: reject unknown top-level keys in .zenzic.local.toml.
-        # Prevents silent-drop of mis-spelled or unsupported sections.
-        # Note: Z108 in the public finding registry is EMPTY_LINK_TEXT (structural
-        # integrity). This is a ConfigurationError raised before scanning begins —
+        # Note: Z001 is a ZenzicConfigError raised before scanning begins —
         # not a scanner finding code.
         _ALLOWED_LOCAL_KEYS: Final[frozenset[str]] = frozenset(
             {

@@ -788,12 +788,10 @@ async def validate_links_async(
     # ── Instantiate the build-engine adapter (locale-aware path resolution) ──
     adapter = get_adapter(config.build_context, docs_root, repo_root)
     _bypass_schemes = adapter.get_link_scheme_bypasses()
-    # Adapter-declared absolute URL prefixes (multi-instance plugin roots, blog,
-    # default docs route base path).  Honours Zero-Config: the user does not
-    # duplicate Docusaurus routing into ``.zenzic.toml``; the adapter inspects
-    # its own engine's config and reports ownership.  Adapters that don't host
-    # multi-instance plugins return ``frozenset()``.
-    _project_absolute_prefixes: tuple[str, ...] = tuple(adapter.get_absolute_url_prefixes())
+    _project_absolute_prefixes: tuple[str, ...] = tuple(
+        list(adapter.get_absolute_url_prefixes()) + config.absolute_path_allowlist
+    )
+    used_allowlist: set[str] = set()
 
     # ── Pass 1: read all .md/.mdx files + map all non-doc assets into memory ──
     md_contents: dict[Path, str] = {}
@@ -1062,6 +1060,10 @@ async def validate_links_async(
             # the target is still owned by the project.  No user-side config
             # required (Zero-Config invariant).
             if parsed.path.startswith("/") and parsed.scheme not in _bypass_schemes:
+                for prefix in config.absolute_path_allowlist:
+                    if parsed.path.startswith(prefix):
+                        used_allowlist.add(prefix)
+
                 if any(parsed.path.startswith(prefix) for prefix in _project_absolute_prefixes):
                     # Z105 suppressed: the absolute path is owned by this project.
                     # For prefixes whose content was actually scanned into the VSM
@@ -1260,6 +1262,20 @@ async def validate_links_async(
                                         match_text=link.match_text,
                                     )
                                 )
+
+    # Identify unused allowlist entries (Z110 STALE_ALLOWLIST_ENTRY):
+    unused_entries = set(config.absolute_path_allowlist) - used_allowlist
+    origin_file = config.origin_file or (repo_root / ".zenzic.toml")
+    for entry in sorted(unused_entries):
+        internal_errors.append(
+            LinkError(
+                file_path=origin_file,
+                line_no=1,
+                message=f"{origin_file.name}:1: Stale absolute_path_allowlist entry: '{entry}' is never referenced in links.",
+                source_line="",
+                error_type="Z110",
+            )
+        )
 
     if trackers is not None:
         filtered = []
