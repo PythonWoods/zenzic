@@ -23,8 +23,10 @@ replace = 'zenzic_version: "{new_version}"'
 
 [[tool.bumpversion.files]]
 filename = "CHANGELOG.md"
-search = "## [{current_version}] - Unreleased"
-replace = "## [{new_version}] - Unreleased"
+search = "## [Unreleased]"
+replace = '''## [Unreleased]
+
+## [{new_version}] - {now:%Y-%m-%d}'''
 
 [[tool.bumpversion.files]]
 filename = "pyproject.toml"

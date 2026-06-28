@@ -9,6 +9,8 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [Unreleased]
+
 ## [0.18.0] - 2026-06-28
 
 ### Added
