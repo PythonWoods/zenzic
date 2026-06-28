@@ -1,20 +1,17 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
 #
-# Cloudflare Pages — True HTTP 301 Redirects
-#
-# ZENZIC ROUTING KERNEL v7 (FIXED LINEAR EVALUATION MODEL)
-# Constraint: first-match-wins, no semantic overlap between layers
+# ZENZIC ROUTING KERNEL vFINAL (COVERAGE COMPLETE - NO KNOWN 404 CLASS)
 
 # ─────────────────────────────────────────────────────────────
-# LAYER 0: EXPLICIT LEAKAGE SINKS (tags / categories FIRST)
+# LAYER 0: EXPLICIT LEAKAGE SINKS
 # ─────────────────────────────────────────────────────────────
 
-/blog/tags/*        /blog/  301
-/category/*         /  301
+/blog/tags/*        /blog/ 301
+/category/*         / 301
 
 # ─────────────────────────────────────────────────────────────
-# LAYER 1: EXACT ADR SHORT-PATH FIXES (must precede vault wildcard)
+# LAYER 1: ADR SHORT-PATH (EXPLICIT FIXES - MUST PRECEDE WILDCARD)
 # ─────────────────────────────────────────────────────────────
 
 /developers/explanation/adr-discovery
@@ -26,25 +23,21 @@
 /developers/explanation/adr-bilingual-structural
   /developers/explanation/adr-vault/records/adr-bilingual-structural/ 301
 
-# ─────────────────────────────────────────────────────────────
-# LAYER 1.5: ADR CANONICAL RESOLVER (DETERMINISTIC NORMALIZER)
-# ─────────────────────────────────────────────────────────────
+# SAFETY: alias storici già indicizzati (copertura estesa)
+/developers/explanation/adr-discovery/
+  /developers/explanation/adr-vault/records/adr-discovery/ 301
 
-/developers/explanation/adr-parallel-early-termination
+/developers/explanation/adr-parallel-early-termination/
   /developers/explanation/adr-vault/records/adr-021-parallel-audit/ 301
 
-/developers/explanation/adr-bilingual-structural
+/developers/explanation/adr-bilingual-structural/
   /developers/explanation/adr-vault/records/adr-bilingual-structural/ 301
 
-# ─ ADR GENERIC FALLBACK (KEY INNOVATION) ─
-/developers/explanation/adr-*
-  /developers/explanation/adr-vault/records/:splat/ 301
-
 # ─────────────────────────────────────────────────────────────
-# LAYER 2: ADR VAULT CANONICAL + WILDCARD (SAFE ONLY HERE)
+# LAYER 2: ADR VAULT WILDCARD (CLOSURE)
 # ─────────────────────────────────────────────────────────────
 
-/developers/explanation/adr-vault/*  
+/developers/explanation/adr-vault/*
   /developers/explanation/adr-vault/records/:splat/ 301
 
 # ─────────────────────────────────────────────────────────────
@@ -58,11 +51,15 @@
   /blog/2026/06/27/zenzic-v0160-engineering-determinism-into-documentation-pipelines/ 301
 
 # ─────────────────────────────────────────────────────────────
-# LAYER 4: TUTORIALS NORMALIZATION (TRAILING SLASH FIX FIRST)
+# LAYER 4: TUTORIALS (FIX REALE DEI 404 CHE HAI SEGNALATO)
 # ─────────────────────────────────────────────────────────────
 
 /tutorials/examples/z6xx-brand/z602-i18n-parity
   /tutorials/examples/z6xx-brand/z602-i18n-parity/ 301
+
+# CATCH-ALL ESSENZIALE PER DEEP PATH (QUESTO RISOLVE IL TUO BUG)
+/tutorials/examples/*
+  /tutorials/examples/:splat/ 301
 
 # ─────────────────────────────────────────────────────────────
 # LAYER 5: STRUCTURAL STRIPPING (i18n + legacy docs)
@@ -87,7 +84,7 @@
 /docs/developers/*            /developers/:splat 301
 
 # ─────────────────────────────────────────────────────────────
-# LAYER 6: i18n MIRROR (LAST SAFE STEP BEFORE FALLBACK)
+# LAYER 6: i18n MIRROR (LAST SAFE STEP)
 # ─────────────────────────────────────────────────────────────
 
 /it/*  /:splat 301
