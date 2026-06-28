@@ -27,6 +27,16 @@
   /developers/explanation/adr-vault/records/adr-bilingual-structural/ 301
 
 # ─────────────────────────────────────────────────────────────
+# LAYER 1.5: ADR ORPHAN SHORT-PATH RESOLUTION
+# ─────────────────────────────────────────────────────────────
+
+/developers/explanation/adr-parallel-early-termination
+  /developers/explanation/adr-vault/records/adr-021-parallel-audit/ 301
+
+/developers/explanation/adr-bilingual-structural
+  /developers/explanation/adr-vault/records/adr-bilingual-structural/ 301
+
+# ─────────────────────────────────────────────────────────────
 # LAYER 2: ADR VAULT CANONICAL + WILDCARD (SAFE ONLY HERE)
 # ─────────────────────────────────────────────────────────────
 
