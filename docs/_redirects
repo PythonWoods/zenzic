@@ -27,7 +27,7 @@
   /developers/explanation/adr-vault/records/adr-bilingual-structural/ 301
 
 # ─────────────────────────────────────────────────────────────
-# LAYER 1.5: ADR ORPHAN SHORT-PATH RESOLUTION
+# LAYER 1.5: ADR CANONICAL RESOLVER (DETERMINISTIC NORMALIZER)
 # ─────────────────────────────────────────────────────────────
 
 /developers/explanation/adr-parallel-early-termination
@@ -35,6 +35,10 @@
 
 /developers/explanation/adr-bilingual-structural
   /developers/explanation/adr-vault/records/adr-bilingual-structural/ 301
+
+# ─ ADR GENERIC FALLBACK (KEY INNOVATION) ─
+/developers/explanation/adr-*
+  /developers/explanation/adr-vault/records/:splat/ 301
 
 # ─────────────────────────────────────────────────────────────
 # LAYER 2: ADR VAULT CANONICAL + WILDCARD (SAFE ONLY HERE)
