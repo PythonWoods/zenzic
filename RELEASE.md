@@ -8,7 +8,7 @@
 
 | Field    | Value      |
 | :------- | :--------- |
-| Version  | v0.17.0     |
+| Version  | v0.18.0     |
 | Codename | Magnetite   |
 | Date     | 2026-06-28 |
 | Status   | Stable |
@@ -21,7 +21,7 @@ Before tagging, every item must be green:
 - [ ] `zenzic lab all` — all 20 scenarios exit with expected code
 - [ ] `zenzic score --stamp` committed — badge in README.md reflects current score
 - [ ] `zenzic check all .` — zero findings in the repo root
-- [ ] `pyproject.toml` version matches the tag (`0.17.0`)
+- [ ] `pyproject.toml` version matches the tag (`0.18.0`)
 - [ ] `CITATION.cff` version and date updated
 - [ ] Parità bilingue Z602 verificata (docs vs i18n/it/)
 - [ ] `CHANGELOG.md` — `[Unreleased]` section moved to the new version heading
@@ -55,7 +55,7 @@ git checkout main
 git pull origin main
 
 # 3. Tag the main branch and push
-git tag v0.17.0
+git tag v0.18.0
 git push origin main --tags
 ```
 
