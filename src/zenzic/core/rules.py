@@ -595,7 +595,11 @@ class AdaptiveRuleEngine:
         from zenzic.core.suppressions import SuppressionTracker as _ST  # noqa: F401
 
         raw = self.run(file_path, text)
-        return [f for f in raw if not tracker.is_suppressed(f.line_no, f.rule_id)]
+        filtered = []
+        for f in raw:
+            if not tracker.is_suppressed(f.line_no, f.rule_id):
+                filtered.append(f)
+        return filtered
 
     def run_vsm(
         self,

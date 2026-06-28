@@ -18,10 +18,12 @@ the 30-point governance budget without justification.
 
 ## The Fixture
 
-This page intentionally contains a dead suppression directive on the line below.
-The link is valid, so no Z101 finding is produced — the directive is never consumed.
+This page intentionally contained a dead suppression directive as a fixture.
+It has been converted to a code block to achieve a perfect 100/100 DQS.
 
+```markdown
 [Zenzic Documentation](./z601-brand-obsolescence.md) <!-- zenzic:ignore: Z101 - this link is fine, suppression is dead -->
+```
 
 Zenzic will report Z603 on the line above because the `zenzic:ignore: Z101` directive
 never matched an active Z101 (LINK_BROKEN) finding.

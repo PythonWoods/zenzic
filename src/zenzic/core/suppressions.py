@@ -36,9 +36,12 @@ class SuppressionDirective:
 class SuppressionTracker:
     """Tracks inline suppressions within a single file to identify Z603 Dead Suppressions."""
 
-    def __init__(self, file_path: Path, text: str):
+    def __init__(
+        self, file_path: Path, text: str, globally_suppressed_codes: set[str] | None = None
+    ):
         self.file_path = file_path
         self.directives: list[SuppressionDirective] = []
+        self.globally_suppressed_codes = globally_suppressed_codes or set()
         self._parse(text)
 
     def _parse(self, text: str) -> None:
@@ -84,6 +87,12 @@ class SuppressionTracker:
             return False
 
         code = code.upper()
+
+        # If the finding is already globally suppressed, do NOT consume the inline directive.
+        # This leaves the inline directive unconsumed, so get_dead_suppressions() emits Z603.
+        if code in self.globally_suppressed_codes:
+            return True
+
         suppressed = False
         for d in self.directives:
             if d.line_no == line_no and d.code == code:

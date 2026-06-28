@@ -72,7 +72,7 @@ docs/index.md:11:2  x  [Z102]  anchor '#nonexistent-section' not found in
 Summary:  x 1 error  ! 1 warning  i 0 info  - 2 files with findings
 
 FAILED: Hard errors detected. Exit code 1 is mandatory.
-Refer to https://zenzic.dev/docs/reference/finding-codes for remediation · Try
+Refer to ../../../reference/finding-codes.md for remediation · Try
 'zenzic check --help' for options.
 [ Suppression Audit: 0/30 (inline: 0, per-file: 0)
 ```

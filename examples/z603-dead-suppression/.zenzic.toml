@@ -1,0 +1,2 @@
+[governance.directory_policies]
+"docs/**" = ["Z101"]

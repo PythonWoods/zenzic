@@ -31,7 +31,7 @@ The code registry is governed by immutable contract surfaces:
 - `PLUGIN_FORBIDDEN_EXITS`: plugins are forbidden from emitting Exit 2/3 (reserved for core security semantics).
 
 !!! tip "Deep-linking"
-    Each code has a permanent anchor. You can link directly to a specific code using `https://zenzic.dev/docs/reference/finding-codes#z101`.
+    Each code has a permanent anchor. You can link directly to a specific code using `./finding-codes.md#z101`.
 
 ## Category Overview
 

@@ -67,7 +67,7 @@ docs/index.md:10:2  x  [Z108]  link label is empty or whitespace-only
 Summary:  x 1 error  ! 1 warning  i 0 info  - 2 files with findings
 
 FAILED: Hard errors detected. Exit code 1 is mandatory.
-Refer to https://zenzic.dev/docs/reference/finding-codes for remediation · Try
+Refer to ../../../reference/finding-codes.md for remediation · Try
 'zenzic check --help' for options.
 [ Suppression Audit: 0/30 (inline: 0, per-file: 0)
 ```

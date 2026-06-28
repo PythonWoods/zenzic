@@ -89,8 +89,8 @@
 /docs/internals/developers/                         /developers/  301
 /docs/guides/                                       /how-to/install/  301
 /docs/guides                                        /how-to/install/  301
-/docs/internals/adr/discovery-logic                 /developers/explanation/adr-discovery/  301
-/docs/internals/adr/discovery-logic/                /developers/explanation/adr-discovery/  301
+/docs/internals/adr/discovery-logic                 /developers/explanation/adr-vault/records/adr-discovery/  301
+/docs/internals/adr/discovery-logic/                /developers/explanation/adr-vault/records/adr-discovery/  301
 /docs/how-to/advanced-options                       /reference/advanced-features/  301
 /docs/how-to/advanced-options/                      /reference/advanced-features/  301
 /developers/governance/adversarial-ai               /developers/explanation/governance/  301
@@ -124,7 +124,7 @@
 /docs/developers/explanation/architecture-gaps     /developers/explanation/  301
 /docs/internals/arch_gaps                          /developers/explanation/  301
 /docs/internals/architecture-overview              /explanation/architecture/  301
-/docs/internals/adr/*                              /developers/explanation/:splat  301
+/docs/internals/adr/*                              /developers/explanation/adr-vault/records/:splat  301
 /docs/internals/developers/writing-an-adapter      /developers/how-to/implement-adapter/  301
 /docs/internals/developers/plugins                 /developers/how-to/write-plugin/  301
 /docs/internals/developers/examples                /developers/reference/adapter-examples/  301
@@ -295,17 +295,17 @@
 /developers/reference/supply-chain-assurance-profile.html /developers/reference/supply-chain-assurance-profile/ 301
 /developers/reference/zenzic-style.html /developers/reference/zenzic-style/ 301
 /developers/explanation/adapter-internals.html /developers/explanation/adapter-internals/ 301
-/developers/explanation/adr-agnostic-universalism.html /developers/explanation/adr-agnostic-universalism/ 301
-/developers/explanation/adr-bilingual-structural.html /developers/explanation/adr-bilingual-structural/ 301
-/developers/explanation/adr-decentralized-cli.html /developers/explanation/adr-decentralized-cli/ 301
-/developers/explanation/adr-discovery.html /developers/explanation/adr-discovery/ 301
-/developers/explanation/adr-lint-source.html /developers/explanation/adr-lint-source/ 301
-/developers/explanation/adr-native-telemetry.html /developers/explanation/adr-native-telemetry/ 301
-/developers/explanation/adr-parallel-early-termination.html /developers/explanation/adr-parallel-early-termination/ 301
-/developers/explanation/adr-path-sovereignty.html /developers/explanation/adr-path-sovereignty/ 301
-/developers/explanation/adr-regex-acl.html /developers/explanation/adr-regex-acl/ 301
-/developers/explanation/adr-unified-perimeter.html /developers/explanation/adr-unified-perimeter/ 301
-/developers/explanation/adr-vault.html /developers/explanation/adr-vault/ 301
+/developers/explanation/adr-vault/records/adr-agnostic-universalism.html /developers/explanation/adr-vault/records/adr-agnostic-universalism/ 301
+/developers/explanation/adr-vault/records/adr-bilingual-structural.html /developers/explanation/adr-vault/records/adr-bilingual-structural/ 301
+/developers/explanation/adr-vault/records/adr-decentralized-cli.html /developers/explanation/adr-vault/records/adr-decentralized-cli/ 301
+/developers/explanation/adr-vault/records/adr-discovery.html /developers/explanation/adr-vault/records/adr-discovery/ 301
+/developers/explanation/adr-vault/records/adr-lint-source.html /developers/explanation/adr-vault/records/adr-lint-source/ 301
+/developers/explanation/adr-vault/records/adr-native-telemetry.html /developers/explanation/adr-vault/records/adr-native-telemetry/ 301
+/developers/explanation/adr-vault/records/adr-parallel-early-termination.html /developers/explanation/adr-vault/records/adr-parallel-early-termination/ 301
+/developers/explanation/adr-vault/records/adr-path-sovereignty.html /developers/explanation/adr-vault/records/adr-path-sovereignty/ 301
+/developers/explanation/adr-vault/records/adr-regex-acl.html /developers/explanation/adr-vault/records/adr-regex-acl/ 301
+/developers/explanation/adr-vault/records/adr-unified-perimeter.html /developers/explanation/adr-vault/records/adr-unified-perimeter/ 301
+/developers/explanation/adr-vault/records/adr-vault.html /developers/explanation/adr-vault/records/adr-vault/ 301
 /developers/explanation/core-laws.html /developers/explanation/core-laws/ 301
 /developers/explanation/mdx-asset-rationale.html /developers/explanation/mdx-asset-rationale/ 301
 /developers/explanation/sovereign-verification-model.html /developers/explanation/sovereign-verification-model/ 301
@@ -346,7 +346,7 @@
 /it/developers/explanation/architecture-gaps     /developers/explanation/  301
 /it/internals/arch_gaps                          /developers/explanation/  301
 /it/internals/architecture-overview              /explanation/architecture/  301
-/it/internals/adr/*                              /developers/explanation/:splat  301
+/it/internals/adr/*                              /developers/explanation/adr-vault/records/:splat  301
 /it/internals/developers/writing-an-adapter      /developers/how-to/implement-adapter/  301
 /it/internals/developers/plugins                 /developers/how-to/write-plugin/  301
 /it/internals/developers/examples                /developers/reference/adapter-examples/  301
@@ -406,7 +406,7 @@
 /it/docs/developers/explanation/architecture-gaps     /developers/explanation/  301
 /it/docs/internals/arch_gaps                          /developers/explanation/  301
 /it/docs/internals/architecture-overview              /explanation/architecture/  301
-/it/docs/internals/adr/*                              /developers/explanation/:splat  301
+/it/docs/internals/adr/*                              /developers/explanation/adr-vault/records/:splat  301
 /it/docs/internals/developers/writing-an-adapter      /developers/how-to/implement-adapter/  301
 /it/docs/internals/developers/plugins                 /developers/how-to/write-plugin/  301
 /it/docs/internals/developers/examples                /developers/reference/adapter-examples/  301
@@ -465,7 +465,7 @@
 /it/developers/explanation/architecture-gaps     /developers/explanation/  301
 /it/internals/arch_gaps                          /developers/explanation/  301
 /it/internals/architecture-overview              /explanation/architecture/  301
-/it/internals/adr/*                              /developers/explanation/:splat  301
+/it/internals/adr/*                              /developers/explanation/adr-vault/records/:splat  301
 /it/internals/developers/writing-an-adapter      /developers/how-to/implement-adapter/  301
 /it/internals/developers/plugins                 /developers/how-to/write-plugin/  301
 /it/internals/developers/examples                /developers/reference/adapter-examples/  301
@@ -593,7 +593,7 @@
 /developers/governance/evolution_policy       /developers/explanation/governance/evolution_policy/  301
 /developers/governance/evolution_policy/      /developers/explanation/governance/evolution_policy/  301
 
-# /developers/explanation/adr-cross-instance-allowlist (missing)
+# /developers/explanation/adr-vault/records/adr-cross-instance-allowlist (missing)
 /developers/explanation/adr-cross-instance-allowlist   /developers/explanation/  301
 /developers/explanation/adr-cross-instance-allowlist/  /developers/explanation/  301
 

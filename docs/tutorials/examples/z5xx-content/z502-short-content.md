@@ -45,7 +45,7 @@ Summary:  x 0 errors  ! 1 warning  i 0 info  - 1 file with findings
 
 * Analysis complete: All statically-detectable links, credentials, and
 references verified.
-Refer to https://zenzic.dev/docs/reference/finding-codes for remediation · Try
+Refer to ../../../reference/finding-codes.md for remediation · Try
 'zenzic check --help' for options.
 [ Suppression Audit: 0/30 (inline: 0, per-file: 0)
 ```

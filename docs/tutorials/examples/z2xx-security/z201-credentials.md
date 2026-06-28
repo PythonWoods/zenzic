@@ -44,7 +44,7 @@ Summary:  x 1 security breach  - 1 file impacted  x 0 errors  ! 0 warnings  i 0
 info  - 0 files with findings
 
 FAILED: Security breaches detected. Exit code 2 is mandatory.
-Refer to https://zenzic.dev/docs/reference/finding-codes for remediation · Try
+Refer to ../../../reference/finding-codes.md for remediation · Try
 'zenzic check --help' for options.
 [ Suppression Audit: 0/30 (inline: 0, per-file: 0)
 ```

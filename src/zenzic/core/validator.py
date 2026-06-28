@@ -290,7 +290,7 @@ class PolyglotExtractor:
             Lista di :class:`HtmlNodeInfo`, uno per ogni tag ``<a>``/``<img>``
             trovato fuori dai blocchi di codice.
         """
-        masked = self._mask_fences(text)
+        masked = self._mask_inline_code(self._mask_fences(text))
         nodes: list[HtmlNodeInfo] = []
         for m in _RE_POLY_TAG.finditer(masked):
             tag = m.group(1).lower()
@@ -299,6 +299,14 @@ class PolyglotExtractor:
             line_no = text[: m.start()].count("\n") + 1
             nodes.append(self._parse_node(tag, attrs_str, line_no, m.group(0)))
         return nodes
+
+    def _mask_inline_code(self, text: str) -> str:
+        """Sostituisce blocchi inline code con spazi bianchi preservando gli offset."""
+        from zenzic.core.validator import _INLINE_CODE_RE
+
+        lines = text.splitlines(keepends=True)
+        masked_lines = [_INLINE_CODE_RE.sub(lambda m: " " * len(m.group()), line) for line in lines]
+        return "".join(masked_lines)
 
     def _mask_fences(self, text: str) -> str:
         """Sostituisce blocchi code/pre con spazi bianchi preservando gli offset.

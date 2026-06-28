@@ -33,9 +33,9 @@ The audit badge is based on the same score run and resolves pass/fail from polic
 
 ```markdown title="README.md"
 <!-- zenzic:audit-badge -->
-[![Zenzic Audit](https://img.shields.io/badge/%F0%9F%9B%A1%EF%B8%8F_zenzic--audit-passing-22c55e?style=flat-square)](https://zenzic.dev/docs/reference/scoring-algorithm)
+[![Zenzic Audit](https://img.shields.io/badge/%F0%9F%9B%A1%EF%B8%8F_zenzic--audit-passing-22c55e?style=flat-square)](../reference/scoring-algorithm.md)
 <!-- zenzic:score-badge -->
-[![Zenzic Score](https://img.shields.io/badge/%F0%9F%9B%A1%EF%B8%8F_zenzic--score-100_%2F_100-4f46e5?style=flat-square)](https://zenzic.dev/docs/reference/scoring-algorithm)
+[![Zenzic Score](https://img.shields.io/badge/%F0%9F%9B%A1%EF%B8%8F_zenzic--score-100_%2F_100-4f46e5?style=flat-square)](../reference/scoring-algorithm.md)
 ```
 
 **Step 2.** Run `zenzic score --stamp`. Both badge URLs are replaced in place.

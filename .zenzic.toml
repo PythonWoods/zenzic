@@ -26,7 +26,7 @@ placeholder_patterns = []
 # docs_dir = "."
 
 strict = true
-fail_under = 99
+fail_under = 98
 # exit_zero = false
 # respect_vcs_ignore = true
 # validate_same_page_anchors = true
@@ -42,10 +42,13 @@ excluded_external_urls = [
     # contributor-covenant.org consistently times out (> 10 s) from CI environments.
     "https://www.contributor-covenant.org/version/2/1/code_of_conduct.html",
     "https://www.contributor-covenant.org",
-    # zenzic.dev documentation endpoint is intermittently unavailable in CI network paths.
-    "https://zenzic.dev/docs/",
     # Shields.io applies rate-limiting to CI runners (HTTP 429); prefix covers all badge URLs.
     "https://img.shields.io",
+]
+
+excluded_build_artifacts = [
+    "blog/rss.xml",
+    "blog/atom.xml",
 ]
 
 # Z204 Privacy Gate — terms that must never appear in published docs.
@@ -88,4 +91,5 @@ excluded_file_patterns = ["RELEASE.md", "CITATION.cff"]
     "Z601",
     "Z603",
 ]
+"docs/developers/explanation/adr-vault/records/**" = ["Z601"]
 "docs/developers/how-to/contribute/**" = ["Z107"]

@@ -24,9 +24,7 @@ No raw color literals are allowed in component-level styles.
 
 Open the full board directly:
 
-<a href="/assets/brand/zenzic-brand-system.html" target="_blank" rel="noopener noreferrer">
-  Zenzic Brand System Visual Board
-</a>
+[Zenzic Brand System Visual Board](../assets/brand/zenzic-brand-system.html)
 
 ---
 
