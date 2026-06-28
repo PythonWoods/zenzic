@@ -21,20 +21,6 @@ export const ROUTES = [
   },
   {
     "type": "exact",
-    "from": "/doc",
-    "to": "/",
-    "strip": false,
-    "code": 301
-  },
-  {
-    "type": "exact",
-    "from": "/doc/",
-    "to": "/",
-    "strip": false,
-    "code": 301
-  },
-  {
-    "type": "exact",
     "from": "/it",
     "to": "/",
     "strip": false,
@@ -112,6 +98,27 @@ export const ROUTES = [
   },
   {
     "type": "exact",
+    "from": "/developers/explanation/adr-vault/adr-002-zero-subprocesses",
+    "to": "/developers/explanation/adr-vault/records/adr-002-zero-subprocesses/",
+    "strip": false,
+    "code": 301
+  },
+  {
+    "type": "exact",
+    "from": "/developers/explanation/adr-vault/adr-007-sovereign-sandbox",
+    "to": "/developers/explanation/adr-vault/records/adr-007-sovereign-sandbox/",
+    "strip": false,
+    "code": 301
+  },
+  {
+    "type": "exact",
+    "from": "/developers/explanation/adr-vault/adr-075-radical-unawareness",
+    "to": "/developers/explanation/adr-vault/records/adr-075-radical-unawareness/",
+    "strip": false,
+    "code": 301
+  },
+  {
+    "type": "exact",
     "from": "/developers/explanation/adr-discovery",
     "to": "/developers/explanation/adr-vault/records/adr-discovery/",
     "strip": false,
@@ -132,44 +139,16 @@ export const ROUTES = [
     "code": 301
   },
   {
-    "type": "exact",
-    "from": "/developers/explanation/adr-sovereign-sandbox",
-    "to": "/developers/explanation/adr-vault/records/adr-007-sovereign-sandbox/",
-    "strip": false,
-    "code": 301
-  },
-  {
-    "type": "exact",
-    "from": "/developers/explanation/adr-zero-subprocesses",
-    "to": "/developers/explanation/adr-vault/records/adr-002-zero-subprocesses/",
-    "strip": false,
-    "code": 301
-  },
-  {
     "type": "prefix",
     "from": "/it/developers/explanation/adr-vault/",
-    "to": "/developers/explanation/adr-vault/records/",
-    "strip": true,
+    "to": "/developers/explanation/adr-vault/",
+    "strip": false,
     "code": 301
   },
   {
     "type": "exact",
     "from": "/blog/welcome",
     "to": "/blog/2026/04/28/welcome-to-the-zenzic-blog/",
-    "strip": false,
-    "code": 301
-  },
-  {
-    "type": "exact",
-    "from": "/blog/welcome/",
-    "to": "/blog/2026/04/28/welcome-to-the-zenzic-blog/",
-    "strip": false,
-    "code": 301
-  },
-  {
-    "type": "exact",
-    "from": "/blog/zenzic-v0160-engineering-determinism-into-documentation-pipelines",
-    "to": "/blog/2026/06/27/zenzic-v0160-engineering-determinism-into-documentation-pipelines/",
     "strip": false,
     "code": 301
   },
@@ -196,22 +175,8 @@ export const ROUTES = [
   },
   {
     "type": "prefix",
-    "from": "/it/docs/how-to/",
-    "to": "/how-to/",
-    "strip": true,
-    "code": 301
-  },
-  {
-    "type": "prefix",
     "from": "/docs/how-to/",
     "to": "/how-to/",
-    "strip": true,
-    "code": 301
-  },
-  {
-    "type": "prefix",
-    "from": "/it/docs/reference/",
-    "to": "/reference/",
     "strip": true,
     "code": 301
   },
@@ -224,13 +189,6 @@ export const ROUTES = [
   },
   {
     "type": "prefix",
-    "from": "/it/docs/explanation/",
-    "to": "/explanation/",
-    "strip": true,
-    "code": 301
-  },
-  {
-    "type": "prefix",
     "from": "/docs/explanation/",
     "to": "/explanation/",
     "strip": true,
@@ -238,8 +196,8 @@ export const ROUTES = [
   },
   {
     "type": "prefix",
-    "from": "/it/docs/developers/",
-    "to": "/developers/",
+    "from": "/docs/tutorials/",
+    "to": "/tutorials/",
     "strip": true,
     "code": 301
   },
@@ -248,20 +206,6 @@ export const ROUTES = [
     "from": "/docs/developers/",
     "to": "/developers/",
     "strip": true,
-    "code": 301
-  },
-  {
-    "type": "exact",
-    "from": "/tutorials/examples/z6xx-brand/z602-i18n-parity/",
-    "to": "/tutorials/examples/",
-    "strip": false,
-    "code": 301
-  },
-  {
-    "type": "exact",
-    "from": "/tutorials/examples/z6xx-brand/z602-i18n-parity",
-    "to": "/tutorials/examples/",
-    "strip": false,
     "code": 301
   },
   {
@@ -275,13 +219,6 @@ export const ROUTES = [
     "type": "prefix",
     "from": "/category/",
     "to": "/",
-    "strip": false,
-    "code": 301
-  },
-  {
-    "type": "prefix",
-    "from": "/developers/category/",
-    "to": "/developers/",
     "strip": false,
     "code": 301
   },

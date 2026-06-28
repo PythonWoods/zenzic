@@ -14,14 +14,6 @@ const TEST_CASES = [
     "/"
   ],
   [
-    "/doc",
-    "/"
-  ],
-  [
-    "/doc/",
-    "/"
-  ],
-  [
     "/it",
     "/"
   ],
@@ -66,6 +58,18 @@ const TEST_CASES = [
     "/developers/explanation/adr-vault/records/adr-unified-perimeter/"
   ],
   [
+    "/developers/explanation/adr-vault/adr-002-zero-subprocesses",
+    "/developers/explanation/adr-vault/records/adr-002-zero-subprocesses/"
+  ],
+  [
+    "/developers/explanation/adr-vault/adr-007-sovereign-sandbox",
+    "/developers/explanation/adr-vault/records/adr-007-sovereign-sandbox/"
+  ],
+  [
+    "/developers/explanation/adr-vault/adr-075-radical-unawareness",
+    "/developers/explanation/adr-vault/records/adr-075-radical-unawareness/"
+  ],
+  [
     "/developers/explanation/adr-discovery",
     "/developers/explanation/adr-vault/records/adr-discovery/"
   ],
@@ -78,32 +82,16 @@ const TEST_CASES = [
     "/developers/explanation/adr-vault/records/adr-bilingual-structural/"
   ],
   [
-    "/developers/explanation/adr-sovereign-sandbox",
-    "/developers/explanation/adr-vault/records/adr-007-sovereign-sandbox/"
-  ],
-  [
-    "/developers/explanation/adr-zero-subprocesses",
-    "/developers/explanation/adr-vault/records/adr-002-zero-subprocesses/"
-  ],
-  [
     "/it/developers/explanation/adr-vault/",
-    "/developers/explanation/adr-vault/records/"
+    "/developers/explanation/adr-vault/"
   ],
   [
     "/it/developers/explanation/adr-vault/test-item/foo",
-    "/developers/explanation/adr-vault/records/test-item/foo"
+    "/developers/explanation/adr-vault/"
   ],
   [
     "/blog/welcome",
     "/blog/2026/04/28/welcome-to-the-zenzic-blog/"
-  ],
-  [
-    "/blog/welcome/",
-    "/blog/2026/04/28/welcome-to-the-zenzic-blog/"
-  ],
-  [
-    "/blog/zenzic-v0160-engineering-determinism-into-documentation-pipelines",
-    "/blog/2026/06/27/zenzic-v0160-engineering-determinism-into-documentation-pipelines/"
   ],
   [
     "/it/blog/",
@@ -130,28 +118,12 @@ const TEST_CASES = [
     "/tutorials/examples/test-item/foo"
   ],
   [
-    "/it/docs/how-to/",
-    "/how-to/"
-  ],
-  [
-    "/it/docs/how-to/test-item/foo",
-    "/how-to/test-item/foo"
-  ],
-  [
     "/docs/how-to/",
     "/how-to/"
   ],
   [
     "/docs/how-to/test-item/foo",
     "/how-to/test-item/foo"
-  ],
-  [
-    "/it/docs/reference/",
-    "/reference/"
-  ],
-  [
-    "/it/docs/reference/test-item/foo",
-    "/reference/test-item/foo"
   ],
   [
     "/docs/reference/",
@@ -162,14 +134,6 @@ const TEST_CASES = [
     "/reference/test-item/foo"
   ],
   [
-    "/it/docs/explanation/",
-    "/explanation/"
-  ],
-  [
-    "/it/docs/explanation/test-item/foo",
-    "/explanation/test-item/foo"
-  ],
-  [
     "/docs/explanation/",
     "/explanation/"
   ],
@@ -178,12 +142,12 @@ const TEST_CASES = [
     "/explanation/test-item/foo"
   ],
   [
-    "/it/docs/developers/",
-    "/developers/"
+    "/docs/tutorials/",
+    "/tutorials/"
   ],
   [
-    "/it/docs/developers/test-item/foo",
-    "/developers/test-item/foo"
+    "/docs/tutorials/test-item/foo",
+    "/tutorials/test-item/foo"
   ],
   [
     "/docs/developers/",
@@ -192,14 +156,6 @@ const TEST_CASES = [
   [
     "/docs/developers/test-item/foo",
     "/developers/test-item/foo"
-  ],
-  [
-    "/tutorials/examples/z6xx-brand/z602-i18n-parity/",
-    "/tutorials/examples/"
-  ],
-  [
-    "/tutorials/examples/z6xx-brand/z602-i18n-parity",
-    "/tutorials/examples/"
   ],
   [
     "/blog/tags/",
@@ -216,14 +172,6 @@ const TEST_CASES = [
   [
     "/category/test-item/foo",
     "/"
-  ],
-  [
-    "/developers/category/",
-    "/developers/"
-  ],
-  [
-    "/developers/category/test-item/foo",
-    "/developers/"
   ],
   [
     "/it/",
