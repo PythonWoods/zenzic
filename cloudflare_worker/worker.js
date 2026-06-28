@@ -184,7 +184,7 @@ export const ROUTES = [
     "type": "prefix",
     "from": "/docs/",
     "to": "/",
-    "strip": true,
+    "strip": false,
     "code": 301
   }
 ];

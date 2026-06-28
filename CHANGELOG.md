@@ -9,6 +9,16 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.18.0] - 2026-06-28
+
+### Added
+
+- **Zenzic Routing Kernel**: Transitioned from static `_redirects` configuration to a verifiable edge router compiler.
+  - Auto-generates a deterministic `O(depth)` Cloudflare Worker (`worker.js`).
+  - Auto-generates a pre-deploy test matrix (`test.js`) to certify zero-ambiguity across topological routes.
+  - Enforces ADR-001 ("Lint the Source, Not the Build"), solidifying `docs/_redirects` as the Single Source of Truth (SSOT).
+  - Implements a Safe Hub Sink (`/docs/* -> /`) to structurally prevent `splat` hallucinations.
+
 ## [0.17.0] - 2026-06-28
 
 ### Added

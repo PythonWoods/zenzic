@@ -175,7 +175,7 @@ const TEST_CASES = [
   ],
   [
     "/docs/test-item/foo",
-    "/test-item/foo"
+    "/"
   ],
   [
     "/random-path-that-does-not-exist",

@@ -18,6 +18,10 @@ For the current release history, see [CHANGELOG.md](CHANGELOG.md).
 
 *Pushing the "Hostile Precision" feedback loop directly into the authoring environment.*
 
+### Completed
+
+- **Zenzic Routing Kernel**: Deterministic edge router compiler validating SSOT redirects to O(depth) runtime logic.
+
 ### Planned
 
 - **Zenzic Language Server (ZLS) & VS Code Extension:** To push the "Hostile Precision" feedback loop from the CI/CD pipeline directly into the authoring environment, Zenzic will implement a native Language Server Protocol (LSP) interface.

@@ -79,4 +79,4 @@
 # LAYER 7: DOCS REMOVAL (SAFE MIRROR, NOT ROOT COLLAPSE)
 # ─────────────────────────────────────────────
 
-/docs/*  /:splat 301
+/docs/*  / 301
