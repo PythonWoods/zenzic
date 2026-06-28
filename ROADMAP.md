@@ -14,15 +14,27 @@ For the current release history, see [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
-## [v0.18.0] - Shift-Left to the Keystroke (IDE Integration & LSP)
+## Recent Releases
 
-*Pushing the "Hostile Precision" feedback loop directly into the authoring environment.*
-
-### Completed
+### [v0.18.0] - Zenzic Routing Kernel (Completed)
 
 - **Zenzic Routing Kernel**: Deterministic edge router compiler validating SSOT redirects to O(depth) runtime logic.
 
-### Planned
+---
+
+## [v0.19.0] - The AST Foundations (Planned)
+
+*Rebuilding the core to support semantic awareness and structural introspection.*
+
+- **Deterministic Markdown Renderer** (Issue #11): A lossless parser-to-AST-to-string pipeline required for auto-fixing and semantic rewrites.
+- **Custom Rules API v2 (AST Walker)**: Exposing the internal AST to allow users to write custom Python plugins for bespoke document governance.
+- **CLI Live URL Resolution (DX Rewrite)**: Asynchronous resolution of external URLs during the `zenzic check` phase to validate link rot in real-time.
+
+---
+
+## [v0.20.0] - Shift-Left to the Keystroke (IDE Integration & LSP)
+
+*Pushing the "Hostile Precision" feedback loop directly into the authoring environment.*
 
 - **Zenzic Language Server (ZLS) & VS Code Extension:** To push the "Hostile Precision" feedback loop from the CI/CD pipeline directly into the authoring environment, Zenzic will implement a native Language Server Protocol (LSP) interface.
   - **The Architecture:** The core engine will expose a `zenzic.lsp` module (JSON-RPC over stdio). An official, thin VS Code Extension (written in TypeScript) will act purely as an LSP client.
@@ -32,7 +44,7 @@ For the current release history, see [CHANGELOG.md](CHANGELOG.md).
 - **Deterministic Auto-Fix Engine (`zenzic fix`)** (Issue #10): Semantic `--dry-run` / `--apply` repair semantics for `Z1xx` and `Z3xx` findings. Powered by the Deterministic Markdown Renderer. Implements an exact 3-Tier safety model (Tier 1: Auto-apply, Tier 2: Patches, Tier 3: Security FATALs banned).
 - **Semantic Linting & Readability** (Issues #8, #9): AST-based rules to detect semantically duplicate headings, empty/stub sections, and integration of deterministic readability metrics (Flesch-Kincaid).
 
-## [v0.18.0] - Ecosystem & Interoperability
+## [v0.21.0] - Ecosystem & Interoperability
 
 *Expanding the Zenzic perimeter to external frameworks.*
 
