@@ -217,6 +217,11 @@ plugins:
       match_path: "blog/posts/.*"
       date_from_meta:
         as_creation: date
+      use_material_blog: true
+      use_material_social_cards: true
+      abstract_chars_count: 160
+      abstract_delimiter: <!-- more -->
+      image: https://zenzic.dev/assets/brand/svg/zenzic-icon.svg
       feeds_filenames:
         rss_created: blog/rss.xml
         rss_updated: blog/atom.xml
