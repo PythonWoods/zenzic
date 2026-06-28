@@ -1,0 +1,13 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# .zenzic.toml — Z205 FORBIDDEN_SCHEME gallery example
+#
+# docs/index.md contains javascript: and data: URIs.
+# Z205 is NON-SUPPRESSIBLE: data-zenzic-ignore has NO effect.
+#
+# Expected results:
+#   zenzic lab z205   → EXIT 2  (Z205 ×3 — SECURITY BREACH)
+[zenzic]
+engine = "standalone"
+[links]
+check_external = false

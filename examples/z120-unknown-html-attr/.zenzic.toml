@@ -1,0 +1,14 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# .zenzic.toml — Z120 UNKNOWN_HTML_ATTRIBUTE gallery example
+#
+# docs/index.md contains <a> tags with HTML5 attributes not in the Safe-Core list
+# (hreflang, ping, referrerpolicy). The PolyglotExtractor emits Z120 warnings.
+#
+# Expected results:
+#   zenzic lab z120   → EXIT 0  (Z120 ×3 — warnings only, DQS penalised)
+[zenzic]
+engine = "standalone"
+
+[links]
+check_external = false

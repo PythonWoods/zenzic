@@ -1,0 +1,10 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# .zenzic.toml — Z121 MISSING_OR_EMPTY_HREF gallery example
+#
+# Expected results:
+#   zenzic lab z121   → EXIT 1  (Z121 ×2 — error)
+[zenzic]
+engine = "standalone"
+[links]
+check_external = false

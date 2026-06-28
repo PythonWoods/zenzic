@@ -167,6 +167,247 @@ _MAX_CONCURRENT_REQUESTS = 20
 VALIDATION_PARALLEL_THRESHOLD = 50
 
 
+# ─── PolyglotExtractor — RE2 constants (v0.17.0) ─────────────────────────────
+
+# Stadio 1: cattura atomica <a> e <img> (multilinea, DFA-pure, O(N)).
+# Vincolo: il carattere '>' termina il tag e non è ammesso nei valori degli attributi.
+_RE_POLY_TAG: re.RegexPattern = re.compile(r"(?s)<(a|img)\s+(?P<attrs>[^>]*?)>")
+
+# Stadio 2: parsing lineare coppie attributo=valore.
+_RE_POLY_ATTR: re.RegexPattern = re.compile(
+    r"(?P<key>[\w:@-]+)"
+    r"(?:\s*=\s*"
+    r'(?P<val>"[^"]*"|'  # double-quoted
+    r"'[^']*'|"  # single-quoted
+    r"[^\s>]+"
+    r"))?",
+)
+
+# Attributi Safe-Core: pass senza diagnostica (ADR-075 — nessun parser esterno).
+_POLY_SAFE_CORE: frozenset[str] = frozenset(
+    {
+        "href",
+        "src",
+        "id",
+        "class",
+        "title",
+        "rel",
+        "target",
+        "lang",
+        "download",
+        "alt",
+        "width",
+        "height",
+        "loading",
+        "decoding",
+        "data-zenzic-ignore",
+    }
+)
+_POLY_ARIA_PREFIX = "aria-"  # aria-* è sempre Safe-Core
+
+# Attributi Blacklist: Z124 OPAQUE_HTML_CONTEXT.
+_POLY_BLACKLIST: frozenset[str] = frozenset(
+    {
+        "data-url",
+        "data-path",
+        "data-target",
+        "data-route",
+    }
+)
+_POLY_ON_PREFIX = "on"  # on* event-handlers → Z124
+
+# Schemi vietati (Security Gate — Z205, non sopprimibile, Exit 2).
+_POLY_FORBIDDEN_SCHEMES: frozenset[str] = frozenset({"javascript:", "data:"})
+# Schemi informativi (Z123, nessuna risoluzione path).
+_POLY_INFO_SCHEMES: frozenset[str] = frozenset({"mailto:", "tel:", "ftp:"})
+
+# Pattern fence per PolyglotExtractor._mask_fences (subset di SuppressionTracker).
+_POLY_FENCE_RE: re.RegexPattern = re.compile(r"^(?P<fence>[`~]{3,})")
+
+
+@dataclass(frozen=True, slots=True)
+class HtmlNodeInfo:
+    """Nodo HTML estratto dal PolyglotExtractor (tag ``<a>`` o ``<img>``).
+
+    Contiene tutti i dati necessari all'emissione di Z120–Z124 e Z205
+    senza ulteriori accessi al testo sorgente.
+
+    Attributes:
+        tag:               ``"a"`` oppure ``"img"``.
+        href:              Valore di ``href`` (per ``<a>``) o ``src`` (per ``<img>``).
+                           ``None`` se l'attributo è assente.
+        line_no:           Numero di riga 1-based nel sorgente originale.
+        suppressed:        ``True`` se ``data-zenzic-ignore`` è presente sul tag.
+        z205_scheme:       Schema vietato rilevato (``"javascript:"`` / ``"data:"``);
+                           ``None`` se il tag non è un vettore Z205.
+        unknown_attrs:     Attributi non censiti nella Safe-Core list → Z120.
+        blacklisted_attrs: Attributi blacklistati (event-handler, shadow-routing) → Z124.
+        is_missing_href:   ``True`` se ``href``/``src`` è assente o vuoto → Z121.
+        is_jump_link:      ``True`` se ``href="#"`` → Z122.
+        info_scheme:       Schema informativo (``mailto:``, ``tel:``, ``ftp:``)
+                           se rilevato → Z123; ``None`` altrimenti.
+        raw_tag:           Testo originale del tag (per messaggi diagnostici).
+    """
+
+    tag: str
+    href: str | None
+    line_no: int
+    suppressed: bool
+    z205_scheme: str | None
+    unknown_attrs: list[str]
+    blacklisted_attrs: list[str]
+    is_missing_href: bool
+    is_jump_link: bool
+    info_scheme: str | None
+    raw_tag: str
+
+
+class PolyglotExtractor:
+    """Estrattore a due stadi per tag HTML nativi in sorgente Markdown/MDX.
+
+    Implementa la **Uniform Resolver Pipeline** (URP) di Zenzic v0.17.0:
+    la forma sintattica (Markdown vs HTML) è un dettaglio di trasporto;
+    l'analisi avviene sul valore risolto del puntamento.
+
+    **Invarianti (ADR-075 / ADR-020):**
+
+    * Complessità O(N): RE2/DFA-pure, nessun backtracking, nessun subprocess.
+    * Z205 (FORBIDDEN_SCHEME) è verificato **prima** di ``data-zenzic-ignore``
+      (sicurezza ha precedenza assoluta sulla soppressione).
+    * Supporta tag ``<a>`` e ``<img>``.
+    * Il carattere ``>`` non è ammesso nei valori degli attributi (chiude il tag).
+    * Fence-skipping obbligatorio: i blocchi ``code``/``pre`` vengono oscurati
+      prima dell'estrazione per evitare falsi positivi in esempi di codice.
+    """
+
+    def extract(self, text: str) -> list[HtmlNodeInfo]:
+        """Estrae tutti i nodi HTML rilevanti dal testo sorgente.
+
+        Args:
+            text: Contenuto Markdown grezzo (no I/O).
+
+        Returns:
+            Lista di :class:`HtmlNodeInfo`, uno per ogni tag ``<a>``/``<img>``
+            trovato fuori dai blocchi di codice.
+        """
+        masked = self._mask_fences(text)
+        nodes: list[HtmlNodeInfo] = []
+        for m in _RE_POLY_TAG.finditer(masked):
+            tag = m.group(1).lower()
+            attrs_str = m.group("attrs")
+            # Calcolare line_no dal testo originale (non mascherato)
+            line_no = text[: m.start()].count("\n") + 1
+            nodes.append(self._parse_node(tag, attrs_str, line_no, m.group(0)))
+        return nodes
+
+    def _mask_fences(self, text: str) -> str:
+        """Sostituisce blocchi code/pre con spazi bianchi preservando gli offset.
+
+        Utilizza la stessa logica di fence-detection di :class:`SuppressionTracker`
+        (tre o più backtick/tilde) per garantire coerenza nel trattamento dei
+        blocchi di codice a livello di codebase.
+        """
+        lines = text.split("\n")
+        result: list[str] = []
+        inside = False
+        open_char = ""
+        open_len = 0
+        for line in lines:
+            fm = _POLY_FENCE_RE.match(line)
+            if not inside:
+                if fm:
+                    inside = True
+                    fence = fm.group("fence")
+                    open_char = fence[0]
+                    open_len = len(fence)
+                    result.append(" " * len(line))
+                else:
+                    result.append(line)
+            else:
+                if fm:
+                    fence = fm.group("fence")
+                    if fence[0] == open_char and len(fence) >= open_len:
+                        inside = False
+                result.append(" " * len(line))
+        return "\n".join(result)
+
+    def _parse_node(self, tag: str, attrs_str: str, line_no: int, raw_tag: str) -> HtmlNodeInfo:
+        """Parsing lineare della stringa ``attrs`` e classificazione governance.
+
+        **Ordine di priorità:**
+
+        1. Estrae ``href``/``src``.
+        2. **Verifica Z205** (schema vietato) — avviene PRIMA di tutto il resto.
+        3. Rileva ``data-zenzic-ignore``.
+        4. Classifica ogni attributo: Safe-Core / Blacklist / Unknown.
+        5. Determina Z121/Z122/Z123.
+        """
+        href_key = "src" if tag == "img" else "href"
+        href: str | None = None
+        suppressed = False
+        unknown: list[str] = []
+        blacklisted: list[str] = []
+
+        for m in _RE_POLY_ATTR.finditer(attrs_str):
+            key_raw = m.group("key")
+            if not key_raw:
+                continue
+            key = key_raw.lower()
+            val_raw = m.group("val") or ""
+            val = val_raw.strip("\"'")
+
+            if key == href_key:
+                href = val.strip() if val.strip() else None
+            elif key == "data-zenzic-ignore":
+                suppressed = True
+            elif key.startswith(_POLY_ARIA_PREFIX):
+                pass  # aria-* è sempre Safe-Core
+            elif key in _POLY_SAFE_CORE:
+                pass  # Safe-Core: pass senza diagnostica
+            elif key in _POLY_BLACKLIST or key.startswith(_POLY_ON_PREFIX):
+                blacklisted.append(key)
+            else:
+                unknown.append(key)
+
+        # ── Security Gate Z205: check PRIMA di data-zenzic-ignore ─────────────────
+        z205_scheme: str | None = None
+        if href:
+            href_lower = href.lower().lstrip()
+            for scheme in _POLY_FORBIDDEN_SCHEMES:
+                if href_lower.startswith(scheme):
+                    z205_scheme = scheme
+                    break
+
+        # ── Classificazione link ───────────────────────────────────────────────────
+        is_missing_href = href is None
+        is_jump_link = href == "#"
+        info_scheme: str | None = None
+        if href and not is_jump_link and z205_scheme is None:
+            href_lower_info = href.lower()
+            for scheme in _POLY_INFO_SCHEMES:
+                if href_lower_info.startswith(scheme):
+                    info_scheme = scheme
+                    break
+
+        return HtmlNodeInfo(
+            tag=tag,
+            href=href,
+            line_no=line_no,
+            suppressed=suppressed,
+            z205_scheme=z205_scheme,
+            unknown_attrs=unknown,
+            blacklisted_attrs=blacklisted,
+            is_missing_href=is_missing_href,
+            is_jump_link=is_jump_link,
+            info_scheme=info_scheme,
+            raw_tag=raw_tag,
+        )
+
+
+# Singleton per l'uso nel pipeline di validazione.
+_POLYGLOT_EXTRACTOR = PolyglotExtractor()
+
+
 # ─── Data classes ─────────────────────────────────────────────────────────────
 
 
@@ -997,6 +1238,177 @@ async def validate_links_async(
                     match_text=source_line,
                 )
             )
+
+        # ── PolyglotExtractor: HTML Integrity phase (Z120-Z124, Z205) ────────────
+        # Analizza ogni tag <a>/<img> nel sorgente Markdown tramite la URP.
+        # Z205 (FORBIDDEN_SCHEME) ha precedenza assoluta: non sopprimibile, Exit 2.
+        # data-zenzic-ignore sopprime Z120-Z124 e il resolver (-1.0 pts DQS ciascuno).
+        _poly_html_urls: set[str] = set()
+        for node in _POLYGLOT_EXTRACTOR.extract(raw_text):
+            _source_ctx = _source_line(md_file, node.line_no)
+
+            # Z205 — SECURITY GATE: verificato PRIMA di data-zenzic-ignore
+            if node.z205_scheme:
+                internal_errors.append(
+                    LinkError(
+                        file_path=md_file,
+                        line_no=node.line_no,
+                        message=(
+                            f"{label}:{node.line_no}: forbidden scheme "
+                            f"'{node.z205_scheme}' detected in "
+                            f"<{node.tag}> {'href' if node.tag == 'a' else 'src'} "
+                            f"— potential XSS vector (non-suppressible)."
+                        ),
+                        source_line=_source_ctx,
+                        error_type="Z205",
+                        col_start=0,
+                        match_text=node.raw_tag,
+                    )
+                )
+                continue  # blocco immediato: non analizzare oltre il nodo
+
+            # data-zenzic-ignore: sovereign override (eccetto Z205, già gestito)
+            if node.suppressed:
+                continue  # il costo DQS -1.0 pts è conteggiato dallo scorer
+                # tramite i commenti zenzic:ignore o data-zenzic-ignore
+
+            # Z124 — OPAQUE_HTML_CONTEXT (blacklisted attrs)
+            for attr in node.blacklisted_attrs:
+                internal_errors.append(
+                    LinkError(
+                        file_path=md_file,
+                        line_no=node.line_no,
+                        message=(
+                            f"{label}:{node.line_no}: opaque attribute '{attr}' "
+                            f"detected in <{node.tag}> tag — event-handler or shadow-routing."
+                        ),
+                        source_line=_source_ctx,
+                        error_type="Z124",
+                        col_start=0,
+                        match_text=node.raw_tag,
+                    )
+                )
+
+            # Z120 — UNKNOWN_HTML_ATTRIBUTE
+            for attr in node.unknown_attrs:
+                internal_errors.append(
+                    LinkError(
+                        file_path=md_file,
+                        line_no=node.line_no,
+                        message=(
+                            f"{label}:{node.line_no}: unknown attribute '{attr}' "
+                            f"in <{node.tag}> — not in Safe-Core list. "
+                            f"Add to safe list or suppress with data-zenzic-ignore."
+                        ),
+                        source_line=_source_ctx,
+                        error_type="Z120",
+                        col_start=0,
+                        match_text=node.raw_tag,
+                    )
+                )
+
+            # Z121 — MISSING_OR_EMPTY_HREF / src
+            if node.is_missing_href:
+                internal_errors.append(
+                    LinkError(
+                        file_path=md_file,
+                        line_no=node.line_no,
+                        message=(
+                            f"{label}:{node.line_no}: <{node.tag}> has no "
+                            f"{'href' if node.tag == 'a' else 'src'} attribute, "
+                            f"or it is empty."
+                        ),
+                        source_line=_source_ctx,
+                        error_type="Z121",
+                        col_start=0,
+                        match_text=node.raw_tag,
+                    )
+                )
+                continue  # nessun href da risolvere
+
+            # Z122 — JUMP_LINK_DETECTED
+            if node.is_jump_link:
+                internal_errors.append(
+                    LinkError(
+                        file_path=md_file,
+                        line_no=node.line_no,
+                        message=(
+                            f'{label}:{node.line_no}: href="#" detected — '
+                            f"placeholder or opaque JS anchor. "
+                            f"Add a real destination or suppress with data-zenzic-ignore."
+                        ),
+                        source_line=_source_ctx,
+                        error_type="Z122",
+                        col_start=0,
+                        match_text=node.raw_tag,
+                    )
+                )
+                continue
+
+            # Z123 — NON_HTTP_SCHEME (informativo, nessuna risoluzione path)
+            if node.info_scheme:
+                internal_errors.append(
+                    LinkError(
+                        file_path=md_file,
+                        line_no=node.line_no,
+                        message=(
+                            f"{label}:{node.line_no}: non-HTTP scheme "
+                            f"'{node.info_scheme}' in <{node.tag}> — "
+                            f"link not resolved by Zenzic (informational)."
+                        ),
+                        source_line=_source_ctx,
+                        error_type="Z123",
+                        col_start=0,
+                        match_text=node.raw_tag,
+                    )
+                )
+                continue
+
+            # ── URP: Uniform Resolver Pipeline — href valido, risoluzione standard
+            if node.href and node.href not in _poly_html_urls:
+                _poly_html_urls.add(node.href)
+                raw_parsed = urlsplit(node.href)
+                if raw_parsed.scheme in ("http", "https"):
+                    external_entries.append((node.href, label, node.line_no))
+                elif not node.href.startswith(_effective_skip):
+                    outcome = resolver.resolve(md_file, node.href)
+                    match outcome:
+                        case FileNotFound(path_part=path_part):
+                            _sug = difflib.get_close_matches(
+                                path_part, _known_rel_paths, n=1, cutoff=0.6
+                            )
+                            _hint = f" 💡 Did you mean: '{_sug[0]}'?" if _sug else ""
+                            internal_errors.append(
+                                LinkError(
+                                    file_path=md_file,
+                                    line_no=node.line_no,
+                                    message=(
+                                        f"{label}:{node.line_no}: "
+                                        f"'{path_part}' not found in docs{_hint}"
+                                    ),
+                                    source_line=_source_ctx,
+                                    error_type="Z104",
+                                    col_start=0,
+                                    match_text=node.raw_tag,
+                                )
+                            )
+                        case PathTraversal():
+                            internal_errors.append(
+                                LinkError(
+                                    file_path=md_file,
+                                    line_no=node.line_no,
+                                    message=(
+                                        f"{label}:{node.line_no}: HTML link "
+                                        f"'{node.href}' escapes the docs root boundary."
+                                    ),
+                                    source_line=_source_ctx,
+                                    error_type="Z202",
+                                    col_start=0,
+                                    match_text=node.raw_tag,
+                                )
+                            )
+                        case _:
+                            pass  # Resolved — OK
 
         all_links = links_cache.get(md_file, [])
 

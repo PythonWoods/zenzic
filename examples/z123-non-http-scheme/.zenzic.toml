@@ -1,0 +1,10 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# .zenzic.toml — Z123 NON_HTTP_SCHEME gallery example
+#
+# Expected results:
+#   zenzic lab z123   → EXIT 0  (Z123 ×3 — informational)
+[zenzic]
+engine = "standalone"
+[links]
+check_external = false
