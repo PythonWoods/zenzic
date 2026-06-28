@@ -48,10 +48,8 @@
 # ─────────────────────────────────────────────────────────────
 
 # FIX: deep page must map to its section, not hub root
-/tutorials/examples/z6xx-brand/z602-i18n-parity  /tutorials/examples/z6xx-brand/z602-i18n-parity/ 301
-
-# SAFE WILDCARD FOR EXAMPLES SUBTREE
-/tutorials/examples/*  /tutorials/examples/:splat/ 301
+/tutorials/examples/z6xx-brand/z602-i18n-parity   /tutorials/examples/z6xx-brand/ 301
+/tutorials/examples/z6xx-brand/z602-i18n-parity/  /tutorials/examples/z6xx-brand/ 301
 
 # ─────────────────────────────────────────────────────────────
 # LAYER 5: STRUCTURAL STRIPPING (i18n + legacy docs)
