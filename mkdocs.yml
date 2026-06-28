@@ -21,6 +21,9 @@ extra_css:
   # Preflight (CSS Reset) is DISABLED to prevent interference with Material base typography.
   # See docs/assets/css/README.md for the build protocol.
 
+exclude_docs: |
+  assets/css/README.md
+
 # --- Navigation (4 tabs: Home / User Documentation / Developer Documentation / Blog)
 # navigation.tabs maps each top-level nav entry to a tab in the header.
 nav:

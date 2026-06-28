@@ -51,7 +51,6 @@ excluded_file_patterns = []
 [governance.directory_policies]
 "docs/assets/**" = ["Z405"]
 "docs/blog/**" = ["Z402", "Z101"]
-"docs/blog/posts/**" = ["Z104"]
 
 "docs/tutorials/examples/z1xx-links/z107-circular-anchor.md" = ["Z107"]
 "docs/tutorials/examples/z5xx-content/z506-malformed-frontmatter.md" = ["Z506", "Z503"]

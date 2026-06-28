@@ -74,7 +74,7 @@ lint:
 
 # Final Guard: atomic verification invoked by pre-push hook + GHA.
 # Sequence: pre-commit (all hooks) → pytest tests/ → structural audit → score + stamp → badge freshness.
-verify: _check-hooks release-contracts check-pinning
+verify: _check-hooks release-contracts check-pinning docs-build
     @echo "==> [1/5] Pre-commit hooks (lint, type-check, REUSE)..."
     {{ runner }} pre-commit run --all-files
     @echo "==> [2/5] Test suite..."
@@ -182,7 +182,7 @@ clean:
 
 # Serve the documentation site locally
 docs-serve +args="":
-    uv run mkdocs serve {{args}}
+    uv run --extra docs mkdocs serve {{args}}
 
 docs-build:
-	uv run mkdocs build --strict
+	uv run --extra docs mkdocs build --strict
