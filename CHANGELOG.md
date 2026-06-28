@@ -13,11 +13,10 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- **Zenzic Routing Kernel**: Transitioned from static `_redirects` configuration to a verifiable edge router compiler.
-  - Auto-generates a deterministic `O(depth)` Cloudflare Worker (`worker.js`).
-  - Auto-generates a pre-deploy test matrix (`test.js`) to certify zero-ambiguity across topological routes.
-  - Enforces ADR-001 ("Lint the Source, Not the Build"), solidifying `docs/_redirects` as the Single Source of Truth (SSOT).
-  - Implements a Safe Hub Sink (`/docs/* -> /`) to structurally prevent `splat` hallucinations.
+- **Zenzic Deterministic Routing Kernel**: Transitioned the Cloudflare `_redirects` engine to a Disjoint Domain Model (Nuclear Static v12).
+  - Eliminates all dynamic runtime routing (Worker) in favor of a 100% static, deterministic mapping to prevent recursive hallucination loops.
+  - Enforces Acyclic, Confluent, and Disjoint topological properties.
+  - Implements Safe Hub Sinks (`/it/* -> /`, `/docs/* -> /`) to truncate legacy traffic cleanly without rebuilding path fragments.
 
 ## Historical Releases
 

@@ -18,7 +18,7 @@ For the current release history, see [CHANGELOG.md](CHANGELOG.md).
 
 ### [v0.18.0] - Zenzic Routing Kernel (Completed)
 
-- **Zenzic Routing Kernel**: Deterministic edge router compiler validating SSOT redirects to O(depth) runtime logic.
+- **Zenzic Deterministic Routing Kernel**: Disjoint Domain Model utilizing explicit static mapping for loop-free, 100% deterministic edge resolution (Nuclear Static v12).
 
 ---
 
