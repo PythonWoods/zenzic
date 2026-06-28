@@ -1,8 +1,8 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
 #
-# Zenzic Deterministic Routing Kernel v11 (Acyclic & Disjoint)
-# EMERGENCY PATCH: Removed all ADR wildcards to prevent recursive loops.
+# Zenzic Deterministic Routing Kernel v12 (Nuclear Static)
+# EMERGENCY: Worker logic abandoned. Total explicit mapping for ADRs.
 
 # ─── LAYER 1: CANONICAL HYGIENE ──────────────────────────────────────────────
 /docs           /  301
@@ -10,8 +10,8 @@
 /it             /  301
 /it/            /  301
 
-# ─── LAYER 2: ADR FINITE GRAPH (Exact Matches Only - NO LOOPS) ───────────────
-# Ogni ADR deve essere mappato esplicitamente. Nessuna wildcard ammessa qui.
+# ─── LAYER 2: ADR FINITE GRAPH (Mappatura Esatta 1:1 - NO WILDCARDS) ─────────
+# Rimuove ogni ambiguità. Nessun rewrite parziale.
 /developers/explanation/adr-vault/adr-lint-source         /developers/explanation/adr-vault/records/adr-lint-source/ 301
 /developers/explanation/adr-vault/adr-discovery           /developers/explanation/adr-vault/records/adr-discovery/ 301
 /developers/explanation/adr-vault/adr-020                 /developers/explanation/adr-vault/records/adr-020-mirror-law/ 301
@@ -25,27 +25,32 @@
 /developers/explanation/adr-vault/adr-007-sovereign-sandbox /developers/explanation/adr-vault/records/adr-007-sovereign-sandbox/ 301
 /developers/explanation/adr-vault/adr-075-radical-unawareness /developers/explanation/adr-vault/records/adr-075-radical-unawareness/ 301
 
-# Short Path Overrides
+# Short Path Overrides (Legacy Discovery Fix)
 /developers/explanation/adr-discovery                    /developers/explanation/adr-vault/records/adr-discovery/ 301
 /developers/explanation/adr-parallel-early-termination   /developers/explanation/adr-vault/records/adr-021-parallel-audit/ 301
 /developers/explanation/adr-bilingual-structural         /developers/explanation/adr-vault/records/adr-bilingual-structural/ 301
+/developers/explanation/adr-sovereign-sandbox            /developers/explanation/adr-vault/records/adr-007-sovereign-sandbox/ 301
+/developers/explanation/adr-zero-subprocesses            /developers/explanation/adr-vault/records/adr-002-zero-subprocesses/ 301
 
-# ─── LAYER 3: ITALIAN ADR SINK ───────────────────────────────────────────────
-# Invece di tentare di ricostruire il path (rischio loop), mandiamo all'indice.
-/it/developers/explanation/adr-vault/*                    /developers/explanation/adr-vault/ 301
-
-# ─── LAYER 4: BLOG & TAXONOMY (Safe Stripping) ───────────────────────────────
+# ─── LAYER 3: BLOG CANONICAL SLUGS ───────────────────────────────────────────
 /blog/welcome                                 /blog/2026/04/28/welcome-to-the-zenzic-blog/ 301
+/blog/welcome/                                /blog/2026/04/28/welcome-to-the-zenzic-blog/ 301
+/blog/zenzic-v0160-engineering-determinism-into-documentation-pipelines /blog/2026/06/27/zenzic-v0160-engineering-determinism-into-documentation-pipelines/ 301
+
+# ─── LAYER 4: STRUCTURAL MIRRORS (Known Folders) ─────────────────────────────
 /it/blog/*                                    /blog/ 301
 /it/docs/how-to/examples/*                     /tutorials/examples/:splat 301
 /it/docs/tutorials/examples/*                  /tutorials/examples/:splat 301
 /docs/how-to/*                                 /how-to/:splat 301
 /docs/reference/*                              /reference/:splat 301
-/docs/explanation/*                           /explanation/:splat 301
-/docs/tutorials/*                             /tutorials/:splat 301
-/docs/developers/*                            /developers/:splat 301
+/docs/explanation/*                            /explanation/:splat 301
+/docs/tutorials/*                              /tutorials/:splat 301
+/docs/developers/*                             /developers/:splat 301
 
-# ─── LAYER 5: SEO & FALLBACK SINKS ───────────────────────────────────────────
+# ─── LAYER 5: SEO & SAFETY SINKS ─────────────────────────────────────────────
+# Ogni rotta /it/ non mappata va all'indice, troncando la ricorsione.
+/it/developers/explanation/adr-vault/*         /developers/explanation/adr-vault/ 301
+/tutorials/examples/z6xx-brand/z602-i18n-parity/ /tutorials/examples/ 301
 /blog/tags/*                                   /blog/ 301
 /category/*                                    / 301
 /it/*                                          / 301

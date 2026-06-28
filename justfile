@@ -186,16 +186,3 @@ docs-serve +args="":
 
 docs-build:
 	uv run --extra docs mkdocs build --strict
-
-# Compile _redirects to Cloudflare Worker
-build-routing:
-    python3 scripts/compile_redirects.py
-
-# Test compiled Cloudflare Worker routes
-test-routing: build-routing
-    node cloudflare_worker/test.js
-
-# Deploy Cloudflare Worker (requires npx wrangler or similar setup)
-deploy-routing: test-routing
-    @echo "Deploying routing worker..."
-    # Add actual deployment command here (e.g. npx wrangler deploy)
