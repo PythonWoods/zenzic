@@ -6,27 +6,67 @@ import { matchRoute } from "./worker.js";
 
 const TEST_CASES = [
   [
-    "/blog/tags/",
-    "/blog/"
+    "/docs",
+    "/"
   ],
   [
-    "/blog/tags/test-item/foo",
-    "/blog/"
+    "/docs/",
+    "/"
   ],
   [
-    "/category/",
-    "/blog/"
+    "/doc",
+    "/"
   ],
   [
-    "/category/test-item/foo",
-    "/blog/"
+    "/doc/",
+    "/"
   ],
   [
-    "/developers/explanation/adr-discovery",
+    "/it",
+    "/"
+  ],
+  [
+    "/it/",
+    "/"
+  ],
+  [
+    "/developers/explanation/adr-vault/adr-lint-source",
+    "/developers/explanation/adr-vault/records/adr-lint-source/"
+  ],
+  [
+    "/developers/explanation/adr-vault/adr-discovery",
     "/developers/explanation/adr-vault/records/adr-discovery/"
   ],
   [
-    "/developers/explanation/adr-discovery/",
+    "/developers/explanation/adr-vault/adr-020",
+    "/developers/explanation/adr-vault/records/adr-020-mirror-law/"
+  ],
+  [
+    "/developers/explanation/adr-vault/adr-021",
+    "/developers/explanation/adr-vault/records/adr-021-parallel-audit/"
+  ],
+  [
+    "/developers/explanation/adr-vault/adr-regex-acl",
+    "/developers/explanation/adr-vault/records/adr-regex-acl/"
+  ],
+  [
+    "/developers/explanation/adr-vault/adr-path-sovereignty",
+    "/developers/explanation/adr-vault/records/adr-path-sovereignty/"
+  ],
+  [
+    "/developers/explanation/adr-vault/adr-agnostic-universalism",
+    "/developers/explanation/adr-vault/records/adr-agnostic-universalism/"
+  ],
+  [
+    "/developers/explanation/adr-vault/adr-native-telemetry",
+    "/developers/explanation/adr-vault/records/adr-native-telemetry/"
+  ],
+  [
+    "/developers/explanation/adr-vault/adr-unified-perimeter",
+    "/developers/explanation/adr-vault/records/adr-unified-perimeter/"
+  ],
+  [
+    "/developers/explanation/adr-discovery",
     "/developers/explanation/adr-vault/records/adr-discovery/"
   ],
   [
@@ -34,23 +74,23 @@ const TEST_CASES = [
     "/developers/explanation/adr-vault/records/adr-021-parallel-audit/"
   ],
   [
-    "/developers/explanation/adr-parallel-early-termination/",
-    "/developers/explanation/adr-vault/records/adr-021-parallel-audit/"
-  ],
-  [
     "/developers/explanation/adr-bilingual-structural",
     "/developers/explanation/adr-vault/records/adr-bilingual-structural/"
   ],
   [
-    "/developers/explanation/adr-bilingual-structural/",
-    "/developers/explanation/adr-vault/records/adr-bilingual-structural/"
+    "/developers/explanation/adr-sovereign-sandbox",
+    "/developers/explanation/adr-vault/records/adr-007-sovereign-sandbox/"
   ],
   [
-    "/developers/explanation/adr-vault/",
+    "/developers/explanation/adr-zero-subprocesses",
+    "/developers/explanation/adr-vault/records/adr-002-zero-subprocesses/"
+  ],
+  [
+    "/it/developers/explanation/adr-vault/",
     "/developers/explanation/adr-vault/records/"
   ],
   [
-    "/developers/explanation/adr-vault/test-item/foo",
+    "/it/developers/explanation/adr-vault/test-item/foo",
     "/developers/explanation/adr-vault/records/test-item/foo"
   ],
   [
@@ -64,6 +104,14 @@ const TEST_CASES = [
   [
     "/blog/zenzic-v0160-engineering-determinism-into-documentation-pipelines",
     "/blog/2026/06/27/zenzic-v0160-engineering-determinism-into-documentation-pipelines/"
+  ],
+  [
+    "/it/blog/",
+    "/blog/"
+  ],
+  [
+    "/it/blog/test-item/foo",
+    "/blog/"
   ],
   [
     "/it/docs/how-to/examples/",
@@ -130,22 +178,6 @@ const TEST_CASES = [
     "/explanation/test-item/foo"
   ],
   [
-    "/it/docs/tutorials/",
-    "/tutorials/"
-  ],
-  [
-    "/it/docs/tutorials/test-item/foo",
-    "/tutorials/test-item/foo"
-  ],
-  [
-    "/docs/tutorials/",
-    "/tutorials/"
-  ],
-  [
-    "/docs/tutorials/test-item/foo",
-    "/tutorials/test-item/foo"
-  ],
-  [
     "/it/docs/developers/",
     "/developers/"
   ],
@@ -162,12 +194,44 @@ const TEST_CASES = [
     "/developers/test-item/foo"
   ],
   [
+    "/tutorials/examples/z6xx-brand/z602-i18n-parity/",
+    "/tutorials/examples/"
+  ],
+  [
+    "/tutorials/examples/z6xx-brand/z602-i18n-parity",
+    "/tutorials/examples/"
+  ],
+  [
+    "/blog/tags/",
+    "/blog/"
+  ],
+  [
+    "/blog/tags/test-item/foo",
+    "/blog/"
+  ],
+  [
+    "/category/",
+    "/"
+  ],
+  [
+    "/category/test-item/foo",
+    "/"
+  ],
+  [
+    "/developers/category/",
+    "/developers/"
+  ],
+  [
+    "/developers/category/test-item/foo",
+    "/developers/"
+  ],
+  [
     "/it/",
     "/"
   ],
   [
     "/it/test-item/foo",
-    "/test-item/foo"
+    "/"
   ],
   [
     "/docs/",

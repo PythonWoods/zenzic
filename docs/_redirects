@@ -1,82 +1,66 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
 #
-# ZENZIC ROUTING KERNEL vFINAL (STABLE / LOOP-FREE)
-# Constraint: deterministic, no root sinks, no hub collapse
+# Zenzic Deterministic Routing Kernel v10 (Disjoint Domain Model)
+# Generated: 2026-07-02
+# Properties: Acyclic, Confluent, Disjoint.
 
-# ─────────────────────────────────────────────
-# LAYER 0: BLOG TAGS (SAFE SINK)
-# ─────────────────────────────────────────────
+# ─── LAYER 1: CANONICAL HYGIENE ──────────────────────────────────────────────
+/docs           /  301
+/docs/          /  301
+/doc            /  301
+/doc/           /  301
+/it             /  301
+/it/            /  301
 
-/blog/tags/*        /blog/ 301
+# ─── LAYER 2: ADR EXPLICIT FINITE SET (No Wildcards) ─────────────────────────
+# Full Path Overrides
+/developers/explanation/adr-vault/adr-lint-source         /developers/explanation/adr-vault/records/adr-lint-source/ 301
+/developers/explanation/adr-vault/adr-discovery           /developers/explanation/adr-vault/records/adr-discovery/ 301
+/developers/explanation/adr-vault/adr-020                 /developers/explanation/adr-vault/records/adr-020-mirror-law/ 301
+/developers/explanation/adr-vault/adr-021                 /developers/explanation/adr-vault/records/adr-021-parallel-audit/ 301
+/developers/explanation/adr-vault/adr-regex-acl           /developers/explanation/adr-vault/records/adr-regex-acl/ 301
+/developers/explanation/adr-vault/adr-path-sovereignty     /developers/explanation/adr-vault/records/adr-path-sovereignty/ 301
+/developers/explanation/adr-vault/adr-agnostic-universalism /developers/explanation/adr-vault/records/adr-agnostic-universalism/ 301
+/developers/explanation/adr-vault/adr-native-telemetry     /developers/explanation/adr-vault/records/adr-native-telemetry/ 301
+/developers/explanation/adr-vault/adr-unified-perimeter    /developers/explanation/adr-vault/records/adr-unified-perimeter/ 301
 
-# Category pages: redirect to blog index (NOT root)
-/category/*         /blog/ 301
+# Short Path Overrides (Legacy Discovery)
+/developers/explanation/adr-discovery                    /developers/explanation/adr-vault/records/adr-discovery/ 301
+/developers/explanation/adr-parallel-early-termination   /developers/explanation/adr-vault/records/adr-021-parallel-audit/ 301
+/developers/explanation/adr-bilingual-structural         /developers/explanation/adr-vault/records/adr-bilingual-structural/ 301
+/developers/explanation/adr-sovereign-sandbox            /developers/explanation/adr-vault/records/adr-007-sovereign-sandbox/ 301
+/developers/explanation/adr-zero-subprocesses            /developers/explanation/adr-vault/records/adr-002-zero-subprocesses/ 301
 
-# ─────────────────────────────────────────────
-# LAYER 1: ADR SHORT PATHS (EXACT ONLY)
-# ─────────────────────────────────────────────
+# Italian ADR Overrides
+/it/developers/explanation/adr-vault/*                    /developers/explanation/adr-vault/records/:splat/ 301
 
-/developers/explanation/adr-discovery                          /developers/explanation/adr-vault/records/adr-discovery/ 301
-/developers/explanation/adr-discovery/                         /developers/explanation/adr-vault/records/adr-discovery/ 301
+# ─── LAYER 3: BLOG CANONICAL SLUGS ───────────────────────────────────────────
+/blog/welcome                                 /blog/2026/04/28/welcome-to-the-zenzic-blog/ 301
+/blog/welcome/                                /blog/2026/04/28/welcome-to-the-zenzic-blog/ 301
+/blog/zenzic-v0160-engineering-determinism-into-documentation-pipelines /blog/2026/06/27/zenzic-v0160-engineering-determinism-into-documentation-pipelines/ 301
 
-/developers/explanation/adr-parallel-early-termination         /developers/explanation/adr-vault/records/adr-021-parallel-audit/ 301
-/developers/explanation/adr-parallel-early-termination/        /developers/explanation/adr-vault/records/adr-021-parallel-audit/ 301
+# ─── LAYER 4: STRUCTURAL STRIPPING (High-Value Folders) ──────────────────────
+/it/blog/*                                    /blog/ 301
+/it/docs/how-to/examples/*                     /tutorials/examples/:splat 301
+/it/docs/tutorials/examples/*                  /tutorials/examples/:splat 301
+/it/docs/how-to/*                              /how-to/:splat 301
+/docs/how-to/*                                 /how-to/:splat 301
+/it/docs/reference/*                           /reference/:splat 301
+/docs/reference/*                              /reference/:splat 301
+/it/docs/explanation/*                         /explanation/:splat 301
+/docs/explanation/*                            /explanation/:splat 301
+/it/docs/developers/*                          /developers/:splat 301
+/docs/developers/*                             /developers/:splat 301
 
-/developers/explanation/adr-bilingual-structural              /developers/explanation/adr-vault/records/adr-bilingual-structural/ 301
-/developers/explanation/adr-bilingual-structural/             /developers/explanation/adr-vault/records/adr-bilingual-structural/ 301
+# ─── LAYER 5: SEO DAMPING (Deleted Content Shield) ────────────────────────────
+/tutorials/examples/z6xx-brand/z602-i18n-parity/ /tutorials/examples/ 301
+/tutorials/examples/z6xx-brand/z602-i18n-parity  /tutorials/examples/ 301
+/blog/tags/*                                   /blog/ 301
+/category/*                                    / 301
+/developers/category/*                         /developers/ 301
 
-# ─────────────────────────────────────────────
-# LAYER 2: ADR VAULT (WILDCARD SAFE)
-# ─────────────────────────────────────────────
-
-/developers/explanation/adr-vault/*  /developers/explanation/adr-vault/records/:splat/ 301
-
-# ─────────────────────────────────────────────
-# LAYER 3: BLOG CANONICALS
-# ─────────────────────────────────────────────
-
-/blog/welcome        /blog/2026/04/28/welcome-to-the-zenzic-blog/ 301
-/blog/welcome/       /blog/2026/04/28/welcome-to-the-zenzic-blog/ 301
-
-/blog/zenzic-v0160-engineering-determinism-into-documentation-pipelines  /blog/2026/06/27/zenzic-v0160-engineering-determinism-into-documentation-pipelines/ 301
-
-# ─────────────────────────────────────────────
-# LAYER 4: TUTORIALS (NO HUB COLLAPSE)
-# ─────────────────────────────────────────────
-
-# (Removed self-referential wildcard and deep page self-redirect to strictly prevent ERR_TOO_MANY_REDIRECTS loops)
-
-# ─────────────────────────────────────────────
-# LAYER 5: STRUCTURAL STRIPPING (i18n / legacy docs)
-# ─────────────────────────────────────────────
-
-/it/docs/how-to/examples/*    /tutorials/examples/:splat 301
-/it/docs/tutorials/examples/* /tutorials/examples/:splat 301
-
-/it/docs/how-to/*             /how-to/:splat 301
-/docs/how-to/*                /how-to/:splat 301
-
-/it/docs/reference/*          /reference/:splat 301
-/docs/reference/*             /reference/:splat 301
-
-/it/docs/explanation/*        /explanation/:splat 301
-/docs/explanation/*           /explanation/:splat 301
-
-/it/docs/tutorials/*          /tutorials/:splat 301
-/docs/tutorials/*             /tutorials/:splat 301
-
-/it/docs/developers/*         /developers/:splat 301
-/docs/developers/*            /developers/:splat 301
-
-# ─────────────────────────────────────────────
-# LAYER 6: i18n MIRROR (SAFE LAST STEP)
-# ─────────────────────────────────────────────
-
-/it/*  /:splat 301
-
-# ─────────────────────────────────────────────
-# LAYER 7: DOCS REMOVAL (SAFE MIRROR, NOT ROOT COLLAPSE)
-# ─────────────────────────────────────────────
-
-/docs/*  / 301
+# ─── LAYER 6: SAFE FALLBACK SINKS (Non-Structural) ────────────────────────────
+# Previene la ricostruzione di path incoerenti eliminando l'uso di :splat.
+/it/*                                          / 301
+/docs/*                                        / 301

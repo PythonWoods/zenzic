@@ -6,29 +6,113 @@
 
 export const ROUTES = [
   {
-    "type": "prefix",
-    "from": "/blog/tags/",
-    "to": "/blog/",
-    "strip": false,
-    "code": 301
-  },
-  {
-    "type": "prefix",
-    "from": "/category/",
-    "to": "/blog/",
+    "type": "exact",
+    "from": "/docs",
+    "to": "/",
     "strip": false,
     "code": 301
   },
   {
     "type": "exact",
-    "from": "/developers/explanation/adr-discovery",
+    "from": "/docs/",
+    "to": "/",
+    "strip": false,
+    "code": 301
+  },
+  {
+    "type": "exact",
+    "from": "/doc",
+    "to": "/",
+    "strip": false,
+    "code": 301
+  },
+  {
+    "type": "exact",
+    "from": "/doc/",
+    "to": "/",
+    "strip": false,
+    "code": 301
+  },
+  {
+    "type": "exact",
+    "from": "/it",
+    "to": "/",
+    "strip": false,
+    "code": 301
+  },
+  {
+    "type": "exact",
+    "from": "/it/",
+    "to": "/",
+    "strip": false,
+    "code": 301
+  },
+  {
+    "type": "exact",
+    "from": "/developers/explanation/adr-vault/adr-lint-source",
+    "to": "/developers/explanation/adr-vault/records/adr-lint-source/",
+    "strip": false,
+    "code": 301
+  },
+  {
+    "type": "exact",
+    "from": "/developers/explanation/adr-vault/adr-discovery",
     "to": "/developers/explanation/adr-vault/records/adr-discovery/",
     "strip": false,
     "code": 301
   },
   {
     "type": "exact",
-    "from": "/developers/explanation/adr-discovery/",
+    "from": "/developers/explanation/adr-vault/adr-020",
+    "to": "/developers/explanation/adr-vault/records/adr-020-mirror-law/",
+    "strip": false,
+    "code": 301
+  },
+  {
+    "type": "exact",
+    "from": "/developers/explanation/adr-vault/adr-021",
+    "to": "/developers/explanation/adr-vault/records/adr-021-parallel-audit/",
+    "strip": false,
+    "code": 301
+  },
+  {
+    "type": "exact",
+    "from": "/developers/explanation/adr-vault/adr-regex-acl",
+    "to": "/developers/explanation/adr-vault/records/adr-regex-acl/",
+    "strip": false,
+    "code": 301
+  },
+  {
+    "type": "exact",
+    "from": "/developers/explanation/adr-vault/adr-path-sovereignty",
+    "to": "/developers/explanation/adr-vault/records/adr-path-sovereignty/",
+    "strip": false,
+    "code": 301
+  },
+  {
+    "type": "exact",
+    "from": "/developers/explanation/adr-vault/adr-agnostic-universalism",
+    "to": "/developers/explanation/adr-vault/records/adr-agnostic-universalism/",
+    "strip": false,
+    "code": 301
+  },
+  {
+    "type": "exact",
+    "from": "/developers/explanation/adr-vault/adr-native-telemetry",
+    "to": "/developers/explanation/adr-vault/records/adr-native-telemetry/",
+    "strip": false,
+    "code": 301
+  },
+  {
+    "type": "exact",
+    "from": "/developers/explanation/adr-vault/adr-unified-perimeter",
+    "to": "/developers/explanation/adr-vault/records/adr-unified-perimeter/",
+    "strip": false,
+    "code": 301
+  },
+  {
+    "type": "exact",
+    "from": "/developers/explanation/adr-discovery",
     "to": "/developers/explanation/adr-vault/records/adr-discovery/",
     "strip": false,
     "code": 301
@@ -42,13 +126,6 @@ export const ROUTES = [
   },
   {
     "type": "exact",
-    "from": "/developers/explanation/adr-parallel-early-termination/",
-    "to": "/developers/explanation/adr-vault/records/adr-021-parallel-audit/",
-    "strip": false,
-    "code": 301
-  },
-  {
-    "type": "exact",
     "from": "/developers/explanation/adr-bilingual-structural",
     "to": "/developers/explanation/adr-vault/records/adr-bilingual-structural/",
     "strip": false,
@@ -56,14 +133,21 @@ export const ROUTES = [
   },
   {
     "type": "exact",
-    "from": "/developers/explanation/adr-bilingual-structural/",
-    "to": "/developers/explanation/adr-vault/records/adr-bilingual-structural/",
+    "from": "/developers/explanation/adr-sovereign-sandbox",
+    "to": "/developers/explanation/adr-vault/records/adr-007-sovereign-sandbox/",
+    "strip": false,
+    "code": 301
+  },
+  {
+    "type": "exact",
+    "from": "/developers/explanation/adr-zero-subprocesses",
+    "to": "/developers/explanation/adr-vault/records/adr-002-zero-subprocesses/",
     "strip": false,
     "code": 301
   },
   {
     "type": "prefix",
-    "from": "/developers/explanation/adr-vault/",
+    "from": "/it/developers/explanation/adr-vault/",
     "to": "/developers/explanation/adr-vault/records/",
     "strip": true,
     "code": 301
@@ -86,6 +170,13 @@ export const ROUTES = [
     "type": "exact",
     "from": "/blog/zenzic-v0160-engineering-determinism-into-documentation-pipelines",
     "to": "/blog/2026/06/27/zenzic-v0160-engineering-determinism-into-documentation-pipelines/",
+    "strip": false,
+    "code": 301
+  },
+  {
+    "type": "prefix",
+    "from": "/it/blog/",
+    "to": "/blog/",
     "strip": false,
     "code": 301
   },
@@ -147,20 +238,6 @@ export const ROUTES = [
   },
   {
     "type": "prefix",
-    "from": "/it/docs/tutorials/",
-    "to": "/tutorials/",
-    "strip": true,
-    "code": 301
-  },
-  {
-    "type": "prefix",
-    "from": "/docs/tutorials/",
-    "to": "/tutorials/",
-    "strip": true,
-    "code": 301
-  },
-  {
-    "type": "prefix",
     "from": "/it/docs/developers/",
     "to": "/developers/",
     "strip": true,
@@ -174,10 +251,45 @@ export const ROUTES = [
     "code": 301
   },
   {
+    "type": "exact",
+    "from": "/tutorials/examples/z6xx-brand/z602-i18n-parity/",
+    "to": "/tutorials/examples/",
+    "strip": false,
+    "code": 301
+  },
+  {
+    "type": "exact",
+    "from": "/tutorials/examples/z6xx-brand/z602-i18n-parity",
+    "to": "/tutorials/examples/",
+    "strip": false,
+    "code": 301
+  },
+  {
+    "type": "prefix",
+    "from": "/blog/tags/",
+    "to": "/blog/",
+    "strip": false,
+    "code": 301
+  },
+  {
+    "type": "prefix",
+    "from": "/category/",
+    "to": "/",
+    "strip": false,
+    "code": 301
+  },
+  {
+    "type": "prefix",
+    "from": "/developers/category/",
+    "to": "/developers/",
+    "strip": false,
+    "code": 301
+  },
+  {
     "type": "prefix",
     "from": "/it/",
     "to": "/",
-    "strip": true,
+    "strip": false,
     "code": 301
   },
   {
