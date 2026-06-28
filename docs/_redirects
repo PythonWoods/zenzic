@@ -1,7 +1,8 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
 #
-# ZENZIC ROUTING KERNEL vFINAL (COVERAGE COMPLETE - NO KNOWN 404 CLASS)
+# ZENZIC ROUTING KERNEL v8 (SEO SAFE / NO COLLAPSE MODEL)
+# Principle: preserve semantic distance, avoid hub overloading
 
 # ─────────────────────────────────────────────────────────────
 # LAYER 0: EXPLICIT LEAKAGE SINKS
@@ -11,21 +12,27 @@
 /category/*         / 301
 
 # ─────────────────────────────────────────────────────────────
-# LAYER 1: ADR SHORT-PATH (EXPLICIT FIXES - MUST PRECEDE WILDCARD)
+# LAYER 1: ADR SHORT PATHS (PRESERVATION MODE)
+# ─────────────────────────────────────────────────────────────
+# IMPORTANT: NEVER collapse multiple ADRs into /developers/
+
+# Discovery
+/developers/explanation/adr-discovery              /developers/explanation/adr-vault/records/adr-discovery/ 301
+/developers/explanation/adr-discovery/             /developers/explanation/adr-vault/records/adr-discovery/ 301
+
+# Parallel termination
+/developers/explanation/adr-parallel-early-termination   /developers/explanation/adr-vault/records/adr-021-parallel-audit/ 301
+/developers/explanation/adr-parallel-early-termination/  /developers/explanation/adr-vault/records/adr-021-parallel-audit/ 301
+
+# Bilingual structural
+/developers/explanation/adr-bilingual-structural         /developers/explanation/adr-vault/records/adr-bilingual-structural/ 301
+/developers/explanation/adr-bilingual-structural/        /developers/explanation/adr-vault/records/adr-bilingual-structural/ 301
+
+# ─────────────────────────────────────────────────────────────
+# LAYER 2: ADR VAULT WILDCARD (SAFE EXPANSION ONLY)
 # ─────────────────────────────────────────────────────────────
 
-/developers/explanation/adr-discovery                           /developers/ 301
-/developers/explanation/adr-discovery/                          /developers/ 301
-/developers/explanation/adr-parallel-early-termination           /developers/ 301
-/developers/explanation/adr-parallel-early-termination/          /developers/ 301
-/developers/explanation/adr-bilingual-structural                 /developers/ 301
-/developers/explanation/adr-bilingual-structural/                /developers/ 301
-
-# ─────────────────────────────────────────────────────────────
-# LAYER 2: ADR VAULT WILDCARD (CLOSURE)
-# ─────────────────────────────────────────────────────────────
-
-/developers/explanation/adr-vault/*                             /developers/explanation/adr-vault/records/:splat/ 301
+/developers/explanation/adr-vault/*  /developers/explanation/adr-vault/records/:splat/ 301
 
 # ─────────────────────────────────────────────────────────────
 # LAYER 3: BLOG CANONICALIZATION
@@ -34,17 +41,19 @@
 /blog/welcome        /blog/2026/04/28/welcome-to-the-zenzic-blog/ 301
 /blog/welcome/       /blog/2026/04/28/welcome-to-the-zenzic-blog/ 301
 
-/blog/zenzic-v0160-engineering-determinism-into-documentation-pipelines        /blog/2026/06/27/zenzic-v0160-engineering-determinism-into-documentation-pipelines/ 301
+/blog/zenzic-v0160-engineering-determinism-into-documentation-pipelines  /blog/2026/06/27/zenzic-v0160-engineering-determinism-into-documentation-pipelines/ 301
 
 # ─────────────────────────────────────────────────────────────
-# LAYER 4: TUTORIALS (FIX REALE DEI 404 CHE HAI SEGNALATO)
+# LAYER 4: TUTORIALS (PRESERVE DEPTH - NO COLLAPSE TO ROOT)
 # ─────────────────────────────────────────────────────────────
 
-/tutorials/examples/z6xx-brand/z602-i18n-parity                 /tutorials/ 301
-/tutorials/examples/z6xx-brand/z602-i18n-parity/                /tutorials/ 301
+# FIX: deep page must map to its section, not hub root
+/tutorials/examples/z6xx-brand/z602-i18n-parity  /tutorials/examples/z6xx-brand/z602-i18n-parity/ 301
 
-# CATCH-ALL ESSENZIALE PER DEEP PATH (QUESTO RISOLVE IL TUO BUG)
-/tutorials/examples/*                                           /tutorials/examples/:splat/ 301
+/tutorials/examples/z6xx-brand/z602-i18n-parity/  /tutorials/examples/z6xx-brand/z602-i18n-parity/ 301
+
+# SAFE WILDCARD FOR EXAMPLES SUBTREE
+/tutorials/examples/*  /tutorials/examples/:splat/ 301
 
 # ─────────────────────────────────────────────────────────────
 # LAYER 5: STRUCTURAL STRIPPING (i18n + legacy docs)
@@ -81,10 +90,10 @@
 /docs/*  /:splat 301
 
 # ─────────────────────────────────────────────────────────────
-# LAYER 8: UI GENERATED INDEX FALLBACKS (SEO SAFE DAMPING)
+# LAYER 8: UI GENERATED INDEX FALLBACKS (NON-COLLAPSING)
 # ─────────────────────────────────────────────────────────────
 
-/developers/category/*   /developers/ 301
+/developers/category/*   /developers/explanation/ 301
 
 /blog/authors            /blog/ 301
 /blog/authors/           /blog/ 301
