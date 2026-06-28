@@ -11,7 +11,7 @@ categories:
 
 # Zenzic v0.17.0: Closing the HTML Blind Spot
 
-With the release of Zenzic v0.17.0 (Magnetite Polyglot), we are marking a fundamental shift in our architecture. Zenzic is no longer just a "Markdown Linter". It has evolved into a full-fledged **Document Integrity Engine**.
+With the release of Zenzic v0.17.0, we are marking a fundamental shift in our architecture. Zenzic is no longer just a "Markdown Linter". It has evolved into a full-fledged **Document Integrity Engine**.
 
 For a long time, the documentation ecosystem has suffered from an architectural blind spot: raw HTML inside Markdown. When developers embed `<a>` tags or `<img>` elements directly into their Markdown to achieve specific layouts or functionality, traditional linters gloss over them. This creates a "Shadow Zone" where broken links and missing assets silently accumulate.
 
