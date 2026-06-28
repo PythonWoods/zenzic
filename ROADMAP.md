@@ -14,32 +14,6 @@ For the current release history, see [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
-## Recent Releases
-
-### [v0.15.0] - The Semantic Hygiene Update
-
-- [x] **Z603 DEAD_SUPPRESSION:** Detects inline `zenzic:ignore` directives that do not correspond to any active finding. (Completed)
-- [x] **Z108 STALE_ALLOWLIST_ENTRY** (now Z110, Issue #70): Config-hygiene check for unused `absolute_path_allowlist` entries. (Completed)
-- [x] **Semantic Schemas Validation** (Z001): TOML/JSON/YAML schema structure validation during bootstrap. (Completed)
-
----
-
-### [v0.16.0] - The AST Foundations
-
-- Deterministic Markdown Renderer (Issue #11)
-- Custom Rules API v2 (AST Walker)
-- Z407 BROKEN_CODE_REFERENCE
-- CLI Live URL Resolution (DX Rewrite)
-
-### [v0.17.0] - The HTML Blind Spot (Magnetite Polyglot)
-
-- [x] **Polyglot Extractor:** Native support for parsing `<a>` and `<img>` tags.
-- [x] **HTML Integrity:** Implementation of Z120-Z124.
-- [x] **Z205 FORBIDDEN_SCHEME:** Inviolable security gate against malicious URI schemes (`javascript:`, `data:`).
-- [x] **Z118 STALE_GLOBAL_SUPPRESSION:** Configuration hygiene enforcement via `GlobalUsageTracker`.
-
----
-
 ## [v0.18.0] - Shift-Left to the Keystroke (IDE Integration & LSP)
 
 *Pushing the "Hostile Precision" feedback loop directly into the authoring environment.*
