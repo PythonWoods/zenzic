@@ -200,6 +200,9 @@ def check_links(
         )
         for err in link_errors
     ]
+    _append_z118_findings(
+        findings, config, repo_root, check_all=False, check_external_urls=not no_external
+    )
     findings = _filter_flat_findings(findings, only)
 
     if output_format == "json":
@@ -354,6 +357,7 @@ def check_orphans(
         )
         for path in orphans
     ]
+    _append_z118_findings(findings, config, repo_root, check_all=False, check_external_urls=False)
     findings = _filter_flat_findings(findings, only)
 
     if output_format == "json":
@@ -787,6 +791,7 @@ def check_assets(
         )
         for path in unused
     ]
+    _append_z118_findings(findings, config, repo_root, check_all=False, check_external_urls=False)
     findings = _filter_flat_findings(findings, only)
 
     if output_format == "json":
@@ -1106,7 +1111,37 @@ def _collect_all_results(
     )
 
 
-def _to_findings(results: _AllCheckResults, docs_root: Path, repo_root: Path) -> list[Finding]:
+def _append_z118_findings(
+    findings: list[Finding],
+    config: ZenzicConfig,
+    repo_root: Path,
+    check_all: bool,
+    check_external_urls: bool,
+) -> None:
+    tracker = getattr(config, "_global_tracker", None)
+    if not tracker:
+        return
+    for stale in tracker.get_stale_findings(
+        check_all=check_all, check_external_urls=check_external_urls
+    ):
+        try:
+            rp = str(stale.file_path.relative_to(repo_root))
+        except ValueError:
+            rp = str(stale.file_path)
+        findings.append(
+            Finding(
+                rel_path=rp,
+                line_no=stale.line_no,
+                code=stale.rule_id,
+                severity=stale.severity,
+                message=stale.message,
+            )
+        )
+
+
+def _to_findings(
+    results: _AllCheckResults, docs_root: Path, repo_root: Path, config: ZenzicConfig | None = None
+) -> list[Finding]:
     """Convert all result types into a flat list of :class:`Finding`."""
     findings: list[Finding] = []
 
@@ -1500,9 +1535,12 @@ def check_all(
 
     if output_format == "json":
         with sovereign_context(force_audit=audit):
-            all_findings = _to_findings(results, docs_root, repo_root)
+            all_findings = _to_findings(results, docs_root, repo_root, config)
             all_findings = _apply_per_file_ignores(all_findings, config)
             all_findings = _apply_directory_policies(all_findings, config)
+            _append_z118_findings(
+                all_findings, config, repo_root, check_all=True, check_external_urls=True
+            )
 
         _shared._output_check_all_json_findings(
             results, all_findings, repo_root, docs_root, config, suppression_audit
@@ -1520,9 +1558,12 @@ def check_all(
         return
     elif output_format == "sarif":
         with sovereign_context(force_audit=audit):
-            all_findings = _to_findings(results, docs_root, repo_root)
+            all_findings = _to_findings(results, docs_root, repo_root, config)
             all_findings = _apply_per_file_ignores(all_findings, config)
             all_findings = _apply_directory_policies(all_findings, config)
+            _append_z118_findings(
+                all_findings, config, repo_root, check_all=True, check_external_urls=True
+            )
         _shared._output_sarif_findings(all_findings, __version__)
         incidents = sum(1 for f in all_findings if f.severity == "security_incident")
         if incidents:
@@ -1536,9 +1577,12 @@ def check_all(
         return
     elif output_format == "github-annotations":
         with sovereign_context(force_audit=audit):
-            all_findings = _to_findings(results, docs_root, repo_root)
+            all_findings = _to_findings(results, docs_root, repo_root, config)
             all_findings = _apply_per_file_ignores(all_findings, config)
             all_findings = _apply_directory_policies(all_findings, config)
+            _append_z118_findings(
+                all_findings, config, repo_root, check_all=True, check_external_urls=True
+            )
         if _single_file is not None:
             _sf_rel = str(_single_file.relative_to(repo_root))
             all_findings = [f for f in all_findings if f.rel_path == _sf_rel]
@@ -1561,9 +1605,12 @@ def check_all(
         return
 
     with sovereign_context(force_audit=audit):
-        all_findings = _to_findings(results, docs_root, repo_root)
+        all_findings = _to_findings(results, docs_root, repo_root, config)
         all_findings = _apply_per_file_ignores(all_findings, config)
         all_findings = _apply_directory_policies(all_findings, config)
+        _append_z118_findings(
+            all_findings, config, repo_root, check_all=True, check_external_urls=True
+        )
 
     if _single_file is not None:
         _sf_rel = str(_single_file.relative_to(repo_root))

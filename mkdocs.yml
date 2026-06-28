@@ -41,6 +41,7 @@ nav:
         - tutorials/examples/z1xx-links/z108-empty-link-text.md
         - tutorials/examples/z1xx-links/z109-external-link-broken.md
         - tutorials/examples/z1xx-links/z110-stale-allowlist.md
+        - tutorials/examples/z1xx-links/z118-stale-global-suppression.md
         - tutorials/examples/z1xx-links/z120-unknown-html-attr.md
         - tutorials/examples/z1xx-links/z121-missing-href.md
         - tutorials/examples/z1xx-links/z122-jump-link.md

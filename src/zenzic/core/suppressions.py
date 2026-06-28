@@ -12,6 +12,7 @@ from zenzic.core.sovereign_context import get_sovereign_context
 
 if TYPE_CHECKING:
     from zenzic.core.rules import RuleFinding
+    from zenzic.models.config import ZenzicConfig
 
 
 #: Fenced code block line: captures the fence chars and the full info string.
@@ -37,11 +38,16 @@ class SuppressionTracker:
     """Tracks inline suppressions within a single file to identify Z603 Dead Suppressions."""
 
     def __init__(
-        self, file_path: Path, text: str, globally_suppressed_codes: set[str] | None = None
+        self,
+        file_path: Path,
+        text: str,
+        globally_suppressed_codes: dict[str, list[str]] | None = None,
+        global_tracker: "GlobalUsageTracker | None" = None,
     ):
         self.file_path = file_path
         self.directives: list[SuppressionDirective] = []
-        self.globally_suppressed_codes = globally_suppressed_codes or set()
+        self.globally_suppressed_codes = globally_suppressed_codes or {}
+        self.global_tracker = global_tracker
         self._parse(text)
 
     def _parse(self, text: str) -> None:
@@ -91,6 +97,9 @@ class SuppressionTracker:
         # If the finding is already globally suppressed, do NOT consume the inline directive.
         # This leaves the inline directive unconsumed, so get_dead_suppressions() emits Z603.
         if code in self.globally_suppressed_codes:
+            if self.global_tracker:
+                for pattern in self.globally_suppressed_codes[code]:
+                    self.global_tracker.mark_directory_policy_used(pattern, code)
             return True
 
         suppressed = False
@@ -123,3 +132,85 @@ def count_inline_suppressions(text: str) -> int:
     """Count suppression directives declared in Markdown/MDX source text."""
     tracker = SuppressionTracker(Path("dummy"), text)
     return len(tracker.directives)
+
+
+class GlobalUsageTracker:
+    """Tracks global policy usage (Z118) for directory_policies, excluded_file_patterns, and excluded_external_urls."""
+
+    def __init__(self, config: "ZenzicConfig"):
+        self.config = config
+        self.unused_dir_policies: set[tuple[str, str]] = set()
+        self.unused_file_patterns: set[str] = set()
+        self.unused_ext_urls: set[str] = set()
+
+        if getattr(config, "governance", None) and config.governance.directory_policies:
+            for pattern, codes in config.governance.directory_policies.items():
+                for code in codes:
+                    self.unused_dir_policies.add((pattern, str(code).upper()))
+
+        if getattr(config, "excluded_file_patterns", None):
+            for pattern in config.excluded_file_patterns:
+                self.unused_file_patterns.add(pattern)
+
+        if getattr(config, "excluded_external_urls", None):
+            for url in config.excluded_external_urls:
+                self.unused_ext_urls.add(url)
+
+    def mark_directory_policy_used(self, pattern: str, code: str) -> None:
+        self.unused_dir_policies.discard((pattern, code.upper()))
+
+    def mark_excluded_file_pattern_used(self, pattern: str) -> None:
+        self.unused_file_patterns.discard(pattern)
+
+    def mark_excluded_external_url_used(self, url: str) -> None:
+        self.unused_ext_urls.discard(url)
+
+    def get_stale_findings(
+        self,
+        check_all: bool = True,
+        check_external_urls: bool = True,
+    ) -> list["RuleFinding"]:
+        from zenzic.core.rules import RuleFinding
+
+        origin = self.config.origin_file or Path(".zenzic.toml")
+        findings = []
+
+        if check_all:
+            for pattern, code in sorted(self.unused_dir_policies):
+                # Do not complain about Z502 for the root files or Z601 for adr vault (these are implicit/system)
+                if pattern in ("docs/index.md", "docs/blog/index.md") and code == "Z502":
+                    continue
+                findings.append(
+                    RuleFinding(
+                        file_path=origin,
+                        line_no=1,
+                        rule_id="Z118",
+                        message=f"Global policy '{pattern}' = ['{code}'] was never used to suppress a finding. Remove the dead configuration.",
+                        severity="warning",
+                    )
+                )
+
+        for pattern in sorted(self.unused_file_patterns):
+            findings.append(
+                RuleFinding(
+                    file_path=origin,
+                    line_no=1,
+                    rule_id="Z118",
+                    message=f"Excluded file pattern '{pattern}' did not match any files during traversal.",
+                    severity="warning",
+                )
+            )
+
+        if check_external_urls:
+            for url in sorted(self.unused_ext_urls):
+                findings.append(
+                    RuleFinding(
+                        file_path=origin,
+                        line_no=1,
+                        rule_id="Z118",
+                        message=f"Excluded external URL '{url}' was never skipped (the URL was not found in checked files).",
+                        severity="warning",
+                    )
+                )
+
+        return findings

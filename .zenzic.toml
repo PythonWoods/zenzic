@@ -35,61 +35,29 @@ fail_under = 98
 excluded_external_urls = [
     # Prevents HTTP 429 (Too Many Requests) rate-limiting from GitHub in CI.
     "https://github.com/PythonWoods/zenzic",
-    # Prevents HTTP 403 (Forbidden) since the CI runner is an unauthenticated bot.
-    "https://github.com/settings/tokens",
     # GitHub API rate-limits unauthenticated CI runners; prefix covers all remaining github.com links.
     "https://github.com",
-    # contributor-covenant.org consistently times out (> 10 s) from CI environments.
-    "https://www.contributor-covenant.org/version/2/1/code_of_conduct.html",
-    "https://www.contributor-covenant.org",
-    # Shields.io applies rate-limiting to CI runners (HTTP 429); prefix covers all badge URLs.
-    "https://img.shields.io",
 ]
 
-excluded_build_artifacts = [
-    "blog/rss.xml",
-    "blog/atom.xml",
-]
 
 # Z204 Privacy Gate — terms that must never appear in published docs.
 # forbidden_patterns = []
 
 # --- EXCLUSION ZONES (Full bypass — use sparingly) ---
-excluded_file_patterns = ["RELEASE.md", "CITATION.cff"]
+excluded_file_patterns = []
 # Paths listed here are INVISIBLE to Zenzic: no findings, no audit trail.
 # Prefer [governance.per_file_ignores]
 
 [governance.directory_policies]
-"docs/index.md" = ["Z502"]
-"docs/blog/index.md" = ["Z502"]
 "docs/assets/**" = ["Z405"]
-"docs/blog/**" = ["Z503", "Z402", "Z101"]
-"docs/blog/posts/**" = ["Z402"]
-"docs/tutorials/examples/**" = [
-    "Z101",
-    "Z102",
-    "Z103",
-    "Z104",
-    "Z105",
-    "Z107",
-    "Z108",
-    "Z109",
-    "Z201",
-    "Z202",
-    "Z204",
-    "Z301",
-    "Z302",
-    "Z303",
-    "Z402",
-    "Z403",
-    "Z405",
-    "Z501",
-    "Z502",
-    "Z503",
-    "Z505",
-    "Z506",
-    "Z601",
-    "Z603",
-]
-"docs/developers/explanation/adr-vault/records/**" = ["Z601"]
-"docs/developers/how-to/contribute/**" = ["Z107"]
+"docs/blog/**" = ["Z402", "Z101"]
+"docs/blog/posts/**" = ["Z104"]
+
+"docs/tutorials/examples/z1xx-links/z107-circular-anchor.md" = ["Z107"]
+"docs/tutorials/examples/z5xx-content/z506-malformed-frontmatter.md" = ["Z506", "Z503"]
+"docs/index.md" = ["Z502"]
+
+"docs/blog/index.md" = ["Z502"]
+"docs/blog/posts/2026-06-09-auditing-the-auditors.md" = ["Z503"]
+"docs/developers/how-to/contribute/report-a-bug.md" = ["Z107"]
+"docs/developers/how-to/contribute/request-a-change.md" = ["Z107"]

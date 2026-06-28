@@ -446,7 +446,7 @@ def _apply_directory_policies(findings: list[Finding], config: ZenzicConfig) -> 
     if not config.governance.directory_policies:
         return findings
 
-    normalized_map: list[tuple[Any, set[str]]] = []
+    normalized_map: list[tuple[Any, set[str], str]] = []
     for pattern, codes in config.governance.directory_policies.items():
         if not isinstance(pattern, str) or not isinstance(codes, list):
             continue
@@ -459,7 +459,7 @@ def _apply_directory_policies(findings: list[Finding], config: ZenzicConfig) -> 
             try:
                 regex_str = translate_glob_to_re2(pattern)
                 compiled = re.compile(regex_str)
-                normalized_map.append((compiled, normalized_codes))
+                normalized_map.append((compiled, normalized_codes, pattern))
             except Exception:
                 pass
 
@@ -473,10 +473,14 @@ def _apply_directory_policies(findings: list[Finding], config: ZenzicConfig) -> 
         if code in NON_SUPPRESSIBLE_CODES:
             filtered.append(finding)
             continue
-        is_exempt = any(
-            bool(compiled.fullmatch(finding.rel_path)) and code in codes
-            for compiled, codes in normalized_map
-        )
+        is_exempt = False
+        for compiled, rule_codes, original_pattern in normalized_map:
+            if bool(compiled.fullmatch(finding.rel_path)) and code in rule_codes:
+                is_exempt = True
+                tracker = getattr(config, "_global_tracker", None)
+                if tracker:
+                    tracker.mark_directory_policy_used(original_pattern, code)
+                break
         if is_exempt:
             if audit_mode:
                 filtered.append(

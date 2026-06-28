@@ -1715,12 +1715,21 @@ async def validate_links_async(
 
     # ── Pass 3 (strict only, check_external=True): validate external links ─────
     excluded = config.excluded_external_urls
+    global_tracker = getattr(config, "_global_tracker", None)
     if excluded:
-        external_entries = [
-            (url, label, lineno)
-            for url, label, lineno in external_entries
-            if not any(url.startswith(prefix) for prefix in excluded)
-        ]
+        filtered_external = []
+        for url, label, lineno in external_entries:
+            matched_prefix = None
+            for prefix in excluded:
+                if url.startswith(prefix):
+                    matched_prefix = prefix
+                    break
+            if matched_prefix:
+                if global_tracker:
+                    global_tracker.mark_excluded_external_url_used(matched_prefix)
+            else:
+                filtered_external.append((url, label, lineno))
+        external_entries = filtered_external
     ext_error_strs = await _check_external_links(external_entries, config, repo_root)
     ext_link_errors = [
         LinkError(

@@ -14,7 +14,7 @@ else:
     import tomli as tomllib  # PEP 680 backport
 from typing import Any, Final, Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, PrivateAttr, field_validator
 
 from zenzic.core import regex as re
 from zenzic.core.ui import ZenzicPalette
@@ -322,6 +322,7 @@ SYSTEM_EXCLUDED_FILE_PATTERNS: Final[tuple[str, ...]] = (
 
 
 class ZenzicConfig(BaseModel):
+    _global_tracker: Any = PrivateAttr(default=None)
     """Configuration model for Zenzic, typically loaded from .zenzic.toml.
 
     **Hard Exclusion Policy:** The directories listed in
@@ -782,6 +783,9 @@ class ZenzicConfig(BaseModel):
                     f"Configuration validation failed in [bold red].zenzic.toml[/]:\n{errors_str}",
                     context={"errors": exc.errors(), "file": str(zenzic_toml)},
                 ) from exc
+            from zenzic.core.suppressions import GlobalUsageTracker
+
+            config._global_tracker = GlobalUsageTracker(config)
             return config, True
 
         # ── Priority 2: [tool.zenzic] in pyproject.toml ──────────────────────
@@ -815,6 +819,9 @@ class ZenzicConfig(BaseModel):
                         f"Configuration validation failed in [bold red]pyproject.toml[/]:\n{errors_str}",
                         context={"errors": exc.errors(), "file": str(pyproject_toml)},
                     ) from exc
+                from zenzic.core.suppressions import GlobalUsageTracker
+
+                config._global_tracker = GlobalUsageTracker(config)
                 return config, True
 
         # ── Priority 3: built-in defaults ─────────────────────────────────────
@@ -831,6 +838,9 @@ class ZenzicConfig(BaseModel):
                 f"Configuration validation failed for default/local config:\n{errors_str}",
                 context={"errors": exc.errors()},
             ) from exc
+        from zenzic.core.suppressions import GlobalUsageTracker
+
+        config._global_tracker = GlobalUsageTracker(config)
         return config, False
 
     @classmethod

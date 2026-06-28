@@ -143,6 +143,7 @@ class LayeredExclusionManager:
     """
 
     __slots__ = (
+        "_global_tracker",
         "_system_dirs",
         "_adapter_metadata_files",
         "_config_excluded_dirs",
@@ -185,8 +186,8 @@ class LayeredExclusionManager:
         # File patterns — pre-compiled for performance
         raw_excl_patterns = getattr(config, "excluded_file_patterns", []) or []
         raw_incl_patterns = getattr(config, "included_file_patterns", []) or []
-        self._config_excluded_patterns: list[re.RegexPattern] = [
-            re.compile(translate_glob_to_re2(p)) for p in raw_excl_patterns
+        self._config_excluded_patterns: list[tuple[re.RegexPattern, str]] = [
+            (re.compile(translate_glob_to_re2(p)), p) for p in raw_excl_patterns
         ]
         self._config_included_patterns: list[re.RegexPattern] = [
             re.compile(translate_glob_to_re2(p)) for p in raw_incl_patterns
@@ -197,6 +198,8 @@ class LayeredExclusionManager:
         self._vcs_pathspec: pathspec.PathSpec[Any] | None = None
         if self._respect_vcs:
             self._vcs_pathspec = _load_vcs_pathspec(repo_root, docs_root)
+
+        self._global_tracker = getattr(config, "_global_tracker", None)
 
     def should_exclude_dir(self, dir_name: str, rel_path: str | None = None) -> bool:
         """Return True if a directory should be excluded during walk.
@@ -285,8 +288,11 @@ class LayeredExclusionManager:
 
         # L3: Config excluded_file_patterns
         if self._config_excluded_patterns:
-            if any(p.match(filename) for p in self._config_excluded_patterns):
-                return True
+            for p, original_str in self._config_excluded_patterns:
+                if p.match(filename):
+                    if self._global_tracker:
+                        self._global_tracker.mark_excluded_file_pattern_used(original_str)
+                    return True
 
         # L3: Config excluded_dirs (check path components against basename)
         for part in Path(rel_path).parts[:-1]:

@@ -9,26 +9,25 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [0.16.0] - 2026-06-27
+## [0.16.0] - Unreleased
 
 ### Added
 
-- Support for Z110 STALE_ALLOWLIST_ENTRY config-hygiene check.
-- Code Z001 CORE_CONFIG_STRUCTURE for fatal TOML schema configuration errors.
-
-### Changed
-
-- Comprehensive refactoring of the exception hierarchy (ZenzicViolation).
-- Migration of MkDocs and Zensical adapters to the Z001 typed error system.
+- Polyglot Extractor (Supporto nativo `<a>` e `<img>`).
+- Z118 Stale Global Suppression.
+- Z120-Z124 HTML Integrity codes.
+- Z205 Forbidden Scheme security gate.
 
 ### Fixed
 
-- Dynamic error file target resolution for configuration violations.
+- Z603 redundancy detection with global policies.
+- RSS/Atom feed portability via relative paths.
 
 ---
 
 ## Historical Releases
 
+- v0.16.x archive: [changelogs/v0.16.x.md](./changelogs/v0.16.x.md)
 - v0.15.x archive: [changelogs/v0.15.x.md](./changelogs/v0.15.x.md)
 - v0.14.x archive: [changelogs/v0.14.md](./changelogs/v0.14.md)
 - v0.13.x archive: [changelogs/v0.13.md](./changelogs/v0.13.md)

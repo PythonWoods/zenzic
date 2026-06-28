@@ -61,7 +61,7 @@ flowchart LR
 
 The two streams have opposite filtering rules by design. The Content stream must skip YAML frontmatter to avoid parsing metadata like `author: Jane Doe` as a broken reference definition. The credential scanner stream must see frontmatter because a key like `aws_key: AKIA...` hiding in YAML metadata is a real secret that must be caught. The streams never share a data source — merging them would create a blind spot.
 
-**Pre-Scan Normalizer.** Before running detection patterns, the credential scanner normalises each line to defeat obfuscation. Inline code backticks are unwrapped, concatenation operators are removed, and table pipe characters are collapsed. This means a secret broken across Markdown table columns — such as an AWS key split into `` `AKIA` + `suffix` `` — is reassembled before scanning. Both the raw and normalised forms are checked, and a deduplication set prevents double-reporting.
+**Pre-Scan Normalizer and Polyglot Extractor.** Before running detection patterns, the credential scanner normalises each line to defeat obfuscation. Inline code backticks are unwrapped, concatenation operators are removed, and table pipe characters are collapsed. Additionally, the **Polyglot Extractor** deeply parses both Markdown and native HTML (`<a>`, `<img>` tags). This ensures raw HTML links and images undergo the exact same **Uniform Resolver Pipeline (URP)** validations as standard Markdown syntax, closing the "HTML Shadow Zone" and applying strict rules like `Z205 FORBIDDEN_SCHEME` uniformly.
 
 **ReDoS Protection.** Custom regex patterns declared in `[[custom_rules]]` are compiled through RE2 compatibility gates at load time. Unsupported constructs (for example backreferences or lookarounds) are rejected before any scan begins. Separately, the parallel worker watchdog still emits `Z902: RULE_TIMEOUT` if a worker stalls at runtime because of a systemic hang (for example I/O or coordinator starvation) rather than a regex backtracking canary.
 
@@ -84,3 +84,9 @@ To ensure accurate link validation that supports out-of-order reference definiti
 | 3 | **Integrity Report** | Computes per-file integrity score; appends Dead Definition and alt-text warnings |
 
 Pass 2 always runs after Pass 1 harvest completion. Security findings from Pass 1 affect exit semantics (exit code 2) but do not skip Pass 2 cross-check.
+
+## Global Usage Tracker
+
+To enforce configuration hygiene and zero-debt governance, the core execution engine maintains a `GlobalUsageTracker` attached directly to the `ZenzicConfig` model.
+
+When `.zenzic.toml` parses global exclusion configurations (e.g., `directory_policies`, `excluded_file_patterns`), the tracker registers every declared pattern. As the URP processes findings across the filesystem, the tracker marks which patterns were successfully utilized to suppress at least one finding. During the final teardown phase, the engine performs a diff against the tracker; any configuration pattern that remains untouched is flagged via `Z118 (STALE_GLOBAL_SUPPRESSION)`, guaranteeing your config file accurately mirrors the true technical debt of the repository.
