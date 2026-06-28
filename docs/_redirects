@@ -1,59 +1,55 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
 #
-# ZENZIC ROUTING KERNEL v8 (SEO SAFE / NO COLLAPSE MODEL)
-# Principle: preserve semantic distance, avoid hub overloading
+# ZENZIC ROUTING KERNEL vFINAL (STABLE / LOOP-FREE)
+# Constraint: deterministic, no root sinks, no hub collapse
 
-# ─────────────────────────────────────────────────────────────
-# LAYER 0: EXPLICIT LEAKAGE SINKS
-# ─────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────
+# LAYER 0: BLOG TAGS (SAFE SINK)
+# ─────────────────────────────────────────────
 
 /blog/tags/*        /blog/ 301
-/category/*         / 301
 
-# ─────────────────────────────────────────────────────────────
-# LAYER 1: ADR SHORT PATHS (PRESERVATION MODE)
-# ─────────────────────────────────────────────────────────────
-# IMPORTANT: NEVER collapse multiple ADRs into /developers/
+# Category pages: redirect to blog index (NOT root)
+/category/*         /blog/ 301
 
-# Discovery
-/developers/explanation/adr-discovery              /developers/explanation/adr-vault/records/adr-discovery/ 301
-/developers/explanation/adr-discovery/             /developers/explanation/adr-vault/records/adr-discovery/ 301
+# ─────────────────────────────────────────────
+# LAYER 1: ADR SHORT PATHS (EXACT ONLY)
+# ─────────────────────────────────────────────
 
-# Parallel termination
-/developers/explanation/adr-parallel-early-termination   /developers/explanation/adr-vault/records/adr-021-parallel-audit/ 301
-/developers/explanation/adr-parallel-early-termination/  /developers/explanation/adr-vault/records/adr-021-parallel-audit/ 301
+/developers/explanation/adr-discovery                          /developers/explanation/adr-vault/records/adr-discovery/ 301
+/developers/explanation/adr-discovery/                         /developers/explanation/adr-vault/records/adr-discovery/ 301
 
-# Bilingual structural
-/developers/explanation/adr-bilingual-structural         /developers/explanation/adr-vault/records/adr-bilingual-structural/ 301
-/developers/explanation/adr-bilingual-structural/        /developers/explanation/adr-vault/records/adr-bilingual-structural/ 301
+/developers/explanation/adr-parallel-early-termination         /developers/explanation/adr-vault/records/adr-021-parallel-audit/ 301
+/developers/explanation/adr-parallel-early-termination/        /developers/explanation/adr-vault/records/adr-021-parallel-audit/ 301
 
-# ─────────────────────────────────────────────────────────────
-# LAYER 2: ADR VAULT WILDCARD (SAFE EXPANSION ONLY)
-# ─────────────────────────────────────────────────────────────
+/developers/explanation/adr-bilingual-structural              /developers/explanation/adr-vault/records/adr-bilingual-structural/ 301
+/developers/explanation/adr-bilingual-structural/             /developers/explanation/adr-vault/records/adr-bilingual-structural/ 301
+
+# ─────────────────────────────────────────────
+# LAYER 2: ADR VAULT (WILDCARD SAFE)
+# ─────────────────────────────────────────────
 
 /developers/explanation/adr-vault/*  /developers/explanation/adr-vault/records/:splat/ 301
 
-# ─────────────────────────────────────────────────────────────
-# LAYER 3: BLOG CANONICALIZATION
-# ─────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────
+# LAYER 3: BLOG CANONICALS
+# ─────────────────────────────────────────────
 
 /blog/welcome        /blog/2026/04/28/welcome-to-the-zenzic-blog/ 301
 /blog/welcome/       /blog/2026/04/28/welcome-to-the-zenzic-blog/ 301
 
 /blog/zenzic-v0160-engineering-determinism-into-documentation-pipelines  /blog/2026/06/27/zenzic-v0160-engineering-determinism-into-documentation-pipelines/ 301
 
-# ─────────────────────────────────────────────────────────────
-# LAYER 4: TUTORIALS (PRESERVE DEPTH - NO COLLAPSE TO ROOT)
-# ─────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────
+# LAYER 4: TUTORIALS (NO HUB COLLAPSE)
+# ─────────────────────────────────────────────
 
-# FIX: deep page must map to its section, not hub root
-/tutorials/examples/z6xx-brand/z602-i18n-parity   /tutorials/examples/z6xx-brand/ 301
-/tutorials/examples/z6xx-brand/z602-i18n-parity/  /tutorials/examples/z6xx-brand/ 301
+# (Removed self-referential wildcard and deep page self-redirect to strictly prevent ERR_TOO_MANY_REDIRECTS loops)
 
-# ─────────────────────────────────────────────────────────────
-# LAYER 5: STRUCTURAL STRIPPING (i18n + legacy docs)
-# ─────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────
+# LAYER 5: STRUCTURAL STRIPPING (i18n / legacy docs)
+# ─────────────────────────────────────────────
 
 /it/docs/how-to/examples/*    /tutorials/examples/:splat 301
 /it/docs/tutorials/examples/* /tutorials/examples/:splat 301
@@ -73,23 +69,14 @@
 /it/docs/developers/*         /developers/:splat 301
 /docs/developers/*            /developers/:splat 301
 
-# ─────────────────────────────────────────────────────────────
-# LAYER 6: i18n MIRROR (LAST SAFE STEP)
-# ─────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────
+# LAYER 6: i18n MIRROR (SAFE LAST STEP)
+# ─────────────────────────────────────────────
 
 /it/*  /:splat 301
 
-# ─────────────────────────────────────────────────────────────
-# LAYER 7: DOCS REMOVAL
-# ─────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────
+# LAYER 7: DOCS REMOVAL (SAFE MIRROR, NOT ROOT COLLAPSE)
+# ─────────────────────────────────────────────
 
 /docs/*  /:splat 301
-
-# ─────────────────────────────────────────────────────────────
-# LAYER 8: UI GENERATED INDEX FALLBACKS (NON-COLLAPSING)
-# ─────────────────────────────────────────────────────────────
-
-/developers/category/*   /developers/ 301
-
-/blog/authors            /blog/ 301
-/blog/authors/           /blog/ 301
