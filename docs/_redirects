@@ -14,31 +14,18 @@
 # LAYER 1: ADR SHORT-PATH (EXPLICIT FIXES - MUST PRECEDE WILDCARD)
 # ─────────────────────────────────────────────────────────────
 
-/developers/explanation/adr-discovery
-  /developers/explanation/adr-vault/records/adr-discovery/ 301
-
-/developers/explanation/adr-parallel-early-termination
-  /developers/explanation/adr-vault/records/adr-021-parallel-audit/ 301
-
-/developers/explanation/adr-bilingual-structural
-  /developers/explanation/adr-vault/records/adr-bilingual-structural/ 301
-
-# SAFETY: alias storici già indicizzati (copertura estesa)
-/developers/explanation/adr-discovery/
-  /developers/explanation/adr-vault/records/adr-discovery/ 301
-
-/developers/explanation/adr-parallel-early-termination/
-  /developers/explanation/adr-vault/records/adr-021-parallel-audit/ 301
-
-/developers/explanation/adr-bilingual-structural/
-  /developers/explanation/adr-vault/records/adr-bilingual-structural/ 301
+/developers/explanation/adr-discovery                           /developers/ 301
+/developers/explanation/adr-discovery/                          /developers/ 301
+/developers/explanation/adr-parallel-early-termination           /developers/ 301
+/developers/explanation/adr-parallel-early-termination/          /developers/ 301
+/developers/explanation/adr-bilingual-structural                 /developers/ 301
+/developers/explanation/adr-bilingual-structural/                /developers/ 301
 
 # ─────────────────────────────────────────────────────────────
 # LAYER 2: ADR VAULT WILDCARD (CLOSURE)
 # ─────────────────────────────────────────────────────────────
 
-/developers/explanation/adr-vault/*
-  /developers/explanation/adr-vault/records/:splat/ 301
+/developers/explanation/adr-vault/*                             /developers/explanation/adr-vault/records/:splat/ 301
 
 # ─────────────────────────────────────────────────────────────
 # LAYER 3: BLOG CANONICALIZATION
@@ -47,19 +34,17 @@
 /blog/welcome        /blog/2026/04/28/welcome-to-the-zenzic-blog/ 301
 /blog/welcome/       /blog/2026/04/28/welcome-to-the-zenzic-blog/ 301
 
-/blog/zenzic-v0160-engineering-determinism-into-documentation-pipelines
-  /blog/2026/06/27/zenzic-v0160-engineering-determinism-into-documentation-pipelines/ 301
+/blog/zenzic-v0160-engineering-determinism-into-documentation-pipelines        /blog/2026/06/27/zenzic-v0160-engineering-determinism-into-documentation-pipelines/ 301
 
 # ─────────────────────────────────────────────────────────────
 # LAYER 4: TUTORIALS (FIX REALE DEI 404 CHE HAI SEGNALATO)
 # ─────────────────────────────────────────────────────────────
 
-/tutorials/examples/z6xx-brand/z602-i18n-parity
-  /tutorials/examples/z6xx-brand/z602-i18n-parity/ 301
+/tutorials/examples/z6xx-brand/z602-i18n-parity                 /tutorials/ 301
+/tutorials/examples/z6xx-brand/z602-i18n-parity/                /tutorials/ 301
 
 # CATCH-ALL ESSENZIALE PER DEEP PATH (QUESTO RISOLVE IL TUO BUG)
-/tutorials/examples/*
-  /tutorials/examples/:splat/ 301
+/tutorials/examples/*                                           /tutorials/examples/:splat/ 301
 
 # ─────────────────────────────────────────────────────────────
 # LAYER 5: STRUCTURAL STRIPPING (i18n + legacy docs)
