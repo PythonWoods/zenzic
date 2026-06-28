@@ -14,28 +14,9 @@ For the current release history, see [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
-## Recent Releases
+## [v0.18.0] - Shift-Left to the Keystroke (IDE Integration & LSP)
 
-### [v0.15.0] - The Semantic Hygiene Update
-
-- [x] **Z603 DEAD_SUPPRESSION:** Detects inline `zenzic:ignore` directives that do not correspond to any active finding. (Completed)
-- [x] **Z108 STALE_ALLOWLIST_ENTRY** (now Z110, Issue #70): Config-hygiene check for unused `absolute_path_allowlist` entries. (Completed)
-- [x] **Semantic Schemas Validation** (Z001): TOML/JSON/YAML schema structure validation during bootstrap. (Completed)
-
----
-
-## [v0.16.0] - The AST Foundations (Current)
-
-*AST foundations completed. Laying the groundwork for automation and third-party rules.*
-
-- **Deterministic Markdown Renderer** (Issue #11): A stable AST-to-Markdown rendering engine. Requirement for a loss-less AST-to-string serializer that perfectly preserves original whitespace, lists, and HTML artifacts.
-- **Custom Rules API v2 (AST Walker):** Stable AST adapter and rule APIs with a semver guarantee. The `BaseASTRule` signature must pass `MdASTNode` objects and enforce a strict RE2 execution boundary with a 50ms timeout (`Z902`).
-- **Z407 BROKEN_CODE_REFERENCE:** Scan Markdown for backtick-quoted paths and verify their physical existence. *(Depends on Custom Rules API to support explicit Markdown attribute opt-in like `{: .verify-path }` before implementation).*
-- **CLI Live URL Resolution (DX Rewrite):** Enhance the terminal reporter to reconstruct and output clickable live production URLs for failing files. (Note: Requires architectural refactoring of VSM state exposure to maintain Pure Function invariants without hacky dictionary mutations).
-
-## v0.17.0 (planned)
-
-**Theme:** Shift-Left to the Keystroke (IDE Integration & LSP)
+*Pushing the "Hostile Precision" feedback loop directly into the authoring environment.*
 
 ### Planned
 
@@ -72,4 +53,4 @@ These constraints apply across every future release:
 
 ---
 
-Roadmap last updated: 2026-06-27
+Roadmap last updated: 2026-06-28

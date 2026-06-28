@@ -34,7 +34,7 @@ standalone - 1 file (1 docs, 0 assets) - 0.0s - 68 files/s
 
 * Analysis complete: All statically-detectable links, credentials, and
 references verified.
-Refer to https://zenzic.dev/docs/reference/finding-codes for remediation · Try
+Refer to ../../../reference/finding-codes.md for remediation · Try
 'zenzic check --help' for options.
 [ Suppression Audit: 1/30 (inline: 0, per-file: 1) [MANAGED DEBT]
 ```

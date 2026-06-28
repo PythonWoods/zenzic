@@ -1179,7 +1179,47 @@ def _scan_single_file(
         # Importing here (deferred) avoids circular imports at module level.
         from zenzic.core.suppressions import SuppressionTracker
 
-        tracker = SuppressionTracker(md_file, text)
+        # Pre-compute global suppression codes for this specific file
+        # to prevent consuming redundant inline directives (ADR-084).
+        globally_suppressed_codes: dict[str, list[str]] = {}
+        if getattr(config, "governance", None):
+            repo_root = config.origin_file.parent if config.origin_file is not None else Path.cwd()
+            try:
+                rel_path = str(md_file.relative_to(repo_root))
+            except ValueError:
+                rel_path = str(md_file)
+
+            if config.governance.per_file_ignores:
+                import fnmatch
+
+                for pattern, codes in config.governance.per_file_ignores.items():
+                    if fnmatch.fnmatch(rel_path, pattern):
+                        for c in codes:
+                            globally_suppressed_codes.setdefault(str(c).strip().upper(), []).append(
+                                pattern
+                            )
+
+            if config.governance.directory_policies:
+                import zenzic.core.regex as re
+                from zenzic.core.exclusion import translate_glob_to_re2
+
+                for pattern, codes in config.governance.directory_policies.items():
+                    try:
+                        compiled = re.compile(translate_glob_to_re2(pattern))
+                        if compiled.fullmatch(rel_path):
+                            for c in codes:
+                                globally_suppressed_codes.setdefault(
+                                    str(c).strip().upper(), []
+                                ).append(pattern)
+                    except Exception:
+                        pass
+
+        tracker = SuppressionTracker(
+            md_file,
+            text,
+            globally_suppressed_codes=globally_suppressed_codes,
+            global_tracker=getattr(config, "_global_tracker", None),
+        )
         report.suppression_tracker = tracker
 
         # Use the tracker-aware variant so that:

@@ -1,0 +1,8 @@
+docs_dir = "docs"
+fail_under = 0
+
+[build_context]
+engine = "standalone"
+
+[governance.directory_policies]
+"docs/clean-page.md" = ["Z101"]

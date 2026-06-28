@@ -155,6 +155,12 @@ GLOBAL_TOML_TEMPLATE: str = (
     '# message  = "Avoid generic link text. Use a meaningful description."\n'
     '# severity = "error"\n'
     "\n"
+    "# --- HTML POLYGLOT INTEGRITY (v0.17.0) ---\n"
+    "# Zenzic v0.17.0 analyses <a>/<img> via the Uniform Resolver Pipeline.\n"
+    '# Suppress Z120-Z124 with: <a href="..." data-zenzic-ignore>text</a>\n'
+    "# Z205 (javascript:, data:) is NEVER suppressible. Absolute security gate.\n"
+    "# Each suppression: -1.0 pts DQS. exclude_patterns=[RELEASE.md, CITATION.cff]\n"
+    "\n"
     "# --- GATE 4: CI/CD (GitHub Actions, Optional) ---\n"
     "# Add this workflow snippet to .github/workflows/zenzic.yml\n"
     "#\n"

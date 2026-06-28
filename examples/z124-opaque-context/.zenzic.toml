@@ -1,0 +1,10 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+# .zenzic.toml — Z124 OPAQUE_HTML_CONTEXT gallery example
+#
+# Expected results:
+#   zenzic lab z124   → EXIT 1  (Z124 ×3 — error, opaque attrs)
+[zenzic]
+engine = "standalone"
+[links]
+check_external = false

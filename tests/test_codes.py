@@ -63,12 +63,14 @@ def test_sarif_levels_are_valid_values() -> None:
 # Z106 CIRCULAR_LINK is informational; Z114 LARGE_PAGINATION_SET is also
 # informational within the Z1xx range because it reports a threshold metric,
 # not a broken link.
-_Z1XX_NOTE_EXCEPTIONS: frozenset[str] = frozenset({"Z106", "Z110", "Z114"})
+_Z1XX_NON_ERROR_EXCEPTIONS: frozenset[str] = frozenset(
+    {"Z106", "Z110", "Z112", "Z114", "Z118", "Z120", "Z122", "Z123"}
+)
 
 
 @pytest.mark.parametrize(
     "code",
-    [c for c in CODE_NAMES if c.startswith("Z1") and c not in _Z1XX_NOTE_EXCEPTIONS],
+    [c for c in CODE_NAMES if c.startswith("Z1") and c not in _Z1XX_NON_ERROR_EXCEPTIONS],
 )
 def test_z1xx_sarif_level_is_error(code: str) -> None:
     """Z1xx (Link Integrity) codes must have SARIF level 'error'."""

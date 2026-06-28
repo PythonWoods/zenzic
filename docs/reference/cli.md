@@ -686,14 +686,14 @@ in this reference page.
               "name": "FILE_NOT_FOUND",
               "shortDescription": { "text": "File not found" },
               "defaultConfiguration": { "level": "error" },
-              "helpUri": "https://zenzic.dev/docs/reference/finding-codes#z104"
+              "helpUri": "./finding-codes.md#z104"
             },
             {
               "id": "Z201",
               "name": "CREDENTIAL_SECRET",
               "shortDescription": { "text": "Credential detected" },
               "defaultConfiguration": { "level": "error" },
-              "helpUri": "https://zenzic.dev/docs/reference/finding-codes#z201"
+              "helpUri": "./finding-codes.md#z201"
             }
           ]
         }

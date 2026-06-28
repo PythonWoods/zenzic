@@ -21,6 +21,9 @@ extra_css:
   # Preflight (CSS Reset) is DISABLED to prevent interference with Material base typography.
   # See docs/assets/css/README.md for the build protocol.
 
+exclude_docs: |
+  assets/css/README.md
+
 # --- Navigation (4 tabs: Home / User Documentation / Developer Documentation / Blog)
 # navigation.tabs maps each top-level nav entry to a tab in the header.
 nav:
@@ -41,9 +44,16 @@ nav:
         - tutorials/examples/z1xx-links/z108-empty-link-text.md
         - tutorials/examples/z1xx-links/z109-external-link-broken.md
         - tutorials/examples/z1xx-links/z110-stale-allowlist.md
+        - tutorials/examples/z1xx-links/z118-stale-global-suppression.md
+        - tutorials/examples/z1xx-links/z120-unknown-html-attr.md
+        - tutorials/examples/z1xx-links/z121-missing-href.md
+        - tutorials/examples/z1xx-links/z122-jump-link.md
+        - tutorials/examples/z1xx-links/z123-non-http-scheme.md
+        - tutorials/examples/z1xx-links/z124-opaque-context.md
         - tutorials/examples/z2xx-security/z201-credentials.md
         - tutorials/examples/z2xx-security/z202-path-traversal.md
         - tutorials/examples/z2xx-security/z204-forbidden-term.md
+        - tutorials/examples/z2xx-security/z205-forbidden-scheme.md
         - tutorials/examples/z3xx-references/z301-dangling-ref.md
         - tutorials/examples/z3xx-references/z302-dead-def.md
         - tutorials/examples/z3xx-references/z303-duplicate-def.md
@@ -185,7 +195,7 @@ extra:
   # ADR-037: No hardcoded SemVer in any .html or .md source.
   # CI pipeline passes the current version at build time, e.g.:
   #   uv run mkdocs build --extra zenzic_version=0.14.1
-  zenzic_version: "0.16.0"  # release sync
+  zenzic_version: "0.17.0"  # release sync
 
 markdown_extensions:
   - attr_list
@@ -203,6 +213,13 @@ plugins:
       blog_dir: blog
       archive: true
       categories: false
+  - rss:
+      match_path: "blog/posts/.*"
+      date_from_meta:
+        as_creation: date
+      feeds_filenames:
+        rss_created: blog/rss.xml
+        rss_updated: blog/atom.xml
 
 # MkDocs strict-mode link validation.
 # tutorials/examples/ pages intentionally contain extensionless/malformed links

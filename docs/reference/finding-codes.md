@@ -31,7 +31,7 @@ The code registry is governed by immutable contract surfaces:
 - `PLUGIN_FORBIDDEN_EXITS`: plugins are forbidden from emitting Exit 2/3 (reserved for core security semantics).
 
 !!! tip "Deep-linking"
-    Each code has a permanent anchor. You can link directly to a specific code using `https://zenzic.dev/docs/reference/finding-codes#z101`.
+    Each code has a permanent anchor. You can link directly to a specific code using `./finding-codes.md#z101`.
 
 ## Category Overview
 
@@ -47,9 +47,8 @@ The code registry is governed by immutable contract surfaces:
 | **Z9xx** | Engine & System | Rule execution errors, timeouts, system-level diagnostics | `error`/`warning` | ✅ Yes |
 
 !!! info "Per-line suppression syntax"
-    Suppress a finding on a specific line with a format-aware comment on that same line.\
     **Markdown (.md):** `<!-- zenzic:ignore: Zxxx -->`\
-    **Markdown (.md):** `<!-- zenzic:ignore: Zxxx -->`\
+    **HTML Tags:** `<a href="..." data-zenzic-ignore="Zxxx">`\
     See [Suppression Policy](./suppression-policy.md) for the full reference.
 
 ### Exit Code Contract
@@ -291,6 +290,54 @@ Blog pagination set exceeds the 200-page informational threshold.
 
 **Fix:** No action required (informational only). Review the size of the blog.
 
+### Z118: STALE_GLOBAL_SUPPRESSION {#z118}
+
+**Severity:** `warning` · **Penalty:** −1.0 pt (Governance) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z1xx-links/z118-stale-global-suppression.md)
+
+An entry in `directory_policies`, `excluded_file_patterns`, or `excluded_external_urls` inside `.zenzic.toml` was never utilised to suppress an active finding. This indicates configuration debt.
+
+**Fix:** Remove the dead configuration line from `.zenzic.toml`.
+
+### Z120: UNKNOWN_HTML_ATTR {#z120}
+
+**Severity:** `warning` · **Penalty:** −1.0 pt (Structural) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z1xx-links/z120-unknown-html-attr.md)
+
+An HTML `<a>` tag contains unknown or malformed attributes.
+
+**Fix:** Correct the HTML tag attributes or use `data-zenzic-ignore="Z120"` to suppress.
+
+### Z121: MISSING_HREF {#z121}
+
+**Severity:** `error` · **Penalty:** −8.0 pts (Structural) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z1xx-links/z121-missing-href.md)
+
+An HTML `<a>` tag is missing the required `href` attribute.
+
+**Fix:** Add a valid `href="..."` attribute to the anchor tag.
+
+### Z122: JUMP_LINK {#z122}
+
+**Severity:** `warning` · **Penalty:** −1.0 pt (Navigation) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z1xx-links/z122-jump-link.md)
+
+An HTML tag uses `href="javascript:void(0)"` or `href="#"`, which is an anti-pattern for documentation.
+
+**Fix:** Replace with an actual URL or remove the anchor tag.
+
+### Z123: NON_HTTP_SCHEME {#z123}
+
+**Severity:** `warning` · **Penalty:** −2.0 pts (Structural) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z1xx-links/z123-non-http-scheme.md)
+
+An HTML tag uses an unusual scheme (e.g., `ftp://`, `ssh://`) instead of `http/https`.
+
+**Fix:** Verify the scheme is intentional, or suppress if necessary.
+
+### Z124: OPAQUE_CONTEXT {#z124}
+
+**Severity:** `warning` · **Penalty:** −1.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z1xx-links/z124-opaque-context.md)
+
+An HTML link has an opaque context or relies on inline scripts for navigation.
+
+**Fix:** Refactor the link to be statically identifiable.
+
 ---
 
 ## Z2xx — Security (credential scanner)
@@ -360,6 +407,20 @@ The Privacy Gate detected a confidential project term (internal code-name, stagi
 1. Remove or generalise the forbidden term.
 2. If the term is legitimately public, remove it from `forbidden_patterns`.
 3. Verify `.zenzic.local.toml` is in `.gitignore`.
+
+### Z205: FORBIDDEN_SCHEME {#z205}
+
+!!! danger "🔒 INVIOLABLE — Cannot be suppressed | Exit 2 | DQS collapses to 0/100"
+    `zenzic:ignore: Z205` and `data-zenzic-ignore="Z205"` are **silently rejected**. [↗ Gallery](../tutorials/examples/z2xx-security/z205-forbidden-scheme.md)
+
+**Severity:** `security_breach` · **Penalty:** DQS collapses to 0/100 · **Exit:** 2
+
+The Polyglot Extractor detected a highly dangerous scheme (such as `javascript:` or `data:text/html`) in an HTML `href` attribute. This is an XSS injection vector and is strictly forbidden.
+
+**Fix:**
+
+1. **IMMEDIATE:** Remove the injected `javascript:` payload.
+2. Investigate how the malicious HTML reached the documentation source.
 
 ---
 

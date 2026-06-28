@@ -13,7 +13,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "zenzic"
-version = "0.16.0"
+version = "0.17.0"
 description = "Engineering-grade, engine-agnostic static analyzer and credential scanner for Markdown documentation"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -82,7 +82,8 @@ Tracker       = "https://github.com/PythonWoods/zenzic/issues"
 [project.optional-dependencies]
 docs = [
     "mkdocs-material>=9.0.0",
-    "mkdocs>=1.5.0"
+    "mkdocs>=1.5.0",
+    "mkdocs-rss-plugin>=1.15.0"
 ]
 dev = [
     "nox>=2024.10.11",

@@ -336,22 +336,43 @@ def _output_sarif_findings(findings: list[Finding], version: str) -> None:
         for rule_id in sorted(seen_rule_ids)
     ]
 
+    run_obj: dict[str, Any] = {
+        "tool": {
+            "driver": {
+                "name": "zenzic",
+                "version": version,
+                "informationUri": "https://zenzic.dev",
+                "rules": rules,
+            }
+        },
+        "results": sarif_results,
+    }
+
+    execution_successful = True
+    notifications = []
+    for f in findings:
+        if f.code in {"Z201", "Z202", "Z203", "Z204", "Z205"}:
+            execution_successful = False
+            notifications.append(
+                {
+                    "descriptor": {"id": f.code},
+                    "level": "error",
+                    "message": {"text": f"Critical security finding detected: {f.code}"},
+                }
+            )
+
+    if not execution_successful:
+        run_obj["invocations"] = [
+            {
+                "executionSuccessful": False,
+                "toolExecutionNotifications": notifications,
+            }
+        ]
+
     report = {
         "$schema": _SARIF_SCHEMA,
         "version": "2.1.0",
-        "runs": [
-            {
-                "tool": {
-                    "driver": {
-                        "name": "zenzic",
-                        "version": version,
-                        "informationUri": "https://zenzic.dev",
-                        "rules": rules,
-                    }
-                },
-                "results": sarif_results,
-            }
-        ],
+        "runs": [run_obj],
     }
     print(json.dumps(report, indent=2))
 

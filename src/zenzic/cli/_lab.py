@@ -98,6 +98,13 @@ _GALLERY: dict[str, _Act] = {
         example_dir="z110-stale-allowlist",
         expected_pass=True,
     ),
+    "z118": _Act(
+        code="z118",
+        title="Stale Global Suppression",
+        description="Z118 STALE_GLOBAL_SUPPRESSION — unused directory_policies in .zenzic.toml; exit 0 (warning)",
+        example_dir="z118-stale-global-suppression",
+        expected_pass=True,
+    ),
     "z101": _Act(
         code="z101",
         title="Link Integrity",
@@ -283,6 +290,57 @@ _GALLERY: dict[str, _Act] = {
         example_dir="z406-nav-contract",
         expected_pass=False,
     ),
+    "z120": _Act(
+        code="z120",
+        title="Unknown HTML Attribute",
+        description="Z120 UNKNOWN_HTML_ATTRIBUTE — raw HTML contains unauthorized attributes",
+        example_dir="z120-unknown-html-attr",
+        expected_pass=False,
+    ),
+    "z121": _Act(
+        code="z121",
+        title="Missing or Empty Href",
+        description="Z121 MISSING_OR_EMPTY_HREF — anchor tag without a valid href",
+        example_dir="z121-missing-href",
+        expected_pass=False,
+    ),
+    "z122": _Act(
+        code="z122",
+        title="Jump Link Detected",
+        description="Z122 JUMP_LINK_DETECTED — javascript jump link detected",
+        example_dir="z122-jump-link",
+        expected_pass=False,
+    ),
+    "z123": _Act(
+        code="z123",
+        title="Non-HTTP Scheme",
+        description="Z123 NON_HTTP_SCHEME — link uses non-standard protocol (e.g. mailto)",
+        example_dir="z123-non-http-scheme",
+        expected_pass=True,
+        show_info=True,
+    ),
+    "z124": _Act(
+        code="z124",
+        title="Opaque HTML Context",
+        description="Z124 OPAQUE_HTML_CONTEXT — unparseable HTML block",
+        example_dir="z124-opaque-context",
+        expected_pass=False,
+    ),
+    "z205": _Act(
+        code="z205",
+        title="Forbidden Scheme",
+        description="Z205 FORBIDDEN_SCHEME — link uses forbidden protocol (e.g. javascript:)",
+        example_dir="z205-forbidden-scheme",
+        expected_pass=False,
+        expected_breach=True,
+    ),
+    "z603": _Act(
+        code="z603",
+        title="Dead Suppression",
+        description="Z603 DEAD_SUPPRESSION — inline zenzic:ignore matches no findings",
+        example_dir="z603-dead-suppression",
+        expected_pass=False,
+    ),
 }
 
 _VALID_CODES: frozenset[str] = frozenset(_GALLERY)
@@ -383,7 +441,13 @@ def _run_act(act: _Act, examples_root: Path) -> _ActResult:
     )
     elapsed = time.monotonic() - t0
 
-    findings: list[Finding] = _to_findings(results, docs_root, repo_root=example_dir)
+    findings: list[Finding] = _to_findings(results, docs_root, repo_root=example_dir, config=config)
+
+    from zenzic.cli._check import _append_z118_findings
+    from zenzic.cli._governance import _apply_directory_policies
+
+    findings = _apply_directory_policies(findings, config)
+    _append_z118_findings(findings, config, example_dir, check_all=True, check_external_urls=True)
 
     if single_file is not None:
         sf_rel = str(single_file.relative_to(example_dir))
