@@ -43,6 +43,21 @@ Project attribution:
    License: MIT
    Used for: Shell detection (transitive dependency of Typer)
 
+7. google-re2 (https://github.com/google/re2)
+   Copyright (c) The RE2 Authors
+   License: BSD-3-Clause
+   Used for: DFA-native RE2 engine bindings
+
+8. tomli (https://github.com/hukkin/tomli)
+   Copyright (c) Taneli Hukkinen
+   License: MIT
+   Used for: TOML parsing backport for Python 3.10
+
+9. pathspec (https://github.com/cpburnz/python-pathspec)
+   Copyright (c) Caleb P. Burns
+   License: Mozilla Public License 2.0
+   Used for: Gitignore pattern matching
+
 ================================================================================
 
 ## Development & Docs Tools
@@ -50,22 +65,22 @@ Project attribution:
 These packages are used during development, testing, and documentation builds.
 They are not included in the distributed wheel.
 
-7. MkDocs (https://github.com/mkdocs/mkdocs)
+10. MkDocs (https://github.com/mkdocs/mkdocs)
    Copyright (c) 2014-present, Tom Christie
    License: BSD-2-Clause
    Used for: Documentation build backend
 
-8. Material for MkDocs (https://github.com/squidfunk/mkdocs-material)
+11. Material for MkDocs (https://github.com/squidfunk/mkdocs-material)
    Copyright (c) 2016-present, Martin Donath
    License: MIT
    Used for: Documentation theme
 
-9. bump-my-version (https://github.com/callowayproject/bump-my-version)
+12. bump-my-version (https://github.com/callowayproject/bump-my-version)
    Copyright (c) Corey Oordt and contributors
    License: MIT
    Used for: Automated version bumping across pyproject.toml, __init__.py, mkdocs.yml
 
-10. Zensical (https://zensical.org/)
+13. Zensical (https://zensical.org/)
     License: Proprietary (free tier)
     Used for: Primary documentation build engine (reads mkdocs.yml natively)
 

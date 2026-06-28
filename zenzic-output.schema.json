@@ -194,7 +194,15 @@
             ],
             "properties": {
               "name": {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "structural",
+                  "navigation",
+                  "content",
+                  "brand",
+                  "governance",
+                  "html_hygiene"
+                ]
               },
               "weight": {
                 "type": "number",

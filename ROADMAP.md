@@ -24,18 +24,25 @@ For the current release history, see [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
-## [v0.16.0] - The AST Foundations (Current)
+### [v0.16.0] - The AST Foundations
 
-*AST foundations completed. Laying the groundwork for automation and third-party rules.*
+- Deterministic Markdown Renderer (Issue #11)
+- Custom Rules API v2 (AST Walker)
+- Z407 BROKEN_CODE_REFERENCE
+- CLI Live URL Resolution (DX Rewrite)
 
-- **Deterministic Markdown Renderer** (Issue #11): A stable AST-to-Markdown rendering engine. Requirement for a loss-less AST-to-string serializer that perfectly preserves original whitespace, lists, and HTML artifacts.
-- **Custom Rules API v2 (AST Walker):** Stable AST adapter and rule APIs with a semver guarantee. The `BaseASTRule` signature must pass `MdASTNode` objects and enforce a strict RE2 execution boundary with a 50ms timeout (`Z902`).
-- **Z407 BROKEN_CODE_REFERENCE:** Scan Markdown for backtick-quoted paths and verify their physical existence. *(Depends on Custom Rules API to support explicit Markdown attribute opt-in like `{: .verify-path }` before implementation).*
-- **CLI Live URL Resolution (DX Rewrite):** Enhance the terminal reporter to reconstruct and output clickable live production URLs for failing files. (Note: Requires architectural refactoring of VSM state exposure to maintain Pure Function invariants without hacky dictionary mutations).
+### [v0.17.0] - The HTML Blind Spot (Magnetite Polyglot)
 
-## v0.17.0 (planned)
+- [x] **Polyglot Extractor:** Native support for parsing `<a>` and `<img>` tags.
+- [x] **HTML Integrity:** Implementation of Z120-Z124.
+- [x] **Z205 FORBIDDEN_SCHEME:** Inviolable security gate against malicious URI schemes (`javascript:`, `data:`).
+- [x] **Z118 STALE_GLOBAL_SUPPRESSION:** Configuration hygiene enforcement via `GlobalUsageTracker`.
 
-**Theme:** Shift-Left to the Keystroke (IDE Integration & LSP)
+---
+
+## [v0.18.0] - Shift-Left to the Keystroke (IDE Integration & LSP)
+
+*Pushing the "Hostile Precision" feedback loop directly into the authoring environment.*
 
 ### Planned
 
@@ -72,4 +79,4 @@ These constraints apply across every future release:
 
 ---
 
-Roadmap last updated: 2026-06-27
+Roadmap last updated: 2026-06-28
