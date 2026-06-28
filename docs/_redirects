@@ -50,8 +50,6 @@
 # FIX: deep page must map to its section, not hub root
 /tutorials/examples/z6xx-brand/z602-i18n-parity  /tutorials/examples/z6xx-brand/z602-i18n-parity/ 301
 
-/tutorials/examples/z6xx-brand/z602-i18n-parity/  /tutorials/examples/z6xx-brand/z602-i18n-parity/ 301
-
 # SAFE WILDCARD FOR EXAMPLES SUBTREE
 /tutorials/examples/*  /tutorials/examples/:splat/ 301
 
@@ -93,7 +91,7 @@
 # LAYER 8: UI GENERATED INDEX FALLBACKS (NON-COLLAPSING)
 # ─────────────────────────────────────────────────────────────
 
-/developers/category/*   /developers/explanation/ 301
+/developers/category/*   /developers/ 301
 
 /blog/authors            /blog/ 301
 /blog/authors/           /blog/ 301
