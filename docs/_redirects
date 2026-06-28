@@ -94,3 +94,12 @@
 # ─────────────────────────────────────────────────────────────
 
 /docs/*  /:splat 301
+
+# ─────────────────────────────────────────────────────────────
+# LAYER 8: UI GENERATED INDEX FALLBACKS (SEO SAFE DAMPING)
+# ─────────────────────────────────────────────────────────────
+
+/developers/category/*   /developers/ 301
+
+/blog/authors            /blog/ 301
+/blog/authors/           /blog/ 301
