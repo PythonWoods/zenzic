@@ -11,13 +11,6 @@ hide:
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-### Credential Scanner
+### Credential Scanner {: .text-xl .font-medium .dark:text-white .text-zinc-900 .mb-3 }
 
-<span style="font-family: monospace; font-size: 0.8em; color: #9ca3af;">MODULE: src/zenzic/core/scanners</span>
-
-| Parameter | Specification |
-| :--- | :--- |
-| **SCOPE** | Every line, including `` `bash` `` & `` `yaml` `` fences. |
-| **ALGORITHM** | RE2 DFA-pure regex. Zero catastrophic backtracking. |
-| **SEVERITY** | <span style="color: #ef4444; font-weight: bold;">🔴 FATAL (Exit 2)</span> |
-| **SUPPRESSIBLE** | `FALSE` |
+Scans every line — including fenced `` `bash` `` and `` `yaml` `` blocks — for leaked credentials. Exit code `2` is reserved exclusively for security events and cannot be suppressed. {: .dark:text-zinc-400 .text-zinc-500 .leading-relaxed .text-sm }
