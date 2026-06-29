@@ -944,3 +944,10 @@ html:has(.zz-tailwind-root) .md-header__source {
   border-color: #10b981;
   background: rgba(16, 185, 129, 0.05);
 }
+
+/* Z-Code Diagnostic Grid Precision (ZEN-20260702-UI-UX-REFACTOR) */
+.diagnostic-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
