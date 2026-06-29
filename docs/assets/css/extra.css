@@ -908,3 +908,39 @@ html:has(.zz-tailwind-root) .md-header__source {
   font-weight: 600;
   background: var(--md-accent-fg-color--transparent);
 }
+
+/* ── Footer Social & Badge Overrides ──────────────────────────────────────── */
+
+/* Make footer social links legible by overriding the dark muted color */
+.md-footer-meta .md-social__link {
+  color: var(--zz-muted-color-hover) !important;
+}
+.md-footer-meta .md-social__link:hover {
+  color: var(--md-typeset-a-color) !important;
+}
+/* Ensure the SVGs use fill instead of stroke in the footer */
+.md-footer-meta .md-social__link svg {
+  fill: currentColor !important;
+  stroke: none !important;
+}
+
+/* Professional styling for the DevTool badge */
+.zz-devtool-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  background: var(--md-code-bg-color);
+  border: 1px solid var(--zz-border-subtle);
+  color: var(--zz-muted-color-hover);
+  border-radius: 4px;
+  text-decoration: none !important;
+  font-size: 11px;
+  font-weight: 600;
+  transition: all var(--zz-transition-fast);
+  margin-top: 12px;
+}
+.zz-devtool-badge:hover {
+  color: #10b981 !important;
+  border-color: #10b981;
+  background: rgba(16, 185, 129, 0.05);
+}
