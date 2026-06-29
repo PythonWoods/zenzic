@@ -196,6 +196,16 @@ extra:
   # CI pipeline passes the current version at build time, e.g.:
   #   uv run mkdocs build --extra zenzic_version=0.14.1
   zenzic_version: "0.18.0"  # release sync
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/PythonWoods/zenzic
+      name: Zenzic on GitHub
+    - icon: fontawesome/solid/rss
+      link: /blog/rss.xml
+      name: RSS Feed
+    - icon: fontawesome/solid/square-rss
+      link: /blog/atom.xml
+      name: Atom Feed
 
 markdown_extensions:
   - attr_list
