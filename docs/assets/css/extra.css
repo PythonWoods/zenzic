@@ -930,7 +930,7 @@ html:has(.zz-tailwind-root) .md-header__source {
   align-items: center;
   padding: 4px 10px;
   background: var(--md-code-bg-color);
-  border: 1px solid var(--zz-border-subtle);
+  border: 1px solid #10b981;
   color: var(--zz-muted-color-hover);
   border-radius: 4px;
   text-decoration: none !important;
