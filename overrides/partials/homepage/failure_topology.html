@@ -25,38 +25,8 @@
       </div>
       <div class="grid lg:grid-cols-12 gap-10 lg:gap-8 items-center">
         <div class="lg:col-span-5 lg:col-start-8 lg:max-w-sm lg:justify-self-end">
-          <!-- Hostile Precision Feature Matrix -->
-          <div class="grid grid-cols-1 gap-4 font-sans text-sm text-gray-300">
-
-            <!-- Header -->
-            <div class="border-b border-gray-800 pb-2 mb-2">
-              <h3 class="text-xl font-semibold text-white">Credential Scanner</h3>
-              <p class="text-xs text-gray-500 font-mono mt-1">MODULE: src/zenzic/core/scanners</p>
-            </div>
-
-            <!-- Metric Matrix -->
-            <div class="grid grid-cols-3 gap-y-3 border border-gray-800 rounded-md p-4 bg-gray-900/30">
-
-              <!-- Row 1 -->
-              <div class="col-span-1 text-gray-500 font-mono text-xs uppercase tracking-wider">Scope</div>
-              <div class="col-span-2">Every line, including <code class="bg-gray-800 text-indigo-400 px-1 py-0.5 rounded font-mono text-xs">`bash`</code> & <code class="bg-gray-800 text-indigo-400 px-1 py-0.5 rounded font-mono text-xs">`yaml`</code> fences.</div>
-
-              <!-- Row 2 -->
-              <div class="col-span-1 text-gray-500 font-mono text-xs uppercase tracking-wider">Algorithm</div>
-              <div class="col-span-2">RE2 DFA-pure regex. Zero catastrophic backtracking.</div>
-
-              <!-- Row 3 -->
-              <div class="col-span-1 text-gray-500 font-mono text-xs uppercase tracking-wider">Severity</div>
-              <div class="col-span-2 flex items-center gap-2">
-                <span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
-                <span class="text-red-400 font-mono font-bold">FATAL (Exit 2)</span>
-              </div>
-
-              <!-- Row 4 -->
-              <div class="col-span-1 text-gray-500 font-mono text-xs uppercase tracking-wider">Suppressible</div>
-              <div class="col-span-2 text-white font-mono">FALSE</div>
-            </div>
-
+          <div class="prose prose-invert prose-sm">
+            {{ page.content }}
           </div>
         </div>
         <div class="lg:col-span-7 lg:col-start-1 w-full lg:row-start-1">
