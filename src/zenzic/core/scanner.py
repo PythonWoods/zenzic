@@ -374,7 +374,18 @@ def check_placeholder_content(
             )
         )
 
+    in_block = False
     for i, line in enumerate(text.splitlines(), start=1):
+        stripped = line.strip()
+        if not in_block:
+            if stripped.startswith("```") or stripped.startswith("~~~"):
+                in_block = True
+                continue
+        else:
+            if stripped.startswith("```") or stripped.startswith("~~~"):
+                in_block = False
+            continue
+
         for pattern in patterns:
             m = pattern.search(line)
             if m:

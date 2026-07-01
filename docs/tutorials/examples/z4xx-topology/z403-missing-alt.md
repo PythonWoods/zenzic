@@ -34,14 +34,14 @@ docs/index.md:14  !  [Z403]  Image 'diagram.png' has no alt text.
 
     12  │  The following diagram shows the system components:
     13  │
-    14  ❱  ![](diagram.png)
+    14  ❱  ![TODO: ADD LABEL](diagram.png)
     15  │
     16  │  The `![](diagram.png)` syntax above has an empty alt attribute →
 **Z403**.
 
 docs/index.md:16  !  [Z403]  Image 'diagram.png' has no alt text.
 
-    14  │  ![](diagram.png)
+    14  │  ![TODO: ADD LABEL](diagram.png)
     15  │
     16  ❱  The `![](diagram.png)` syntax above has an empty alt attribute →
 **Z403**.

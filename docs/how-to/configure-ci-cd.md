@@ -487,7 +487,7 @@ prints an actionable message:
 Run 'zenzic score --stamp' locally and commit the updated files to resolve this.
 ```
 
-The gate is **read-only** — it never modifies files. It only validates what is
+The gate is **read-only by default**. Auto-fixing is an explicit, opt-in operation protected by atomic file writes. It only validates what is
 already committed.
 
 #### Optional: automate with pre-commit

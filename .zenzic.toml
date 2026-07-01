@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
 
-placeholder_patterns = []
+# placeholder_patterns = []
 
 # Precedence: .zenzic.toml is shared baseline; .zenzic.local.toml overrides locally.
 # Keep secrets and workstation-only values in .zenzic.local.toml.
@@ -49,6 +49,7 @@ excluded_file_patterns = []
 # Prefer [governance.per_file_ignores]
 
 [governance.directory_policies]
+"docs/**" = ["Z501"]
 "docs/assets/**" = ["Z405"]
 "docs/blog/**" = ["Z402", "Z101"]
 "docs/favicon.ico" = ["Z405"]

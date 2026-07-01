@@ -221,18 +221,26 @@ placeholder_max_words = 100
 | **Type** | `list[str]` |
 | **Default** | See below |
 
-Case-insensitive strings that flag a page as containing placeholder text. The default list includes both English and Italian patterns:
+Case-insensitive strings that flag a page as containing placeholder text.
+
+!!! warning "Absolute Override Behavior"
+    All list-based configurations in `.zenzic.toml` (such as `placeholder_patterns`) operate as an **Absolute Override**, not an extension.
+    If you provide a custom list, it completely replaces the default list.
+
+    To **globally disable Z501**, supply an empty list:
+    ```toml
+    placeholder_patterns = []
+    ```
+    To add a custom regex while keeping the defaults, you must explicitly re-declare the default patterns alongside your new ones.
+
+The default list includes both English and Italian patterns:
 
 ```toml
 # Default patterns (shown for reference — override to customise)
 placeholder_patterns = [
-  "coming soon", "work in progress", "wip", "todo", "to do",
-  "stub", "placeholder", "fixme", "tbd", "to be written",
-  "to be completed", "to be added", "under construction",
-  "not yet written", "draft",
-  # Italian
-  "da completare", "in costruzione", "in lavorazione",
-  "da scrivere", "da aggiungere", "bozza", "prossimamente",
+  "\\btodo\\b", "\\bfixme\\b", "\\bwip\\b", "\\btbd\\b",
+  "\\bstub\\b", "\\bda completare\\b", "\\bin costruzione\\b",
+  "\\bin lavorazione\\b", "\\bbozza\\b", "\\bprossimamente\\b"
 ]
 ```
 

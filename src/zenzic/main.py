@@ -21,6 +21,7 @@ from zenzic.cli import (
     configure_console,
     diff,
     explain,
+    fix,
     get_console,
     get_ui,
     guard_app,
@@ -96,6 +97,7 @@ _STANDALONE_COMMANDS = {
     "score": score,
     "diff": diff,
     "explain": explain,
+    "fix": fix,
     "init": init,
 }
 
