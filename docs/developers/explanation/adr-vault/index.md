@@ -50,12 +50,13 @@ These ADRs document the structural decisions for the current architecture.
 | [ADR 004](./records/adr-decentralized-cli.md) | Decentralized CLI Package |
 | [ADR 005](./records/adr-agnostic-universalism.md) | Z404 Agnostic Universalism |
 | [ADR 007](./records/adr-007-sovereign-sandbox.md) | Sovereign Sandbox *(Maintainer Only)* |
-| [ADR 008](./records/adr-bilingual-structural.md) | Bilingual Structural Invariant |
+| [ADR 008](./records/adr-bilingual-structural.md) | Bilingual Structural Invariant *(Deprecated)* |
 | [ADR 009](./records/adr-path-sovereignty.md) | Path Sovereignty |
 | [ADR 013](./records/adr-regex-acl.md) | The Regex Anti-Corruption Layer (ReDoS Protection) |
 | [ADR 015](./records/adr-native-telemetry.md) | Native Telemetry Validation |
 | [ADR 020](./records/adr-020-mirror-law.md) | Mirror Law |
 | [ADR 021](./records/adr-021-parallel-audit.md) | Parallel Audit Completeness vs. Fail-Fast |
+| [ADR 022](./records/adr-022-english-only-governance.md) | English-Only Governance & Deprecation of Bilingual Invariant |
 | [ADR 075](./records/adr-075-radical-unawareness.md) | Radical Unawareness |
 
 ---
