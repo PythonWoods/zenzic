@@ -63,6 +63,13 @@ COMMANDS: tuple[CommandMeta, ...] = (
         usage_hint="Try 'zenzic score --help' for options.",
     ),
     CommandMeta(
+        name="fix",
+        panel="Core",
+        short_help="Auto-fix deterministic structural violations.",
+        long_help="Auto-fix deterministic structural violations.",
+        usage_hint="Try 'zenzic fix --help' for options.",
+    ),
+    CommandMeta(
         name="diff",
         panel="Quality",
         short_help="Compare current documentation score against the saved snapshot.",

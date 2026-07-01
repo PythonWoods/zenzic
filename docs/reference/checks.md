@@ -15,7 +15,7 @@ Zenzic runs **six independent checks**. Each addresses a distinct category of do
 | [Links](#check-links) | `zenzic check links` | Broken internal links, dead anchors, unreachable URLs |
 | [Orphans](#check-orphans) | `zenzic check orphans` | `.md` files present on disk but absent from nav |
 | [Snippets](#check-snippets) | `zenzic check snippets` | Python/YAML/JSON/TOML syntax errors in fenced blocks |
-| [Placeholders](#check-placeholders) | `zenzic check placeholders` | Stub pages with low word count or `TODO` patterns |
+| [Placeholders](#check-placeholders) | `zenzic check placeholders` | Placeholder pages with low word count or patterns |
 | [Assets](#check-assets) | `zenzic check assets` | Media never referenced by any page |
 | [References](#check-references) | `zenzic check references` | Dangling ref-links, dead definitions, leaked credentials |
 
@@ -153,7 +153,24 @@ Pages with fewer than `placeholder_max_words` words (default: 50) are flagged as
 
 ### Signal 2 — pattern match
 
-Lines containing any string from `placeholder_patterns` (case-insensitive) are flagged as `placeholder-text`. Default patterns include: `coming soon`, `work in progress`, `wip`, `todo`, `to do`, `stub`, `placeholder`, `fixme`, `tbd`, `draft`, `da completare`, `in costruzione`, `bozza`, `prossimamente`.
+Lines containing any string from `placeholder_patterns` (case-insensitive) are flagged as `placeholder-text`. Default patterns include:
+
+```text
+coming soon
+work in progress
+wip
+todo
+to do
+stub
+placeholder
+fixme
+tbd
+draft
+da completare
+in costruzione
+bozza
+prossimamente
+```
 
 Both signals are independent. A page may trigger one, both, or neither.
 

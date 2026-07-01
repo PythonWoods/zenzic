@@ -59,7 +59,13 @@ Accessibility isn't optional. Images without `alt` text break screen readers and
 
 ## 10. The Placeholder Left Behind (Z501)
 
-When drafting long technical guides, it's common to use `Lorem ipsum` or `TODO: Add architecture diagram here`. Zenzic scans the content layer for forgotten placeholders, ensuring that your users never see unfinished, draft-state content in production.
+When drafting long technical guides, it's common to use placeholder text.
+
+```text
+TODO: Add architecture diagram here
+```
+
+Zenzic scans the content layer for forgotten placeholders, ensuring that your users never see unfinished, draft-state content in production.
 
 ***
 

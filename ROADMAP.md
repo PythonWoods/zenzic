@@ -22,17 +22,23 @@ For the current release history, see [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
-## [v0.19.0] - The AST Foundations (Planned)
+### [v0.19.0] - The AST Foundations (Completed)
 
-*Rebuilding the core to support semantic awareness and structural introspection.*
-
-- **Deterministic Markdown Renderer** (Issue #11): A lossless parser-to-AST-to-string pipeline required for auto-fixing and semantic rewrites.
-- **Custom Rules API v2 (AST Walker)**: Exposing the internal AST to allow users to write custom Python plugins for bespoke document governance.
-- **CLI Live URL Resolution (DX Rewrite)**: Asynchronous resolution of external URLs during the `zenzic check` phase to validate link rot in real-time.
+*Lossless AST Parser, O(N) Inline Tokenization, Mutator Engine, Atomic File Writer, Z108 Auto-Fix.*
 
 ---
 
-## [v0.20.0] - Shift-Left to the Keystroke (IDE Integration & LSP)
+## [v0.20.0] - The Extensibility Update (Planned)
+
+*Expanding the core mutation and governance infrastructure.*
+
+- **Custom Rules API v2 (AST Walker):** Exposing the internal AST to allow users to write custom Python plugins for bespoke document governance.
+  - *Constraint:* To protect the $O(N)$ performance invariant, custom rules will be executed within a strict sandbox. Any rule exceeding a 50ms execution budget will be terminated, emitting a `Z902 RULE_TIMEOUT` governance warning.
+- **Auto-Fix Expansion:** Broadening the `zenzic fix` pipeline to support semantic repair semantics for additional `Z1xx` and `Z3xx` findings.
+
+---
+
+## [v0.21.0] - Shift-Left to the Keystroke (IDE Integration & LSP)
 
 *Pushing the "Hostile Precision" feedback loop directly into the authoring environment.*
 
@@ -41,10 +47,9 @@ For the current release history, see [CHANGELOG.md](CHANGELOG.md).
   - **The Single Source of Truth:** The VS Code extension will contain zero AST parsing or regex logic. It will stream `textDocument/didChange` events to the local Python backend. The Python core remains the sole arbiter of Document Quality.
   - **Real-Time Governance:** Z-Codes will render as real-time editor diagnostics (red/yellow squiggly lines). Hovering over a broken link (`Z104`), a missing anchor (`Z102`), or a leaked credential (`Z201`) will display the exact DQS penalty and remediation steps natively extracted from the Python `CodeDefinition` registry.
   - **Performance Invariant:** Leveraging the $O(N)$ RE2 DFA engine and atomic caching, the ZLS will guarantee sub-50ms diagnostic responses, ensuring zero typing latency degradation for the end-user.
-- **Deterministic Auto-Fix Engine (`zenzic fix`)** (Issue #10): Semantic `--dry-run` / `--apply` repair semantics for `Z1xx` and `Z3xx` findings. Powered by the Deterministic Markdown Renderer. Implements an exact 3-Tier safety model (Tier 1: Auto-apply, Tier 2: Patches, Tier 3: Security FATALs banned).
 - **Semantic Linting & Readability** (Issues #8, #9): AST-based rules to detect semantically duplicate headings, empty/stub sections, and integration of deterministic readability metrics (Flesch-Kincaid).
 
-## [v0.21.0] - Ecosystem & Interoperability
+## [v0.22.0] - Ecosystem & Interoperability
 
 *Expanding the Zenzic perimeter to external frameworks.*
 
@@ -69,4 +74,4 @@ These constraints apply across every future release:
 
 ---
 
-Roadmap last updated: 2026-06-28
+Roadmap last updated: 2026-07-01

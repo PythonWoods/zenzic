@@ -35,7 +35,7 @@ Documentation frequently contains configuration examples intended to be copied d
 
 One fenced code block declared as `toml` contained the following snippet:
 
-```toml
+```text
 [project.extra.annotate]
 json: [".s2"]
 ```

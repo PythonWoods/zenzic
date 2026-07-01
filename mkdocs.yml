@@ -134,6 +134,7 @@ nav:
     - Reference:
       - developers/reference/adapter-api.md
       - developers/reference/adapter-examples.md
+      - developers/reference/ast-foundations.md
       - developers/reference/cli-architecture.md
       - developers/reference/credential-scanner-obligations.md
       - developers/reference/supply-chain-assurance-profile.md
@@ -146,6 +147,7 @@ nav:
         - developers/explanation/adr-vault/records/adr-007-sovereign-sandbox.md
         - developers/explanation/adr-vault/records/adr-020-mirror-law.md
         - developers/explanation/adr-vault/records/adr-021-parallel-audit.md
+        - developers/explanation/adr-vault/records/adr-022-english-only-governance.md
         - developers/explanation/adr-vault/records/adr-075-radical-unawareness.md
         - developers/explanation/adr-vault/records/adr-agnostic-universalism.md
         - developers/explanation/adr-vault/records/adr-bilingual-structural.md

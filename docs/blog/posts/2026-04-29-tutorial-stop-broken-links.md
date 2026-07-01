@@ -78,7 +78,7 @@ are caught before they reach `main`.
 
 - **Safe** — Zenzic is secure because it doesn't touch your system files.
 
-  Read-only analysis, always. Your repository is observed, never modified.
+  Zenzic is read-only by default. Auto-fixing is an explicit, opt-in operation protected by atomic file writes.
 
 - **Universal** — Works with MkDocs, Zensical, or any plain Markdown folder.
 

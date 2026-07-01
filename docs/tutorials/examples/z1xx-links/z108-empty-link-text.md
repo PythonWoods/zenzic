@@ -55,7 +55,7 @@ docs/index.md:10:2  x  [Z108]  link label is empty or whitespace-only
 
      8  │  ## Empty Link
      9  │
-    10  ❱  - [](guide.md) — empty label (no visible text for screen readers) →
+    10  ❱  - [TODO: ADD LABEL](guide.md) — empty label (no visible text for screen readers) →
 **Z108**
         │
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

@@ -9,10 +9,12 @@ description: "ADR 008: Atomic filesystem parity between the English source tree 
 
 # ADR 008: Bilingual Structural Invariant — The Symmetry Guardrail
 
-> **[DEPRECATED - HISTORICAL ARCHIVE]**
+> **DEPRECATED:** This ADR is superseded by [ADR-022](./adr-022-english-only-governance.md).
+>
+> **[HISTORICAL ARCHIVE]**
 > As of `v0.14.0`, the Docusaurus adapter has been permanently eradicated from the Zenzic ecosystem due to the ontological limits of static analysis on runtime-generated React ASTs. This ADR is retained strictly for historical context. See the blog post *Why We Dropped Docusaurus* for the full post-mortem.
 
-**Status:** Deprecated (as of v0.14.0)
+**Status:** Deprecated (Superseded by ADR-022)
 **Decider:** Architecture Lead
 **Date:** 2026-04-20 (D045 — Diátaxis Migration)
 
@@ -105,7 +107,7 @@ history noise and make bisect unreliable when investigating regressions.
 
   filesystem structure of `docs/` or `i18n/it/`.
 
-- New files added to `docs/` must have a corresponding stub added to `i18n/it/`
+- New files added to `docs/` must have a corresponding placeholder added to `i18n/it/`
 
   **in the same commit** — even if the Italian content is a copy of the English
   until a translation is provided.
@@ -131,4 +133,4 @@ history noise and make bisect unreliable when investigating regressions.
 - The symmetry invariant applies to **directory structure** only. Italian
 
   *content* may lag behind English during active development cycles, as long as the file
-  is present (even as a stub). A 404 is worse than a stale translation.
+  is present (even as a placeholder). A 404 is worse than a stale translation.

@@ -63,10 +63,10 @@ engine = "mkdocs"
 
 | Goal | Pattern |
 | :--- | :--- |
-| Case-insensitive word boundary | `(?i)\\bDRAFT\\b` |
-| Literal dot (hostname) | `internal\\.corp\\.example\\.com` |
-| Match anywhere on line | `TODO` (no anchors needed — matching is per-line) |
-| Exclude false positives | Use word boundaries `\\b` to avoid matching `TODOS` when looking for `TODO` |
+| Case-insensitive word boundary | `(?i)\bTEST\b` |
+| Literal dot (hostname) | `internal\.corp\.example\.com` |
+| Match anywhere on line | `EXAMPLE` (no anchors needed — matching is per-line) |
+| Exclude false positives | Use word boundaries `\b` to avoid matching `EXAMPLES` when looking for `EXAMPLE` |
 
 All patterns are applied with Python `re.search` — a match anywhere on the line triggers the
 finding. Use `^` and `$` anchors only when you need to constrain to the start or end of the line.

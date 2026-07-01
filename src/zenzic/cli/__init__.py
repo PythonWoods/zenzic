@@ -16,6 +16,7 @@ from ._check import (
 )
 from ._clean import clean_app
 from ._config_explain import config_app
+from ._fix import fix
 from ._guard import guard_app
 from ._inspect import inspect_app
 from ._lab import lab
@@ -41,6 +42,7 @@ __all__ = [
     "score",
     "diff",
     "explain",
+    "fix",
     "init",
     "lab",
     # Console control (called from main.py @app.callback)

@@ -528,7 +528,13 @@ A conflict between the physical file structure and the engine's navigation confi
 
 **Severity:** `warning` · **Penalty:** −2.0 pts (Content) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z5xx-content/z501-placeholder.md)
 
-Placeholder strings (`TODO`, `FIXME`, `[INSERT IMAGE HERE]`) committed to production documentation signal incomplete work.
+Placeholder strings committed to production documentation signal incomplete work. Examples include:
+
+```text
+TODO
+FIXME
+[INSERT IMAGE HERE]
+```
 
 **Fix:** Replace the placeholder with actual content, or remove it until the content is ready.
 

@@ -144,7 +144,15 @@ Exit code: `0`
 
 The `Z501` finding indicates a **PLACEHOLDER** issue.
 
-This error or warning is raised by Zenzic when the document contains placeholder patterns like 'TODO', 'FIXME', 'LOREM IPSUM', or generic boilerplate strings. This checks if draft text leaked into production docs. By default, Zenzic is ultra-conservative: it uses explicit word boundaries (`\bTODO\b`, `\bFIXME\b`) to prevent the Scunthorpe Problem (e.g., flagging the word "autodome" because it contains "todo").
+This error or warning is raised by Zenzic when the document contains placeholder patterns like:
+
+```text
+TODO
+FIXME
+LOREM IPSUM
+```
+
+or generic boilerplate strings. This checks if draft text leaked into production docs. By default, Zenzic is ultra-conservative: it uses explicit word boundaries to prevent the Scunthorpe Problem.
 
 In this specific example:
 

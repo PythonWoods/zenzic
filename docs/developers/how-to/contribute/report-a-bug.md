@@ -53,13 +53,13 @@ them in the bug report.__
 
 Our issue template consists of the following parts:
 
-- [Title](#title)
-- [Context](#context) <small>optional</small>
-- [Bug description](#bug-description)
-- [Related links](#related-links)
-- [Reproduction](#reproduction)
-- [Steps to reproduce](#steps-to-reproduce)
-- [Checklist](#checklist)
+- Title
+- Context <small>optional</small>
+- Bug description
+- Related links
+- Reproduction
+- Steps to reproduce
+- Checklist
 
 ### Title
 
