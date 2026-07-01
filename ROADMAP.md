@@ -24,11 +24,13 @@ For the current release history, see [CHANGELOG.md](CHANGELOG.md).
 
 ## [v0.19.0] - The AST Foundations (Planned)
 
-*Rebuilding the core to support semantic awareness and structural introspection.*
+*Rebuilding the core to support semantic awareness and structural introspection while defending the Determinism pillar.*
 
-- **Deterministic Markdown Renderer** (Issue #11): A lossless parser-to-AST-to-string pipeline required for auto-fixing and semantic rewrites.
-- **Custom Rules API v2 (AST Walker)**: Exposing the internal AST to allow users to write custom Python plugins for bespoke document governance.
-- **CLI Live URL Resolution (DX Rewrite)**: Asynchronous resolution of external URLs during the `zenzic check` phase to validate link rot in real-time.
+- **Deterministic Markdown Renderer (Issue #11):** A lossless parser-to-AST-to-string pipeline. This is the mandatory prerequisite for auto-fixing (`zenzic fix`) and semantic rewrites, guaranteeing that untouched AST nodes render byte-for-byte identical to the original source.
+- **Custom Rules API v2 (AST Walker):** Exposing the internal AST to allow users to write custom Python plugins for bespoke document governance.
+  - *Constraint:* To protect the $O(N)$ performance invariant, custom rules will be executed within a strict sandbox. Any rule exceeding a 50ms execution budget will be terminated, emitting a `Z902 RULE_TIMEOUT` governance warning.
+- **Deferred / Spun-out:** *CLI Live URL Resolution (Network I/O)*.
+  - *Architectural Decision:* Real-time external HTTP resolution has been removed from the Core `zenzic check` cycle. Network states are inherently non-deterministic and violate the Zenzic Manifesto. External link auditing will be researched as a separate, asynchronous plugin or standalone command (`zenzic audit-network`) that does not impact the deterministic CI gate.
 
 ---
 
