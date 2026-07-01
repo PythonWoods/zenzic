@@ -412,9 +412,9 @@ RE2 is a superset of standard POSIX ERE syntax. Patterns like these compile and 
 | Feature | Example |
 | :--- | :--- |
 | Literal text | `internal\.corp\.example\.com` |
-| Alternation | `DRAFT\|WIP\|TODO` |
+| Alternation | `TEST\|DEMO\|EXAMPLE` |
 | Repetition | `[0-9]{3}-[0-9]{4}` |
-| Inline flags | `(?i)\bDRAFT\b` (case-insensitive), `(?m)^todo` (multiline) |
+| Inline flags | `(?i)\bTEST\b` (case-insensitive), `(?m)^example` (multiline) |
 | Named groups | `(?P<code>Z\d{3})` |
 | Classic "dangerous" quantifiers | `(a+)+` — safe under RE2, runs in O(n) |
 
@@ -536,7 +536,7 @@ The banner always writes to **stdout** (the shared `_shared.console`) so it uses
 `ZenzicPalette`, `ZenzicUI`, `make_banner`, `emoji`, and `SUPPORTS_COLOR` live in
 `src/zenzic/core/ui.py`. The core layer owns the visual identity so `ZenzicReporter` (which
 is also in `core/`) can import them without looking upward. The CLI layer imports from
-`zenzic.core.ui` directly. The compatibility stub at `src/zenzic/ui.py` re-exports everything
+`zenzic.core.ui` directly. The compatibility layer at `src/zenzic/ui.py` re-exports everything
 for any third-party code that was already importing from the old path.
 
 ---

@@ -409,7 +409,7 @@ This rule applies to any path segment starting with `_`:
 | Path | Status |
 | :--- | :--- |
 | `_private/notes.md` | `IGNORED` → `UNREACHABLE_LINK` |
-| `_drafts/wip.md` | `IGNORED` → `UNREACHABLE_LINK` |
+| `_drafts/test.md` | `IGNORED` → `UNREACHABLE_LINK` |
 | `public/page.md` | `REACHABLE` — served normally |
 
 !!! note "MkDocs does not have this rule"

@@ -26,7 +26,7 @@
 # docs_dir = "."
 
 strict = true
-fail_under = 81
+fail_under = 92
 # exit_zero = false
 # respect_vcs_ignore = true
 # validate_same_page_anchors = true
@@ -55,19 +55,6 @@ excluded_file_patterns = []
 "docs/blog/rss.xsl" = ["Z405"]
 
 [governance.per_file_ignores]
-# Z501 Didactic Suppressions
-"docs/developers/reference/credential-scanner-obligations.md" = ["Z501"]
-"docs/explanation/architecture.md" = ["Z501"]
-"docs/how-to/add-custom-rules.md" = ["Z501"]
-"docs/reference/advanced-features.md" = ["Z501"]
-"docs/reference/checks.md" = ["Z501"]
-"docs/reference/cli.md" = ["Z501"]
-"docs/reference/finding-codes.md" = ["Z501"]
-"docs/tutorials/examples/index.md" = ["Z501"]
-"docs/tutorials/examples/z5xx-content/z501-placeholder.md" = ["Z501"]
-"docs/blog/posts/2026-06-29-10-documentation-bugs-caught-by-zenzic.md" = ["Z501"]
-"docs/developers/explanation/adr-vault/records/adr-bilingual-structural.md" = ["Z501"]
-
 "docs/tutorials/examples/z1xx-links/z107-circular-anchor.md" = ["Z107"]
 "docs/tutorials/examples/z5xx-content/z506-malformed-frontmatter.md" = ["Z506", "Z503"]
 "docs/index.md" = ["Z502"]

@@ -106,8 +106,8 @@ except PluginContractError as e:
 
 | Pattern | Notes |
 |---------|-------|
-| `TODO` | Literal match, O(n) |
-| `^(DRAFT\|WIP):` | Anchored alternation, O(1) at each position |
+| `EXAMPLE` | Literal match, O(n) |
+| `^(START\|END):` | Anchored alternation, O(1) at each position |
 | `[A-Z]{3}-\d+` | Bounded character classes |
 | `\bfoo\b` | Word-boundary anchored |
 

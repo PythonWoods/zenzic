@@ -105,7 +105,7 @@ history noise and make bisect unreliable when investigating regressions.
 
   filesystem structure of `docs/` or `i18n/it/`.
 
-- New files added to `docs/` must have a corresponding stub added to `i18n/it/`
+- New files added to `docs/` must have a corresponding placeholder added to `i18n/it/`
 
   **in the same commit** — even if the Italian content is a copy of the English
   until a translation is provided.
@@ -131,4 +131,4 @@ history noise and make bisect unreliable when investigating regressions.
 - The symmetry invariant applies to **directory structure** only. Italian
 
   *content* may lag behind English during active development cycles, as long as the file
-  is present (even as a stub). A 404 is worse than a stale translation.
+  is present (even as a placeholder). A 404 is worse than a stale translation.

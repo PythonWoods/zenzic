@@ -34,7 +34,7 @@ class EmptyLinkTextMutation:
                 is_empty = True
 
             if is_empty:
-                node.children = [TextNode(text="TODO: ADD LABEL")]
+                node.children = [TextNode(text="MISSING LINK LABEL")]
                 mutated = True
 
         for child in node.children:

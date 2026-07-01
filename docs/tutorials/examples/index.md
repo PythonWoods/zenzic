@@ -49,7 +49,7 @@ uvx zenzic lab all       # run all 20 scenarios
 | Z404 | Configured asset missing | [z404-config-asset-missing](z4xx-topology/z404-config-asset-missing) |
 | Z405 | Unreferenced asset on disk | [z405-unused-assets](z4xx-topology/z405-unused-assets) |
 | Z406 | Navigation contract violation | [z406-nav-contract](z4xx-topology/z406-nav-contract) |
-| Z501 | Stub / TODO placeholder content | [z501-placeholder](z5xx-content/z501-placeholder) |
+| Z501 | Placeholder content | [z501-placeholder](z5xx-content/z501-placeholder) |
 | Z502 | Page below minimum word count | [z502-short-content](z5xx-content/z502-short-content) |
 | Z503 | Python snippet syntax error | [z503-snippet-error](z5xx-content/z503-snippet-error) |
 | Z505 | Untagged fenced code block | [z505-untagged-code-block](z5xx-content/z505-untagged-code-block) |
