@@ -26,7 +26,7 @@
 # docs_dir = "."
 
 strict = true
-fail_under = 92
+fail_under = 100
 # exit_zero = false
 # respect_vcs_ignore = true
 # validate_same_page_anchors = true
@@ -53,13 +53,5 @@ excluded_file_patterns = []
 "docs/blog/**" = ["Z402", "Z101"]
 "docs/favicon.ico" = ["Z405"]
 "docs/blog/rss.xsl" = ["Z405"]
-
-[governance.per_file_ignores]
-"docs/tutorials/examples/z1xx-links/z107-circular-anchor.md" = ["Z107"]
-"docs/tutorials/examples/z5xx-content/z506-malformed-frontmatter.md" = ["Z506", "Z503"]
-"docs/index.md" = ["Z502"]
-
-"docs/blog/index.md" = ["Z502"]
-"docs/blog/posts/2026-06-09-auditing-the-auditors.md" = ["Z503"]
-"docs/developers/how-to/contribute/report-a-bug.md" = ["Z107"]
-"docs/developers/how-to/contribute/request-a-change.md" = ["Z107"]
+"docs/tutorials/examples/z1xx-links/**" = ["Z107"]
+"docs/tutorials/examples/z5xx-content/**" = ["Z506", "Z503"]

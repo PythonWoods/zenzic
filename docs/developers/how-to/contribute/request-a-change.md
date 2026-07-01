@@ -22,7 +22,7 @@ our software meets the needs of our community.
     kindly ask you to take the time to read the following guidelines before
     submitting your change request in our public [issue tracker](https://github.com/PythonWoods/zenzic/issues). Before
     submitting a new idea, please take a moment to read
-    [how we manage change requests](#how-we-manage-change-requests).
+    the section on how we manage change requests below.
 
 ## Before creating an issue
 
@@ -49,13 +49,13 @@ them in the change request.**
 
 Our change request template consists of the following parts:
 
-- [Title](#title)
-- [Context](#context) <small>optional</small>
-- [Description](#description)
-- [Related links](#related-links)
-- [Use cases](#use-cases)
-- [Visuals](#visuals) <small>optional</small>
-- [Checklist](#checklist)
+- Title
+- Context <small>optional</small>
+- Description
+- Related links
+- Use cases
+- Visuals <small>optional</small>
+- Checklist
 
 ### Title
 
@@ -77,7 +77,7 @@ relevant to Zenzic specifically.
 
 - **Explain the <u>what</u>, not the <u>why</u>** – focus on describing the
 
-    proposed change precisely. Benefits belong in [Use cases](#use-cases).
+    proposed change precisely. Benefits belong in the Use cases section.
 
 - **Keep it short** – be brief and to the point.
 
