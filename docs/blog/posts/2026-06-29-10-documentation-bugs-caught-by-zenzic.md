@@ -1,4 +1,5 @@
 ---
+title: "10 Documentation Bugs Caught by Zenzic"
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
 date: 2026-06-29
@@ -9,9 +10,6 @@ categories:
   - Documentation
   - Quality Assurance
 ---
-
-# 10 Documentation Bugs Caught by Zenzic
-
 Documentation isn't just text—it's a critical interface. When users rely on your docs to deploy infrastructure, configure security policies, or integrate APIs, a "simple typo" can lead to hours of lost productivity.
 
 In a docs-as-code workflow, documentation is code. And just like code, it has bugs. That's why we built Zenzic: a zero-config Markdown link and structural integrity auditor.

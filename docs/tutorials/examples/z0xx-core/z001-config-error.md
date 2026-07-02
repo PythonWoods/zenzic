@@ -1,7 +1,7 @@
 ---
 sidebar_position: 1
 sidebar_label: "Z001 - Config Error"
-description: "Analysis of the z001-config-error scenario: how syntax errors or unknown keys in the configuration TOML trigger immediate analysis abort. Z-Code Z001 CORE_CONFIG_STRUCTURE, exit 1."
+description: "Analysis of the z001-config-error scenario: how syntax errors or unknown keys in configuration TOML trigger analysis abort, exiting 1."
 ---
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->

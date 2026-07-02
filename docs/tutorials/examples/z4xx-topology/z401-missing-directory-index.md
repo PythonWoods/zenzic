@@ -1,7 +1,7 @@
 ---
 sidebar_position: 1
 sidebar_label: "Z401 - Missing Directory Index"
-description: "Walk through the z401-missing-directory-index fixture: a docs/guide/ directory containing page.md but no index.md, triggering Z401 MISSING_DIRECTORY_INDEX at exit code 0."
+description: "Walk through the z401-missing-directory-index fixture: a guide directory missing index.md, triggering Z401 MISSING_DIRECTORY_INDEX."
 ---
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->

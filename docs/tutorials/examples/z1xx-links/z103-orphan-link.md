@@ -1,7 +1,7 @@
 ---
 sidebar_position: 3
 sidebar_label: "Z103 - Orphan Link"
-description: "Walk through the z103-orphan-link fixture: a link to a file that exists on disk but is absent from the site navigation, triggering Z103 ORPHAN_LINK at exit code 1."
+description: "Walk through the z103-orphan-link fixture: a link to an existing file that is absent from site navigation, triggering Z103 ORPHAN_LINK."
 ---
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->

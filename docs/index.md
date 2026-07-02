@@ -6,6 +6,7 @@ hide:
   - toc
   - path
   - feedback
+description: "Zenzic is an engine-agnostic Markdown static analyzer and credential scanner designed to enforce documentation quality and security."
 ---
 
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->

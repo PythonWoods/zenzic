@@ -1,9 +1,8 @@
+---
+description: "How Zenzic reconciles Tailwind CSS rem scaling with MkDocs Material's font-size and syncs dark mode state."
+---
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 ## <!-- SPDX-License-Identifier: Apache-2.0 -->
-
-title: Tailwind/MkDocs Material Bridge
-
-## description: How the zenzic-doc site reconciles Tailwind CSS rem scaling with MkDocs Material's accessibility font-size and syncs dark mode state without server-side logic
 
 # Tailwind/MkDocs Material Bridge
 

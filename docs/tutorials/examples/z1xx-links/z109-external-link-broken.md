@@ -1,7 +1,7 @@
 ---
 sidebar_position: 8
 sidebar_label: "Z109 - External Link Broken"
-description: "Walk through the z109-external-link-broken fixture: an external URL that cannot be reached or returns an HTTP error, triggering Z109 EXTERNAL_LINK_BROKEN at exit code 1."
+description: "Walk through the z109-external-link-broken fixture: an external URL that cannot be reached, triggering Z109 EXTERNAL_LINK_BROKEN."
 ---
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->

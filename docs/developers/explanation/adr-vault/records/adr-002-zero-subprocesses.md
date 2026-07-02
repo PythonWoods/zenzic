@@ -1,3 +1,6 @@
+---
+description: "Architectural Decision Record prohibiting subprocesses within the Zenzic Core to ensure security and portability."
+---
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 

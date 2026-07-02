@@ -1,7 +1,7 @@
 ---
 sidebar_position: 6
 sidebar_label: "Z107 - Circular Anchor"
-description: "Walk through the z107-circular-anchor fixture: a self-referential anchor link whose text slugifies to its own fragment, triggering Z107 CIRCULAR_ANCHOR at exit code 0."
+description: "Walk through the z107-circular-anchor fixture: a self-referential anchor link triggering Z107 CIRCULAR_ANCHOR at exit code 0."
 ---
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->

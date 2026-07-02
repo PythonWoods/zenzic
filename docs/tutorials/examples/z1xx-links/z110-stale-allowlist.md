@@ -1,7 +1,7 @@
 ---
 sidebar_position: 10
 sidebar_label: "Z110 - Stale Allowlist"
-description: "Analysis of the z110-stale-allowlist scenario: an entry in absolute_path_allowlist is never matched by any scanned link. Z-Code Z110 STALE_ALLOWLIST_ENTRY, exit 1 under strict mode."
+description: "Analysis of the z110-stale-allowlist scenario: an unused entry in absolute_path_allowlist triggers Z110 STALE_ALLOWLIST_ENTRY."
 ---
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
