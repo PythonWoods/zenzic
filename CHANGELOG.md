@@ -11,6 +11,8 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.19.2] - 2026-07-02
+
 ## [0.19.2] — 2026-07-02
 
 ### Fixed
