@@ -1,4 +1,6 @@
 ---
+title: "Zenzic v0.19.0: The AST Foundations & Atomic Auto-Fix"
+slug: zenzic-v0190-the-ast-foundations
 date: 2026-07-02
 authors:
   - pythonwoods
@@ -11,8 +13,6 @@ categories:
 
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
-
-# Zenzic v0.19.0: The AST Foundations & Atomic Auto-Fix
 
 Zenzic v0.19.0 is arguably the most significant structural milestone for the engine since its inception. Until today, Zenzic operated entirely as a read-only static analyzer, relying on heavily optimized regular expressions to validate Markdown. With v0.19.0, we have laid the architectural foundation for a new era of document mutation and auto-fixing.
 

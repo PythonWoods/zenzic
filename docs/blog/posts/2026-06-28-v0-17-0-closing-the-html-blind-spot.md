@@ -1,4 +1,5 @@
 ---
+title: "Zenzic v0.17.0: HTML Validation in Markdown Documents"
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
 date: 2026-06-28
@@ -8,9 +9,6 @@ categories:
   - Releases
   - Engineering
 ---
-
-# Zenzic v0.17.0: HTML Validation in Markdown Documents
-
 With the release of Zenzic v0.17.0, Zenzic expands its validation capabilities beyond Markdown syntax. In addition to Markdown links and assets, Zenzic can now analyze raw HTML references embedded in Markdown documents.
 
 A common limitation of Markdown-focused tooling is that raw HTML embedded inside Markdown documents may not be analyzed with the same level of validation as native Markdown constructs. When developers embed `<a>` tags or `<img>` elements directly into their Markdown to achieve specific layouts or functionality, broken links and missing assets can remain undetected.
