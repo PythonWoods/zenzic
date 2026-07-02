@@ -47,5 +47,5 @@ then open the latest release and fetch `brand-kit.zip` from its Assets section.
 If you are developing third-party integrations, CI/CD actions, or writing research papers incorporating Zenzic, you are part of our ecosystem.
 
 1. **GitHub Actions & Badges:** Use our official Zenzic badges to demonstrate you are maintaining a 100% Quality Score on your repositories.
-2. **Press & Media Coverage:** For inquiries regarding custom art assets, interviews on static analysis architecture, or technical deep-dives, route requests to `brand@pythonwoods.dev`.
+2. **Press & Media Coverage:** For inquiries regarding custom art assets, interviews on static analysis architecture, or technical deep-dives, route requests to `dev@pythonwoods.dev`.
 3. **Endorsements:** Always ensure that any graphical association accurately implies integration, not exclusive ownership or dependency. Zenzic is and will permanently remain Open Source and universally adaptable.
