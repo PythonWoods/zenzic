@@ -11,6 +11,14 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.19.1] - Unreleased
+
+### Fixed
+
+- **Accessibility:** Resolved WCAG 2.1 AA contrast failures across homepage templates by shifting light mode secondary text to `zinc-600` and dark mode secondary text to `zinc-400`.
+- **Accessibility:** Added accessible name via `aria-label="Search dialog"` to the search dialog component for screen readers and agentic navigation.
+- **Performance:** Self-hosted Google Font files (Inter, IBM Plex Mono, Barlow Condensed, JetBrains Mono) for offline compliance and LCP optimization.
+
 ## [0.19.0] - 2026-07-01
 
 ## [0.19.0] - Unreleased
