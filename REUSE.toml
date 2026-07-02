@@ -55,3 +55,11 @@ SPDX-License-Identifier = "Apache-2.0"
 path = ["NOTICE", "LICENSE"]
 SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
 SPDX-License-Identifier = "Apache-2.0"
+
+# ── Font assets ──────────────────────────────────────────────────────────────
+
+[[annotations]]
+path = "docs/assets/fonts/**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
+SPDX-License-Identifier = "Apache-2.0"

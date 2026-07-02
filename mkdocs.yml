@@ -179,6 +179,7 @@ theme:
   logo: assets/brand/svg/zenzic-icon.svg
   favicon: assets/brand/svg/zenzic-icon.svg
   language: en
+  font: false
   palette:
     - scheme: slate
       primary: black

@@ -22,6 +22,13 @@ that cannot reach `img.shields.io`:
 
 For dynamic Shields.io variants and CI/CD wiring, see the [Badges guide](../how-to/add-badges.md).
 
+## Color Palette
+
+The Zenzic Brand System enforces WCAG 2.1 AA accessibility guidelines on all user interfaces. Accent and secondary text colors are dynamically calibrated to preserve legibility:
+
+* **Secondary Text (Light Mode):** `zinc-600` (`#52525b`) is the official standard for all secondary copy, descriptions, captions, and metadata, yielding a contrast ratio of 7.8:1 on light/white surfaces.
+* **Secondary Text (Dark Mode):** `zinc-400` (`#a1a1aa`) is the official standard for all dark mode secondary text, yielding a contrast ratio of 7.0:1 on Slate Lead (`#09090b`) backgrounds.
+
 ## Brand System Reference
 
 The interactive Brand System document shows the full Color Palette, logomark variants,
