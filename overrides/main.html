@@ -1,0 +1,11 @@
+{#-
+  SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+  SPDX-License-Identifier: Apache-2.0
+-#}
+{% extends "base.html" %}
+
+{% block extrahead %}
+  {{ super() }}
+  <link rel="preconnect" href="https://api.github.com" crossorigin>
+  <link rel="dns-prefetch" href="https://api.github.com">
+{% endblock %}
