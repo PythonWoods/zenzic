@@ -21,8 +21,6 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [0.19.0] - 2026-07-01
 
-## [0.19.0] - Unreleased
-
 ### Added
 
 - Lossless AST parser and serializer (Composite Pattern) for Markdown blocks and inline elements.
