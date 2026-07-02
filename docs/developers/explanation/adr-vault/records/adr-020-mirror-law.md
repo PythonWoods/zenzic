@@ -1,3 +1,6 @@
+---
+description: "Architectural Decision Record on total synchronization between code, filesystem, and bilingual documentation (EN/IT)."
+---
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 

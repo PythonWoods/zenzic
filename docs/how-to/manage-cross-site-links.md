@@ -1,7 +1,7 @@
 ---
 sidebar_label: "Manage Cross-Site Links"
 sidebar_position: 50
-description: "How to keep Z105 ABSOLUTE_PATH happy when your documentation spans multiple Zensical instances or satellite sites — and when to reach for inline ignores instead."
+description: "How to manage Z105 ABSOLUTE_PATH when your documentation spans multiple Zensical instances, and when to use inline ignores instead."
 ---
 
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->

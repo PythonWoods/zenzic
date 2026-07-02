@@ -1,3 +1,6 @@
+---
+description: "Reference guide for the Abstract Syntax Tree (AST) architecture and lossless serialization guarantees in Zenzic."
+---
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 

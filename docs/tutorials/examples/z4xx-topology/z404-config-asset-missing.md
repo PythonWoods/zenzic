@@ -1,7 +1,7 @@
 ---
 sidebar_position: 4
 sidebar_label: "Z404 - Config Asset Missing"
-description: "Walk through the z404-config-asset-missing fixture: mkdocs.yml declares theme.logo: assets/logo.svg but the file does not exist, triggering Z404 CONFIG_ASSET_MISSING at exit code 0."
+description: "Walk through the z404-config-asset-missing fixture: mkdocs.yml logo file does not exist, triggering Z404 CONFIG_ASSET_MISSING."
 ---
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->

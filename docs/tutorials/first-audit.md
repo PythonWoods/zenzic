@@ -1,6 +1,7 @@
 ---
 sidebar_position: 1
 sidebar_label: "Your First Audit"
+description: "Step-by-step tutorial to run your first Zenzic documentation audit and credential scan in under three minutes."
 ---
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->

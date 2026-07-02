@@ -1,3 +1,6 @@
+---
+description: "Architectural Decision Record explaining why the Zenzic Core is decoupled from specific CI runner environments."
+---
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
