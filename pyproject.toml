@@ -67,7 +67,7 @@ broken-links = "zenzic.core.rules:VSMBrokenLinkRule"
 
 [project.urls]
 Homepage      = "https://zenzic.dev"
-Documentation = "https://zenzic.dev/docs/"
+Documentation = "https://zenzic.dev/"
 Repository    = "https://github.com/PythonWoods/zenzic"
 Source        = "https://github.com/PythonWoods/zenzic"
 Changelog     = "https://github.com/PythonWoods/zenzic/blob/main/CHANGELOG.md"

@@ -14,10 +14,12 @@ Versions follow [Semantic Versioning](https://semver.org/).
 ## [0.19.2] — 2026-07-02
 
 ### Fixed
+
 - **Performance (LCP):** Optimized Critical Rendering Path by injecting `<link rel="preconnect">` resource hints for the GitHub API, significantly reducing latency for client-side widgets.
 - **Performance (CSS):** Implemented strict Tailwind CSS purging via `tailwind.config.js`, removing unused utility classes and minimizing the frontend payload.
 
 ### Technical Details
+
 - **DQS Invariant:** Repository Documentation Quality Score remains verified at 100/100.
 
 ## [0.19.1] - 2026-07-02
