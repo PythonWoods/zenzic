@@ -14,13 +14,16 @@ Versions follow [Semantic Versioning](https://semver.org/).
 ## [0.19.3] — 2026-07-02
 
 ### 🔒 Security Advisory
+
 This patch release addresses a security vulnerability in the Polyglot Extractor introduced in `v0.19.0`. All users utilizing Zenzic as a CI security gate are strongly advised to update immediately.
 
 ### Fixed
+
 - **Security (Z205 Bypass):** Resolved a parser differential vulnerability where attackers could evade the `Z205` (Forbidden Scheme) security gate. The extractor now correctly adheres to the HTML5 "first-wins" attribute parsing rule, preventing "Double Href" injection attacks.
 - **Security (Encoding Evasion):** The engine now correctly unescapes HTML entities and strips obfuscating control characters before evaluating URI schemes, preventing bypasses using encoded `javascript:` or `data:` payloads.
 
 ### Technical Details
+
 - **Performance:** The security hardening maintains the strict $O(N)$ (RE2/DFA-pure) execution time invariant.
 - **DQS Invariant:** Repository Documentation Quality Score remains verified at 100/100.
 

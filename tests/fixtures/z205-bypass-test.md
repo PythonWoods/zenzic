@@ -1,3 +1,7 @@
+
+<!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 # Z205 Bypass Payloads
 
 Questi payload servono a verificare che il parser prevenga il bypass dell'attributo security gate (Z205) tramite Parser Differential e Injection.
