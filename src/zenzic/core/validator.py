@@ -29,6 +29,7 @@ import asyncio
 import concurrent.futures
 import difflib
 import fnmatch
+import html
 import json
 import os
 import sys
@@ -224,6 +225,9 @@ _POLY_INFO_SCHEMES: frozenset[str] = frozenset({"mailto:", "tel:", "ftp:"})
 # Pattern fence per PolyglotExtractor._mask_fences (subset di SuppressionTracker).
 _POLY_FENCE_RE: re.RegexPattern = re.compile(r"^(?P<fence>[`~]{3,})")
 
+# Strip whitespaces and control characters from URLs prima del check Z205.
+_POLY_CLEAN_URL_RE: re.RegexPattern = re.compile(r"[\s\x00-\x1F]+")
+
 
 @dataclass(frozen=True, slots=True)
 class HtmlNodeInfo:
@@ -355,12 +359,17 @@ class PolyglotExtractor:
         suppressed = False
         unknown: list[str] = []
         blacklisted: list[str] = []
+        seen_attrs: set[str] = set()
 
         for m in _RE_POLY_ATTR.finditer(attrs_str):
             key_raw = m.group("key")
             if not key_raw:
                 continue
             key = key_raw.lower()
+            if key in seen_attrs:
+                continue
+            seen_attrs.add(key)
+
             val_raw = m.group("val") or ""
             val = val_raw.strip("\"'")
 
@@ -379,10 +388,11 @@ class PolyglotExtractor:
 
         # ── Security Gate Z205: check PRIMA di data-zenzic-ignore ─────────────────
         z205_scheme: str | None = None
+        clean_href: str | None = None
         if href:
-            href_lower = href.lower().lstrip()
+            clean_href = _POLY_CLEAN_URL_RE.sub("", html.unescape(href)).lower()
             for scheme in _POLY_FORBIDDEN_SCHEMES:
-                if href_lower.startswith(scheme):
+                if clean_href.startswith(scheme):
                     z205_scheme = scheme
                     break
 
@@ -390,10 +400,9 @@ class PolyglotExtractor:
         is_missing_href = href is None
         is_jump_link = href == "#"
         info_scheme: str | None = None
-        if href and not is_jump_link and z205_scheme is None:
-            href_lower_info = href.lower()
+        if clean_href and not is_jump_link and z205_scheme is None:
             for scheme in _POLY_INFO_SCHEMES:
-                if href_lower_info.startswith(scheme):
+                if clean_href.startswith(scheme):
                     info_scheme = scheme
                     break
 

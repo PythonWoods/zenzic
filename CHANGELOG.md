@@ -11,6 +11,12 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.19.3] - Unreleased
+
+### Fixed
+
+- **Security:** Resolved a Z205 bypass vulnerability where maliciously encoded HTML entities or duplicated href attributes could evade the forbidden scheme detection.
+
 ## [0.19.2] — 2026-07-02
 
 ### Fixed
