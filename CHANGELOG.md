@@ -11,6 +11,13 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.20.2] — 2026-07-04
+
+### Fixed
+
+- **SEO & Routing:** Removed destructive "nuclear sinks" (`/docs/*` and `/it/*`) from the Cloudflare `_redirects` routing kernel. Replaced wildcard fallbacks with strict 1:1 semantic mappings for legacy Italian ADRs. This eliminates Soft-404s and preserves PageRank equity for historical URLs.
+- **Documentation Accuracy:** Updated the simulated terminal output in the landing page (`execution_layer.html`) to reflect the correct root-level URL for finding codes.
+
 ## [0.20.1] - 2026-07-04
 
 ### Fixed
