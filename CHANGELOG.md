@@ -11,6 +11,8 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.19.6] - 2026-07-04
+
 ### 🔒 Security Advisory
 This patch release resolves three vulnerabilities identified during Red Team adversarial audits. All users are advised to update to ensure DQS integrity and CI stability.
 
