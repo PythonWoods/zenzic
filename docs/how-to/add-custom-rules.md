@@ -70,3 +70,17 @@ engine = "mkdocs"
 
 All patterns are applied with Python `re.search` — a match anywhere on the line triggers the
 finding. Use `^` and `$` anchors only when you need to constrain to the start or end of the line.
+
+---
+
+## Need structural analysis?
+
+`[[custom_rules]]` applies a regex line-by-line. If your rule requires **AST-level access**
+(e.g., inspecting heading hierarchy, counting paragraphs, or analyzing HTML tag attributes),
+use the **Custom AST Rules API v2** instead:
+
+- Drop a `.py` file in `.zenzic/rules/` — no packaging, no entry-points.
+- Subclass [`BaseASTRule`](../developers/how-to/write-ast-rule.md) and implement
+  `visit_block_node()` / `visit_html_node()`.
+
+→ [Writing Custom AST Rules (API v2)](../developers/how-to/write-ast-rule.md)

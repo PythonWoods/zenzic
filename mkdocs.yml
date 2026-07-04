@@ -131,6 +131,7 @@ nav:
       - developers/how-to/release-governance-protocol.md
       - developers/how-to/write-a-check.md
       - developers/how-to/write-plugin.md
+      - developers/how-to/write-ast-rule.md
     - Reference:
       - developers/reference/adapter-api.md
       - developers/reference/adapter-examples.md
