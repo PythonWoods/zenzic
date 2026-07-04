@@ -80,3 +80,54 @@ def test_formatted_empty_link_validation_and_mutation() -> None:
 
         serialized = serialize(new_ast)
         assert serialized == "[MISSING LINK LABEL](url)", f"Got: {serialized}"
+
+
+def test_polyglot_extractor_comment_masking() -> None:
+    """An HTML tag or a Z205 scheme inside an HTML or MDX comment is ignored by PolyglotExtractor."""
+    from zenzic.core.validator import PolyglotExtractor
+
+    extractor = PolyglotExtractor()
+
+    # 1. HTML comment with Z205 scheme
+    text = "<!-- <a href='javascript:alert(1)'>XSS</a> -->"
+    nodes = extractor.extract(text)
+    assert len(nodes) == 0, "Should ignore tags inside HTML comments"
+
+    # 2. MDX comment with Z205 scheme
+    text = "{/* <a href='javascript:alert(1)'>XSS</a> */}"
+    nodes = extractor.extract(text)
+    assert len(nodes) == 0, "Should ignore tags inside MDX comments"
+
+    # 3. HTML tag outside comments but comments present
+    text = "<!-- comment -->\n<a href='safe.md'>link</a>\n{/* comment */}"
+    nodes = extractor.extract(text)
+    assert len(nodes) == 1
+    assert nodes[0].href == "safe.md"
+    assert nodes[0].line_no == 2
+
+
+def test_polyglot_extractor_fence_evasion() -> None:
+    """A closing fence with trailing characters is NOT recognized as a closing fence, keeping masking active."""
+    from zenzic.core.validator import PolyglotExtractor
+
+    extractor = PolyglotExtractor()
+
+    # A fence is opened, then closed with ```extra. It should NOT be closed.
+    # Therefore, the tag <a href="safe.md"> inside/after it should remain masked.
+    text = (
+        "```\n<a href='safe.md'>inside</a>\n```extra\n<a href='safe.md'>after-fake-close</a>\n```\n"
+    )
+    nodes = extractor.extract(text)
+    # The first tag is inside the block. The second tag is also inside the block because ```extra didn't close it.
+    # The last ``` finally closes the block.
+    # So both should be masked, resulting in 0 extracted nodes.
+    assert len(nodes) == 0, (
+        "Should treat both tags as inside the code block because of malformed closing fence"
+    )
+
+    # If it is closed correctly (without extra info), the tag after should be extracted
+    text_closed = "```\n<a href='safe.md'>inside</a>\n```\n<a href='safe.md'>after-real-close</a>\n"
+    nodes_closed = extractor.extract(text_closed)
+    assert len(nodes_closed) == 1
+    assert nodes_closed[0].href == "safe.md"
+    assert nodes_closed[0].line_no == 4
