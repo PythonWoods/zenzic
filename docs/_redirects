@@ -1,8 +1,9 @@
 # SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
 # SPDX-License-Identifier: Apache-2.0
 #
-# Zenzic Deterministic Routing Kernel v12 (Nuclear Static)
-# EMERGENCY: Worker logic abandoned. Total explicit mapping for ADRs.
+# Zenzic Deterministic Routing Kernel v13 (SEO-Safe)
+# Strategy: Exact 1:1 semantic mapping. No nuclear sinks.
+# Dead paths return 404. Soft-404s are rejected by design.
 
 # ─── LAYER 1: CANONICAL HYGIENE ──────────────────────────────────────────────
 /docs           /  301
@@ -53,11 +54,25 @@
 /docs/tutorials/*                              /tutorials/:splat 301
 /docs/developers/*                             /developers/:splat 301
 
-# ─── LAYER 5: SEO & SAFETY SINKS ─────────────────────────────────────────────
-# Ogni rotta /it/ non mappata va all'indice, troncando la ricorsione.
-/it/developers/explanation/adr-vault/*         /developers/explanation/adr-vault/ 301
+# ─── LAYER 5: SEO-SAFE SINKS ──────────────────────────────────────────────────
+# Explicit-only. No nuclear sinks. Dead paths return 404 by design (ADR-018).
+# /it/adr-vault/* expanded to exact 1:1 semantic mapping (no subtree compression)
+/it/developers/explanation/adr-vault/records/adr-lint-source/         /developers/explanation/adr-vault/records/adr-lint-source/ 301
+/it/developers/explanation/adr-vault/records/adr-discovery/           /developers/explanation/adr-vault/records/adr-discovery/ 301
+/it/developers/explanation/adr-vault/records/adr-020-mirror-law/      /developers/explanation/adr-vault/records/adr-020-mirror-law/ 301
+/it/developers/explanation/adr-vault/records/adr-021-parallel-audit/  /developers/explanation/adr-vault/records/adr-021-parallel-audit/ 301
+/it/developers/explanation/adr-vault/records/adr-regex-acl/           /developers/explanation/adr-vault/records/adr-regex-acl/ 301
+/it/developers/explanation/adr-vault/records/adr-path-sovereignty/    /developers/explanation/adr-vault/records/adr-path-sovereignty/ 301
+/it/developers/explanation/adr-vault/records/adr-agnostic-universalism/ /developers/explanation/adr-vault/records/adr-agnostic-universalism/ 301
+/it/developers/explanation/adr-vault/records/adr-native-telemetry/    /developers/explanation/adr-vault/records/adr-native-telemetry/ 301
+/it/developers/explanation/adr-vault/records/adr-unified-perimeter/   /developers/explanation/adr-vault/records/adr-unified-perimeter/ 301
+/it/developers/explanation/adr-vault/records/adr-002-zero-subprocesses/ /developers/explanation/adr-vault/records/adr-002-zero-subprocesses/ 301
+/it/developers/explanation/adr-vault/records/adr-007-sovereign-sandbox/ /developers/explanation/adr-vault/records/adr-007-sovereign-sandbox/ 301
+/it/developers/explanation/adr-vault/records/adr-075-radical-unawareness/ /developers/explanation/adr-vault/records/adr-075-radical-unawareness/ 301
+/it/developers/explanation/adr-vault/records/adr-022-english-only-governance/ /developers/explanation/adr-vault/records/adr-022-english-only-governance/ 301
+/it/developers/explanation/adr-vault/records/adr-bilingual-structural/ /developers/explanation/adr-vault/records/adr-bilingual-structural/ 301
+/it/developers/explanation/adr-vault/records/adr-decentralized-cli/   /developers/explanation/adr-vault/records/adr-decentralized-cli/ 301
+
 /tutorials/examples/z6xx-brand/z602-i18n-parity/ /tutorials/examples/ 301
 /blog/tags/*                                   /blog/ 301
 /category/*                                    / 301
-/it/*                                          / 301
-/docs/*                                        / 301
