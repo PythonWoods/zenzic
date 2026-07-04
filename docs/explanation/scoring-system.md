@@ -146,10 +146,11 @@ Two mechanisms interact with the score differently.
 suppressed finding is not penalised. Use suppression only for deliberate, documented
 exceptions.
 
-**Governance gates** — certain codes (Z602 I18N_PARITY) trigger a hard gate: `zenzic
+**Governance gates** — certain codes trigger a hard gate: `zenzic
 check` exits with code 2 regardless of the DQS. The DQS itself is not affected because
 gate codes are excluded from the penalty matrix by design. A project can score 100 and
-still fail the gate if a translation parity violation is present.
+still fail the gate if a gate-level violation is present. (Note: `Z602 I18N_PARITY` was
+permanently deactivated in v0.14 and no longer triggers this gate.)
 
 ---
 

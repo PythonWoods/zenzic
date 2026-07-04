@@ -106,4 +106,4 @@ Each ADR follows a consistent structure:
 
 ## Adding a New ADR
 
-For the step-by-step procedure on how to propose and record a new Architectural Decision Record, see the [ADR contribution guide](../../how-to/release-governance-protocol.md#9-adding-a-new-adr).
+For the step-by-step procedure on how to propose and record a new Architectural Decision Record, see the [ADR contribution guide](../../how-to/release-governance-protocol.md#8-adding-a-new-adr).

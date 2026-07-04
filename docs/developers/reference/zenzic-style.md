@@ -235,7 +235,6 @@ Before submitting a PR, verify:
 - [ ] Cross-referenced H2/H3 headings have explicit `{#id}` (§4). No anchors on H1.
 - [ ] No naked code fences exist (§5).
 - [ ] SPDX header is present (§6).
-- [ ] Italian mirror is structurally identical to English.
 - [ ] No hex literal (`#rrggbb`) in `src/` outside `ZenzicPalette._*` (§9).
 - [ ] All colour references use `ZenzicPalette.*` — no removed flat constants (§9).
 - [ ] No new `.svg` file added to `static/assets/terminal/` (§10).

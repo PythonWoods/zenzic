@@ -947,7 +947,7 @@ The table always uses four columns: **Tier**, **Code**, **Name**, **Status**.
 Governance activation is read from loaded configuration:
 
 - `Z601` is `[ACTIVE]` when `[governance].brand_obsolescence` is non-empty.
-- `Z602` is `[ACTIVE]` when `[governance].i18n_parity = true`.
+- `Z602` is `[INACTIVE]` — the i18n parity scanner was permanently removed in v0.14. Configuration keys are silently ignored for forward-compatibility.
 
 For plugin rules, status is `[ACTIVE]` only when the plugin source is enabled in
 `plugins`. Custom rules from `custom_rules` are shown in the `custom` tier.
