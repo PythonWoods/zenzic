@@ -28,13 +28,14 @@ For the current release history, see [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
-## [v0.20.0] - The Extensibility Update (Planned)
+### [v0.20.0] - The Extensibility Update (Completed)
 
-*Expanding the core mutation and governance infrastructure.*
+*Custom Rules API v2, deterministic visitation sandbox, auto-fix expansion.*
 
-- **Custom Rules API v2 (AST Walker):** Exposing the internal AST to allow users to write custom Python plugins for bespoke document governance.
-  - *Constraint:* To protect the $O(N)$ performance invariant, custom rules will be executed within a strict sandbox. Any rule exceeding a 50ms execution budget will be terminated, emitting a `Z902 RULE_TIMEOUT` governance warning.
-- **Auto-Fix Expansion:** Broadening the `zenzic fix` pipeline to support semantic repair semantics for additional `Z1xx` and `Z3xx` findings.
+- **Custom Rules API v2 (AST Walker):** Users subclass `BaseASTRule` from `zenzic.rules`. Rules are auto-discovered from `.zenzic/rules/*.py` — no registration required.
+- **Deterministic Visitation Budget Sandbox (Z901 / Z902):** Single-threaded visitation counter guard (`max_visits = 10 000`) replaces thread-based or signal-based timeouts, preserving Windows compatibility and the $O(N)$ invariant.
+- **Auto-Fix Expansion:** `zenzic fix` now auto-repairs **Z121** (MISSING_OR_EMPTY_HREF → `href="#"`) and **Z603** (DEAD_SUPPRESSION comment/attribute removal).
+- **`fixable` metadata field:** `CodeDefinition` exposes `fixable: bool`, surfaced in `zenzic explain` and `finding-codes.md`.
 
 ---
 
@@ -74,4 +75,4 @@ These constraints apply across every future release:
 
 ---
 
-Roadmap last updated: 2026-07-01
+Roadmap last updated: 2026-07-04
