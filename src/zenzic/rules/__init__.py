@@ -14,6 +14,7 @@ from zenzic.core.rules import (
 )
 from zenzic.rules.base import BaseASTRule
 
+
 __all__ = [
     "BaseRule",
     "CustomRule",

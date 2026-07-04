@@ -75,4 +75,29 @@ These constraints apply across every future release:
 
 ---
 
+## Known Bugs & Deferred Work
+
+### Bug: `data-zenzic-ignore` does not suppress Z104 on raw HTML `<a>` tags (deferred → v0.20.1)
+
+**Discovered during:** v0.20.0 dogfooding (`zenzic check all --strict` on own docs).
+
+**Symptom:** Placing `data-zenzic-ignore` (with or without a value) on a raw HTML `<a>` tag
+does not suppress `Z104 (FILE_NOT_FOUND)` when the link resolver is invoked by the Uniform
+Resolver Pipeline (URP). The `data-zenzic-ignore` attribute correctly suppresses HTML hygiene
+codes (Z12x) via the Polyglot Extractor, but the URP resolves the `href` value independently
+in a second pass — after suppression has already been evaluated. As a result, Z104 still fires,
+and `data-zenzic-ignore` is simultaneously flagged as dead by Z603.
+
+**Root Cause:** Architectural leak between the Polyglot Extractor pipeline (HTML hygiene) and
+the Markdown link resolver (URP). Suppression state is not propagated across pipeline stages.
+
+**Workaround (current):** Use `per_file_ignores` or `directory_policies` in `.zenzic.toml` to
+suppress Z104 for files containing links to build-time artifacts (e.g., RSS/Atom feeds generated
+by MkDocs plugins). See [Configuration Strategy — Build-time Artifacts](docs/how-to/configuration-strategy.md).
+
+**Resolution scope:** Requires a structural patch to the URP to carry suppression context from
+the Extractor stage through the resolver pass. Scheduled for **v0.20.1**.
+
+---
+
 Roadmap last updated: 2026-07-04

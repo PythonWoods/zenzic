@@ -83,6 +83,7 @@ class SuppressionTracker:
 
         # Parse html data-zenzic-ignore tags
         from zenzic.core.validator import PolyglotExtractor
+
         try:
             extractor = PolyglotExtractor()
             html_nodes = extractor.extract(text)

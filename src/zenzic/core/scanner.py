@@ -1298,8 +1298,9 @@ def _build_rule_engine(config: ZenzicConfig) -> AdaptiveRuleEngine | None:
     if custom_rules_dir.is_dir():
         import importlib.util
         import sys
-        from zenzic.rules.base import BaseASTRule
+
         from zenzic.core.rules import BaseRule
+        from zenzic.rules.base import BaseASTRule
 
         class FailedCustomRule(BaseRule):
             def __init__(self, rule_id: str, error_msg: str) -> None:

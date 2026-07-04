@@ -1295,8 +1295,6 @@ async def validate_links_async(
                 )
                 continue  # blocco immediato: non analizzare oltre il nodo
 
-
-
             # Z124 — OPAQUE_HTML_CONTEXT (blacklisted attrs)
             for attr in node.blacklisted_attrs:
                 internal_errors.append(

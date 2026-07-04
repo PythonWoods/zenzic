@@ -71,7 +71,7 @@ from typing import TYPE_CHECKING, Any, Literal
 from urllib.parse import unquote, urlsplit
 
 from zenzic.core import regex as re
-from zenzic.core.exceptions import ZenzicViolation, ZenzicRuleTimeout
+from zenzic.core.exceptions import ZenzicRuleTimeout, ZenzicViolation
 from zenzic.core.sovereign_context import get_sovereign_context
 
 
@@ -557,9 +557,7 @@ class AdaptiveRuleEngine:
                         file_path=file_path,
                         line_no=0,
                         rule_id="Z902",
-                        message=(
-                            f"Rule '{rule.rule_id}' exceeded execution limit: {exc.message}"
-                        ),
+                        message=(f"Rule '{rule.rule_id}' exceeded execution limit: {exc.message}"),
                         severity="error",
                     )
                 )

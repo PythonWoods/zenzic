@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 
 from zenzic.core.rules import BaseRule
 
+
 if TYPE_CHECKING:
     from pathlib import Path
 

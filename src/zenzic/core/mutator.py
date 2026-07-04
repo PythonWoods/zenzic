@@ -223,4 +223,3 @@ class DeadSuppressionMutation:
                     mutated = True
 
         return mutated
-

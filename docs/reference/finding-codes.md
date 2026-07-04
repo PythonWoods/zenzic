@@ -557,6 +557,37 @@ The Snippet Guard identified a syntax error in a fenced code block marked with a
 1. Correct the syntax within the code block.
 2. For intentionally broken examples, use `` ```text `` to bypass validation.
 
+!!! tip "Documenting type signatures and incomplete snippets"
+    If you are documenting a **function signature**, a **type stub**, or any fragment
+    that is not syntactically complete (e.g., a parameter list without a surrounding
+    `def` statement), use `` ```text `` instead of the actual language tag.
+
+    **Z503 (error — do not do this):**
+
+    ````markdown
+    ```python
+    my_function(
+        param: str,
+        other: int = 0,
+    )
+    ```
+    ````
+
+    **Correct (use `text`):**
+
+    ````markdown
+    ```text
+    my_function(
+        param: str,
+        other: int = 0,
+    )
+    ```
+    ````
+
+    The `text` identifier preserves monospace formatting and disables syntax validation.
+    Use it whenever the snippet is display-only and not intended to be copy-pasted
+    as runnable code.
+
 ### Z505: UNTAGGED_CODE_BLOCK {#z505}
 
 **Severity:** `warning` · **Penalty:** −1.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z5xx-content/z505-untagged-code-block.md)

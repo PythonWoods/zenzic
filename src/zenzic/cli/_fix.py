@@ -78,8 +78,9 @@ def fix(
         exclusion_mgr = _build_exclusion_manager(config, repo_root, docs_root)
         files = list(iter_markdown_sources(search_dir, config, exclusion_mgr))
 
-    from zenzic.core.mutator import EmptyLinkTextMutation, HtmlMissingHrefMutation, DeadSuppressionMutation, Mutator
+    from zenzic.core.mutator import DeadSuppressionMutation, HtmlMissingHrefMutation
     from zenzic.core.scanner import _scan_single_file
+
     modified_count = 0
 
     for md_file in files:
@@ -92,11 +93,13 @@ def fix(
         report, _ = _scan_single_file(md_file, config)
         dead_lines = {f.line_no for f in report.rule_findings if f.rule_id == "Z603"}
 
-        mutator = Mutator([
-            EmptyLinkTextMutation(),
-            HtmlMissingHrefMutation(),
-            DeadSuppressionMutation(dead_lines),
-        ])
+        mutator = Mutator(
+            [
+                EmptyLinkTextMutation(),
+                HtmlMissingHrefMutation(),
+                DeadSuppressionMutation(dead_lines),
+            ]
+        )
 
         ast = parse(content)
         new_ast, changed = mutator.mutate(ast)

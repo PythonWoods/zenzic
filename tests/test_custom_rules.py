@@ -4,16 +4,12 @@
 
 from __future__ import annotations
 
-import tempfile
+from collections.abc import Generator
 from pathlib import Path
-from typing import Generator
-
-import pytest
 
 from zenzic.core.ast import BlockNode
-from zenzic.core.exceptions import ZenzicRuleTimeout
 from zenzic.core.rules import AdaptiveRuleEngine, RuleFinding
-from zenzic.core.scanner import _scan_single_file, _build_rule_engine
+from zenzic.core.scanner import _build_rule_engine
 from zenzic.core.validator import HtmlNodeInfo
 from zenzic.models.config import ZenzicConfig
 from zenzic.rules.base import BaseASTRule
@@ -154,9 +150,10 @@ def test_custom_rule_file_autodiscovery(tmp_path: Path) -> None:
     # Create custom rules folder and a dummy custom rule class
     rules_dir = repo_root / ".zenzic" / "rules"
     rules_dir.mkdir(parents=True)
-    
+
     rule_py = rules_dir / "my_custom_rule.py"
-    rule_py.write_text("""
+    rule_py.write_text(
+        """
 from zenzic.rules import RuleFinding
 from zenzic.rules.base import BaseASTRule
 
@@ -167,7 +164,9 @@ class MyAwesomeRule(BaseASTRule):
         yield RuleFinding(file_path=file_path, line_no=1, rule_id=self.rule_id, message="Awesome", severity=self.severity)
     def visit_html_node(self, node, file_path):
         pass
-""", encoding="utf-8")
+""",
+        encoding="utf-8",
+    )
 
     config, _ = ZenzicConfig.load(repo_root)
     engine = _build_rule_engine(config)
@@ -180,7 +179,7 @@ class MyAwesomeRule(BaseASTRule):
 
 def test_autofix_z121_and_z603(tmp_path: Path) -> None:
     """Test autofixes for missing/empty href (Z121) and dead suppression (Z603)."""
-    from zenzic.core.mutator import Mutator, HtmlMissingHrefMutation, DeadSuppressionMutation
+    from zenzic.core.mutator import DeadSuppressionMutation, HtmlMissingHrefMutation, Mutator
     from zenzic.core.parser import parse, serialize
 
     # 1. Z121 Auto-Fix tests

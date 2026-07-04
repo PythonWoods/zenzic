@@ -988,7 +988,9 @@ def explain(
     from zenzic.core.codes import CODE_DEFINITIONS as _CODE_DEFS
 
     _defn = _CODE_DEFS.get(rule_id)
-    meta_table.add_row("Fixable", "[green]Yes[/]" if getattr(_defn, "fixable", False) else "[yellow]No[/]")
+    meta_table.add_row(
+        "Fixable", "[green]Yes[/]" if getattr(_defn, "fixable", False) else "[yellow]No[/]"
+    )
     _is_fatal = rule_id.startswith("Z0") or rule_id.startswith("Z2")
     _is_halt = (
         _defn is not None and _defn.severity == "warning" and _defn.penalty == 0.0 and not _is_fatal
