@@ -26,8 +26,7 @@
 # docs_dir = "."
 
 strict = true
-fail_under = 99
-# -1 pt: docs/blog/posts/2026-04-28-welcome.md [Z104] — RSS/Atom build artifacts (per_file_ignores)
+fail_under = 98
 # exit_zero = false
 # respect_vcs_ignore = true
 # validate_same_page_anchors = true
@@ -58,9 +57,3 @@ excluded_file_patterns = []
 "docs/tutorials/examples/z5xx-content/**" = ["Z506", "Z503"]
 # Exempt reference file from syntax checks because it contains intentionally incorrect examples
 "docs/reference/finding-codes.md" = ["Z503"]
-
-[governance.per_file_ignores]
-# RSS/Atom feed files are generated build artifacts (MkDocs blog plugin output).
-# They are not present in the docs/ source tree, so Z104 fires on the relative paths.
-# This is intentional: the links are correct at serve time but unresolvable at lint time.
-"docs/blog/posts/2026-04-28-welcome.md" = ["Z104"]

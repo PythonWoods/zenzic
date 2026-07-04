@@ -11,6 +11,13 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.20.1] - 2026-07-04
+
+### Fixed
+
+- **UI dark mode restoration:** Reverted Tailwind CSS optimization changes to resolve visual regressions on the Landing Page, restoring the correct slate-based dark theme.
+- **Polyglot URP bypass & Z603 Dead Suppression paradox resolution:** Bypass link resolution pipeline for suppressed HTML nodes and correctly mark them as consumed, preventing dead suppression warnings (Z603) from firing incorrectly.
+
 ## [0.20.0] — 2026-07-04
 
 ### ✨ The Extensibility Update

@@ -1223,6 +1223,7 @@ async def validate_links_async(
 
     internal_errors: list[LinkError] = []
     external_entries: list[tuple[str, str, int]] = []  # (url, file_label, lineno)
+    suppression_html_count = 0
 
     # Engine-aware skip schemes: adapters declare their own bypass schemes via
     # get_link_scheme_bypasses() — the Core never hardcodes engine names here.
@@ -1385,6 +1386,17 @@ async def validate_links_async(
                         match_text=node.raw_tag,
                     )
                 )
+                continue
+
+            if node.suppressed:
+                suppression_html_count += 1
+                # Find the tracker for this file
+                if trackers and (tracker := trackers.get(md_file.resolve())):
+                    # We must mark the specific 'DATA-ZENZIC-IGNORE' directive on this line as consumed
+                    for d in tracker.directives:
+                        if d.line_no == node.line_no and d.code == "DATA-ZENZIC-IGNORE":
+                            d.consumed = True
+                # CRITICAL FIX: Do NOT pass node.href to the URP.
                 continue
 
             # ── URP: Uniform Resolver Pipeline — href valido, risoluzione standard
