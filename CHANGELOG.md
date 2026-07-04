@@ -11,6 +11,10 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+- **Core (Validator):** Hardened the Polyglot Extractor by masking HTML and MDX comments to ignore tags within comments, preventing false-positive diagnostics and aligning with Markdown link scanning.
+- **Core (Validator):** Aligned code fence detection in the Polyglot Extractor with `SuppressionTracker` by ignoring closing fences with trailing characters (e.g. ```` ```extra ````), preventing premature code block closure.
+
 ## [0.19.4] - 2026-07-04
 
 ### Fixed
