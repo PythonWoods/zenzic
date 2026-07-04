@@ -1062,16 +1062,32 @@ def _collect_all_results(
     elif _engine == "zensical":
         config_asset_issues = _zensical_check_assets(repo_root)
 
+    trackers = {
+        r.file_path.resolve(): r.suppression_tracker
+        for r in ref_reports
+        if r.suppression_tracker is not None
+    }
+
+    link_errors = validate_links_structured(
+        docs_root,
+        exclusion_mgr,
+        repo_root=repo_root,
+        config=config,
+        strict=strict,
+        locale_roots=locale_roots,
+        check_external=check_external,
+        trackers=trackers,
+    )
+
+    for r in ref_reports:
+        if r.suppression_tracker is not None:
+            dead_lines = {d.line_no for d in r.suppression_tracker.directives if not d.consumed}
+            r.rule_findings = [
+                f for f in r.rule_findings if f.rule_id != "Z603" or f.line_no in dead_lines
+            ]
+
     return _AllCheckResults(
-        link_errors=validate_links_structured(
-            docs_root,
-            exclusion_mgr,
-            repo_root=repo_root,
-            config=config,
-            strict=strict,
-            locale_roots=locale_roots,
-            check_external=check_external,
-        ),
+        link_errors=link_errors,
         orphans=find_orphans(
             docs_root,
             exclusion_mgr,

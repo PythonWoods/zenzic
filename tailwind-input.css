@@ -3,3 +3,5 @@
 
 @tailwind components;
 @tailwind utilities;
+
+@custom-variant dark (&:where([data-md-color-scheme="slate"], [data-md-color-scheme="slate"] *));
