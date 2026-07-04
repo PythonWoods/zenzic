@@ -6,7 +6,12 @@ description: "Implement BaseRule subclasses and register them as Zenzic plugin r
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Writing Plugin Rules
+# Writing Plugin Rules (API v1)
+
+> **Looking for a simpler alternative?**
+> If your rule is project-local and you don't need to distribute it as a Python package,
+> use the [Custom AST Rules API v2](./write-ast-rule.md) — drop a `.py` file in
+> `.zenzic/rules/` with zero configuration.
 
 Zenzic supports external lint rules written in Python.  A plugin rule is a
 subclass of `BaseRule` distributed as a normal Python package and discovered at

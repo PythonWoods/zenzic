@@ -105,6 +105,7 @@ class CodeDefinition(NamedTuple):
     penalty: float
     category: str | None
     status: str = "active"
+    fixable: bool = False
 
 
 # ── Exit Code Contract ────────────────────────────────────────────────────────
@@ -203,7 +204,7 @@ CODE_DEFINITIONS: dict[str, CodeDefinition] = {
     # Z120/Z122 are warnings; Z121/Z124 are errors (exit 1); Z123 is informational.
     # All Z12x codes are suppressible via data-zenzic-ignore (-1.0 pts DQS each).
     "Z120": CodeDefinition("warning", 1.0, "html_hygiene"),  # UNKNOWN_HTML_ATTRIBUTE
-    "Z121": CodeDefinition("error", 1.0, "structural"),  # MISSING_OR_EMPTY_HREF
+    "Z121": CodeDefinition("error", 1.0, "structural", fixable=True),  # MISSING_OR_EMPTY_HREF
     "Z122": CodeDefinition("warning", 1.0, "html_hygiene"),  # JUMP_LINK_DETECTED
     "Z123": CodeDefinition("note", 0.0, None),  # NON_HTTP_SCHEME — informational
     "Z124": CodeDefinition("error", 1.0, "structural"),  # OPAQUE_HTML_CONTEXT
@@ -240,7 +241,7 @@ CODE_DEFINITIONS: dict[str, CodeDefinition] = {
     "Z602": CodeDefinition(
         "warning", 0.0, None, "inactive"
     ),  # I18N_PARITY — INACTIVE; deferred to future adapter plugins
-    "Z603": CodeDefinition("warning", 1.0, "governance"),  # DEAD_SUPPRESSION
+    "Z603": CodeDefinition("warning", 1.0, "governance", fixable=True),  # DEAD_SUPPRESSION
     # ── Z9xx — Engine / System ────────────────────────────────────────────────
     "Z901": CodeDefinition("warning", 0.0, None),  # RULE_ENGINE_ERROR
     "Z902": CodeDefinition("warning", 0.0, None),  # RULE_TIMEOUT

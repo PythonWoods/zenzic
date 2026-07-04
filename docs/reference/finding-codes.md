@@ -229,7 +229,7 @@ A link of the form `[text](#anchor)` resolves to a heading on the **same** page 
 
 ### Z108: EMPTY_LINK_TEXT {#z108}
 
-**Severity:** `error` · **Penalty:** −1.0 pt (Structural) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z1xx-links/z108-empty-link-text.md)
+**Severity:** `error` · **Penalty:** −1.0 pt (Structural) · **Exit:** 1 · **Suppressible:** Yes · **Fixable:** Yes · [↗ Gallery](../tutorials/examples/z1xx-links/z108-empty-link-text.md)
 
 Inline Markdown link or collapsed reference link has empty or whitespace-only visible text — e.g. `[](./page.md)`, `[ ](./page.md)`, `[][ref]`. Breaks screen reader accessibility and semantic indexing simultaneously.
 
@@ -308,7 +308,7 @@ An HTML `<a>` tag contains unknown or malformed attributes.
 
 ### Z121: MISSING_HREF {#z121}
 
-**Severity:** `error` · **Penalty:** −8.0 pts (Structural) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z1xx-links/z121-missing-href.md)
+**Severity:** `error` · **Penalty:** −8.0 pts (Structural) · **Exit:** 1 · **Suppressible:** Yes · **Fixable:** Yes · [↗ Gallery](../tutorials/examples/z1xx-links/z121-missing-href.md)
 
 An HTML `<a>` tag is missing the required `href` attribute.
 
@@ -557,6 +557,37 @@ The Snippet Guard identified a syntax error in a fenced code block marked with a
 1. Correct the syntax within the code block.
 2. For intentionally broken examples, use `` ```text `` to bypass validation.
 
+!!! tip "Documenting type signatures and incomplete snippets"
+    If you are documenting a **function signature**, a **type stub**, or any fragment
+    that is not syntactically complete (e.g., a parameter list without a surrounding
+    `def` statement), use `` ```text `` instead of the actual language tag.
+
+    **Z503 (error — do not do this):**
+
+    ````markdown
+    ```python
+    my_function(
+        param: str,
+        other: int = 0,
+    )
+    ```
+    ````
+
+    **Correct (use `text`):**
+
+    ````markdown
+    ```text
+    my_function(
+        param: str,
+        other: int = 0,
+    )
+    ```
+    ````
+
+    The `text` identifier preserves monospace formatting and disables syntax validation.
+    Use it whenever the snippet is display-only and not intended to be copy-pasted
+    as runnable code.
+
 ### Z505: UNTAGGED_CODE_BLOCK {#z505}
 
 **Severity:** `warning` · **Penalty:** −1.0 pt (Content) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z5xx-content/z505-untagged-code-block.md)
@@ -604,7 +635,7 @@ A deprecated release name or brand identifier appears in a scanned file. Configu
 
 ### Z603: DEAD_SUPPRESSION {#z603}
 
-**Severity:** `warning` · **Penalty:** −1.0 pt (Governance) · **Exit:** 1 · **Suppressible:** Yes · [↗ Gallery](../tutorials/examples/z6xx-brand/z603-dead-suppression.md)
+**Severity:** `warning` · **Penalty:** −1.0 pt (Governance) · **Exit:** 1 · **Suppressible:** Yes · **Fixable:** Yes · [↗ Gallery](../tutorials/examples/z6xx-brand/z603-dead-suppression.md)
 
 An inline suppression directive (`<!-- zenzic:ignore: Zxxx -->`) does not correspond to any active finding on that line. The directive silences nothing — it is **Phantom Debt** that consumes part of the 30-point governance budget without justification.
 

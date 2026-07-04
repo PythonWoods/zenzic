@@ -160,3 +160,12 @@ class PluginContractError(ZenzicError):
             context={"rule_id": "MY-001", "cause": str(exc)},
         )
     """
+
+
+class ZenzicRuleTimeout(ZenzicError):
+    """Raised when a custom rule exceeds its execution or visitation budget (Z902).
+
+    This exception is raised by the visitation sandbox engine to abort execution of a rule
+    without halting the main analysis process, guarding against infinite loops and catastrophic
+    backtracking.
+    """

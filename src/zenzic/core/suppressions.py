@@ -81,6 +81,24 @@ class SuppressionTracker:
                         open_char = ""
                         open_count = 0
 
+        # Parse html data-zenzic-ignore tags
+        from zenzic.core.validator import PolyglotExtractor
+
+        try:
+            extractor = PolyglotExtractor()
+            html_nodes = extractor.extract(text)
+            for node in html_nodes:
+                if node.suppressed:
+                    self.directives.append(
+                        SuppressionDirective(
+                            code="DATA-ZENZIC-IGNORE",
+                            line_no=node.line_no,
+                            consumed=False,
+                        )
+                    )
+        except Exception:
+            pass
+
     def is_suppressed(self, line_no: int, code: str) -> bool:
         """Return True if the given code is suppressed at the specified line number.
 
@@ -103,9 +121,10 @@ class SuppressionTracker:
             return True
 
         for d in self.directives:
-            if d.line_no == line_no and d.code == code and not d.consumed:
-                d.consumed = True
-                return True
+            if d.line_no == line_no and not d.consumed:
+                if d.code == code or (d.code == "DATA-ZENZIC-IGNORE" and code.startswith("Z12")):
+                    d.consumed = True
+                    return True
         return False
 
     def get_dead_suppressions(self) -> list["RuleFinding"]:
@@ -115,12 +134,16 @@ class SuppressionTracker:
         findings = []
         for d in self.directives:
             if not d.consumed:
+                if d.code == "DATA-ZENZIC-IGNORE":
+                    msg = "data-zenzic-ignore attribute does not suppress any active html hygiene finding. Remove the dead attribute."
+                else:
+                    msg = "Inline suppression directive does not suppress any active finding. Remove the dead comment."
                 findings.append(
                     RuleFinding(
                         file_path=self.file_path,
                         line_no=d.line_no,
                         rule_id="Z603",
-                        message="Inline suppression directive does not suppress any active finding. Remove the dead comment.",
+                        message=msg,
                         severity="warning",
                     )
                 )

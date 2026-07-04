@@ -1292,6 +1292,70 @@ def _build_rule_engine(config: ZenzicConfig) -> AdaptiveRuleEngine | None:
     )
     rules.extend(registry.load_selected_rules(config.plugins))
 
+    # 6. Auto-discover custom AST rules (v2) from .zenzic/rules/*.py
+    repo_root = config.origin_file.parent if config.origin_file is not None else Path.cwd()
+    custom_rules_dir = repo_root / ".zenzic" / "rules"
+    if custom_rules_dir.is_dir():
+        import importlib.util
+        import sys
+
+        from zenzic.core.rules import BaseRule, RuleFinding
+        from zenzic.rules.base import BaseASTRule
+
+        class FailedCustomRule(BaseRule):
+            def __init__(self, rule_id: str, error_msg: str) -> None:
+                self._rule_id = rule_id
+                self.error_msg = error_msg
+
+            @property
+            def rule_id(self) -> str:
+                return self._rule_id
+
+            def check(self, file_path: Path, text: str) -> list[RuleFinding]:
+                raise RuntimeError(self.error_msg)
+
+        for py_file in sorted(custom_rules_dir.glob("*.py")):
+            if py_file.name.startswith("_"):
+                continue
+            rule_id_fallback = py_file.stem.upper()
+            try:
+                module_name = f"zenzic_custom_rule_{py_file.stem}"
+                spec = importlib.util.spec_from_file_location(module_name, py_file)
+                if spec is not None and spec.loader is not None:
+                    module = importlib.util.module_from_spec(spec)
+                    sys.modules[module_name] = module
+                    spec.loader.exec_module(module)
+
+                    found_rule = False
+                    for attr_name in dir(module):
+                        attr = getattr(module, attr_name)
+                        if (
+                            isinstance(attr, type)
+                            and issubclass(attr, BaseASTRule)
+                            and attr is not BaseASTRule
+                        ):
+                            try:
+                                rules.append(attr())  # type: ignore[call-arg]
+                                found_rule = True
+                            except Exception as exc:
+                                rules.append(
+                                    FailedCustomRule(
+                                        rule_id=attr_name.upper(),
+                                        error_msg=f"Failed to instantiate custom rule class '{attr_name}': {exc}",
+                                    )
+                                )
+                                found_rule = True
+                    if not found_rule:
+                        # No subclass of BaseASTRule found in file
+                        pass
+            except Exception as exc:
+                rules.append(
+                    FailedCustomRule(
+                        rule_id=rule_id_fallback,
+                        error_msg=f"Failed to load custom rule module from {py_file}: {exc}",
+                    )
+                )
+
     # Deduplicate by rule_id while preserving declaration priority.
     deduped: list[BaseRule] = []
     seen: set[str] = set()

@@ -1295,11 +1295,6 @@ async def validate_links_async(
                 )
                 continue  # blocco immediato: non analizzare oltre il nodo
 
-            # data-zenzic-ignore: sovereign override (eccetto Z205, già gestito)
-            if node.suppressed:
-                continue  # il costo DQS -1.0 pts è conteggiato dallo scorer
-                # tramite i commenti zenzic:ignore o data-zenzic-ignore
-
             # Z124 — OPAQUE_HTML_CONTEXT (blacklisted attrs)
             for attr in node.blacklisted_attrs:
                 internal_errors.append(
