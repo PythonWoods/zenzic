@@ -186,6 +186,6 @@ Rules you write today will surface as editor diagnostics in v0.21.0 with no chan
 
 ---
 
-Full release notes: [CHANGELOG.md — v0.20.0](../../CHANGELOG.md)  
+Full release notes: [CHANGELOG.md — v0.20.0](https://github.com/PythonWoods/zenzic/blob/main/CHANGELOG.md)  
 Custom AST Rules guide: [Writing Custom AST Rules (API v2)](../../developers/how-to/write-ast-rule.md)  
 Finding codes reference: [Z901 / Z902](../../reference/finding-codes.md)

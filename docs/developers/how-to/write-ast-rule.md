@@ -107,7 +107,7 @@ normal output.
 
 ### Constructor
 
-```python
+```text
 BaseASTRule.__init__(
     self,
     rule_id: str,
