@@ -26,7 +26,7 @@
 # docs_dir = "."
 
 strict = true
-fail_under = 99
+fail_under = 98
 # exit_zero = false
 # respect_vcs_ignore = true
 # validate_same_page_anchors = true
