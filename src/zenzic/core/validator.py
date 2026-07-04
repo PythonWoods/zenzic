@@ -107,8 +107,8 @@ _MARKDOWN_LINK_RE = re.compile(r"!?\[[^\[\]]*\]\(([^)]+)\)")
 
 # Empty link-label detectors used for Z108. Images are excluded; Z403 covers
 # missing image alt text separately.
-_EMPTY_INLINE_LINK_TEXT_RE = re.compile(r"\[\s*\]\(([^)]*)\)")
-_EMPTY_REF_LINK_TEXT_RE = re.compile(r"\[\s*\]\[[^\]]*\]")
+_EMPTY_INLINE_LINK_TEXT_RE = re.compile(r"\[[\s*_~`]*\]\(([^)]*)\)")
+_EMPTY_REF_LINK_TEXT_RE = re.compile(r"\[[\s*_~`]*\]\[[^\]]*\]")
 
 
 class LinkInfo(NamedTuple):

@@ -7,7 +7,7 @@ from __future__ import annotations
 import copy
 from typing import Protocol
 
-from zenzic.core.ast import LinkNode, Node, TextNode
+from zenzic.core.ast import CodeSpanNode, LinkNode, Node, TextNode
 
 
 class Mutation(Protocol):
@@ -21,17 +21,28 @@ class Mutation(Protocol):
         ...
 
 
+def _has_text_content(node: Node) -> bool:
+    """Returns True if the node contains any non-whitespace text or code content recursively."""
+    if isinstance(node, TextNode):
+        stripped = node.text
+        for char in ("*", "_", "~", "`"):
+            stripped = stripped.replace(char, "")
+        return bool(stripped.strip())
+    if isinstance(node, CodeSpanNode):
+        stripped = node.code
+        for char in ("*", "_", "~", "`"):
+            stripped = stripped.replace(char, "")
+        return bool(stripped.strip())
+    return any(_has_text_content(child) for child in node.children)
+
+
 class EmptyLinkTextMutation:
     """Z108 Auto-Fix: Injects placeholder text into empty links."""
 
     def apply(self, node: Node) -> bool:
         mutated = False
         if isinstance(node, LinkNode):
-            is_empty = False
-            if not node.children:
-                is_empty = True
-            elif all(isinstance(c, TextNode) and not c.text.strip() for c in node.children):
-                is_empty = True
+            is_empty = not any(_has_text_content(child) for child in node.children)
 
             if is_empty:
                 node.children = [TextNode(text="MISSING LINK LABEL")]

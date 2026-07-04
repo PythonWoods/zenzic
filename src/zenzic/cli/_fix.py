@@ -19,17 +19,23 @@ from zenzic.core.parser import parse, serialize
 
 def _atomic_write(file_path: Path, content: str) -> None:
     """Atomic Write Barrier."""
+    file_path = file_path.resolve()
     dir_path = file_path.parent
-    with tempfile.NamedTemporaryFile(
-        mode="w", encoding="utf-8", dir=dir_path, delete=False, prefix=".zenzic-tmp-"
-    ) as tmp:
-        tmp.write(content)
-        temp_path = Path(tmp.name)
+    temp_path: Path | None = None
     try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=dir_path, delete=False, prefix=".zenzic-tmp-"
+        ) as tmp:
+            tmp.write(content)
+            temp_path = Path(tmp.name)
         os.replace(temp_path, file_path)
-    except Exception:
-        temp_path.unlink(missing_ok=True)
-        raise
+        temp_path = None
+    finally:
+        if temp_path is not None:
+            try:
+                os.unlink(temp_path)
+            except OSError:
+                pass
 
 
 def fix(
