@@ -102,12 +102,11 @@ class SuppressionTracker:
                     self.global_tracker.mark_directory_policy_used(pattern, code)
             return True
 
-        suppressed = False
         for d in self.directives:
-            if d.line_no == line_no and d.code == code:
+            if d.line_no == line_no and d.code == code and not d.consumed:
                 d.consumed = True
-                suppressed = True
-        return suppressed
+                return True
+        return False
 
     def get_dead_suppressions(self) -> list["RuleFinding"]:
         """Yield Z603 findings for all directives that were never consumed."""
@@ -146,7 +145,7 @@ class GlobalUsageTracker:
         if getattr(config, "governance", None) and config.governance.directory_policies:
             for pattern, codes in config.governance.directory_policies.items():
                 for code in codes:
-                    self.unused_dir_policies.add((pattern, str(code).upper()))
+                    self.unused_dir_policies.add((pattern, str(code).strip().upper()))
 
         if getattr(config, "excluded_file_patterns", None):
             for pattern in config.excluded_file_patterns:

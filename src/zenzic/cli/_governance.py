@@ -113,9 +113,9 @@ def count_per_file_ignores(config: ZenzicConfig) -> int:
         if not isinstance(codes, list):
             continue
         normalized_codes = {
-            str(code).upper().strip()
+            str(code).strip().upper()
             for code in codes
-            if isinstance(code, str) and str(code).upper().startswith("Z")
+            if isinstance(code, str) and str(code).strip().upper().startswith("Z")
         }
         total += len(normalized_codes)
     return total

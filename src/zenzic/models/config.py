@@ -704,11 +704,12 @@ class ZenzicConfig(BaseModel):
             tables_to_check = []
             if isinstance(value, dict):
                 tables_to_check.append(value)
-            elif isinstance(value, list) and value and isinstance(value[0], dict):
-                tables_to_check.extend(value)
+            elif isinstance(value, list) and value:
+                tables_to_check.extend(item for item in value if isinstance(item, dict))
 
             for table in tables_to_check:
-                swallowed = set(table.keys()) & root_keys
+                if isinstance(table, dict):
+                    swallowed = set(table.keys()) & root_keys
                 if swallowed:
                     from rich.markup import escape
 
