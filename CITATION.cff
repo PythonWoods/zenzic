@@ -15,7 +15,7 @@ abstract: >-
   performs deterministic static analysis using a two-pass reference
   pipeline and a RE2-backed credential scanner, with zero subprocess
   calls and full SARIF 2.1.0 support for CI/CD integration.
-version: 0.19.5
+version: 0.19.6
 date-released: 2026-07-04
 url: "https://zenzic.dev"
 repository-code: "https://github.com/PythonWoods/zenzic"

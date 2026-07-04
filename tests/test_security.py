@@ -5,37 +5,29 @@
 from __future__ import annotations
 
 from pathlib import Path
+
 import pytest
 
-from zenzic.models.config import ZenzicConfig
 from zenzic.cli._governance import count_per_file_ignores
 from zenzic.core.suppressions import SuppressionTracker
+from zenzic.models.config import ZenzicConfig
 
 
 def test_ghost_policy_leading_space_remediation() -> None:
     """Vulnerability 1: Ensure leading/trailing spaces in per_file_ignores are counted in DQS."""
-    config_data = {
-        "governance": {
-            "per_file_ignores": {
-                "docs/index.md": [" Z101"]
-            }
-        }
-    }
+    config_data = {"governance": {"per_file_ignores": {"docs/index.md": [" Z101"]}}}
     config = ZenzicConfig(**config_data)
 
     # Verify the space-prefixed code is properly counted as a suppression
     per_file_count = count_per_file_ignores(config)
-    assert per_file_count == 1, "The leading-space ignore must be counted as a suppression to avoid DQS bypass"
+    assert per_file_count == 1, (
+        "The leading-space ignore must be counted as a suppression to avoid DQS bypass"
+    )
 
 
 def test_toml_bomb_mixed_type_array_remediation() -> None:
     """Vulnerability 2: Ensure mixed-type arrays in configuration tables do not crash the swallowed root validator."""
-    data = {
-        "custom_rules": [
-            {"id": "ZZ-TEST", "pattern": "test", "message": "test"},
-            42
-        ]
-    }
+    data = {"custom_rules": [{"id": "ZZ-TEST", "pattern": "test", "message": "test"}, 42]}
 
     # This should not raise an AttributeError crash
     try:
