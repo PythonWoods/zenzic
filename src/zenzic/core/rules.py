@@ -71,7 +71,7 @@ from typing import TYPE_CHECKING, Any, Literal
 from urllib.parse import unquote, urlsplit
 
 from zenzic.core import regex as re
-from zenzic.core.exceptions import ZenzicViolation
+from zenzic.core.exceptions import ZenzicViolation, ZenzicRuleTimeout
 from zenzic.core.sovereign_context import get_sovereign_context
 
 
@@ -551,6 +551,18 @@ class AdaptiveRuleEngine:
         for rule in self._rules:
             try:
                 findings.extend(rule.check(file_path, text))
+            except ZenzicRuleTimeout as exc:
+                findings.append(
+                    RuleFinding(
+                        file_path=file_path,
+                        line_no=0,
+                        rule_id="Z902",
+                        message=(
+                            f"Rule '{rule.rule_id}' exceeded execution limit: {exc.message}"
+                        ),
+                        severity="error",
+                    )
+                )
             except Exception as exc:  # noqa: BLE001
                 findings.append(
                     RuleFinding(
@@ -634,6 +646,18 @@ class AdaptiveRuleEngine:
             try:
                 violations = rule.check_vsm(file_path, text, vsm, anchors_cache, context)
                 findings.extend(v.as_finding() for v in violations)
+            except ZenzicRuleTimeout as exc:
+                findings.append(
+                    RuleFinding(
+                        file_path=file_path,
+                        line_no=0,
+                        rule_id="Z902",
+                        message=(
+                            f"Rule '{rule.rule_id}' exceeded execution limit in check_vsm: {exc.message}"
+                        ),
+                        severity="error",
+                    )
+                )
             except Exception as exc:  # noqa: BLE001
                 findings.append(
                     RuleFinding(

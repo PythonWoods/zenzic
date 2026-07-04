@@ -505,7 +505,13 @@ zenzic clean assets -y        # Delete unused assets immediately (no prompt)
 zenzic clean assets --dry-run # Preview what would be deleted without deleting
 ```
 
-Zenzic is read-only by default. Auto-fixing is an explicit, opt-in operation protected by atomic file writes. The `zenzic fix` command performs a safe, memory-only dry run by default and outputs a unified diff. Explicitly passing `--apply` commits the changes to disk. All modifications use an Atomic Write Barrier to guarantee file integrity (if a crash occurs mid-write, the original file is never corrupted). Currently, `zenzic fix` supports auto-fixing `Z108` (EMPTY_LINK_TEXT), but the infrastructure is designed to expand to more rules. Running `zenzic fix --apply` for Z108 converts a structural accessibility error into a content debt warning (Z501), injecting the `[MISSING LINK LABEL]` keyword. You must subsequently resolve these placeholders.
+Zenzic is read-only by default. Auto-fixing is an explicit, opt-in operation protected by atomic file writes. The `zenzic fix` command performs a safe, memory-only dry run by default and outputs a unified diff. Explicitly passing `--apply` commits the changes to disk. All modifications use an Atomic Write Barrier to guarantee file integrity (if a crash occurs mid-write, the original file is never corrupted).
+
+Currently, `zenzic fix` supports auto-fixing:
+- **Z108 (EMPTY_LINK_TEXT):** Converts a structural accessibility error into a content debt warning (`Z501`), injecting the `[MISSING LINK LABEL]` keyword. You must subsequently resolve these placeholders.
+- **Z121 (MISSING_OR_EMPTY_HREF):** Converts a structural HTML integrity error into an HTML hygiene warning (`Z122`) by injecting `href="#"` (safe self-reference).
+- **Z603 (DEAD_SUPPRESSION):** Cleanly extracts dead/unused inline suppression comments (`<!-- zenzic:ignore: Zxxx -->`) and `data-zenzic-ignore` HTML attributes without corrupting the surrounding text.
+
 
 `zenzic clean assets` respects `excluded_assets`, `excluded_dirs`, and
 `excluded_build_artifacts` from `.zenzic.toml` — it will never delete files that match these
