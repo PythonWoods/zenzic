@@ -32,7 +32,7 @@ Commit is blocked on style, parsing, and local consistency failures.
 
 1. Pre-push Gate
 
-Push is blocked by full project verification, including i18n parity and
+Push is blocked by full project verification, including structural audit and
 path/link security checks.
 
 1. CI/CD Gate
@@ -79,7 +79,6 @@ Before commit:
 
 - Run the repository standard local checks.
 - Confirm no unsanctioned config bypass was introduced.
-- Keep changes mirrored across EN and IT when parity applies.
 
 Before push:
 
@@ -100,18 +99,6 @@ When adding a new third-party dependency to a Zenzic project:
 1. Verify license compatibility (must be Apache-2.0-compatible: MIT, BSD, Apache-2.0, LGPL-3.0, ISC). GPL and proprietary licenses are forbidden.
 2. Add the dependency details to the `NOTICE` file (name, URL, copyright holder, license identifier).
 3. Run `uv run reuse lint` to verify compliance.
-
-### Bilingual Parity (Symmetry Check)
-
-To verify that the filesystem structure of the English and Italian docs trees matches exactly (Symmetry Guardrail), run:
-
-```bash
-diff \
-  <(find docs -name "*.md" | sed 's|^docs/||' | sort) \
-  <(find docs-it -name "*.md" | sed 's|^docs-it/||' | sort)
-```
-
-Any output from these commands represents a structural asymmetry that will produce a 404 error on language switchers.
 
 ---
 
@@ -154,49 +141,18 @@ Standard resolution:
 
 Validated exception:
 
-- Use inline suppression only when the bridge is reviewed and intentional.
+- Use inline suppression only when the traversal is reviewed and intentional.
 
 ```html
-<!-- * zenzic:ignore: Z105 - validated cross-locale bridge * -->
-[Read in Italian](/blog/it/article)
+<!-- * zenzic:ignore: Z105 - validated cross-section bridge * -->
+[Jump to appendix](../../appendix/reference.md)
 ```
 
-### Z602 I18N Parity Drift
-
-Symptom:
-
-- CI fails because a base file has no locale mirror or required frontmatter
-  parity fields are missing.
-
-Resolution:
-
-- Create the mirror file in the locale tree.
-- Align required frontmatter fields (`title`, `description` by default).
-
-Z602 is a contract check, not an optional lint preference.
+---
 
 ---
 
-## 7) Transition to Final Enforcement Standard
-
-This migration is a two-stage transition:
-
-1. Identity stage (current)
-
-`release_name` is set to the stable identifier while legacy terminology remains tolerated
-historical wording.
-
-1. Hardening stage (planned)
-
-After dedicated cleanup of legacy references, the historical terminology can be fully deprecated and
-strictly enforced by Z601.
-
-This staging prevents false-positive saturation while preserving governance
-signal quality.
-
----
-
-## 8) Shared Sovereign Verification Model (Family Repositories)
+## 7) Shared Sovereign Verification Model (Family Repositories)
 
 The zenzic family repositories share one deterministic gate model for `nox`,
 `just`, and CI workflows:
@@ -255,20 +211,19 @@ If verification reports a missing core path, treat it as a setup misconfiguratio
 
 ---
 
-## 9) Adding a New ADR
+## 8) Adding a New ADR
 
 When a significant architectural decision is made — one that constrains future contributors or resolves a structural tension — it must be recorded:
 
 1. Create `docs/developers/explanation/adr-<slug>.md` with the next available ADR number.
-2. Create the Italian mirror at the corresponding path in `docs-it/developers/explanation/`.
-3. Add both files to the index table in [ADR Vault](../explanation/adr-vault/index.md).
-4. Record the decision in the `[ADR]` section of the relevant repository governance log.
+2. Add the file to the index table in [ADR Vault](../explanation/adr-vault/index.md).
+3. Record the decision in the `[ADR]` section of the relevant repository governance log.
 
 Per governance policy, ADR entries are append-only records. To amend a decision, add a new ADR that references the original and documents the amendment — never rewrite history.
 
 ---
 
-## 10) Release Checklist Automation
+## 9) Release Checklist Automation
 
 The `RELEASE.md` file acts as the primary governance checklist for release verification. In accordance with the Mirror Law (ADR-020), this file is now fully integrated into the version bumping automation (`bump-my-version`).
 
