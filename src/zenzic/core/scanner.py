@@ -1299,7 +1299,7 @@ def _build_rule_engine(config: ZenzicConfig) -> AdaptiveRuleEngine | None:
         import importlib.util
         import sys
 
-        from zenzic.core.rules import BaseRule
+        from zenzic.core.rules import BaseRule, RuleFinding
         from zenzic.rules.base import BaseASTRule
 
         class FailedCustomRule(BaseRule):
@@ -1335,7 +1335,7 @@ def _build_rule_engine(config: ZenzicConfig) -> AdaptiveRuleEngine | None:
                             and attr is not BaseASTRule
                         ):
                             try:
-                                rules.append(attr())
+                                rules.append(attr())  # type: ignore[call-arg]
                                 found_rule = True
                             except Exception as exc:
                                 rules.append(

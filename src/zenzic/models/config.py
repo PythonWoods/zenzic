@@ -355,13 +355,6 @@ class ZenzicConfig(BaseModel):
             r"\bfixme\b",
             r"\bwip\b",
             r"\btbd\b",
-            r"\bstub\b",
-            # Italiano
-            r"\bda completare\b",
-            r"\bin costruzione\b",
-            r"\bin lavorazione\b",
-            r"\bbozza\b",
-            r"\bprossimamente\b",
         ],
         description=(
             "RE2-compatible regex patterns matched case-insensitively against each line. "

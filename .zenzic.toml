@@ -56,6 +56,8 @@ excluded_file_patterns = []
 "docs/blog/rss.xsl" = ["Z405"]
 "docs/tutorials/examples/z1xx-links/**" = ["Z107"]
 "docs/tutorials/examples/z5xx-content/**" = ["Z506", "Z503"]
+# Exempt reference file from syntax checks because it contains intentionally incorrect examples
+"docs/reference/finding-codes.md" = ["Z503"]
 
 [governance.per_file_ignores]
 # RSS/Atom feed files are generated build artifacts (MkDocs blog plugin output).

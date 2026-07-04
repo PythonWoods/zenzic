@@ -29,6 +29,7 @@
 # Legacy draft vaults
 .draft/
 /drafts/
+docs/.drafts/
 
 zenzic.code-workspace
 .gemini/
