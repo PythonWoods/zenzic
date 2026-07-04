@@ -223,7 +223,11 @@ _POLY_FORBIDDEN_SCHEMES: frozenset[str] = frozenset({"javascript:", "data:"})
 _POLY_INFO_SCHEMES: frozenset[str] = frozenset({"mailto:", "tel:", "ftp:"})
 
 # Pattern fence per PolyglotExtractor._mask_fences (subset di SuppressionTracker).
-_POLY_FENCE_RE: re.RegexPattern = re.compile(r"^(?P<fence>[`~]{3,})")
+_POLY_FENCE_RE: re.RegexPattern = re.compile(r"^(?P<fence>[`~]{3,})(?P<info>.*)$")
+
+# HTML and MDX Comment Regex Patterns for masking
+_POLY_COMMENT_RE: re.RegexPattern = re.compile(r"<!--.*?-->", re.DOTALL)
+_POLY_MDX_COMMENT_RE: re.RegexPattern = re.compile(r"\{\/\*.*?\*\/\}", re.DOTALL)
 
 # Strip whitespaces and control characters from URLs prima del check Z205.
 _POLY_CLEAN_URL_RE: re.RegexPattern = re.compile(r"[\s\x00-\x1F]+")
@@ -294,7 +298,7 @@ class PolyglotExtractor:
             Lista di :class:`HtmlNodeInfo`, uno per ogni tag ``<a>``/``<img>``
             trovato fuori dai blocchi di codice.
         """
-        masked = self._mask_inline_code(self._mask_fences(text))
+        masked = self._mask_inline_code(self._mask_fences(self._mask_comments(text)))
         nodes: list[HtmlNodeInfo] = []
         for m in _RE_POLY_TAG.finditer(masked):
             tag = m.group(1).lower()
@@ -303,6 +307,12 @@ class PolyglotExtractor:
             line_no = text[: m.start()].count("\n") + 1
             nodes.append(self._parse_node(tag, attrs_str, line_no, m.group(0)))
         return nodes
+
+    def _mask_comments(self, text: str) -> str:
+        """Mask HTML and MDX comments with spaces of equal length to preserve offsets."""
+        text = _POLY_COMMENT_RE.sub(lambda m: " " * len(m.group(0)), text)
+        text = _POLY_MDX_COMMENT_RE.sub(lambda m: " " * len(m.group(0)), text)
+        return text
 
     def _mask_inline_code(self, text: str) -> str:
         """Sostituisce blocchi inline code con spazi bianchi preservando gli offset."""
@@ -338,7 +348,8 @@ class PolyglotExtractor:
             else:
                 if fm:
                     fence = fm.group("fence")
-                    if fence[0] == open_char and len(fence) >= open_len:
+                    info = fm.group("info").strip()
+                    if fence[0] == open_char and len(fence) >= open_len and not info:
                         inside = False
                 result.append(" " * len(line))
         return "\n".join(result)
