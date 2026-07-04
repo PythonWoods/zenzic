@@ -14,6 +14,7 @@ Versions follow [Semantic Versioning](https://semver.org/).
 ## [0.19.4] — 2026-07-02
 
 ### Fixed
+
 - **Core (Mutator):** Hardened the Atomic Write Barrier to correctly follow symlinks during auto-fix operations, preventing the accidental overwriting of the symlink file itself.
 - **Core (Mutator):** Implemented a robust `try...finally` cleanup routine to guarantee the removal of transient `.zenzic-tmp-*` files even if the process receives a `KeyboardInterrupt` (SIGINT) during an atomic write.
 - **Diagnostics (Z108):** Enhanced the Z108 (Empty Link Text) regex and AST mutator to correctly detect and patch "formatted empty links" (e.g., `[**](url)` or `` [` `](url) ``), eliminating an AST drift edge-case.
