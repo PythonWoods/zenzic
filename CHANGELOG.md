@@ -11,8 +11,6 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-## [0.19.4] — 2026-07-02
-
 ### Fixed
 
 - **Core (Mutator):** Hardened the Atomic Write Barrier to correctly follow symlinks during auto-fix operations, preventing the accidental overwriting of the symlink file itself.
