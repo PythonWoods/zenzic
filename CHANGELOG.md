@@ -11,6 +11,14 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### 🔒 Security Advisory
+This patch release resolves three vulnerabilities identified during Red Team adversarial audits. All users are advised to update to ensure DQS integrity and CI stability.
+
+### Fixed
+- **Security (DQS Evasion):** Resolved the "Ghost Policy" bypass where developers could evade the Suppression Cap and DQS penalties by injecting leading spaces (e.g., `" Z101"`) into `.zenzic.toml` policies. The scoring engine now strictly sanitizes inputs.
+- **Security (DoS via TOML Bomb):** Hardened the configuration parser against mixed-type arrays. Malformed arrays no longer cause unhandled Python tracebacks (crashing the CI runner) but are safely caught and reported as `Z001` (Fatal Config Error).
+- **Security (Z603 Evasion):** Fixed a logical flaw where duplicate inline suppressions on the same line were all marked as "consumed" by a single finding. Duplicates now correctly trigger `Z603` (Dead Suppression) to prevent hidden debt.
+
 ## [0.19.5] - 2026-07-04
 
 ### Fixed
