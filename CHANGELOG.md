@@ -13,8 +13,6 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [0.20.1] - 2026-07-04
 
-## [0.20.1] — 2026-07-04
-
 ### Fixed
 
 - **UI dark mode restoration:** Reverted Tailwind CSS optimization changes to resolve visual regressions on the Landing Page, restoring the correct slate-based dark theme.
