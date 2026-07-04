@@ -3,7 +3,6 @@
 
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-  darkMode: ['class', '[data-md-color-scheme="slate"]'],
   content: [
     "./docs/**/*.md",
     "./overrides/**/*.html",
