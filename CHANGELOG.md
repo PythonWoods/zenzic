@@ -11,15 +11,11 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-## [0.20.4] - 2026-07-05
-
-## [0.20.3] - 2026-07-05
-
-## [0.20.3] — 2026-07-04
+## [0.20.3] — 2026-07-05
 
 ### Removed
 
-- **Technical Debt Eradication (Z602):** Completely removed the `examples/z602-i18n-parity/` gallery directory and the `z602` test scenario from `zenzic lab`. This eliminates phantom testing debt, as the underlying bilingual parity scanner was permanently eradicated in v0.14 and the lab scenario was effectively a hardcoded no-op.
+- **Z602 Total Eradication:** Removed all artifacts of the deprecated bilingual parity feature (ADR-008/ADR-022): the `examples/z602-i18n-parity/` fixture directory, the `z602` scenario from `zenzic lab`, `Z602`/`I18N_PARITY` from `codes.py`, the `i18n_parity` field from `GovernanceConfig`, and all corresponding documentation sections (`[i18n]` config block, HALT table row, migration matrix entry, Z602 lab reference).
 
 ## [0.20.2] — 2026-07-04
 
