@@ -518,41 +518,6 @@ fallback_to_default = false
 
 ---
 
-## I18N Parity Settings {#i18n-parity-settings}
-
-The `[i18n]` section controls structural translation parity checks (Z907) and
-frontmatter key parity across language mirrors.
-
-| Field | Type | Default | Description |
-| :--- | :--- | :--- | :--- |
-| `enabled` | `bool` | `false` | Activates the i18n parity scanner |
-| `base_lang` | `str` | `"en"` | Base language code |
-| `base_source` | `Path` | `"docs"` | Base-language source root |
-| `targets` | `dict[str, Path]` | `{}` | Mapping of locale -> mirror root |
-| `strict_parity` | `bool` | `true` | Missing mirror is error when `true`, warning when `false` |
-| `require_frontmatter_parity` | `list[str]` | `["title", "description"]` | Required frontmatter keys in translated pages |
-| `extra_sources` | `list[I18nSource]` | `[]` | Additional base/targets pairs (e.g. developers plugin docs) |
-
-```toml
-[i18n]
-enabled = true
-base_lang = "en"
-base_source = "docs"
-strict_parity = true
-require_frontmatter_parity = ["title", "description"]
-
-[i18n.targets]
-it = "docs-it"
-
-[[i18n.extra_sources]]
-base_source = "developers"
-
-[i18n.extra_sources.targets]
-it = "developers-it"
-```
-
----
-
 ## CI / Exit Behaviour {#ci-exit-behaviour}
 
 ### `fail_under` {#fail-under}
@@ -664,17 +629,6 @@ brand_obsolescence = [
 
 **Scope:** applies to all files within the active `docs_dir` scan scope, subject to the standard exclusion hierarchy.
 
-### `i18n_parity` {#i18n-parity}
-
-| | |
-| :--- | :--- |
-| **Type** | `bool` |
-| **Default** | `false` |
-| **Section** | `[governance]` |
-| **Finding** | Z602 `I18N_PARITY` |
-
-Enables governance reporting for translation parity on configured locale trees.
-
 ### `per_file_ignores` {#per-file-ignores}
 
 | | |
@@ -727,7 +681,6 @@ When `true`, exceeding `suppression_cap` triggers immediate exit code 1.
 
 ```toml
 [governance]
-i18n_parity = true
 suppression_cap = 30
 suppression_cap_scope = "all"
 suppression_cap_fail_hard = true

@@ -149,8 +149,7 @@ exceptions.
 **Governance gates** — certain codes trigger a hard gate: `zenzic
 check` exits with code 2 regardless of the DQS. The DQS itself is not affected because
 gate codes are excluded from the penalty matrix by design. A project can score 100 and
-still fail the gate if a gate-level violation is present. (Note: `Z602 I18N_PARITY` was
-permanently deactivated in v0.14 and no longer triggers this gate.)
+still fail the gate if a gate-level violation is present.
 
 ---
 

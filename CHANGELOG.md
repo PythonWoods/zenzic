@@ -11,6 +11,14 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.20.3] - 2026-07-05
+
+## [0.20.3] — 2026-07-04
+
+### Removed
+
+- **Technical Debt Eradication (Z602):** Completely removed the `examples/z602-i18n-parity/` gallery directory and the `z602` test scenario from `zenzic lab`. This eliminates phantom testing debt, as the underlying bilingual parity scanner was permanently eradicated in v0.14 and the lab scenario was effectively a hardcoded no-op.
+
 ## [0.20.2] — 2026-07-04
 
 ### Fixed

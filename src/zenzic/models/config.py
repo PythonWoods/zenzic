@@ -164,10 +164,6 @@ class GovernanceConfig(BaseModel):
             "when present in docs source."
         ),
     )
-    i18n_parity: bool = Field(
-        default=False,
-        description="Activate Z602 I18N_PARITY governance reporting.",
-    )
     per_file_ignores: dict[str, list[str]] = Field(
         default_factory=dict,
         description=(

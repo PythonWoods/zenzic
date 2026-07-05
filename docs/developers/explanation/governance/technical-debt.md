@@ -42,7 +42,7 @@ can be safely removed.
 
 The check is conceptually simple but architecturally expensive:
 
-1. **Pillar 3 violation.** Z602 and Z105 are pure per-link / per-file
+1. **Pillar 3 violation.** Z110 and Z105 are pure per-link / per-file
    functions — they decide independently in each `pytest-xdist` worker with
    no shared state. A "used / unused" determination requires aggregating
    results across **every** scanned file in **every** worker, then

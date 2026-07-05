@@ -673,7 +673,7 @@ in this reference page.
 | Z301–Z303 Reference Integrity | `Z301`–`Z303` | `warning` |
 | Z401–Z406 Structure | `Z401`–`Z406` | `warning` |
 | Z501–Z505 Content Quality | `Z501`–`Z505` | `warning` |
-| Z601–Z602 Governance | `Z601`–`Z602` | `warning` |
+| Z601 Governance | `Z601` | `warning` |
 | Z901–Z902 System | `Z901`–`Z902` | `warning` |
 | Z906 NO_FILES_FOUND | `Z906` | `note` |
 
@@ -947,7 +947,6 @@ The table always uses four columns: **Tier**, **Code**, **Name**, **Status**.
 Governance activation is read from loaded configuration:
 
 - `Z601` is `[ACTIVE]` when `[governance].brand_obsolescence` is non-empty.
-- `Z602` is `[INACTIVE]` — the i18n parity scanner was permanently removed in v0.14. Configuration keys are silently ignored for forward-compatibility.
 
 For plugin rules, status is `[ACTIVE]` only when the plugin source is enabled in
 `plugins`. Custom rules from `custom_rules` are shown in the `custom` tier.
@@ -1023,7 +1022,6 @@ Zenzic and reports whether each scenario met its expected outcome.
 | `Z201` | Credential Scanner | BREACH |
 | `Z405` | Asset Integrity | FAIL |
 | `Z601` | Brand Obsolescence | FAIL |
-| `Z602` | i18n Parity | FAIL |
 
 ### Outcome labels
 

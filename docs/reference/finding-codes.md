@@ -110,7 +110,6 @@ Examples:
 | Code | Name | Why HALT, not a number |
 |---|---|---|
 | Z504 | QUALITY_REGRESSION | Triggers when the current DQS regresses below the saved baseline. Not scored itself (that would be circular). Blocks `zenzic diff` gate. |
-| Z602 | I18N_PARITY | Binary governance gate — translation mirror missing or frontmatter diverged. Blocks the governance gate unconditionally. |
 | Z901 | RULE_ENGINE_ERROR | Scanner crash. Partial results may be unreliable; pipeline cannot pass. |
 | Z902 | RULE_TIMEOUT | Scanner timed out (ReDoS risk). Partial results are untrustworthy. |
 
@@ -629,10 +628,6 @@ A deprecated release name or brand identifier appears in a scanned file. Configu
 3. For `.md` files: append `<!-- zenzic:ignore: Z601 -->`.
 4. To exempt a file pattern entirely, add it to `obsolete_names_exclude_patterns` in `.zenzic.toml`.
 
-### Z602: I18N_PARITY {#z602}
-
-> **\[INACTIVE\]** This feature and its associated adapter logic have been permanently eradicated. The code remains in the registry strictly to prevent `Unknown Z-Code` configuration crashes for legacy projects.
-
 ### Z603: DEAD_SUPPRESSION {#z603}
 
 **Severity:** `warning` · **Penalty:** −1.0 pt (Governance) · **Exit:** 1 · **Suppressible:** Yes · **Fixable:** Yes · [↗ Gallery](../tutorials/examples/z6xx-brand/z603-dead-suppression.md)
@@ -727,7 +722,6 @@ Emitted by `zenzic diff` when the current DQS is lower than the saved baseline (
 | `Z903` | `Z405` | **DEAD.** Triggers FATAL crash. Manually replace with `Z405`. |
 | `Z904` | `Z406` | **DEAD.** Triggers FATAL crash. Manually replace with `Z406`. |
 | `Z905` | `Z601` | **DEAD.** Triggers FATAL crash. Manually replace with `Z601`. |
-| `Z907` | `Z602` | **INACTIVE.** Both codes are permanently disabled (Bilingual Parity eradicated). Retained in the Python registry strictly as dummy codes to prevent legacy TOML files from crashing. |
 <!-- zenzic:migration-matrix:end -->
 
 ---

@@ -141,13 +141,6 @@ _GALLERY: dict[str, _Act] = {
         example_dir="z601-brand-obsolescence",
         expected_pass=False,
     ),
-    "z602": _Act(
-        code="z602",
-        title="i18n Parity",
-        description="Z602 I18N_PARITY — guide.md present in EN locale, absent from IT",
-        example_dir="z602-i18n-parity",
-        expected_pass=True,
-    ),
     "z102": _Act(
         code="z102",
         title="Anchor Integrity",

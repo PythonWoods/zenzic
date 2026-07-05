@@ -63,7 +63,6 @@ Z5xx — Content Quality
 
 Z6xx — Governance (opt-in)
      Z601  BRAND_OBSOLESCENCE   — deprecated brand term found in documentation source
-     Z602  I18N_PARITY          — [INACTIVE] bilingual parity deferred to future adapter plugins; not enforced in v0.14.0
 
 Z9xx — Engine / System
     Z901  RULE_ENGINE_ERROR    — plugin rule raised an unexpected exception
@@ -238,9 +237,6 @@ CODE_DEFINITIONS: dict[str, CodeDefinition] = {
     "Z506": CodeDefinition("error", 5.0, "content"),  # MALFORMED_FRONTMATTER
     # ── Z6xx — Governance ─────────────────────────────────────────────────────
     "Z601": CodeDefinition("warning", 2.0, "brand"),  # BRAND_OBSOLESCENCE (escalates exponentially)
-    "Z602": CodeDefinition(
-        "warning", 0.0, None, "inactive"
-    ),  # I18N_PARITY — INACTIVE; deferred to future adapter plugins
     "Z603": CodeDefinition("warning", 1.0, "governance", fixable=True),  # DEAD_SUPPRESSION
     # ── Z9xx — Engine / System ────────────────────────────────────────────────
     "Z901": CodeDefinition("warning", 0.0, None),  # RULE_ENGINE_ERROR
@@ -294,7 +290,6 @@ CODE_NAMES: dict[str, str] = {
     "Z505": "UNTAGGED_CODE_BLOCK",
     "Z506": "MALFORMED_FRONTMATTER",
     "Z601": "BRAND_OBSOLESCENCE",
-    "Z602": "I18N_PARITY",  # inactive
     "Z603": "DEAD_SUPPRESSION",
     "Z901": "RULE_ENGINE_ERROR",
     "Z902": "RULE_TIMEOUT",
@@ -355,7 +350,6 @@ CODE_DESCRIPTIONS: dict[str, str] = {
     "Z506": "Frontmatter boundary is malformed (e.g., opening delimiter is '--' instead of '---')",
     # Z6xx — Governance
     "Z601": "Deprecated brand term found in documentation source",
-    "Z602": "[INACTIVE] Bilingual parity deferred to future adapter plugins — not enforced in v0.14.0",
     "Z603": "Inline suppression directive does not suppress any active finding. Remove the dead comment.",
     # Z9xx — Engine / System
     "Z901": "Plugin rule raised an unexpected exception",
