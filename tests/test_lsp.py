@@ -121,9 +121,7 @@ def test_publish_diagnostics() -> None:
     req0 = {
         "jsonrpc": "2.0",
         "method": "textDocument/didOpen",
-        "params": {
-            "textDocument": {"uri": uri, "text": ""}
-        }
+        "params": {"textDocument": {"uri": uri, "text": ""}},
     }
     req1 = {
         "jsonrpc": "2.0",
@@ -186,9 +184,7 @@ def test_debounce_diagnostics() -> None:
     req0 = {
         "jsonrpc": "2.0",
         "method": "textDocument/didOpen",
-        "params": {
-            "textDocument": {"uri": uri, "text": ""}
-        }
+        "params": {"textDocument": {"uri": uri, "text": ""}},
     }
     req1 = {
         "jsonrpc": "2.0",

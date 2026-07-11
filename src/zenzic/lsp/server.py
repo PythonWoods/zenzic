@@ -223,6 +223,12 @@ class LanguageServer:
         # O(N) parsing across the text
         findings = self.rule_engine.run(file_path, text)
 
+        # Snippet syntax validation (Z503)
+        from zenzic.core.validator import check_snippet_content
+        from zenzic.models.config import ZenzicConfig
+
+        snippet_errors = check_snippet_content(text, file_path, ZenzicConfig())
+
         diagnostics = []
         for f in findings:
             # LSP line is 0-indexed, Zenzic line_no is 1-indexed
@@ -254,6 +260,25 @@ class LanguageServer:
                     "code": getattr(f, "rule_id", "Unknown"),
                     "source": "zenzic",
                     "message": getattr(f, "message", "Violation found"),
+                }
+            )
+
+        for s_err in snippet_errors:
+            line_no = max(0, s_err.line_no - 1)
+            lines = text.splitlines()
+            matched_line = lines[line_no] if 0 <= line_no < len(lines) else ""
+            utf16_end = self._to_utf16_col(matched_line, len(matched_line))
+
+            diagnostics.append(
+                {
+                    "range": {
+                        "start": {"line": line_no, "character": 0},
+                        "end": {"line": line_no, "character": utf16_end},
+                    },
+                    "severity": 1,  # Error
+                    "code": s_err.code,
+                    "source": "zenzic",
+                    "message": s_err.message,
                 }
             )
 
