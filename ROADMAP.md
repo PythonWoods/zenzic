@@ -50,7 +50,7 @@ For the current release history, see [CHANGELOG.md](CHANGELOG.md).
 
 *Pushing the "Hostile Precision" feedback loop directly into the authoring environment.*
 
-- **Zenzic Language Server (ZLS) & VS Code Extension:** To push the "Hostile Precision" feedback loop from the CI/CD pipeline directly into the authoring environment, Zenzic will implement a native Language Server Protocol (LSP) interface.
+- **Zenzic Language Server (ZLS) & VS Code Extension** (Issue #12): To push the "Hostile Precision" feedback loop from the CI/CD pipeline directly into the authoring environment, Zenzic will implement a native Language Server Protocol (LSP) interface.
   - **The Architecture:** The core engine will expose a `zenzic.lsp` module (JSON-RPC over stdio). An official, thin VS Code Extension (written in TypeScript) will act purely as an LSP client.
   - **The Single Source of Truth:** The VS Code extension will contain zero AST parsing or regex logic. It will stream `textDocument/didChange` events to the local Python backend. The Python core remains the sole arbiter of Document Quality.
   - **Real-Time Governance:** Z-Codes will render as real-time editor diagnostics (red/yellow squiggly lines). Hovering over a broken link (`Z104`), a missing anchor (`Z102`), or a leaked credential (`Z201`) will display the exact DQS penalty and remediation steps natively extracted from the Python `CodeDefinition` registry.
@@ -88,4 +88,4 @@ No known bugs.
 
 ---
 
-Roadmap last updated: 2026-07-04
+Roadmap last updated: 2026-07-11
