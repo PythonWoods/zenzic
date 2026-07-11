@@ -117,11 +117,19 @@ def test_publish_diagnostics() -> None:
     # [my heading](#my-heading)
     # Z107 rule is active by default.
 
+    uri = "file:///fake/path/doc.md"
+    req0 = {
+        "jsonrpc": "2.0",
+        "method": "textDocument/didOpen",
+        "params": {
+            "textDocument": {"uri": uri, "text": ""}
+        }
+    }
     req1 = {
         "jsonrpc": "2.0",
         "method": "textDocument/didChange",
         "params": {
-            "textDocument": {"uri": "file:///fake/path/doc.md"},
+            "textDocument": {"uri": uri},
             "contentChanges": [{"text": "Line 1\n[my heading](#my-heading)\nLine 3"}],
         },
     }
@@ -135,6 +143,7 @@ def test_publish_diagnostics() -> None:
         return header + body
 
     in_stream = io.BytesIO()
+    in_stream.write(encode_rpc(req0))
     in_stream.write(encode_rpc(req1))
     in_stream.write(encode_rpc(req2))
     in_stream.seek(0)
@@ -174,6 +183,13 @@ def test_debounce_diagnostics() -> None:
     # We send 3 didChange events for the same file, then an exit.
     # We should only see 1 publishDiagnostics.
     uri = "file:///fake/path/doc.md"
+    req0 = {
+        "jsonrpc": "2.0",
+        "method": "textDocument/didOpen",
+        "params": {
+            "textDocument": {"uri": uri, "text": ""}
+        }
+    }
     req1 = {
         "jsonrpc": "2.0",
         "method": "textDocument/didChange",
@@ -205,6 +221,7 @@ def test_debounce_diagnostics() -> None:
         return header + body
 
     in_stream = io.BytesIO()
+    in_stream.write(encode_rpc(req0))
     in_stream.write(encode_rpc(req1))
     in_stream.write(encode_rpc(req2))
     in_stream.write(encode_rpc(req3))
