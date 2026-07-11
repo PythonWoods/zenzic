@@ -20,6 +20,7 @@ from ._fix import fix
 from ._guard import guard_app
 from ._inspect import inspect_app
 from ._lab import lab
+from ._lsp import lsp
 from ._shared import (
     _count_docs_assets,
     _render_link_error,
@@ -45,6 +46,7 @@ __all__ = [
     "fix",
     "init",
     "lab",
+    "lsp",
     # Console control (called from main.py @app.callback)
     "configure_console",
     # UI & console accessors (used by _lab.py)

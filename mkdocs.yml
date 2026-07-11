@@ -103,6 +103,7 @@ nav:
     - Explanation:
       - explanation/why-zenzic.md
       - explanation/architecture.md
+      - explanation/language-server-architecture.md
       - explanation/core-mechanics.md
       - explanation/scoring-design.md
       - explanation/scoring-system.md

@@ -28,6 +28,7 @@ from zenzic.cli import (
     init,
     inspect_app,
     lab,
+    lsp,
     score,
 )
 from zenzic.cli._metadata import COMMANDS, ROOT_EPILOG, ROOT_HELP
@@ -99,6 +100,7 @@ _STANDALONE_COMMANDS = {
     "explain": explain,
     "fix": fix,
     "init": init,
+    "lsp": lsp,
 }
 
 for cmd in COMMANDS:

@@ -98,3 +98,8 @@ replace = 'placeholder: "{new_version}"'
 filename = ".pre-commit-hooks.yaml"
 search = "rev: v{current_version}"
 replace = "rev: v{new_version}"
+
+[[tool.bumpversion.files]]
+filename = "README.md"
+search = '"version": "{current_version}"'
+replace = '"version": "{new_version}"'
