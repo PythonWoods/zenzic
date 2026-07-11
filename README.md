@@ -114,7 +114,7 @@ Zenzic Core is headless and emits standardized **SARIF** (Static Analysis Result
       "tool": {
         "driver": {
           "name": "zenzic",
-          "version": "0.20.3",
+          "version": "0.21.0",
           "rules": [
             {
               "id": "Z101",
