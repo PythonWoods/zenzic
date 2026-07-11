@@ -11,8 +11,11 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.21.1] - 2026-07-11
+
 ### Fixed
 
+- **Transport Layer**: Resolved an infinite loop vulnerability in the ZLS JSON-RPC transport layer caused by malformed `Content-Length` headers.
 - **LSP Diagnostics**: Hooked `check_snippet_content` into the `LanguageServer` loop. The editor now reports structural errors (like `Z503 SNIPPET_ERROR`) in real-time, bridging the feature gap between `zenzic check` and the LSP.
 
 ## [0.21.0] - 2026-07-11
