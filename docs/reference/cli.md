@@ -86,6 +86,18 @@ zenzic guard init                # Install zenzic-guard in .pre-commit-hooks.yam
 active value and its origin, including local override semantics from
 `.zenzic.local.toml`.
 
+---
+
+## Editor Integration
+
+```bash
+zenzic lsp                       # Start the Zenzic Language Server (ZLS) over stdio
+```
+
+The `zenzic lsp` command initializes the Zenzic Language Server (ZLS). It communicates via the standard JSON-RPC 2.0 protocol over standard input/output (`stdio`), making it directly compatible with editor clients (like VS Code, Neovim, etc.) without requiring an intermediary network port.
+
+*Note: This command is intended to be executed by your editor's LSP client infrastructure, not interactively via the terminal.*
+
 ## Global flags {#global-flags}
 
 These flags control Zenzic's signal-to-noise profile across routine scans, CI gates,

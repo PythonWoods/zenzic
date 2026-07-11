@@ -103,6 +103,7 @@ nav:
     - Explanation:
       - explanation/why-zenzic.md
       - explanation/architecture.md
+      - explanation/language-server-architecture.md
       - explanation/core-mechanics.md
       - explanation/scoring-design.md
       - explanation/scoring-system.md
@@ -200,7 +201,7 @@ extra:
   # ADR-037: No hardcoded SemVer in any .html or .md source.
   # CI pipeline passes the current version at build time, e.g.:
   #   uv run mkdocs build --extra zenzic_version=0.14.1
-  zenzic_version: "0.20.3"  # release sync
+  zenzic_version: "0.21.0"  # release sync
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/PythonWoods/zenzic

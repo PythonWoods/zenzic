@@ -42,6 +42,13 @@ COMMANDS: tuple[CommandMeta, ...] = (
         usage_hint="Try 'zenzic lab --help' for options.",
     ),
     CommandMeta(
+        name="lsp",
+        panel="SDK & Extensibility",
+        short_help="Start the Zenzic Language Server (ZLS) over stdio.",
+        long_help="Start the Zenzic Language Server (ZLS) over stdio for editor integration.",
+        usage_hint="This command is intended for editor clients, not interactive use.",
+    ),
+    CommandMeta(
         name="check",
         panel="Core",
         short_help="Run documentation quality checks.",
