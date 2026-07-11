@@ -11,6 +11,10 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **LSP Diagnostics**: Hooked `check_snippet_content` into the `LanguageServer` loop. The editor now reports structural errors (like `Z503 SNIPPET_ERROR`) in real-time, bridging the feature gap between `zenzic check` and the LSP.
+
 ## [0.21.0] - 2026-07-11
 
 ## [0.21.0] — 2026-07-11
