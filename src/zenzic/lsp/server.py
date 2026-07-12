@@ -335,44 +335,6 @@ class LanguageServer:
         # O(N) parsing across the text
         findings = self.rule_engine.run(file_path, text) if self.rule_engine else []
 
-        # ── 1. Credential Scanner (Z201-Z205) ──────────────────────────
-        from zenzic.core.credentials import scan_line_for_secrets
-        from zenzic.core.rules import RuleFinding
-
-        for lineno, raw_line in enumerate(text.splitlines(True), start=1):
-            for sf in scan_line_for_secrets(raw_line, file_path, lineno):
-                findings.append(
-                    RuleFinding(
-                        file_path=file_path,
-                        line_no=sf.line_no,
-                        rule_id="Z204" if sf.secret_type == "FORBIDDEN_TERM" else "Z201",
-                        message=f"Secret detected ({sf.secret_type})"
-                        if sf.secret_type != "FORBIDDEN_TERM"
-                        else f"Forbidden term detected: '{sf.match_text}'",
-                        severity="error",
-                        matched_line=raw_line,
-                        col_start=sf.col_start,
-                        match_text=sf.match_text,
-                    )
-                )
-
-        # ── 2. Empty Link Extractor (Z108) ──────────────────────────────
-        from zenzic.core.validator import _extract_empty_link_texts
-
-        for lineno, col_start, source_line in _extract_empty_link_texts(text):
-            findings.append(
-                RuleFinding(
-                    file_path=file_path,
-                    line_no=lineno,
-                    rule_id="Z108",
-                    message="link label is empty or whitespace-only",
-                    severity="error",
-                    matched_line=source_line,
-                    col_start=col_start,
-                    match_text=source_line,
-                )
-            )
-
         if self.vsm is not None and self.config is not None and self.repo_root is not None:
             assert self.rule_engine is not None
             docs_root = self.repo_root / self.config.docs_dir
