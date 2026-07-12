@@ -41,3 +41,14 @@ ZLS solves this entirely within the standard synchronous loop via manual stream 
 3. **Execution:** The Zenzic Engine is only invoked to run validation rules if the document has been `dirty` for at least `300ms`.
 
 This guarantees $O(1)$ transport ingestion overhead during rapid typing, unleashing the $O(N)$ rule engine only during genuine cognitive pauses from the author.
+
+## Global Topological Awareness (VSM)
+
+To enforce structural rules like `Z101` (Broken Link) or `Z104` (File Not Found), the server requires global topological awareness of the repository.
+
+Consistent with the **Zero-Threading Policy** to prevent race conditions and GIL unpredictability, ZLS constructs and maintains the Virtual Site Map (VSM) synchronously:
+
+1. **Synchronous Initialization:** During the `initialized` phase, ZLS performs an initial read of the workspace to build the complete VSM. This temporarily blocks the $I/O$ multiplexer but safely loads the topological state into memory.
+2. **Incremental Patching ($O(1)$):** ZLS registers the `workspace/didChangeWatchedFiles` capability to instruct the language client to monitor the filesystem for changes. When a file is created, updated, or deleted, ZLS receives an event and patches the dictionary-based VSM in strictly $O(1)$ time.
+
+This ensures that the language server remains highly responsive and strictly single-threaded while accurately validating cross-file structural integrity in real-time.
