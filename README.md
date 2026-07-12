@@ -158,6 +158,14 @@ See the [Adapter API][docs-arch] for the plugin interface. Third-party adapters 
 
 ---
 
+## 📝 IDE Integration
+
+Zenzic provides a Language Server Protocol (LSP) backend via the `zenzic lsp` command, bringing real-time structural analysis and error reporting directly into your editor.
+
+> **Note:** The official VS Code extension is currently in Private Beta and will be released to the Microsoft Marketplace soon.
+
+---
+
 ## ⚙️ Configuration
 
 Zero-config by default. See the [Configuration Guide][docs-home] for the full `.zenzic.toml` schema and `pyproject.toml` embedding.

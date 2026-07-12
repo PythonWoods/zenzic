@@ -247,3 +247,134 @@ def test_debounce_diagnostics() -> None:
                 pass
 
     assert publish_count == 1
+
+
+def test_vsm_integration_and_dynamic_watching(tmp_path) -> None:
+    """Verify VSM synchronous build and O(1) dynamic watching."""
+    import io
+    import json
+    import os
+
+    # Store old cwd
+    old_cwd = os.getcwd()
+    os.chdir(tmp_path)
+
+    try:
+        docs_dir = tmp_path / "docs"
+        docs_dir.mkdir()
+
+        # Write a zenzic config so ZenzicConfig finds it
+        (tmp_path / ".zenzic.toml").write_text('docs_dir = "docs"')
+
+        # We will test a document index.md that links to missing.md
+        index_md = docs_dir / "index.md"
+        index_md.write_text("[broken link](missing.md)")
+
+        req_init = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {"rootUri": f"file://{tmp_path}"},
+        }
+        req_initialized = {"jsonrpc": "2.0", "method": "initialized", "params": {}}
+        # Open index.md
+        req_open = {
+            "jsonrpc": "2.0",
+            "method": "textDocument/didOpen",
+            "params": {
+                "textDocument": {"uri": f"file://{index_md}", "text": "[broken link](missing.md)"}
+            },
+        }
+
+        def encode_rpc(msg: dict) -> bytes:
+            body = json.dumps(msg, separators=(",", ":")).encode("utf-8")
+            header = f"Content-Length: {len(body)}\r\n\r\n".encode("ascii")
+            return header + body
+
+        in_stream = io.BytesIO()
+        in_stream.write(encode_rpc(req_init))
+        in_stream.write(encode_rpc(req_initialized))
+        in_stream.write(encode_rpc(req_open))
+        in_stream.seek(0)
+
+        out_stream = io.BytesIO()
+        server = LanguageServer(stdin=in_stream, stdout=out_stream)
+
+        # Serve will process the first 3 messages
+        server.serve()
+
+        out_stream.seek(0)
+        output = out_stream.read()
+
+        # Check that a publishDiagnostics was emitted for index.md with Z101
+        parts = output.split(b"\r\n\r\n")
+        found_z101 = False
+        for p in parts:
+            if b"publishDiagnostics" in p:
+                body_str = p.split(b"Content-Length")[0]
+                try:
+                    resp = json.loads(body_str.decode("utf-8"))
+                    if resp.get("method") == "textDocument/publishDiagnostics":
+                        diagnostics = resp["params"]["diagnostics"]
+                        for d in diagnostics:
+                            if d["code"] == "Z101":
+                                found_z101 = True
+                except Exception:
+                    pass
+        assert found_z101, "Z101 should be found before missing.md is created"
+
+        # Now send didChangeWatchedFiles to create missing.md
+        missing_md = docs_dir / "missing.md"
+        missing_md.write_text("# Found!")
+
+        req_watched = {
+            "jsonrpc": "2.0",
+            "method": "workspace/didChangeWatchedFiles",
+            "params": {
+                "changes": [
+                    {
+                        "uri": f"file://{missing_md}",
+                        "type": 1,  # Created
+                    }
+                ]
+            },
+        }
+        req_exit = {"jsonrpc": "2.0", "method": "exit", "params": {}}
+
+        in_stream2 = io.BytesIO()
+        in_stream2.write(encode_rpc(req_watched))
+        in_stream2.write(encode_rpc(req_exit))
+        in_stream2.seek(0)
+
+        server.stdin = in_stream2
+        server.exit_received = False
+        out_stream.truncate(0)
+        out_stream.seek(0)
+
+        server.serve()
+
+        out_stream.seek(0)
+        output2 = out_stream.read()
+        parts2 = output2.split(b"\r\n\r\n")
+        found_z101_after = False
+        publish_called = False
+        for p in parts2:
+            if b"publishDiagnostics" in p:
+                body_str = p.split(b"Content-Length")[0]
+                try:
+                    resp = json.loads(body_str.decode("utf-8"))
+                    if resp.get("method") == "textDocument/publishDiagnostics":
+                        publish_called = True
+                        diagnostics = resp["params"]["diagnostics"]
+                        for d in diagnostics:
+                            if d["code"] == "Z101":
+                                found_z101_after = True
+                except Exception:
+                    pass
+
+        print("OUTPUT2:", output2.decode("utf-8"))
+        assert publish_called, "Should republish on VSM update"
+        assert not found_z101_after, "Z101 should be resolved after missing.md is created"
+
+    finally:
+        os.chdir(old_cwd)
