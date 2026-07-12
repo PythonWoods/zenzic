@@ -11,6 +11,8 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.22.0] - 2026-07-12
+
 ### ✨ Real-Time Global Topological Awareness (VSM)
 
 This release introduces Real-Time Virtual Site Map (VSM) integration into the Zenzic Language Server (ZLS), ensuring structural checks are validated instantaneously across the entire workspace.
