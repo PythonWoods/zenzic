@@ -45,15 +45,14 @@ class LanguageServer:
         self.documents = DocumentManager()
 
         # Phase 2: Diagnostic Engine
-        config = ZenzicConfig()
-        self.rule_engine: AdaptiveRuleEngine | None = _build_rule_engine(config)
+        self.config: ZenzicConfig | None = None
+        self.rule_engine: AdaptiveRuleEngine | None = None
 
         # Phase 3: Debounce
         self.dirty_documents: dict[str, float] = {}
 
         # Phase 4: VSM Integration
         self.repo_root: Path | None = None
-        self.config: ZenzicConfig | None = None
         self.adapter: Any | None = None
         self.vsm: VSM | None = None
 
@@ -168,20 +167,27 @@ class LanguageServer:
                 sys.stderr.flush()
 
         # Emit any remaining dirty documents on clean exit
-        self._flush_dirty_documents()
+        self._flush_dirty_documents(force=True)
 
-    def _flush_dirty_documents(self) -> None:
-        """Force publish all dirty documents immediately."""
-        for uri in list(self.dirty_documents.keys()):
-            self._publish_diagnostics(uri, self.documents.documents[uri])
-            del self.dirty_documents[uri]
+    def _flush_dirty_documents(self, force: bool = False) -> None:
+        """Push diagnostics if debounce interval has elapsed."""
+        now = time.time()
+        for uri, ts in list(self.dirty_documents.items()):
+            if force or now - ts >= 0.3:
+                self._publish_diagnostics(uri, self.documents.documents[uri])
+                del self.dirty_documents[uri]
 
     def _build_vsm_sync(self) -> None:
         """Synchronously build the initial VSM."""
         if not self.repo_root:
             return
 
-        self.config = ZenzicConfig()
+        if not self.config:
+            self.config, _ = ZenzicConfig.load(self.repo_root)
+
+        if not self.rule_engine:
+            self.rule_engine = _build_rule_engine(self.config)
+
         docs_root = self.repo_root / self.config.docs_dir
         exclusion_mgr = LayeredExclusionManager(
             self.config, repo_root=self.repo_root, docs_root=docs_root
@@ -264,6 +270,12 @@ class LanguageServer:
                     "serverInfo": {"name": "Zenzic Language Server", "version": "0.21.0"},
                 },
             )
+
+            # Eagerly initialize configuration and engine on 'initialize'
+            if self.repo_root and not self.config:
+                self.config, _ = ZenzicConfig.load(self.repo_root)
+                self.rule_engine = _build_rule_engine(self.config)
+
         elif method == "initialized":
             if self.repo_root:
                 self.send_message(
@@ -308,18 +320,61 @@ class LanguageServer:
 
     def _publish_diagnostics(self, uri: str, text: str) -> None:
         """Run the rule engine on the in-memory document state and publish diagnostics."""
-        if not self.rule_engine:
-            return
 
         if uri.startswith("file://"):
             file_path = Path(uri[7:])
         else:
             file_path = Path(uri)
 
+        # Ensure fallback for zero-config instances
+        if not self.config:
+            self.config = ZenzicConfig()
+        if not self.rule_engine:
+            self.rule_engine = _build_rule_engine(self.config)
+
         # O(N) parsing across the text
-        findings = self.rule_engine.run(file_path, text)
+        findings = self.rule_engine.run(file_path, text) if self.rule_engine else []
+
+        # ── 1. Credential Scanner (Z201-Z205) ──────────────────────────
+        from zenzic.core.credentials import scan_line_for_secrets
+        from zenzic.core.rules import RuleFinding
+
+        for lineno, raw_line in enumerate(text.splitlines(True), start=1):
+            for sf in scan_line_for_secrets(raw_line, file_path, lineno):
+                findings.append(
+                    RuleFinding(
+                        file_path=file_path,
+                        line_no=sf.line_no,
+                        rule_id="Z204" if sf.secret_type == "FORBIDDEN_TERM" else "Z201",
+                        message=f"Secret detected ({sf.secret_type})"
+                        if sf.secret_type != "FORBIDDEN_TERM"
+                        else f"Forbidden term detected: '{sf.match_text}'",
+                        severity="error",
+                        matched_line=raw_line,
+                        col_start=sf.col_start,
+                        match_text=sf.match_text,
+                    )
+                )
+
+        # ── 2. Empty Link Extractor (Z108) ──────────────────────────────
+        from zenzic.core.validator import _extract_empty_link_texts
+
+        for lineno, col_start, source_line in _extract_empty_link_texts(text):
+            findings.append(
+                RuleFinding(
+                    file_path=file_path,
+                    line_no=lineno,
+                    rule_id="Z108",
+                    message="link label is empty or whitespace-only",
+                    severity="error",
+                    matched_line=source_line,
+                    col_start=col_start,
+                    match_text=source_line,
+                )
+            )
 
         if self.vsm is not None and self.config is not None and self.repo_root is not None:
+            assert self.rule_engine is not None
             docs_root = self.repo_root / self.config.docs_dir
             context = ResolutionContext(docs_root=docs_root, source_file=file_path)
             vsm_findings = self.rule_engine.run_vsm(
@@ -329,7 +384,6 @@ class LanguageServer:
 
         # Snippet syntax validation (Z503)
         from zenzic.core.validator import check_snippet_content
-        from zenzic.models.config import ZenzicConfig
 
         snippet_errors = check_snippet_content(text, file_path, ZenzicConfig())
 
