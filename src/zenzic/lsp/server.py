@@ -13,10 +13,14 @@ import traceback
 from pathlib import Path
 from typing import Any, BinaryIO, TypedDict, cast
 
-from zenzic.core.rules import AdaptiveRuleEngine
+from zenzic.core.adapters import get_adapter
+from zenzic.core.discovery import iter_markdown_sources
+from zenzic.core.exclusion import LayeredExclusionManager
+from zenzic.core.rules import AdaptiveRuleEngine, ResolutionContext
 from zenzic.core.scanner import _build_rule_engine
 from zenzic.lsp.documents import DocumentManager
 from zenzic.models.config import ZenzicConfig
+from zenzic.models.vsm import VSM, Route, build_vsm
 
 
 class JsonRpcMessage(TypedDict, total=False):
@@ -46,6 +50,12 @@ class LanguageServer:
 
         # Phase 3: Debounce
         self.dirty_documents: dict[str, float] = {}
+
+        # Phase 4: VSM Integration
+        self.repo_root: Path | None = None
+        self.config: ZenzicConfig | None = None
+        self.adapter: Any | None = None
+        self.vsm: VSM | None = None
 
     def send_message(self, message: dict[str, Any]) -> None:
         """Encode and send a JSON-RPC message to stdout."""
@@ -166,6 +176,65 @@ class LanguageServer:
             self._publish_diagnostics(uri, self.documents.documents[uri])
             del self.dirty_documents[uri]
 
+    def _build_vsm_sync(self) -> None:
+        """Synchronously build the initial VSM."""
+        if not self.repo_root:
+            return
+
+        self.config = ZenzicConfig()
+        docs_root = self.repo_root / self.config.docs_dir
+        exclusion_mgr = LayeredExclusionManager(
+            self.config, repo_root=self.repo_root, docs_root=docs_root
+        )
+
+        md_contents: dict[Path, str] = {}
+        for md_file in iter_markdown_sources(docs_root, self.config, exclusion_mgr):
+            try:
+                md_contents[md_file.resolve()] = md_file.read_text(encoding="utf-8")
+            except OSError:
+                continue
+
+        self.adapter = get_adapter(self.config.build_context, docs_root, self.repo_root)
+        self.vsm = build_vsm(self.adapter, docs_root, md_contents, repo_root=self.repo_root)
+        self._flush_dirty_documents()
+
+    def _handle_file_changes(self, changes: list[dict[str, Any]]) -> None:
+        """Incrementally update the VSM in O(1) time."""
+        if not self.vsm or not self.adapter or not self.config or not self.repo_root:
+            return
+
+        docs_root = self.repo_root / self.config.docs_dir
+
+        for change in changes:
+            uri = change.get("uri", "")
+            change_type = change.get("type")
+            if not uri.startswith("file://"):
+                continue
+            file_path = Path(uri[7:])
+
+            try:
+                rel_path_obj = file_path.relative_to(docs_root)
+                rel_path_str = rel_path_obj.as_posix()
+            except ValueError:
+                continue
+
+            if change_type in (1, 2):  # Created or Changed
+                route_meta = self.adapter.get_route_info(rel_path_obj)
+                if route_meta:
+                    self.vsm[route_meta.canonical_url] = Route(
+                        url=route_meta.canonical_url,
+                        source=rel_path_str,
+                        status=route_meta.status,
+                    )
+            elif change_type == 3:  # Deleted
+                urls_to_remove = [url for url, r in self.vsm.items() if r.source == rel_path_str]
+                for u in urls_to_remove:
+                    del self.vsm[u]
+
+        for open_uri in self.documents.documents:
+            self.dirty_documents[open_uri] = 0.0
+        self._flush_dirty_documents()
+
     def handle_message(self, message: JsonRpcMessage) -> None:
         """Dispatch a single JSON-RPC message to the correct handler."""
         method = message.get("method")
@@ -178,6 +247,14 @@ class LanguageServer:
 
         if method == "initialize":
             assert msg_id is not None
+            root_uri = params.get("rootUri")
+            if root_uri and root_uri.startswith("file://"):
+                self.repo_root = Path(root_uri[7:])
+            elif params.get("workspaceFolders"):
+                first_ws = params["workspaceFolders"][0]
+                if first_ws.get("uri", "").startswith("file://"):
+                    self.repo_root = Path(first_ws["uri"][7:])
+
             self.send_response(
                 msg_id,
                 result={
@@ -188,7 +265,26 @@ class LanguageServer:
                 },
             )
         elif method == "initialized":
-            pass
+            if self.repo_root:
+                self.send_message(
+                    {
+                        "jsonrpc": "2.0",
+                        "id": "watch-md",
+                        "method": "client/registerCapability",
+                        "params": {
+                            "registrations": [
+                                {
+                                    "id": "watch-md",
+                                    "method": "workspace/didChangeWatchedFiles",
+                                    "registerOptions": {"watchers": [{"globPattern": "**/*.md"}]},
+                                }
+                            ]
+                        },
+                    }
+                )
+                self._build_vsm_sync()
+        elif method == "workspace/didChangeWatchedFiles":
+            self._handle_file_changes(params.get("changes", []))
         elif method == "shutdown":
             self.shutdown_received = True
             if msg_id is not None:
@@ -222,6 +318,14 @@ class LanguageServer:
 
         # O(N) parsing across the text
         findings = self.rule_engine.run(file_path, text)
+
+        if self.vsm is not None and self.config is not None and self.repo_root is not None:
+            docs_root = self.repo_root / self.config.docs_dir
+            context = ResolutionContext(docs_root=docs_root, source_file=file_path)
+            vsm_findings = self.rule_engine.run_vsm(
+                file_path=file_path, text=text, vsm=self.vsm, anchors_cache={}, context=context
+            )
+            findings.extend(vsm_findings)
 
         # Snippet syntax validation (Z503)
         from zenzic.core.validator import check_snippet_content

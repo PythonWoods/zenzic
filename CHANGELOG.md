@@ -11,29 +11,21 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-## [0.21.1] - 2026-07-11
+## [0.22.0] - 2026-07-12
 
-### Fixed
+### ✨ Real-Time Global Topological Awareness (VSM)
 
-- **LSP Diagnostics**: Hooked `check_snippet_content` into the `LanguageServer` loop. The editor now reports structural errors (like `Z503 SNIPPET_ERROR`) in real-time, bridging the feature gap between `zenzic check` and the LSP.
-
-## [0.21.0] - 2026-07-11
-
-## [0.21.0] — 2026-07-11
-
-### ✨ Shift-Left to the Keystroke
-
-This minor release introduces the foundational architecture for the Zenzic Language Server, pushing host-side feedback loops directly into editor environments.
+This release introduces Real-Time Virtual Site Map (VSM) integration into the Zenzic Language Server (ZLS), ensuring structural checks are validated instantaneously across the entire workspace.
 
 ### Added
 
-- **Zenzic Language Server (ZLS) Foundation:** Introduced the `zenzic lsp` command, establishing a zero-dependency JSON-RPC 2.0 transport layer over `stdio`.
-- **Zero-DBT Incremental Synchronization:** Implemented a UTF-16 compliant Incremental Document Manager (`textDocumentSync = 2`), solving impedance mismatches with Python string lengths and Unicode surrogate pairs.
-- **Architectural Purple Teaming & Robustness:** Implemented PEP 484 `TypedDict` assertions across the IPC boundary to block schema desynchronizations, and hardened the `didClose` handlers for strict AST memory hygiene.
-- **Debounced Diagnostic Emission:** Connected the $O(N)$ Z-Code validation pipeline to `publishDiagnostics`. Integrated I/O multiplexing (`select.select`) directly within the standard synchronous loop to securely enforce a 300ms CPU protection debounce without requiring `asyncio`.
+- **Synchronous VSM Initialization:** The Language Server now seamlessly intercepts the `workspace/workspaceFolders` payload during the `initialize` handshake to perform a synchronous, zero-threading build of the global VSM.
+- **O(1) Incremental Patching:** Implemented `workspace/didChangeWatchedFiles` capability to dynamically watch the repository. File creations, deletions, and updates trigger an $O(1)$ dictionary patch, avoiding full re-evaluations and preventing race conditions.
+- **Real-Time Structural Validation:** Z-Codes such as `Z101 Broken Link`, `Z104 File Not Found`, and `Z105 Absolute Path` are now resolved and reported dynamically in real-time as files are created or deleted across the workspace.
 
 ## Historical Releases
 
+- v0.21.x archive: [changelogs/v0.21.x.md](./changelogs/v0.21.x.md)
 - v0.20.x archive: [changelogs/v0.20.x.md](./changelogs/v0.20.x.md)
 - v0.19.x archive: [changelogs/v0.19.x.md](./changelogs/v0.19.x.md)
 - v0.18.x archive: [changelogs/v0.18.x.md](./changelogs/v0.18.x.md)

@@ -114,7 +114,7 @@ Zenzic Core is headless and emits standardized **SARIF** (Static Analysis Result
       "tool": {
         "driver": {
           "name": "zenzic",
-          "version": "0.21.1",
+          "version": "0.22.0",
           "rules": [
             {
               "id": "Z101",
@@ -155,6 +155,14 @@ Zenzic Core is headless and emits standardized **SARIF** (Static Analysis Result
 | Any folder | `StandaloneAdapter` | File integrity checks — orphan detection disabled without a nav contract |
 
 See the [Adapter API][docs-arch] for the plugin interface. Third-party adapters install via the `zenzic.adapters` entry-point group.
+
+---
+
+## 📝 IDE Integration
+
+Zenzic provides a Language Server Protocol (LSP) backend via the `zenzic lsp` command, bringing real-time structural analysis and error reporting directly into your editor.
+
+> **Note:** The official VS Code extension is currently in Private Beta and will be released to the Microsoft Marketplace soon.
 
 ---
 
