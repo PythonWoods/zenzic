@@ -1971,10 +1971,11 @@ def validate_links_structured(
 
 # ─── Decoupled URP for Language Server (In-Memory) ────────────────────────────
 
+
 def validate_single_document_urp(
     content: str,
     file_path: Path,
-    vsm: dict,
+    vsm: dict[str, Any],
     config: ZenzicConfig | None = None,
 ) -> list[LinkError]:
     """Decoupled URP entry point for single-file, in-memory validation.
@@ -1985,13 +1986,15 @@ def validate_single_document_urp(
     applicable.
     """
     from zenzic.core.rules import _extract_inline_links_with_lines
+
     config = config or ZenzicConfig()
     internal_errors: list[LinkError] = []
-    
+
     label = file_path.name
-    
+
     # Pre-split lines for source context
     lines = content.splitlines()
+
     def _source_line(lineno: int) -> str:
         idx = lineno - 1
         return lines[idx].strip() if 0 <= idx < len(lines) else ""
@@ -2000,7 +2003,7 @@ def validate_single_document_urp(
     _poly_html_urls = set()
     for node in _POLYGLOT_EXTRACTOR.extract(content):
         _source_ctx = _source_line(node.line_no)
-        
+
         if node.z205_scheme:
             internal_errors.append(
                 LinkError(
@@ -2014,7 +2017,7 @@ def validate_single_document_urp(
                 )
             )
             continue
-            
+
         for attr in node.blacklisted_attrs:
             internal_errors.append(
                 LinkError(
@@ -2082,7 +2085,7 @@ def validate_single_document_urp(
                 )
             )
             continue
-            
+
         if node.href:
             _poly_html_urls.add(node.href)
 
@@ -2091,15 +2094,17 @@ def validate_single_document_urp(
     _bypass_schemes = ("mailto", "tel", "javascript", "data", "irc", "xmpp")
     _effective_skip = tuple("http://") + tuple("https://") + tuple(f"{s}:" for s in _bypass_schemes)
 
-    for url, lineno, raw_line in _extract_inline_links_with_lines(content):
+    for url, lineno, _raw_line in _extract_inline_links_with_lines(content):
         if url.startswith(_effective_skip) or url == "#":
             continue
 
         parsed = urlsplit(url)
-        
+
         # Absolute path prohibition (Z105)
         if parsed.path.startswith("/") and parsed.scheme not in _bypass_schemes:
-            is_allowed = any(parsed.path.startswith(prefix) for prefix in config.absolute_path_allowlist)
+            is_allowed = any(
+                parsed.path.startswith(prefix) for prefix in config.absolute_path_allowlist
+            )
             if not is_allowed:
                 internal_errors.append(
                     LinkError(

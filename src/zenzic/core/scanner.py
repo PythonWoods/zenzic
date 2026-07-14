@@ -935,7 +935,6 @@ class ReferenceScanner:
 
             # Alt-text checking is now delegated to MissingAltTextRule (Z403)
 
-
         # Yield all events in line-number order
         yield from sorted(credential_events + content_events, key=lambda e: e[0])
 
@@ -1174,8 +1173,8 @@ def _build_rule_engine(config: ZenzicConfig) -> AdaptiveRuleEngine | None:
         CredentialScannerRule,
         CustomRule,
         EmptyLinkRule,
-        MissingAltTextRule,
         MalformedFrontmatterRule,
+        MissingAltTextRule,
         PluginRegistry,
         UntaggedCodeBlockRule,
     )

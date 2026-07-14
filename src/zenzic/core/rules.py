@@ -1141,8 +1141,8 @@ class MissingAltTextRule(BaseRule):
         return "Z403"
 
     def check(self, file_path: Path, text: str) -> list[RuleFinding]:
-        from zenzic.core.scanner import _RE_IMAGE_INLINE, _RE_HTML_IMG, _RE_HTML_ALT
-        
+        from zenzic.core.scanner import _RE_HTML_ALT, _RE_HTML_IMG, _RE_IMAGE_INLINE
+
         findings = []
         for lineno, line in enumerate(text.splitlines(), start=1):
             clean = _INLINE_CODE_RE.sub(lambda m: " " * len(m.group()), line)
@@ -1181,7 +1181,6 @@ class MissingAltTextRule(BaseRule):
                     )
 
         return findings
-
 
 
 class VSMBrokenLinkRule(BaseRule):

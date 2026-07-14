@@ -355,14 +355,11 @@ class LanguageServer:
 
         # ── 3. URP (Uniform Resolver Pipeline) - In-Memory Validation (Z102, Z120-Z124, Z205, Z105)
         from zenzic.core.validator import validate_single_document_urp
-        
+
         urp_errors = validate_single_document_urp(
-            content=text,
-            file_path=file_path,
-            vsm=self.vsm or {},
-            config=self.config
+            content=text, file_path=file_path, vsm=self.vsm or {}, config=self.config
         )
-        
+
         for err in urp_errors:
             findings.append(
                 RuleFinding(

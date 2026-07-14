@@ -526,15 +526,11 @@ def test_lsp_emits_z403() -> None:
     )
 
     # Inline image is on line 4 (0-indexed: line 3)
-    inline_diag = next(
-        (d for d in z403_codes if d["range"]["start"]["line"] == 3), None
-    )
+    inline_diag = next((d for d in z403_codes if d["range"]["start"]["line"] == 3), None)
     assert inline_diag is not None, "Z403 should be reported on line 4 (the inline image)"
 
     # HTML <img> is on line 7 (0-indexed: line 6)
-    html_diag = next(
-        (d for d in z403_codes if d["range"]["start"]["line"] == 6), None
-    )
+    html_diag = next((d for d in z403_codes if d["range"]["start"]["line"] == 6), None)
     assert html_diag is not None, "Z403 should be reported on line 7 (the HTML img)"
 
 

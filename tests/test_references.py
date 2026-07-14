@@ -17,7 +17,7 @@ Credential Scanner (core/credentials.py):
   - No false positives on clean URLs
 
 ReferenceScanner (core/scanner.py):
-  - Pass 1 (harvest): DEF, DUPLICATE_DEF, IMG, MISSING_ALT, SECRET events
+  - Pass 1 (harvest): DEF, DUPLICATE_DEF, SECRET events
   - Pass 2 (cross_check): DANGLING detection
   - Pass 3 (get_integrity_report): DEAD_DEF, duplicate-def, score
   - "Phantom Reference Trap": [text][id] with no definition → DANGLING
@@ -25,7 +25,7 @@ ReferenceScanner (core/scanner.py):
   - Credential scanner acting as firewall: Pass 2 skipped when secrets found
   - Alt-text check: pure function and via harvest events
 
-check_image_alt_text (core/scanner.py):
+MissingAltTextRule (core/rules.py):
   - Inline Markdown images
   - HTML <img> tags
   - Empty alt attribute not flagged (intentionally decorative)
@@ -44,7 +44,6 @@ from _helpers import make_mgr
 from zenzic.core.credentials import SecurityFinding, scan_line_for_secrets, scan_url_for_secrets
 from zenzic.core.scanner import (
     ReferenceScanner,
-    check_image_alt_text,
     scan_docs_references,
 )
 from zenzic.core.validator import LinkValidator
@@ -269,46 +268,67 @@ class TestCredentialScanner:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# check_image_alt_text (pure function)
+# MissingAltTextRule (Z403)
 # ══════════════════════════════════════════════════════════════════════════════
 
 
-class TestCheckImageAltText:
+class TestMissingAltTextRule:
     def test_no_images_no_findings(self) -> None:
+        from zenzic.core.rules import MissingAltTextRule
+
         text = "# Title\n\nSome prose without any images.\n"
-        assert check_image_alt_text(text, Path("doc.md")) == []
+        rule = MissingAltTextRule()
+        assert rule.check(Path("doc.md"), text) == []
 
     def test_image_with_alt_text_ok(self) -> None:
+        from zenzic.core.rules import MissingAltTextRule
+
         text = "![A diagram showing the pipeline](pipeline.png)\n"
-        assert check_image_alt_text(text, Path("doc.md")) == []
+        rule = MissingAltTextRule()
+        assert rule.check(Path("doc.md"), text) == []
 
     def test_image_without_alt_text_flagged(self) -> None:
+        from zenzic.core.rules import MissingAltTextRule
+
         text = "![](pipeline.png)\n"
-        findings = check_image_alt_text(text, Path("doc.md"))
+        rule = MissingAltTextRule()
+        findings = rule.check(Path("doc.md"), text)
         assert len(findings) == 1
-        assert findings[0].issue == "Z403"
-        assert findings[0].is_warning is True
+        assert findings[0].rule_id == "Z403"
+        assert findings[0].severity == "warning"
         assert findings[0].line_no == 1
 
     def test_image_whitespace_only_alt_flagged(self) -> None:
+        from zenzic.core.rules import MissingAltTextRule
+
         text = "![   ](pipeline.png)\n"
-        findings = check_image_alt_text(text, Path("doc.md"))
+        rule = MissingAltTextRule()
+        findings = rule.check(Path("doc.md"), text)
         assert len(findings) == 1
 
     def test_html_img_without_alt_flagged(self) -> None:
+        from zenzic.core.rules import MissingAltTextRule
+
         text = '<img src="diagram.png">\n'
-        findings = check_image_alt_text(text, Path("doc.md"))
+        rule = MissingAltTextRule()
+        findings = rule.check(Path("doc.md"), text)
         assert len(findings) == 1
-        assert findings[0].issue == "Z403"
+        assert findings[0].rule_id == "Z403"
 
     def test_html_img_with_alt_ok(self) -> None:
+        from zenzic.core.rules import MissingAltTextRule
+
         text = '<img src="diagram.png" alt="A flowchart">\n'
-        findings = check_image_alt_text(text, Path("doc.md"))
+        rule = MissingAltTextRule()
+        findings = rule.check(Path("doc.md"), text)
         assert findings == []
 
     def test_mixed_images_multiple_findings(self) -> None:
+        from zenzic.core.rules import MissingAltTextRule
+
         text = '![Good alt](a.png)\n![](b.png)\n![also good](c.png)\n<img src="d.png">\n'
-        findings = check_image_alt_text(text, Path("doc.md"))
+        rule = MissingAltTextRule()
+        findings = rule.check(Path("doc.md"), text)
         assert len(findings) == 2
         line_nos = {f.line_no for f in findings}
         assert line_nos == {2, 4}
@@ -345,21 +365,6 @@ class TestReferenceScannerHarvest:
         assert types.count("DUPLICATE_DEF") == 1
         # First wins
         assert scanner.ref_map.resolve("ref") == "https://first.com"
-
-    def test_harvest_missing_alt_event(self, tmp_path: Path) -> None:
-        md = self._write_md(tmp_path, "![](diagram.png)\n")
-        scanner = ReferenceScanner(md)
-        events = list(scanner.harvest())
-        types = [e[1] for e in events]
-        assert "MISSING_ALT" in types
-
-    def test_harvest_img_event_with_alt(self, tmp_path: Path) -> None:
-        md = self._write_md(tmp_path, "![A diagram](diagram.png)\n")
-        scanner = ReferenceScanner(md)
-        events = list(scanner.harvest())
-        types = [e[1] for e in events]
-        assert "IMG" in types
-        assert "MISSING_ALT" not in types
 
     def test_harvest_secret_in_definition_url(self, tmp_path: Path) -> None:
         """A reference definition whose URL contains an OpenAI key → SECRET event."""
