@@ -11,6 +11,8 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.22.1] - 2026-07-14
+
 ## [0.22.0] - 2026-07-12
 
 ### ✨ Real-Time Global Topological Awareness (VSM)
