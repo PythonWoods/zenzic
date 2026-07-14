@@ -19,8 +19,11 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
-- **Security Scanner:** Fixed a path traversal detection bug (Z203) in `validator.py` caused by incorrect string-to-tuple parsing of bypass URL schemes.
-- **Language Server:** Resolved a missing diagnostic bug and an initialization crash (missing JSON-RPC message ID) to guarantee robust parsing and full rule parity within the LSP loop.
+- **ZLS Diagnostic Parity:** Resolved an architectural drift where the Language Server failed to emit specific structural and hygiene diagnostics compared to the CLI.
+  - **Zero-Config Parity:** `Z501` (Placeholder) and `Z502` (Short Content) now correctly bootstrap with default parameters in Standalone Mode (no `.zenzic.toml`).
+  - **Dead Suppression (`Z603`):** The ZLS now correctly collects and emits dead suppression warnings at the end of the real-time diagnostic pipeline.
+- **URP Execution Order:** Fixed an issue where the Virtual Site Map (VSM) resolution (`Z101`) masked critical security and structural rules (`Z202`, `Z203`, `Z105`). The Uniform Resolver Pipeline now strictly evaluates path traversal and absolute path prohibition *before* checking file existence.
+- **Polyglot Extractor (`Z121`):** Reordered attribute validation to ensure `Z121` (Missing Href) is not masked by `Z120` (Unknown Attribute) on malformed HTML tags.
 
 ## [0.22.2] - 2026-07-14
 
