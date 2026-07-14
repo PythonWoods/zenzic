@@ -13,6 +13,10 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [0.22.1] - 2026-07-14
 
+### Fixed
+
+- **Language Server (LSP):** Resolved a silent failure in the diagnostic pipeline where `textDocument/didOpen` and `textDocument/didChange` events failed to trigger the rule engine. The server now correctly dispatches diagnostics back to the VS Code client via the debounce multiplexer.
+
 ## [0.22.0] - 2026-07-12
 
 ### ✨ Real-Time Global Topological Awareness (VSM)
