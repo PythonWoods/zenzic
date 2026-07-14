@@ -11,6 +11,15 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- **Architectural Unification:** Removed the legacy ad-hoc `placeholders` tracking system from CLI reports and JSON schemas. Z501 (Placeholders) and Z502 (Short Content) rules are now fully integrated into the standard `AdaptiveRuleEngine` lifecycle, ensuring parity between CLI and LSP behaviors.
+
+### Fixed
+
+- **Security Scanner:** Fixed a path traversal detection bug (Z203) in `validator.py` caused by incorrect string-to-tuple parsing of bypass URL schemes.
+- **Language Server:** Resolved a missing diagnostic bug and an initialization crash (missing JSON-RPC message ID) to guarantee robust parsing and full rule parity within the LSP loop.
+
 ## [0.22.2] - 2026-07-14
 
 ### Fixed
