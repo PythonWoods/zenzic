@@ -1263,7 +1263,9 @@ def _build_rule_engine(config: ZenzicConfig) -> AdaptiveRuleEngine | None:
     from zenzic.core.rules import (  # deferred to keep import graph clean
         BrandObsolescenceRule,
         CircularAnchorRule,
+        CredentialScannerRule,
         CustomRule,
+        EmptyLinkRule,
         MalformedFrontmatterRule,
         PluginRegistry,
         UntaggedCodeBlockRule,
@@ -1271,6 +1273,8 @@ def _build_rule_engine(config: ZenzicConfig) -> AdaptiveRuleEngine | None:
 
     # Built-in rules are always active (no config gate required).
     built_in: list[BaseRule] = [
+        CredentialScannerRule(),
+        EmptyLinkRule(),
         CircularAnchorRule(),
         MalformedFrontmatterRule(),
         UntaggedCodeBlockRule(),

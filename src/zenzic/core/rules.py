@@ -1079,6 +1079,60 @@ def _extract_inline_links_with_lines(text: str) -> list[tuple[str, int, str]]:
     return results
 
 
+class CredentialScannerRule(BaseRule):
+    """Rule wrapper for Z201 Credential Scanner (Tier 1)."""
+
+    @property
+    def rule_id(self) -> str:
+        return "Z201"
+
+    def check(self, file_path: Path, text: str) -> list[RuleFinding]:
+        from zenzic.core.credentials import scan_line_for_secrets
+
+        findings = []
+        for lineno, line in enumerate(text.splitlines(), start=1):
+            for sec in scan_line_for_secrets(line, file_path, lineno):
+                findings.append(
+                    RuleFinding(
+                        rule_id="Z201",
+                        severity="error",
+                        file_path=file_path,
+                        line_no=sec.line_no,
+                        match_text=sec.match_text,
+                        matched_line=line,
+                        message=f"Credential or secret detected: {sec.secret_type}",
+                    )
+                )
+        return findings
+
+
+class EmptyLinkRule(BaseRule):
+    """Rule wrapper for Z108 Empty Link Extractor (Tier 2)."""
+
+    @property
+    def rule_id(self) -> str:
+        return "Z108"
+
+    def check(self, file_path: Path, text: str) -> list[RuleFinding]:
+        from zenzic.core.validator import _extract_empty_link_texts
+
+        findings = []
+        for lineno, col_start, source_line in _extract_empty_link_texts(text):
+            findings.append(
+                RuleFinding(
+                    rule_id="Z108",
+                    severity="error",
+                    file_path=file_path,
+                    line_no=lineno,
+                    col_start=col_start,
+                    match_text="[]",
+                    matched_line=source_line,
+                    message="Link text is empty or contains only whitespace.",
+                )
+            )
+        return findings
+
+
 class VSMBrokenLinkRule(BaseRule):
     """VSM-aware broken link detector (🔌 Dev 3).
 

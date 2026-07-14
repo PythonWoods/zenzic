@@ -249,6 +249,81 @@ def test_debounce_diagnostics() -> None:
     assert publish_count == 1
 
 
+def test_zero_config_security_invariant(tmp_path) -> None:
+    """Verify that ZLS in an unconfigured workspace still loads core rules (Z201/Z108)."""
+    import io
+
+    # Create an empty workspace (no .zenzic.toml)
+    workspace_uri = f"file://{tmp_path.as_posix()}"
+    file_uri = f"{workspace_uri}/leaked.md"
+
+    # Leak an AWS key and an empty link
+    leak_text = "Here is my secret: AKIAIOSFODNN7EXAMPLE\nAnd an empty link: [](#missing)"
+
+    req_init = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "initialize",
+        "params": {"rootUri": workspace_uri},
+    }
+    req_open = {
+        "jsonrpc": "2.0",
+        "method": "textDocument/didOpen",
+        "params": {
+            "textDocument": {
+                "uri": file_uri,
+                "text": leak_text,
+            }
+        },
+    }
+    req_exit = {"jsonrpc": "2.0", "method": "exit", "params": {}}
+
+    def encode_rpc(msg: dict) -> bytes:
+        import json
+
+        body = json.dumps(msg, separators=(",", ":")).encode("utf-8")
+        header = f"Content-Length: {len(body)}\r\n\r\n".encode("ascii")
+        return header + body
+
+    in_stream = io.BytesIO()
+    in_stream.write(encode_rpc(req_init))
+    in_stream.write(encode_rpc(req_open))
+    in_stream.write(encode_rpc(req_exit))
+    in_stream.seek(0)
+
+    out_stream = io.BytesIO()
+
+    server = LanguageServer(stdin=in_stream, stdout=out_stream)
+    server.serve()
+
+    out_stream.seek(0)
+    output = out_stream.read()
+
+    import json
+
+    parts = output.split(b"\r\n\r\n")
+    z201_found = False
+    z108_found = False
+
+    for p in parts:
+        if b"publishDiagnostics" in p:
+            body_str = p.split(b"Content-Length")[0]
+            try:
+                resp = json.loads(body_str.decode("utf-8"))
+                if resp.get("method") == "textDocument/publishDiagnostics":
+                    diagnostics = resp["params"]["diagnostics"]
+                    for d in diagnostics:
+                        if d.get("code") == "Z201":
+                            z201_found = True
+                        if d.get("code") == "Z108":
+                            z108_found = True
+            except json.JSONDecodeError:
+                pass
+
+    assert z201_found, "Z201 (Credential Leak) was not emitted in zero-config mode!"
+    assert z108_found, "Z108 (Empty Link) was not emitted in zero-config mode!"
+
+
 def test_vsm_integration_and_dynamic_watching(tmp_path) -> None:
     """Verify VSM synchronous build and O(1) dynamic watching."""
     import io
