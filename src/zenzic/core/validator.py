@@ -2031,19 +2031,6 @@ def validate_single_document_urp(
                 )
             )
 
-        for attr in node.unknown_attrs:
-            internal_errors.append(
-                LinkError(
-                    file_path=file_path,
-                    line_no=node.line_no,
-                    message=f"{label}:{node.line_no}: unknown attribute '{attr}' in <{node.tag}> — not in Safe-Core list. Add to safe list or suppress with data-zenzic-ignore.",
-                    source_line=_source_ctx,
-                    error_type="Z120",
-                    col_start=0,
-                    match_text=node.raw_tag,
-                )
-            )
-
         if node.is_missing_href:
             internal_errors.append(
                 LinkError(
@@ -2072,6 +2059,19 @@ def validate_single_document_urp(
             )
             continue
 
+        for attr in node.unknown_attrs:
+            internal_errors.append(
+                LinkError(
+                    file_path=file_path,
+                    line_no=node.line_no,
+                    message=f"{label}:{node.line_no}: unknown attribute '{attr}' in <{node.tag}> — not in Safe-Core list. Add to safe list or suppress with data-zenzic-ignore.",
+                    source_line=_source_ctx,
+                    error_type="Z120",
+                    col_start=0,
+                    match_text=node.raw_tag,
+                )
+            )
+
         if node.info_scheme:
             internal_errors.append(
                 LinkError(
@@ -2099,6 +2099,21 @@ def validate_single_document_urp(
             continue
 
         parsed = urlsplit(url)
+
+        # Security: Path Traversal (Z203)
+        if _classify_traversal_intent(url) == "suspicious":
+            internal_errors.append(
+                LinkError(
+                    file_path=file_path,
+                    line_no=lineno,
+                    message=f"{label}:{lineno}: '{url}' resolves outside the docs directory",
+                    source_line=_source_line(lineno),
+                    error_type="Z203",
+                    col_start=0,
+                    match_text=url,
+                )
+            )
+            continue
 
         # Absolute path prohibition (Z105)
         if parsed.path.startswith("/") and parsed.scheme not in _bypass_schemes:

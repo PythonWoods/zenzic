@@ -12,7 +12,6 @@ from unittest.mock import ANY, patch
 import pytest
 from typer.testing import CliRunner
 
-from zenzic.core.scanner import PlaceholderFinding
 from zenzic.core.validator import LinkError, SnippetError
 from zenzic.main import app, cli_main
 from zenzic.models.config import ZenzicConfig
@@ -230,7 +229,7 @@ def test_check_assets_with_unused(_assets, _cfg, _root) -> None:
 
 @patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
-@patch("zenzic.cli._check.find_placeholders", return_value=[])
+@patch("zenzic.cli._check.scan_docs_references", return_value=([], []))
 def test_check_placeholders_ok(_ph, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "placeholders"])
     assert result.exit_code == 0
@@ -240,13 +239,23 @@ def test_check_placeholders_ok(_ph, _cfg, _root) -> None:
 
 @patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
-@patch(
-    "zenzic.cli._check.find_placeholders",
-    return_value=[
-        PlaceholderFinding(file_path=Path("stub.md"), line_no=1, issue="Z502", detail="5 words")
-    ],
-)
-def test_check_placeholders_with_findings(_ph, _cfg, _root) -> None:
+@patch("zenzic.cli._check.scan_docs_references")
+def test_check_placeholders_with_findings(_refs, _cfg, _root) -> None:
+    from zenzic.core.rules import RuleFinding
+    from zenzic.models.references import IntegrityReport
+
+    rep = IntegrityReport(file_path=Path("stub.md"), score=100.0)
+    rep.rule_findings = [
+        RuleFinding(
+            rule_id="Z502",
+            severity="warning",
+            file_path=Path("stub.md"),
+            line_no=1,
+            message="5 words",
+        )
+    ]
+    _refs.return_value = ([rep], [])
+
     result = runner.invoke(app, ["check", "placeholders"])
     assert result.exit_code == 1
     assert "ZENZIC" in (result.stdout + result.stderr)
@@ -300,12 +309,11 @@ def test_cli_check_all_json_empty(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
 )
 @patch("zenzic.cli._check.find_orphans", return_value=[])
 @patch("zenzic.cli._check.validate_snippets", return_value=[])
-@patch("zenzic.cli._check.find_placeholders", return_value=[])
 @patch("zenzic.cli._check.find_unused_assets", return_value=[])
 @patch("zenzic.cli._check.check_nav_contract", return_value=[])
 @patch("zenzic.cli._check.scan_docs_references", return_value=([], []))
 def test_check_all_json_with_errors(
-    _refs, _nav, _assets, _ph, _snip, _orphans, _links, _cfg, _root
+    _refs, _nav, _assets, _snip, _orphans, _links, _cfg, _root
 ) -> None:
     result = runner.invoke(app, ["check", "all", "--format", "json"])
     assert result.exit_code == 1
@@ -324,12 +332,11 @@ def test_check_all_json_with_errors(
 @patch("zenzic.cli._check.validate_links_structured", return_value=[])
 @patch("zenzic.cli._check.find_orphans", return_value=[])
 @patch("zenzic.cli._check.validate_snippets", return_value=[])
-@patch("zenzic.cli._check.find_placeholders", return_value=[])
 @patch("zenzic.cli._check.find_unused_assets", return_value=[])
 @patch("zenzic.cli._check.check_nav_contract", return_value=[])
 @patch("zenzic.cli._check.scan_docs_references", return_value=([], []))
 def test_check_all_text_ok(
-    _refs, _nav, _assets, _ph, _snip, _orphans, _links, _cfg, _root, _count
+    _refs, _nav, _assets, _snip, _orphans, _links, _cfg, _root, _count
 ) -> None:
     result = runner.invoke(app, ["check", "all"])
     assert result.exit_code == 0
@@ -354,18 +361,27 @@ def test_check_all_text_ok(
     "zenzic.cli._check.validate_snippets",
     return_value=[SnippetError(file_path=Path("api.md"), line_no=5, message="SyntaxError")],
 )
-@patch(
-    "zenzic.cli._check.find_placeholders",
-    return_value=[
-        PlaceholderFinding(file_path=Path("stub.md"), line_no=1, issue="short-content", detail="x")
-    ],
-)
 @patch("zenzic.cli._check.find_unused_assets", return_value=[Path("assets/unused.png")])
 @patch("zenzic.cli._check.check_nav_contract", return_value=[])
-@patch("zenzic.cli._check.scan_docs_references", return_value=([], []))
+@patch("zenzic.cli._check.scan_docs_references")
 def test_check_all_text_with_all_errors(
-    _refs, _nav, _assets, _ph, _snip, _orphans, _links, _cfg, _root, _count
+    _refs, _nav, _assets, _snip, _orphans, _links, _cfg, _root, _count
 ) -> None:
+    from zenzic.core.rules import RuleFinding
+    from zenzic.models.references import IntegrityReport
+
+    rep = IntegrityReport(file_path=Path("stub.md"), score=100.0)
+    rep.rule_findings = [
+        RuleFinding(
+            rule_id="Z501",
+            severity="warning",
+            file_path=Path("stub.md"),
+            line_no=1,
+            message="short-content",
+        )
+    ]
+    _refs.return_value = ([rep], [])
+
     result = runner.invoke(app, ["check", "all"])
     assert result.exit_code == 1
     assert "FAILED" in result.stdout
@@ -385,13 +401,10 @@ def test_check_all_text_with_all_errors(
 @patch("zenzic.cli._check.validate_links_structured", return_value=[])
 @patch("zenzic.cli._check.find_orphans", return_value=[])
 @patch("zenzic.cli._check.validate_snippets", return_value=[])
-@patch("zenzic.cli._check.find_placeholders", return_value=[])
 @patch("zenzic.cli._check.find_unused_assets", return_value=[])
 @patch("zenzic.cli._check.check_nav_contract", return_value=[])
 @patch("zenzic.cli._check.scan_docs_references", return_value=([], []))
-def test_check_all_quiet_ok(
-    _refs, _nav, _assets, _ph, _snip, _orphans, _links, _cfg, _root
-) -> None:
+def test_check_all_quiet_ok(_refs, _nav, _assets, _snip, _orphans, _links, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "all", "--quiet"])
     assert result.exit_code == 0
     # Quiet mode produces no output when clean
@@ -412,12 +425,11 @@ def test_check_all_quiet_ok(
 )
 @patch("zenzic.cli._check.find_orphans", return_value=[])
 @patch("zenzic.cli._check.validate_snippets", return_value=[])
-@patch("zenzic.cli._check.find_placeholders", return_value=[])
 @patch("zenzic.cli._check.find_unused_assets", return_value=[])
 @patch("zenzic.cli._check.check_nav_contract", return_value=[])
 @patch("zenzic.cli._check.scan_docs_references", return_value=([], []))
 def test_check_all_quiet_with_errors(
-    _refs, _nav, _assets, _ph, _snip, _orphans, _links, _cfg, _root
+    _refs, _nav, _assets, _snip, _orphans, _links, _cfg, _root
 ) -> None:
     result = runner.invoke(app, ["check", "all", "--quiet"])
     assert result.exit_code == 1
@@ -444,12 +456,11 @@ def test_check_all_quiet_with_errors(
 )
 @patch("zenzic.cli._check.find_orphans", return_value=[])
 @patch("zenzic.cli._check.validate_snippets", return_value=[])
-@patch("zenzic.cli._check.find_placeholders", return_value=[])
 @patch("zenzic.cli._check.find_unused_assets", return_value=[])
 @patch("zenzic.cli._check.check_nav_contract", return_value=[])
 @patch("zenzic.cli._check.scan_docs_references", return_value=([], []))
 def test_check_all_ci_forces_github_annotations(
-    _refs, _nav, _assets, _ph, _snip, _orphans, _links, _cfg, _root
+    _refs, _nav, _assets, _snip, _orphans, _links, _cfg, _root
 ) -> None:
     result = runner.invoke(app, ["check", "all", "--ci"])
     assert result.exit_code == 1
@@ -481,12 +492,11 @@ def test_check_all_ci_forces_github_annotations(
 )
 @patch("zenzic.cli._check.find_orphans", return_value=[Path("orphan.md")])
 @patch("zenzic.cli._check.validate_snippets", return_value=[])
-@patch("zenzic.cli._check.find_placeholders", return_value=[])
 @patch("zenzic.cli._check.find_unused_assets", return_value=[])
 @patch("zenzic.cli._check.check_nav_contract", return_value=[])
 @patch("zenzic.cli._check.scan_docs_references", return_value=([], []))
 def test_check_all_only_filters_findings(
-    _refs, _nav, _assets, _ph, _snip, _orphans, _links, _cfg, _root
+    _refs, _nav, _assets, _snip, _orphans, _links, _cfg, _root
 ) -> None:
     result = runner.invoke(app, ["check", "all", "--format", "json", "--only", "Z104"])
     assert result.exit_code == 1
@@ -508,12 +518,11 @@ def test_check_all_only_filters_findings(
 @patch("zenzic.cli._check.validate_links_structured", return_value=[])
 @patch("zenzic.cli._check.find_orphans", return_value=[])
 @patch("zenzic.cli._check.validate_snippets", return_value=[])
-@patch("zenzic.cli._check.find_placeholders", return_value=[])
 @patch("zenzic.cli._check.find_unused_assets", return_value=[])
 @patch("zenzic.cli._check.check_nav_contract", return_value=[])
 @patch("zenzic.cli._check.scan_docs_references")
 def test_check_all_strict_fails_on_warnings_only(
-    mock_refs, _nav, _assets, _ph, _snip, _orphans, _links, _cfg, _root, _count
+    mock_refs, _nav, _assets, _snip, _orphans, _links, _cfg, _root, _count
 ) -> None:
     """--strict must exit 1 even when only warnings (no hard errors) exist."""
     from zenzic.models.references import IntegrityReport, ReferenceFinding
@@ -538,12 +547,11 @@ def test_check_all_strict_fails_on_warnings_only(
 @patch("zenzic.cli._check.validate_links_structured", return_value=[])
 @patch("zenzic.cli._check.find_orphans", return_value=[])
 @patch("zenzic.cli._check.validate_snippets", return_value=[])
-@patch("zenzic.cli._check.find_placeholders", return_value=[])
 @patch("zenzic.cli._check.find_unused_assets", return_value=[])
 @patch("zenzic.cli._check.check_nav_contract", return_value=[])
 @patch("zenzic.cli._check.scan_docs_references")
 def test_check_all_no_strict_passes_on_warnings_only(
-    mock_refs, _nav, _assets, _ph, _snip, _orphans, _links, _cfg, _root
+    mock_refs, _nav, _assets, _snip, _orphans, _links, _cfg, _root
 ) -> None:
     """Without --strict, warnings alone must NOT trigger exit 1."""
     from zenzic.models.references import IntegrityReport, ReferenceFinding

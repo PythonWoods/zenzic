@@ -12,11 +12,9 @@ import yaml
 from _helpers import make_mgr
 
 from zenzic.core.adapter import _extract_i18n_locale_dirs, _extract_i18n_locale_patterns
-from zenzic.core.rules import BrandObsolescenceRule
+from zenzic.core.rules import BrandObsolescenceRule, PlaceholderRule, ShortContentRule
 from zenzic.core.scanner import (
-    check_placeholder_content,
     find_orphans,
-    find_placeholders,
     find_repo_root,
     find_unused_assets,
 )
@@ -75,28 +73,6 @@ def test_find_orphans(tmp_path: Path) -> None:
     assert "api.md" not in orphan_paths
     assert "includes/snippet.md" not in orphan_paths
     assert len(orphans) == 2
-
-
-def test_find_placeholders(tmp_path: Path) -> None:
-    repo = tmp_path / "my_repo"
-    docs = repo / "docs"
-    docs.mkdir(parents=True)
-    (docs / "short.md").write_text("This is too short.")
-    long_text = "word " * 60 + "\\n TODO: write this section."
-    (docs / "has_todo.md").write_text(long_text)
-    valid_text = "word " * 60 + "\\n This is a complete and valid section."
-    (docs / "valid.md").write_text(valid_text)
-    config = ZenzicConfig(placeholder_max_words=50, placeholder_patterns=["todo"])
-    mgr = make_mgr(config, repo_root=repo)
-    findings = find_placeholders(docs, mgr, config=config)
-    assert len(findings) == 2
-    issues = {f.issue for f in findings}
-    assert "Z502" in issues
-    assert "Z501" in issues
-    file_paths = {f.file_path.name for f in findings}
-    assert "short.md" in file_paths
-    assert "has_todo.md" in file_paths
-    assert "valid.md" not in file_paths
 
 
 def test_find_repo_root_via_git(tmp_path: Path) -> None:
@@ -204,36 +180,6 @@ def test_find_orphans_docs_not_exist(tmp_path: Path) -> None:
     assert orphans == []
 
 
-def test_find_placeholders_no_config(tmp_path: Path) -> None:
-    docs = tmp_path / "docs"
-    docs.mkdir()
-    (docs / "stub.md").write_text("TODO: write me")
-    config = ZenzicConfig()
-    mgr = make_mgr(config, repo_root=tmp_path)
-    findings = find_placeholders(docs, mgr, config=config)
-    assert any(f.issue == "Z501" for f in findings)
-
-
-def test_find_placeholders_docs_not_exist(tmp_path: Path) -> None:
-    config = ZenzicConfig()
-    mgr = make_mgr(config, repo_root=tmp_path)
-    docs_root = tmp_path / config.docs_dir
-    findings = find_placeholders(docs_root, mgr, config=config)
-    assert findings == []
-
-
-def test_find_placeholders_symlink_skipped(tmp_path: Path) -> None:
-    docs = tmp_path / "docs"
-    docs.mkdir()
-    real = tmp_path / "real.md"
-    real.write_text("TODO: skipped")
-    (docs / "linked.md").symlink_to(real)
-    config = ZenzicConfig(placeholder_patterns=["todo"])
-    mgr = make_mgr(config, repo_root=tmp_path)
-    findings = find_placeholders(docs, mgr, config=config)
-    assert findings == []
-
-
 def test_placeholder_mdx_comments_excluded_from_word_count() -> None:
     """MDX {/* … */} and HTML <!-- … --> comments must not count as prose words.
 
@@ -242,8 +188,9 @@ def test_placeholder_mdx_comments_excluded_from_word_count() -> None:
     """
     text = '---\nsidebar_label: "License"\ndescription: "Licensing information."\n---\n\n# License\n\n{/*\nThis page uses the pymdownx snippets extension to include the root LICENSE file\ndirectly — single source of truth, no divergence possible.\n\nBelow, we add some extra explanation text about how this license applies to the\nZenzic documentation and source code, as required to provide more context to our users\nand to pass internal minimum content validation checks within our own linting loops.\n*/}\n\nSee LICENSE file.\n'
     config = ZenzicConfig(placeholder_max_words=50)
-    findings = check_placeholder_content(text, "community/license.mdx", config)
-    assert any(f.issue == "Z502" for f in findings), (
+    rule = ShortContentRule(config.placeholder_max_words)
+    findings = rule.check(Path("community/license.mdx"), text)
+    assert any(f.rule_id == "Z502" for f in findings), (
         "Page with MDX-comment-inflated word count must still be flagged as short-content"
     )
 
@@ -257,8 +204,9 @@ def test_short_content_pointer_skips_frontmatter() -> None:
     """
     text = "---\nicon: SafetyCheck\nsidebar_label: Licenza\ntitle: Licenza Apache 2.0\ndescription: Informazioni sulla licenza.\n---\n\n# Licenza\n\nLICENZA\n"
     config = ZenzicConfig(placeholder_max_words=50)
-    findings = check_placeholder_content(text, "community/license.mdx", config)
-    short = [f for f in findings if f.issue == "Z502"]
+    rule = ShortContentRule(config.placeholder_max_words)
+    findings = rule.check(Path("community/license.mdx"), text)
+    short = [f for f in findings if f.rule_id == "Z502"]
     assert short, "Page with 3 visible words must trigger short-content"
     assert short[0].line_no > 1, (
         f"short-content finding points at line {short[0].line_no} — expected a line past the frontmatter block"
@@ -299,10 +247,11 @@ def test_short_content_pointer_skips_spdx_comments() -> None:
     """
     text = "<!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->\n<!-- SPDX-License-Identifier: Apache-2.0 -->\n<!-- SPDX-FileCopyrightText: 2024 Contributor A -->\n<!-- SPDX-License-Identifier: MIT -->\n<!-- Internal audit marker: approved -->\n\n---\ntitle: SPDX Trap\nsidebar_label: Trap\ndescription: Regression test for comment-aware pointer.\nicon: lock\ndraft: true\ntags: [test, spdx]\nkeywords: [regression]\nversion: 0.7.0\n---\n\nFINE\n"
     config = ZenzicConfig(placeholder_max_words=50)
-    findings = check_placeholder_content(text, "spdx-trap.md", config)
-    short = [f for f in findings if f.issue == "Z502"]
+    rule = ShortContentRule(config.placeholder_max_words)
+    findings = rule.check(Path("spdx-trap.md"), text)
+    short = [f for f in findings if f.rule_id == "Z502"]
     assert short, "File with single word 'FINE' must trigger short-content"
-    assert short[0].detail == "Page has only 1 words (minimum 50)."
+    assert "Page has only 1 words" in short[0].message
     target_line = text.splitlines()[short[0].line_no - 1]
     assert target_line.strip() == "FINE", (
         f"short-content pointer at line {short[0].line_no} is {target_line!r}; expected the line containing 'FINE'"
@@ -318,8 +267,9 @@ def test_short_content_pointer_skips_multiline_html_comment() -> None:
     """
     text = "<!--\n SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>\n SPDX-License-Identifier: Apache-2.0\n-->\n\nBrief.\n"
     config = ZenzicConfig(placeholder_max_words=50)
-    findings = check_placeholder_content(text, "multi-html.mdx", config)
-    short = [f for f in findings if f.issue == "Z502"]
+    rule = ShortContentRule(config.placeholder_max_words)
+    findings = rule.check(Path("multi-html.mdx"), text)
+    short = [f for f in findings if f.rule_id == "Z502"]
     assert short, "Single-word prose must trigger short-content"
     target_line = text.splitlines()[short[0].line_no - 1]
     assert target_line.strip() == "Brief.", (
@@ -336,8 +286,9 @@ def test_short_content_pointer_skips_multiline_mdx_comment() -> None:
     """
     text = "{/*\n SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>\n SPDX-License-Identifier: Apache-2.0\n*/}\n\nNote.\n"
     config = ZenzicConfig(placeholder_max_words=50)
-    findings = check_placeholder_content(text, "multi-mdx.mdx", config)
-    short = [f for f in findings if f.issue == "Z502"]
+    rule = ShortContentRule(config.placeholder_max_words)
+    findings = rule.check(Path("multi-mdx.mdx"), text)
+    short = [f for f in findings if f.rule_id == "Z502"]
     assert short, "Single-word prose must trigger short-content"
     target_line = text.splitlines()[short[0].line_no - 1]
     assert target_line.strip() == "Note.", (
@@ -354,8 +305,9 @@ def test_short_content_pointer_unclosed_frontmatter() -> None:
     """
     text = "---\ntitle: Unclosed\nsidebar_label: Unclosed\n"
     config = ZenzicConfig(placeholder_max_words=50)
-    findings = check_placeholder_content(text, "unclosed-fm.mdx", config)
-    short = [f for f in findings if f.issue == "Z502"]
+    rule = ShortContentRule(config.placeholder_max_words)
+    findings = rule.check(Path("unclosed-fm.mdx"), text)
+    short = [f for f in findings if f.rule_id == "Z502"]
     assert short, "Near-empty file must trigger short-content"
     assert short[0].line_no >= 1
 
@@ -796,13 +748,15 @@ def test_find_unused_assets_skips_adapter_metadata_files(tmp_path: Path) -> None
 def test_placeholder_xxx_removed_from_defaults() -> None:
     config = ZenzicConfig()
     assert all("xxx" not in pat for pat in config.placeholder_patterns)
-    findings = check_placeholder_content("This is xxx section.", "test.md", config)
-    assert not any(f.issue == "Z501" for f in findings)
+    rule = PlaceholderRule(config.placeholder_patterns_compiled)
+    findings = rule.check(Path("test.md"), "This is xxx section.")
+    assert not any(f.rule_id == "Z501" for f in findings)
 
 
 def test_placeholder_partial_files_word_count_skipped() -> None:
     config = ZenzicConfig(placeholder_max_words=50)
-    findings_reg = check_placeholder_content("Short page.", "test.md", config)
-    assert any(f.issue == "Z502" for f in findings_reg)
-    findings_partial = check_placeholder_content("Short page.", "_partial.md", config)
-    assert not any(f.issue == "Z502" for f in findings_partial)
+    rule = ShortContentRule(config.placeholder_max_words)
+    findings_reg = rule.check(Path("test.md"), "Short page.")
+    assert any(f.rule_id == "Z502" for f in findings_reg)
+    findings_partial = rule.check(Path("_partial.md"), "Short page.")
+    assert not any(f.rule_id == "Z502" for f in findings_partial)
