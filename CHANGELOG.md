@@ -11,6 +11,8 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.22.3] - 2026-07-14
+
 ### Changed
 
 - **Architectural Unification:** Removed the legacy ad-hoc `placeholders` tracking system from CLI reports and JSON schemas. Z501 (Placeholders) and Z502 (Short Content) rules are now fully integrated into the standard `AdaptiveRuleEngine` lifecycle, ensuring parity between CLI and LSP behaviors.
