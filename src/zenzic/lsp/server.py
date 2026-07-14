@@ -16,7 +16,7 @@ from typing import Any, BinaryIO, TypedDict, cast
 from zenzic.core.adapters import get_adapter
 from zenzic.core.discovery import iter_markdown_sources
 from zenzic.core.exclusion import LayeredExclusionManager
-from zenzic.core.rules import AdaptiveRuleEngine, ResolutionContext
+from zenzic.core.rules import AdaptiveRuleEngine, ResolutionContext, RuleFinding
 from zenzic.core.scanner import _build_rule_engine
 from zenzic.lsp.documents import DocumentManager
 from zenzic.models.config import ZenzicConfig
@@ -319,7 +319,15 @@ class LanguageServer:
             self.documents.did_close(params)
 
     def _publish_diagnostics(self, uri: str, text: str) -> None:
-        """Run the rule engine on the in-memory document state and publish diagnostics."""
+        """Run the rule engine on the in-memory document state and publish diagnostics.
+
+        Diagnostic sources (all pure / zero disk-I/O for the current document):
+
+        1. ``rule_engine.run()``  — built-in rules: Z108, Z201, Z505, Z107, Z506, Z601 …
+        2. ``rule_engine.run_vsm()`` — VSM-aware rules: Z101 (broken cross-file link)
+        3. ``validate_single_document_urp()`` — Decoupled URP: PolyglotExtractor (Z120-124, Z205), same-page anchors (Z102), absolute paths (Z105)
+        4. ``check_snippet_content()`` — Z503: malformed code snippets
+        """
 
         if uri.startswith("file://"):
             file_path = Path(uri[7:])
@@ -332,9 +340,10 @@ class LanguageServer:
         if not self.rule_engine:
             self.rule_engine = _build_rule_engine(self.config)
 
-        # O(N) parsing across the text
+        # ── 1. Core rule engine (Z108, Z201, Z505, Z107, Z506, …) ─────────────
         findings = self.rule_engine.run(file_path, text) if self.rule_engine else []
 
+        # ── 2. VSM-aware rules (Z101 — broken cross-file link) ────────────────
         if self.vsm is not None and self.config is not None and self.repo_root is not None:
             assert self.rule_engine is not None
             docs_root = self.repo_root / self.config.docs_dir
@@ -344,7 +353,28 @@ class LanguageServer:
             )
             findings.extend(vsm_findings)
 
-        # Snippet syntax validation (Z503)
+        # ── 3. URP (Uniform Resolver Pipeline) - In-Memory Validation (Z102, Z120-Z124, Z205, Z105)
+        from zenzic.core.validator import validate_single_document_urp
+
+        urp_errors = validate_single_document_urp(
+            content=text, file_path=file_path, vsm=self.vsm or {}, config=self.config
+        )
+
+        for err in urp_errors:
+            findings.append(
+                RuleFinding(
+                    file_path=err.file_path,
+                    line_no=err.line_no,
+                    rule_id=err.error_type,
+                    message=err.message,
+                    severity="error" if err.error_type != "Z123" else "info",
+                    matched_line=err.source_line,
+                    col_start=err.col_start,
+                    match_text=err.match_text,
+                )
+            )
+
+        # ── 5. Snippet syntax validation (Z503) ───────────────────────────────
         from zenzic.core.validator import check_snippet_content
 
         snippet_errors = check_snippet_content(text, file_path, ZenzicConfig())

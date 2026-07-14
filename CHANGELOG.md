@@ -11,6 +11,13 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.22.2] - 2026-07-14
+
+### Fixed
+
+- **ZLS Architecture:** Completely decoupled the Uniform Resolver Pipeline (URP) to support in-memory document validation. The Language Server now guarantees 100% diagnostic parity with the CLI for structural link checks (Z102, Z104, Z105) without redundant disk I/O.
+- **Rule Unification:** Refactored `Z403` (Missing Alt Text) into a native `BaseRule` to eliminate legacy hardcoded execution paths.
+
 ## [0.22.1] - 2026-07-14
 
 ### Fixed

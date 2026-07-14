@@ -819,65 +819,6 @@ def _iter_content_lines(
             yield lineno, line
 
 
-def check_image_alt_text(
-    text: str,
-    file_path: Path | str,
-) -> list[ReferenceFinding]:
-    """Pure function: find images that are missing alt text.
-
-    Checks both inline Markdown images ``![alt](url)`` and HTML ``<img>`` tags.
-    An empty alt attribute (``alt=""``) is treated as intentionally decorative
-    and is *not* flagged — the issue is a completely absent or blank alt string.
-
-    Args:
-        text: Raw Markdown content.
-        file_path: Path identifier for labelling findings (no disk access).
-
-    Returns:
-        List of :class:`ReferenceFinding` with ``issue="missing-alt"`` and
-        ``is_warning=True`` for every offending image.
-    """
-    path = Path(file_path)
-    findings: list[ReferenceFinding] = []
-
-    for lineno, line in enumerate(text.splitlines(), start=1):
-        # Blank out inline code to avoid false matches
-        clean = _INLINE_CODE_RE.sub(lambda m: " " * len(m.group()), line)
-
-        # Inline Markdown images
-        for m in _RE_IMAGE_INLINE.finditer(clean):
-            alt_text = m.group(1)
-            url = m.group(2)
-            if not alt_text.strip():
-                findings.append(
-                    ReferenceFinding(
-                        file_path=path,
-                        line_no=lineno,
-                        issue="Z403",
-                        detail=f"Image '{url}' has no alt text.",
-                        is_warning=True,
-                    )
-                )
-
-        # HTML <img> tags
-        for img_match in _RE_HTML_IMG.finditer(clean):
-            tag = img_match.group()
-            alt_match = _RE_HTML_ALT.search(tag)
-            src = tag  # fallback label when src is hard to extract
-            if alt_match is None or not alt_match.group(1).strip():
-                findings.append(
-                    ReferenceFinding(
-                        file_path=path,
-                        line_no=lineno,
-                        issue="Z403",
-                        detail=f"HTML <img> tag has no alt text: {src[:60]}",
-                        is_warning=True,
-                    )
-                )
-
-    return findings
-
-
 class ReferenceScanner:
     """Per-file stateful scanner implementing the Three-Phase Reference Pipeline.
 
@@ -905,7 +846,7 @@ class ReferenceScanner:
         self.file_path = file_path
         self.ref_map: ReferenceMap = ReferenceMap()
         self._config = config or ZenzicConfig()
-        self.missing_alts: list[ReferenceFinding] = []
+        self.suspicious_domains: list[ReferenceFinding] = []
 
     # ── Pass 1: Harvesting & Credential Scanner ────────────────────────────────
 
@@ -992,41 +933,7 @@ class ReferenceScanner:
                     content_events.append((lineno, "DUPLICATE_DEF", (norm_id, url)))
                 continue
 
-            # ── Alt-text: inline images ───────────────────────────────────────
-            clean = _INLINE_CODE_RE.sub(lambda m: " " * len(m.group()), line)
-            for img_match in _RE_IMAGE_INLINE.finditer(clean):
-                alt_text = img_match.group(1)
-                url = img_match.group(2)
-                if alt_text.strip():
-                    content_events.append((lineno, "IMG", (alt_text, url)))
-                else:
-                    content_events.append((lineno, "MISSING_ALT", url))
-                    self.missing_alts.append(
-                        ReferenceFinding(
-                            file_path=self.file_path,
-                            line_no=lineno,
-                            issue="Z403",
-                            detail=f"Image '{url}' has no alt text.",
-                            is_warning=True,
-                        )
-                    )
-
-            # ── Alt-text: HTML <img> tags ─────────────────────────────────────
-            for img_match in _RE_HTML_IMG.finditer(clean):
-                tag = img_match.group()
-                alt_match = _RE_HTML_ALT.search(tag)
-                src = tag
-                if alt_match is None or not alt_match.group(1).strip():
-                    content_events.append((lineno, "MISSING_ALT", src))
-                    self.missing_alts.append(
-                        ReferenceFinding(
-                            file_path=self.file_path,
-                            line_no=lineno,
-                            issue="Z403",
-                            detail=f"HTML <img> tag has no alt text: {src[:60]}",
-                            is_warning=True,
-                        )
-                    )
+            # Alt-text checking is now delegated to MissingAltTextRule (Z403)
 
         # Yield all events in line-number order
         yield from sorted(credential_events + content_events, key=lambda e: e[0])
@@ -1131,7 +1038,7 @@ class ReferenceScanner:
                 )
             )
 
-        findings.extend(self.missing_alts)
+        findings.extend(self.suspicious_domains)
 
         return IntegrityReport(
             file_path=self.file_path,
@@ -1267,6 +1174,7 @@ def _build_rule_engine(config: ZenzicConfig) -> AdaptiveRuleEngine | None:
         CustomRule,
         EmptyLinkRule,
         MalformedFrontmatterRule,
+        MissingAltTextRule,
         PluginRegistry,
         UntaggedCodeBlockRule,
     )
@@ -1275,6 +1183,7 @@ def _build_rule_engine(config: ZenzicConfig) -> AdaptiveRuleEngine | None:
     built_in: list[BaseRule] = [
         CredentialScannerRule(),
         EmptyLinkRule(),
+        MissingAltTextRule(),
         CircularAnchorRule(),
         MalformedFrontmatterRule(),
         UntaggedCodeBlockRule(),

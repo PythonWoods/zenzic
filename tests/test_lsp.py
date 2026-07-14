@@ -453,3 +453,115 @@ def test_vsm_integration_and_dynamic_watching(tmp_path) -> None:
 
     finally:
         os.chdir(old_cwd)
+
+
+# ─── CLI/ZLS Parity tests: Z403 and Z102 ─────────────────────────────────────
+
+
+def _collect_diagnostics(text: str, uri: str = "file:///fake/path/doc.md") -> list[dict]:
+    """Run the ZLS on a single document and return all emitted diagnostics."""
+    import io
+    import json
+
+    def encode_rpc(msg: dict) -> bytes:
+        body = json.dumps(msg, separators=(",", ":")).encode("utf-8")
+        header = f"Content-Length: {len(body)}\r\n\r\n".encode("ascii")
+        return header + body
+
+    in_stream = io.BytesIO()
+    in_stream.write(
+        encode_rpc(
+            {
+                "jsonrpc": "2.0",
+                "method": "textDocument/didOpen",
+                "params": {"textDocument": {"uri": uri, "text": text}},
+            }
+        )
+    )
+    in_stream.write(encode_rpc({"jsonrpc": "2.0", "method": "exit", "params": {}}))
+    in_stream.seek(0)
+
+    out_stream = io.BytesIO()
+    server = LanguageServer(stdin=in_stream, stdout=out_stream)
+    server.serve()
+
+    out_stream.seek(0)
+    output = out_stream.read()
+
+    all_diagnostics: list[dict] = []
+    for part in output.split(b"\r\n\r\n"):
+        if b"publishDiagnostics" not in part:
+            continue
+        body_str = part.split(b"Content-Length")[0]
+        try:
+            resp = json.loads(body_str.decode("utf-8"))
+            if resp.get("method") == "textDocument/publishDiagnostics":
+                all_diagnostics.extend(resp["params"]["diagnostics"])
+        except json.JSONDecodeError:
+            pass
+    return all_diagnostics
+
+
+def test_lsp_emits_z403() -> None:
+    """ZLS must report Z403 for inline images and HTML <img> tags missing alt text.
+
+    Parity target: ``zenzic check all --strict`` emits Z403 for both syntaxes.
+    The ZLS must match this output without requiring a VSM (zero-config mode).
+    """
+    doc = (
+        "# Image Alt Text Test\n"
+        "\n"
+        "Inline image without alt text:\n"
+        "![](https://example.com/image.png)\n"
+        "\n"
+        "HTML img without alt text:\n"
+        '<img src="https://example.com/image.png">\n'
+    )
+    diagnostics = _collect_diagnostics(doc)
+
+    z403_codes = [d for d in diagnostics if d.get("code") == "Z403"]
+    assert len(z403_codes) == 2, (
+        f"Expected 2 Z403 diagnostics (inline + HTML <img>), got {len(z403_codes)}. "
+        f"All diagnostics: {[d['code'] for d in diagnostics]}"
+    )
+
+    # Inline image is on line 4 (0-indexed: line 3)
+    inline_diag = next((d for d in z403_codes if d["range"]["start"]["line"] == 3), None)
+    assert inline_diag is not None, "Z403 should be reported on line 4 (the inline image)"
+
+    # HTML <img> is on line 7 (0-indexed: line 6)
+    html_diag = next((d for d in z403_codes if d["range"]["start"]["line"] == 6), None)
+    assert html_diag is not None, "Z403 should be reported on line 7 (the HTML img)"
+
+
+def test_lsp_emits_z102() -> None:
+    """ZLS must report Z102 for fragment links to anchors absent in the same document.
+
+    Parity target: ``zenzic check all --strict`` emits Z102 for
+    ``[Link to missing anchor](#this-anchor-does-not-exist)``.
+    The ZLS must match this output without requiring a VSM (zero-config mode).
+    """
+    doc = (
+        "# Real Heading\n"
+        "\n"
+        "## Z102 - Missing Anchor\n"
+        "[Link to missing anchor](#this-anchor-does-not-exist)\n"
+        "\n"
+        "[Valid link](#real-heading)\n"
+    )
+    diagnostics = _collect_diagnostics(doc)
+
+    z102_codes = [d for d in diagnostics if d.get("code") == "Z102"]
+    assert len(z102_codes) == 1, (
+        f"Expected exactly 1 Z102 diagnostic (broken anchor), got {len(z102_codes)}. "
+        f"All diagnostics: {[d['code'] for d in diagnostics]}"
+    )
+
+    broken_diag = z102_codes[0]
+    # The broken link is on line 4 (0-indexed: line 3)
+    assert broken_diag["range"]["start"]["line"] == 3, (
+        f"Z102 should be on line 4, got line {broken_diag['range']['start']['line'] + 1}"
+    )
+    assert "this-anchor-does-not-exist" in broken_diag["message"], (
+        f"Z102 message should mention the missing fragment, got: {broken_diag['message']}"
+    )
