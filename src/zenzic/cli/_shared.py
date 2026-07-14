@@ -254,11 +254,6 @@ def _output_check_all_json_findings(
             for e in results.snippet_errors
             if _is_allowed(_rel(e.file_path), e.line_no, "Z503")
         ],
-        "placeholders": [
-            {"file": str(p.file_path), "line": p.line_no, "issue": p.issue, "detail": p.detail}
-            for p in results.placeholders
-            if _is_allowed(_rel(docs_root / p.file_path), p.line_no, p.issue)
-        ],
         "unused_assets": [
             str(p) for p in results.unused_assets if _is_allowed(_rel(docs_root / p), 0, "Z405")
         ],

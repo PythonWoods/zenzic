@@ -12,7 +12,6 @@ from unittest.mock import ANY, patch
 import pytest
 from typer.testing import CliRunner
 
-from zenzic.core.scanner import PlaceholderFinding
 from zenzic.core.validator import LinkError, SnippetError
 from zenzic.main import app, cli_main
 from zenzic.models.config import ZenzicConfig
@@ -230,7 +229,7 @@ def test_check_assets_with_unused(_assets, _cfg, _root) -> None:
 
 @patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
-@patch("zenzic.cli._check.find_placeholders", return_value=[])
+@patch("zenzic.cli._check.scan_docs_references", return_value=([], []))
 def test_check_placeholders_ok(_ph, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "placeholders"])
     assert result.exit_code == 0
@@ -240,13 +239,23 @@ def test_check_placeholders_ok(_ph, _cfg, _root) -> None:
 
 @patch("zenzic.cli._check.find_repo_root", return_value=_ROOT)
 @patch("zenzic.cli._check.ZenzicConfig.load", return_value=(_CFG, True))
-@patch(
-    "zenzic.cli._check.find_placeholders",
-    return_value=[
-        PlaceholderFinding(file_path=Path("stub.md"), line_no=1, issue="Z502", detail="5 words")
-    ],
-)
-def test_check_placeholders_with_findings(_ph, _cfg, _root) -> None:
+@patch("zenzic.cli._check.scan_docs_references")
+def test_check_placeholders_with_findings(_refs, _cfg, _root) -> None:
+    from zenzic.core.rules import RuleFinding
+    from zenzic.models.references import IntegrityReport
+
+    rep = IntegrityReport(file_path=Path("stub.md"), score=100.0)
+    rep.rule_findings = [
+        RuleFinding(
+            rule_id="Z502",
+            severity="warning",
+            file_path=Path("stub.md"),
+            line_no=1,
+            message="5 words",
+        )
+    ]
+    _refs.return_value = ([rep], [])
+
     result = runner.invoke(app, ["check", "placeholders"])
     assert result.exit_code == 1
     assert "ZENZIC" in (result.stdout + result.stderr)
@@ -271,7 +280,6 @@ def test_cli_check_all_json_empty(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
         "links",
         "orphans",
         "snippets",
-        "placeholders",
         "unused_assets",
         "nav_contract",
         "references",
@@ -300,12 +308,11 @@ def test_cli_check_all_json_empty(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
 )
 @patch("zenzic.cli._check.find_orphans", return_value=[])
 @patch("zenzic.cli._check.validate_snippets", return_value=[])
-@patch("zenzic.cli._check.find_placeholders", return_value=[])
 @patch("zenzic.cli._check.find_unused_assets", return_value=[])
 @patch("zenzic.cli._check.check_nav_contract", return_value=[])
 @patch("zenzic.cli._check.scan_docs_references", return_value=([], []))
 def test_check_all_json_with_errors(
-    _refs, _nav, _assets, _ph, _snip, _orphans, _links, _cfg, _root
+    _refs, _nav, _assets, _snip, _orphans, _links, _cfg, _root
 ) -> None:
     result = runner.invoke(app, ["check", "all", "--format", "json"])
     assert result.exit_code == 1
@@ -324,12 +331,11 @@ def test_check_all_json_with_errors(
 @patch("zenzic.cli._check.validate_links_structured", return_value=[])
 @patch("zenzic.cli._check.find_orphans", return_value=[])
 @patch("zenzic.cli._check.validate_snippets", return_value=[])
-@patch("zenzic.cli._check.find_placeholders", return_value=[])
 @patch("zenzic.cli._check.find_unused_assets", return_value=[])
 @patch("zenzic.cli._check.check_nav_contract", return_value=[])
 @patch("zenzic.cli._check.scan_docs_references", return_value=([], []))
 def test_check_all_text_ok(
-    _refs, _nav, _assets, _ph, _snip, _orphans, _links, _cfg, _root, _count
+    _refs, _nav, _assets, _snip, _orphans, _links, _cfg, _root, _count
 ) -> None:
     result = runner.invoke(app, ["check", "all"])
     assert result.exit_code == 0
@@ -354,18 +360,27 @@ def test_check_all_text_ok(
     "zenzic.cli._check.validate_snippets",
     return_value=[SnippetError(file_path=Path("api.md"), line_no=5, message="SyntaxError")],
 )
-@patch(
-    "zenzic.cli._check.find_placeholders",
-    return_value=[
-        PlaceholderFinding(file_path=Path("stub.md"), line_no=1, issue="short-content", detail="x")
-    ],
-)
 @patch("zenzic.cli._check.find_unused_assets", return_value=[Path("assets/unused.png")])
 @patch("zenzic.cli._check.check_nav_contract", return_value=[])
-@patch("zenzic.cli._check.scan_docs_references", return_value=([], []))
+@patch("zenzic.cli._check.scan_docs_references")
 def test_check_all_text_with_all_errors(
-    _refs, _nav, _assets, _ph, _snip, _orphans, _links, _cfg, _root, _count
+    _refs, _nav, _assets, _snip, _orphans, _links, _cfg, _root, _count
 ) -> None:
+    from zenzic.core.rules import RuleFinding
+    from zenzic.models.references import IntegrityReport
+
+    rep = IntegrityReport(file_path=Path("stub.md"), score=100.0)
+    rep.rule_findings = [
+        RuleFinding(
+            rule_id="Z501",
+            severity="warning",
+            file_path=Path("stub.md"),
+            line_no=1,
+            message="short-content",
+        )
+    ]
+    _refs.return_value = ([rep], [])
+
     result = runner.invoke(app, ["check", "all"])
     assert result.exit_code == 1
     assert "FAILED" in result.stdout
@@ -385,13 +400,10 @@ def test_check_all_text_with_all_errors(
 @patch("zenzic.cli._check.validate_links_structured", return_value=[])
 @patch("zenzic.cli._check.find_orphans", return_value=[])
 @patch("zenzic.cli._check.validate_snippets", return_value=[])
-@patch("zenzic.cli._check.find_placeholders", return_value=[])
 @patch("zenzic.cli._check.find_unused_assets", return_value=[])
 @patch("zenzic.cli._check.check_nav_contract", return_value=[])
 @patch("zenzic.cli._check.scan_docs_references", return_value=([], []))
-def test_check_all_quiet_ok(
-    _refs, _nav, _assets, _ph, _snip, _orphans, _links, _cfg, _root
-) -> None:
+def test_check_all_quiet_ok(_refs, _nav, _assets, _snip, _orphans, _links, _cfg, _root) -> None:
     result = runner.invoke(app, ["check", "all", "--quiet"])
     assert result.exit_code == 0
     # Quiet mode produces no output when clean
@@ -412,12 +424,11 @@ def test_check_all_quiet_ok(
 )
 @patch("zenzic.cli._check.find_orphans", return_value=[])
 @patch("zenzic.cli._check.validate_snippets", return_value=[])
-@patch("zenzic.cli._check.find_placeholders", return_value=[])
 @patch("zenzic.cli._check.find_unused_assets", return_value=[])
 @patch("zenzic.cli._check.check_nav_contract", return_value=[])
 @patch("zenzic.cli._check.scan_docs_references", return_value=([], []))
 def test_check_all_quiet_with_errors(
-    _refs, _nav, _assets, _ph, _snip, _orphans, _links, _cfg, _root
+    _refs, _nav, _assets, _snip, _orphans, _links, _cfg, _root
 ) -> None:
     result = runner.invoke(app, ["check", "all", "--quiet"])
     assert result.exit_code == 1
@@ -444,12 +455,11 @@ def test_check_all_quiet_with_errors(
 )
 @patch("zenzic.cli._check.find_orphans", return_value=[])
 @patch("zenzic.cli._check.validate_snippets", return_value=[])
-@patch("zenzic.cli._check.find_placeholders", return_value=[])
 @patch("zenzic.cli._check.find_unused_assets", return_value=[])
 @patch("zenzic.cli._check.check_nav_contract", return_value=[])
 @patch("zenzic.cli._check.scan_docs_references", return_value=([], []))
 def test_check_all_ci_forces_github_annotations(
-    _refs, _nav, _assets, _ph, _snip, _orphans, _links, _cfg, _root
+    _refs, _nav, _assets, _snip, _orphans, _links, _cfg, _root
 ) -> None:
     result = runner.invoke(app, ["check", "all", "--ci"])
     assert result.exit_code == 1
@@ -481,12 +491,11 @@ def test_check_all_ci_forces_github_annotations(
 )
 @patch("zenzic.cli._check.find_orphans", return_value=[Path("orphan.md")])
 @patch("zenzic.cli._check.validate_snippets", return_value=[])
-@patch("zenzic.cli._check.find_placeholders", return_value=[])
 @patch("zenzic.cli._check.find_unused_assets", return_value=[])
 @patch("zenzic.cli._check.check_nav_contract", return_value=[])
 @patch("zenzic.cli._check.scan_docs_references", return_value=([], []))
 def test_check_all_only_filters_findings(
-    _refs, _nav, _assets, _ph, _snip, _orphans, _links, _cfg, _root
+    _refs, _nav, _assets, _snip, _orphans, _links, _cfg, _root
 ) -> None:
     result = runner.invoke(app, ["check", "all", "--format", "json", "--only", "Z104"])
     assert result.exit_code == 1
@@ -508,12 +517,11 @@ def test_check_all_only_filters_findings(
 @patch("zenzic.cli._check.validate_links_structured", return_value=[])
 @patch("zenzic.cli._check.find_orphans", return_value=[])
 @patch("zenzic.cli._check.validate_snippets", return_value=[])
-@patch("zenzic.cli._check.find_placeholders", return_value=[])
 @patch("zenzic.cli._check.find_unused_assets", return_value=[])
 @patch("zenzic.cli._check.check_nav_contract", return_value=[])
 @patch("zenzic.cli._check.scan_docs_references")
 def test_check_all_strict_fails_on_warnings_only(
-    mock_refs, _nav, _assets, _ph, _snip, _orphans, _links, _cfg, _root, _count
+    mock_refs, _nav, _assets, _snip, _orphans, _links, _cfg, _root, _count
 ) -> None:
     """--strict must exit 1 even when only warnings (no hard errors) exist."""
     from zenzic.models.references import IntegrityReport, ReferenceFinding
@@ -538,12 +546,11 @@ def test_check_all_strict_fails_on_warnings_only(
 @patch("zenzic.cli._check.validate_links_structured", return_value=[])
 @patch("zenzic.cli._check.find_orphans", return_value=[])
 @patch("zenzic.cli._check.validate_snippets", return_value=[])
-@patch("zenzic.cli._check.find_placeholders", return_value=[])
 @patch("zenzic.cli._check.find_unused_assets", return_value=[])
 @patch("zenzic.cli._check.check_nav_contract", return_value=[])
 @patch("zenzic.cli._check.scan_docs_references")
 def test_check_all_no_strict_passes_on_warnings_only(
-    mock_refs, _nav, _assets, _ph, _snip, _orphans, _links, _cfg, _root
+    mock_refs, _nav, _assets, _snip, _orphans, _links, _cfg, _root
 ) -> None:
     """Without --strict, warnings alone must NOT trigger exit 1."""
     from zenzic.models.references import IntegrityReport, ReferenceFinding
@@ -1552,12 +1559,11 @@ class TestShowInfoFilter:
     @patch("zenzic.cli._check.validate_links_structured", return_value=[])
     @patch("zenzic.cli._check.find_orphans", return_value=[])
     @patch("zenzic.cli._check.validate_snippets", return_value=[])
-    @patch("zenzic.cli._check.find_placeholders", return_value=[])
     @patch("zenzic.cli._check.find_unused_assets", return_value=[])
     @patch("zenzic.cli._check.check_nav_contract", return_value=[])
     @patch("zenzic.cli._check.scan_docs_references", return_value=([], []))
     def test_check_all_show_info_flag_accepted(
-        self, _refs, _nav, _assets, _ph, _snip, _orphans, _links, _cfg, _root, _count
+        self, _refs, _nav, _assets, _snip, _orphans, _links, _cfg, _root, _count
     ) -> None:
         """--show-info flag must be accepted by check all without crashing."""
         result = runner.invoke(app, ["check", "all", "--show-info"])
@@ -1593,11 +1599,10 @@ def test_score_perfect_shows_audit_complete(_run: object, _cfg: object, _root: o
     _run.return_value = ScoreReport(  # type: ignore[attr-defined]
         score=100,
         categories=[
-            CategoryScore("links", 0.35, 0, 1.0, 0.35),
-            CategoryScore("orphans", 0.20, 0, 1.0, 0.20),
-            CategoryScore("snippets", 0.20, 0, 1.0, 0.20),
-            CategoryScore("placeholders", 0.15, 0, 1.0, 0.15),
-            CategoryScore("assets", 0.10, 0, 1.0, 0.10),
+            CategoryScore("structural", 0.35, 0, 1.0, 0.35),
+            CategoryScore("navigation", 0.20, 0, 1.0, 0.20),
+            CategoryScore("content", 0.20, 0, 1.0, 0.20),
+            CategoryScore("brand", 0.15, 0, 1.0, 0.15),
         ],
     )
     result = runner.invoke(app, ["score"])
@@ -1616,11 +1621,10 @@ def test_score_low_uses_error_style(_run: object, _cfg: object, _root: object) -
     _run.return_value = ScoreReport(  # type: ignore[attr-defined]
         score=30,
         categories=[
-            CategoryScore("links", 0.35, 5, 0.0, 0.0),
-            CategoryScore("orphans", 0.20, 3, 0.40, 0.08),
-            CategoryScore("snippets", 0.20, 0, 1.0, 0.20),
-            CategoryScore("placeholders", 0.15, 1, 0.80, 0.12),
-            CategoryScore("assets", 0.10, 0, 1.0, 0.10),
+            CategoryScore("structural", 0.35, 5, 0.0, 0.0),
+            CategoryScore("navigation", 0.20, 3, 0.40, 0.08),
+            CategoryScore("content", 0.20, 0, 1.0, 0.20),
+            CategoryScore("brand", 0.15, 1, 0.80, 0.12),
         ],
     )
     result = runner.invoke(app, ["score"])
@@ -1639,11 +1643,10 @@ def test_score_no_header_suppresses_banner(_run: object, _cfg: object, _root: ob
     _run.return_value = ScoreReport(  # type: ignore[attr-defined]
         score=100,
         categories=[
-            CategoryScore("links", 0.35, 0, 1.0, 0.35),
-            CategoryScore("orphans", 0.20, 0, 1.0, 0.20),
-            CategoryScore("snippets", 0.20, 0, 1.0, 0.20),
-            CategoryScore("placeholders", 0.15, 0, 1.0, 0.15),
-            CategoryScore("assets", 0.10, 0, 1.0, 0.10),
+            CategoryScore("structural", 0.35, 0, 1.0, 0.35),
+            CategoryScore("navigation", 0.20, 0, 1.0, 0.20),
+            CategoryScore("content", 0.20, 0, 1.0, 0.20),
+            CategoryScore("brand", 0.15, 0, 1.0, 0.15),
         ],
     )
     result = runner.invoke(app, ["score", "--no-header"])
@@ -1698,11 +1701,10 @@ def test_score_check_stamp_passes_when_current(
     _run.return_value = ScoreReport(  # type: ignore[attr-defined]
         score=100,
         categories=[
-            CategoryScore("links", 0.35, 0, 1.0, 0.35),
-            CategoryScore("orphans", 0.20, 0, 1.0, 0.20),
-            CategoryScore("snippets", 0.20, 0, 1.0, 0.20),
-            CategoryScore("placeholders", 0.15, 0, 1.0, 0.15),
-            CategoryScore("assets", 0.10, 0, 1.0, 0.10),
+            CategoryScore("structural", 0.35, 0, 1.0, 0.35),
+            CategoryScore("navigation", 0.20, 0, 1.0, 0.20),
+            CategoryScore("content", 0.20, 0, 1.0, 0.20),
+            CategoryScore("brand", 0.15, 0, 1.0, 0.15),
         ],
     )
     result = runner.invoke(app, ["score", "--check-stamp", "--no-header"])
@@ -1724,11 +1726,10 @@ def test_score_check_stamp_fails_when_stale(
     _run.return_value = ScoreReport(  # type: ignore[attr-defined]
         score=95,
         categories=[
-            CategoryScore("links", 0.35, 0, 1.0, 0.35),
-            CategoryScore("orphans", 0.20, 0, 1.0, 0.20),
-            CategoryScore("snippets", 0.20, 0, 1.0, 0.20),
-            CategoryScore("placeholders", 0.15, 0, 1.0, 0.15),
-            CategoryScore("assets", 0.10, 0, 1.0, 0.10),
+            CategoryScore("structural", 0.35, 0, 1.0, 0.35),
+            CategoryScore("navigation", 0.20, 0, 1.0, 0.20),
+            CategoryScore("content", 0.20, 0, 1.0, 0.20),
+            CategoryScore("brand", 0.15, 0, 1.0, 0.15),
         ],
     )
     result = runner.invoke(app, ["score", "--check-stamp", "--no-header"])
@@ -1751,11 +1752,10 @@ def test_score_check_stamp_fails_when_score_badge_stale_only(
     _run.return_value = ScoreReport(  # type: ignore[attr-defined]
         score=100,
         categories=[
-            CategoryScore("links", 0.35, 0, 1.0, 0.35),
-            CategoryScore("orphans", 0.20, 0, 1.0, 0.20),
-            CategoryScore("snippets", 0.20, 0, 1.0, 0.20),
-            CategoryScore("placeholders", 0.15, 0, 1.0, 0.15),
-            CategoryScore("assets", 0.10, 0, 1.0, 0.10),
+            CategoryScore("structural", 0.35, 0, 1.0, 0.35),
+            CategoryScore("navigation", 0.20, 0, 1.0, 0.20),
+            CategoryScore("content", 0.20, 0, 1.0, 0.20),
+            CategoryScore("brand", 0.15, 0, 1.0, 0.15),
         ],
     )
     result = runner.invoke(app, ["score", "--check-stamp", "--no-header"])
@@ -1777,11 +1777,10 @@ def test_score_check_stamp_fails_when_audit_badge_stale_only(
     _run.return_value = ScoreReport(  # type: ignore[attr-defined]
         score=100,
         categories=[
-            CategoryScore("links", 0.35, 0, 1.0, 0.35),
-            CategoryScore("orphans", 0.20, 0, 1.0, 0.20),
-            CategoryScore("snippets", 0.20, 0, 1.0, 0.20),
-            CategoryScore("placeholders", 0.15, 0, 1.0, 0.15),
-            CategoryScore("assets", 0.10, 0, 1.0, 0.10),
+            CategoryScore("structural", 0.35, 0, 1.0, 0.35),
+            CategoryScore("navigation", 0.20, 0, 1.0, 0.20),
+            CategoryScore("content", 0.20, 0, 1.0, 0.20),
+            CategoryScore("brand", 0.15, 0, 1.0, 0.15),
         ],
     )
     result = runner.invoke(app, ["score", "--check-stamp", "--no-header"])
@@ -1829,12 +1828,11 @@ def test_check_orphans_short_format_alias(_orphans, _cfg, _root) -> None:
 @patch("zenzic.cli._check.validate_links_structured", return_value=[])
 @patch("zenzic.cli._check.find_orphans", return_value=[])
 @patch("zenzic.cli._check.validate_snippets", return_value=[])
-@patch("zenzic.cli._check.find_placeholders", return_value=[])
 @patch("zenzic.cli._check.find_unused_assets", return_value=[])
 @patch("zenzic.cli._check.check_nav_contract", return_value=[])
 @patch("zenzic.cli._check.scan_docs_references", return_value=([], []))
 def test_check_all_short_format_alias(
-    _refs, _nav, _assets, _ph, _snip, _orphans, _links, _cfg, _root
+    _refs, _nav, _assets, _snip, _orphans, _links, _cfg, _root
 ) -> None:
     """-f json must be accepted as alias for --format json in check all."""
     result = runner.invoke(app, ["check", "all", "-f", "json"])
@@ -1966,12 +1964,11 @@ def test_check_links_circular_link_note_strict_exits_0(_links, _cfg, _root) -> N
 @patch("zenzic.cli._check.validate_links_structured", return_value=[])
 @patch("zenzic.cli._check.find_orphans", return_value=[])
 @patch("zenzic.cli._check.validate_snippets", return_value=[])
-@patch("zenzic.cli._check.find_placeholders", return_value=[])
 @patch("zenzic.cli._check.find_unused_assets", return_value=[])
 @patch("zenzic.cli._check.check_nav_contract", return_value=[])
 @patch("zenzic.cli._check.scan_docs_references", return_value=([], []))
 def test_check_all_progress_bar_activation(
-    mock_scan, _nav, _assets, _ph, _snip, _orphans, _links, _cfg, _root, _count
+    mock_scan, _nav, _assets, _snip, _orphans, _links, _cfg, _root, _count
 ) -> None:
     """Verify that progress bar show_progress parameter obeys strict gate rules."""
     runner.invoke(app, ["check", "all"])

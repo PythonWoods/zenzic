@@ -549,7 +549,6 @@ def test_diff_json_output(mock_run, mock_load, mock_root, tmp_path: Path) -> Non
 )
 @patch("zenzic.cli._check.find_orphans", return_value=[])
 @patch("zenzic.cli._check.validate_snippets", return_value=[])
-@patch("zenzic.cli._check.find_placeholders", return_value=[])
 @patch("zenzic.cli._check.find_unused_assets", return_value=[])
 @patch("zenzic.cli._check.check_nav_contract", return_value=[])
 @patch("zenzic.cli._check.scan_docs_references", return_value=([], []))
@@ -557,7 +556,6 @@ def test_check_all_exit_zero_with_failures(
     _refs,
     _nav,
     mock_assets,
-    mock_placeholders,
     mock_snippets,
     mock_orphans,
     mock_links,
@@ -581,7 +579,6 @@ def test_check_all_exit_zero_with_failures(
 )
 @patch("zenzic.cli._check.find_orphans", return_value=[])
 @patch("zenzic.cli._check.validate_snippets", return_value=[])
-@patch("zenzic.cli._check.find_placeholders", return_value=[])
 @patch("zenzic.cli._check.find_unused_assets", return_value=[])
 @patch("zenzic.cli._check.check_nav_contract", return_value=[])
 @patch("zenzic.cli._check.scan_docs_references", return_value=([], []))
@@ -589,7 +586,6 @@ def test_check_all_exit_zero_json(
     _refs,
     _nav,
     mock_assets,
-    mock_placeholders,
     mock_snippets,
     mock_orphans,
     mock_links,

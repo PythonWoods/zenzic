@@ -16,7 +16,7 @@ from typing import Any, BinaryIO, TypedDict, cast
 from zenzic.core.adapters import get_adapter
 from zenzic.core.discovery import iter_markdown_sources
 from zenzic.core.exclusion import LayeredExclusionManager
-from zenzic.core.rules import AdaptiveRuleEngine, ResolutionContext, RuleFinding
+from zenzic.core.rules import AdaptiveRuleEngine, RuleFinding
 from zenzic.core.scanner import _build_rule_engine
 from zenzic.lsp.documents import DocumentManager
 from zenzic.models.config import ZenzicConfig
@@ -338,27 +338,27 @@ class LanguageServer:
         if not self.config:
             self.config = ZenzicConfig()
         if not self.rule_engine:
+            from zenzic.core.scanner import _build_rule_engine
+
             self.rule_engine = _build_rule_engine(self.config)
 
         # ── 1. Core rule engine (Z108, Z201, Z505, Z107, Z506, …) ─────────────
-        findings = self.rule_engine.run(file_path, text) if self.rule_engine else []
+        from zenzic.core.suppressions import SuppressionTracker
 
-        # ── 2. VSM-aware rules (Z101 — broken cross-file link) ────────────────
-        if self.vsm is not None and self.config is not None and self.repo_root is not None:
-            assert self.rule_engine is not None
-            docs_root = self.repo_root / self.config.docs_dir
-            context = ResolutionContext(docs_root=docs_root, source_file=file_path)
-            vsm_findings = self.rule_engine.run_vsm(
-                file_path=file_path, text=text, vsm=self.vsm, anchors_cache={}, context=context
-            )
-            findings.extend(vsm_findings)
+        tracker = SuppressionTracker(file_path, text)
 
-        # ── 3. URP (Uniform Resolver Pipeline) - In-Memory Validation (Z102, Z120-Z124, Z205, Z105)
+        findings = (
+            self.rule_engine.run_with_tracker(file_path, text, tracker) if self.rule_engine else []
+        )
+
+        # ── 2. URP (Uniform Resolver Pipeline) - In-Memory Validation (Z102, Z120-Z124, Z205, Z105, Z202, Z203)
         from zenzic.core.validator import validate_single_document_urp
 
         urp_errors = validate_single_document_urp(
             content=text, file_path=file_path, vsm=self.vsm or {}, config=self.config
         )
+
+        urp_lines = {err.line_no for err in urp_errors}
 
         for err in urp_errors:
             findings.append(
@@ -374,10 +374,28 @@ class LanguageServer:
                 )
             )
 
+        # ── 3. VSM-aware rules (Z101 — broken cross-file link) ────────────────
+        if self.vsm is not None and self.config is not None and self.repo_root is not None:
+            assert self.rule_engine is not None
+            docs_root = self.repo_root / self.config.docs_dir
+            from zenzic.core.rules import ResolutionContext
+
+            context = ResolutionContext(docs_root=docs_root, source_file=file_path)
+            vsm_findings = self.rule_engine.run_vsm(
+                file_path=file_path, text=text, vsm=self.vsm, anchors_cache={}, context=context
+            )
+            # Mask Z101 if URP already found a security/structural error on the same line
+            for f in vsm_findings:
+                if f.line_no not in urp_lines:
+                    findings.append(f)
+
         # ── 5. Snippet syntax validation (Z503) ───────────────────────────────
         from zenzic.core.validator import check_snippet_content
 
         snippet_errors = check_snippet_content(text, file_path, ZenzicConfig())
+
+        # ── 6. Dead Suppressions (Z603) ───────────────────────────────────────
+        findings.extend(tracker.get_dead_suppressions())
 
         diagnostics = []
         for f in findings:

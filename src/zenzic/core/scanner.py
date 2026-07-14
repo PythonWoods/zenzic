@@ -17,7 +17,6 @@ from __future__ import annotations
 import fnmatch
 import posixpath
 from collections.abc import Callable, Generator
-from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from urllib.parse import unquote
@@ -241,16 +240,6 @@ def _map_credential_to_finding(sf: SecurityFinding, repo_root: Path) -> Finding:
     )
 
 
-@dataclass(slots=True)
-class PlaceholderFinding:
-    file_path: Path
-    line_no: int
-    issue: str
-    detail: str
-    col_start: int = 0
-    match_text: str = ""
-
-
 # Strips YAML frontmatter (leading ---...--- block).
 _FRONTMATTER_RE: re.RegexPattern = re.compile(r"\A\s*---\s*\n.*?\n---\s*\n?", re.DOTALL)
 # Strips MDX comments {/* ... */} — invisible in the rendered page.
@@ -339,68 +328,6 @@ def _visible_word_count(text: str) -> int:
     # Frontmatter is now at \A — strip it.
     text = _FRONTMATTER_RE.sub("", text)
     return len(text.split())
-
-
-def check_placeholder_content(
-    text: str,
-    file_path: Path | str,
-    config: ZenzicConfig | None = None,
-) -> list[PlaceholderFinding]:
-    """Pure function: analyse markdown text for placeholder patterns. No I/O.
-
-    Args:
-        text: Raw markdown content to analyse.
-        file_path: Path identifier used to label findings (no disk access).
-        config: Optional Zenzic configuration.
-
-    Returns:
-        List of PlaceholderFinding instances.
-    """
-    if config is None:
-        config = ZenzicConfig()
-
-    path = Path(file_path)
-    findings: list[PlaceholderFinding] = []
-    patterns = config.placeholder_patterns_compiled
-
-    visible = _visible_word_count(text)
-    if not path.name.startswith("_") and visible < config.placeholder_max_words:
-        findings.append(
-            PlaceholderFinding(
-                file_path=path,
-                line_no=_first_content_line(text),
-                issue="Z502",
-                detail=f"Page has only {visible} words (minimum {config.placeholder_max_words}).",
-            )
-        )
-
-    in_block = False
-    for i, line in enumerate(text.splitlines(), start=1):
-        stripped = line.strip()
-        if not in_block:
-            if stripped.startswith("```") or stripped.startswith("~~~"):
-                in_block = True
-                continue
-        else:
-            if stripped.startswith("```") or stripped.startswith("~~~"):
-                in_block = False
-            continue
-
-        for pattern in patterns:
-            m = pattern.search(line)
-            if m:
-                findings.append(
-                    PlaceholderFinding(
-                        file_path=path,
-                        line_no=i,
-                        issue="Z501",
-                        detail=f"Found placeholder text matching pattern: '{pattern.pattern}'",
-                        col_start=m.start(),
-                        match_text=m.group(),
-                    )
-                )
-
-    return findings
 
 
 def check_asset_references(text: str, page_dir: str = "") -> set[str]:
@@ -517,55 +444,6 @@ def find_orphans(
             orphans.append(rel)
 
     return orphans
-
-
-def find_placeholders(
-    docs_root: Path,
-    exclusion_manager: LayeredExclusionManager,
-    *,
-    config: ZenzicConfig,
-    locale_roots: list[tuple[Path, str]] | None = None,
-    content_roots: list[Path] | None = None,
-) -> list[PlaceholderFinding]:
-    """Scan docs for placeholder/stub patterns and short word counts.
-
-    Args:
-        docs_root: Resolved path to the documentation root.
-        exclusion_manager: Layered exclusion manager (mandatory).
-        config: Zenzic configuration model.
-        locale_roots: Optional locale translation roots injected by caller.
-        content_roots: Optional external markdown roots injected by caller.
-
-    Returns:
-        List of PlaceholderFinding instances detailing the issues found.
-    """
-    findings: list[PlaceholderFinding] = []
-
-    if not docs_root.exists() or not docs_root.is_dir():
-        return findings
-
-    for md_file in iter_markdown_sources(docs_root, config, exclusion_manager):
-        rel_path = md_file.relative_to(docs_root)
-        content = md_file.read_text(encoding="utf-8")
-        findings.extend(check_placeholder_content(content, rel_path, config))
-
-    if locale_roots:
-        for locale_root, locale_name in locale_roots:
-            for md_file, logical_rel in iter_locale_markdown_sources(
-                locale_root, locale_name, config, exclusion_manager
-            ):
-                content = md_file.read_text(encoding="utf-8")
-                findings.extend(check_placeholder_content(content, logical_rel, config))
-
-    if content_roots:
-        for content_root, url_prefix in build_content_mounts(content_roots):
-            for md_file, logical_rel in iter_extra_content_markdown_sources(
-                content_root, url_prefix, config, exclusion_manager
-            ):
-                content = md_file.read_text(encoding="utf-8")
-                findings.extend(check_placeholder_content(content, logical_rel, config))
-
-    return findings
 
 
 def find_unused_assets(
@@ -1188,6 +1066,11 @@ def _build_rule_engine(config: ZenzicConfig) -> AdaptiveRuleEngine | None:
         MalformedFrontmatterRule(),
         UntaggedCodeBlockRule(),
     ]
+
+    from zenzic.core.rules import PlaceholderRule, ShortContentRule
+
+    built_in.append(ShortContentRule(config.placeholder_max_words))
+    built_in.append(PlaceholderRule(config.placeholder_patterns_compiled))
     if config.project_metadata.obsolete_names:
         built_in.append(BrandObsolescenceRule(config.project_metadata))
 

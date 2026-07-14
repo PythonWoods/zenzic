@@ -19,11 +19,9 @@ from zenzic.core.codes import CODE_DEFINITIONS
 from zenzic.core.exclusion import LayeredExclusionManager
 from zenzic.core.reporter import Finding, ZenzicReporter
 from zenzic.core.scanner import (
-    PlaceholderFinding,
     _map_credential_to_finding,
     find_missing_directory_indices,
     find_orphans,
-    find_placeholders,
     find_repo_root,
     find_unused_assets,
     scan_docs_references,
@@ -891,7 +889,7 @@ def check_placeholders(
             return str(path)
 
     t0 = time.monotonic()
-    raw_findings = find_placeholders(
+    raw_findings, _ = scan_docs_references(
         docs_root,
         exclusion_mgr,
         config=config,
@@ -901,29 +899,22 @@ def check_placeholders(
     elapsed = time.monotonic() - t0
 
     findings: list[Finding] = []
-    for pf in raw_findings:
-        src = ""
-        if pf.line_no > 0:
-            abs_path = docs_root / pf.file_path
-            if abs_path.is_file():
-                try:
-                    lines = abs_path.read_text(encoding="utf-8").splitlines()
-                    if 0 < pf.line_no <= len(lines):
-                        src = lines[pf.line_no - 1].strip()
-                except OSError:
-                    pass
-        findings.append(
-            Finding(
-                rel_path=_rel(docs_root / pf.file_path),
-                line_no=pf.line_no,
-                code=pf.issue,
-                severity="warning",
-                message=pf.detail,
-                source_line=src,
-                col_start=pf.col_start,
-                match_text=pf.match_text,
-            )
-        )
+    for report in raw_findings:
+        rel = _rel(report.file_path)
+        for rule_f in report.rule_findings:
+            if rule_f.rule_id in ("Z501", "Z502"):
+                findings.append(
+                    Finding(
+                        rel_path=rel,
+                        line_no=rule_f.line_no,
+                        code=rule_f.rule_id,
+                        severity=rule_f.severity,
+                        message=rule_f.message,
+                        source_line=rule_f.matched_line or "",
+                        col_start=rule_f.col_start,
+                        match_text=rule_f.match_text or "",
+                    )
+                )
 
     docs_count, assets_count = _shared._count_docs_assets(docs_root, repo_root, exclusion_mgr)
     _shared._ui.print_header(__version__)
@@ -958,7 +949,6 @@ class _AllCheckResults:
     link_errors: list[LinkError]
     orphans: list[Path]
     snippet_errors: list[SnippetError]
-    placeholders: list[PlaceholderFinding]
     unused_assets: list[Path]
     nav_contract_errors: list[str]
     reference_reports: list[IntegrityReport]
@@ -973,7 +963,6 @@ class _AllCheckResults:
             self.link_errors
             or self.orphans
             or self.snippet_errors
-            or self.placeholders
             or self.unused_assets
             or self.nav_contract_errors
             or ref_errors
@@ -994,7 +983,6 @@ def _apply_only_filter(results: _AllCheckResults, only_str: str) -> None:
         results.orphans = []
     if "Z503" not in allowed:
         results.snippet_errors = []
-    results.placeholders = [p for p in results.placeholders if p.issue in allowed]
     if "Z405" not in allowed:
         results.unused_assets = []
     if "Z406" not in allowed:
@@ -1099,13 +1087,6 @@ def _collect_all_results(
             adapter=adapter,
         ),
         snippet_errors=validate_snippets(docs_root, exclusion_mgr, config=config),
-        placeholders=find_placeholders(
-            docs_root,
-            exclusion_mgr,
-            config=config,
-            locale_roots=locale_roots,
-            content_roots=content_roots,
-        ),
         unused_assets=find_unused_assets(
             docs_root,
             exclusion_mgr,
@@ -1209,30 +1190,6 @@ def _to_findings(
                 severity="error",
                 message=s_err.message,
                 source_line=src,
-            )
-        )
-
-    for pf in results.placeholders:
-        src = ""
-        if pf.line_no > 0:
-            abs_path = docs_root / pf.file_path
-            if abs_path.is_file():
-                try:
-                    lines = abs_path.read_text(encoding="utf-8").splitlines()
-                    if 0 < pf.line_no <= len(lines):
-                        src = lines[pf.line_no - 1].strip()
-                except OSError:
-                    pass
-        findings.append(
-            Finding(
-                rel_path=_rel(docs_root / pf.file_path),
-                line_no=pf.line_no,
-                code=pf.issue,
-                severity="warning",
-                message=pf.detail,
-                source_line=src,
-                col_start=pf.col_start,
-                match_text=pf.match_text,
             )
         )
 

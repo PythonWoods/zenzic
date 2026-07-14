@@ -9,16 +9,19 @@ functions are correct, and that the CLI exposes the expected sub-commands.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from typer.testing import CliRunner
 
+from zenzic.core.rules import PlaceholderRule, ShortContentRule
 from zenzic.core.scanner import (
     calculate_orphans,
     calculate_unused_assets,
     check_asset_references,
-    check_placeholder_content,
 )
 from zenzic.core.validator import check_snippet_content
 from zenzic.main import app
+from zenzic.models.config import ZenzicConfig
 
 
 runner = CliRunner()
@@ -47,21 +50,29 @@ def test_calculate_orphans_sorted() -> None:
 
 
 def test_check_placeholder_short_content() -> None:
-    findings = check_placeholder_content("too short", "page.md")
-    assert any(f.issue == "Z502" for f in findings)
+    config = ZenzicConfig(placeholder_max_words=50)
+    rule = ShortContentRule(config.placeholder_max_words)
+    findings = rule.check(Path("page.md"), "too short")
+    assert any(f.rule_id == "Z502" for f in findings)
 
 
 def test_check_placeholder_pattern_match() -> None:
-    findings = check_placeholder_content(
+    config = ZenzicConfig()
+    rule = PlaceholderRule(config.placeholder_patterns_compiled)
+    findings = rule.check(
+        Path("page.md"),
         "# Title\n\nThis is a TODO section that needs more content.\n" * 5,
-        "page.md",
     )
-    assert any(f.issue == "Z501" for f in findings)
+    assert any(f.rule_id == "Z501" for f in findings)
 
 
 def test_check_placeholder_clean_page() -> None:
+    config = ZenzicConfig(placeholder_max_words=50)
     content = "# Complete Page\n\n" + "Real content here. " * 60
-    assert check_placeholder_content(content, "page.md") == []
+    rule1 = ShortContentRule(config.placeholder_max_words)
+    rule2 = PlaceholderRule(config.placeholder_patterns_compiled)
+    assert not rule1.check(Path("page.md"), content)
+    assert not rule2.check(Path("page.md"), content)
 
 
 # ─── Pure core: check_snippet_content ─────────────────────────────────────────

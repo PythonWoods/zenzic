@@ -565,3 +565,70 @@ def test_lsp_emits_z102() -> None:
     assert "this-anchor-does-not-exist" in broken_diag["message"], (
         f"Z102 message should mention the missing fragment, got: {broken_diag['message']}"
     )
+
+
+def test_lsp_security_rules_masking() -> None:
+    """Verify that Security/Path rules (Z203) are emitted instead of Z101 for absolute system paths."""
+    uri = "file:///fake/path/doc.md"
+    req_init = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "initialize",
+        "params": {
+            "rootUri": "file:///fake/path",
+        },
+    }
+    # Link pointing to /etc/passwd
+    req_open = {
+        "jsonrpc": "2.0",
+        "method": "textDocument/didOpen",
+        "params": {"textDocument": {"uri": uri, "text": "[hacked](/etc/passwd)\n"}},
+    }
+    req_exit = {"jsonrpc": "2.0", "method": "exit", "params": {}}
+
+    def encode_rpc(msg: dict) -> bytes:
+        import json
+
+        body = json.dumps(msg, separators=(",", ":")).encode("utf-8")
+        header = f"Content-Length: {len(body)}\r\n\r\n".encode("ascii")
+        return header + body
+
+    import io
+
+    from zenzic.lsp.server import LanguageServer
+
+    in_stream = io.BytesIO()
+    in_stream.write(encode_rpc(req_init))
+    in_stream.write(encode_rpc(req_open))
+    in_stream.write(encode_rpc(req_exit))
+    in_stream.seek(0)
+
+    out_stream = io.BytesIO()
+    server = LanguageServer(stdin=in_stream, stdout=out_stream)
+    server.serve()
+
+    out_stream.seek(0)
+    output = out_stream.read()
+
+    parts = output.split(b"\r\n\r\n")
+    found_z203 = False
+    found_z101 = False
+    for p in parts:
+        if b"publishDiagnostics" in p:
+            body_str = p.split(b"Content-Length")[0]
+            try:
+                import json
+
+                resp = json.loads(body_str.decode("utf-8"))
+                if resp.get("method") == "textDocument/publishDiagnostics":
+                    diagnostics = resp["params"]["diagnostics"]
+                    for d in diagnostics:
+                        if d["code"] == "Z203":
+                            found_z203 = True
+                        if d["code"] == "Z101":
+                            found_z101 = True
+            except json.JSONDecodeError:
+                pass
+
+    assert found_z203, "Z203 MUST be emitted for /etc/passwd"
+    assert not found_z101, "Z101 MUST be masked by Z203"

@@ -27,7 +27,6 @@ from zenzic.core.resolver import (
     Resolved,
 )
 from zenzic.core.rules import CustomRule, RuleFinding
-from zenzic.core.scanner import PlaceholderFinding, check_placeholder_content
 from zenzic.core.validator import (
     LinkInfo,
     _build_ref_map,
@@ -255,35 +254,6 @@ class TestCustomRuleProperties:
         """Empty text → no findings."""
         rule = CustomRule(id="e", pattern=r"TODO", message="m")
         assert rule.check(Path("t.md"), "") == []
-
-
-# ── check_placeholder_content — Invariants ───────────────────────────────────
-
-
-class TestCheckPlaceholderProperties:
-    """check_placeholder_content() must return PlaceholderFinding list for any text."""
-
-    @given(text=_md_text)
-    @settings()
-    def test_never_crashes(self, text: str) -> None:
-        result = check_placeholder_content(text, Path("test.md"))
-        assert isinstance(result, list)
-        for f in result:
-            assert isinstance(f, PlaceholderFinding)
-
-    @given(text=_md_text)
-    @settings()
-    def test_line_numbers_valid(self, text: str) -> None:
-        """All line numbers in findings must be >= 0."""
-        for f in check_placeholder_content(text, Path("test.md")):
-            assert f.line_no >= 0
-
-    def test_known_placeholder(self) -> None:
-        """A well-known placeholder must be detected."""
-        body = " ".join(["content"] * 60) + "\nTODO: fix this\n"
-        findings = check_placeholder_content(body, Path("test.md"))
-        issues = [f.issue for f in findings]
-        assert "Z501" in issues
 
 
 # ── InMemoryPathResolver.resolve — Invariants ────────────────────────────────

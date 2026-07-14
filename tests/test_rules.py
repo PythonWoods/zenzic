@@ -225,7 +225,9 @@ def test_scan_docs_with_custom_rules_from_config(tmp_path: Path) -> None:
 
     docs = tmp_path / "docs"
     docs.mkdir()
-    (docs / "page.md").write_text("# Page\n\nPlease remove DRAFT marker.\n")
+    (docs / "page.md").write_text(
+        "# Page\n\nPlease remove DRAFT marker. " + " ".join(["filler"] * 50) + "\n"
+    )
 
     config = ZenzicConfig(
         custom_rules=[
@@ -263,7 +265,9 @@ def test_scan_docs_with_enabled_plugins_from_config(tmp_path: Path) -> None:
 
     docs = tmp_path / "docs"
     docs.mkdir()
-    (docs / "page.md").write_text("# Page\n\nPLUGIN_TODO marker.\n")
+    (docs / "page.md").write_text(
+        "# Page\n\nPLUGIN_TODO marker. " + " ".join(["filler"] * 50) + "\n"
+    )
 
     config = ZenzicConfig(plugins=["acme-todo"])
 
@@ -333,7 +337,9 @@ def _make_repo_with_draft(tmp_path: Path) -> Path:
     """Create a minimal repo with a single docs/page.md containing 'DRAFT'."""
     docs = tmp_path / "docs"
     docs.mkdir()
-    (docs / "page.md").write_text("# Page\n\nThis is a DRAFT page.\n")
+    (docs / "page.md").write_text(
+        "# Page\n\nThis is a DRAFT page. " + " ".join(["filler"] * 50) + "\n"
+    )
     return tmp_path
 
 

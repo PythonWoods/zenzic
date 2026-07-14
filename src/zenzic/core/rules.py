@@ -1183,6 +1183,79 @@ class MissingAltTextRule(BaseRule):
         return findings
 
 
+class ShortContentRule(BaseRule):
+    """Z502: Short Content — pages with fewer than N words of prose."""
+
+    def __init__(self, min_words: int) -> None:
+        self.min_words = min_words
+
+    @property
+    def rule_id(self) -> str:
+        return "Z502"
+
+    def check(self, file_path: Path, text: str) -> list[RuleFinding]:
+        # Ignore system pages starting with _ (e.g. _index.md, _sidebar.md)
+        if file_path.name.startswith("_"):
+            return []
+
+        from zenzic.core.scanner import _first_content_line, _visible_word_count
+
+        visible = _visible_word_count(text)
+        if visible < self.min_words:
+            return [
+                RuleFinding(
+                    rule_id="Z502",
+                    severity="warning",
+                    file_path=file_path,
+                    line_no=_first_content_line(text),
+                    message=f"Page has only {visible} words (minimum {self.min_words}).",
+                )
+            ]
+        return []
+
+
+class PlaceholderRule(BaseRule):
+    """Z501: Placeholder text matched against compiled patterns."""
+
+    def __init__(self, patterns: list[re.RegexPattern]) -> None:
+        self.patterns = patterns
+
+    @property
+    def rule_id(self) -> str:
+        return "Z501"
+
+    def check(self, file_path: Path, text: str) -> list[RuleFinding]:
+        findings = []
+        in_block = False
+        for i, line in enumerate(text.splitlines(), start=1):
+            stripped = line.strip()
+            if not in_block:
+                if stripped.startswith("```") or stripped.startswith("~~~"):
+                    in_block = True
+                    continue
+            else:
+                if stripped.startswith("```") or stripped.startswith("~~~"):
+                    in_block = False
+                continue
+
+            for pattern in self.patterns:
+                m = pattern.search(line)
+                if m:
+                    findings.append(
+                        RuleFinding(
+                            rule_id="Z501",
+                            severity="warning",
+                            file_path=file_path,
+                            line_no=i,
+                            message=f"Found placeholder text matching pattern: '{pattern.pattern}'",
+                            col_start=m.start(),
+                            match_text=m.group(),
+                            matched_line=line,
+                        )
+                    )
+        return findings
+
+
 class VSMBrokenLinkRule(BaseRule):
     """VSM-aware broken link detector (🔌 Dev 3).
 
