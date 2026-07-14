@@ -572,6 +572,7 @@ def test_lsp_security_rules_masking() -> None:
     uri = "file:///fake/path/doc.md"
     req_init = {
         "jsonrpc": "2.0",
+        "id": 1,
         "method": "initialize",
         "params": {
             "rootUri": "file:///fake/path",

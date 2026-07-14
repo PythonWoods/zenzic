@@ -30,7 +30,6 @@
         "links",
         "orphans",
         "snippets",
-        "placeholders",
         "unused_assets",
         "nav_contract",
         "references",
@@ -70,34 +69,6 @@
                 "minimum": 1
               },
               "message": {
-                "type": "string"
-              }
-            },
-            "additionalProperties": false
-          }
-        },
-        "placeholders": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "required": [
-              "file",
-              "line",
-              "issue",
-              "detail"
-            ],
-            "properties": {
-              "file": {
-                "type": "string"
-              },
-              "line": {
-                "type": "integer",
-                "minimum": 1
-              },
-              "issue": {
-                "type": "string"
-              },
-              "detail": {
                 "type": "string"
               }
             },

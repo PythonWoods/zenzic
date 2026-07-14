@@ -9,6 +9,8 @@ functions are correct, and that the CLI exposes the expected sub-commands.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from typer.testing import CliRunner
 
 from zenzic.core.rules import PlaceholderRule, ShortContentRule

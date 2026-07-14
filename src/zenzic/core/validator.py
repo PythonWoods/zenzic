@@ -2092,7 +2092,7 @@ def validate_single_document_urp(
     # Phase 2: Markdown Links and Same-Page Anchors
     local_anchors = anchors_in_file(content)
     _bypass_schemes = ("mailto", "tel", "javascript", "data", "irc", "xmpp")
-    _effective_skip = tuple("http://") + tuple("https://") + tuple(f"{s}:" for s in _bypass_schemes)
+    _effective_skip = ("http://", "https://") + tuple(f"{s}:" for s in _bypass_schemes)
 
     for url, lineno, _raw_line in _extract_inline_links_with_lines(content):
         if url.startswith(_effective_skip) or url == "#":

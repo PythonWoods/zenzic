@@ -280,7 +280,6 @@ def test_cli_check_all_json_empty(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
         "links",
         "orphans",
         "snippets",
-        "placeholders",
         "unused_assets",
         "nav_contract",
         "references",
@@ -1560,12 +1559,11 @@ class TestShowInfoFilter:
     @patch("zenzic.cli._check.validate_links_structured", return_value=[])
     @patch("zenzic.cli._check.find_orphans", return_value=[])
     @patch("zenzic.cli._check.validate_snippets", return_value=[])
-    @patch("zenzic.cli._check.find_placeholders", return_value=[])
     @patch("zenzic.cli._check.find_unused_assets", return_value=[])
     @patch("zenzic.cli._check.check_nav_contract", return_value=[])
     @patch("zenzic.cli._check.scan_docs_references", return_value=([], []))
     def test_check_all_show_info_flag_accepted(
-        self, _refs, _nav, _assets, _ph, _snip, _orphans, _links, _cfg, _root, _count
+        self, _refs, _nav, _assets, _snip, _orphans, _links, _cfg, _root, _count
     ) -> None:
         """--show-info flag must be accepted by check all without crashing."""
         result = runner.invoke(app, ["check", "all", "--show-info"])
@@ -1601,11 +1599,10 @@ def test_score_perfect_shows_audit_complete(_run: object, _cfg: object, _root: o
     _run.return_value = ScoreReport(  # type: ignore[attr-defined]
         score=100,
         categories=[
-            CategoryScore("links", 0.35, 0, 1.0, 0.35),
-            CategoryScore("orphans", 0.20, 0, 1.0, 0.20),
-            CategoryScore("snippets", 0.20, 0, 1.0, 0.20),
-            CategoryScore("placeholders", 0.15, 0, 1.0, 0.15),
-            CategoryScore("assets", 0.10, 0, 1.0, 0.10),
+            CategoryScore("structural", 0.35, 0, 1.0, 0.35),
+            CategoryScore("navigation", 0.20, 0, 1.0, 0.20),
+            CategoryScore("content", 0.20, 0, 1.0, 0.20),
+            CategoryScore("brand", 0.15, 0, 1.0, 0.15),
         ],
     )
     result = runner.invoke(app, ["score"])
@@ -1624,11 +1621,10 @@ def test_score_low_uses_error_style(_run: object, _cfg: object, _root: object) -
     _run.return_value = ScoreReport(  # type: ignore[attr-defined]
         score=30,
         categories=[
-            CategoryScore("links", 0.35, 5, 0.0, 0.0),
-            CategoryScore("orphans", 0.20, 3, 0.40, 0.08),
-            CategoryScore("snippets", 0.20, 0, 1.0, 0.20),
-            CategoryScore("placeholders", 0.15, 1, 0.80, 0.12),
-            CategoryScore("assets", 0.10, 0, 1.0, 0.10),
+            CategoryScore("structural", 0.35, 5, 0.0, 0.0),
+            CategoryScore("navigation", 0.20, 3, 0.40, 0.08),
+            CategoryScore("content", 0.20, 0, 1.0, 0.20),
+            CategoryScore("brand", 0.15, 1, 0.80, 0.12),
         ],
     )
     result = runner.invoke(app, ["score"])
@@ -1647,11 +1643,10 @@ def test_score_no_header_suppresses_banner(_run: object, _cfg: object, _root: ob
     _run.return_value = ScoreReport(  # type: ignore[attr-defined]
         score=100,
         categories=[
-            CategoryScore("links", 0.35, 0, 1.0, 0.35),
-            CategoryScore("orphans", 0.20, 0, 1.0, 0.20),
-            CategoryScore("snippets", 0.20, 0, 1.0, 0.20),
-            CategoryScore("placeholders", 0.15, 0, 1.0, 0.15),
-            CategoryScore("assets", 0.10, 0, 1.0, 0.10),
+            CategoryScore("structural", 0.35, 0, 1.0, 0.35),
+            CategoryScore("navigation", 0.20, 0, 1.0, 0.20),
+            CategoryScore("content", 0.20, 0, 1.0, 0.20),
+            CategoryScore("brand", 0.15, 0, 1.0, 0.15),
         ],
     )
     result = runner.invoke(app, ["score", "--no-header"])
@@ -1706,11 +1701,10 @@ def test_score_check_stamp_passes_when_current(
     _run.return_value = ScoreReport(  # type: ignore[attr-defined]
         score=100,
         categories=[
-            CategoryScore("links", 0.35, 0, 1.0, 0.35),
-            CategoryScore("orphans", 0.20, 0, 1.0, 0.20),
-            CategoryScore("snippets", 0.20, 0, 1.0, 0.20),
-            CategoryScore("placeholders", 0.15, 0, 1.0, 0.15),
-            CategoryScore("assets", 0.10, 0, 1.0, 0.10),
+            CategoryScore("structural", 0.35, 0, 1.0, 0.35),
+            CategoryScore("navigation", 0.20, 0, 1.0, 0.20),
+            CategoryScore("content", 0.20, 0, 1.0, 0.20),
+            CategoryScore("brand", 0.15, 0, 1.0, 0.15),
         ],
     )
     result = runner.invoke(app, ["score", "--check-stamp", "--no-header"])
@@ -1732,11 +1726,10 @@ def test_score_check_stamp_fails_when_stale(
     _run.return_value = ScoreReport(  # type: ignore[attr-defined]
         score=95,
         categories=[
-            CategoryScore("links", 0.35, 0, 1.0, 0.35),
-            CategoryScore("orphans", 0.20, 0, 1.0, 0.20),
-            CategoryScore("snippets", 0.20, 0, 1.0, 0.20),
-            CategoryScore("placeholders", 0.15, 0, 1.0, 0.15),
-            CategoryScore("assets", 0.10, 0, 1.0, 0.10),
+            CategoryScore("structural", 0.35, 0, 1.0, 0.35),
+            CategoryScore("navigation", 0.20, 0, 1.0, 0.20),
+            CategoryScore("content", 0.20, 0, 1.0, 0.20),
+            CategoryScore("brand", 0.15, 0, 1.0, 0.15),
         ],
     )
     result = runner.invoke(app, ["score", "--check-stamp", "--no-header"])
@@ -1759,11 +1752,10 @@ def test_score_check_stamp_fails_when_score_badge_stale_only(
     _run.return_value = ScoreReport(  # type: ignore[attr-defined]
         score=100,
         categories=[
-            CategoryScore("links", 0.35, 0, 1.0, 0.35),
-            CategoryScore("orphans", 0.20, 0, 1.0, 0.20),
-            CategoryScore("snippets", 0.20, 0, 1.0, 0.20),
-            CategoryScore("placeholders", 0.15, 0, 1.0, 0.15),
-            CategoryScore("assets", 0.10, 0, 1.0, 0.10),
+            CategoryScore("structural", 0.35, 0, 1.0, 0.35),
+            CategoryScore("navigation", 0.20, 0, 1.0, 0.20),
+            CategoryScore("content", 0.20, 0, 1.0, 0.20),
+            CategoryScore("brand", 0.15, 0, 1.0, 0.15),
         ],
     )
     result = runner.invoke(app, ["score", "--check-stamp", "--no-header"])
@@ -1785,11 +1777,10 @@ def test_score_check_stamp_fails_when_audit_badge_stale_only(
     _run.return_value = ScoreReport(  # type: ignore[attr-defined]
         score=100,
         categories=[
-            CategoryScore("links", 0.35, 0, 1.0, 0.35),
-            CategoryScore("orphans", 0.20, 0, 1.0, 0.20),
-            CategoryScore("snippets", 0.20, 0, 1.0, 0.20),
-            CategoryScore("placeholders", 0.15, 0, 1.0, 0.15),
-            CategoryScore("assets", 0.10, 0, 1.0, 0.10),
+            CategoryScore("structural", 0.35, 0, 1.0, 0.35),
+            CategoryScore("navigation", 0.20, 0, 1.0, 0.20),
+            CategoryScore("content", 0.20, 0, 1.0, 0.20),
+            CategoryScore("brand", 0.15, 0, 1.0, 0.15),
         ],
     )
     result = runner.invoke(app, ["score", "--check-stamp", "--no-header"])
@@ -1837,12 +1828,11 @@ def test_check_orphans_short_format_alias(_orphans, _cfg, _root) -> None:
 @patch("zenzic.cli._check.validate_links_structured", return_value=[])
 @patch("zenzic.cli._check.find_orphans", return_value=[])
 @patch("zenzic.cli._check.validate_snippets", return_value=[])
-@patch("zenzic.cli._check.find_placeholders", return_value=[])
 @patch("zenzic.cli._check.find_unused_assets", return_value=[])
 @patch("zenzic.cli._check.check_nav_contract", return_value=[])
 @patch("zenzic.cli._check.scan_docs_references", return_value=([], []))
 def test_check_all_short_format_alias(
-    _refs, _nav, _assets, _ph, _snip, _orphans, _links, _cfg, _root
+    _refs, _nav, _assets, _snip, _orphans, _links, _cfg, _root
 ) -> None:
     """-f json must be accepted as alias for --format json in check all."""
     result = runner.invoke(app, ["check", "all", "-f", "json"])
@@ -1974,12 +1964,11 @@ def test_check_links_circular_link_note_strict_exits_0(_links, _cfg, _root) -> N
 @patch("zenzic.cli._check.validate_links_structured", return_value=[])
 @patch("zenzic.cli._check.find_orphans", return_value=[])
 @patch("zenzic.cli._check.validate_snippets", return_value=[])
-@patch("zenzic.cli._check.find_placeholders", return_value=[])
 @patch("zenzic.cli._check.find_unused_assets", return_value=[])
 @patch("zenzic.cli._check.check_nav_contract", return_value=[])
 @patch("zenzic.cli._check.scan_docs_references", return_value=([], []))
 def test_check_all_progress_bar_activation(
-    mock_scan, _nav, _assets, _ph, _snip, _orphans, _links, _cfg, _root, _count
+    mock_scan, _nav, _assets, _snip, _orphans, _links, _cfg, _root, _count
 ) -> None:
     """Verify that progress bar show_progress parameter obeys strict gate rules."""
     runner.invoke(app, ["check", "all"])
