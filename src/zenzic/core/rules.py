@@ -1133,6 +1133,57 @@ class EmptyLinkRule(BaseRule):
         return findings
 
 
+class MissingAltTextRule(BaseRule):
+    """Z403: Inline Markdown images and HTML <img> tags must have alt text."""
+
+    @property
+    def rule_id(self) -> str:
+        return "Z403"
+
+    def check(self, file_path: Path, text: str) -> list[RuleFinding]:
+        from zenzic.core.scanner import _RE_IMAGE_INLINE, _RE_HTML_IMG, _RE_HTML_ALT
+        
+        findings = []
+        for lineno, line in enumerate(text.splitlines(), start=1):
+            clean = _INLINE_CODE_RE.sub(lambda m: " " * len(m.group()), line)
+
+            # Inline Markdown images
+            for m in _RE_IMAGE_INLINE.finditer(clean):
+                alt_text = m.group(1)
+                url = m.group(2)
+                if not alt_text.strip():
+                    findings.append(
+                        RuleFinding(
+                            rule_id="Z403",
+                            severity="warning",
+                            file_path=file_path,
+                            line_no=lineno,
+                            message=f"Image '{url}' has no alt text.",
+                            matched_line=line,
+                        )
+                    )
+
+            # HTML <img> tags
+            for img_match in _RE_HTML_IMG.finditer(clean):
+                tag = img_match.group()
+                alt_match = _RE_HTML_ALT.search(tag)
+                src = tag  # fallback
+                if alt_match is None or not alt_match.group(1).strip():
+                    findings.append(
+                        RuleFinding(
+                            rule_id="Z403",
+                            severity="warning",
+                            file_path=file_path,
+                            line_no=lineno,
+                            message=f"HTML <img> tag has no alt text: {src[:60]}",
+                            matched_line=line,
+                        )
+                    )
+
+        return findings
+
+
+
 class VSMBrokenLinkRule(BaseRule):
     """VSM-aware broken link detector (🔌 Dev 3).
 
