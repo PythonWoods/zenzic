@@ -11,16 +11,21 @@ import sys
 import time
 import traceback
 from pathlib import Path
-from typing import BinaryIO, TypedDict, cast
+from typing import Any, BinaryIO, TypedDict, cast
 
-from zenzic.core.adapters import get_adapter
+from zenzic.core.adapters import BaseAdapter, get_adapter
 from zenzic.core.discovery import iter_markdown_sources
 from zenzic.core.exclusion import LayeredExclusionManager
 from zenzic.core.rules import AdaptiveRuleEngine, RuleFinding
 from zenzic.core.scanner import _build_rule_engine
 from zenzic.lsp.documents import DocumentManager
 from zenzic.models.config import ZenzicConfig
-from zenzic.models.diagnostics import DiagnosticPosition, DiagnosticRange, Severity, ZenzicDiagnostic
+from zenzic.models.diagnostics import (
+    DiagnosticPosition,
+    DiagnosticRange,
+    Severity,
+    ZenzicDiagnostic,
+)
 from zenzic.models.vsm import VSM, Route, VirtualBufferOverlay, build_vsm
 
 
@@ -30,7 +35,7 @@ class JsonRpcMessage(TypedDict, total=False):
     jsonrpc: str
     id: int | str
     method: str
-    params: dict[str, object]
+    params: dict[str, Any]
 
 
 class LanguageServer:
@@ -54,7 +59,7 @@ class LanguageServer:
 
         # Phase 4: VSM Integration
         self.repo_root: Path | None = None
-        self.adapter: Any | None = None
+        self.adapter: BaseAdapter | None = None
         self.vsm: VSM | None = None
         self.overlay: VirtualBufferOverlay | None = None
 
@@ -97,11 +102,7 @@ class LanguageServer:
         while not self.exit_received:
             try:
                 # 1. Process Debounced Dirty Documents
-                now = time.time()
-                for uri, last_edit in list(self.dirty_documents.items()):
-                    if now - last_edit >= 0.3:
-                        self._publish_diagnostics(uri, self.documents.documents[uri])
-                        del self.dirty_documents[uri]
+                self._flush_dirty_documents()
 
                 # 2. Yield and wait for input
                 try:
@@ -275,7 +276,7 @@ class LanguageServer:
                 result={
                     "capabilities": {
                         "textDocumentSync": 2,  # Incremental sync (Zero-DBT Enforcement)
-                        "hoverProvider": True
+                        "hoverProvider": True,
                     },
                     "serverInfo": {"name": "Zenzic Language Server", "version": "0.21.0"},
                 },
@@ -332,8 +333,7 @@ class LanguageServer:
             # Memory Hygiene: purge the document state entirely
             pass
 
-        if incremental_uris:
-            self._sync_workspace_and_publish(incremental_uris)
+
 
     def _sync_workspace_and_publish(self, incremental_uris: set[str] | None = None) -> None:
         """Run validation incrementally. Full sync on first run, partial otherwise.
@@ -352,12 +352,13 @@ class LanguageServer:
             self.anchors_cache: dict[Path, set[str]] = {}
             incremental_uris = None  # Force full sync
 
-        from zenzic.core.discovery import iter_markdown_sources, LayeredExclusionManager
-        from zenzic.core.validator import anchors_in_file, PolyglotExtractor
-        from zenzic.core.rules import ResolutionContext, _extract_inline_links_with_lines
+        from zenzic.core.discovery import iter_markdown_sources
+        from zenzic.core.exclusion import LayeredExclusionManager
+        from zenzic.core.rules import ResolutionContext
+        from zenzic.core.validator import anchors_in_file
         from zenzic.models.vsm import build_vsm
 
-        exclusion_manager = LayeredExclusionManager(self.repo_root)
+        exclusion_manager = LayeredExclusionManager(self.config, repo_root=self.repo_root, docs_root=docs_root)
 
         # 1. Update text and anchors for modified files (or all files on full sync)
         files_to_process: set[Path] = set()
@@ -391,7 +392,11 @@ class LanguageServer:
         # 2. Re-build VSM topology (fast O(1) patch via adapter or fast rebuild)
         # build_vsm uses md_contents_cache which is fully updated
         self.vsm = build_vsm(
-            self.adapter, docs_root, self.md_contents_cache, anchors_cache=self.anchors_cache, repo_root=self.repo_root
+            self.adapter,
+            docs_root,
+            self.md_contents_cache,
+            anchors_cache=self.anchors_cache,
+            repo_root=self.repo_root,
         )
 
         # 3. Expand files_to_process with dependents via overlay's O(1) reverse index
@@ -400,9 +405,7 @@ class LanguageServer:
             for path in files_to_process:
                 rel = path.relative_to(docs_root).as_posix()
                 # Resolve to canonical URL via VSM for reverse lookup
-                canonical = next(
-                    (url for url, r in self.vsm.items() if r.source == rel), ""
-                )
+                canonical = next((url for url, r in self.vsm.items() if r.source == rel), "")
                 if canonical:
                     dependents.update(self.overlay.dependents_of(canonical))
             files_to_process.update(dependents)
@@ -416,6 +419,7 @@ class LanguageServer:
             findings = []
 
             from zenzic.core.suppressions import SuppressionTracker
+
             tracker = SuppressionTracker(path, text)
 
             # Atomic Rules
@@ -423,19 +427,25 @@ class LanguageServer:
 
             # VSM-aware Rules
             context = ResolutionContext(docs_root=docs_root, source_file=path)
-            findings.extend(self.rule_engine.run_vsm(path, text, self.vsm, self.anchors_cache, context))
+            findings.extend(
+                self.rule_engine.run_vsm(path, text, self.vsm, self.anchors_cache, context)
+            )
 
             # Snippets
             from zenzic.core.validator import check_snippet_content
+
             for s_err in check_snippet_content(text, path, self.config):
                 from zenzic.core.rules import RuleFinding
-                findings.append(RuleFinding(
-                    file_path=path,
-                    line_no=s_err.line_no,
-                    rule_id=s_err.code,
-                    message=s_err.message,
-                    severity="error"
-                ))
+
+                findings.append(
+                    RuleFinding(
+                        file_path=path,
+                        line_no=s_err.line_no,
+                        rule_id=s_err.code,
+                        message=s_err.message,
+                        severity="error",
+                    )
+                )
 
             # URP In-Memory Checks (Z120-Z124, Z205, Z102, Z105, Z202, Z203)
             # Extracted from the previous URP logic to run incrementally per file
@@ -465,16 +475,18 @@ class LanguageServer:
                     "info": Severity.INFORMATION,
                 }.get(severity_str, Severity.ERROR)
 
-                typed_diags.append(ZenzicDiagnostic(
-                    range=DiagnosticRange(
-                        start=DiagnosticPosition(line=line_no, character=utf16_start),
-                        end=DiagnosticPosition(line=line_no, character=utf16_end),
-                    ),
-                    severity=severity,
-                    code=getattr(f, "rule_id", "Unknown"),
-                    source="zenzic",
-                    message=getattr(f, "message", "Violation"),
-                ))
+                typed_diags.append(
+                    ZenzicDiagnostic(
+                        range=DiagnosticRange(
+                            start=DiagnosticPosition(line=line_no, character=utf16_start),
+                            end=DiagnosticPosition(line=line_no, character=utf16_end),
+                        ),
+                        severity=severity,
+                        code=getattr(f, "rule_id", "Unknown"),
+                        source="zenzic",
+                        message=getattr(f, "message", "Violation"),
+                    )
+                )
 
             # Store strictly typed diagnostics on the VSM route (Mirror Law)
             rel = path.relative_to(docs_root).as_posix()
@@ -505,12 +517,12 @@ class LanguageServer:
 
     def _run_incremental_urp(self, path: Path, text: str, docs_root: Path) -> list[RuleFinding]:
         """Run the URP checks on a single file using the cached graph topology."""
-        from zenzic.core.validator import PolyglotExtractor
-        from zenzic.core.rules import RuleFinding, _extract_inline_links_with_lines
         from urllib.parse import urlsplit
 
+        from zenzic.core.rules import RuleFinding, _extract_inline_links_with_lines
+        from zenzic.core.validator import PolyglotExtractor
+
         findings = []
-        label = path.name
         lines = text.splitlines()
 
         def _source_line(lineno: int) -> str:
@@ -521,21 +533,96 @@ class LanguageServer:
         for node in PolyglotExtractor().extract(text):
             ctx = _source_line(node.line_no)
             if node.z205_scheme:
-                findings.append(RuleFinding(path, node.line_no, "Z205", f"forbidden scheme '{node.z205_scheme}' detected", severity="error", matched_line=ctx, col_start=0, match_text=node.raw_tag))
+                findings.append(
+                    RuleFinding(
+                        path,
+                        node.line_no,
+                        "Z205",
+                        f"forbidden scheme '{node.z205_scheme}' detected",
+                        severity="error",
+                        matched_line=ctx,
+                        col_start=0,
+                        match_text=node.raw_tag,
+                    )
+                )
             for attr in node.blacklisted_attrs:
-                findings.append(RuleFinding(path, node.line_no, "Z124", f"opaque attribute '{attr}' detected", severity="error", matched_line=ctx, col_start=0, match_text=node.raw_tag))
+                findings.append(
+                    RuleFinding(
+                        path,
+                        node.line_no,
+                        "Z124",
+                        f"opaque attribute '{attr}' detected",
+                        severity="error",
+                        matched_line=ctx,
+                        col_start=0,
+                        match_text=node.raw_tag,
+                    )
+                )
             if node.is_missing_href:
-                findings.append(RuleFinding(path, node.line_no, "Z121", f"missing href or src", severity="error", matched_line=ctx, col_start=0, match_text=node.raw_tag))
+                findings.append(
+                    RuleFinding(
+                        path,
+                        node.line_no,
+                        "Z121",
+                        "missing href or src",
+                        severity="error",
+                        matched_line=ctx,
+                        col_start=0,
+                        match_text=node.raw_tag,
+                    )
+                )
             if node.is_jump_link:
-                findings.append(RuleFinding(path, node.line_no, "Z122", f"href='#' detected", severity="error", matched_line=ctx, col_start=0, match_text=node.raw_tag))
+                findings.append(
+                    RuleFinding(
+                        path,
+                        node.line_no,
+                        "Z122",
+                        "href='#' detected",
+                        severity="error",
+                        matched_line=ctx,
+                        col_start=0,
+                        match_text=node.raw_tag,
+                    )
+                )
             for attr in node.unknown_attrs:
-                findings.append(RuleFinding(path, node.line_no, "Z120", f"unknown attribute '{attr}'", severity="error", matched_line=ctx, col_start=0, match_text=node.raw_tag))
+                findings.append(
+                    RuleFinding(
+                        path,
+                        node.line_no,
+                        "Z120",
+                        f"unknown attribute '{attr}'",
+                        severity="error",
+                        matched_line=ctx,
+                        col_start=0,
+                        match_text=node.raw_tag,
+                    )
+                )
             if node.info_scheme:
-                findings.append(RuleFinding(path, node.line_no, "Z123", f"non-HTTP scheme '{node.info_scheme}'", severity="info", matched_line=ctx, col_start=0, match_text=node.raw_tag))
+                findings.append(
+                    RuleFinding(
+                        path,
+                        node.line_no,
+                        "Z123",
+                        f"non-HTTP scheme '{node.info_scheme}'",
+                        severity="info",
+                        matched_line=ctx,
+                        col_start=0,
+                        match_text=node.raw_tag,
+                    )
+                )
 
         # Markdown Links
         local_anchors = self.anchors_cache.get(path, set())
-        _bypass_schemes = ("mailto:", "tel:", "javascript:", "data:", "irc:", "xmpp:", "http://", "https://")
+        _bypass_schemes = (
+            "mailto:",
+            "tel:",
+            "javascript:",
+            "data:",
+            "irc:",
+            "xmpp:",
+            "http://",
+            "https://",
+        )
 
         for url, lineno, raw_line in _extract_inline_links_with_lines(text):
             if url.startswith(_bypass_schemes) or url == "#":
@@ -545,22 +632,49 @@ class LanguageServer:
 
             # Z202 / Z203
             if "../" in url and url.count("../") > len(path.parents):
-                findings.append(RuleFinding(path, lineno, "Z202", f"Path traversal escape detected: '{url}'", severity="error", matched_line=raw_line))
+                findings.append(
+                    RuleFinding(
+                        path,
+                        lineno,
+                        "Z202",
+                        f"Path traversal escape detected: '{url}'",
+                        severity="error",
+                        matched_line=raw_line,
+                    )
+                )
 
             # Z105
             if parsed.path.startswith("/"):
-                findings.append(RuleFinding(path, lineno, "Z105", f"Absolute path '{url}' found.", severity="error", matched_line=raw_line))
+                findings.append(
+                    RuleFinding(
+                        path,
+                        lineno,
+                        "Z105",
+                        f"Absolute path '{url}' found.",
+                        severity="error",
+                        matched_line=raw_line,
+                    )
+                )
 
             # Z102
             if not parsed.path and parsed.fragment:
                 anchor = parsed.fragment.lower()
                 if anchor not in local_anchors:
-                    findings.append(RuleFinding(path, lineno, "Z102", f"anchor '#{anchor}' not found", severity="error", matched_line=raw_line))
+                    findings.append(
+                        RuleFinding(
+                            path,
+                            lineno,
+                            "Z102",
+                            f"anchor '#{anchor}' not found",
+                            severity="error",
+                            matched_line=raw_line,
+                        )
+                    )
 
         return findings
 
     def _handle_hover(self, params: dict[str, Any], msg_id: int | str | None) -> None:
-        if msg_id is None or not getattr(self, "vsm", None) or not getattr(self, "repo_root", None) or not getattr(self, "config", None):
+        if msg_id is None or not self.vsm or not self.repo_root or not self.config:
             return
 
         doc = params.get("textDocument", {})
@@ -610,7 +724,9 @@ class LanguageServer:
 
         contents: list[str] = []
         if defn:
-            contents.append(f"**{code}** (Penalty: -{defn.penalty} pts, Category: {defn.category or 'ungraded'})")
+            contents.append(
+                f"**{code}** (Penalty: -{defn.penalty} pts, Category: {defn.category or 'ungraded'})"
+            )
         else:
             contents.append(f"**{code}**")
         contents.append(desc)
