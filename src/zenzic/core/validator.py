@@ -1967,9 +1967,10 @@ def validate_links_structured(
     )
     assert isinstance(result, list)
     return result  # type: ignore[return-value]
+
+
 # ─── Decoupled URP for Language Server (In-Memory) ────────────────────────────
 # Removed: Graph topology is the only source of truth. No single-file bypasses.
-
 
 
 # ─── Multi-language snippet validation ────────────────────────────────────────

@@ -1,8 +1,9 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
 """Integration and performance tests for the incremental ZLS sync pipeline."""
+
 import time
 from pathlib import Path
-
-import pytest
 
 from zenzic.models.config import ZenzicConfig
 from zenzic.models.diagnostics import ZenzicDiagnostic
@@ -11,8 +12,8 @@ from zenzic.models.vsm import VirtualBufferOverlay
 
 def _make_server(tmp_path: Path) -> object:
     """Construct a ready-to-use LanguageServer pointed at tmp_path."""
-    from zenzic.lsp.server import LanguageServer
     from zenzic.core.scanner import _build_rule_engine
+    from zenzic.lsp.server import LanguageServer
 
     config = ZenzicConfig(docs_dir="docs")
     server = LanguageServer()
@@ -53,8 +54,6 @@ def test_cross_file_link_invalidation(tmp_path: Path) -> None:
     server = _make_server(tmp_path)
     server._sync_workspace_and_publish()  # type: ignore[union-attr]
 
-    uri_a = f"file://{file_a.resolve()}"
-
     # Confirm no Z102 initially
     route_a = next(
         (r for r in server.vsm.values() if r.source == "a.md"),  # type: ignore[union-attr]
@@ -86,9 +85,7 @@ def test_incremental_latency_large_workspace(tmp_path: Path) -> None:
     docs_dir.mkdir()
 
     for i in range(1000):
-        (docs_dir / f"file_{i}.md").write_text(
-            f"# Heading {i}\nSome text.", encoding="utf-8"
-        )
+        (docs_dir / f"file_{i}.md").write_text(f"# Heading {i}\nSome text.", encoding="utf-8")
 
     server = _make_server(tmp_path)
     server._sync_workspace_and_publish()  # type: ignore[union-attr]  # Full warm-up

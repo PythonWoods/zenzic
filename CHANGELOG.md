@@ -27,7 +27,6 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 - **Graph topology state from LSP layer**: `incoming_links` and `file_diagnostics` removed from `LanguageServer`. All dependency tracking is now owned by `VirtualBufferOverlay`.
 
-
 ## Historical Releases
 
 - v0.22.x archive: [changelogs/v0.22.x.md](./changelogs/v0.22.x.md)

@@ -1,3 +1,5 @@
+<!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 # Zenzic Language Server (ZLS) Integration
 
 > **ADR coverage:** ADR-075 (Radical Unawareness), ADR-020 (Mirror Law), ADR-013 (RE2 Discipline)
@@ -42,7 +44,7 @@ The `to_lsp_dict()` method is the **single serialization boundary**. Untyped dic
 
 The `update()` method automatically calls `_reindex_outgoing_links()`, which re-parses the changed buffer's Markdown links and HTML nodes via `_extract_inline_links_with_lines` and `PolyglotExtractor`, rebuilding the relevant reverse-index entries in O(link count) time.
 
-```
+```python
 overlay.dependents_of(canonical_url) -> frozenset[Path]   # O(1)
 overlay.update(uri, content)                               # O(links in buffer)
 overlay.remove(uri)                                        # O(total URLs in index)

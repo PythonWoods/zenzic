@@ -330,7 +330,8 @@ class LanguageServer:
                 self.dirty_documents[uri] = time.time()
         elif method == "textDocument/didClose":
             # Memory Hygiene: purge the document state entirely
-        
+            pass
+
         if incremental_uris:
             self._sync_workspace_and_publish(incremental_uris)
 
@@ -360,7 +361,7 @@ class LanguageServer:
 
         # 1. Update text and anchors for modified files (or all files on full sync)
         files_to_process: set[Path] = set()
-        
+
         if incremental_uris is None:
             # Full read
             for md_file in iter_markdown_sources(docs_root, self.config, exclusion_manager):
@@ -413,17 +414,17 @@ class LanguageServer:
             text = self.md_contents_cache[path]
             uri = f"file://{path}"
             findings = []
-            
+
             from zenzic.core.suppressions import SuppressionTracker
             tracker = SuppressionTracker(path, text)
-            
+
             # Atomic Rules
             findings.extend(self.rule_engine.run_with_tracker(path, text, tracker))
-            
+
             # VSM-aware Rules
             context = ResolutionContext(docs_root=docs_root, source_file=path)
             findings.extend(self.rule_engine.run_vsm(path, text, self.vsm, self.anchors_cache, context))
-            
+
             # Snippets
             from zenzic.core.validator import check_snippet_content
             for s_err in check_snippet_content(text, path, self.config):
@@ -545,7 +546,7 @@ class LanguageServer:
             # Z202 / Z203
             if "../" in url and url.count("../") > len(path.parents):
                 findings.append(RuleFinding(path, lineno, "Z202", f"Path traversal escape detected: '{url}'", severity="error", matched_line=raw_line))
-            
+
             # Z105
             if parsed.path.startswith("/"):
                 findings.append(RuleFinding(path, lineno, "Z105", f"Absolute path '{url}' found.", severity="error", matched_line=raw_line))
@@ -574,7 +575,7 @@ class LanguageServer:
         except ValueError:
             self.send_response(msg_id, result=None)
             return
-        
+
         target_route = None
         for route in self.vsm.values():
             if route.source == rel:

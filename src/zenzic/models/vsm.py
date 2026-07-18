@@ -273,6 +273,7 @@ class VirtualBufferOverlay:
     def _reindex_outgoing_links(self, path: Path, content: str) -> None:
         """Rebuild the reverse-index entries emitted by ``path``."""
         from urllib.parse import urlsplit
+
         from zenzic.core.rules import _extract_inline_links_with_lines
         from zenzic.core.validator import PolyglotExtractor
 
