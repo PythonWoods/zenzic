@@ -26,7 +26,7 @@ from zenzic.models.diagnostics import (
     Severity,
     ZenzicDiagnostic,
 )
-from zenzic.models.vsm import VSM, Route, VirtualBufferOverlay, build_vsm
+from zenzic.models.vsm import Route, VirtualBufferOverlay, VirtualSiteMap, build_vsm
 
 
 class JsonRpcMessage(TypedDict, total=False):
@@ -60,7 +60,7 @@ class LanguageServer:
         # Phase 4: VSM Integration
         self.repo_root: Path | None = None
         self.adapter: BaseAdapter | None = None
-        self.vsm: VSM | None = None
+        self.vsm: VirtualSiteMap | None = None
         self.overlay: VirtualBufferOverlay | None = None
 
     def send_message(self, message: dict[str, Any]) -> None:
@@ -208,6 +208,7 @@ class LanguageServer:
 
         self.adapter = get_adapter(self.config.build_context, docs_root, self.repo_root)
         self.vsm = build_vsm(self.adapter, docs_root, md_contents, repo_root=self.repo_root)
+        assert self.vsm is not None
         self.overlay = VirtualBufferOverlay(self.vsm)
         # Populate overlay with currently open documents
         for uri, text in self.documents.documents.items():
@@ -216,36 +217,38 @@ class LanguageServer:
 
     def _handle_file_changes(self, changes: list[dict[str, Any]]) -> None:
         """Incrementally update the VSM in O(1) time."""
-        if not self.vsm or not self.adapter or not self.config or not self.repo_root:
+        if self.vsm is None or not self.adapter or not self.config:
             return
 
-        docs_root = self.repo_root / self.config.docs_dir
+        assert isinstance(self.vsm, VirtualSiteMap)
+
+        from zenzic.core.validator import anchors_in_file
 
         for change in changes:
             uri = change.get("uri", "")
             change_type = change.get("type")
             if not uri.startswith("file://"):
                 continue
-            file_path = Path(uri[7:])
-
-            try:
-                rel_path_obj = file_path.relative_to(docs_root)
-                rel_path_str = rel_path_obj.as_posix()
-            except ValueError:
-                continue
+            file_path = Path(uri[7:]).resolve()
 
             if change_type in (1, 2):  # Created or Changed
-                route_meta = self.adapter.get_route_info(rel_path_obj)
-                if route_meta:
-                    self.vsm[route_meta.canonical_url] = Route(
-                        url=route_meta.canonical_url,
-                        source=rel_path_str,
-                        status=route_meta.status,
-                    )
+                try:
+                    text = file_path.read_text(encoding="utf-8")
+                    if not hasattr(self, "md_contents_cache"):
+                        self.md_contents_cache = {}
+                    if not hasattr(self, "anchors_cache"):
+                        self.anchors_cache = {}
+                    self.md_contents_cache[file_path] = text
+                    self.anchors_cache[file_path] = anchors_in_file(text)
+                except OSError:
+                    pass
             elif change_type == 3:  # Deleted
-                urls_to_remove = [url for url, r in self.vsm.items() if r.source == rel_path_str]
-                for u in urls_to_remove:
-                    del self.vsm[u]
+                if hasattr(self, "md_contents_cache"):
+                    self.md_contents_cache.pop(file_path, None)
+                if hasattr(self, "anchors_cache"):
+                    self.anchors_cache.pop(file_path, None)
+
+            self.dirty_documents[uri] = 0.0
 
         for open_uri in self.documents.documents:
             self.dirty_documents[open_uri] = 0.0
@@ -333,23 +336,42 @@ class LanguageServer:
             # Memory Hygiene: purge the document state entirely
             pass
 
-
-
     def _sync_workspace_and_publish(self, incremental_uris: set[str] | None = None) -> None:
         """Run validation incrementally. Full sync on first run, partial otherwise.
 
-        Topology awareness (reverse index) is owned by the VirtualBufferOverlay.
-        The LanguageServer remains a stateless transport proxy w.r.t. graph edges.
+        Topology awareness (reverse index) is owned by the VirtualSiteMap.
         """
-        if not self.config or not self.repo_root or not self.rule_engine:
-            return
+        has_workspace = self.repo_root is not None
+        repo_root = self.repo_root or Path("/")
 
-        docs_root = self.repo_root / self.config.docs_dir
+        if not self.config:
+            if self.repo_root:
+                self.config, _ = ZenzicConfig.load(self.repo_root)
+            else:
+                self.config = ZenzicConfig()
+        if not self.rule_engine:
+            self.rule_engine = _build_rule_engine(self.config)
+
+        docs_root = repo_root / self.config.docs_dir if self.repo_root else Path("/_zenzic_virtual")
+
+        if not self.adapter:
+            self.adapter = get_adapter(self.config.build_context, docs_root, repo_root)
+            if self.vsm is None:
+                self.vsm = VirtualSiteMap()
+
+            assert isinstance(self.vsm, VirtualSiteMap)
+
+            if self.overlay is None:
+                self.overlay = VirtualBufferOverlay(self.vsm)
+                for open_uri, open_text in self.documents.documents.items():
+                    self.overlay.update(open_uri, open_text)
+
+        assert isinstance(self.vsm, VirtualSiteMap)
 
         # Initialize per-file content cache if first run (not topology state)
         if not hasattr(self, "md_contents_cache"):
-            self.md_contents_cache: dict[Path, str] = {}
-            self.anchors_cache: dict[Path, set[str]] = {}
+            self.md_contents_cache = {}
+            self.anchors_cache = {}
             incremental_uris = None  # Force full sync
 
         from zenzic.core.discovery import iter_markdown_sources
@@ -358,25 +380,40 @@ class LanguageServer:
         from zenzic.core.validator import anchors_in_file
         from zenzic.models.vsm import build_vsm
 
-        exclusion_manager = LayeredExclusionManager(self.config, repo_root=self.repo_root, docs_root=docs_root)
+        exclusion_manager = LayeredExclusionManager(
+            self.config, repo_root=repo_root, docs_root=docs_root
+        )
 
         # 1. Update text and anchors for modified files (or all files on full sync)
         files_to_process: set[Path] = set()
 
         if incremental_uris is None:
             # Full read
-            for md_file in iter_markdown_sources(docs_root, self.config, exclusion_manager):
-                uri = f"file://{md_file.resolve()}"
-                if self.overlay and uri in self.overlay.buffers:
-                    text = self.overlay.buffers[uri]
-                else:
-                    try:
-                        text = md_file.read_text(encoding="utf-8")
-                    except OSError:
-                        continue
-                self.md_contents_cache[md_file.resolve()] = text
-                self.anchors_cache[md_file.resolve()] = anchors_in_file(text)
-                files_to_process.add(md_file.resolve())
+            if has_workspace:
+                for md_file in iter_markdown_sources(docs_root, self.config, exclusion_manager):
+                    uri = f"file://{md_file.resolve()}"
+                    if self.overlay and uri in self.overlay.buffers:
+                        text = self.overlay.buffers[uri]
+                    else:
+                        try:
+                            text = md_file.read_text(encoding="utf-8")
+                        except OSError:
+                            continue
+                    path = md_file.resolve()
+                    self.md_contents_cache[path] = text
+                    self.anchors_cache[path] = anchors_in_file(text)
+                    files_to_process.add(path)
+
+            # Open buffers that might be outside docs_root or not on disk yet
+            for uri in self.documents.documents:
+                if uri.startswith("file://"):
+                    path = Path(uri[7:]).resolve()
+                    if path not in self.md_contents_cache:
+                        if self.overlay and uri in self.overlay.buffers:
+                            text = self.overlay.buffers[uri]
+                            self.md_contents_cache[path] = text
+                            self.anchors_cache[path] = anchors_in_file(text)
+                            files_to_process.add(path)
         else:
             # Incremental read
             for uri in incremental_uris:
@@ -387,49 +424,132 @@ class LanguageServer:
                     text = self.overlay.buffers[uri]
                     self.md_contents_cache[path] = text
                     self.anchors_cache[path] = anchors_in_file(text)
-                    files_to_process.add(path)
+                files_to_process.add(path)
 
-        # 2. Re-build VSM topology (fast O(1) patch via adapter or fast rebuild)
-        # build_vsm uses md_contents_cache which is fully updated
-        self.vsm = build_vsm(
-            self.adapter,
-            docs_root,
-            self.md_contents_cache,
-            anchors_cache=self.anchors_cache,
-            repo_root=self.repo_root,
-        )
+        # 2. Re-build VSM topology
+        if incremental_uris is None:
+            self.vsm = build_vsm(
+                self.adapter,
+                docs_root,
+                self.md_contents_cache,
+                anchors_cache=self.anchors_cache,
+                repo_root=repo_root,
+            )
+        else:
+            # O(K) in-place patch
+            for path in files_to_process:
+                # 1. If file is deleted, remove route from self.vsm
+                if path not in self.md_contents_cache:
+                    try:
+                        if path.is_relative_to(docs_root):
+                            rel_obj = path.relative_to(docs_root)
+                        else:
+                            rel_obj = path
+                        route_meta = self.adapter.get_route_info(rel_obj)
+                        canonical = route_meta.canonical_url
+                    except Exception:
+                        canonical = ""
+                    if canonical and canonical in self.vsm:
+                        del self.vsm[canonical]
+                    if hasattr(self.vsm, "remove_outgoing_links"):
+                        self.vsm.remove_outgoing_links(path)
+                else:
+                    # 2. If created or modified, update route in self.vsm
+                    try:
+                        if path.is_relative_to(docs_root):
+                            rel_obj = path.relative_to(docs_root)
+                        else:
+                            rel_obj = path
+                        route_meta = self.adapter.get_route_info(rel_obj)
+                    except Exception:
+                        route_meta = None
 
-        # 3. Expand files_to_process with dependents via overlay's O(1) reverse index
-        if incremental_uris is not None and self.overlay is not None:
+                    if route_meta:
+                        self.vsm[route_meta.canonical_url] = Route(
+                            url=route_meta.canonical_url,
+                            source=rel_obj.as_posix(),
+                            status=route_meta.status,
+                            anchors=self.anchors_cache.get(path, set()),
+                        )
+                    if hasattr(self.vsm, "reindex_outgoing_links"):
+                        self.vsm.reindex_outgoing_links(
+                            path,
+                            self.md_contents_cache[path],
+                            docs_root,
+                            [],
+                            self.adapter,
+                        )
+
+        assert isinstance(self.vsm, VirtualSiteMap)
+
+        if self.overlay is not None:
+            self.overlay.vsm = self.vsm
+
+        # 3. Expand files_to_process with dependents via VSM's O(1) reverse index
+        if incremental_uris is not None:
             dependents: set[Path] = set()
             for path in files_to_process:
-                rel = path.relative_to(docs_root).as_posix()
-                # Resolve to canonical URL via VSM for reverse lookup
-                canonical = next((url for url, r in self.vsm.items() if r.source == rel), "")
-                if canonical:
-                    dependents.update(self.overlay.dependents_of(canonical))
+                # 1. Look up canonical URL via relative path in the VSM
+                try:
+                    rel_posix = path.relative_to(docs_root).as_posix()
+                except ValueError:
+                    rel_posix = path.absolute().as_posix()
+                canonical = next((url for url, r in self.vsm.items() if r.source == rel_posix), "")
+
+                # 2. Or compute it directly via adapter.get_route_info
+                if not canonical:
+                    try:
+                        if path.is_relative_to(docs_root):
+                            rel_obj = path.relative_to(docs_root)
+                        else:
+                            rel_obj = path
+                        meta = self.adapter.get_route_info(rel_obj)
+                        canonical = meta.canonical_url
+                    except Exception:
+                        pass
+
+                if canonical and hasattr(self.vsm, "incoming_links"):
+                    dependents.update(self.vsm.incoming_links.get(canonical, set()))
             files_to_process.update(dependents)
 
+        # 4. Add virtual routes for out-of-bounds files in files_to_process (Mirror Law)
+        for path in files_to_process:
+            try:
+                rel_posix = path.relative_to(docs_root).as_posix()
+            except ValueError:
+                rel_posix = path.absolute().as_posix()
+
+            # Find if there is already a route for this source
+            route = next((r for r in self.vsm.values() if r.source == rel_posix), None)
+            if not route:
+                virtual_url = f"/_virtual/{path.name}"
+                self.vsm[virtual_url] = Route(
+                    url=virtual_url,
+                    source=rel_posix,
+                    status="REACHABLE",
+                    anchors=self.anchors_cache.get(path, set()),
+                )
+
         # 5. Run URP & Engine ONLY on files_to_process
+        engine = self.rule_engine
+        assert engine is not None
         for path in files_to_process:
             if path not in self.md_contents_cache:
                 continue
             text = self.md_contents_cache[path]
             uri = f"file://{path}"
-            findings = []
+            findings: list[RuleFinding] = []
 
             from zenzic.core.suppressions import SuppressionTracker
 
             tracker = SuppressionTracker(path, text)
 
             # Atomic Rules
-            findings.extend(self.rule_engine.run_with_tracker(path, text, tracker))
+            findings.extend(engine.run_with_tracker(path, text, tracker))
 
             # VSM-aware Rules
             context = ResolutionContext(docs_root=docs_root, source_file=path)
-            findings.extend(
-                self.rule_engine.run_vsm(path, text, self.vsm, self.anchors_cache, context)
-            )
+            findings.extend(engine.run_vsm(path, text, self.vsm, self.anchors_cache, context))
 
             # Snippets
             from zenzic.core.validator import check_snippet_content
@@ -489,7 +609,10 @@ class LanguageServer:
                 )
 
             # Store strictly typed diagnostics on the VSM route (Mirror Law)
-            rel = path.relative_to(docs_root).as_posix()
+            try:
+                rel = path.relative_to(docs_root).as_posix()
+            except ValueError:
+                rel = path.absolute().as_posix()
             for route in self.vsm.values():
                 if route.source == rel:
                     route.diagnostics = typed_diags
@@ -498,7 +621,10 @@ class LanguageServer:
         # 6. Serialize at transport boundary and publish
         for path in files_to_process:
             uri = f"file://{path}"
-            rel = path.relative_to(docs_root).as_posix()
+            try:
+                rel = path.relative_to(docs_root).as_posix()
+            except ValueError:
+                rel = path.absolute().as_posix()
             typed_diags = next(
                 (r.diagnostics for r in self.vsm.values() if r.source == rel),
                 [],
@@ -521,6 +647,8 @@ class LanguageServer:
 
         from zenzic.core.rules import RuleFinding, _extract_inline_links_with_lines
         from zenzic.core.validator import PolyglotExtractor
+
+        assert isinstance(self.vsm, VirtualSiteMap)
 
         findings = []
         lines = text.splitlines()
@@ -632,50 +760,101 @@ class LanguageServer:
 
             # Z202 / Z203
             if "../" in url and url.count("../") > len(path.parents):
+                from zenzic.core.validator import _classify_traversal_intent
+
+                _intent = _classify_traversal_intent(url)
                 findings.append(
                     RuleFinding(
                         path,
                         lineno,
-                        "Z202",
+                        "Z203" if _intent == "suspicious" else "Z202",
                         f"Path traversal escape detected: '{url}'",
                         severity="error",
                         matched_line=raw_line,
                     )
                 )
+                continue
 
-            # Z105
-            if parsed.path.startswith("/"):
-                findings.append(
-                    RuleFinding(
-                        path,
-                        lineno,
-                        "Z105",
-                        f"Absolute path '{url}' found.",
-                        severity="error",
-                        matched_line=raw_line,
-                    )
-                )
+            # Z105 / Z203
+            elif parsed.path.startswith("/"):
+                from zenzic.core.validator import _classify_traversal_intent
 
-            # Z102
-            if not parsed.path and parsed.fragment:
-                anchor = parsed.fragment.lower()
-                if anchor not in local_anchors:
+                _intent = _classify_traversal_intent(url)
+                if _intent == "suspicious":
                     findings.append(
                         RuleFinding(
                             path,
                             lineno,
-                            "Z102",
-                            f"anchor '#{anchor}' not found",
+                            "Z203",
+                            f"Path traversal targeting OS system directories: '{url}'",
                             severity="error",
                             matched_line=raw_line,
                         )
                     )
+                else:
+                    findings.append(
+                        RuleFinding(
+                            path,
+                            lineno,
+                            "Z105",
+                            f"Absolute path '{url}' found.",
+                            severity="error",
+                            matched_line=raw_line,
+                        )
+                    )
+                continue
+
+            # Z102 (Local and Cross-file)
+            if parsed.fragment:
+                anchor = parsed.fragment.lower()
+                if not parsed.path:
+                    if anchor not in local_anchors:
+                        findings.append(
+                            RuleFinding(
+                                path,
+                                lineno,
+                                "Z102",
+                                f"anchor '#{anchor}' not found",
+                                severity="error",
+                                matched_line=raw_line,
+                            )
+                        )
+                else:
+                    from urllib.parse import unquote
+
+                    target_path = (path.parent / unquote(parsed.path)).resolve()
+                    try:
+                        if target_path.is_relative_to(docs_root):
+                            rel_obj = target_path.relative_to(docs_root)
+                        else:
+                            rel_obj = target_path
+                        if self.adapter:
+                            route_meta = self.adapter.get_route_info(rel_obj)
+                            route = self.vsm.get(route_meta.canonical_url)
+                        else:
+                            route = None
+                    except Exception:
+                        route = None
+
+                    if route is not None and anchor not in route.anchors:
+                        findings.append(
+                            RuleFinding(
+                                path,
+                                lineno,
+                                "Z102",
+                                f"anchor '#{anchor}' not found in '{parsed.path}'",
+                                severity="error",
+                                matched_line=raw_line,
+                            )
+                        )
 
         return findings
 
     def _handle_hover(self, params: dict[str, Any], msg_id: int | str | None) -> None:
-        if msg_id is None or not self.vsm or not self.repo_root or not self.config:
+        if msg_id is None or self.vsm is None or not self.repo_root or not self.config:
             return
+
+        assert isinstance(self.vsm, VirtualSiteMap)
 
         doc = params.get("textDocument", {})
         uri = doc.get("uri", "")

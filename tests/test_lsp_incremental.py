@@ -7,7 +7,6 @@ from pathlib import Path
 
 from zenzic.models.config import ZenzicConfig
 from zenzic.models.diagnostics import ZenzicDiagnostic
-from zenzic.models.vsm import VirtualBufferOverlay
 
 
 def _make_server(tmp_path: Path) -> object:
@@ -20,7 +19,7 @@ def _make_server(tmp_path: Path) -> object:
     server.repo_root = tmp_path
     server.config = config
     server.rule_engine = _build_rule_engine(config)
-    server.overlay = VirtualBufferOverlay({})
+    server._build_vsm_sync()
     return server
 
 

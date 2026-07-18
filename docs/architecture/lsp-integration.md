@@ -44,7 +44,7 @@ The `to_lsp_dict()` method is the **single serialization boundary**. Untyped dic
 
 The `update()` method automatically calls `_reindex_outgoing_links()`, which re-parses the changed buffer's Markdown links and HTML nodes via `_extract_inline_links_with_lines` and `PolyglotExtractor`, rebuilding the relevant reverse-index entries in O(link count) time.
 
-```python
+```text
 overlay.dependents_of(canonical_url) -> frozenset[Path]   # O(1)
 overlay.update(uri, content)                               # O(links in buffer)
 overlay.remove(uri)                                        # O(total URLs in index)

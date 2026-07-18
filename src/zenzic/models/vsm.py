@@ -18,7 +18,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from zenzic.core.adapters._base import BaseAdapter
 from zenzic.core.discovery import build_content_mounts
@@ -134,7 +134,7 @@ def build_vsm(
     anchors_cache: dict[Path, set[str]] | None = None,
     extra_content_roots: list[Path] | None = None,
     repo_root: Path | None = None,
-) -> VSM:
+) -> VirtualSiteMap:
     """Build the Virtual Site Map from a pre-loaded file map.
 
     This is the I/O boundary: all file content has already been loaded into
@@ -220,71 +220,58 @@ def build_vsm(
 
     _detect_collisions(routes)
 
-    return {r.url: r for r in routes}
+    vsm_instance = VirtualSiteMap({r.url: r for r in routes})
+    for abs_path, content in md_contents.items():
+        vsm_instance.reindex_outgoing_links(
+            abs_path,
+            content,
+            docs_root,
+            extra_mounts,
+            adapter,
+        )
+
+    return vsm_instance
 
 
-class VirtualBufferOverlay:
-    """Virtual Site Map overlay for in-memory buffers.
+class VirtualSiteMap(dict[str, Route]):
+    """The Virtual Site Map wrapper class.
 
-    Allows the Uniform Resolver Pipeline (URP) to resolve against memory buffers,
-    bypassing L1-L4 filesystem discovery.
-
-    Additionally owns the reverse-index (``incoming_links``) that maps every
-    canonical URL to the set of source files that link *to* it.  This index
-    enables O(1) dependent-file lookups for incremental validation without
-    leaking topological knowledge into the LSP transport layer.
+    Now owns the incoming_links reverse index (canonical URL -> set of paths).
     """
 
-    def __init__(self, vsm: VSM) -> None:
-        self.vsm: VSM = vsm
-        self.buffers: dict[str, str] = {}
-        self.anchors_cache: dict[Path, set[str]] = {}
-        # Reverse index: canonical URL → set of absolute Paths that contain
-        # an outgoing link resolving to that URL.
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
         self.incoming_links: dict[str, set[Path]] = {}
 
-    # ── Buffer management ─────────────────────────────────────────────────────
-
-    def update(self, uri: str, content: str) -> None:
-        """Register or refresh an in-memory buffer, updating anchors and the reverse index."""
-        from zenzic.core.validator import anchors_in_file
-
-        self.buffers[uri] = content
-        if uri.startswith("file://"):
-            path = Path(uri[7:])
-            self.anchors_cache[path] = anchors_in_file(content)
-            self._reindex_outgoing_links(path, content)
-
-    def remove(self, uri: str) -> None:
-        """Evict a buffer and purge its entries from the reverse index."""
-        self.buffers.pop(uri, None)
-        if uri.startswith("file://"):
-            path = Path(uri[7:])
-            self.anchors_cache.pop(path, None)
-            self._remove_outgoing_links(path)
-
-    # ── Reverse-index management ──────────────────────────────────────────────
-
-    def _remove_outgoing_links(self, path: Path) -> None:
-        """Discard ``path`` from every entry in the reverse index."""
+    def remove_outgoing_links(self, path: Path) -> None:
+        """Discard `path` from every entry in the reverse index."""
         for dependent_set in self.incoming_links.values():
             dependent_set.discard(path)
 
-    def _reindex_outgoing_links(self, path: Path, content: str) -> None:
-        """Rebuild the reverse-index entries emitted by ``path``."""
-        from urllib.parse import urlsplit
+    def reindex_outgoing_links(
+        self,
+        path: Path,
+        content: str,
+        docs_root: Path,
+        extra_mounts: list[tuple[Path, str]],
+        adapter: BaseAdapter,
+    ) -> None:
+        """Rebuild the reverse-index entries emitted by `path`."""
+        self.remove_outgoing_links(path)
 
         from zenzic.core.rules import _extract_inline_links_with_lines
         from zenzic.core.validator import PolyglotExtractor
 
-        # Remove stale outgoing links for this path first
-        self._remove_outgoing_links(path)
-
         def _register(url: str) -> None:
-            parsed = urlsplit(url)
-            base = parsed.path
-            if base:
-                self.incoming_links.setdefault(base, set()).add(path)
+            canonical = resolve_link_to_canonical(
+                path,
+                url,
+                docs_root,
+                extra_mounts,
+                adapter,
+            )
+            if canonical:
+                self.incoming_links.setdefault(canonical, set()).add(path)
 
         for url, _lineno, _raw in _extract_inline_links_with_lines(content):
             _register(url)
@@ -293,12 +280,106 @@ class VirtualBufferOverlay:
             if node.href:
                 _register(node.href)
 
-    def dependents_of(self, canonical_url: str) -> frozenset[Path]:
-        """Return the set of files that contain a link resolving to ``canonical_url``.
 
-        Returns an empty frozenset when no dependents are registered.  O(1).
-        """
-        return frozenset(self.incoming_links.get(canonical_url, set()))
+def resolve_link_to_canonical(
+    source_file: Path,
+    url: str,
+    docs_root: Path,
+    extra_mounts: list[tuple[Path, str]],
+    adapter: BaseAdapter,
+) -> str | None:
+    import os
+    from urllib.parse import unquote, urlsplit
+
+    _bypass_schemes = (
+        "mailto:",
+        "tel:",
+        "javascript:",
+        "data:",
+        "irc:",
+        "xmpp:",
+        "http://",
+        "https://",
+    )
+    if url.startswith(_bypass_schemes) or url == "#" or url.startswith("#"):
+        return None
+
+    parsed = urlsplit(url)
+    path_part = unquote(parsed.path.replace("\\", "/"))
+    if not path_part:
+        return None
+
+    # Resolve relative to source_file parent or docs_root
+    if path_part.startswith("/"):
+        target_path = docs_root / path_part.lstrip("/")
+    elif path_part.startswith("@site/docs/"):
+        target_path = docs_root / path_part[len("@site/docs/") :]
+    elif path_part.startswith("@site/"):
+        target_path = docs_root.parent / path_part[len("@site/") :]
+    else:
+        target_path = source_file.parent / path_part
+
+    # Clean up target_path (collapse segments)
+    target_path = Path(os.path.normpath(str(target_path)))
+
+    # Determine the relative path used by the adapter
+    if target_path.is_relative_to(docs_root):
+        rel = target_path.relative_to(docs_root)
+    else:
+        matched_root: tuple[Path, str] | None = None
+        for root, prefix in extra_mounts:
+            if target_path.is_relative_to(root):
+                matched_root = (root, prefix)
+                break
+        if matched_root is None:
+            return None
+        root, prefix = matched_root
+        inner = target_path.relative_to(root)
+        rel = (Path(prefix) / inner) if prefix else inner
+
+    meta = adapter.get_route_info(rel)
+    return meta.canonical_url
+
+
+class VirtualBufferOverlay:
+    """Virtual Site Map overlay for in-memory buffers.
+
+    Allows the Uniform Resolver Pipeline (URP) to resolve against memory buffers,
+    bypassing L1-L4 filesystem discovery.
+    """
+
+    def __init__(self, vsm: VirtualSiteMap) -> None:
+        self.vsm: VirtualSiteMap = vsm
+        self.buffers: dict[str, str] = {}
+        self.anchors_cache: dict[Path, set[str]] = {}
+
+    # ── Buffer management ─────────────────────────────────────────────────────
+
+    def update(self, uri: str, content: str) -> None:
+        """Register or refresh an in-memory buffer, updating anchors."""
+        from zenzic.core.validator import anchors_in_file
+
+        self.buffers[uri] = content
+        if uri.startswith("file://"):
+            path = Path(uri[7:])
+            self.anchors_cache[path] = anchors_in_file(content)
+
+    def register_file_links(self, path: Path, content: str) -> None:
+        """No-op. Reverse index is managed by VirtualSiteMap during build_vsm."""
+        pass
+
+    def remove(self, uri: str) -> None:
+        """Evict a buffer."""
+        self.buffers.pop(uri, None)
+        if uri.startswith("file://"):
+            path = Path(uri[7:])
+            self.anchors_cache.pop(path, None)
+
+    def dependents_of(self, canonical_url: str) -> frozenset[Path]:
+        """Return the set of files that contain a link resolving to ``canonical_url``."""
+        if hasattr(self.vsm, "incoming_links"):
+            return frozenset(self.vsm.incoming_links.get(canonical_url, set()))
+        return frozenset()
 
     # ── VSM proxy ─────────────────────────────────────────────────────────────
 

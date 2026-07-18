@@ -1342,6 +1342,11 @@ class VSMBrokenLinkRule(BaseRule):
             if url.startswith("#"):
                 continue  # same-page anchor — handled separately
 
+            from zenzic.core.validator import _classify_traversal_intent
+
+            if _classify_traversal_intent(url) == "suspicious":
+                continue
+
             # Compute the canonical URL this link would resolve to.
             # We apply the standard clean-URL transformation:
             #   guide/index.md  → /guide/

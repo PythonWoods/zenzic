@@ -143,6 +143,8 @@ nav:
       - developers/reference/zenzic-style.md
     - Explanation:
       - developers/explanation/adapter-internals.md
+      - Architecture:
+        - architecture/lsp-integration.md
       - ADR Vault:
         - developers/explanation/adr-vault/index.md
         - developers/explanation/adr-vault/records/adr-002-zero-subprocesses.md
