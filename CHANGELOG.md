@@ -11,6 +11,8 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-07-18
+
 ### Added
 
 - **`ZenzicDiagnostic` dataclass** (`zenzic.models.diagnostics`): Strict, frozen dataclass representing a diagnostic payload. Eliminates all `Any` and untyped `dict` usage from the diagnostic model. LSP serialization occurs exclusively via `ZenzicDiagnostic.to_lsp_dict()`.
