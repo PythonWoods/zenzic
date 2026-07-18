@@ -52,11 +52,13 @@ overlay.remove(uri)                                        # O(total URLs in ind
 
 ## Incremental VSM Update Mechanism
 
-Upon a `didChange` event:
+Upon a `didChange` event, the `LanguageServer` delegates analysis entirely to the transport-agnostic `IncrementalAnalysisEngine` (in `zenzic.core.incremental`).
 
-1. **Incremental buffer update** — only the modified URI is re-read from `overlay.buffers`; `md_contents_cache` and `anchors_cache` are patched in-place.
-2. **VSM patch** — `build_vsm` is called on the full `md_contents_cache` (already in memory); no disk reads occur.
-3. **Dependent expansion** — for each modified file, the server calls `overlay.dependents_of(canonical_url)` to retrieve the set of files that contain links resolving to the modified file. This is O(1).
-4. **Targeted validation** — the `AdaptiveRuleEngine` and `_run_incremental_urp` run only against the modified file and its dependents.
-5. **Typed store** — `route.diagnostics: list[ZenzicDiagnostic]` is replaced atomically.
-6. **Serialization boundary** — `[d.to_lsp_dict() for d in route.diagnostics]` produces the `publishDiagnostics` payload. This is the only location where typed diagnostics are converted to dicts.
+The engine executes the following deterministic O(K) pipeline:
+
+1. **Incremental cache update** — the modified URI is read from `overlay.buffers` (or disk if full sync); the engine's internal `md_contents_cache` and `anchors_cache` are patched atomically.
+2. **VSM topology patch** — the engine patches the `VirtualSiteMap` route in-place, without full rebuilds for incremental changes.
+3. **Dependent expansion** — for each modified file, the engine queries the VSM reverse index (`incoming_links`) to retrieve the set of files containing links that resolve to the modified file. This lookup is O(1).
+4. **Targeted validation** — the `AdaptiveRuleEngine` and Uniform Resolver Pipeline (URP) checks run *only* against the modified file and its topological dependents.
+5. **Typed store (Mirror Law)** — the engine computes `list[ZenzicDiagnostic]` instances and stores them on the respective `Route.diagnostics` fields.
+6. **Serialization boundary** — the engine returns a mapping of URIs to typed diagnostics. The `LanguageServer` then serializes these via `[d.to_lsp_dict() for d in typed_diags]` to produce the JSON-RPC `publishDiagnostics` payload. This is the only location where typed diagnostics are converted to dicts.
