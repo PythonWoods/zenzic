@@ -5,8 +5,13 @@
 Import the resolver and its outcome types from here::
 
     from zenzic.core import InMemoryPathResolver, Resolved, FileNotFound
+
+Import the incremental analysis engine::
+
+    from zenzic.core import IncrementalAnalysisEngine
 """
 
+from zenzic.core.incremental import IncrementalAnalysisEngine
 from zenzic.core.resolver import (
     AnchorMissing,
     FileNotFound,
@@ -20,6 +25,7 @@ from zenzic.core.resolver import (
 __all__ = [
     "AnchorMissing",
     "FileNotFound",
+    "IncrementalAnalysisEngine",
     "InMemoryPathResolver",
     "PathTraversal",
     "Resolved",

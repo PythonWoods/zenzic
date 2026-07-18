@@ -16,17 +16,15 @@ from typing import Any, BinaryIO, TypedDict, cast
 from zenzic.core.adapters import BaseAdapter, get_adapter
 from zenzic.core.discovery import iter_markdown_sources
 from zenzic.core.exclusion import LayeredExclusionManager
-from zenzic.core.rules import AdaptiveRuleEngine, RuleFinding
+from zenzic.core.incremental import IncrementalAnalysisEngine
+from zenzic.core.rules import AdaptiveRuleEngine
 from zenzic.core.scanner import _build_rule_engine
 from zenzic.lsp.documents import DocumentManager
 from zenzic.models.config import ZenzicConfig
 from zenzic.models.diagnostics import (
-    DiagnosticPosition,
-    DiagnosticRange,
-    Severity,
     ZenzicDiagnostic,
 )
-from zenzic.models.vsm import Route, VirtualBufferOverlay, VirtualSiteMap, build_vsm
+from zenzic.models.vsm import VirtualBufferOverlay, VirtualSiteMap, build_vsm
 
 
 class JsonRpcMessage(TypedDict, total=False):
@@ -62,6 +60,9 @@ class LanguageServer:
         self.adapter: BaseAdapter | None = None
         self.vsm: VirtualSiteMap | None = None
         self.overlay: VirtualBufferOverlay | None = None
+
+        # Phase 5: Decoupled Incremental Engine (ADR-075)
+        self.engine: IncrementalAnalysisEngine | None = None
 
     def send_message(self, message: dict[str, Any]) -> None:
         """Encode and send a JSON-RPC message to stdout."""
@@ -184,7 +185,7 @@ class LanguageServer:
             self._sync_workspace_and_publish(incremental_uris)
 
     def _build_vsm_sync(self) -> None:
-        """Synchronously build the initial VSM."""
+        """Synchronously build the initial VSM and instantiate the engine."""
         if not self.repo_root:
             return
 
@@ -213,16 +214,24 @@ class LanguageServer:
         # Populate overlay with currently open documents
         for uri, text in self.documents.documents.items():
             self.overlay.update(uri, text)
+
+        # Instantiate the decoupled incremental engine (ADR-075)
+        assert self.rule_engine is not None
+        self.engine = IncrementalAnalysisEngine(
+            config=self.config,
+            rule_engine=self.rule_engine,
+            adapter=self.adapter,
+            docs_root=docs_root,
+            repo_root=self.repo_root,
+        )
         self._flush_dirty_documents()
 
     def _handle_file_changes(self, changes: list[dict[str, Any]]) -> None:
-        """Incrementally update the VSM in O(1) time."""
+        """Incrementally update file caches and trigger revalidation."""
         if self.vsm is None or not self.adapter or not self.config:
             return
 
         assert isinstance(self.vsm, VirtualSiteMap)
-
-        from zenzic.core.validator import anchors_in_file
 
         for change in changes:
             uri = change.get("uri", "")
@@ -234,19 +243,13 @@ class LanguageServer:
             if change_type in (1, 2):  # Created or Changed
                 try:
                     text = file_path.read_text(encoding="utf-8")
-                    if not hasattr(self, "md_contents_cache"):
-                        self.md_contents_cache = {}
-                    if not hasattr(self, "anchors_cache"):
-                        self.anchors_cache = {}
-                    self.md_contents_cache[file_path] = text
-                    self.anchors_cache[file_path] = anchors_in_file(text)
+                    if self.engine is not None:
+                        self.engine.update_file_cache(file_path, text)
                 except OSError:
                     pass
             elif change_type == 3:  # Deleted
-                if hasattr(self, "md_contents_cache"):
-                    self.md_contents_cache.pop(file_path, None)
-                if hasattr(self, "anchors_cache"):
-                    self.anchors_cache.pop(file_path, None)
+                if self.engine is not None:
+                    self.engine.remove_file_cache(file_path)
 
             self.dirty_documents[uri] = 0.0
 
@@ -337,11 +340,11 @@ class LanguageServer:
             pass
 
     def _sync_workspace_and_publish(self, incremental_uris: set[str] | None = None) -> None:
-        """Run validation incrementally. Full sync on first run, partial otherwise.
+        """Run validation incrementally via the decoupled engine.
 
-        Topology awareness (reverse index) is owned by the VirtualSiteMap.
+        Delegates all analysis to ``IncrementalAnalysisEngine`` (ADR-075).
+        The LSP server handles only JSON-RPC serialization and publishing.
         """
-        has_workspace = self.repo_root is not None
         repo_root = self.repo_root or Path("/")
 
         if not self.config:
@@ -368,268 +371,24 @@ class LanguageServer:
 
         assert isinstance(self.vsm, VirtualSiteMap)
 
-        # Initialize per-file content cache if first run (not topology state)
-        if not hasattr(self, "md_contents_cache"):
-            self.md_contents_cache = {}
-            self.anchors_cache = {}
-            incremental_uris = None  # Force full sync
-
-        from zenzic.core.discovery import iter_markdown_sources
-        from zenzic.core.exclusion import LayeredExclusionManager
-        from zenzic.core.rules import ResolutionContext
-        from zenzic.core.validator import anchors_in_file
-        from zenzic.models.vsm import build_vsm
-
-        exclusion_manager = LayeredExclusionManager(
-            self.config, repo_root=repo_root, docs_root=docs_root
-        )
-
-        # 1. Update text and anchors for modified files (or all files on full sync)
-        files_to_process: set[Path] = set()
-
-        if incremental_uris is None:
-            # Full read
-            if has_workspace:
-                for md_file in iter_markdown_sources(docs_root, self.config, exclusion_manager):
-                    uri = f"file://{md_file.resolve()}"
-                    if self.overlay and uri in self.overlay.buffers:
-                        text = self.overlay.buffers[uri]
-                    else:
-                        try:
-                            text = md_file.read_text(encoding="utf-8")
-                        except OSError:
-                            continue
-                    path = md_file.resolve()
-                    self.md_contents_cache[path] = text
-                    self.anchors_cache[path] = anchors_in_file(text)
-                    files_to_process.add(path)
-
-            # Open buffers that might be outside docs_root or not on disk yet
-            for uri in self.documents.documents:
-                if uri.startswith("file://"):
-                    path = Path(uri[7:]).resolve()
-                    if path not in self.md_contents_cache:
-                        if self.overlay and uri in self.overlay.buffers:
-                            text = self.overlay.buffers[uri]
-                            self.md_contents_cache[path] = text
-                            self.anchors_cache[path] = anchors_in_file(text)
-                            files_to_process.add(path)
-        else:
-            # Incremental read
-            for uri in incremental_uris:
-                if not uri.startswith("file://"):
-                    continue
-                path = Path(uri[7:]).resolve()
-                if self.overlay and uri in self.overlay.buffers:
-                    text = self.overlay.buffers[uri]
-                    self.md_contents_cache[path] = text
-                    self.anchors_cache[path] = anchors_in_file(text)
-                files_to_process.add(path)
-
-        # 2. Re-build VSM topology
-        if incremental_uris is None:
-            self.vsm = build_vsm(
-                self.adapter,
-                docs_root,
-                self.md_contents_cache,
-                anchors_cache=self.anchors_cache,
+        # Instantiate engine if needed (ADR-075: transport-agnostic analysis)
+        if self.engine is None:
+            assert self.rule_engine is not None
+            self.engine = IncrementalAnalysisEngine(
+                config=self.config,
+                rule_engine=self.rule_engine,
+                adapter=self.adapter,
+                docs_root=docs_root,
                 repo_root=repo_root,
             )
-        else:
-            # O(K) in-place patch
-            for path in files_to_process:
-                # 1. If file is deleted, remove route from self.vsm
-                if path not in self.md_contents_cache:
-                    try:
-                        if path.is_relative_to(docs_root):
-                            rel_obj = path.relative_to(docs_root)
-                        else:
-                            rel_obj = path
-                        route_meta = self.adapter.get_route_info(rel_obj)
-                        canonical = route_meta.canonical_url
-                    except Exception:
-                        canonical = ""
-                    if canonical and canonical in self.vsm:
-                        del self.vsm[canonical]
-                    if hasattr(self.vsm, "remove_outgoing_links"):
-                        self.vsm.remove_outgoing_links(path)
-                else:
-                    # 2. If created or modified, update route in self.vsm
-                    try:
-                        if path.is_relative_to(docs_root):
-                            rel_obj = path.relative_to(docs_root)
-                        else:
-                            rel_obj = path
-                        route_meta = self.adapter.get_route_info(rel_obj)
-                    except Exception:
-                        route_meta = None
 
-                    if route_meta:
-                        self.vsm[route_meta.canonical_url] = Route(
-                            url=route_meta.canonical_url,
-                            source=rel_obj.as_posix(),
-                            status=route_meta.status,
-                            anchors=self.anchors_cache.get(path, set()),
-                        )
-                    if hasattr(self.vsm, "reindex_outgoing_links"):
-                        self.vsm.reindex_outgoing_links(
-                            path,
-                            self.md_contents_cache[path],
-                            docs_root,
-                            [],
-                            self.adapter,
-                        )
+        # Delegate analysis to the engine
+        assert self.overlay is not None
+        results = self.engine.process_changes(self.vsm, self.overlay, incremental_uris)
 
-        assert isinstance(self.vsm, VirtualSiteMap)
-
-        if self.overlay is not None:
-            self.overlay.vsm = self.vsm
-
-        # 3. Expand files_to_process with dependents via VSM's O(1) reverse index
-        if incremental_uris is not None:
-            dependents: set[Path] = set()
-            for path in files_to_process:
-                # 1. Look up canonical URL via relative path in the VSM
-                try:
-                    rel_posix = path.relative_to(docs_root).as_posix()
-                except ValueError:
-                    rel_posix = path.absolute().as_posix()
-                canonical = next((url for url, r in self.vsm.items() if r.source == rel_posix), "")
-
-                # 2. Or compute it directly via adapter.get_route_info
-                if not canonical:
-                    try:
-                        if path.is_relative_to(docs_root):
-                            rel_obj = path.relative_to(docs_root)
-                        else:
-                            rel_obj = path
-                        meta = self.adapter.get_route_info(rel_obj)
-                        canonical = meta.canonical_url
-                    except Exception:
-                        pass
-
-                if canonical and hasattr(self.vsm, "incoming_links"):
-                    dependents.update(self.vsm.incoming_links.get(canonical, set()))
-            files_to_process.update(dependents)
-
-        # 4. Add virtual routes for out-of-bounds files in files_to_process (Mirror Law)
-        for path in files_to_process:
-            try:
-                rel_posix = path.relative_to(docs_root).as_posix()
-            except ValueError:
-                rel_posix = path.absolute().as_posix()
-
-            # Find if there is already a route for this source
-            route = next((r for r in self.vsm.values() if r.source == rel_posix), None)
-            if not route:
-                virtual_url = f"/_virtual/{path.name}"
-                self.vsm[virtual_url] = Route(
-                    url=virtual_url,
-                    source=rel_posix,
-                    status="REACHABLE",
-                    anchors=self.anchors_cache.get(path, set()),
-                )
-
-        # 5. Run URP & Engine ONLY on files_to_process
-        engine = self.rule_engine
-        assert engine is not None
-        for path in files_to_process:
-            if path not in self.md_contents_cache:
-                continue
-            text = self.md_contents_cache[path]
-            uri = f"file://{path}"
-            findings: list[RuleFinding] = []
-
-            from zenzic.core.suppressions import SuppressionTracker
-
-            tracker = SuppressionTracker(path, text)
-
-            # Atomic Rules
-            findings.extend(engine.run_with_tracker(path, text, tracker))
-
-            # VSM-aware Rules
-            context = ResolutionContext(docs_root=docs_root, source_file=path)
-            findings.extend(engine.run_vsm(path, text, self.vsm, self.anchors_cache, context))
-
-            # Snippets
-            from zenzic.core.validator import check_snippet_content
-
-            for s_err in check_snippet_content(text, path, self.config):
-                from zenzic.core.rules import RuleFinding
-
-                findings.append(
-                    RuleFinding(
-                        file_path=path,
-                        line_no=s_err.line_no,
-                        rule_id=s_err.code,
-                        message=s_err.message,
-                        severity="error",
-                    )
-                )
-
-            # URP In-Memory Checks (Z120-Z124, Z205, Z102, Z105, Z202, Z203)
-            # Extracted from the previous URP logic to run incrementally per file
-            urp_findings = self._run_incremental_urp(path, text, docs_root)
-            findings.extend(urp_findings)
-
-            findings.extend(tracker.get_dead_suppressions())
-
-            # Convert findings to strictly typed ZenzicDiagnostic instances
-            typed_diags: list[ZenzicDiagnostic] = []
-            for f in findings:
-                line_no = max(0, f.line_no - 1)
-                lines = text.splitlines()
-                matched_line = lines[line_no] if 0 <= line_no < len(lines) else ""
-
-                col_start = getattr(f, "col_start", 0)
-                match_text = getattr(f, "match_text", "")
-                match_len = len(match_text) if match_text else len(matched_line)
-
-                utf16_start = self._to_utf16_col(matched_line, col_start)
-                utf16_end = self._to_utf16_col(matched_line, col_start + match_len)
-
-                severity_str = getattr(f, "severity", "error")
-                severity = {
-                    "error": Severity.ERROR,
-                    "warning": Severity.WARNING,
-                    "info": Severity.INFORMATION,
-                }.get(severity_str, Severity.ERROR)
-
-                typed_diags.append(
-                    ZenzicDiagnostic(
-                        range=DiagnosticRange(
-                            start=DiagnosticPosition(line=line_no, character=utf16_start),
-                            end=DiagnosticPosition(line=line_no, character=utf16_end),
-                        ),
-                        severity=severity,
-                        code=getattr(f, "rule_id", "Unknown"),
-                        source="zenzic",
-                        message=getattr(f, "message", "Violation"),
-                    )
-                )
-
-            # Store strictly typed diagnostics on the VSM route (Mirror Law)
-            try:
-                rel = path.relative_to(docs_root).as_posix()
-            except ValueError:
-                rel = path.absolute().as_posix()
-            for route in self.vsm.values():
-                if route.source == rel:
-                    route.diagnostics = typed_diags
-                    break
-
-        # 6. Serialize at transport boundary and publish
-        for path in files_to_process:
-            uri = f"file://{path}"
-            try:
-                rel = path.relative_to(docs_root).as_posix()
-            except ValueError:
-                rel = path.absolute().as_posix()
-            typed_diags = next(
-                (r.diagnostics for r in self.vsm.values() if r.source == rel),
-                [],
-            )
-            # to_lsp_dict() is the ONLY serialization site in the codebase
+        # Serialize at transport boundary and publish via JSON-RPC
+        # to_lsp_dict() is the ONLY serialization site in the codebase
+        for uri, typed_diags in results.items():
             self.send_message(
                 {
                     "jsonrpc": "2.0",
@@ -640,215 +399,6 @@ class LanguageServer:
                     },
                 }
             )
-
-    def _run_incremental_urp(self, path: Path, text: str, docs_root: Path) -> list[RuleFinding]:
-        """Run the URP checks on a single file using the cached graph topology."""
-        from urllib.parse import urlsplit
-
-        from zenzic.core.rules import RuleFinding, _extract_inline_links_with_lines
-        from zenzic.core.validator import PolyglotExtractor
-
-        assert isinstance(self.vsm, VirtualSiteMap)
-
-        findings = []
-        lines = text.splitlines()
-
-        def _source_line(lineno: int) -> str:
-            idx = lineno - 1
-            return lines[idx].strip() if 0 <= idx < len(lines) else ""
-
-        # Polyglot Extractor
-        for node in PolyglotExtractor().extract(text):
-            ctx = _source_line(node.line_no)
-            if node.z205_scheme:
-                findings.append(
-                    RuleFinding(
-                        path,
-                        node.line_no,
-                        "Z205",
-                        f"forbidden scheme '{node.z205_scheme}' detected",
-                        severity="error",
-                        matched_line=ctx,
-                        col_start=0,
-                        match_text=node.raw_tag,
-                    )
-                )
-            for attr in node.blacklisted_attrs:
-                findings.append(
-                    RuleFinding(
-                        path,
-                        node.line_no,
-                        "Z124",
-                        f"opaque attribute '{attr}' detected",
-                        severity="error",
-                        matched_line=ctx,
-                        col_start=0,
-                        match_text=node.raw_tag,
-                    )
-                )
-            if node.is_missing_href:
-                findings.append(
-                    RuleFinding(
-                        path,
-                        node.line_no,
-                        "Z121",
-                        "missing href or src",
-                        severity="error",
-                        matched_line=ctx,
-                        col_start=0,
-                        match_text=node.raw_tag,
-                    )
-                )
-            if node.is_jump_link:
-                findings.append(
-                    RuleFinding(
-                        path,
-                        node.line_no,
-                        "Z122",
-                        "href='#' detected",
-                        severity="error",
-                        matched_line=ctx,
-                        col_start=0,
-                        match_text=node.raw_tag,
-                    )
-                )
-            for attr in node.unknown_attrs:
-                findings.append(
-                    RuleFinding(
-                        path,
-                        node.line_no,
-                        "Z120",
-                        f"unknown attribute '{attr}'",
-                        severity="error",
-                        matched_line=ctx,
-                        col_start=0,
-                        match_text=node.raw_tag,
-                    )
-                )
-            if node.info_scheme:
-                findings.append(
-                    RuleFinding(
-                        path,
-                        node.line_no,
-                        "Z123",
-                        f"non-HTTP scheme '{node.info_scheme}'",
-                        severity="info",
-                        matched_line=ctx,
-                        col_start=0,
-                        match_text=node.raw_tag,
-                    )
-                )
-
-        # Markdown Links
-        local_anchors = self.anchors_cache.get(path, set())
-        _bypass_schemes = (
-            "mailto:",
-            "tel:",
-            "javascript:",
-            "data:",
-            "irc:",
-            "xmpp:",
-            "http://",
-            "https://",
-        )
-
-        for url, lineno, raw_line in _extract_inline_links_with_lines(text):
-            if url.startswith(_bypass_schemes) or url == "#":
-                continue
-
-            parsed = urlsplit(url)
-
-            # Z202 / Z203
-            if "../" in url and url.count("../") > len(path.parents):
-                from zenzic.core.validator import _classify_traversal_intent
-
-                _intent = _classify_traversal_intent(url)
-                findings.append(
-                    RuleFinding(
-                        path,
-                        lineno,
-                        "Z203" if _intent == "suspicious" else "Z202",
-                        f"Path traversal escape detected: '{url}'",
-                        severity="error",
-                        matched_line=raw_line,
-                    )
-                )
-                continue
-
-            # Z105 / Z203
-            elif parsed.path.startswith("/"):
-                from zenzic.core.validator import _classify_traversal_intent
-
-                _intent = _classify_traversal_intent(url)
-                if _intent == "suspicious":
-                    findings.append(
-                        RuleFinding(
-                            path,
-                            lineno,
-                            "Z203",
-                            f"Path traversal targeting OS system directories: '{url}'",
-                            severity="error",
-                            matched_line=raw_line,
-                        )
-                    )
-                else:
-                    findings.append(
-                        RuleFinding(
-                            path,
-                            lineno,
-                            "Z105",
-                            f"Absolute path '{url}' found.",
-                            severity="error",
-                            matched_line=raw_line,
-                        )
-                    )
-                continue
-
-            # Z102 (Local and Cross-file)
-            if parsed.fragment:
-                anchor = parsed.fragment.lower()
-                if not parsed.path:
-                    if anchor not in local_anchors:
-                        findings.append(
-                            RuleFinding(
-                                path,
-                                lineno,
-                                "Z102",
-                                f"anchor '#{anchor}' not found",
-                                severity="error",
-                                matched_line=raw_line,
-                            )
-                        )
-                else:
-                    from urllib.parse import unquote
-
-                    target_path = (path.parent / unquote(parsed.path)).resolve()
-                    try:
-                        if target_path.is_relative_to(docs_root):
-                            rel_obj = target_path.relative_to(docs_root)
-                        else:
-                            rel_obj = target_path
-                        if self.adapter:
-                            route_meta = self.adapter.get_route_info(rel_obj)
-                            route = self.vsm.get(route_meta.canonical_url)
-                        else:
-                            route = None
-                    except Exception:
-                        route = None
-
-                    if route is not None and anchor not in route.anchors:
-                        findings.append(
-                            RuleFinding(
-                                path,
-                                lineno,
-                                "Z102",
-                                f"anchor '#{anchor}' not found in '{parsed.path}'",
-                                severity="error",
-                                matched_line=raw_line,
-                            )
-                        )
-
-        return findings
 
     def _handle_hover(self, params: dict[str, Any], msg_id: int | str | None) -> None:
         if msg_id is None or self.vsm is None or not self.repo_root or not self.config:
@@ -914,12 +464,3 @@ class LanguageServer:
             msg_id,
             result={"contents": {"kind": "markdown", "value": "\n\n".join(contents)}},
         )
-
-    def _to_utf16_col(self, line: str, py_idx: int) -> int:
-        """Convert a Python string index into a UTF-16 code unit offset."""
-        col = 0
-        for i, c in enumerate(line):
-            if i >= py_idx:
-                break
-            col += 2 if ord(c) > 0xFFFF else 1
-        return col
