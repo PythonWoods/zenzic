@@ -264,6 +264,20 @@ uv add --dev zenzic
 pip install zenzic
 ```
 
+### Upgrading Zenzic
+
+If you installed Zenzic globally via `uv`, you must explicitly request an upgrade to fetch the latest deterministic engine:
+
+```bash
+uv tool upgrade zenzic
+```
+
+To run a specific version ephemerally without altering your global environment:
+
+```bash
+uvx zenzic@0.23.0 check all
+```
+
 ---
 
 ## 📖 Documentation
