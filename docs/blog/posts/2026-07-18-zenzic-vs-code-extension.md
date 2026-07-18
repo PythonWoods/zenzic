@@ -58,7 +58,9 @@ The extension is now publicly available on the Visual Studio Marketplace.
 3. **Configure (Optional):** If you use a local virtual environment, point the extension to it in your VS Code `settings.json`:
 
    ```json
-   "zenzic.executablePath": "${workspaceFolder}/.venv/bin/zenzic"
+   {
+     "zenzic.executablePath": "${workspaceFolder}/.venv/bin/zenzic"
+   }
    ```
 
 No cloud dependencies. No telemetry. No probabilistic AI guessing. Just deterministic rules enforcing structural integrity.
