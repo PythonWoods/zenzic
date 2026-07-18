@@ -11,7 +11,7 @@ import sys
 import time
 import traceback
 from pathlib import Path
-from typing import Any, BinaryIO, TypedDict, cast
+from typing import BinaryIO, TypedDict, cast
 
 from zenzic.core.adapters import get_adapter
 from zenzic.core.discovery import iter_markdown_sources
@@ -20,7 +20,8 @@ from zenzic.core.rules import AdaptiveRuleEngine, RuleFinding
 from zenzic.core.scanner import _build_rule_engine
 from zenzic.lsp.documents import DocumentManager
 from zenzic.models.config import ZenzicConfig
-from zenzic.models.vsm import VSM, Route, build_vsm
+from zenzic.models.diagnostics import DiagnosticPosition, DiagnosticRange, Severity, ZenzicDiagnostic
+from zenzic.models.vsm import VSM, Route, VirtualBufferOverlay, build_vsm
 
 
 class JsonRpcMessage(TypedDict, total=False):
@@ -29,7 +30,7 @@ class JsonRpcMessage(TypedDict, total=False):
     jsonrpc: str
     id: int | str
     method: str
-    params: dict[str, Any]
+    params: dict[str, object]
 
 
 class LanguageServer:
@@ -55,6 +56,7 @@ class LanguageServer:
         self.repo_root: Path | None = None
         self.adapter: Any | None = None
         self.vsm: VSM | None = None
+        self.overlay: VirtualBufferOverlay | None = None
 
     def send_message(self, message: dict[str, Any]) -> None:
         """Encode and send a JSON-RPC message to stdout."""
@@ -170,12 +172,15 @@ class LanguageServer:
         self._flush_dirty_documents(force=True)
 
     def _flush_dirty_documents(self, force: bool = False) -> None:
-        """Push diagnostics if debounce interval has elapsed."""
+        """Collect expired dirty URIs and trigger incremental validation."""
         now = time.time()
+        incremental_uris: set[str] = set()
         for uri, ts in list(self.dirty_documents.items()):
             if force or now - ts >= 0.3:
-                self._publish_diagnostics(uri, self.documents.documents[uri])
+                incremental_uris.add(uri)
                 del self.dirty_documents[uri]
+        if incremental_uris:
+            self._sync_workspace_and_publish(incremental_uris)
 
     def _build_vsm_sync(self) -> None:
         """Synchronously build the initial VSM."""
@@ -202,6 +207,10 @@ class LanguageServer:
 
         self.adapter = get_adapter(self.config.build_context, docs_root, self.repo_root)
         self.vsm = build_vsm(self.adapter, docs_root, md_contents, repo_root=self.repo_root)
+        self.overlay = VirtualBufferOverlay(self.vsm)
+        # Populate overlay with currently open documents
+        for uri, text in self.documents.documents.items():
+            self.overlay.update(uri, text)
         self._flush_dirty_documents()
 
     def _handle_file_changes(self, changes: list[dict[str, Any]]) -> None:
@@ -265,7 +274,8 @@ class LanguageServer:
                 msg_id,
                 result={
                     "capabilities": {
-                        "textDocumentSync": 2  # Incremental sync (Zero-DBT Enforcement)
+                        "textDocumentSync": 2,  # Incremental sync (Zero-DBT Enforcement)
+                        "hoverProvider": True
                     },
                     "serverInfo": {"name": "Zenzic Language Server", "version": "0.21.0"},
                 },
@@ -308,154 +318,305 @@ class LanguageServer:
             self.documents.did_open(params)
             uri = params.get("textDocument", {}).get("uri", "")
             if uri in self.documents.documents:
+                if self.overlay:
+                    self.overlay.update(uri, self.documents.documents[uri])
                 self.dirty_documents[uri] = time.time()
         elif method == "textDocument/didChange":
             self.documents.did_change(params)
             uri = params.get("textDocument", {}).get("uri", "")
             if uri in self.documents.documents:
+                if self.overlay:
+                    self.overlay.update(uri, self.documents.documents[uri])
                 self.dirty_documents[uri] = time.time()
         elif method == "textDocument/didClose":
             # Memory Hygiene: purge the document state entirely
-            self.documents.did_close(params)
+        
+        if incremental_uris:
+            self._sync_workspace_and_publish(incremental_uris)
 
-    def _publish_diagnostics(self, uri: str, text: str) -> None:
-        """Run the rule engine on the in-memory document state and publish diagnostics.
+    def _sync_workspace_and_publish(self, incremental_uris: set[str] | None = None) -> None:
+        """Run validation incrementally. Full sync on first run, partial otherwise.
 
-        Diagnostic sources (all pure / zero disk-I/O for the current document):
-
-        1. ``rule_engine.run()``  — built-in rules: Z108, Z201, Z505, Z107, Z506, Z601 …
-        2. ``rule_engine.run_vsm()`` — VSM-aware rules: Z101 (broken cross-file link)
-        3. ``validate_single_document_urp()`` — Decoupled URP: PolyglotExtractor (Z120-124, Z205), same-page anchors (Z102), absolute paths (Z105)
-        4. ``check_snippet_content()`` — Z503: malformed code snippets
+        Topology awareness (reverse index) is owned by the VirtualBufferOverlay.
+        The LanguageServer remains a stateless transport proxy w.r.t. graph edges.
         """
+        if not self.config or not self.repo_root or not self.rule_engine:
+            return
 
-        if uri.startswith("file://"):
-            file_path = Path(uri[7:])
+        docs_root = self.repo_root / self.config.docs_dir
+
+        # Initialize per-file content cache if first run (not topology state)
+        if not hasattr(self, "md_contents_cache"):
+            self.md_contents_cache: dict[Path, str] = {}
+            self.anchors_cache: dict[Path, set[str]] = {}
+            incremental_uris = None  # Force full sync
+
+        from zenzic.core.discovery import iter_markdown_sources, LayeredExclusionManager
+        from zenzic.core.validator import anchors_in_file, PolyglotExtractor
+        from zenzic.core.rules import ResolutionContext, _extract_inline_links_with_lines
+        from zenzic.models.vsm import build_vsm
+
+        exclusion_manager = LayeredExclusionManager(self.repo_root)
+
+        # 1. Update text and anchors for modified files (or all files on full sync)
+        files_to_process: set[Path] = set()
+        
+        if incremental_uris is None:
+            # Full read
+            for md_file in iter_markdown_sources(docs_root, self.config, exclusion_manager):
+                uri = f"file://{md_file.resolve()}"
+                if self.overlay and uri in self.overlay.buffers:
+                    text = self.overlay.buffers[uri]
+                else:
+                    try:
+                        text = md_file.read_text(encoding="utf-8")
+                    except OSError:
+                        continue
+                self.md_contents_cache[md_file.resolve()] = text
+                self.anchors_cache[md_file.resolve()] = anchors_in_file(text)
+                files_to_process.add(md_file.resolve())
         else:
-            file_path = Path(uri)
+            # Incremental read
+            for uri in incremental_uris:
+                if not uri.startswith("file://"):
+                    continue
+                path = Path(uri[7:]).resolve()
+                if self.overlay and uri in self.overlay.buffers:
+                    text = self.overlay.buffers[uri]
+                    self.md_contents_cache[path] = text
+                    self.anchors_cache[path] = anchors_in_file(text)
+                    files_to_process.add(path)
 
-        # Ensure fallback for zero-config instances
-        if not self.config:
-            self.config = ZenzicConfig()
-        if not self.rule_engine:
-            from zenzic.core.scanner import _build_rule_engine
-
-            self.rule_engine = _build_rule_engine(self.config)
-
-        # ── 1. Core rule engine (Z108, Z201, Z505, Z107, Z506, …) ─────────────
-        from zenzic.core.suppressions import SuppressionTracker
-
-        tracker = SuppressionTracker(file_path, text)
-
-        findings = (
-            self.rule_engine.run_with_tracker(file_path, text, tracker) if self.rule_engine else []
+        # 2. Re-build VSM topology (fast O(1) patch via adapter or fast rebuild)
+        # build_vsm uses md_contents_cache which is fully updated
+        self.vsm = build_vsm(
+            self.adapter, docs_root, self.md_contents_cache, anchors_cache=self.anchors_cache, repo_root=self.repo_root
         )
 
-        # ── 2. URP (Uniform Resolver Pipeline) - In-Memory Validation (Z102, Z120-Z124, Z205, Z105, Z202, Z203)
-        from zenzic.core.validator import validate_single_document_urp
-
-        urp_errors = validate_single_document_urp(
-            content=text, file_path=file_path, vsm=self.vsm or {}, config=self.config
-        )
-
-        urp_lines = {err.line_no for err in urp_errors}
-
-        for err in urp_errors:
-            findings.append(
-                RuleFinding(
-                    file_path=err.file_path,
-                    line_no=err.line_no,
-                    rule_id=err.error_type,
-                    message=err.message,
-                    severity="error" if err.error_type != "Z123" else "info",
-                    matched_line=err.source_line,
-                    col_start=err.col_start,
-                    match_text=err.match_text,
+        # 3. Expand files_to_process with dependents via overlay's O(1) reverse index
+        if incremental_uris is not None and self.overlay is not None:
+            dependents: set[Path] = set()
+            for path in files_to_process:
+                rel = path.relative_to(docs_root).as_posix()
+                # Resolve to canonical URL via VSM for reverse lookup
+                canonical = next(
+                    (url for url, r in self.vsm.items() if r.source == rel), ""
                 )
+                if canonical:
+                    dependents.update(self.overlay.dependents_of(canonical))
+            files_to_process.update(dependents)
+
+        # 5. Run URP & Engine ONLY on files_to_process
+        for path in files_to_process:
+            if path not in self.md_contents_cache:
+                continue
+            text = self.md_contents_cache[path]
+            uri = f"file://{path}"
+            findings = []
+            
+            from zenzic.core.suppressions import SuppressionTracker
+            tracker = SuppressionTracker(path, text)
+            
+            # Atomic Rules
+            findings.extend(self.rule_engine.run_with_tracker(path, text, tracker))
+            
+            # VSM-aware Rules
+            context = ResolutionContext(docs_root=docs_root, source_file=path)
+            findings.extend(self.rule_engine.run_vsm(path, text, self.vsm, self.anchors_cache, context))
+            
+            # Snippets
+            from zenzic.core.validator import check_snippet_content
+            for s_err in check_snippet_content(text, path, self.config):
+                from zenzic.core.rules import RuleFinding
+                findings.append(RuleFinding(
+                    file_path=path,
+                    line_no=s_err.line_no,
+                    rule_id=s_err.code,
+                    message=s_err.message,
+                    severity="error"
+                ))
+
+            # URP In-Memory Checks (Z120-Z124, Z205, Z102, Z105, Z202, Z203)
+            # Extracted from the previous URP logic to run incrementally per file
+            urp_findings = self._run_incremental_urp(path, text, docs_root)
+            findings.extend(urp_findings)
+
+            findings.extend(tracker.get_dead_suppressions())
+
+            # Convert findings to strictly typed ZenzicDiagnostic instances
+            typed_diags: list[ZenzicDiagnostic] = []
+            for f in findings:
+                line_no = max(0, f.line_no - 1)
+                lines = text.splitlines()
+                matched_line = lines[line_no] if 0 <= line_no < len(lines) else ""
+
+                col_start = getattr(f, "col_start", 0)
+                match_text = getattr(f, "match_text", "")
+                match_len = len(match_text) if match_text else len(matched_line)
+
+                utf16_start = self._to_utf16_col(matched_line, col_start)
+                utf16_end = self._to_utf16_col(matched_line, col_start + match_len)
+
+                severity_str = getattr(f, "severity", "error")
+                severity = {
+                    "error": Severity.ERROR,
+                    "warning": Severity.WARNING,
+                    "info": Severity.INFORMATION,
+                }.get(severity_str, Severity.ERROR)
+
+                typed_diags.append(ZenzicDiagnostic(
+                    range=DiagnosticRange(
+                        start=DiagnosticPosition(line=line_no, character=utf16_start),
+                        end=DiagnosticPosition(line=line_no, character=utf16_end),
+                    ),
+                    severity=severity,
+                    code=getattr(f, "rule_id", "Unknown"),
+                    source="zenzic",
+                    message=getattr(f, "message", "Violation"),
+                ))
+
+            # Store strictly typed diagnostics on the VSM route (Mirror Law)
+            rel = path.relative_to(docs_root).as_posix()
+            for route in self.vsm.values():
+                if route.source == rel:
+                    route.diagnostics = typed_diags
+                    break
+
+        # 6. Serialize at transport boundary and publish
+        for path in files_to_process:
+            uri = f"file://{path}"
+            rel = path.relative_to(docs_root).as_posix()
+            typed_diags = next(
+                (r.diagnostics for r in self.vsm.values() if r.source == rel),
+                [],
             )
-
-        # ── 3. VSM-aware rules (Z101 — broken cross-file link) ────────────────
-        if self.vsm is not None and self.config is not None and self.repo_root is not None:
-            assert self.rule_engine is not None
-            docs_root = self.repo_root / self.config.docs_dir
-            from zenzic.core.rules import ResolutionContext
-
-            context = ResolutionContext(docs_root=docs_root, source_file=file_path)
-            vsm_findings = self.rule_engine.run_vsm(
-                file_path=file_path, text=text, vsm=self.vsm, anchors_cache={}, context=context
-            )
-            # Mask Z101 if URP already found a security/structural error on the same line
-            for f in vsm_findings:
-                if f.line_no not in urp_lines:
-                    findings.append(f)
-
-        # ── 5. Snippet syntax validation (Z503) ───────────────────────────────
-        from zenzic.core.validator import check_snippet_content
-
-        snippet_errors = check_snippet_content(text, file_path, ZenzicConfig())
-
-        # ── 6. Dead Suppressions (Z603) ───────────────────────────────────────
-        findings.extend(tracker.get_dead_suppressions())
-
-        diagnostics = []
-        for f in findings:
-            # LSP line is 0-indexed, Zenzic line_no is 1-indexed
-            line_no = max(0, f.line_no - 1)
-
-            col_start = getattr(f, "col_start", 0)
-            match_text = getattr(f, "match_text", "")
-            col_end = col_start + len(match_text) if match_text else col_start
-
-            matched_line = getattr(f, "matched_line", "") or ""
-
-            utf16_start = self._to_utf16_col(matched_line, col_start)
-            # If there's no match_text, span to the end of the line
-            if not match_text and matched_line:
-                utf16_end = self._to_utf16_col(matched_line, len(matched_line))
-            else:
-                utf16_end = self._to_utf16_col(matched_line, col_end)
-
-            severity_map = {"error": 1, "warning": 2, "info": 3}
-            severity = severity_map.get(getattr(f, "severity", "error"), 1)
-
-            diagnostics.append(
+            # to_lsp_dict() is the ONLY serialization site in the codebase
+            self.send_message(
                 {
-                    "range": {
-                        "start": {"line": line_no, "character": utf16_start},
-                        "end": {"line": line_no, "character": utf16_end},
+                    "jsonrpc": "2.0",
+                    "method": "textDocument/publishDiagnostics",
+                    "params": {
+                        "uri": uri,
+                        "diagnostics": [d.to_lsp_dict() for d in typed_diags],
                     },
-                    "severity": severity,
-                    "code": getattr(f, "rule_id", "Unknown"),
-                    "source": "zenzic",
-                    "message": getattr(f, "message", "Violation found"),
                 }
             )
 
-        for s_err in snippet_errors:
-            line_no = max(0, s_err.line_no - 1)
-            lines = text.splitlines()
-            matched_line = lines[line_no] if 0 <= line_no < len(lines) else ""
-            utf16_end = self._to_utf16_col(matched_line, len(matched_line))
+    def _run_incremental_urp(self, path: Path, text: str, docs_root: Path) -> list[RuleFinding]:
+        """Run the URP checks on a single file using the cached graph topology."""
+        from zenzic.core.validator import PolyglotExtractor
+        from zenzic.core.rules import RuleFinding, _extract_inline_links_with_lines
+        from urllib.parse import urlsplit
 
-            diagnostics.append(
-                {
-                    "range": {
-                        "start": {"line": line_no, "character": 0},
-                        "end": {"line": line_no, "character": utf16_end},
-                    },
-                    "severity": 1,  # Error
-                    "code": s_err.code,
-                    "source": "zenzic",
-                    "message": s_err.message,
-                }
-            )
+        findings = []
+        label = path.name
+        lines = text.splitlines()
 
-        self.send_message(
-            {
-                "jsonrpc": "2.0",
-                "method": "textDocument/publishDiagnostics",
-                "params": {"uri": uri, "diagnostics": diagnostics},
-            }
+        def _source_line(lineno: int) -> str:
+            idx = lineno - 1
+            return lines[idx].strip() if 0 <= idx < len(lines) else ""
+
+        # Polyglot Extractor
+        for node in PolyglotExtractor().extract(text):
+            ctx = _source_line(node.line_no)
+            if node.z205_scheme:
+                findings.append(RuleFinding(path, node.line_no, "Z205", f"forbidden scheme '{node.z205_scheme}' detected", severity="error", matched_line=ctx, col_start=0, match_text=node.raw_tag))
+            for attr in node.blacklisted_attrs:
+                findings.append(RuleFinding(path, node.line_no, "Z124", f"opaque attribute '{attr}' detected", severity="error", matched_line=ctx, col_start=0, match_text=node.raw_tag))
+            if node.is_missing_href:
+                findings.append(RuleFinding(path, node.line_no, "Z121", f"missing href or src", severity="error", matched_line=ctx, col_start=0, match_text=node.raw_tag))
+            if node.is_jump_link:
+                findings.append(RuleFinding(path, node.line_no, "Z122", f"href='#' detected", severity="error", matched_line=ctx, col_start=0, match_text=node.raw_tag))
+            for attr in node.unknown_attrs:
+                findings.append(RuleFinding(path, node.line_no, "Z120", f"unknown attribute '{attr}'", severity="error", matched_line=ctx, col_start=0, match_text=node.raw_tag))
+            if node.info_scheme:
+                findings.append(RuleFinding(path, node.line_no, "Z123", f"non-HTTP scheme '{node.info_scheme}'", severity="info", matched_line=ctx, col_start=0, match_text=node.raw_tag))
+
+        # Markdown Links
+        local_anchors = self.anchors_cache.get(path, set())
+        _bypass_schemes = ("mailto:", "tel:", "javascript:", "data:", "irc:", "xmpp:", "http://", "https://")
+
+        for url, lineno, raw_line in _extract_inline_links_with_lines(text):
+            if url.startswith(_bypass_schemes) or url == "#":
+                continue
+
+            parsed = urlsplit(url)
+
+            # Z202 / Z203
+            if "../" in url and url.count("../") > len(path.parents):
+                findings.append(RuleFinding(path, lineno, "Z202", f"Path traversal escape detected: '{url}'", severity="error", matched_line=raw_line))
+            
+            # Z105
+            if parsed.path.startswith("/"):
+                findings.append(RuleFinding(path, lineno, "Z105", f"Absolute path '{url}' found.", severity="error", matched_line=raw_line))
+
+            # Z102
+            if not parsed.path and parsed.fragment:
+                anchor = parsed.fragment.lower()
+                if anchor not in local_anchors:
+                    findings.append(RuleFinding(path, lineno, "Z102", f"anchor '#{anchor}' not found", severity="error", matched_line=raw_line))
+
+        return findings
+
+    def _handle_hover(self, params: dict[str, Any], msg_id: int | str | None) -> None:
+        if msg_id is None or not getattr(self, "vsm", None) or not getattr(self, "repo_root", None) or not getattr(self, "config", None):
+            return
+
+        doc = params.get("textDocument", {})
+        uri = doc.get("uri", "")
+        pos = params.get("position", {})
+        line = pos.get("line", 0)
+        char = pos.get("character", 0)
+
+        docs_root = self.repo_root / self.config.docs_dir
+        try:
+            rel = Path(uri[7:]).relative_to(docs_root).as_posix()
+        except ValueError:
+            self.send_response(msg_id, result=None)
+            return
+        
+        target_route = None
+        for route in self.vsm.values():
+            if route.source == rel:
+                target_route = route
+                break
+
+        if not target_route:
+            self.send_response(msg_id, result=None)
+            return
+
+        matched: ZenzicDiagnostic | None = None
+        for d in target_route.diagnostics:
+            s_line = d.range.start.line
+            e_line = d.range.end.line
+            if s_line <= line <= e_line:
+                if s_line == line and char < d.range.start.character:
+                    continue
+                if e_line == line and char > d.range.end.character:
+                    continue
+                matched = d
+                break
+
+        if not matched:
+            self.send_response(msg_id, result=None)
+            return
+
+        code = matched.code
+        from zenzic.core.codes import CODE_DEFINITIONS, CODE_DESCRIPTIONS
+
+        defn = CODE_DEFINITIONS.get(code)
+        desc = CODE_DESCRIPTIONS.get(code, "No remediation guidance available.")
+
+        contents: list[str] = []
+        if defn:
+            contents.append(f"**{code}** (Penalty: -{defn.penalty} pts, Category: {defn.category or 'ungraded'})")
+        else:
+            contents.append(f"**{code}**")
+        contents.append(desc)
+
+        self.send_response(
+            msg_id,
+            result={"contents": {"kind": "markdown", "value": "\n\n".join(contents)}},
         )
 
     def _to_utf16_col(self, line: str, py_idx: int) -> int:

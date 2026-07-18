@@ -22,6 +22,7 @@ from typing import Literal
 
 from zenzic.core.adapters._base import BaseAdapter
 from zenzic.core.discovery import build_content_mounts
+from zenzic.models.diagnostics import ZenzicDiagnostic
 
 
 _log = logging.getLogger(__name__)
@@ -66,6 +67,7 @@ class Route:
         aliases: Additional URL aliases or redirects for this page (reserved
                  for future use; populated by adapters that support redirect
                  declarations).
+        diagnostics: Strictly typed diagnostic findings for this route.
     """
 
     url: str
@@ -74,6 +76,7 @@ class Route:
     anchors: set[str] = field(default_factory=set)
     aliases: set[str] = field(default_factory=set)
     proxy_sources: frozenset[str] = field(default_factory=frozenset)
+    diagnostics: list[ZenzicDiagnostic] = field(default_factory=list)
 
     # Convenience ──────────────────────────────────────────────────────────────
 
@@ -218,3 +221,94 @@ def build_vsm(
     _detect_collisions(routes)
 
     return {r.url: r for r in routes}
+
+
+class VirtualBufferOverlay:
+    """Virtual Site Map overlay for in-memory buffers.
+
+    Allows the Uniform Resolver Pipeline (URP) to resolve against memory buffers,
+    bypassing L1-L4 filesystem discovery.
+
+    Additionally owns the reverse-index (``incoming_links``) that maps every
+    canonical URL to the set of source files that link *to* it.  This index
+    enables O(1) dependent-file lookups for incremental validation without
+    leaking topological knowledge into the LSP transport layer.
+    """
+
+    def __init__(self, vsm: VSM) -> None:
+        self.vsm: VSM = vsm
+        self.buffers: dict[str, str] = {}
+        self.anchors_cache: dict[Path, set[str]] = {}
+        # Reverse index: canonical URL → set of absolute Paths that contain
+        # an outgoing link resolving to that URL.
+        self.incoming_links: dict[str, set[Path]] = {}
+
+    # ── Buffer management ─────────────────────────────────────────────────────
+
+    def update(self, uri: str, content: str) -> None:
+        """Register or refresh an in-memory buffer, updating anchors and the reverse index."""
+        from zenzic.core.validator import anchors_in_file
+
+        self.buffers[uri] = content
+        if uri.startswith("file://"):
+            path = Path(uri[7:])
+            self.anchors_cache[path] = anchors_in_file(content)
+            self._reindex_outgoing_links(path, content)
+
+    def remove(self, uri: str) -> None:
+        """Evict a buffer and purge its entries from the reverse index."""
+        self.buffers.pop(uri, None)
+        if uri.startswith("file://"):
+            path = Path(uri[7:])
+            self.anchors_cache.pop(path, None)
+            self._remove_outgoing_links(path)
+
+    # ── Reverse-index management ──────────────────────────────────────────────
+
+    def _remove_outgoing_links(self, path: Path) -> None:
+        """Discard ``path`` from every entry in the reverse index."""
+        for dependent_set in self.incoming_links.values():
+            dependent_set.discard(path)
+
+    def _reindex_outgoing_links(self, path: Path, content: str) -> None:
+        """Rebuild the reverse-index entries emitted by ``path``."""
+        from urllib.parse import urlsplit
+        from zenzic.core.rules import _extract_inline_links_with_lines
+        from zenzic.core.validator import PolyglotExtractor
+
+        # Remove stale outgoing links for this path first
+        self._remove_outgoing_links(path)
+
+        def _register(url: str) -> None:
+            parsed = urlsplit(url)
+            base = parsed.path
+            if base:
+                self.incoming_links.setdefault(base, set()).add(path)
+
+        for url, _lineno, _raw in _extract_inline_links_with_lines(content):
+            _register(url)
+
+        for node in PolyglotExtractor().extract(content):
+            if node.href:
+                _register(node.href)
+
+    def dependents_of(self, canonical_url: str) -> frozenset[Path]:
+        """Return the set of files that contain a link resolving to ``canonical_url``.
+
+        Returns an empty frozenset when no dependents are registered.  O(1).
+        """
+        return frozenset(self.incoming_links.get(canonical_url, set()))
+
+    # ── VSM proxy ─────────────────────────────────────────────────────────────
+
+    def get(self, key: str, default: Route | None = None) -> Route | None:
+        return self.vsm.get(key, default)
+
+    def items(self) -> list[tuple[str, Route]]:
+        return list(self.vsm.items())
+
+    def __getitem__(self, key: str) -> Route:
+        return self.vsm[key]
+
+    def __contains__(self, key: str) -> bool:
+        return key in self.vsm
