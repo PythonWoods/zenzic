@@ -13,7 +13,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "zenzic"
-version = "0.22.3"
+version = "0.23.0"
 description = "Engineering-grade, engine-agnostic static analyzer and credential scanner for Markdown documentation"
 readme = "README.md"
 requires-python = ">=3.10"

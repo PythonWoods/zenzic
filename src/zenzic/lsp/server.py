@@ -13,14 +13,18 @@ import traceback
 from pathlib import Path
 from typing import Any, BinaryIO, TypedDict, cast
 
-from zenzic.core.adapters import get_adapter
+from zenzic.core.adapters import BaseAdapter, get_adapter
 from zenzic.core.discovery import iter_markdown_sources
 from zenzic.core.exclusion import LayeredExclusionManager
-from zenzic.core.rules import AdaptiveRuleEngine, RuleFinding
+from zenzic.core.incremental import IncrementalAnalysisEngine
+from zenzic.core.rules import AdaptiveRuleEngine
 from zenzic.core.scanner import _build_rule_engine
 from zenzic.lsp.documents import DocumentManager
 from zenzic.models.config import ZenzicConfig
-from zenzic.models.vsm import VSM, Route, build_vsm
+from zenzic.models.diagnostics import (
+    ZenzicDiagnostic,
+)
+from zenzic.models.vsm import VirtualBufferOverlay, VirtualSiteMap, build_vsm
 
 
 class JsonRpcMessage(TypedDict, total=False):
@@ -53,8 +57,12 @@ class LanguageServer:
 
         # Phase 4: VSM Integration
         self.repo_root: Path | None = None
-        self.adapter: Any | None = None
-        self.vsm: VSM | None = None
+        self.adapter: BaseAdapter | None = None
+        self.vsm: VirtualSiteMap | None = None
+        self.overlay: VirtualBufferOverlay | None = None
+
+        # Phase 5: Decoupled Incremental Engine (ADR-075)
+        self.engine: IncrementalAnalysisEngine | None = None
 
     def send_message(self, message: dict[str, Any]) -> None:
         """Encode and send a JSON-RPC message to stdout."""
@@ -95,11 +103,7 @@ class LanguageServer:
         while not self.exit_received:
             try:
                 # 1. Process Debounced Dirty Documents
-                now = time.time()
-                for uri, last_edit in list(self.dirty_documents.items()):
-                    if now - last_edit >= 0.3:
-                        self._publish_diagnostics(uri, self.documents.documents[uri])
-                        del self.dirty_documents[uri]
+                self._flush_dirty_documents()
 
                 # 2. Yield and wait for input
                 try:
@@ -170,15 +174,18 @@ class LanguageServer:
         self._flush_dirty_documents(force=True)
 
     def _flush_dirty_documents(self, force: bool = False) -> None:
-        """Push diagnostics if debounce interval has elapsed."""
+        """Collect expired dirty URIs and trigger incremental validation."""
         now = time.time()
+        incremental_uris: set[str] = set()
         for uri, ts in list(self.dirty_documents.items()):
             if force or now - ts >= 0.3:
-                self._publish_diagnostics(uri, self.documents.documents[uri])
+                incremental_uris.add(uri)
                 del self.dirty_documents[uri]
+        if incremental_uris:
+            self._sync_workspace_and_publish(incremental_uris)
 
     def _build_vsm_sync(self) -> None:
-        """Synchronously build the initial VSM."""
+        """Synchronously build the initial VSM and instantiate the engine."""
         if not self.repo_root:
             return
 
@@ -202,40 +209,49 @@ class LanguageServer:
 
         self.adapter = get_adapter(self.config.build_context, docs_root, self.repo_root)
         self.vsm = build_vsm(self.adapter, docs_root, md_contents, repo_root=self.repo_root)
+        assert self.vsm is not None
+        self.overlay = VirtualBufferOverlay(self.vsm)
+        # Populate overlay with currently open documents
+        for uri, text in self.documents.documents.items():
+            self.overlay.update(uri, text)
+
+        # Instantiate the decoupled incremental engine (ADR-075)
+        assert self.rule_engine is not None
+        self.engine = IncrementalAnalysisEngine(
+            config=self.config,
+            rule_engine=self.rule_engine,
+            adapter=self.adapter,
+            docs_root=docs_root,
+            repo_root=self.repo_root,
+        )
         self._flush_dirty_documents()
 
     def _handle_file_changes(self, changes: list[dict[str, Any]]) -> None:
-        """Incrementally update the VSM in O(1) time."""
-        if not self.vsm or not self.adapter or not self.config or not self.repo_root:
+        """Incrementally update file caches and trigger revalidation."""
+        if self.vsm is None or not self.adapter or not self.config:
             return
 
-        docs_root = self.repo_root / self.config.docs_dir
+        assert isinstance(self.vsm, VirtualSiteMap)
 
         for change in changes:
             uri = change.get("uri", "")
             change_type = change.get("type")
             if not uri.startswith("file://"):
                 continue
-            file_path = Path(uri[7:])
-
-            try:
-                rel_path_obj = file_path.relative_to(docs_root)
-                rel_path_str = rel_path_obj.as_posix()
-            except ValueError:
-                continue
+            file_path = Path(uri[7:]).resolve()
 
             if change_type in (1, 2):  # Created or Changed
-                route_meta = self.adapter.get_route_info(rel_path_obj)
-                if route_meta:
-                    self.vsm[route_meta.canonical_url] = Route(
-                        url=route_meta.canonical_url,
-                        source=rel_path_str,
-                        status=route_meta.status,
-                    )
+                try:
+                    text = file_path.read_text(encoding="utf-8")
+                    if self.engine is not None:
+                        self.engine.update_file_cache(file_path, text)
+                except OSError:
+                    pass
             elif change_type == 3:  # Deleted
-                urls_to_remove = [url for url, r in self.vsm.items() if r.source == rel_path_str]
-                for u in urls_to_remove:
-                    del self.vsm[u]
+                if self.engine is not None:
+                    self.engine.remove_file_cache(file_path)
+
+            self.dirty_documents[uri] = 0.0
 
         for open_uri in self.documents.documents:
             self.dirty_documents[open_uri] = 0.0
@@ -265,7 +281,8 @@ class LanguageServer:
                 msg_id,
                 result={
                     "capabilities": {
-                        "textDocumentSync": 2  # Incremental sync (Zero-DBT Enforcement)
+                        "textDocumentSync": 2,  # Incremental sync (Zero-DBT Enforcement)
+                        "hoverProvider": True,
                     },
                     "serverInfo": {"name": "Zenzic Language Server", "version": "0.21.0"},
                 },
@@ -308,161 +325,142 @@ class LanguageServer:
             self.documents.did_open(params)
             uri = params.get("textDocument", {}).get("uri", "")
             if uri in self.documents.documents:
+                if self.overlay:
+                    self.overlay.update(uri, self.documents.documents[uri])
                 self.dirty_documents[uri] = time.time()
         elif method == "textDocument/didChange":
             self.documents.did_change(params)
             uri = params.get("textDocument", {}).get("uri", "")
             if uri in self.documents.documents:
+                if self.overlay:
+                    self.overlay.update(uri, self.documents.documents[uri])
                 self.dirty_documents[uri] = time.time()
         elif method == "textDocument/didClose":
             # Memory Hygiene: purge the document state entirely
-            self.documents.did_close(params)
+            pass
 
-    def _publish_diagnostics(self, uri: str, text: str) -> None:
-        """Run the rule engine on the in-memory document state and publish diagnostics.
+    def _sync_workspace_and_publish(self, incremental_uris: set[str] | None = None) -> None:
+        """Run validation incrementally via the decoupled engine.
 
-        Diagnostic sources (all pure / zero disk-I/O for the current document):
-
-        1. ``rule_engine.run()``  — built-in rules: Z108, Z201, Z505, Z107, Z506, Z601 …
-        2. ``rule_engine.run_vsm()`` — VSM-aware rules: Z101 (broken cross-file link)
-        3. ``validate_single_document_urp()`` — Decoupled URP: PolyglotExtractor (Z120-124, Z205), same-page anchors (Z102), absolute paths (Z105)
-        4. ``check_snippet_content()`` — Z503: malformed code snippets
+        Delegates all analysis to ``IncrementalAnalysisEngine`` (ADR-075).
+        The LSP server handles only JSON-RPC serialization and publishing.
         """
+        repo_root = self.repo_root or Path("/")
 
-        if uri.startswith("file://"):
-            file_path = Path(uri[7:])
-        else:
-            file_path = Path(uri)
-
-        # Ensure fallback for zero-config instances
         if not self.config:
-            self.config = ZenzicConfig()
+            if self.repo_root:
+                self.config, _ = ZenzicConfig.load(self.repo_root)
+            else:
+                self.config = ZenzicConfig()
         if not self.rule_engine:
-            from zenzic.core.scanner import _build_rule_engine
-
             self.rule_engine = _build_rule_engine(self.config)
 
-        # ── 1. Core rule engine (Z108, Z201, Z505, Z107, Z506, …) ─────────────
-        from zenzic.core.suppressions import SuppressionTracker
+        docs_root = repo_root / self.config.docs_dir if self.repo_root else Path("/_zenzic_virtual")
 
-        tracker = SuppressionTracker(file_path, text)
+        if not self.adapter:
+            self.adapter = get_adapter(self.config.build_context, docs_root, repo_root)
+            if self.vsm is None:
+                self.vsm = VirtualSiteMap()
 
-        findings = (
-            self.rule_engine.run_with_tracker(file_path, text, tracker) if self.rule_engine else []
-        )
+            assert isinstance(self.vsm, VirtualSiteMap)
 
-        # ── 2. URP (Uniform Resolver Pipeline) - In-Memory Validation (Z102, Z120-Z124, Z205, Z105, Z202, Z203)
-        from zenzic.core.validator import validate_single_document_urp
+            if self.overlay is None:
+                self.overlay = VirtualBufferOverlay(self.vsm)
+                for open_uri, open_text in self.documents.documents.items():
+                    self.overlay.update(open_uri, open_text)
 
-        urp_errors = validate_single_document_urp(
-            content=text, file_path=file_path, vsm=self.vsm or {}, config=self.config
-        )
+        assert isinstance(self.vsm, VirtualSiteMap)
 
-        urp_lines = {err.line_no for err in urp_errors}
-
-        for err in urp_errors:
-            findings.append(
-                RuleFinding(
-                    file_path=err.file_path,
-                    line_no=err.line_no,
-                    rule_id=err.error_type,
-                    message=err.message,
-                    severity="error" if err.error_type != "Z123" else "info",
-                    matched_line=err.source_line,
-                    col_start=err.col_start,
-                    match_text=err.match_text,
-                )
-            )
-
-        # ── 3. VSM-aware rules (Z101 — broken cross-file link) ────────────────
-        if self.vsm is not None and self.config is not None and self.repo_root is not None:
+        # Instantiate engine if needed (ADR-075: transport-agnostic analysis)
+        if self.engine is None:
             assert self.rule_engine is not None
-            docs_root = self.repo_root / self.config.docs_dir
-            from zenzic.core.rules import ResolutionContext
-
-            context = ResolutionContext(docs_root=docs_root, source_file=file_path)
-            vsm_findings = self.rule_engine.run_vsm(
-                file_path=file_path, text=text, vsm=self.vsm, anchors_cache={}, context=context
+            self.engine = IncrementalAnalysisEngine(
+                config=self.config,
+                rule_engine=self.rule_engine,
+                adapter=self.adapter,
+                docs_root=docs_root,
+                repo_root=repo_root,
             )
-            # Mask Z101 if URP already found a security/structural error on the same line
-            for f in vsm_findings:
-                if f.line_no not in urp_lines:
-                    findings.append(f)
 
-        # ── 5. Snippet syntax validation (Z503) ───────────────────────────────
-        from zenzic.core.validator import check_snippet_content
+        # Delegate analysis to the engine
+        assert self.overlay is not None
+        results = self.engine.process_changes(self.vsm, self.overlay, incremental_uris)
 
-        snippet_errors = check_snippet_content(text, file_path, ZenzicConfig())
-
-        # ── 6. Dead Suppressions (Z603) ───────────────────────────────────────
-        findings.extend(tracker.get_dead_suppressions())
-
-        diagnostics = []
-        for f in findings:
-            # LSP line is 0-indexed, Zenzic line_no is 1-indexed
-            line_no = max(0, f.line_no - 1)
-
-            col_start = getattr(f, "col_start", 0)
-            match_text = getattr(f, "match_text", "")
-            col_end = col_start + len(match_text) if match_text else col_start
-
-            matched_line = getattr(f, "matched_line", "") or ""
-
-            utf16_start = self._to_utf16_col(matched_line, col_start)
-            # If there's no match_text, span to the end of the line
-            if not match_text and matched_line:
-                utf16_end = self._to_utf16_col(matched_line, len(matched_line))
-            else:
-                utf16_end = self._to_utf16_col(matched_line, col_end)
-
-            severity_map = {"error": 1, "warning": 2, "info": 3}
-            severity = severity_map.get(getattr(f, "severity", "error"), 1)
-
-            diagnostics.append(
+        # Serialize at transport boundary and publish via JSON-RPC
+        # to_lsp_dict() is the ONLY serialization site in the codebase
+        for uri, typed_diags in results.items():
+            self.send_message(
                 {
-                    "range": {
-                        "start": {"line": line_no, "character": utf16_start},
-                        "end": {"line": line_no, "character": utf16_end},
+                    "jsonrpc": "2.0",
+                    "method": "textDocument/publishDiagnostics",
+                    "params": {
+                        "uri": uri,
+                        "diagnostics": [d.to_lsp_dict() for d in typed_diags],
                     },
-                    "severity": severity,
-                    "code": getattr(f, "rule_id", "Unknown"),
-                    "source": "zenzic",
-                    "message": getattr(f, "message", "Violation found"),
                 }
             )
 
-        for s_err in snippet_errors:
-            line_no = max(0, s_err.line_no - 1)
-            lines = text.splitlines()
-            matched_line = lines[line_no] if 0 <= line_no < len(lines) else ""
-            utf16_end = self._to_utf16_col(matched_line, len(matched_line))
+    def _handle_hover(self, params: dict[str, Any], msg_id: int | str | None) -> None:
+        if msg_id is None or self.vsm is None or not self.repo_root or not self.config:
+            return
 
-            diagnostics.append(
-                {
-                    "range": {
-                        "start": {"line": line_no, "character": 0},
-                        "end": {"line": line_no, "character": utf16_end},
-                    },
-                    "severity": 1,  # Error
-                    "code": s_err.code,
-                    "source": "zenzic",
-                    "message": s_err.message,
-                }
-            )
+        assert isinstance(self.vsm, VirtualSiteMap)
 
-        self.send_message(
-            {
-                "jsonrpc": "2.0",
-                "method": "textDocument/publishDiagnostics",
-                "params": {"uri": uri, "diagnostics": diagnostics},
-            }
-        )
+        doc = params.get("textDocument", {})
+        uri = doc.get("uri", "")
+        pos = params.get("position", {})
+        line = pos.get("line", 0)
+        char = pos.get("character", 0)
 
-    def _to_utf16_col(self, line: str, py_idx: int) -> int:
-        """Convert a Python string index into a UTF-16 code unit offset."""
-        col = 0
-        for i, c in enumerate(line):
-            if i >= py_idx:
+        docs_root = self.repo_root / self.config.docs_dir
+        try:
+            rel = Path(uri[7:]).relative_to(docs_root).as_posix()
+        except ValueError:
+            self.send_response(msg_id, result=None)
+            return
+
+        target_route = None
+        for route in self.vsm.values():
+            if route.source == rel:
+                target_route = route
                 break
-            col += 2 if ord(c) > 0xFFFF else 1
-        return col
+
+        if not target_route:
+            self.send_response(msg_id, result=None)
+            return
+
+        matched: ZenzicDiagnostic | None = None
+        for d in target_route.diagnostics:
+            s_line = d.range.start.line
+            e_line = d.range.end.line
+            if s_line <= line <= e_line:
+                if s_line == line and char < d.range.start.character:
+                    continue
+                if e_line == line and char > d.range.end.character:
+                    continue
+                matched = d
+                break
+
+        if not matched:
+            self.send_response(msg_id, result=None)
+            return
+
+        code = matched.code
+        from zenzic.core.codes import CODE_DEFINITIONS, CODE_DESCRIPTIONS
+
+        defn = CODE_DEFINITIONS.get(code)
+        desc = CODE_DESCRIPTIONS.get(code, "No remediation guidance available.")
+
+        contents: list[str] = []
+        if defn:
+            contents.append(
+                f"**{code}** (Penalty: -{defn.penalty} pts, Category: {defn.category or 'ungraded'})"
+            )
+        else:
+            contents.append(f"**{code}**")
+        contents.append(desc)
+
+        self.send_response(
+            msg_id,
+            result={"contents": {"kind": "markdown", "value": "\n\n".join(contents)}},
+        )

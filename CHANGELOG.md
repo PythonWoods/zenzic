@@ -11,47 +11,34 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-## [0.22.3] - 2026-07-14
-
-### Changed
-
-- **Architectural Unification:** Removed the legacy ad-hoc `placeholders` tracking system from CLI reports and JSON schemas. Z501 (Placeholders) and Z502 (Short Content) rules are now fully integrated into the standard `AdaptiveRuleEngine` lifecycle, ensuring parity between CLI and LSP behaviors.
-
-### Fixed
-
-- **ZLS Diagnostic Parity:** Resolved an architectural drift where the Language Server failed to emit specific structural and hygiene diagnostics compared to the CLI.
-  - **Zero-Config Parity:** `Z501` (Placeholder) and `Z502` (Short Content) now correctly bootstrap with default parameters in Standalone Mode (no `.zenzic.toml`).
-  - **Dead Suppression (`Z603`):** The ZLS now correctly collects and emits dead suppression warnings at the end of the real-time diagnostic pipeline.
-- **URP Execution Order:** Fixed an issue where the Virtual Site Map (VSM) resolution (`Z101`) masked critical security and structural rules (`Z202`, `Z203`, `Z105`). The Uniform Resolver Pipeline now strictly evaluates path traversal and absolute path prohibition *before* checking file existence.
-- **Polyglot Extractor (`Z121`):** Reordered attribute validation to ensure `Z121` (Missing Href) is not masked by `Z120` (Unknown Attribute) on malformed HTML tags.
-
-## [0.22.2] - 2026-07-14
-
-### Fixed
-
-- **ZLS Architecture:** Completely decoupled the Uniform Resolver Pipeline (URP) to support in-memory document validation. The Language Server now guarantees 100% diagnostic parity with the CLI for structural link checks (Z102, Z104, Z105) without redundant disk I/O.
-- **Rule Unification:** Refactored `Z403` (Missing Alt Text) into a native `BaseRule` to eliminate legacy hardcoded execution paths.
-
-## [0.22.1] - 2026-07-14
-
-### Fixed
-
-- **Language Server (LSP):** Resolved a silent failure in the diagnostic pipeline where `textDocument/didOpen` and `textDocument/didChange` events failed to trigger the rule engine. The server now correctly dispatches diagnostics back to the VS Code client via the debounce multiplexer.
-
-## [0.22.0] - 2026-07-12
-
-### ✨ Real-Time Global Topological Awareness (VSM)
-
-This release introduces Real-Time Virtual Site Map (VSM) integration into the Zenzic Language Server (ZLS), ensuring structural checks are validated instantaneously across the entire workspace.
+## [0.23.0] - 2026-07-18
 
 ### Added
 
-- **Synchronous VSM Initialization:** The Language Server now seamlessly intercepts the `workspace/workspaceFolders` payload during the `initialize` handshake to perform a synchronous, zero-threading build of the global VSM.
-- **O(1) Incremental Patching:** Implemented `workspace/didChangeWatchedFiles` capability to dynamically watch the repository. File creations, deletions, and updates trigger an $O(1)$ dictionary patch, avoiding full re-evaluations and preventing race conditions.
-- **Real-Time Structural Validation:** Z-Codes such as `Z101 Broken Link`, `Z104 File Not Found`, and `Z105 Absolute Path` are now resolved and reported dynamically in real-time as files are created or deleted across the workspace.
+- **`IncrementalAnalysisEngine`** (`zenzic.core.incremental`): Standalone, transport-agnostic engine for O(K) incremental documentation analysis. Exposes a deterministic `process_changes(vsm, overlay, changed_uris)` API returning `dict[str, list[ZenzicDiagnostic]]`. Zero knowledge of JSON-RPC, LSP, or VS Code (ADR-075).
+- **Engine isolation test suite** (`tests/test_incremental_engine.py`): 8 tests covering full sync, incremental analysis, cross-file anchor invalidation, determinism, import graph compliance, latency benchmark (<50ms), virtual route enforcement, and deleted file route removal.
+- **`ZenzicDiagnostic` dataclass** (`zenzic.models.diagnostics`): Strict, frozen dataclass representing a diagnostic payload. Eliminates all `Any` and untyped `dict` usage from the diagnostic model. LSP serialization occurs exclusively via `ZenzicDiagnostic.to_lsp_dict()`.
+- **`VirtualBufferOverlay.incoming_links`**: Reverse index (`canonical URL → set[Path]`) relocated from the LSP server into the VSM layer. Provides O(1) dependent-file lookups via `overlay.dependents_of()` while upholding ADR-075 (Radical Unawareness).
+- **ZLS Incremental Validation**: `_sync_workspace_and_publish` performs targeted, graph-aware validation. Only the changed file and its reverse-index dependents are re-evaluated; unmodified files are never re-parsed.
+- **Architectural Documentation**: `docs/architecture/lsp-integration.md` — detailed description of the JSON-RPC lifecycle, `VirtualBufferOverlay`, reverse index, and serialization boundary.
+
+### Changed
+
+- **`LanguageServer`** refactored to delegate all analysis to `IncrementalAnalysisEngine`. The server now handles only JSON-RPC serialization/deserialization and stream management (926 → 470 lines, −49.2%).
+- **`_sync_workspace_and_publish`** reduced from ~280 lines of inline analysis to ~25 lines of engine delegation + transport serialization.
+- **Cache ownership**: `md_contents_cache` and `anchors_cache` moved from `LanguageServer` to `IncrementalAnalysisEngine`. Server delegates via `engine.update_file_cache()` / `engine.remove_file_cache()`.
+- **`Route.diagnostics`** now typed as `list[ZenzicDiagnostic]` (previously `list[dict[str, Any]]`). Enforces strict typing at the VSM layer.
+- **`LanguageServer`** stripped of all topology state (`incoming_links`, `file_diagnostics`). The server is now a pure transport proxy as required by ADR-075.
+
+### Removed
+
+- **`LanguageServer._run_incremental_urp()`** (208 lines): URP checks moved to `IncrementalAnalysisEngine._run_urp_checks()`.
+- **`LanguageServer._to_utf16_col()`** (9 lines): Moved to `zenzic.core.incremental._to_utf16_col()`.
+- **Graph topology state from LSP layer**: `incoming_links` and `file_diagnostics` removed from `LanguageServer`. All dependency tracking is now owned by `VirtualBufferOverlay`.
 
 ## Historical Releases
 
+- v0.22.x archive: [changelogs/v0.22.x.md](./changelogs/v0.22.x.md)
 - v0.21.x archive: [changelogs/v0.21.x.md](./changelogs/v0.21.x.md)
 - v0.20.x archive: [changelogs/v0.20.x.md](./changelogs/v0.20.x.md)
 - v0.19.x archive: [changelogs/v0.19.x.md](./changelogs/v0.19.x.md)
