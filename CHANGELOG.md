@@ -11,26 +11,12 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-### Added
-
-- **`IncrementalAnalysisEngine`** (`zenzic.core.incremental`): Standalone, transport-agnostic engine for O(K) incremental documentation analysis. Exposes a deterministic `process_changes(vsm, overlay, changed_uris)` API returning `dict[str, list[ZenzicDiagnostic]]`. Zero knowledge of JSON-RPC, LSP, or VS Code (ADR-075).
-- **Engine isolation test suite** (`tests/test_incremental_engine.py`): 8 tests covering full sync, incremental analysis, cross-file anchor invalidation, determinism, import graph compliance, latency benchmark (<50ms), virtual route enforcement, and deleted file route removal.
-
-### Changed
-
-- **`LanguageServer`** refactored to delegate all analysis to `IncrementalAnalysisEngine`. The server now handles only JSON-RPC serialization/deserialization and stream management (926 → 470 lines, −49.2%).
-- **`_sync_workspace_and_publish`** reduced from ~280 lines of inline analysis to ~25 lines of engine delegation + transport serialization.
-- **Cache ownership**: `md_contents_cache` and `anchors_cache` moved from `LanguageServer` to `IncrementalAnalysisEngine`. Server delegates via `engine.update_file_cache()` / `engine.remove_file_cache()`.
-
-### Removed
-
-- **`LanguageServer._run_incremental_urp()`** (208 lines): URP checks moved to `IncrementalAnalysisEngine._run_urp_checks()`.
-- **`LanguageServer._to_utf16_col()`** (9 lines): Moved to `zenzic.core.incremental._to_utf16_col()`.
-
 ## [0.23.0] - 2026-07-18
 
 ### Added
 
+- **`IncrementalAnalysisEngine`** (`zenzic.core.incremental`): Standalone, transport-agnostic engine for O(K) incremental documentation analysis. Exposes a deterministic `process_changes(vsm, overlay, changed_uris)` API returning `dict[str, list[ZenzicDiagnostic]]`. Zero knowledge of JSON-RPC, LSP, or VS Code (ADR-075).
+- **Engine isolation test suite** (`tests/test_incremental_engine.py`): 8 tests covering full sync, incremental analysis, cross-file anchor invalidation, determinism, import graph compliance, latency benchmark (<50ms), virtual route enforcement, and deleted file route removal.
 - **`ZenzicDiagnostic` dataclass** (`zenzic.models.diagnostics`): Strict, frozen dataclass representing a diagnostic payload. Eliminates all `Any` and untyped `dict` usage from the diagnostic model. LSP serialization occurs exclusively via `ZenzicDiagnostic.to_lsp_dict()`.
 - **`VirtualBufferOverlay.incoming_links`**: Reverse index (`canonical URL → set[Path]`) relocated from the LSP server into the VSM layer. Provides O(1) dependent-file lookups via `overlay.dependents_of()` while upholding ADR-075 (Radical Unawareness).
 - **ZLS Incremental Validation**: `_sync_workspace_and_publish` performs targeted, graph-aware validation. Only the changed file and its reverse-index dependents are re-evaluated; unmodified files are never re-parsed.
@@ -38,11 +24,16 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **`LanguageServer`** refactored to delegate all analysis to `IncrementalAnalysisEngine`. The server now handles only JSON-RPC serialization/deserialization and stream management (926 → 470 lines, −49.2%).
+- **`_sync_workspace_and_publish`** reduced from ~280 lines of inline analysis to ~25 lines of engine delegation + transport serialization.
+- **Cache ownership**: `md_contents_cache` and `anchors_cache` moved from `LanguageServer` to `IncrementalAnalysisEngine`. Server delegates via `engine.update_file_cache()` / `engine.remove_file_cache()`.
 - **`Route.diagnostics`** now typed as `list[ZenzicDiagnostic]` (previously `list[dict[str, Any]]`). Enforces strict typing at the VSM layer.
 - **`LanguageServer`** stripped of all topology state (`incoming_links`, `file_diagnostics`). The server is now a pure transport proxy as required by ADR-075.
 
 ### Removed
 
+- **`LanguageServer._run_incremental_urp()`** (208 lines): URP checks moved to `IncrementalAnalysisEngine._run_urp_checks()`.
+- **`LanguageServer._to_utf16_col()`** (9 lines): Moved to `zenzic.core.incremental._to_utf16_col()`.
 - **Graph topology state from LSP layer**: `incoming_links` and `file_diagnostics` removed from `LanguageServer`. All dependency tracking is now owned by `VirtualBufferOverlay`.
 
 ## Historical Releases
