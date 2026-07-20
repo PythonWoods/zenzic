@@ -1,4 +1,6 @@
 ---
+title: "Shift-Left to the Keystroke: The Zenzic VS Code Extension"
+slug: zenzic-vs-code-extension
 date: 2026-07-18
 authors:
   - pythonwoods
@@ -10,8 +12,6 @@ categories:
 ---
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
-
-# Shift-Left to the Keystroke: The Zenzic VS Code Extension
 
 Since its inception, Zenzic has operated as a strict, deterministic gatekeeper for CI/CD pipelines. It ensures that no broken links, malformed topology, or hardcoded credentials ever reach production.
 
