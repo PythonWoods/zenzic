@@ -73,7 +73,7 @@ Servers returning `401`, `403`, or `429` are treated as reachable — these indi
 
     Some build engines allow frontmatter `slug` overrides that decouple a page's URL from its filesystem location. When this happens, the "parent directory" for relative link resolution may differ between the build engine (which resolves from the URL) and Zenzic (which resolves from the file path).
 
-    **Best practice:** keep the filesystem structure aligned with the URL structure. If you move a file to `guides/checks.md`, let its URL become `/docs/guides/checks` rather than forcing a slug back to `/docs/checks`. This guarantees that `../` links resolve identically for both the linter and the build engine.
+    **Best practice:** keep the filesystem structure aligned with the URL structure. If you move a file to `guides/checks.md`, let its URL become `/docs/guides/checks` rather than forcing a slug back to `/docs/checks`. This guarantees that `../` links resolve identically for both the integrity engine and the build engine.
 
 **Zenzic output — gutter reporter:**
 

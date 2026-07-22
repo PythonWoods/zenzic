@@ -2,9 +2,8 @@
 
 Thank you for your interest in contributing to Zenzic!
 
-Zenzic is a documentation quality tool — an engine-agnostic linter and credential scanner
-for Markdown and MDX documentation. Contributions that improve detection accuracy, add
-new check types, or improve CI/CD integration are especially welcome.
+Zenzic is a Deterministic Document Integrity Engine and SAST for Markdown/MDX graphs.
+We welcome contributions that improve reliability, performance, adapter accuracy, or usability.
 
 ## Two Repositories, Two Doors
 
@@ -26,10 +25,8 @@ head to [zenzic-doc](https://github.com/PythonWoods/zenzic).
 
 ## Mission
 
-Zenzic is not just a linter. It is a long-term safety layer for documentation teams that
-depend on open, auditable source files. We preserve validation continuity across engine
-changes (MkDocs, Docusaurus, Zensical, and future adapters) so projects keep control over
-their data and quality process regardless of ecosystem churn.
+Zenzic is a long-term safety layer for documentation teams that
+rely on deterministic outputs. All contributions must respect the foundational principles:
 
 ## Contributor Contract
 
@@ -280,7 +277,7 @@ To ensure consistency between the core engine (**zenzic**) and the documentation
 
 ### 🔍 How it works
 
-1. **Local Development**: The linter always looks for the core repository in the adjacent folder (`../zenzic`). You are responsible for keeping local branches aligned.
+1. **Local Development**: The action always looks for the core repository in the adjacent folder (`../zenzic`). You are responsible for keeping local branches aligned.
 2. **In CI (GitHub Actions)**: The documentation pipeline attempts to clone the core repository by looking for a branch with the **exact same name** as the one being built in the doc repo.
 3. **Fallback**: If the mirrored branch is not found in the core repo, the CI will automatically fall back to the `main` branch.
 
@@ -306,7 +303,7 @@ maintainer (or an attacker who compromises one) can move a tag silently,
 poisoning the local Gate 2 without any diff in this repository.
 
 This is an **internal CI policy for the Zenzic project**, not a public Zenzic
-linter rule: it constrains how *we* develop Zenzic, not how Zenzic users
+rule: it constrains how *we* develop Zenzic, not how Zenzic users
 develop their own documentation. The orchestrator-level enforcement lives in
 `just check-pinning` (dependency of `just verify`); violations raise
 `[ADR-089] FATAL` at pre-push.

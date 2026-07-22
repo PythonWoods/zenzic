@@ -9,7 +9,7 @@ description: "Upgrade guides and migration notes between Zenzic versions."
 # Migrating to Zensical
 
 !!! note "Zenzic vs Zensical"
-    **Zenzic** is the documentation linter described in this documentation site — the tool
+    **Zenzic** is the document integrity engine described in this documentation site — the tool
     you run with `zenzic check all`.
 
     **Zensical** is a separate build engine (a compatible successor to MkDocs 1.x). This page
@@ -48,7 +48,7 @@ touching a single documentation file. From Zenzic's perspective:
 
 When using `mkdocs-material` with the `i18n` plugin and multiple locales, the language
 switcher can be controlled by two different mechanisms. Mixing them causes routing conflicts
-that Zenzic — a source linter — cannot detect automatically, but that silently break the
+that Zenzic — a source-level SAST engine — cannot detect automatically, but that silently break the
 user experience at build time.
 
 **Recommended configuration:**

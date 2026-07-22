@@ -140,8 +140,8 @@ class TestFrontmatterExtraction:
         assert extract_frontmatter_unlisted(content) is False
 
     def test_tags_inline(self) -> None:
-        content = "---\ntags: [python, docs, linter]\n---\n\nBody"
-        assert extract_frontmatter_tags(content) == ["python", "docs", "linter"]
+        content = "---\ntags: [python, docs, sast]\n---\n\nBody"
+        assert extract_frontmatter_tags(content) == ["python", "docs", "sast"]
 
     def test_tags_flow(self) -> None:
         content = "---\ntags:\n- python\n- docs\n---\n\nBody"

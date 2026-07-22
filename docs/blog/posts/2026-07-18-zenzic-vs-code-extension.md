@@ -13,6 +13,9 @@ categories:
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
+!!! abstract "Architectural Update"
+    *Historical Note:* This post refers to Zenzic as a "linter". As the system evolved, its capabilities expanded far beyond surface-level linting. Zenzic is now officially classified as a **Deterministic Document Integrity Engine and SAST for Markdown/MDX graphs**. Read the [latest documentation](https://zenzic.dev/) for current architectural capabilities.
+
 Since its inception, Zenzic has operated as a strict, deterministic gatekeeper for CI/CD pipelines. It ensures that no broken links, malformed topology, or hardcoded credentials ever reach production.
 
 Today, we are eliminating the latency between authoring a defect and discovering it. We are officially releasing the **Zenzic VS Code Extension**, bringing the deterministic precision of our engine directly into your authoring environment.

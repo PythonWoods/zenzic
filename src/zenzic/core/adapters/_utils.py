@@ -39,7 +39,7 @@ def case_sensitive_exists(path: Path) -> bool:
     On case-insensitive filesystems (Windows NTFS, macOS HFS+), ``Path.exists()``
     returns ``True`` even when the on-disk filename differs only in case from the
     requested name.  Web servers and browsers are case-sensitive, so
-    ``Logo.png`` and ``logo.png`` are different resources; a linter must
+    ``Logo.png`` and ``logo.png`` are different resources; static analysis must
     reflect that.
 
     This function uses ``os.listdir(path.parent)`` — which always returns the

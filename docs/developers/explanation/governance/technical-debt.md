@@ -50,7 +50,7 @@ The check is conceptually simple but architecturally expensive:
    validator pass would force a Pillar 3 redesign in a release cycle whose stated
    goal is *consolidation*, not refactor.
 2. **Wrong category.** Linting the *content* of documentation and linting
-   the *configuration* of the linter itself are different problem spaces.
+   the *configuration* of the engine itself are different problem spaces.
    Mixing them inflates the validator's scope and obscures which findings
    are about user-authored content vs. project setup.
 3. **YAGNI signal absent.** No real-world reports of stale allowlist
@@ -88,7 +88,7 @@ will name the version that resolved it and link to the merged PR.
 
 ## Why this page exists
 
-Zenzic's first invariant is **Transparency**. A linter that hides its own
+Zenzic's first invariant is **Transparency**. An analysis engine that hides its own
 shortcomings is not trustworthy: every project that adopts Zenzic should be
 able to read this ledger and judge for themselves whether the deferred work
 matters to their use case.

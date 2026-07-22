@@ -9,6 +9,9 @@ description: "Terminal UX as a Governance Interface: How Zenzic Renders Diagnost
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
+!!! abstract "Architectural Update"
+    *Historical Note:* This post refers to Zenzic as a "linter". As the system evolved, its capabilities expanded far beyond surface-level linting. Zenzic is now officially classified as a **Deterministic Document Integrity Engine and SAST for Markdown/MDX graphs**. Read the [latest documentation](https://zenzic.dev/) for current architectural capabilities.
+
 A linter reports violations within individual files. A governance engine verifies
 that a set of invariants holds across the entire document graph — and halts the
 pipeline when one does not.

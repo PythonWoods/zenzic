@@ -858,7 +858,7 @@ move all settings that follow that header to the top of the file, before any `[s
 
 ### Dogfooding Pattern with Zensical/MkDocs {#dogfooding}
 
-Documenting a linter with its own linter creates intentional false positives: pages that *explain* placeholder patterns will trigger the placeholder checker.
+Documenting an integrity engine with its own analysis tool creates intentional false positives: pages that *explain* placeholder patterns will trigger the placeholder checker.
 Disable the checker in the `.zenzic.toml` of the documentation repository:
 
 ```toml

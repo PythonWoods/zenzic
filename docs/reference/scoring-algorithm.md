@@ -118,7 +118,7 @@ $$
 | Z601 | BRAND_OBSOLESCENCE | 2.0 pts | Governance |
 
 !!! note Z106 — Knowledge Graph telemetry, not a defect
-    Z106 is excluded from the penalty table by design. Elevating it to a scored finding would deduct Quality Score points, pressuring engineers to remove cross-links to satisfy the linter — a perverse incentive that degrades real documentation quality. Circular links in a Knowledge Graph are structural data, not defects. Z106 is emitted as topological telemetry; inspect it with `--show-info`.
+    Z106 is excluded from the penalty table by design. Elevating it to a scored finding would deduct Quality Score points, pressuring engineers to remove cross-links to satisfy the quality gate — a perverse incentive that degrades real documentation quality. Circular links in a Knowledge Graph are structural data, not defects. Z106 is emitted as topological telemetry; inspect it with `--show-info`.
 
 !!! note Z602 is not scored
     Z602 (I18N_PARITY) is a Governance gate that fires as a standalone finding. It does not contribute to any DQS bucket and therefore has no penalty value in the table above.

@@ -9,6 +9,9 @@ description: "Zenzic v0.10.0: Async Engine, Native Annotations, and Progressive 
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
+!!! abstract "Architectural Update"
+    *Historical Note:* This post refers to Zenzic as a "linter". As the system evolved, its capabilities expanded far beyond surface-level linting. Zenzic is now officially classified as a **Deterministic Document Integrity Engine and SAST for Markdown/MDX graphs**. Read the [latest documentation](https://zenzic.dev/) for current architectural capabilities.
+
 Zenzic v0.10.0 introduces a massive performance upgrade with a new **Async Network Engine**, alongside two architectural changes designed strictly for the CI/CD pipeline: **Native GitHub Annotations** and **Destructive Rule Filtering**.
 
 These features are not aesthetic. They are built to solve three specific operational bottlenecks: network-induced CI flakiness, context switching during Pull Request reviews, and the high friction of adopting static analysis in legacy documentation repositories.

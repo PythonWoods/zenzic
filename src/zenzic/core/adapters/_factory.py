@@ -26,7 +26,7 @@ When ``from_repo`` is absent the factory falls back to calling
 Fallback
 --------
 When no entry point matches the requested engine, :class:`StandaloneAdapter` is
-returned.  This keeps Zenzic functional as a plain Markdown linter even when
+returned.  This keeps Zenzic functional as a standalone document integrity analyzer even when
 the docs engine is not installed.
 """
 

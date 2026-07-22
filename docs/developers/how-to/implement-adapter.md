@@ -299,7 +299,7 @@ def get_link_scheme_bypasses(self) -> frozenset[str]:
     return frozenset()
 ```
 
-Most engines return `frozenset()`. An engine might use custom link schemes to bypass routing (for example, to reference static assets that bypass the central router). The adapter registers these custom schemes to prevent the core linter from flagging them as absolute paths.
+Most engines return `frozenset()`. An engine might use custom link schemes to bypass routing (for example, to reference static assets that bypass the central router). The adapter registers these custom schemes to prevent the core engine from flagging them as absolute paths.
 
 !!! info "Rule R21 — Protocol Sovereignty"
     The Core never hardcodes engine names. Engine-specific behaviour is declared in

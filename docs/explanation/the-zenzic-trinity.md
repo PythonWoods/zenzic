@@ -10,7 +10,7 @@ description: "How the three Zenzic repositories form a Trinity of Integrity — 
 
 ## The Zenzic Trinity: Code, Doc, and Action
 
-Zenzic is more than a linter. It is a **Sovereign Knowledge System** — an ecosystem where
+Zenzic is a **Sovereign Knowledge System** — an ecosystem where
 logic, intent, and enforcement are permanently synchronized. To deliver a true
 [Exclusion Zone](./privacy-gate.md), Zenzic is organized into a Trinity of Integrity: three
 repositories that form a closed feedback loop, each reinforcing the others.

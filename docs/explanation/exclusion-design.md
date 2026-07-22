@@ -12,7 +12,7 @@ description: "The design rationale behind Zenzic's conscious exclusion model ver
 
 Zenzic defaults to **Conscious Control** rather than Blind Automation. Understanding this principle is the key to configuring the tool effectively in production projects.
 
-`respect_vcs_ignore` is `true` by default. This aligns Zenzic with modern linter behavior: VCS-ignored paths are skipped unless explicitly included.
+`respect_vcs_ignore` is `true` by default. This aligns Zenzic with modern static analysis behavior: VCS-ignored paths are skipped unless explicitly included.
 
 **The Noisy `.gitignore` Problem**
 
@@ -27,7 +27,7 @@ htmlcov/
 .venv/
 ```
 
-If `respect_vcs_ignore = true`, Zenzic would silently exclude any documentation file whose path matches these patterns. A `docs/coverage-report.md` page, for instance, would vanish from orphan detection without any diagnostic message. The linter would appear healthy while silently skipping entire documentation subtrees.
+If `respect_vcs_ignore = true`, Zenzic would silently exclude any documentation file whose path matches these patterns. A `docs/coverage-report.md` page, for instance, would vanish from orphan detection without any diagnostic message. The engine would appear healthy while silently skipping entire documentation subtrees.
 
 **The Explicit `.zenzic.toml` is Superior**
 

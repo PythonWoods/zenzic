@@ -402,7 +402,7 @@ class ZenzicConfig(BaseModel):
         description=(
             "When True (default), Zenzic reads .gitignore files from the "
             "repository root and docs directory and excludes matching paths "
-            "from all checks. This aligns with industry-grade linter standards "
+            "from all checks. This aligns with industry-grade static analysis standards "
             "(Ruff, Ripgrep, Black, Prettier) where VCS-ignored paths are "
             "transparently excluded. Set to False only to override this "
             "behaviour explicitly. Forced inclusions (included_dirs, "

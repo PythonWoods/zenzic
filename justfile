@@ -68,7 +68,7 @@ test-full *args:
 
 # ─── Quality Gates (4-Lifecycle-Gates model) ──────────────────────────────────
 
-# Fast linter pass: run all pre-commit hooks without the full test suite.
+# Fast static check pass: run all pre-commit hooks without the full test suite.
 lint:
     {{ runner }} pre-commit run --all-files
 
@@ -87,7 +87,7 @@ verify: _check-hooks release-contracts check-pinning docs-build
     {{ runner }} zenzic score --check-stamp --ci
 
 # ADR-089 — Immutable Infrastructure guard on local hooks (internal CI policy,
-# not a public Zenzic linter rule). Pre-commit `rev:` keys must be 40-char
+# not a public Zenzic rule). Pre-commit `rev:` keys must be 40-char
 # commit SHAs, not mutable tags. Regex anchored to line-start so the
 # `# vX.Y.Z` annotation comment is safe.
 check-pinning:
@@ -107,7 +107,7 @@ _check-hooks:
     _missing=0
     if [ ! -f .git/hooks/pre-commit ]; then
         echo -e "\033[33m⚠️  WARNING: pre-commit hook is not installed.\033[0m"
-        echo "Without it, linters and type-checks will NOT run automatically on git commit."
+        echo "Without it, static checks and type-checks will NOT run automatically on git commit."
         echo "👉 Fix it by running: uv run --active pre-commit install"
         echo ""
         _missing=1
