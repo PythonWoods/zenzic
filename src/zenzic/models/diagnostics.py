@@ -61,7 +61,9 @@ class ZenzicDiagnostic:
 
     # ── Serialization boundary ────────────────────────────────────────────────
 
-    def to_lsp_dict(self) -> dict[str, int | str | dict[str, dict[str, int]]]:
+    def to_lsp_dict(
+        self,
+    ) -> dict[str, int | str | dict[str, str] | dict[str, dict[str, int]]]:
         """Serialize to the exact shape required by LSP ``publishDiagnostics``.
 
         This is the ONLY location in the codebase where a ``ZenzicDiagnostic``
@@ -81,6 +83,9 @@ class ZenzicDiagnostic:
             },
             "severity": int(self.severity),
             "code": self.code,
+            "codeDescription": {
+                "href": f"https://zenzic.dev/docs/reference/finding-codes#{self.code}",
+            },
             "source": self.source,
-            "message": self.message,
+            "message": f"[{self.code}] {self.message}",
         }
