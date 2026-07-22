@@ -114,7 +114,7 @@ Zenzic Core is headless and emits standardized **SARIF** (Static Analysis Result
       "tool": {
         "driver": {
           "name": "zenzic",
-          "version": "0.23.0",
+          "version": "0.23.1",
           "rules": [
             {
               "id": "Z101",
@@ -275,7 +275,7 @@ uv tool upgrade zenzic
 To run a specific version ephemerally without altering your global environment:
 
 ```bash
-uvx zenzic@0.23.0 check all
+uvx zenzic@0.23.1 check all
 ```
 
 ---

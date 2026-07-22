@@ -11,6 +11,12 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.23.1] - 2026-07-22
+
+### Added
+
+- **LSP Diagnostic Payload Formatting (`ZenzicDiagnostic.to_lsp_dict()`)**: Added `codeDescription` property with `href` pointing to `https://zenzic.dev/docs/reference/finding-codes#{code}` and prepended `[{code}] ` prefix to diagnostic messages per LSP 3.16/3.17 specifications (`ZLS-UX-001-DIAGNOSTIC-FORMATTING`).
+
 ## [0.23.0] - 2026-07-18
 
 ### Added
