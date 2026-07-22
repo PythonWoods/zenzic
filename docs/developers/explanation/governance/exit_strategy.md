@@ -18,7 +18,7 @@ description: "The Sovereignty Oath of Zenzic, declaring a zero-lock-in and zero-
 Zenzic makes one unconditional promise: **it will never hold your codebase hostage.**
 
 To ensure the integrity of the Privacy Gate, Zenzic's audit core is strictly read-only.
-We believe that a linter should never be a source of unintended mutations. Any future
+We believe that a document integrity engine should never be a source of unintended mutations. Any future
 remediation features will be implemented as explicit, interactive utilities
 (e.g. `zenzic fix`), keeping the analysis phase 100% mutation-free.
 

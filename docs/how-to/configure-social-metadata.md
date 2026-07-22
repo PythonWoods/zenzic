@@ -43,7 +43,7 @@ Any page can override the global defaults by adding fields to its frontmatter:
 title: "Architecture — How Zenzic Works"
 description: "Deep dive into the Two-Pass Pipeline, VSM, and path traversal guard."
 image: assets/social/social-card.png
-keywords: [zenzic, architecture, vsm, pipeline, documentation linter]
+keywords: [zenzic, architecture, vsm, pipeline, document integrity engine]
 ---
 ```
 

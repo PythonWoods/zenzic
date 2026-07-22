@@ -15,6 +15,9 @@ categories:
 <!-- SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev> -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
+!!! abstract "Architectural Update"
+    *Historical Note:* This post refers to Zenzic as a "linter". As the system evolved, its capabilities expanded far beyond surface-level linting. Zenzic is now officially classified as a **Deterministic Document Integrity Engine and SAST for Markdown/MDX graphs**. Read the [latest documentation](https://zenzic.dev/) for current architectural capabilities.
+
 Zenzic v0.20.0 is the first release to expose the engine's internal Abstract Syntax Tree to the
 outside world. After v0.19.0 laid the AST foundations, The Extensibility Update answers a
 long-standing question: *what if the rules I need simply don't exist yet?*

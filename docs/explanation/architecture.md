@@ -255,7 +255,7 @@ Adapters that support frontmatter `slug` overrides map slugs into the Virtual Si
 
 However, Zenzic's **link integrity** validation (broken links, absolute paths) resolves relative paths from the *filesystem* location, not the slug URL. This means a heavy divergence between slug and file path can cause a page's relative links to resolve differently in Zenzic (file-based) vs the build engine (URL-based).
 
-**Architectural invariant:** keep the filesystem hierarchy aligned with the intended URL hierarchy. If a file is moved to a new directory, let the URL follow naturally rather than using `slug` to pin the old URL. This ensures `../` links resolve identically in both the linter and the static-site generator.
+**Architectural invariant:** keep the filesystem hierarchy aligned with the intended URL hierarchy. If a file is moved to a new directory, let the URL follow naturally rather than using `slug` to pin the old URL. This ensures `../` links resolve identically in both the integrity engine and the static-site generator.
 
 ### Alias Mapping in `InMemoryPathResolver` {#alias-mapping}
 
@@ -548,7 +548,7 @@ participant in the quality pipeline. Every commit runs `zenzic check all --stric
 itself before it can be pushed (Sovereign Parity, ZRT-010).
 
 Beyond the standard Zenzic audit, `zenzic-doc` enforces a second invariant unique to its
-role as documentation for a linter: every Zxxx finding code present in `docs/` must have a
+role as documentation for an integrity engine: every Zxxx finding code present in `docs/` must have a
 registered entry in `src/zenzic/core/codes.py` in the Core package — and vice versa. This
 bidirectional parity is enforced by the `verify-codes-parity` Nox session via
 **Sovereign Resolution (Fail-Closed)**:

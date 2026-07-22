@@ -579,7 +579,7 @@ class TestUnreachableLinkDetection:
 
     def test_conflict_route_not_emitting_unreachable_link(self, tmp_path: Path) -> None:
         """A CONFLICT route is a build error, not an unreachable link per se.
-        The linter should not double-report it as UNREACHABLE_LINK."""
+        The engine should not double-report it as UNREACHABLE_LINK."""
         _make_docs(
             tmp_path,
             {

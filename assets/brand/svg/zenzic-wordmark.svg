@@ -25,5 +25,5 @@
   <text x="125" y="68" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="56" fill="#0f172a" letter-spacing="-1.5">Zenzic</text>
 
   <!-- Tagline -->
-  <text x="127" y="92" font-family="system-ui, -apple-system, sans-serif" font-weight="500" font-size="14" fill="#64748b" letter-spacing="2">DOCUMENTATION LINTER</text>
+  <text x="127" y="92" font-family="system-ui, -apple-system, sans-serif" font-weight="500" font-size="14" fill="#64748b" letter-spacing="2">DOCUMENT INTEGRITY ENGINE</text>
 </svg>

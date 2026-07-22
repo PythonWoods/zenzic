@@ -39,7 +39,7 @@ SPDX-License-Identifier: Apache-2.0
 </p>
 
 <p align="center">
-  <strong>Deterministic audit of documentation structures with bidirectional traceability.</strong><br>
+  <strong>Deterministic Document Integrity Engine and SAST for Markdown/MDX graphs.</strong><br>
   <em>Tiered code governance, frozen security contracts, and RE2-backed deterministic scanning.</em>
 </p>
 
@@ -47,15 +47,15 @@ SPDX-License-Identifier: Apache-2.0
 
 ## ⚡ Try it now — Zero Installation
 
-Got a folder of Markdown files? Run an instant security and link audit using [`uv`][uv]:
+Analyzing documentation graphs? Run instant security and topological analysis using [`uv`][uv]:
 
 ```bash
 uvx zenzic check all ./your-folder
 ```
 
 Zenzic identifies your engine via its configuration files or defaults to **Standalone Mode**
-for plain Markdown folders — providing immediate protection for links, credentials, and
-file integrity.
+when analyzing documentation graphs — providing immediate SAST protection for links, credentials, and
+graph integrity.
 
 ---
 
@@ -65,15 +65,28 @@ file integrity.
 pip install zenzic
 cd my-docs-repo
 zenzic init       # Establish the workspace boundary (creates .zenzic.toml)
-zenzic check all  # Audit the current directory
+zenzic check all  # Analyze documentation graphs in current directory
 ```
 
-## 🧠 Core Pillars
+## 🧠 Key Capabilities
 
-- **Pure, deterministic engine:** identical inputs produce identical findings and exits.
-- **Tiered code model:** Core, Structure, and Governance findings grouped by tier.
-- **Frozen contracts for integrators:** `FROZEN_CODES`, `NON_SUPPRESSIBLE_CODES`, and `PLUGIN_FORBIDDEN_EXITS` provide stable enforcement surfaces for CI and plugins.
-- **Inspect-first workflow:** use `zenzic inspect codes` to validate live code semantics before touching docs or release notes.
+### 1. Security Scanning (SAST)
+
+- **Z2xx Rules**: Hardened Static Application Security Testing for documentation graphs.
+- **Credential Leaks (Z201)**: Hardcoded tokens, API keys, and secret patterns detected before reaching PRs.
+- **Path Traversal Guard (Z202 / Z203)**: Non-suppressible filesystem boundary security checks; fatal exit codes (exits 2/3) survive `fail-on-error: false`.
+
+### 2. Graph Topology Analysis
+
+- **Virtual Site Map (VSM)**: Comprehensive $O(N)$ topological modeling of documentation graphs.
+- **Cross-File Link Resolution**: Validates anchor boundaries and cross-document dependencies.
+- **Orphan Pages & Dead Navigation**: Flags unlinked graph nodes, missing directory indices, and unreachable content.
+
+### 3. Deterministic CI/CD Enforcement
+
+- **Zero-DBT Quality Gate**: Bit-for-bit identical findings across all execution environments.
+- **Frozen Contracts**: `FROZEN_CODES`, `NON_SUPPRESSIBLE_CODES`, and standardized SARIF output.
+- **Inspect-First Workflow**: Query live code semantics with `zenzic inspect codes`.
 
 📖 [Full docs →][docs-home] · 🏅 [Badges][docs-badges] · 🔄 [CI/CD guide][docs-cicd]
 

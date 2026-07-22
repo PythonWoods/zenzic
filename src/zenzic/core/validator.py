@@ -973,7 +973,7 @@ async def _check_external_links(
 
     headers = {
         "User-Agent": (
-            "Zenzic-Documentation-Linter/0.1.0 (+https://github.com/PythonWoods/zenzic)"
+            "Zenzic-Document-Integrity-Engine/0.1.0 (+https://github.com/PythonWoods/zenzic)"
         ),
         "Accept": "text/html,application/xhtml+xml,*/*",
     }

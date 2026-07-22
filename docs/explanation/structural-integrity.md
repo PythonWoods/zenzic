@@ -103,12 +103,12 @@ contract between the author and every tool in the pipeline.
 
 ## The Node.js Tax and Architectural Independence {#the-nodejs-tax}
 
-You might ask: why does Zenzic implement `Z505 (Untagged Code Blocks)` when linters
+You might ask: why does Zenzic implement `Z505 (Untagged Code Blocks)` when static analysis tools
 like `markdownlint` already detect this?
 
 The answer is **[Pillar 2: Zero Subprocesses](./the-zenzic-trinity.md)**.
 
-Traditional Markdown linters require a full Node.js runtime and hundreds of megabytes of
+Traditional Markdown tools require a full Node.js runtime and hundreds of megabytes of
 `node_modules`. For a Python-based DevOps pipeline, a security-conscious enterprise, or any
 team running CI in a minimal container, this dependency creates friction: additional toolchain
 configuration, runtime version pinning, and transitive supply-chain exposure. We call this
@@ -126,7 +126,7 @@ npm audit surface      Zero transitive risk
 
 By providing core structural checks in pure Python, Zenzic enables professional-grade
 documentation quality **without leaving your primary technology stack**. Zenzic is not
-designed to replace every linter in your pipeline — but for structural integrity, security,
+designed to replace every quality check in your pipeline — but for structural integrity, security,
 and technical accessibility in CI, it is the only one you **need**.
 
 ---

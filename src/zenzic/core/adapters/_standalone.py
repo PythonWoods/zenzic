@@ -19,7 +19,7 @@ class StandaloneAdapter(BaseAdapter):
 
     Returned by :func:`~zenzic.core.adapters.get_adapter` when neither a
     ``mkdocs.yml`` nor explicit locales are detected.  Provides neutral,
-    no-op behaviour so Zenzic operates as a plain Markdown linter without
+    no-op behaviour so Zenzic operates as a standalone document integrity analyzer without
     any i18n awareness.
 
     In Standalone Mode, navigation-based checks (orphans) are disabled
