@@ -43,10 +43,10 @@ When a document is modified, the engine does not rebuild the entire workspace. I
 
 The extension is now publicly available on the Visual Studio Marketplace.
 
-1. **Install the Core Engine:** The extension requires the Zenzic Python binary (v0.23.0 or higher) to operate.
+1. **Install the Core Engine:** The extension requires the Zenzic Python binary (v0.23.1 or higher) to operate.
 
    ```bash
-   uv tool install zenzic
+   uv tool install --force zenzic
    ```
 
 2. **Install the Extension:** Search for `Zenzic` in the VS Code Extensions panel, or install it via the command line:

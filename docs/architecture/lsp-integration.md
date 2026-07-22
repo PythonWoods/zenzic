@@ -67,3 +67,13 @@ The engine executes the following deterministic O(K) pipeline:
 4. **Targeted validation** — the `AdaptiveRuleEngine` and Uniform Resolver Pipeline (URP) checks run *only* against the modified file and its topological dependents.
 5. **Typed store (Mirror Law)** — the engine computes `list[ZenzicDiagnostic]` instances and stores them on the respective `Route.diagnostics` fields.
 6. **Serialization boundary** — the engine returns a mapping of URIs to typed diagnostics. The `LanguageServer` then serializes these via `[d.to_lsp_dict() for d in typed_diags]` to produce the JSON-RPC `publishDiagnostics` payload. This is the only location where typed diagnostics are converted to dicts.
+
+## Client Version Handshake & Capability Governance
+
+To uphold ADR-075 (Radical Unawareness), the Zenzic Language Server core contains zero editor-specific code. Thin client integrations (such as `zenzic-vscode`) execute a pre-initialization version check before opening JSON-RPC streams:
+
+1. **Minimum Core Baseline**: Client extensions must define and enforce a minimum required Zenzic Core version (e.g., via a MIN_CORE_VERSION constant) to ensure compatibility with the expected LSP feature set.
+2. **Execution Safety**: Client extensions execute `<executablePath> --version` via `child_process.execFile` (disabling shell interpolation to eliminate injection vectors).
+3. **Fail-Fast Error Handling**:
+   - **`Zenzic: Outdated Core`**: Surfaced when the resolved binary version is lower than the minimum required baseline. Resolution: `uv tool install --force zenzic`.
+   - **`Zenzic: Not Found (ENOENT)`**: Surfaced when the binary is absent from `$PATH` (e.g. Snap/Flatpak isolation). Resolution: configure absolute path in `zenzic.executablePath`.
