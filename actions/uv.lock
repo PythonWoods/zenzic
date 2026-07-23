@@ -520,7 +520,7 @@ wheels = [
 
 [[package]]
 name = "zenzic"
-version = "0.22.3"
+version = "0.23.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "google-re2" },
@@ -532,9 +532,9 @@ dependencies = [
     { name = "tomli", marker = "python_full_version < '3.11'" },
     { name = "typer" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/ef/0e/9a7c6b043c5a32e65b523555bd224bc575d2683df4c1882145838a9ea9bb/zenzic-0.22.3.tar.gz", hash = "sha256:9d47a9ccc4f21b8e079e60391bbeb594e7180470f661816cc51f136db3986c25", size = 1782420, upload-time = "2026-07-14T17:21:50.863Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/84/5d/b3f925fbc89588726cab075dff89779ee562ec6d0af04b7973a959655783/zenzic-0.23.1.tar.gz", hash = "sha256:bb220a6a2258467ae0063bc7b9b65fe8463dcd0dcb37f233af1eaacad0267827", size = 1799007, upload-time = "2026-07-22T08:14:45.07Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/05/a7/50182925c808ffc179f3551ddf4aad1d7541304cbfd479721d75835ce304/zenzic-0.22.3-py3-none-any.whl", hash = "sha256:843df9f5666dd7b560a251ad98ded5536834f6feb592d36e6bb5477d8ae5ba02", size = 349433, upload-time = "2026-07-14T17:21:47.17Z" },
+    { url = "https://files.pythonhosted.org/packages/f1/6a/0136aba943c8cee9a10c39cb9737a2ca335d203e43c6804af33a64cd6db1/zenzic-0.23.1-py3-none-any.whl", hash = "sha256:bc06991c3b0b8237e7bbf76469fa8c8ec3d84e81a6fd0ce7afae450005d799d1", size = 357296, upload-time = "2026-07-22T08:14:47.668Z" },
 ]
 
 [[package]]
@@ -545,4 +545,4 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "zenzic", specifier = ">=0.22.2" }]
+requires-dist = [{ name = "zenzic", specifier = "==0.23.1" }]

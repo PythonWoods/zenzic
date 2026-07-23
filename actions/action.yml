@@ -16,7 +16,7 @@ inputs:
   version:
     description: "Zenzic version to use. Defaults to latest stable."
     required: false
-    default: "0.23.1" # x-zenzic-core-pin @ 67b4ee3632681065b304891ef388b99010d999bf
+    default: "0.23.3" # x-zenzic-core-pin
   format:
     description: "Output format: 'text', 'json', or 'sarif'."
     required: false
