@@ -25,8 +25,6 @@ Here is a leaked token: AKIAIOSFODNN7EXAMPLE
 
 This is a [dangling reference][dangle].
 
-
-
 ## Z4xx: Asset Structure
 
 ![](https://example.com/image.png)

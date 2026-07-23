@@ -80,6 +80,7 @@ To uphold **Domain-Aware Discovery** and **Radical Unawareness**:
 **Cause:** The `zenzic` executable is not installed or not present in system `$PATH` / standard user directories (`~/.local/bin`, `~/.uv/bin`).
 
 **Resolution:**
+
 1. Install Zenzic globally via `uv tool install zenzic`.
 2. Or configure `zenzic.executablePath` in VS Code settings with the full path to your virtual environment binary (e.g., `/home/user/project/.venv/bin/zenzic`).
 

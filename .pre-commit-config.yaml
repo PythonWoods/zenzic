@@ -27,6 +27,7 @@ repos:
     hooks:
       - id: markdownlint
         args: ["--fix"]
+        exclude: ^(vscode/example/|core/tests/sandboxes/|docs/tutorials/examples/)
 
   # 3. Ruff (linting & formatting)
   - repo: https://github.com/astral-sh/ruff-pre-commit
