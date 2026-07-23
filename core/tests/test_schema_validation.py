@@ -46,7 +46,7 @@ def test_sarif_output_schema_compliance():
     json_start = output.find("{")
     sarif_output = json.loads(output[json_start:])
 
-    schema_path = Path("tests/fixtures/sarif-2.1.0-schema.json")
+    schema_path = Path(__file__).parent / "fixtures/sarif-2.1.0-schema.json"
     with open(schema_path) as f:
         sarif_schema = json.load(f)
 

@@ -24,42 +24,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.23.4] - 2026-07-22
 
 ### Fixed
+
 - **Executable Resolution (`VSCODE-CLIENT-002`)**: Formalized `resolveExecutablePath` in `src/extension.ts` with cross-platform fallback logic using `os.homedir()` and `path.join()`. Automatically inspects `~/.local/bin`, `~/.cargo/bin`, and `~/.uv/bin` to ensure binary discovery when VS Code is launched via desktop GUI environment.
 
 ## [0.23.3] - 2026-07-22
 
 ### Changed
+
 - **Toolchain Modernization**: Migrated to official `@vscode/vsce` package and modernized prepublish scripts (`node esbuild.js --production`), eliminating `DEP0190` shell injection deprecation warnings (`VSCODE-PR-023-3-OPTIMIZATION`).
 
 ### Fixed
+
 - **Package Sanitization**: Configured `.vscodeignore` to exclude development artifacts (`.architect/`, `.zenzic_cache/`, `example/`), pointer governance files (`ROADMAP.md`), and placeholder images (`images/demo*.gif`), producing an ultra-lean VSIX payload of 8 required files (`VSCODE-PKG-002`, `VSCODE-PKG-003`).
 
 ## [0.23.2] - 2026-07-22
 
 ### Added
+
 - **Strict Core Version Handshake**: Added pre-initialization version check (`checkCoreVersion`) using `child_process.execFile` to verify Zenzic Core version `>= 0.23.1` before launching the LSP client, preventing silent failures with stale binaries (`VSCODE-CLIENT-001-VERSION-HANDSHAKE`).
 
 ### Fixed
+
 - **Marketplace Asset Integrity**: Updated `.vscodeignore` to exclude `.pytest_cache` and build artifacts while ensuring `images/logo.png` is correctly bundled in extension packages (`VSCODE-PKG-001-ASSET-INTEGRITY`).
 
 ## [0.23.1] - 2026-07-22
 
 ### Added
+
 - **LSP Diagnostic Formatting Support**: Surfaced Z-Code diagnostic message prefixes (`[{code}]`) and LSP 3.16/3.17 `codeDescription` documentation links emitted by Zenzic Core 0.23.1.
 
 ## [0.23.0] - 2026-07-18
 
 ### Changed
+
 - **LSP Diagnostics Integration:** Updated to support Zenzic Core's new graph-wide diagnostic sync. Modifications to a single buffer now immediately trigger validation updates across dependent files via the new transport-agnostic `IncrementalAnalysisEngine`.
 - **Hover Resolution:** Hover metadata is now accurately mapped and presented based on the exact character position by querying the underlying deterministic Virtual Site Map via the Zenzic Language Server.
 
 ## [0.22.3] - 2026-07-14
 
 ### Highlights
+
 This release synchronizes the VS Code extension with the **Zenzic Core v0.22.3** patch, restoring 100% diagnostic parity between the editor and the CLI.
 
 ### Core Improvements Inherited
+
 By updating to `v0.22.3` (and ensuring your local Zenzic installation is updated to `>=0.22.3`), the Language Server now correctly surfaces the following real-time diagnostics that were previously masked in the editor:
+
 - **`Z603` (Dead Suppression):** Unused `zenzic:ignore` comments are now highlighted in real-time.
 - **`Z501` / `Z502` (Content Hygiene):** Placeholder text and short content warnings now correctly fire even in workspaces without a `.zenzic.toml` configuration file.
 - **Strict URP Ordering:** Security path traversal attempts (`Z202`/`Z203`) are now correctly prioritized over standard broken link (`Z101`) errors in the editor UI.
@@ -90,11 +100,15 @@ By updating to `v0.22.3` (and ensuring your local Zenzic installation is updated
 ## [0.21.3] - 2026-07-11
 
 ### Fixed
+
 - **Extension host:** Prevented `vscode-languageclient` from automatically injecting an unsupported `--stdio` flag into the Zenzic startup arguments, which previously caused a fatal crash and infinite restart loop on startup.
+
 ## [0.21.2] - 2026-07-11
 
 ## [0.21.2] — 2026-07-11
+
 ### Fixed
+
 - **Extension host — A1:** Replaced `catch (error: any)` with `catch (err: unknown)` and a proper `instanceof Error` type guard, preventing silent `"Error: undefined"` messages when a non-Error value was thrown.
 - **Extension host — A2:** Added an idempotent guard flag to `restartServer()` to prevent concurrent restart calls from spawning multiple LSP client instances simultaneously (race condition).
 - **Extension host — A3:** Added `.catch(() => {})` to `client.stop()` in `deactivate()` so a rejection from an already-exited server process no longer surfaces as an unhandled error.
@@ -111,11 +125,13 @@ By updating to `v0.22.3` (and ensuring your local Zenzic installation is updated
 - **Tooling — F2:** Bumped `tsconfig.json` `target` and `lib` from `es2020` to `es2022` to align with the Node 24 runtime.
 
 ## [0.21.1] — 2026-07-11
-### Changed
-- **Infrastructure:** Consolidated major dependency upgrades across the repository. Bumped TypeScript to v7, migrated ESLint to Flat Config (`eslint.config.mjs`), and updated `vscode-languageclient` to v10. Updated GitHub Actions runner environments to latest LTS versions.
 
+### Changed
+
+- **Infrastructure:** Consolidated major dependency upgrades across the repository. Bumped TypeScript to v7, migrated ESLint to Flat Config (`eslint.config.mjs`), and updated `vscode-languageclient` to v10. Updated GitHub Actions runner environments to latest LTS versions.
 
 ## [0.21.0] - 2026-07-11
 
 ### Added
+
 - Initial VS Code Extension Thin Client Release.
