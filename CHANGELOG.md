@@ -11,6 +11,10 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **LSP Discovery Boundaries (`ZLS-DISCOVERY-001`, `ZLS-DISCOVERY-002`)**: Enforced strict Domain-Aware Discovery in the LSP server to silently drop non-Markdown files and files outside the configured docs_dir.
+
 ## [0.23.1] - 2026-07-22
 
 ### Added
