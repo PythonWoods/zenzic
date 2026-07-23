@@ -51,4 +51,4 @@ replace = '''| `{new_version}` (current) | ✅ Active security fixes |'''
 # bump-my-version does NOT manage these files; they are listed here for discoverability.
 # ---------------------------------------------------------------------------
 [tool.bumpversion.custom_variables.core_version]
-current = "0.23.1"
+current = "0.23.3"

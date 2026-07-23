@@ -86,6 +86,8 @@ nav:
       - how-to/use-brand-system.md
       - how-to/workflow-integration.md
       - how-to/configure-social-metadata.md
+    - Editor Integration:
+      - editor/vscode.md
     - Reference:
       - reference/index.md
       - reference/finding-codes.md
@@ -204,7 +206,7 @@ extra:
   # ADR-037: No hardcoded SemVer in any .html or .md source.
   # CI pipeline passes the current version at build time, e.g.:
   #   uv run mkdocs build --extra zenzic_version=0.14.1
-  zenzic_version: "0.23.1"  # release sync
+  zenzic_version: "0.23.3"  # release sync
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/PythonWoods/zenzic

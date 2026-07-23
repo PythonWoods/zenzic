@@ -12,9 +12,9 @@
 
 | Field | Value |
 | :--- | :--- |
-| **Core Version** | `v0.23.1` |
+| **Core Version** | `v0.23.3` |
 | **Codename** | Magnetite |
-| **Date** | 2026-07-22 |
+| **Date** | 2026-07-23 |
 | **Status** | Stable |
 
 ### Core Release Checklist
@@ -22,7 +22,7 @@
 Before tagging, every item must be green:
 
 - [ ] `just verify` — exits 0 (pre-commit hooks, pytest, `zenzic check all --strict`)
-- [ ] `core/pyproject.toml` version matches the tag (`0.23.1`)
+- [ ] `core/pyproject.toml` version matches the tag (`0.23.3`)
 - [ ] `CITATION.cff` version and date updated
 - [ ] `core/CHANGELOG.md` — `[Unreleased]` section moved to the new version heading
 - [ ] `SECURITY.md` support table updated
@@ -34,8 +34,8 @@ Before tagging, every item must be green:
 cd core && uv run bump-my-version bump patch
 
 # 2. Tag Core release
-git tag -s -m "Release core-v0.23.1" core-v0.23.1
-git push origin core-v0.23.1
+git tag -s -m "Release core-v0.23.3" core-v0.23.3
+git push origin core-v0.23.3
 ```
 
 ---
@@ -47,8 +47,8 @@ git push origin core-v0.23.1
 | Field | Value |
 | :--- | :--- |
 | **Extension Version** | `0.23.7` |
-| **Pinned Core** | `zenzic>=0.23.1` |
-| **Date** | 2026-07-22 |
+| **Pinned Core** | `zenzic>=0.23.3` |
+| **Date** | 2026-07-23 |
 
 ### VS Code Release Checklist
 
@@ -77,13 +77,13 @@ git push origin vscode-v0.23.7
 | Field | Value |
 | :--- | :--- |
 | **Action Version** | `v2.9.1` |
-| **Date** | 2026-07-22 |
+| **Date** | 2026-07-23 |
 | **Status** | Stable |
 
 ### Action Release Checklist
 
 - [ ] `just action-verify` — exits 0
-- [ ] `actions/action.yml` — default pin updated to latest Zenzic core version
+- [ ] `actions/action.yml` — default pin updated to latest Zenzic core version (`0.23.3`)
 - [ ] `actions/package.json` version bumped to `2.9.1`
 
 ### Action Build & Tag Commands

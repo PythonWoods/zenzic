@@ -155,7 +155,7 @@ class IncrementalAnalysisEngine:
         Returns:
             Mapping of file URI to list of ``ZenzicDiagnostic`` instances.
         """
-        from zenzic.core.discovery import iter_markdown_sources
+        from zenzic.core.discovery import DOC_SUFFIXES, iter_markdown_sources
         from zenzic.core.exclusion import LayeredExclusionManager
 
         # Force full sync on first invocation
@@ -190,6 +190,8 @@ class IncrementalAnalysisEngine:
             for buf_uri, buf_text in overlay.buffers.items():
                 if buf_uri.startswith("file://"):
                     buf_path = Path(buf_uri[7:]).resolve()
+                    if buf_path.suffix.lower() not in DOC_SUFFIXES:
+                        continue
                     if buf_path not in self.md_contents_cache:
                         self.md_contents_cache[buf_path] = buf_text
                         self.anchors_cache[buf_path] = anchors_in_file(buf_text)
@@ -200,6 +202,8 @@ class IncrementalAnalysisEngine:
                 if not uri.startswith("file://"):
                     continue
                 path = Path(uri[7:]).resolve()
+                if path.suffix.lower() not in DOC_SUFFIXES:
+                    continue
                 if uri in overlay.buffers:
                     text = overlay.buffers[uri]
                     self.md_contents_cache[path] = text
