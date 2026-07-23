@@ -12,9 +12,10 @@ import time
 import traceback
 from pathlib import Path
 from typing import Any, BinaryIO, TypedDict, cast
+from urllib.parse import unquote, urlsplit
 
 from zenzic.core.adapters import BaseAdapter, get_adapter
-from zenzic.core.discovery import iter_markdown_sources
+from zenzic.core.discovery import DOC_SUFFIXES, iter_markdown_sources
 from zenzic.core.exclusion import LayeredExclusionManager
 from zenzic.core.incremental import IncrementalAnalysisEngine
 from zenzic.core.rules import AdaptiveRuleEngine
@@ -226,6 +227,47 @@ class LanguageServer:
         )
         self._flush_dirty_documents()
 
+    def _is_supported_doc_uri(self, uri: str) -> bool:
+        """Return True if the URI has a supported documentation file extension (DOC_SUFFIXES)."""
+        if not uri:
+            return False
+        parsed = urlsplit(uri)
+        path_str = unquote(parsed.path) if parsed.scheme else unquote(uri)
+        return Path(path_str).suffix.lower() in DOC_SUFFIXES
+
+    def _is_within_domain(self, uri: str) -> bool:
+        """Return True if the URI is within the configured documentation domain."""
+        if not uri or self.repo_root is None:
+            return True
+
+        try:
+            if not self.config:
+                self.config, _ = ZenzicConfig.load(self.repo_root)
+
+            docs_root = (self.repo_root / self.config.docs_dir).resolve()
+            if not docs_root.is_dir():
+                docs_root = self.repo_root.resolve()
+
+            parsed = urlsplit(uri)
+            path_str = unquote(parsed.path) if parsed.scheme else unquote(uri)
+            path = Path(path_str).resolve()
+
+            if path.is_relative_to(docs_root):
+                return True
+
+            if not self.adapter:
+                self.adapter = get_adapter(self.config.build_context, docs_root, self.repo_root)
+
+            if self.adapter:
+                extra_roots = self.adapter.get_extra_content_roots(self.repo_root)
+                for extra_root in extra_roots:
+                    if path.is_relative_to(extra_root.resolve()):
+                        return True
+        except Exception:
+            return False
+
+        return False
+
     def _handle_file_changes(self, changes: list[dict[str, Any]]) -> None:
         """Incrementally update file caches and trigger revalidation."""
         if self.vsm is None or not self.adapter or not self.config:
@@ -236,7 +278,11 @@ class LanguageServer:
         for change in changes:
             uri = change.get("uri", "")
             change_type = change.get("type")
-            if not uri.startswith("file://"):
+            if (
+                not uri.startswith("file://")
+                or not self._is_supported_doc_uri(uri)
+                or not self._is_within_domain(uri)
+            ):
                 continue
             file_path = Path(uri[7:]).resolve()
 
@@ -322,15 +368,19 @@ class LanguageServer:
             self.exit_received = True
             self.exit_code = 0 if self.shutdown_received else 1
         elif method == "textDocument/didOpen":
-            self.documents.did_open(params)
             uri = params.get("textDocument", {}).get("uri", "")
+            if not self._is_supported_doc_uri(uri) or not self._is_within_domain(uri):
+                return
+            self.documents.did_open(params)
             if uri in self.documents.documents:
                 if self.overlay:
                     self.overlay.update(uri, self.documents.documents[uri])
                 self.dirty_documents[uri] = time.time()
         elif method == "textDocument/didChange":
-            self.documents.did_change(params)
             uri = params.get("textDocument", {}).get("uri", "")
+            if not self._is_supported_doc_uri(uri) or not self._is_within_domain(uri):
+                return
+            self.documents.did_change(params)
             if uri in self.documents.documents:
                 if self.overlay:
                     self.overlay.update(uri, self.documents.documents[uri])

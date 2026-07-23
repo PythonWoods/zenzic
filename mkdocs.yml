@@ -85,6 +85,8 @@ nav:
       - how-to/use-brand-system.md
       - how-to/workflow-integration.md
       - how-to/configure-social-metadata.md
+    - Editor Integration:
+      - editor/vscode.md
     - Reference:
       - reference/index.md
       - reference/finding-codes.md

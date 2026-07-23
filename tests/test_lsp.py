@@ -632,3 +632,101 @@ def test_lsp_security_rules_masking() -> None:
 
     assert found_z203, "Z203 MUST be emitted for /etc/passwd"
     assert not found_z101, "Z101 MUST be masked by Z203"
+
+
+def test_is_supported_doc_uri() -> None:
+    """Verify _is_supported_doc_uri correctly identifies supported doc extensions."""
+    server = LanguageServer()
+    assert server._is_supported_doc_uri("file:///repo/docs/readme.md") is True
+    assert server._is_supported_doc_uri("file:///repo/docs/page.mdx") is True
+    assert server._is_supported_doc_uri("file:///repo/i18n/OWNERS") is False
+    assert server._is_supported_doc_uri("file:///repo/config.yaml") is False
+    assert server._is_supported_doc_uri("file:///repo/.gitignore") is False
+    assert server._is_supported_doc_uri("") is False
+
+
+def test_lsp_drops_non_markdown_did_open(tmp_path) -> None:
+    """Verify that textDocument/didOpen for non-markdown files (OWNERS, yaml, txt) is dropped."""
+    server = LanguageServer()
+    owners_uri = f"file://{tmp_path}/i18n/OWNERS"
+    yaml_uri = f"file://{tmp_path}/config.yaml"
+    md_uri = f"file://{tmp_path}/docs/index.md"
+
+    # Non-markdown files must be dropped
+    server.handle_message({
+        "jsonrpc": "2.0",
+        "method": "textDocument/didOpen",
+        "params": {"textDocument": {"uri": owners_uri, "text": "reviewers:\n- sig-docs\n"}},
+    })
+    assert owners_uri not in server.documents.documents
+    assert owners_uri not in server.dirty_documents
+
+    server.handle_message({
+        "jsonrpc": "2.0",
+        "method": "textDocument/didOpen",
+        "params": {"textDocument": {"uri": yaml_uri, "text": "key: value\n"}},
+    })
+    assert yaml_uri not in server.documents.documents
+    assert yaml_uri not in server.dirty_documents
+
+    # Markdown file must be accepted
+    server.handle_message({
+        "jsonrpc": "2.0",
+        "method": "textDocument/didOpen",
+        "params": {"textDocument": {"uri": md_uri, "text": "# Hello World\n"}},
+    })
+    assert md_uri in server.documents.documents
+    assert md_uri in server.dirty_documents
+
+
+def test_is_within_domain(tmp_path) -> None:
+    """Verify _is_within_domain respects repo_root and docs_dir boundaries."""
+    server = LanguageServer()
+    # Null workspace allows any file
+    assert server._is_within_domain(f"file://{tmp_path}/README.md") is True
+
+    # Active workspace with default docs_dir="docs"
+    docs_dir = tmp_path / "docs"
+    docs_dir.mkdir(parents=True, exist_ok=True)
+    server.repo_root = tmp_path
+
+    assert server._is_within_domain(f"file://{docs_dir}/index.md") is True
+    assert server._is_within_domain(f"file://{tmp_path}/README.md") is False
+    assert server._is_within_domain(f"file://{tmp_path}/other/page.md") is False
+
+
+def test_lsp_drops_out_of_bounds_markdown_did_open(tmp_path) -> None:
+    """Verify that textDocument/didOpen for out-of-bounds .md files (e.g. root README.md when docs_dir='docs') is dropped."""
+    docs_dir = tmp_path / "docs"
+    docs_dir.mkdir(parents=True, exist_ok=True)
+    in_bounds_md = docs_dir / "index.md"
+    in_bounds_md.write_text("# Docs Index\nThis is a valid documentation page with enough content.\n")
+
+    out_bounds_md = tmp_path / "README.md"
+    out_bounds_md.write_text("# Root Readme\nShort content.\n")
+
+    server = LanguageServer()
+    server.repo_root = tmp_path
+
+    in_uri = f"file://{in_bounds_md.resolve()}"
+    out_uri = f"file://{out_bounds_md.resolve()}"
+
+    # Out-of-bounds .md file must be dropped
+    server.handle_message({
+        "jsonrpc": "2.0",
+        "method": "textDocument/didOpen",
+        "params": {"textDocument": {"uri": out_uri, "text": "# Root Readme\nShort content.\n"}},
+    })
+    assert out_uri not in server.documents.documents
+    assert out_uri not in server.dirty_documents
+
+    # In-bounds .md file must be accepted
+    server.handle_message({
+        "jsonrpc": "2.0",
+        "method": "textDocument/didOpen",
+        "params": {"textDocument": {"uri": in_uri, "text": "# Docs Index\nThis is a valid documentation page.\n"}},
+    })
+    assert in_uri in server.documents.documents
+    assert in_uri in server.dirty_documents
+
+
