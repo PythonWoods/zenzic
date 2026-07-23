@@ -1,0 +1,35 @@
+version = 1
+
+# ── JSON / SARIF files (no comment syntax) ────────────────────────────────────
+# All other source files carry SPDX headers inline.
+
+[[annotations]]
+path = "package.json"
+SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
+SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = "zenzic-results.sarif"
+SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
+SPDX-License-Identifier = "Apache-2.0"
+
+# ── Binary assets ─────────────────────────────────────────────────────────────
+
+[[annotations]]
+path = "assets/*.svg"
+SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
+SPDX-License-Identifier = "Apache-2.0"
+
+# ── Root Markdown prose ───────────────────────────────────────────────────────
+
+[[annotations]]
+path = "README.md"
+SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
+SPDX-License-Identifier = "Apache-2.0"
+
+# ── Extension-less files ──────────────────────────────────────────────────────
+
+[[annotations]]
+path = ["NOTICE", "LICENSE"]
+SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
+SPDX-License-Identifier = "Apache-2.0"

@@ -60,7 +60,9 @@ def _create_synthetic_repo(n_files: int) -> Path:
     return base
 
 
-def _make_exclusion_manager(config: ZenzicConfig, repo: Path) -> LayeredExclusionManager:
+def _make_exclusion_manager(
+    config: ZenzicConfig, repo: Path
+) -> LayeredExclusionManager:
     """Build a LayeredExclusionManager for *repo* using *config*."""
     docs_root = (repo / config.docs_dir).resolve()
     return LayeredExclusionManager(config, repo_root=repo, docs_root=docs_root)
@@ -79,7 +81,9 @@ def _bench(
     n_reports = 0
     for _ in range(runs):
         t0 = time.perf_counter()
-        reports, _ = scan_docs_references(docs_root, exclusion_mgr, config=config, workers=workers)
+        reports, _ = scan_docs_references(
+            docs_root, exclusion_mgr, config=config, workers=workers
+        )
         elapsed = time.perf_counter() - t0
         times.append(elapsed)
         n_reports = len(reports)
@@ -96,10 +100,18 @@ def _bench(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Zenzic performance benchmark")
-    parser.add_argument("--files", type=int, default=200, help="Number of synthetic .md files")
-    parser.add_argument("--workers", type=int, default=4, help="Worker processes for parallel scan")
-    parser.add_argument("--runs", type=int, default=3, help="Benchmark repetitions (best of N)")
-    parser.add_argument("--no-parallel", action="store_true", help="Skip parallel benchmark")
+    parser.add_argument(
+        "--files", type=int, default=200, help="Number of synthetic .md files"
+    )
+    parser.add_argument(
+        "--workers", type=int, default=4, help="Worker processes for parallel scan"
+    )
+    parser.add_argument(
+        "--runs", type=int, default=3, help="Benchmark repetitions (best of N)"
+    )
+    parser.add_argument(
+        "--no-parallel", action="store_true", help="Skip parallel benchmark"
+    )
     parser.add_argument(
         "--repo",
         type=str,
@@ -184,7 +196,9 @@ def main() -> None:
     # ── Speedup summary ────────────────────────────────────────────────────────
     if len(results) == 2:
         speedup = (
-            results[0]["median_s"] / results[1]["median_s"] if results[1]["median_s"] > 0 else 0
+            results[0]["median_s"] / results[1]["median_s"]
+            if results[1]["median_s"] > 0
+            else 0
         )
         console.print(
             f"\n[bold]Speedup:[/] parallel is [cyan]{speedup:.2f}×[/] faster than sequential "

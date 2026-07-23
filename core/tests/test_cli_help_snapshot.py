@@ -44,7 +44,7 @@ def _capture_help(args: list[str]) -> str:
         }
     )
     proc = subprocess.run(
-        ["uv", "run", "zenzic", *args],
+        ["uv", "run", "--project", "core", "zenzic", *args],
         capture_output=True,
         text=True,
         encoding="utf-8",

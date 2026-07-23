@@ -1,0 +1,71 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+
+name: Feature Request
+description: Propose a new input, output, or behaviour for the Zenzic GitHub Action.
+title: "feat(action): <short description>"
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before opening a feature request, please check the
+        [open issues](https://github.com/PythonWoods/zenzic-action/issues) to avoid duplicates.
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Feature category
+      options:
+        - New input parameter
+        - New output variable
+        - New SARIF output field / rule mapping
+        - Exit code behaviour change
+        - Runner OS support (new platform)
+        - Performance improvement
+        - Developer / API
+        - Other
+      multiple: false
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+      description: What gap does this feature fill in the action's current behaviour?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: |
+        Describe the feature in concrete terms. If proposing a new input, specify its name,
+        type, default value, and whether it is required.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: pillars
+    attributes:
+      label: Action contract pillars
+      description: Please confirm your proposal respects all that apply.
+      options:
+        - label: >
+            **Exit code contract** — exit codes 2 (findings) and 3 (path traversal guard) remain
+            non-suppressible; no new input can override them.
+        - label: >
+            **Shell composability** — any new shell logic uses POSIX-compatible syntax.
+        - label: >
+            **action.yml contract** — new inputs have sensible defaults and `required: true`
+            only when there is no reasonable default.
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Pre-submission checklist
+      options:
+        - label: I have searched existing issues and this is not a duplicate.
+          required: true

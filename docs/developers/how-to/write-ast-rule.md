@@ -227,7 +227,7 @@ Rules at stage 6 are deduplicated by `rule_id` (first registration wins).
 
 Use `run_rule` or instantiate `AdaptiveRuleEngine` directly:
 
-```python title="tests/test_local_rules.py"
+```python title="core/tests/test_local_rules.py"
 from pathlib import Path
 from zenzic.rules import AdaptiveRuleEngine
 

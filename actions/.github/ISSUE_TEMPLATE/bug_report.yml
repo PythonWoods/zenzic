@@ -1,0 +1,85 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+
+name: Bug Report
+description: Report unexpected behaviour in the Zenzic GitHub Action (SARIF output, exit codes, inputs).
+title: "fix(action): <short description>"
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for taking the time to report a bug. Please fill in all required fields.
+
+  - type: input
+    id: action_ref
+    attributes:
+      label: Action ref used
+      description: "The tag or SHA used in `uses: PythonWoods/zenzic-action@<ref>`"
+      placeholder: "v1.1.0"
+    validations:
+      required: true
+
+  - type: input
+    id: runner_os
+    attributes:
+      label: Runner OS
+      description: The `runs-on` value from your workflow
+      placeholder: "ubuntu-latest"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Bug category
+      options:
+        - Wrong exit code (action exits 0 when findings exist)
+        - Exit code suppressed (2 or 3 not propagated to runner)
+        - SARIF output missing or malformed
+        - Wrong SARIF ruleId / finding mapped incorrectly
+        - Input not respected (path, strict mode, sarif-file, ...)
+        - Path traversal / security concern (use private advisory instead for high severity)
+        - Other
+      multiple: false
+    validations:
+      required: true
+
+  - type: textarea
+    id: workflow_step
+    attributes:
+      label: Workflow step (anonymised)
+      description: The `uses` step from your workflow. Remove any secrets or private paths.
+      placeholder: |
+        - uses: PythonWoods/zenzic-action@v1.1.0
+          with:
+            docs-path: ./docs
+            strict: true
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+      description: What did you expect the action to do?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+      description: What actually happened? Include the full step log if possible.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Pre-submission checklist
+      options:
+        - label: I have searched existing issues and this is not a duplicate.
+          required: true
+        - label: I am using a supported runner OS (ubuntu-latest or windows-latest).
+          required: true

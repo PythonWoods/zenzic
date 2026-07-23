@@ -1,0 +1,65 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods
+#
+# SPDX-License-Identifier: Apache-2.0
+
+[tool.bumpversion]
+current_version = "0.23.7"
+parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)"
+serialize = ["{major}.{minor}.{patch}"]
+commit = true
+commit_args = "-s"
+message = "chore(release): bump version to {new_version}"
+tag = true
+tag_name = "vscode-v{new_version}"
+
+[[tool.bumpversion.files]]
+filename = "package.json"
+search = "\"version\": \"{current_version}\""
+replace = "\"version\": \"{new_version}\""
+
+[[tool.bumpversion.files]]
+filename = "package-lock.json"
+search = "\"name\": \"zenzic-vscode\",\n  \"version\": \"{current_version}\""
+replace = "\"name\": \"zenzic-vscode\",\n  \"version\": \"{new_version}\""
+
+[[tool.bumpversion.files]]
+filename = "package-lock.json"
+search = "\"name\": \"zenzic-vscode\",\n      \"version\": \"{current_version}\""
+replace = "\"name\": \"zenzic-vscode\",\n      \"version\": \"{new_version}\""
+
+[[tool.bumpversion.files]]
+filename = "CHANGELOG.md"
+search = "## [Unreleased]"
+replace = "## [Unreleased]\n\n## [{new_version}] - {now:%Y-%m-%d}"
+
+[[tool.bumpversion.files]]
+filename = "../RELEASE.md"
+search = "| **Extension Version** | `{current_version}` |"
+replace = "| **Extension Version** | `{new_version}` |"
+
+[[tool.bumpversion.files]]
+filename = "../RELEASE.md"
+search = 'git tag -s -m "Release vscode-v{current_version}" vscode-v{current_version}'
+replace = 'git tag -s -m "Release vscode-v{new_version}" vscode-v{new_version}'
+
+[[tool.bumpversion.files]]
+filename = "../RELEASE.md"
+search = "git push origin vscode-v{current_version}"
+replace = "git push origin vscode-v{new_version}"
+
+# ── README.md ─────────────────────────────────────────────────────────────────
+
+[[tool.bumpversion.files]]
+filename = "README.md"
+search = "Zenzic Core v{current_version} or higher"
+replace = "Zenzic Core v{new_version} or higher"
+
+[[tool.bumpversion.files]]
+filename = "README.md"
+search = "minimum required Core version (`v{current_version}`)"
+replace = "minimum required Core version (`v{new_version}`)"
+
+[[tool.bumpversion.files]]
+filename = "README.md"
+search = "virtual environment containing Core `v{current_version}` or higher"
+replace = "virtual environment containing Core `v{new_version}` or higher"

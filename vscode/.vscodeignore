@@ -1,0 +1,29 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods
+#
+# SPDX-License-Identifier: Apache-2.0
+
+.vscode/**
+.vscode-test/**
+src/**
+tests/**
+.github/**
+.gitignore
+.vscodeignore
+justfile
+.bumpversion.toml
+RELEASE.md
+REUSE.toml
+tsconfig.json
+esbuild.js
+eslint.config.mjs
+package-lock.json
+node_modules/**
+.pytest_cache/**
+*.vsix
+**/*.ts
+**/*.map
+.architect/**
+.zenzic_cache/**
+example/**
+ROADMAP.md
+images/demo*.gif

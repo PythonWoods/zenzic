@@ -8,7 +8,7 @@ description: "Package layout, module responsibilities, the Visual State Manager,
 
 # CLI Architecture
 
-The CLI is organised as a **package** (`src/zenzic/cli/`) rather than a single module.
+The CLI is organised as a **package** (`core/src/zenzic/cli/`) rather than a single module.
 Each file owns one domain of responsibility.
 
 ---

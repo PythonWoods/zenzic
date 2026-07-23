@@ -1,0 +1,120 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+name: "Zenzic Documentation Quality Gate"
+description: "Deterministic Document Integrity Engine and SAST for Markdown/MDX graphs."
+author: "PythonWoods"
+
+branding:
+  icon: shield
+  color: purple
+
+inputs:
+  working-directory:
+    description: "Relative path to the directory where Zenzic should run (useful for monorepos)"
+    required: false
+    default: "."
+  version:
+    description: "Zenzic version to use. Defaults to latest stable."
+    required: false
+    default: "0.23.1" # x-zenzic-core-pin @ 67b4ee3632681065b304891ef388b99010d999bf
+  format:
+    description: "Output format: 'text', 'json', or 'sarif'."
+    required: false
+    default: "sarif"
+  sarif-file:
+    description: "Relative path for the SARIF output file (used when format is 'sarif'). Must be a relative path inside the workspace — absolute paths and path traversal sequences ('..') are rejected by the wrapper."
+    required: false
+    default: "zenzic-results.sarif"
+  upload-sarif:
+    description: "Upload SARIF results to GitHub Code Scanning (requires format: sarif)."
+    required: false
+    default: "true"
+  strict:
+    description: "Exit non-zero on warnings as well as errors."
+    required: false
+    default: "false"
+  fail-on-error:
+    description: "Fail the workflow step if Zenzic finds errors."
+    required: false
+    default: "true"
+  config-file:
+    description: "Optional path to a Zenzic configuration file inside the workspace. If not provided, the action automatically searches for '.zenzic.toml' in the repository root, then '.github/.zenzic.toml' (root-first auto-discovery). Absolute paths and path traversal sequences ('..') are rejected."
+    required: false
+    default: ""
+  audit:
+    description: "Run in sovereign audit mode: all inline zenzic:ignore comments and per_file_ignores entries are bypassed. Reveals the true (unfiltered) state of the documentation. Recommended for nightly builds and security review workflows."
+    required: false
+    default: "false"
+  diff-base:
+    description: "Path to a JSON report file to use as the baseline for 'zenzic diff' comparison instead of the saved .zenzic-score.json snapshot. Use an artifact from the main branch to block PRs that increase technical debt."
+    required: false
+    default: ""
+  guard-scan:
+    description: "Run 'zenzic guard scan' as a Defense-in-Depth step before the main quality gate. Detects hardcoded credentials and forbidden patterns committed without pre-commit hooks. Failure is always fatal — not governed by fail-on-error."
+    required: false
+    default: "false"
+  check-stamp:
+    description: >
+      Run 'zenzic score --check-stamp' after the main audit.
+      Fails the build if any badge_stamp_files contain a stale score.
+      Set to 'false' to opt out.
+    required: false
+    default: "true"
+
+outputs:
+  sarif-file:
+    description: "Path to the generated SARIF file."
+    value: ${{ steps.run-zenzic.outputs.sarif-file }}
+  findings-count:
+    description: "Total number of findings reported."
+    value: ${{ steps.run-zenzic.outputs.findings-count }}
+  score:
+    description: "Documentation Quality Score (0-100). Empty when format is not json or sarif."
+    value: ${{ steps.run-zenzic.outputs.score }}
+  suppression-debt-pts:
+    description: "Technical Debt points deducted from the score due to active suppressions. 0 when no suppressions are active."
+    value: ${{ steps.run-zenzic.outputs.suppression-debt-pts }}
+  cap-exceeded:
+    description: "'true' when the suppression CAP was exceeded and blocked the build; 'false' otherwise."
+    value: ${{ steps.run-zenzic.outputs.cap-exceeded }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Install uv
+      uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+      with:
+        enable-cache: "false"
+
+    - name: Run Zenzic Secret Guard
+      if: inputs.guard-scan == 'true'
+      shell: bash
+      env:
+        ZENZIC_VERSION: ${{ inputs.version }}
+      run: |
+        PKG="zenzic"
+        [[ "${ZENZIC_VERSION}" != "latest" ]] && PKG="zenzic==${ZENZIC_VERSION}"
+        uvx "${PKG}" guard scan
+
+    - name: Run Zenzic
+      id: run-zenzic
+      shell: bash
+      env:
+        ZENZIC_VERSION: ${{ inputs.version }}
+        ZENZIC_FORMAT: ${{ inputs.format }}
+        ZENZIC_SARIF_FILE: ${{ inputs.sarif-file }}
+        ZENZIC_STRICT: ${{ inputs.strict }}
+        ZENZIC_FAIL_ON_ERROR: ${{ inputs.fail-on-error }}
+        ZENZIC_CONFIG_FILE: ${{ inputs.config-file }}
+        ZENZIC_AUDIT: ${{ inputs.audit }}
+        ZENZIC_DIFF_BASE: ${{ inputs.diff-base }}
+        ZENZIC_CHECK_STAMP: ${{ inputs.check-stamp }}
+        INPUT_WORKING_DIRECTORY: ${{ inputs.working-directory }}
+      run: bash "${{ github.action_path }}/zenzic-action-wrapper.sh"
+
+    - name: Upload SARIF to GitHub Code Scanning
+      if: inputs.format == 'sarif' && inputs.upload-sarif == 'true' && always()
+      uses: github/codeql-action/upload-sarif@7c1e4cf0b20d7c1872b26569c00ba908797a59bf # v4
+      with:
+        sarif_file: ${{ inputs.sarif-file }}
+        category: zenzic-docs

@@ -12,7 +12,7 @@ build:
 
   commands:
     - python -m pip install uv
-    - uv sync
-    - uv run mkdocs build --strict
+    - uv sync --project core --extra docs
+    - uv run --project core mkdocs build --strict
     - mkdir --parents $READTHEDOCS_OUTPUT/html/
     - cp --recursive site/* $READTHEDOCS_OUTPUT/html/

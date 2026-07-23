@@ -45,28 +45,45 @@ SPDX-License-Identifier: Apache-2.0
 
 ---
 
-## ⚡ Try it now — Zero Installation
+## ⚡ Unified Ecosystem Platform
 
-Analyzing documentation graphs? Run instant security and topological analysis using [`uv`][uv]:
+Zenzic is a unified, deterministic document integrity engine and SAST platform for Markdown/MDX graphs, structured into three primary components:
 
-```bash
-uvx zenzic check all ./your-folder
-```
-
-Zenzic identifies your engine via its configuration files or defaults to **Standalone Mode**
-when analyzing documentation graphs — providing immediate SAST protection for links, credentials, and
-graph integrity.
+- **[Core Engine (`core/`)](core/)**: Python CLI, AST rule engine, and Virtual Site Map (VSM) topology analyzer.
+- **[VS Code Extension (`vscode/`)](vscode/)**: Real-time LSP client offering inline diagnostics and hover tooltips in VS Code.
+- **[GitHub Action (`actions/`)](actions/)**: Zero-config CI/CD quality gate with SARIF upload and PR annotations.
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Deterministic 3-Step Quickstart (< 60 Seconds)
+
+Experience zero-config topological failure detection in under 60 seconds:
 
 ```bash
-pip install zenzic
-cd my-docs-repo
-zenzic init       # Establish the workspace boundary (creates .zenzic.toml)
-zenzic check all  # Analyze documentation graphs in current directory
+# Step 1: Install Zenzic CLI
+uv tool install zenzic
+
+# Step 2: Create a document with a broken relative link
+mkdir docs
+echo "[broken](missing.md)" > docs/index.md
+
+# Step 3: Run full documentation graph analysis
+zenzic check all
 ```
+
+Expected Output:
+
+```text
+docs/index.md:1  [Z104]  'missing.md' resolves to nowhere — the target file does not exist.
+
+FAILED: Hard errors detected. Exit code 1 is mandatory.
+```
+
+### Next Steps: Real-Time Feedback
+
+To eliminate the latency between authoring a defect and discovering it, install the [Zenzic VS Code Extension](vscode/) for sub-50ms inline diagnostics.
+
+---
 
 ## 🧠 Key Capabilities
 
@@ -342,7 +359,6 @@ This project strictly adheres to [Semantic Versioning](https://semver.org/spec/v
 
 [mkdocs]:            https://www.mkdocs.org/
 [zensical]:          https://zensical.org/
-[uv]:                https://docs.astral.sh/uv/
 [zenzic-action]:     https://github.com/PythonWoods/zenzic-action
 [docs-home]:         https://zenzic.dev/
 [docs-badges]:       https://zenzic.dev/how-to/add-badges/

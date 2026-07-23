@@ -1,0 +1,53 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+
+name: Zenzic Action Security Posture
+
+on:
+  push:
+    branches: [ main ]
+  schedule:
+    - cron: "0 6 * * 1"
+
+jobs:
+  check-posture:
+    name: Audit
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Check for SECURITY.md
+        run: |
+          if [ -f "SECURITY.md" ] || [ -f ".github/SECURITY.md" ]; then
+            echo "SECURITY.md found."
+          else
+            echo "SECURITY.md missing." && exit 1
+          fi
+
+      - name: Check for secret-scan workflow
+        run: |
+          if [ -f ".github/workflows/secret-scan.yml" ]; then
+            echo "Secret scan workflow found."
+          else
+            echo "Secret scan workflow missing." && exit 1
+          fi
+
+      - name: Check for Dependabot
+        run: |
+          if [ -f ".github/dependabot.yml" ]; then
+            echo "Dependabot configuration found."
+          else
+            echo "Dependabot configuration missing." && exit 1
+          fi
+
+      - name: Check for self-check workflow
+        run: |
+          if [ -f ".github/workflows/self-check.yml" ]; then
+            echo "Self-check workflow found."
+          else
+            echo "Self-check workflow missing." && exit 1
+          fi

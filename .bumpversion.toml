@@ -22,19 +22,19 @@ search = 'zenzic_version: "{current_version}"'
 replace = 'zenzic_version: "{new_version}"'
 
 [[tool.bumpversion.files]]
-filename = "CHANGELOG.md"
+filename = "core/CHANGELOG.md"
 search = "## [Unreleased]"
 replace = '''## [Unreleased]
 
 ## [{new_version}] - {now:%Y-%m-%d}'''
 
 [[tool.bumpversion.files]]
-filename = "pyproject.toml"
+filename = "core/pyproject.toml"
 search = 'version = "{current_version}"'
 replace = 'version = "{new_version}"'
 
 [[tool.bumpversion.files]]
-filename = "src/zenzic/__init__.py"
+filename = "core/src/zenzic/__init__.py"
 search = '__version__ = "{current_version}"'
 replace = '__version__ = "{new_version}"'
 
@@ -50,7 +50,7 @@ replace = "date-released: {now:%Y-%m-%d}"
 regex = true
 
 [[tool.bumpversion.files]]
-filename = "src/zenzic/cli/_standalone.py"
+filename = "core/src/zenzic/cli/_standalone.py"
 search = 'dependencies = ["zenzic>={current_version}"]'
 replace = 'dependencies = ["zenzic>={new_version}"]'
 

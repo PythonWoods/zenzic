@@ -63,3 +63,16 @@ path = "docs/assets/fonts/**"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
 SPDX-License-Identifier = "Apache-2.0"
+
+# ── Monorepo packages & assets ────────────────────────────────────────────────
+
+[[annotations]]
+path = ["MIGRATION-MONOREPO.md", "core/uv.lock", "actions/uv.lock"]
+SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
+SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = ["vscode/**", "actions/**"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 PythonWoods <dev@pythonwoods.dev>"
+SPDX-License-Identifier = "Apache-2.0"

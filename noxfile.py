@@ -19,8 +19,8 @@ nox.options.sessions = ["lint", "format", "typecheck"]
 PYTHONS = ["3.10", "3.14"]
 
 # Per-group sync tuples — each session installs only what it needs.
-_SYNC_TEST = ("uv", "sync", "--active", "--group", "test")
-_SYNC_LINT = ("uv", "sync", "--active", "--group", "lint")
+_SYNC_TEST = ("uv", "sync", "--project", "core", "--active", "--group", "test")
+_SYNC_LINT = ("uv", "sync", "--project", "core", "--active", "--group", "lint")
 
 
 @nox.session(python=PYTHONS)
@@ -29,7 +29,7 @@ def tests(session: nox.Session) -> None:
     session.run(*_SYNC_TEST, external=True)
     session.run(
         "pytest",
-        "--cov=src/zenzic",
+        "--cov=core/src/zenzic",
         "--cov-report=term-missing",
         "--cov-report=json:coverage.json",
         *session.posargs,
@@ -44,28 +44,28 @@ def lint(session: nox.Session) -> None:
     Read-only by default (used in CI). To auto-fix: nox -s lint -- --fix
     """
     session.run(*_SYNC_LINT, external=True)
-    session.run("ruff", "check", *session.posargs, "src/", "tests/")
+    session.run("ruff", "check", *session.posargs, "core/src/", "core/tests/")
 
 
 @nox.session(python="3.14")
 def format(session: nox.Session) -> None:  # noqa: A001
     """Check code formatting with ruff (read-only, used in CI)."""
     session.run(*_SYNC_LINT, external=True)
-    session.run("ruff", "format", "--check", "src/", "tests/")
+    session.run("ruff", "format", "--check", "core/src/", "core/tests/")
 
 
 @nox.session(python="3.14")
 def fmt(session: nox.Session) -> None:
     """Auto-format code with ruff in place (use during development)."""
     session.run(*_SYNC_LINT, external=True)
-    session.run("ruff", "format", "src/", "tests/")
+    session.run("ruff", "format", "core/src/", "core/tests/")
 
 
 @nox.session(python="3.14")
 def typecheck(session: nox.Session) -> None:
     """Run static type checking with mypy."""
     session.run(*_SYNC_LINT, external=True)
-    session.run("mypy", "src/")
+    session.run("mypy", "--config-file", "core/pyproject.toml", "core/src/")
 
 
 @nox.session(python="3.14")

@@ -1,0 +1,167 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+
+name: Zenzic Action CI
+
+on:
+  push:
+    branches: [main, "release/**"]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  security-events: write  # required for upload-sarif
+
+jobs:
+  verify:
+    name: Verify
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Ubuntu: full verify (pre-commit + check + nox tests)
+          - os: ubuntu-latest
+            lint: true
+          # Windows: validate action logic and OS-level path handling only.
+          # pre-commit is skipped: Node hook (markdownlint) triggers thousands
+          # of small-file I/O operations that freeze the Windows runner.
+          # Linting is enforced by the Ubuntu slot.
+          # - os: windows-latest
+          #   lint: false
+    defaults:
+      run:
+        shell: bash
+    # ZRT-010 — Sovereign Parity: Pre-Launch Guard lives in justfile.
+    # Local and CI run identical 'just check' invocations.
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Determine Zenzic Core Branch (Parity or Fallback)
+        id: resolve-branch
+        shell: bash
+        env:
+          # Optional explicit parity override for non-homonymous branch topologies.
+          # Example: set repository variable ZENZIC_CORE_REF=release/v0.8.0
+          ZENZIC_CORE_REF: ${{ vars.ZENZIC_CORE_REF }}
+          # Override governance metadata (required when ZENZIC_CORE_REF is set).
+          ZENZIC_CORE_REF_TICKET: ${{ vars.ZENZIC_CORE_REF_TICKET }}
+          ZENZIC_CORE_REF_REASON: ${{ vars.ZENZIC_CORE_REF_REASON }}
+          ZENZIC_CORE_REF_APPROVER: ${{ vars.ZENZIC_CORE_REF_APPROVER }}
+          ZENZIC_CORE_REF_EXPIRES_ON: ${{ vars.ZENZIC_CORE_REF_EXPIRES_ON }}
+        run: |
+          TARGET_BRANCH="${{ github.base_ref || github.ref_name }}"
+          echo "Target branch is: $TARGET_BRANCH"
+
+          if [[ -n "${ZENZIC_CORE_REF:-}" ]]; then
+            echo "Explicit core ref override requested: $ZENZIC_CORE_REF"
+
+            missing=0
+            for key in ZENZIC_CORE_REF_TICKET ZENZIC_CORE_REF_REASON ZENZIC_CORE_REF_APPROVER ZENZIC_CORE_REF_EXPIRES_ON; do
+              if [[ -z "${!key:-}" ]]; then
+                echo "::error::$key is required when ZENZIC_CORE_REF is set."
+                missing=1
+              fi
+            done
+            if [[ "$missing" -ne 0 ]]; then
+              exit 1
+            fi
+
+            if [[ ! "$ZENZIC_CORE_REF_EXPIRES_ON" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
+              echo "::error::ZENZIC_CORE_REF_EXPIRES_ON must use ISO format YYYY-MM-DD."
+              exit 1
+            fi
+
+            CURRENT_DATE="$(date -u +%F)"
+            if [[ "$ZENZIC_CORE_REF_EXPIRES_ON" < "$CURRENT_DATE" ]]; then
+              echo "::error::ZENZIC_CORE_REF override expired on $ZENZIC_CORE_REF_EXPIRES_ON (current UTC date: $CURRENT_DATE)."
+              exit 1
+            fi
+
+            if git ls-remote --exit-code --heads https://github.com/PythonWoods/zenzic.git "$ZENZIC_CORE_REF" > /dev/null 2>&1; then
+              echo "Override branch exists in core. Using it."
+              {
+                echo "### Governed Core Override"
+                echo "- core_ref: $ZENZIC_CORE_REF"
+                echo "- ticket: $ZENZIC_CORE_REF_TICKET"
+                echo "- approver: $ZENZIC_CORE_REF_APPROVER"
+                echo "- expires_on: $ZENZIC_CORE_REF_EXPIRES_ON"
+                echo "- reason: $ZENZIC_CORE_REF_REASON"
+              } >> "$GITHUB_STEP_SUMMARY"
+              echo "core_ref=$ZENZIC_CORE_REF" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+            echo "::error::ZENZIC_CORE_REF '$ZENZIC_CORE_REF' not found in PythonWoods/zenzic."
+            exit 1
+          fi
+
+          if git ls-remote --exit-code --heads https://github.com/PythonWoods/zenzic.git "$TARGET_BRANCH" > /dev/null 2>&1; then
+            echo "Branch $TARGET_BRANCH exists in core. Using it."
+            echo "core_ref=$TARGET_BRANCH" >> $GITHUB_OUTPUT
+          else
+            echo "Branch $TARGET_BRANCH not found in core. Falling back to main."
+            echo "core_ref=main" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Checkout local zenzic (unreleased)
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          repository: PythonWoods/zenzic
+          ref: ${{ steps.resolve-branch.outputs.core_ref }}
+          path: _zenzic_core
+          fetch-tags: true
+
+      - name: Install just
+        uses: taiki-e/install-action@ea85faa6acd705ad6d40586db99f1a70b09c2929 # just
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+
+      - name: Set up Python 3.12
+        run: uv python install 3.12
+
+      - name: Run Zenzic Quality Gate
+        shell: bash
+        env:
+          # Shared sovereign contract: explicit override first.
+          ZENZIC_CORE_PATH: _zenzic_core
+          # Runtime-only injection point for local isolation checks in CI.
+          ZENZIC_EXTRA_ARGS: ${{ secrets.ZENZIC_EXTRA_ARGS }}
+        # Ubuntu: full verify (pre-commit + check + nox tests).
+        # Windows: skip pre-commit — Node hook freezes GHA Windows runners.
+        # Linting is enforced by the Ubuntu slot.
+        run: |
+          if [[ "${{ matrix.lint }}" == "true" ]]; then
+            just verify
+          else
+            just check
+            just test
+          fi
+
+      - name: Test Action Locally
+        uses: ./
+        with:
+          working-directory: tests/fixture
+          check-stamp: "false"
+          upload-sarif: "false"
+
+      - name: Test Action Locally with Z001 Config Error Fixture
+        id: test-z001
+        uses: ./
+        continue-on-error: true
+        with:
+          working-directory: _zenzic_core/examples/z001-config-error
+          fail-on-error: "true"
+          check-stamp: "false"
+          upload-sarif: "false"
+
+      - name: Assert Z001 Failure
+        shell: bash
+        run: |
+          if [[ "${{ steps.test-z001.outcome }}" != "failure" ]]; then
+            echo "::error::Expected action to fail on Z001 config-error fixture, but it passed."
+            exit 1
+          fi
+          echo "✓ Action correctly failed on Z001 configuration error."

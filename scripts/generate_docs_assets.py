@@ -227,11 +227,17 @@ def gen_security_breach() -> None:
     c.print(
         "  [red]✘[/]  [dim]Finding:   [/][bright_white]Secret detected (aws-access-key) — rotate immediately.[/]"
     )
-    c.print("  [red]✘[/]  [dim]Location:  [/][bright_white]docs/how-to/configure.md:4[/]")
-    c.print("  [red]✘[/]  [dim]Credential:[/] [bold red on bright_black] AKIA************MPLE [/]")
+    c.print(
+        "  [red]✘[/]  [dim]Location:  [/][bright_white]docs/how-to/configure.md:4[/]"
+    )
+    c.print(
+        "  [red]✘[/]  [dim]Credential:[/] [bold red on bright_black] AKIA************MPLE [/]"
+    )
     c.print()
     c.print("  [dim]Exit code [bold]2[/] — this finding is never suppressible.[/]")
-    c.print("  [dim]Rotate the credential, then run [italic]zenzic check all[/] to verify.[/]")
+    c.print(
+        "  [dim]Rotate the credential, then run [italic]zenzic check all[/] to verify.[/]"
+    )
     c.print()
 
     _save(c, "security-breach.svg")

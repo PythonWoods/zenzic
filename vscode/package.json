@@ -1,0 +1,80 @@
+{
+  "name": "zenzic-vscode",
+  "displayName": "Zenzic",
+  "description": "Deterministic Document Integrity Engine and SAST for Markdown/MDX graphs.",
+  "version": "0.23.7",
+  "publisher": "pythonwoods",
+  "engines": {
+    "vscode": "^1.125.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "keywords": [
+    "zenzic",
+    "markdown",
+    "mdx",
+    "static analysis",
+    "security"
+  ],
+  "icon": "images/logo.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/PythonWoods/zenzic-vscode.git"
+  },
+  "bugs": {
+    "url": "https://github.com/PythonWoods/zenzic-vscode/issues"
+  },
+  "homepage": "https://github.com/PythonWoods/zenzic-vscode",
+  "activationEvents": [
+    "onLanguage:markdown",
+    "onLanguage:mdx"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "zenzic.restartServer",
+        "title": "Zenzic: Restart Server"
+      },
+      {
+        "command": "zenzic.startServer",
+        "title": "Zenzic: Start Server"
+      },
+      {
+        "command": "zenzic.stopServer",
+        "title": "Zenzic: Stop Server"
+      }
+    ],
+    "configuration": {
+      "type": "object",
+      "title": "Zenzic",
+      "properties": {
+        "zenzic.executablePath": {
+          "type": "string",
+          "default": "zenzic",
+          "description": "Path to the Zenzic executable or virtual environment binary."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "node esbuild.js --production",
+    "build": "node esbuild.js",
+    "watch": "node esbuild.js --watch",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^10.1.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^26.1.1",
+    "@types/vscode": "~1.125.0",
+    "@typescript-eslint/eslint-plugin": "^8.64.0",
+    "@typescript-eslint/parser": "^8.64.0",
+    "esbuild": "^0.28.1",
+    "eslint": "^10.7.0",
+    "typescript": "~6.0.2"
+  }
+}

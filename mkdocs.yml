@@ -30,6 +30,7 @@ nav:
   - Home: index.md
 
   - User Documentation:
+    - Getting Started: getting-started/quickstart.md
     - Tutorials:
       - tutorials/first-audit.md
       - Examples:

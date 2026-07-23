@@ -6,7 +6,7 @@ name: Zenzic Core Release
 on:
   push:
     tags:
-      - "v*.*.*"
+      - "core-v*.*.*"
 
 permissions:
   contents: write
@@ -29,10 +29,10 @@ jobs:
           enable-cache: true
 
       - name: Sync dependencies (frozen lockfile)
-        run: uv sync --all-groups --all-extras --frozen
+        run: uv sync --project core --all-groups --all-extras --frozen
 
       - name: Build
-        run: uv build
+        run: uv build --project core
 
       - name: Package brand kit
         run: zip -qr brand-kit.zip assets/brand/

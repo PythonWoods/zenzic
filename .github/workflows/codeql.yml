@@ -8,14 +8,14 @@ on:
     branches:
       - main
     paths:
-      - 'src/**'
+      - 'core/src/**'
       - 'scripts/**'
       - '.github/workflows/codeql.yml'
   pull_request:
     branches:
       - main
     paths:
-      - 'src/**'
+      - 'core/src/**'
       - 'scripts/**'
       - '.github/workflows/codeql.yml'
   schedule:

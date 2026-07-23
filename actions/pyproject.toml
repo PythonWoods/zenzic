@@ -1,0 +1,22 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+
+[project]
+name = "zenzic-action"
+description = "GitHub Action for Zenzic documentation audit"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "Apache-2.0"}
+authors = [{name = "PythonWoods", email = "dev@pythonwoods.dev"}]
+dynamic = ["version"]
+dependencies = [
+    "zenzic==0.23.1",
+]
+
+[project.urls]
+Homepage = "https://zenzic.dev"
+Repository = "https://github.com/PythonWoods/zenzic-action"
+Tracker = "https://github.com/PythonWoods/zenzic-action/issues"
+
+[tool.setuptools]
+py-modules = []

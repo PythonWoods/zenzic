@@ -20,8 +20,8 @@
 
 set shell := ["bash", "-c"]
 
-runner     := "uv run --active"
-nox_runner := "uv run nox -s"
+runner     := "uv run --project core --active"
+nox_runner := "uv run --project core nox -s"
 # Keep BUILD_DATE deterministic across Ubuntu and Git Bash on Windows runners.
 export BUILD_DATE := `date -u +'%Y/%m/%d'`
 # ZENZIC_EXTRA_ARGS: allow runtime flag injection (e.g. --no-external)
@@ -31,7 +31,7 @@ ZENZIC_EXTRA_ARGS := env_var_or_default("ZENZIC_EXTRA_ARGS", "")
 
 # Install or update all dependency groups
 sync:
-    uv sync --all-groups
+    uv sync --project core --all-groups
 
 # Self-linting: run Zenzic on its own documentation (core integrity check).
 # ZRT-010 — Sovereign Parity: Pre-Launch Guard inlined; local == CI.
@@ -45,26 +45,26 @@ check *args:
 # Pillar 3 (Pure Functions) guarantees pytest-xdist worker isolation.
 # Excludes `slow` markers (e.g. ZRT-002 60s deadlock guard) — opt-in via `just test-slow`.
 test *args:
-    {{ runner }} pytest -n auto -m "not slow" {{ args }}
+    {{ runner }} pytest core/tests -n auto -m "not slow" {{ args }}
 
 # Opt-in: run slow tests (deadlock guards, long Hypothesis runs, etc.)
 test-slow *args:
-    {{ runner }} pytest -m "slow" {{ args }}
+    {{ runner }} pytest core/tests -m "slow" {{ args }}
 
 # Audit: serial, deterministic, with coverage XML (pre-push gate + CI).
 # Excludes @pytest.mark.slow — use test-cov-full for the complete suite.
 # Coverage threshold (fail_under=80) enforced via pyproject.toml.
 test-cov *args:
-    {{ runner }} pytest -m "not slow" --cov=src/zenzic --cov-report=term-missing --cov-report=json:coverage.json {{ args }}
+    {{ runner }} pytest core/tests -m "not slow" --cov=core/src/zenzic --cov-report=term-missing --cov-report=json:coverage.json {{ args }}
 
 # Full audit: includes slow tests (deadlock guards, 1k-file torture, Hypothesis ci).
 # Run on Ubuntu only; reserved for pre-release validation.
 test-cov-full *args:
-    {{ runner }} pytest --cov=src/zenzic --cov-report=term-missing --cov-report=json:coverage.json {{ args }}
+    {{ runner }} pytest core/tests --cov=core/src/zenzic --cov-report=term-missing --cov-report=json:coverage.json {{ args }}
 
 # Run the test suite with the thorough Hypothesis profile (ci — 500 examples)
 test-full *args:
-    HYPOTHESIS_PROFILE=ci {{ nox_runner }} tests {{ args }}
+    HYPOTHESIS_PROFILE=ci {{ nox_runner }} core/tests {{ args }}
 
 # ─── Quality Gates (4-Lifecycle-Gates model) ──────────────────────────────────
 
@@ -78,7 +78,7 @@ verify: _check-hooks release-contracts check-pinning docs-build
     @echo "==> [1/5] Pre-commit hooks (lint, type-check, REUSE)..."
     {{ runner }} pre-commit run --all-files
     @echo "==> [2/5] Test suite..."
-    {{ runner }} pytest tests/
+    {{ runner }} pytest core/tests
     @echo "==> [3/5] Structural audit (zenzic check all --strict)..."
     {{ runner }} zenzic check all --strict {{ ZENZIC_EXTRA_ARGS }}
     @echo "==> [4/5] Score computation and badge stamp (zenzic score --stamp)..."
@@ -149,15 +149,15 @@ release part: release-contracts
             patch|minor|major) ;;
             *) echo "Invalid part '{{ part }}'. Use patch|minor|major"; exit 2 ;;
         esac
-        uv run --active bump-my-version bump {{ part }}
-        uv sync
-        version="$(uv run --active bump-my-version show current_version)"
+        uv run --project core --active bump-my-version bump {{ part }}
+        uv sync --project core
+        version="$(uv run --project core --active bump-my-version show current_version)"
         git add -u
         git commit -S -s -m "release: bump version to ${version}"
 
 # Show the current project version
 version:
-    @uv run --active bump-my-version show current_version
+    @uv run --project core --active bump-my-version show current_version
 
 # Simulate a release bump without modifying any files
 # Usage: just release-dry patch|minor|major [--short]
@@ -167,10 +167,10 @@ release-dry part *args:
     _short=false
     for _arg in {{args}}; do [[ "$_arg" == "--short" ]] && _short=true; done
     if $_short; then
-        uv run --active bump-my-version bump {{part}} --dry-run --allow-dirty --verbose 2>&1 \
+        uv run --project core --active bump-my-version bump {{part}} --dry-run --allow-dirty --verbose 2>&1 \
             | grep -E 'current version|New version will be|Dry run'
     else
-        uv run --active bump-my-version bump {{part}} --dry-run --allow-dirty --verbose
+        uv run --project core --active bump-my-version bump {{part}} --dry-run --allow-dirty --verbose
     fi
 
 # ─── Cleanup ──────────────────────────────────────────────────────────────
@@ -182,7 +182,18 @@ clean:
 
 # Serve the documentation site locally
 docs-serve +args="":
-    uv run --extra docs mkdocs serve {{args}}
+    uv run --project core --extra docs mkdocs serve {{args}}
 
 docs-build:
-	uv run --extra docs mkdocs build --strict
+	uv run --project core --extra docs mkdocs build --strict
+
+# ─── Ecosystem Integration (VS Code & GitHub Actions) ───────────────────────────
+
+vscode-lint:
+	cd vscode && npm run lint && npx tsc --noEmit
+
+vscode-build:
+	cd vscode && npx @vscode/vsce package
+
+action-verify:
+	cd actions && ZENZIC_CORE_PATH="../core" just verify

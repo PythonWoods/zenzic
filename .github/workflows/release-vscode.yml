@@ -1,0 +1,40 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+
+name: Zenzic VS Code Release
+
+on:
+  push:
+    tags:
+      - "vscode-v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: vscode
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+
+      - name: Install NPM Dependencies
+        run: npm ci
+
+      - name: Package VSIX
+        run: npx @vscode/vsce package
+
+      - name: Generate GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          files: vscode/*.vsix
+          generate_release_notes: true

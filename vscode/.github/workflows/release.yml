@@ -1,0 +1,44 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+
+name: Publish Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write # Required to create the GitHub Release
+
+jobs:
+  release:
+    name: Build and Publish VSIX
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        # C1 fix: aligned with ci.yml — was checkout@v4
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        # C1 fix: aligned with ci.yml — was setup-node@v4
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install NPM Dependencies
+        run: npm ci
+
+      - name: Package VSIX
+        # C2 fix: removed redundant `npm run build` — vsce already runs
+        # vscode:prepublish (which calls `npm run build -- --production`) internally.
+        run: npx @vscode/vsce package
+
+      - name: Create GitHub Release
+        # C3: pinned to immutable SHA-256 (v3.0.2)
+        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228
+        with:
+          files: "*.vsix"
+          generate_release_notes: true
+          draft: false

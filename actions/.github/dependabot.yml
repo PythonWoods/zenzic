@@ -1,0 +1,24 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+
+version: 2
+
+updates:
+  # GitHub Actions only — this repo has no Python or npm packages to track via Dependabot.
+  # npm-audit.yml handles Node/Docusaurus dependency auditing separately.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "ci(deps)"
+    labels:
+      - "dependencies"
+      - "github-actions"
+    groups:
+      actions-all:
+        update-types:
+          - "minor"
+          - "patch"

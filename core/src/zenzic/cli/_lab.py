@@ -62,6 +62,9 @@ def _examples_root() -> Path:
     dev = Path(__file__).resolve().parent.parent.parent.parent / "examples"
     if dev.is_dir():
         return dev
+    dev_root = Path(__file__).resolve().parent.parent.parent.parent.parent / "examples"
+    if dev_root.is_dir():
+        return dev_root
     raise FileNotFoundError(
         "Cannot locate examples/ — reinstall zenzic or run from the repository root."
     )

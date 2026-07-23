@@ -8,9 +8,9 @@ description: "Step-by-step guide to adding a new check to the Zenzic analysis en
 
 # Writing a New Check
 
-Zenzic's checks live in `src/zenzic/core/`. Each check is a standalone function in either
+Zenzic's checks live in `core/src/zenzic/core/`. Each check is a standalone function in either
 `scanner.py` (filesystem traversal) or `validator.py` (content validation). CLI wiring is
-in the `cli/` package (`src/zenzic/cli/`).
+in the `cli/` package (`core/src/zenzic/cli/`).
 
 ---
 
@@ -20,7 +20,7 @@ in the `cli/` package (`src/zenzic/cli/`).
 2. **Delegate resolution** to `InMemoryPathResolver` — never call `os.path.exists()`, `Path.is_file()`, or any other filesystem probe inside a per-link loop. The resolver is instantiated once before the loop; re-instantiation per file defeats the pre-computed `_lookup_map` and drops throughput from 430 000+ to below 30 000 resolutions/s.
 3. **Test i18n** — if the check involves file paths, test it in all three i18n configurations (none, folder mode, suffix mode).
 4. **Wire the CLI** — add a corresponding command or sub-command in the `cli/` package. See the [CLI Architecture reference](../reference/cli-architecture). If your command accepts a `PATH` argument, you must call `find_repo_root(search_from=resolved_path)` and invoke `_apply_target()` to respect Path Sovereignty.
-5. **Write tests** in `tests/` covering both passing and failing cases, including a performance baseline (5 000 links resolved in < 100 ms against a mock in-memory corpus).
+5. **Write tests** in `core/tests/` covering both passing and failing cases, including a performance baseline (5 000 links resolved in < 100 ms against a mock in-memory corpus).
 6. **Update examples** in `examples/` to exercise the new check — Zenzic validates its own examples on every commit.
 
 > **Performance contract:** the `zenzic.core` hot path must remain allocation-free. No `Path`

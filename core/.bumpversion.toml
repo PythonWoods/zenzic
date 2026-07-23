@@ -1,0 +1,98 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+
+[tool.bumpversion]
+current_version = "0.23.1"
+parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)((?P<pre_l>a|b|rc)(?P<pre_n>\\d+))?"
+serialize = [
+    "{major}.{minor}.{patch}{pre_l}{pre_n}",
+    "{major}.{minor}.{patch}",
+]
+tag = true
+tag_name = "core-v{new_version}"
+tag_message = "release(core): bump version to {new_version}"
+
+[tool.bumpversion.parts.pre_l]
+values = ["final", "a", "b", "rc"]
+optional_value = "final"
+
+[tool.bumpversion.parts.pre_n]
+first_value = 1
+
+[[tool.bumpversion.files]]
+filename = "../mkdocs.yml"
+search = 'zenzic_version: "{current_version}"'
+replace = 'zenzic_version: "{new_version}"'
+
+[[tool.bumpversion.files]]
+filename = "CHANGELOG.md"
+search = "## [Unreleased]"
+replace = '''## [Unreleased]
+
+## [{new_version}] - {now:%Y-%m-%d}'''
+
+[[tool.bumpversion.files]]
+filename = "pyproject.toml"
+search = 'version = "{current_version}"'
+replace = 'version = "{new_version}"'
+
+[[tool.bumpversion.files]]
+filename = "src/zenzic/__init__.py"
+search = '__version__ = "{current_version}"'
+replace = '__version__ = "{new_version}"'
+
+[[tool.bumpversion.files]]
+filename = "../CITATION.cff"
+search = "version: {current_version}"
+replace = "version: {new_version}"
+
+[[tool.bumpversion.files]]
+filename = "../CITATION.cff"
+search = "date-released: \\d{{4}}-\\d{{2}}-\\d{{2}}"
+replace = "date-released: {now:%Y-%m-%d}"
+regex = true
+
+[[tool.bumpversion.files]]
+filename = "src/zenzic/cli/_standalone.py"
+search = 'dependencies = ["zenzic>={current_version}"]'
+replace = 'dependencies = ["zenzic>={new_version}"]'
+
+[[tool.bumpversion.files]]
+filename = "../RELEASE.md"
+search = '| **Core Version** | `v{current_version}` |'
+replace = '| **Core Version** | `v{new_version}` |'
+
+[[tool.bumpversion.files]]
+filename = "../RELEASE.md"
+search = "- [ ] `core/pyproject.toml` version matches the tag (`{current_version}`)"
+replace = "- [ ] `core/pyproject.toml` version matches the tag (`{new_version}`)"
+
+[[tool.bumpversion.files]]
+filename = "../RELEASE.md"
+search = 'git tag -s -m "Release core-v{current_version}" core-v{current_version}'
+replace = 'git tag -s -m "Release core-v{new_version}" core-v{new_version}'
+
+[[tool.bumpversion.files]]
+filename = "../RELEASE.md"
+search = "git push origin core-v{current_version}"
+replace = "git push origin core-v{new_version}"
+
+[[tool.bumpversion.files]]
+filename = "../.pre-commit-hooks.yaml"
+search = "rev: v{current_version}"
+replace = "rev: v{new_version}"
+
+[[tool.bumpversion.files]]
+filename = "../README.md"
+search = '"version": "{current_version}"'
+replace = '"version": "{new_version}"'
+
+[[tool.bumpversion.files]]
+filename = "../README.md"
+search = "uvx zenzic@{current_version} check all"
+replace = "uvx zenzic@{new_version} check all"
+
+[[tool.bumpversion.files]]
+filename = "../pyproject.toml"
+search = 'version = "{current_version}"'
+replace = 'version = "{new_version}"'

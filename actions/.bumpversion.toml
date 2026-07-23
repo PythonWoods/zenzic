@@ -1,0 +1,54 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+
+[tool.bumpversion]
+current_version = "2.9.1"
+parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)"
+serialize = ["{major}.{minor}.{patch}"]
+tag = true
+tag_name = "actions-v{new_version}"
+
+[[tool.bumpversion.files]]
+filename = "package.json"
+search = '"version": "{current_version}"'
+replace = '"version": "{new_version}"'
+
+[[tool.bumpversion.files]]
+filename = "../RELEASE.md"
+search = '| **Action Version** | `v{current_version}` |'
+replace = '| **Action Version** | `v{new_version}` |'
+
+[[tool.bumpversion.files]]
+filename = "CHANGELOG.md"
+search = "## [Unreleased]"
+replace = '''## [Unreleased]
+
+## [{new_version}] - {now:%Y-%m-%d}'''
+
+[[tool.bumpversion.files]]
+filename = "../RELEASE.md"
+search = 'git tag -s -m "Release actions-v{current_version}" actions-v{current_version}'
+replace = 'git tag -s -m "Release actions-v{new_version}" actions-v{new_version}'
+
+[[tool.bumpversion.files]]
+filename = "../RELEASE.md"
+search = 'git push origin actions-v{current_version}'
+replace = 'git push origin actions-v{new_version}'
+
+[[tool.bumpversion.files]]
+filename = "../RELEASE.md"
+search = 'git tag -fa v2 actions-v{current_version}^{{}} -m "release(action): move v2 floating tag to actions-v{current_version}"'
+replace = 'git tag -fa v2 actions-v{new_version}^{{}} -m "release(action): move v2 floating tag to actions-v{new_version}"'
+
+[[tool.bumpversion.files]]
+filename = "../SECURITY.md"
+search = '''| `2.9.1` (current) | ✅ Active security fixes |'''
+replace = '''| `{new_version}` (current) | ✅ Active security fixes |'''
+
+# ---------------------------------------------------------------------------
+# Core pin — state tracking only.
+# Actual updates are performed by `just pin-core <version>`.
+# bump-my-version does NOT manage these files; they are listed here for discoverability.
+# ---------------------------------------------------------------------------
+[tool.bumpversion.custom_variables.core_version]
+current = "0.23.1"
