@@ -1,0 +1,14 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+
+site_name: Sandbox MkDocs
+site_url: https://sandbox.example.com/
+
+nav:
+  - Home: index.md
+  - Guide:
+    - Getting Started: guide/get-started.md
+    - Installation: guide/installation.md
+  - About: about.md
+
+use_directory_urls: true

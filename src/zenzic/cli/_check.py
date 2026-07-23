@@ -1,0 +1,1682 @@
+# SPDX-FileCopyrightText: 2026 PythonWoods <dev@pythonwoods.dev>
+# SPDX-License-Identifier: Apache-2.0
+"""Check sub-commands: links, orphans, snippets, references, assets, placeholders, all."""
+
+from __future__ import annotations
+
+import json
+import time
+from dataclasses import dataclass, field
+from pathlib import Path
+
+import typer
+
+from zenzic import __version__
+from zenzic.core.adapters import get_adapter
+from zenzic.core.adapters._mkdocs import check_config_assets as _mkdocs_check_assets
+from zenzic.core.adapters._zensical import check_config_assets as _zensical_check_assets
+from zenzic.core.codes import CODE_DEFINITIONS
+from zenzic.core.exclusion import LayeredExclusionManager
+from zenzic.core.reporter import Finding, ZenzicReporter
+from zenzic.core.scanner import (
+    _map_credential_to_finding,
+    find_missing_directory_indices,
+    find_orphans,
+    find_repo_root,
+    find_unused_assets,
+    scan_docs_references,
+)
+from zenzic.core.scorer import compute_score
+from zenzic.core.sovereign_context import sovereign_context
+from zenzic.core.ui import ZenzicPalette
+from zenzic.core.validator import (
+    LinkError,
+    SnippetError,
+    check_nav_contract,
+    validate_links_structured,
+    validate_snippets,
+)
+from zenzic.models.config import ZenzicConfig
+from zenzic.models.references import IntegrityReport
+
+from . import _shared
+from ._governance import (
+    SuppressionAudit,
+    _apply_directory_policies,
+    _apply_per_file_ignores,
+    build_cap_exceeded_json_payload,
+    build_cap_exceeded_sarif_payload,
+    collect_inline_suppression_stats,
+    count_per_file_ignores,
+    print_governance_cap_failure,
+    print_suppression_audit_footer,
+    resolve_governance_panel_title,
+)
+from ._metadata import COMMAND_BY_NAME
+from ._target_resolver import _apply_target
+
+
+check_app = _shared.create_app(
+    name="check",
+    long_help=(f"[bold {ZenzicPalette.BRAND}]Check[/] — {COMMAND_BY_NAME['check'].long_help}"),
+)
+
+
+def _finding_severity(code: str) -> str:
+    """Derive CLI finding severity from CodeDefinition SSoT (codes.py).
+
+    Returns ``"security_incident"`` only for Z203 (fatal system-path traversal),
+    ``"info"`` for note-level informational codes (Z106, Z114, Z906), and the
+    CodeDefinition severity (``"error"`` or ``"warning"``) for all others.
+    Unknown codes default to ``"error"`` since the validator only emits findings
+    when it detects a genuine problem.
+    """
+    if code == "Z203":
+        return "security_incident"
+    defn = CODE_DEFINITIONS.get(code)
+    if defn is None:
+        return "error"
+    if defn.severity == "note":
+        return "info"
+    return defn.severity  # "error" or "warning"
+
+
+# ── Check commands ────────────────────────────────────────────────────────────
+
+
+@check_app.command(name="links")
+def check_links(
+    strict: bool = typer.Option(
+        False,
+        "--strict",
+        "-s",
+        help="Treat warnings as errors (exit non-zero on any warning).",
+    ),
+    output_format: str = typer.Option(
+        "text", "--format", "-f", help="Output format: text, json, or sarif."
+    ),
+    show_info: bool = typer.Option(
+        False, "--show-info", help="Show info-level findings (e.g. circular links) in the report."
+    ),
+    offline: bool = typer.Option(
+        False, "--offline", help="Force flat URL resolution for offline builds."
+    ),
+    no_external: bool = typer.Option(
+        False,
+        "--no-external",
+        help=(
+            "Skip HTTP validation of external URLs (Pass 3). "
+            "For air-gapped / offline environments. "
+            "Credential scanner (Z201) always active regardless of this flag."
+        ),
+    ),
+    exclude_url: list[str] = typer.Option(
+        [],
+        "--exclude-url",
+        help=(
+            "Bypass external URL validation for URLs matching this prefix (repeatable). "
+            "Merged with excluded_external_urls from .zenzic.toml at runtime."
+        ),
+        metavar="PREFIX",
+    ),
+    ci: bool = typer.Option(
+        False, "--ci", help="Run in CI mode (forces github-annotations and strict)."
+    ),
+    only: str | None = typer.Option(
+        None,
+        "--only",
+        help="Comma-separated list of Z-Codes to filter. Findings not matching these codes are discarded.",
+    ),
+    path: str | None = typer.Argument(
+        None,
+        help="Limit to a directory or file. Accepts paths relative to repository root or docs directory. The path must be inside a project with a .git/ directory or .zenzic.toml (root marker); run 'zenzic init' first if no marker exists.",
+        show_default=False,
+    ),
+) -> None:
+    """Check for broken internal links and enforce strict warning policy when requested."""
+
+    if ci:
+        strict = True
+        if output_format == "text":
+            output_format = "github-annotations"
+
+    _search_from: Path | None = None
+    if path is not None:
+        _pre = Path(path).resolve()
+        _search_from = _pre.parent if _pre.is_file() else _pre
+    repo_root = find_repo_root(search_from=_search_from)
+    config, _ = ZenzicConfig.load(repo_root)
+    if offline:
+        config.build_context.offline_mode = True
+    if exclude_url:
+        config = config.model_copy(
+            update={"excluded_external_urls": config.excluded_external_urls + list(exclude_url)}
+        )
+    if path is not None:
+        config, _, docs_root, _ = _apply_target(repo_root, config, path)
+        try:
+            docs_root.relative_to(repo_root)
+        except ValueError:
+            repo_root = docs_root
+    else:
+        docs_root = (repo_root / config.docs_dir).resolve()
+    exclusion_mgr = _shared._build_exclusion_manager(config, repo_root, docs_root)
+
+    def _rel(path: Path) -> str:
+        try:
+            return str(path.relative_to(repo_root))
+        except ValueError:
+            return str(path)
+
+    t0 = time.monotonic()
+
+    adapter = get_adapter(config.build_context, docs_root, repo_root)
+    _roots = adapter.get_locale_source_roots(repo_root)
+    locale_roots: list[tuple[Path, str]] | None = _roots if _roots else None
+
+    link_errors = validate_links_structured(
+        docs_root,
+        exclusion_mgr,
+        repo_root=repo_root,
+        config=config,
+        strict=strict,
+        locale_roots=locale_roots,
+        check_external=not no_external,
+    )
+    elapsed = time.monotonic() - t0
+
+    findings = [
+        Finding(
+            rel_path=_rel(err.file_path),
+            line_no=err.line_no,
+            code=err.code,
+            severity=_finding_severity(err.code),
+            message=err.message,
+            source_line=err.source_line,
+            col_start=err.col_start,
+            match_text=err.match_text,
+        )
+        for err in link_errors
+    ]
+    _append_z118_findings(
+        findings, config, repo_root, check_all=False, check_external_urls=not no_external
+    )
+    findings = _filter_flat_findings(findings, only)
+
+    if output_format == "json":
+        _shared._output_json_findings(findings, elapsed)
+        incidents = sum(1 for f in findings if f.severity == "security_incident")
+        if incidents:
+            raise typer.Exit(3)
+        errors_count = sum(1 for f in findings if f.severity == "error")
+        if errors_count:
+            raise typer.Exit(1)
+        return
+    elif output_format == "sarif":
+        _shared._output_sarif_findings(findings, __version__)
+        incidents = sum(1 for f in findings if f.severity == "security_incident")
+        if incidents:
+            raise typer.Exit(3)
+        errors_count = sum(1 for f in findings if f.severity == "error")
+        if errors_count:
+            raise typer.Exit(1)
+        return
+    elif output_format == "github-annotations":
+        _shared._output_github_annotations(findings)
+        incidents = sum(1 for f in findings if f.severity == "security_incident")
+        if incidents:
+            raise typer.Exit(3)
+        errors_count = sum(1 for f in findings if f.severity == "error")
+        warnings_count = sum(1 for f in findings if f.severity == "warning")
+        if errors_count > 0 or (strict and warnings_count > 0):
+            raise typer.Exit(1)
+        return
+
+    docs_count, assets_count = _shared._count_docs_assets(docs_root, repo_root, exclusion_mgr)
+    _shared._ui.print_header(__version__)
+    if path is not None:
+        try:
+            _hint = str(docs_root.relative_to(Path.cwd()))
+        except ValueError:
+            _hint = str(docs_root)
+        _shared.console.print(f"[{ZenzicPalette.DIM}]  Scanning: {_hint}[/]")
+    reporter = ZenzicReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
+    footer_lines = [f"[{ZenzicPalette.DIM}]Try 'zenzic check links --help' for options.[/]"]
+    if no_external and output_format == "text":
+        footer_lines.append(
+            f"[{ZenzicPalette.DIM}]💡 External link validation skipped (--no-external). "
+            f"Credential scanner (Z201) remains active.[/]"
+        )
+    errors, warnings = reporter.render(
+        findings,
+        version=__version__,
+        elapsed=elapsed,
+        docs_count=docs_count,
+        assets_count=assets_count,
+        engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
+        ok_message="No broken links found.",
+        show_info=show_info,
+        footer_notice=_shared.make_footer_notice(*footer_lines),
+    )
+    incidents = sum(1 for f in findings if f.severity == "security_incident")
+    if incidents:
+        raise typer.Exit(3)
+    if errors or (strict and warnings):
+        raise typer.Exit(1)
+
+
+@check_app.command(name="orphans")
+def check_orphans(
+    engine: str | None = typer.Option(
+        None,
+        "--engine",
+        help="Override the build engine adapter (e.g. mkdocs, zensical). "
+        "Auto-detected from .zenzic.toml when omitted.",
+        metavar="ENGINE",
+    ),
+    output_format: str = typer.Option(
+        "text", "--format", "-f", help="Output format: text, json, or sarif."
+    ),
+    ci: bool = typer.Option(
+        False, "--ci", help="Run in CI mode (forces github-annotations and strict)."
+    ),
+    only: str | None = typer.Option(
+        None,
+        "--only",
+        help="Comma-separated list of Z-Codes to filter. Findings not matching these codes are discarded.",
+    ),
+    show_info: bool = typer.Option(
+        False, "--show-info", help="Show info-level findings (e.g. circular links) in the report."
+    ),
+    offline: bool = typer.Option(
+        False, "--offline", help="Force flat URL resolution for offline builds."
+    ),
+    path: str | None = typer.Argument(
+        None,
+        help="Limit to a directory or file. Accepts paths relative to repository root or docs directory. The path must be inside a project with a .git/ directory or .zenzic.toml (root marker); run 'zenzic init' first if no marker exists.",
+        show_default=False,
+    ),
+) -> None:
+    """Detect .md files not listed in the nav."""
+
+    if ci:
+        if output_format == "text":
+            output_format = "github-annotations"
+
+    _search_from: Path | None = None
+    if path is not None:
+        _pre = Path(path).resolve()
+        _search_from = _pre.parent if _pre.is_file() else _pre
+    repo_root = find_repo_root(search_from=_search_from)
+    config, loaded_from_file = ZenzicConfig.load(repo_root)
+    if not loaded_from_file:
+        _shared._print_no_config_hint(output_format)
+    config = _shared._apply_engine_override(config, engine)
+    if offline:
+        config.build_context.offline_mode = True
+    if path is not None:
+        config, _, docs_root, _ = _apply_target(repo_root, config, path)
+        try:
+            docs_root.relative_to(repo_root)
+        except ValueError:
+            repo_root = docs_root
+    else:
+        docs_root = (repo_root / config.docs_dir).resolve()
+    exclusion_mgr = _shared._build_exclusion_manager(config, repo_root, docs_root)
+
+    def _rel(path: Path) -> str:
+        try:
+            return str(path.relative_to(repo_root))
+        except ValueError:
+            return str(path)
+
+    adapter = get_adapter(config.build_context, docs_root, repo_root)
+
+    t0 = time.monotonic()
+    orphans = find_orphans(
+        docs_root,
+        exclusion_mgr,
+        config=config,
+        has_engine_config=adapter.has_engine_config(),
+        nav_paths=adapter.get_nav_paths(),
+        is_locale_dir=adapter.is_locale_dir,
+        ignored_patterns=adapter.get_ignored_patterns(),
+        adapter=adapter,
+    )
+    elapsed = time.monotonic() - t0
+
+    findings = [
+        Finding(
+            rel_path=_rel(docs_root / path),
+            line_no=0,
+            code="Z402",
+            severity="warning",
+            message="Physical file not listed in navigation.",
+        )
+        for path in orphans
+    ]
+    _append_z118_findings(findings, config, repo_root, check_all=False, check_external_urls=False)
+    findings = _filter_flat_findings(findings, only)
+
+    if output_format == "json":
+        _shared._output_json_findings(findings, elapsed)
+        errors_count = sum(1 for f in findings if f.severity == "error")
+        if errors_count:
+            raise typer.Exit(1)
+        return
+    elif output_format == "sarif":
+        _shared._output_sarif_findings(findings, __version__)
+        errors_count = sum(1 for f in findings if f.severity == "error")
+        if errors_count:
+            raise typer.Exit(1)
+        return
+
+    docs_count, assets_count = _shared._count_docs_assets(docs_root, repo_root, exclusion_mgr)
+    _shared._ui.print_header(__version__)
+    if path is not None:
+        try:
+            _hint = str(docs_root.relative_to(Path.cwd()))
+        except ValueError:
+            _hint = str(docs_root)
+        _shared.console.print(f"[{ZenzicPalette.DIM}]  Scanning: {_hint}[/]")
+    reporter = ZenzicReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
+    errors, warnings = reporter.render(
+        findings,
+        version=__version__,
+        elapsed=elapsed,
+        docs_count=docs_count,
+        assets_count=assets_count,
+        engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
+        strict=True,
+        ok_message="No orphan pages found.",
+        show_info=show_info,
+        footer_notice=_shared.make_footer_notice(_shared.footer_hint("check")),
+    )
+    if errors or warnings:
+        raise typer.Exit(1)
+
+
+@check_app.command(name="snippets")
+def check_snippets(
+    output_format: str = typer.Option(
+        "text", "--format", "-f", help="Output format: text, json, or sarif."
+    ),
+    ci: bool = typer.Option(
+        False, "--ci", help="Run in CI mode (forces github-annotations and strict)."
+    ),
+    only: str | None = typer.Option(
+        None,
+        "--only",
+        help="Comma-separated list of Z-Codes to filter. Findings not matching these codes are discarded.",
+    ),
+    show_info: bool = typer.Option(
+        False, "--show-info", help="Show info-level findings (e.g. circular links) in the report."
+    ),
+    path: str | None = typer.Argument(
+        None,
+        help="Limit to a directory or file. Accepts paths relative to repository root or docs directory. The path must be inside a project with a .git/ directory or .zenzic.toml (root marker); run 'zenzic init' first if no marker exists.",
+        show_default=False,
+    ),
+) -> None:
+    """Validate Python code blocks in documentation Markdown files."""
+
+    if ci:
+        if output_format == "text":
+            output_format = "github-annotations"
+
+    _search_from: Path | None = None
+    if path is not None:
+        _pre = Path(path).resolve()
+        _search_from = _pre.parent if _pre.is_file() else _pre
+    repo_root = find_repo_root(search_from=_search_from)
+    config, loaded_from_file = ZenzicConfig.load(repo_root)
+    if not loaded_from_file:
+        _shared._print_no_config_hint(output_format)
+    if path is not None:
+        config, _, docs_root, _ = _apply_target(repo_root, config, path)
+        try:
+            docs_root.relative_to(repo_root)
+        except ValueError:
+            repo_root = docs_root
+    else:
+        docs_root = (repo_root / config.docs_dir).resolve()
+    exclusion_mgr = _shared._build_exclusion_manager(config, repo_root, docs_root)
+
+    def _rel(path: Path) -> str:
+        try:
+            return str(path.relative_to(repo_root))
+        except ValueError:
+            return str(path)
+
+    t0 = time.monotonic()
+    snippet_errors = validate_snippets(docs_root, exclusion_mgr, config=config)
+    elapsed = time.monotonic() - t0
+
+    findings: list[Finding] = []
+    for s_err in snippet_errors:
+        src = ""
+        if s_err.line_no > 0 and s_err.file_path.is_file():
+            try:
+                lines = s_err.file_path.read_text(encoding="utf-8").splitlines()
+                if 0 < s_err.line_no <= len(lines):
+                    src = lines[s_err.line_no - 1].strip()
+            except OSError:
+                pass
+        findings.append(
+            Finding(
+                rel_path=_rel(s_err.file_path),
+                line_no=s_err.line_no,
+                code="Z503",
+                severity="error",
+                message=s_err.message,
+                source_line=src,
+            )
+        )
+
+    if output_format == "json":
+        _shared._output_json_findings(findings, elapsed)
+        errors_count = sum(1 for f in findings if f.severity == "error")
+        if errors_count:
+            raise typer.Exit(1)
+        return
+    elif output_format == "sarif":
+        _shared._output_sarif_findings(findings, __version__)
+        errors_count = sum(1 for f in findings if f.severity == "error")
+        if errors_count:
+            raise typer.Exit(1)
+        return
+
+    docs_count, assets_count = _shared._count_docs_assets(docs_root, repo_root, exclusion_mgr)
+    _shared._ui.print_header(__version__)
+    if path is not None:
+        try:
+            _hint = str(docs_root.relative_to(Path.cwd()))
+        except ValueError:
+            _hint = str(docs_root)
+        _shared.console.print(f"[{ZenzicPalette.DIM}]  Scanning: {_hint}[/]")
+    reporter = ZenzicReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
+    errors, warnings = reporter.render(
+        findings,
+        version=__version__,
+        elapsed=elapsed,
+        docs_count=docs_count,
+        assets_count=assets_count,
+        engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
+        ok_message="All code snippets are syntactically valid.",
+        show_info=show_info,
+        footer_notice=_shared.make_footer_notice(_shared.footer_hint("check")),
+    )
+    if errors:
+        raise typer.Exit(1)
+
+
+@check_app.command(name="references")
+def check_references(
+    strict: bool = typer.Option(
+        False,
+        "--strict",
+        "-s",
+        help="Treat warnings as errors (exit non-zero on any warning).",
+    ),
+    links: bool = typer.Option(
+        False,
+        "--links",
+        "-l",
+        help="Also validate external HTTP/HTTPS reference URLs via async HEAD requests.",
+    ),
+    output_format: str = typer.Option(
+        "text", "--format", "-f", help="Output format: text, json, or sarif."
+    ),
+    ci: bool = typer.Option(
+        False, "--ci", help="Run in CI mode (forces github-annotations and strict)."
+    ),
+    only: str | None = typer.Option(
+        None,
+        "--only",
+        help="Comma-separated list of Z-Codes to filter. Findings not matching these codes are discarded.",
+    ),
+    show_info: bool = typer.Option(
+        False, "--show-info", help="Show info-level findings (e.g. circular links) in the report."
+    ),
+    path: str | None = typer.Argument(
+        None,
+        help="Limit to a directory or file. Accepts paths relative to repository root or docs directory. The path must be inside a project with a .git/ directory or .zenzic.toml (root marker); run 'zenzic init' first if no marker exists.",
+        show_default=False,
+    ),
+) -> None:
+    """Run the Two-Pass Reference Pipeline: harvest definitions, check integrity, run credential scan.
+
+    Pass 1 — Harvest: extract [id]: url definitions, detect secrets (credential scanner).
+    Pass 2 — Cross-Check: resolve [text][id] links against the ReferenceMap.
+    Pass 3 — Report: compute Reference Integrity score, flag Dead Definitions and Dangling References.
+
+    With --links: validate all external URLs via deduplicated async HEAD requests
+    (one ping per unique URL across the entire docs tree).
+
+    Exit codes:
+      0 — all references resolve; no secrets found.
+      1 — Dangling References or (with --strict) warnings found.
+      2 — SECURITY CRITICAL: a secret was detected in a reference URL.
+    """
+
+    if ci:
+        strict = True
+        if output_format == "text":
+            output_format = "github-annotations"
+
+    _search_from: Path | None = None
+    if path is not None:
+        _pre = Path(path).resolve()
+        _search_from = _pre.parent if _pre.is_file() else _pre
+    repo_root = find_repo_root(search_from=_search_from)
+    config, loaded_from_file = ZenzicConfig.load(repo_root)
+    if not loaded_from_file:
+        _shared._print_no_config_hint(output_format)
+    if path is not None:
+        config, _, docs_root, _ = _apply_target(repo_root, config, path)
+        try:
+            docs_root.relative_to(repo_root)
+        except ValueError:
+            repo_root = docs_root
+    else:
+        docs_root = (repo_root / config.docs_dir).resolve()
+    exclusion_mgr = _shared._build_exclusion_manager(config, repo_root, docs_root)
+
+    def _rel(path: Path) -> str:
+        try:
+            return str(path.relative_to(repo_root))
+        except ValueError:
+            return str(path)
+
+    adapter = get_adapter(config.build_context, docs_root, repo_root)
+
+    _locale_roots = adapter.get_locale_source_roots(repo_root)
+    locale_roots: list[tuple[Path, str]] | None = _locale_roots if _locale_roots else None
+
+    _content_roots = adapter.get_extra_content_roots(repo_root)
+    content_roots: list[Path] | None = _content_roots if _content_roots else None
+
+    t0 = time.monotonic()
+    reports, ext_link_errors = scan_docs_references(
+        docs_root,
+        exclusion_mgr,
+        config=config,
+        validate_links=links,
+        locale_roots=locale_roots,
+        content_roots=content_roots,
+    )
+    elapsed = time.monotonic() - t0
+
+    findings: list[Finding] = []
+    for report in reports:
+        rel = _rel(report.file_path)
+        _lines: list[str] = []
+        if report.file_path.is_file():
+            try:
+                _lines = report.file_path.read_text(encoding="utf-8").splitlines()
+            except OSError:
+                pass
+        for ref_f in report.findings:
+            src = ""
+            if _lines and 0 < ref_f.line_no <= len(_lines):
+                src = _lines[ref_f.line_no - 1].strip()
+            findings.append(
+                Finding(
+                    rel_path=rel,
+                    line_no=ref_f.line_no,
+                    code=ref_f.issue,
+                    severity="warning" if ref_f.is_warning else "error",
+                    message=ref_f.detail,
+                    source_line=src,
+                )
+            )
+        for rule_f in report.rule_findings:
+            findings.append(
+                Finding(
+                    rel_path=rel,
+                    line_no=rule_f.line_no,
+                    code=rule_f.rule_id,
+                    severity=rule_f.severity,
+                    message=rule_f.message,
+                    source_line=rule_f.matched_line or "",
+                    col_start=rule_f.col_start,
+                    match_text=rule_f.match_text or "",
+                )
+            )
+        for sf in report.security_findings:
+            findings.append(_map_credential_to_finding(sf, repo_root))
+
+    for err_str in ext_link_errors:
+        findings.append(
+            Finding(
+                rel_path="(external-urls)",
+                line_no=0,
+                code="Z101",
+                severity="error",
+                message=err_str,
+            )
+        )
+
+    if output_format == "json":
+        _shared._output_json_findings(findings, elapsed)
+        breaches = sum(1 for f in findings if f.severity == "security_breach")
+        if breaches:
+            raise typer.Exit(2)
+        errors_count = sum(1 for f in findings if f.severity == "error")
+        warnings_count = sum(1 for f in findings if f.severity == "warning")
+        if errors_count or (strict and warnings_count):
+            raise typer.Exit(1)
+        return
+    elif output_format == "sarif":
+        _shared._output_sarif_findings(findings, __version__)
+        breaches = sum(1 for f in findings if f.severity == "security_breach")
+        if breaches:
+            raise typer.Exit(2)
+        errors_count = sum(1 for f in findings if f.severity == "error")
+        warnings_count = sum(1 for f in findings if f.severity == "warning")
+        if errors_count or (strict and warnings_count):
+            raise typer.Exit(1)
+        return
+
+    docs_count, assets_count = _shared._count_docs_assets(docs_root, repo_root, exclusion_mgr)
+    _shared._ui.print_header(__version__)
+    if path is not None:
+        try:
+            _hint = str(docs_root.relative_to(Path.cwd()))
+        except ValueError:
+            _hint = str(docs_root)
+        _shared.console.print(f"[{ZenzicPalette.DIM}]  Scanning: {_hint}[/]")
+    reporter = ZenzicReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
+    errors, warnings = reporter.render(
+        findings,
+        version=__version__,
+        elapsed=elapsed,
+        docs_count=docs_count,
+        assets_count=assets_count,
+        engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
+        strict=strict,
+        ok_message="All references resolved.",
+        show_info=show_info,
+        footer_notice=_shared.make_footer_notice(_shared.footer_hint("check")),
+    )
+
+    breaches = sum(1 for f in findings if f.severity == "security_breach")
+    if breaches:
+        raise typer.Exit(2)
+    if errors or (strict and warnings):
+        raise typer.Exit(1)
+
+
+@check_app.command(name="assets")
+def check_assets(
+    output_format: str = typer.Option(
+        "text", "--format", "-f", help="Output format: text, json, or sarif."
+    ),
+    ci: bool = typer.Option(
+        False, "--ci", help="Run in CI mode (forces github-annotations and strict)."
+    ),
+    only: str | None = typer.Option(
+        None,
+        "--only",
+        help="Comma-separated list of Z-Codes to filter. Findings not matching these codes are discarded.",
+    ),
+    show_info: bool = typer.Option(
+        False, "--show-info", help="Show info-level findings (e.g. circular links) in the report."
+    ),
+    path: str | None = typer.Argument(
+        None,
+        help="Limit to a directory or file. Accepts paths relative to repository root or docs directory. The path must be inside a project with a .git/ directory or .zenzic.toml (root marker); run 'zenzic init' first if no marker exists.",
+        show_default=False,
+    ),
+) -> None:
+    """Detect unused images and assets in the documentation."""
+
+    if ci:
+        if output_format == "text":
+            output_format = "github-annotations"
+
+    _search_from: Path | None = None
+    if path is not None:
+        _pre = Path(path).resolve()
+        _search_from = _pre.parent if _pre.is_file() else _pre
+    repo_root = find_repo_root(search_from=_search_from)
+    config, loaded_from_file = ZenzicConfig.load(repo_root)
+    if not loaded_from_file:
+        _shared._print_no_config_hint(output_format)
+    if path is not None:
+        config, _, docs_root, _ = _apply_target(repo_root, config, path)
+        try:
+            docs_root.relative_to(repo_root)
+        except ValueError:
+            repo_root = docs_root
+    else:
+        docs_root = (repo_root / config.docs_dir).resolve()
+
+    adapter = get_adapter(config.build_context, docs_root, repo_root)
+    adapter_meta = adapter.get_metadata_files()
+    _locale_roots = adapter.get_locale_source_roots(repo_root)
+    locale_roots: list[tuple[Path, str]] | None = _locale_roots if _locale_roots else None
+    _content_roots = adapter.get_extra_content_roots(repo_root)
+    content_roots: list[Path] | None = _content_roots if _content_roots else None
+    exclusion_mgr = _shared._build_exclusion_manager(
+        config, repo_root, docs_root, adapter_metadata_files=adapter_meta
+    )
+
+    def _rel(path: Path) -> str:
+        try:
+            return str(path.relative_to(repo_root))
+        except ValueError:
+            return str(path)
+
+    t0 = time.monotonic()
+    unused = find_unused_assets(
+        docs_root,
+        exclusion_mgr,
+        config=config,
+        locale_roots=locale_roots,
+        content_roots=content_roots,
+        adapter_metadata_files=adapter_meta,
+    )
+    elapsed = time.monotonic() - t0
+
+    findings = [
+        Finding(
+            rel_path=_rel(docs_root / path),
+            line_no=0,
+            code="Z405",
+            severity="warning",
+            message="File not referenced in any documentation page.",
+        )
+        for path in unused
+    ]
+    _append_z118_findings(findings, config, repo_root, check_all=False, check_external_urls=False)
+    findings = _filter_flat_findings(findings, only)
+
+    if output_format == "json":
+        _shared._output_json_findings(findings, elapsed)
+        errors_count = sum(1 for f in findings if f.severity == "error")
+        if errors_count:
+            raise typer.Exit(1)
+        return
+    elif output_format == "sarif":
+        _shared._output_sarif_findings(findings, __version__)
+        errors_count = sum(1 for f in findings if f.severity == "error")
+        if errors_count:
+            raise typer.Exit(1)
+        return
+
+    docs_count, assets_count = _shared._count_docs_assets(docs_root, repo_root, exclusion_mgr)
+    _shared._ui.print_header(__version__)
+    if path is not None:
+        try:
+            _hint = str(docs_root.relative_to(Path.cwd()))
+        except ValueError:
+            _hint = str(docs_root)
+        _shared.console.print(f"[{ZenzicPalette.DIM}]  Scanning: {_hint}[/]")
+    reporter = ZenzicReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
+    errors, warnings = reporter.render(
+        findings,
+        version=__version__,
+        elapsed=elapsed,
+        docs_count=docs_count,
+        assets_count=assets_count,
+        engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
+        strict=True,
+        ok_message="No unused assets found.",
+        show_info=show_info,
+        footer_notice=_shared.make_footer_notice(_shared.footer_hint("check")),
+    )
+    if errors or warnings:
+        raise typer.Exit(1)
+
+
+@check_app.command(name="placeholders")
+def check_placeholders(
+    output_format: str = typer.Option(
+        "text", "--format", "-f", help="Output format: text, json, or sarif."
+    ),
+    ci: bool = typer.Option(
+        False, "--ci", help="Run in CI mode (forces github-annotations and strict)."
+    ),
+    only: str | None = typer.Option(
+        None,
+        "--only",
+        help="Comma-separated list of Z-Codes to filter. Findings not matching these codes are discarded.",
+    ),
+    show_info: bool = typer.Option(
+        False, "--show-info", help="Show info-level findings (e.g. circular links) in the report."
+    ),
+    path: str | None = typer.Argument(
+        None,
+        help="Limit to a directory or file. Accepts paths relative to repository root or docs directory. The path must be inside a project with a .git/ directory or .zenzic.toml (root marker); run 'zenzic init' first if no marker exists.",
+        show_default=False,
+    ),
+) -> None:
+    """Detect pages with < 50 words or containing TODOs/stubs."""
+
+    if ci:
+        if output_format == "text":
+            output_format = "github-annotations"
+
+    _search_from: Path | None = None
+    if path is not None:
+        _pre = Path(path).resolve()
+        _search_from = _pre.parent if _pre.is_file() else _pre
+    repo_root = find_repo_root(search_from=_search_from)
+    config, loaded_from_file = ZenzicConfig.load(repo_root)
+    if not loaded_from_file:
+        _shared._print_no_config_hint()
+    if path is not None:
+        config, _, docs_root, _ = _apply_target(repo_root, config, path)
+        try:
+            docs_root.relative_to(repo_root)
+        except ValueError:
+            repo_root = docs_root
+    else:
+        docs_root = (repo_root / config.docs_dir).resolve()
+    exclusion_mgr = _shared._build_exclusion_manager(config, repo_root, docs_root)
+
+    adapter = get_adapter(config.build_context, docs_root, repo_root)
+    _locale_roots = adapter.get_locale_source_roots(repo_root)
+    locale_roots: list[tuple[Path, str]] | None = _locale_roots if _locale_roots else None
+    _content_roots = adapter.get_extra_content_roots(repo_root)
+    content_roots: list[Path] | None = _content_roots if _content_roots else None
+
+    def _rel(path: Path) -> str:
+        try:
+            return str(path.relative_to(repo_root))
+        except ValueError:
+            return str(path)
+
+    t0 = time.monotonic()
+    raw_findings, _ = scan_docs_references(
+        docs_root,
+        exclusion_mgr,
+        config=config,
+        locale_roots=locale_roots,
+        content_roots=content_roots,
+    )
+    elapsed = time.monotonic() - t0
+
+    findings: list[Finding] = []
+    for report in raw_findings:
+        rel = _rel(report.file_path)
+        for rule_f in report.rule_findings:
+            if rule_f.rule_id in ("Z501", "Z502"):
+                findings.append(
+                    Finding(
+                        rel_path=rel,
+                        line_no=rule_f.line_no,
+                        code=rule_f.rule_id,
+                        severity=rule_f.severity,
+                        message=rule_f.message,
+                        source_line=rule_f.matched_line or "",
+                        col_start=rule_f.col_start,
+                        match_text=rule_f.match_text or "",
+                    )
+                )
+
+    docs_count, assets_count = _shared._count_docs_assets(docs_root, repo_root, exclusion_mgr)
+    _shared._ui.print_header(__version__)
+    if path is not None:
+        try:
+            _hint = str(docs_root.relative_to(Path.cwd()))
+        except ValueError:
+            _hint = str(docs_root)
+        _shared.console.print(f"[{ZenzicPalette.DIM}]  Scanning: {_hint}[/]")
+    reporter = ZenzicReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
+    errors, warnings = reporter.render(
+        findings,
+        version=__version__,
+        elapsed=elapsed,
+        docs_count=docs_count,
+        assets_count=assets_count,
+        engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
+        strict=True,
+        ok_message="No placeholder stubs found.",
+        show_info=show_info,
+        footer_notice=_shared.make_footer_notice(_shared.footer_hint("check")),
+    )
+    if errors or warnings:
+        raise typer.Exit(1)
+
+
+# ── All-checks aggregate ──────────────────────────────────────────────────────
+
+
+@dataclass
+class _AllCheckResults:
+    link_errors: list[LinkError]
+    orphans: list[Path]
+    snippet_errors: list[SnippetError]
+    unused_assets: list[Path]
+    nav_contract_errors: list[str]
+    reference_reports: list[IntegrityReport]
+    security_events: int
+    directory_index_issues: list[Path]
+    config_asset_issues: list[tuple[str, str]] = field(default_factory=list)
+
+    @property
+    def failed(self) -> bool:
+        ref_errors = any(r.has_errors for r in self.reference_reports)
+        return bool(
+            self.link_errors
+            or self.orphans
+            or self.snippet_errors
+            or self.unused_assets
+            or self.nav_contract_errors
+            or ref_errors
+            or self.security_events
+        )
+
+
+def _apply_only_filter(results: _AllCheckResults, only_str: str) -> None:
+    """Destructively filter CheckResults keeping only the specified Z-codes."""
+    if not only_str:
+        return
+    allowed = frozenset(code.strip().upper() for code in only_str.split(",") if code.strip())
+    if not allowed:
+        return
+
+    results.link_errors = [e for e in results.link_errors if e.code in allowed]
+    if "Z402" not in allowed:
+        results.orphans = []
+    if "Z503" not in allowed:
+        results.snippet_errors = []
+    if "Z405" not in allowed:
+        results.unused_assets = []
+    if "Z406" not in allowed:
+        results.nav_contract_errors = []
+    if "Z401" not in allowed:
+        results.directory_index_issues = []
+    if "Z404" not in allowed:
+        results.config_asset_issues = []
+
+    for rep in results.reference_reports:
+        rep.findings = [f for f in rep.findings if f.issue in allowed]
+        rep.rule_findings = [f for f in rep.rule_findings if getattr(f, "rule_id", "") in allowed]
+        if "Z201" not in allowed:
+            rep.security_findings = []
+
+
+def _filter_flat_findings(findings: list[Finding], only_str: str | None) -> list[Finding]:
+    """Filter a flat list of findings keeping only the specified Z-codes."""
+    if not only_str:
+        return findings
+    allowed = frozenset(code.strip().upper() for code in only_str.split(",") if code.strip())
+    if not allowed:
+        return findings
+    return [f for f in findings if f.code in allowed]
+
+
+# _apply_per_file_ignores and _apply_directory_policies have moved to _governance.py.
+# They are re-imported above and remain accessible from this module for backward
+# compatibility with any direct callers (e.g. tests).
+
+
+def _collect_all_results(
+    repo_root: Path,
+    docs_root: Path,
+    config: ZenzicConfig,
+    exclusion_mgr: LayeredExclusionManager,
+    strict: bool,
+    check_external: bool = True,
+    show_progress: bool = False,
+) -> _AllCheckResults:
+    """Run all seven checks and return results as a typed container."""
+
+    adapter = get_adapter(config.build_context, docs_root, repo_root)
+    _locale_roots = adapter.get_locale_source_roots(repo_root)
+    locale_roots: list[tuple[Path, str]] | None = _locale_roots if _locale_roots else None
+
+    _content_roots = adapter.get_extra_content_roots(repo_root)
+    content_roots: list[Path] | None = _content_roots if _content_roots else None
+
+    ref_reports, _ = scan_docs_references(
+        docs_root,
+        exclusion_mgr,
+        config=config,
+        validate_links=False,
+        locale_roots=locale_roots,
+        content_roots=content_roots,
+        show_progress=show_progress,
+    )
+    security_events = sum(len(r.security_findings) for r in ref_reports)
+
+    config_asset_issues: list[tuple[str, str]] = []
+    _engine = config.build_context.engine
+    if _engine == "mkdocs":
+        config_asset_issues = _mkdocs_check_assets(repo_root)
+    elif _engine == "zensical":
+        config_asset_issues = _zensical_check_assets(repo_root)
+
+    trackers = {
+        r.file_path.resolve(): r.suppression_tracker
+        for r in ref_reports
+        if r.suppression_tracker is not None
+    }
+
+    link_errors = validate_links_structured(
+        docs_root,
+        exclusion_mgr,
+        repo_root=repo_root,
+        config=config,
+        strict=strict,
+        locale_roots=locale_roots,
+        check_external=check_external,
+        trackers=trackers,
+    )
+
+    for r in ref_reports:
+        if r.suppression_tracker is not None:
+            dead_lines = {d.line_no for d in r.suppression_tracker.directives if not d.consumed}
+            r.rule_findings = [
+                f for f in r.rule_findings if f.rule_id != "Z603" or f.line_no in dead_lines
+            ]
+
+    return _AllCheckResults(
+        link_errors=link_errors,
+        orphans=find_orphans(
+            docs_root,
+            exclusion_mgr,
+            config=config,
+            has_engine_config=adapter.has_engine_config(),
+            nav_paths=adapter.get_nav_paths(),
+            is_locale_dir=adapter.is_locale_dir,
+            ignored_patterns=adapter.get_ignored_patterns(),
+            adapter=adapter,
+        ),
+        snippet_errors=validate_snippets(docs_root, exclusion_mgr, config=config),
+        unused_assets=find_unused_assets(
+            docs_root,
+            exclusion_mgr,
+            config=config,
+            locale_roots=locale_roots,
+            content_roots=content_roots,
+            adapter_metadata_files=adapter.get_metadata_files(),
+        ),
+        nav_contract_errors=check_nav_contract(repo_root, exclusion_mgr),
+        reference_reports=ref_reports,
+        security_events=security_events,
+        directory_index_issues=find_missing_directory_indices(
+            docs_root,
+            exclusion_mgr,
+            config=config,
+            provides_index=adapter.provides_index,
+        ),
+        config_asset_issues=config_asset_issues,
+    )
+
+
+def _append_z118_findings(
+    findings: list[Finding],
+    config: ZenzicConfig,
+    repo_root: Path,
+    check_all: bool,
+    check_external_urls: bool,
+) -> None:
+    tracker = getattr(config, "_global_tracker", None)
+    if not tracker:
+        return
+    for stale in tracker.get_stale_findings(
+        check_all=check_all, check_external_urls=check_external_urls
+    ):
+        try:
+            rp = str(stale.file_path.relative_to(repo_root))
+        except ValueError:
+            rp = str(stale.file_path)
+        findings.append(
+            Finding(
+                rel_path=rp,
+                line_no=stale.line_no,
+                code=stale.rule_id,
+                severity=stale.severity,
+                message=stale.message,
+            )
+        )
+
+
+def _to_findings(
+    results: _AllCheckResults, docs_root: Path, repo_root: Path, config: ZenzicConfig | None = None
+) -> list[Finding]:
+    """Convert all result types into a flat list of :class:`Finding`."""
+    findings: list[Finding] = []
+
+    def _rel(path: Path) -> str:
+        try:
+            return str(path.relative_to(repo_root))
+        except ValueError:
+            return str(path)
+
+    for err in results.link_errors:
+        findings.append(
+            Finding(
+                rel_path=_rel(err.file_path),
+                line_no=err.line_no,
+                code=err.code,
+                severity=_finding_severity(err.code),
+                message=err.message,
+                source_line=err.source_line,
+                col_start=err.col_start,
+                match_text=err.match_text,
+            )
+        )
+
+    for path in results.orphans:
+        findings.append(
+            Finding(
+                rel_path=_rel(docs_root / path),
+                line_no=0,
+                code="Z402",
+                severity="warning",
+                message="Physical file not listed in navigation.",
+            )
+        )
+
+    for s_err in results.snippet_errors:
+        src = ""
+        if s_err.line_no > 0 and s_err.file_path.is_file():
+            try:
+                lines = s_err.file_path.read_text(encoding="utf-8").splitlines()
+                if 0 < s_err.line_no <= len(lines):
+                    src = lines[s_err.line_no - 1].strip()
+            except OSError:
+                pass
+        findings.append(
+            Finding(
+                rel_path=_rel(s_err.file_path),
+                line_no=s_err.line_no,
+                code="Z503",
+                severity="error",
+                message=s_err.message,
+                source_line=src,
+            )
+        )
+
+    for path in results.unused_assets:
+        findings.append(
+            Finding(
+                rel_path=_rel(docs_root / path),
+                line_no=0,
+                code="Z405",
+                severity="warning",
+                message="File not referenced in any documentation page.",
+            )
+        )
+
+    for msg in results.nav_contract_errors:
+        findings.append(
+            Finding(
+                rel_path="(nav)",
+                line_no=0,
+                code="Z406",
+                severity="error",
+                message=msg,
+            )
+        )
+
+    for report in results.reference_reports:
+        rel = _rel(report.file_path)
+        _lines: list[str] = []
+        if report.file_path.is_file():
+            try:
+                _lines = report.file_path.read_text(encoding="utf-8").splitlines()
+            except OSError:
+                pass
+        for ref_f in report.findings:
+            src = ""
+            if _lines and 0 < ref_f.line_no <= len(_lines):
+                src = _lines[ref_f.line_no - 1].strip()
+            findings.append(
+                Finding(
+                    rel_path=rel,
+                    line_no=ref_f.line_no,
+                    code=ref_f.issue,
+                    severity="warning" if ref_f.is_warning else "error",
+                    message=ref_f.detail,
+                    source_line=src,
+                )
+            )
+        for rule_f in report.rule_findings:
+            findings.append(
+                Finding(
+                    rel_path=rel,
+                    line_no=rule_f.line_no,
+                    code=rule_f.rule_id,
+                    severity=rule_f.severity,
+                    message=rule_f.message,
+                    source_line=rule_f.matched_line,
+                    col_start=rule_f.col_start,
+                    match_text=rule_f.match_text,
+                )
+            )
+        for sf in report.security_findings:
+            findings.append(_map_credential_to_finding(sf, repo_root))
+
+    for dir_path in results.directory_index_issues:
+        findings.append(
+            Finding(
+                rel_path=_rel(docs_root / dir_path),
+                line_no=0,
+                code="Z401",
+                severity="info",
+                message=(
+                    "Directory contains Markdown files but has no index page — "
+                    "the directory URL may return a 404."
+                ),
+            )
+        )
+
+    for rel_path, message in results.config_asset_issues:
+        findings.append(
+            Finding(
+                rel_path=rel_path,
+                line_no=0,
+                code="Z404",
+                severity="warning",
+                message=message,
+            )
+        )
+
+    return findings
+
+
+# ── Target helpers (file or directory) ─────────────────────────────────────────
+# _resolve_target and _apply_target have moved to _target_resolver.py.
+# They are re-imported above and remain accessible from this module for
+# backward compatibility with any direct callers.
+
+
+@check_app.command(name="all")
+def check_all(
+    strict: bool | None = typer.Option(
+        None, "--strict", "-s", help="Treat warnings as errors (exit non-zero on any warning)."
+    ),
+    output_format: str = typer.Option(
+        "text", "--format", "-f", help="Output format: text, json, or sarif."
+    ),
+    ci: bool = typer.Option(
+        False, "--ci", help="Run in CI mode (forces github-annotations and strict)."
+    ),
+    only: str | None = typer.Option(
+        None,
+        "--only",
+        help="Comma-separated list of Z-Codes to filter. Findings not matching these codes are discarded.",
+    ),
+    exit_zero: bool | None = typer.Option(
+        None, "--exit-zero", help="Always exit 0; report issues without failing."
+    ),
+    quiet: bool = typer.Option(
+        False, "--quiet", "-q", help="Minimal one-line output for pre-commit hooks."
+    ),
+    engine: str | None = typer.Option(
+        None,
+        "--engine",
+        help="Override the build engine adapter (e.g. mkdocs, zensical). "
+        "Auto-detected from .zenzic.toml when omitted.",
+        metavar="ENGINE",
+    ),
+    exclude_dir: list[str] | None = typer.Option(
+        None,
+        "--exclude-dir",
+        help="Additional directories to exclude from scanning (repeatable).",
+        metavar="DIR",
+    ),
+    include_dir: list[str] | None = typer.Option(
+        None,
+        "--include-dir",
+        help="Directories to force-include even if excluded by config (repeatable). "
+        "Cannot override system guardrails.",
+        metavar="DIR",
+    ),
+    path: str | None = typer.Argument(
+        None,
+        help=(
+            "Limit audit to a single Markdown file or an entire directory. "
+            "Accepts paths relative to the repository root or to the docs directory. "
+            "File examples: README.md, docs/index.md. "
+            "Directory examples: content/, docs/guide/. "
+            "When a directory is given, the configured docs directory is patched to that path and all "
+            "Markdown files inside it are audited."
+        ),
+        show_default=False,
+    ),
+    show_info: bool = typer.Option(
+        False, "--show-info", help="Show info-level findings (e.g. circular links) in the report."
+    ),
+    offline: bool = typer.Option(
+        False, "--offline", help="Force flat URL resolution for offline builds."
+    ),
+    no_external: bool = typer.Option(
+        False,
+        "--no-external",
+        help=(
+            "Skip HTTP validation of external URLs (Pass 3). "
+            "For air-gapped / offline environments. "
+            "Credential scanner (Z201) always active regardless of this flag."
+        ),
+    ),
+    exclude_url: list[str] = typer.Option(
+        [],
+        "--exclude-url",
+        help=(
+            "Bypass external URL validation for URLs matching this prefix (repeatable). "
+            "Merged with excluded_external_urls from .zenzic.toml at runtime."
+        ),
+        metavar="PREFIX",
+    ),
+    audit: bool = typer.Option(
+        False,
+        "--audit",
+        help=(
+            "Sovereign truth-seeking mode: ignore all suppressible bypasses "
+            "(inline zenzic-ignore and governance.per_file_ignores)."
+        ),
+    ),
+    no_header: bool = typer.Option(
+        False,
+        "--no-header",
+        help="Suppress the Zenzic ASCII art header.",
+    ),
+) -> None:
+    """Run all checks: links, orphans, snippets, placeholders, assets, references.
+
+    Optionally pass PATH to scope the audit to a single Markdown file or a custom
+    directory (e.g. ``README.md``, ``content/``).  Zenzic auto-selects the
+    StandaloneAdapter when the target lives outside the configured docs directory.
+    """
+    # GAP-04: Conflict validation — --strict and --exit-zero are mutually exclusive.
+    if strict and exit_zero:
+        typer.echo(
+            "ERROR: --strict and --exit-zero are mutually exclusive. "
+            "--strict promotes warnings to errors; --exit-zero suppresses all exit codes.",
+            err=True,
+        )
+        raise typer.Exit(2)
+
+    if ci:
+        strict = True
+        no_header = True
+        if output_format == "text":
+            output_format = "github-annotations"
+
+    # CEO-052 "The Sovereign Root Fix": when an explicit target PATH is given,
+    # derive repo_root by searching upward FROM that path — not from CWD.
+    # "The configuration follows the target, not the caller."
+    _search_from: Path | None = None
+    if path is not None:
+        _pre = Path(path).resolve()
+        _search_from = _pre.parent if _pre.is_file() else _pre
+    try:
+        repo_root = find_repo_root(search_from=_search_from)
+        config, loaded_from_file = ZenzicConfig.load(repo_root)
+    except RuntimeError as exc:
+        typer.echo(f"ERROR: {exc}", err=True)
+        raise typer.Exit(1) from exc
+    if not loaded_from_file and not quiet:
+        _shared._print_no_config_hint(output_format)
+    config = _shared._apply_engine_override(config, engine)
+    if offline:
+        config.build_context.offline_mode = True
+    if exclude_url:
+        config = config.model_copy(
+            update={"excluded_external_urls": config.excluded_external_urls + list(exclude_url)}
+        )
+
+    if not quiet and not no_header and output_format == "text":
+        _shared._ui.print_header(__version__)
+
+    _single_file: Path | None = None
+    _target_hint: str | None = None
+    if path is not None:
+        config, _single_file, _, _target_hint = _apply_target(repo_root, config, path)
+
+    docs_root = (repo_root / config.docs_dir).resolve()
+    # CEO-043: explicit target may live outside the CWD repo root.
+    # Adopt the target as the sovereign sandbox so the path traversal guard
+    # rejects escapes FROM the target, not the location OF the target.
+    try:
+        docs_root.relative_to(repo_root)
+    except ValueError:
+        repo_root = docs_root
+    exclusion_mgr = _shared._build_exclusion_manager(
+        config,
+        repo_root,
+        docs_root,
+        exclude_dirs=exclude_dir,
+        include_dirs=include_dir,
+    )
+
+    effective_strict = strict if strict is not None else config.strict
+    effective_exit_zero = exit_zero if exit_zero is not None else config.exit_zero
+
+    t0 = time.monotonic()
+    inline_suppressions, inline_hotspots = collect_inline_suppression_stats(
+        docs_root, config, exclusion_mgr
+    )
+    per_file_suppressions = count_per_file_ignores(config)
+    suppression_audit = SuppressionAudit(
+        inline_count=inline_suppressions,
+        per_file_count=per_file_suppressions,
+        cap=config.governance.suppression_cap,
+        inline_hotspots=inline_hotspots,
+    )
+
+    if (
+        config.governance.suppression_cap_fail_hard
+        and suppression_audit.total > suppression_audit.cap
+    ):
+        if output_format == "json":
+            print(json.dumps(build_cap_exceeded_json_payload(suppression_audit), indent=2))
+        elif output_format == "sarif":
+            print(
+                json.dumps(
+                    build_cap_exceeded_sarif_payload(suppression_audit, version=__version__),
+                    indent=2,
+                )
+            )
+        elif output_format == "github-annotations":
+            print(
+                f"::error title=Zenzic::Suppression CAP exceeded: {suppression_audit.total} > {suppression_audit.cap}"
+            )
+        elif output_format == "text":
+            if not quiet:
+                _shared.console.print()
+            print_governance_cap_failure(
+                suppression_audit,
+                title=resolve_governance_panel_title(repo_root),
+            )
+        raise typer.Exit(1)
+
+    show_progress = not (ci or no_header or quiet or output_format != "text")
+
+    with sovereign_context(force_audit=audit):
+        results = _collect_all_results(
+            repo_root,
+            docs_root,
+            config,
+            exclusion_mgr,
+            strict=effective_strict,
+            check_external=not no_external,
+            show_progress=show_progress,
+        )
+
+    if only:
+        _apply_only_filter(results, only)
+
+    elapsed = time.monotonic() - t0
+
+    if output_format == "json":
+        with sovereign_context(force_audit=audit):
+            all_findings = _to_findings(results, docs_root, repo_root, config)
+            all_findings = _apply_per_file_ignores(all_findings, config)
+            all_findings = _apply_directory_policies(all_findings, config)
+            _append_z118_findings(
+                all_findings, config, repo_root, check_all=True, check_external_urls=True
+            )
+
+        _shared._output_check_all_json_findings(
+            results, all_findings, repo_root, docs_root, config, suppression_audit
+        )
+
+        incidents = sum(1 for f in all_findings if f.severity == "security_incident")
+        if incidents:
+            raise typer.Exit(3)
+        breaches = sum(1 for f in all_findings if f.severity == "security_breach")
+        if breaches:
+            raise typer.Exit(2)
+        errors_count = sum(1 for f in all_findings if f.severity == "error")
+        if errors_count and not effective_exit_zero:
+            raise typer.Exit(1)
+        return
+    elif output_format == "sarif":
+        with sovereign_context(force_audit=audit):
+            all_findings = _to_findings(results, docs_root, repo_root, config)
+            all_findings = _apply_per_file_ignores(all_findings, config)
+            all_findings = _apply_directory_policies(all_findings, config)
+            _append_z118_findings(
+                all_findings, config, repo_root, check_all=True, check_external_urls=True
+            )
+        _shared._output_sarif_findings(all_findings, __version__)
+        incidents = sum(1 for f in all_findings if f.severity == "security_incident")
+        if incidents:
+            raise typer.Exit(3)
+        breaches = sum(1 for f in all_findings if f.severity == "security_breach")
+        if breaches:
+            raise typer.Exit(2)
+        errors_count = sum(1 for f in all_findings if f.severity == "error")
+        if errors_count and not effective_exit_zero:
+            raise typer.Exit(1)
+        return
+    elif output_format == "github-annotations":
+        with sovereign_context(force_audit=audit):
+            all_findings = _to_findings(results, docs_root, repo_root, config)
+            all_findings = _apply_per_file_ignores(all_findings, config)
+            all_findings = _apply_directory_policies(all_findings, config)
+            _append_z118_findings(
+                all_findings, config, repo_root, check_all=True, check_external_urls=True
+            )
+        if _single_file is not None:
+            _sf_rel = str(_single_file.relative_to(repo_root))
+            all_findings = [f for f in all_findings if f.rel_path == _sf_rel]
+
+        _shared._output_github_annotations(all_findings)
+
+        incidents = sum(1 for f in all_findings if f.severity == "security_incident")
+        if incidents:
+            raise typer.Exit(3)
+        breaches = sum(1 for f in all_findings if f.severity == "security_breach")
+        if breaches:
+            raise typer.Exit(2)
+
+        errors_count = sum(1 for f in all_findings if f.severity == "error")
+        warnings_count = sum(1 for f in all_findings if f.severity == "warning")
+        if (
+            errors_count > 0 or (effective_strict and warnings_count > 0)
+        ) and not effective_exit_zero:
+            raise typer.Exit(1)
+        return
+
+    with sovereign_context(force_audit=audit):
+        all_findings = _to_findings(results, docs_root, repo_root, config)
+        all_findings = _apply_per_file_ignores(all_findings, config)
+        all_findings = _apply_directory_policies(all_findings, config)
+        _append_z118_findings(
+            all_findings, config, repo_root, check_all=True, check_external_urls=True
+        )
+
+    if _single_file is not None:
+        _sf_rel = str(_single_file.relative_to(repo_root))
+        all_findings = [f for f in all_findings if f.rel_path == _sf_rel]
+
+    reporter = ZenzicReporter(_shared.console, docs_root, docs_dir=str(config.docs_dir))
+
+    if quiet:
+        errors, warnings = reporter.render_quiet(all_findings)
+    else:
+        docs_count, assets_count = _shared._count_docs_assets(
+            docs_root, repo_root, exclusion_mgr, config
+        )
+        if _single_file is not None:
+            docs_count, assets_count = 1, 0
+
+        # Z906 guardrail: if the target contains zero Markdown sources, inform
+        # the user with an amber warning and exit cleanly (not a system error).
+        if docs_count == 0 and _single_file is None:
+            _target_display = _target_hint or "./"
+            _shared.console.print(
+                f"[bold yellow]\u26a0 Z906 NO_FILES_FOUND[/bold yellow] — "
+                f"No Markdown sources found in [cyan]{_target_display}[/cyan]. "
+                "Audit skipped."
+            )
+            return
+
+        _footer_lines = [_shared.footer_hint("check")]
+        if no_external:
+            _footer_lines.append(
+                f"[{ZenzicPalette.DIM}]💡 External link validation skipped (--no-external). "
+                f"Credential scanner (Z201) remains active.[/]"
+            )
+
+        # ── DQS Score injection ────────────────────────────────────────────
+        _findings_counts: dict[str, int] = {}
+        for _f in all_findings:
+            _findings_counts[_f.code] = _findings_counts.get(_f.code, 0) + 1
+        _score_report = compute_score(
+            _findings_counts,
+            suppression_count=suppression_audit.total,
+            suppression_cap=suppression_audit.cap,
+        )
+        if _score_report.security_override:
+            _dqs_line = (
+                f"[bold red]DQS Final Score: 0/100[/bold red] "
+                f"[{ZenzicPalette.DIM}](Security Override — "
+                f"{_score_report.security_findings} non-suppressible finding"
+                f"{'s' if _score_report.security_findings != 1 else ''} detected)[/]"
+            )
+        else:
+            _pre_errors = sum(1 for _f in all_findings if _f.severity == "error")
+            _pre_breaches = sum(
+                1 for _f in all_findings if _f.severity in {"security_breach", "security_incident"}
+            )
+            _pre_warnings = sum(1 for _f in all_findings if _f.severity == "warning")
+            _gate_failed = (
+                _pre_breaches > 0 or _pre_errors > 0 or (effective_strict and _pre_warnings > 0)
+            )
+            _gate_label = "Gate Failed" if _gate_failed else "Gate Passed"
+            _gate_style = ZenzicPalette.ERROR if _gate_failed else ZenzicPalette.SUCCESS
+            _dqs_line = (
+                f"[bold {_gate_style}]DQS Final Score: "
+                f"{_score_report.score}/100[/bold {_gate_style}] "
+                f"[{ZenzicPalette.DIM}]({_gate_label})[/]"
+            )
+        _footer_lines.insert(0, _dqs_line)
+
+        errors, warnings = reporter.render(
+            all_findings,
+            version=__version__,
+            elapsed=elapsed,
+            docs_count=docs_count,
+            assets_count=assets_count,
+            engine=config.build_context.engine if hasattr(config, "build_context") else "auto",
+            target=_target_hint,
+            strict=effective_strict,
+            show_info=show_info,
+            footer_notice=_shared.make_footer_notice(*_footer_lines),
+        )
+
+    if output_format == "text":
+        print_suppression_audit_footer(suppression_audit, audit_mode=audit)
+
+    incidents = sum(1 for f in all_findings if f.severity == "security_incident")
+    if incidents:
+        raise typer.Exit(3)
+    breaches = sum(1 for f in all_findings if f.severity == "security_breach")
+    if breaches:
+        raise typer.Exit(2)
+
+    has_failures = (errors > 0) or (effective_strict and warnings > 0)
+
+    if has_failures:
+        if not effective_exit_zero:
+            raise typer.Exit(1)

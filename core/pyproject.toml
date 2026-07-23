@@ -15,7 +15,7 @@ build-backend = "hatchling.build"
 name = "zenzic"
 version = "0.23.3"
 description = "Deterministic Document Integrity Engine and SAST for Markdown/MDX graphs."
-readme = "../README.md"
+readme = "README.md"
 requires-python = ">=3.10"
 # PEP 639: SPDX expression string (replaces deprecated `license = { text = "..." }`)
 license = "Apache-2.0"
@@ -101,7 +101,7 @@ dev = [
 packages = ["src/zenzic"]
 
 [tool.hatch.build.targets.wheel.force-include]
-"../examples" = "zenzic/examples"
+"examples" = "zenzic/examples"
 
 # ─── Development dependencies (PEP 735 — managed by uv) ──────────────────────
 
