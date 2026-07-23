@@ -19,10 +19,10 @@ runner = CliRunner()
 
 
 def _schema_validator() -> Draft202012Validator:
-    repo_root = Path(__file__).resolve().parent.parent
+    repo_root = Path(__file__).resolve().parent.parent.parent
     schema_path = repo_root / "zenzic-output.schema.json"
-    if not schema_path.is_file():
-        schema_path = repo_root.parent / "zenzic-output.schema.json"
+    if not schema_path.exists():
+        schema_path = repo_root / "core" / "zenzic-output.schema.json"
     schema = json.loads(schema_path.read_text(encoding="utf-8"))
     return Draft202012Validator(schema)
 

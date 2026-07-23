@@ -58,13 +58,12 @@ def _examples_root() -> Path:
     installed = pkg_root / "examples"
     if installed.is_dir():
         return installed
-    # _lab.py is at src/zenzic/cli/_lab.py; the repo root is four levels above.
+    dev = Path(__file__).resolve().parent.parent.parent.parent.parent / "examples"
+    if dev.is_dir():
+        return dev
     dev = Path(__file__).resolve().parent.parent.parent.parent / "examples"
     if dev.is_dir():
         return dev
-    dev_root = Path(__file__).resolve().parent.parent.parent.parent.parent / "examples"
-    if dev_root.is_dir():
-        return dev_root
     raise FileNotFoundError(
         "Cannot locate examples/ — reinstall zenzic or run from the repository root."
     )
