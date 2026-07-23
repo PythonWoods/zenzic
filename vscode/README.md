@@ -21,15 +21,12 @@ This extension is a strictly **Thin Client**. It contains zero parsing logic, ze
 ## Key Features
 
 ### 1. Security Scanning (SAST)
-
 Hardcoded credentials (Z201) and path traversal sequences (Z202/Z203) are flagged in milliseconds using RE2 validation engine rules, preventing leaks before the file is even saved.
 
 ### 2. Graph Topology Analysis (VSM)
-
 Modify a heading in one file, and Zenzic's Virtual Site Map (VSM) instantly invalidates any broken links, orphan pages, or dead navigation nodes across your entire workspace using $O(K)$ incremental graph patching.
 
 ### 3. Deterministic CI/CD Enforcement & Quality Scoring
-
 Hover over any diagnostic to see the exact Z-Code, the Zero-DBT Quality Score penalty, and deterministic remediation guidance directly from the Core engine, ensuring 1:1 alignment with your CI/CD quality gate.
 
 ## Requirements
@@ -44,7 +41,7 @@ uv tool install --force zenzic
 
 ## Extension Settings
 
-By default, the extension will look for the `zenzic` binary in your system's PATH.
+By default, the extension will look for the `zenzic` binary in your system's PATH. 
 
 If you are using a local virtual environment or a custom installation path, configure the executable path in your workspace or user `settings.json`:
 
@@ -60,18 +57,15 @@ If you are using a local virtual environment or a custom installation path, conf
 
 - **Cause**: The executable resolved by the extension is older than the minimum required Core version (`v0.23.7`).
 - **Remediation**: Upgrade your global binary:
-
   ```bash
   uv tool install --force zenzic
   ```
-
   Or point `zenzic.executablePath` in `settings.json` to a virtual environment containing Core `v0.23.7` or higher.
 
 ### Zenzic: Not Found (ENOENT)
 
 - **Cause**: The `zenzic` executable is not present in the system `$PATH`. This commonly occurs in Flatpak or Snap editor environments where user binary directories (`~/.local/bin`) are isolated from the process environment.
 - **Remediation**: Specify the absolute path to the binary in your workspace or user `settings.json`:
-
   ```json
   {
     "zenzic.executablePath": "/home/user/.local/bin/zenzic"

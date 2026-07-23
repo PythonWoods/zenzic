@@ -193,7 +193,7 @@ vscode-lint:
 	cd vscode && npm run lint && npx tsc --noEmit
 
 vscode-build:
-	cd vscode && npx @vscode/vsce package
+	cd vscode && npx @vscode/vsce package --skip-license
 
 action-verify:
 	cd actions && ZENZIC_CORE_PATH="../core" just verify
