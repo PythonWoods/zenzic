@@ -14,6 +14,7 @@ Versions follow [Semantic Versioning](https://semver.org/).
 ### Added
 
 - **LSP Code Actions Support (`LSP-FEAT-001-CODE-ACTIONS`)**: Enabled `codeActionProvider` in ZLS server capabilities and implemented `textDocument/codeAction` to expose in-memory Quick Fixes for fixable Z-Codes (e.g. `Z121`, `Z603`).
+- **LSP DQS Real-Time Notification (`LSP-FEAT-002-DQS-UI`)**: Added custom `zenzic/dqsUpdate` JSON-RPC notification channel to stream global DQS scores and penalties to editor clients.
 
 ### Changed
 

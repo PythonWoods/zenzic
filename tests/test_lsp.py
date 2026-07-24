@@ -834,4 +834,43 @@ def test_lsp_code_action_unfixable(tmp_path) -> None:
     assert response["result"] == []
 
 
+def test_lsp_dqs_update_notification(tmp_path) -> None:
+    """Verify _sync_workspace_and_publish emits zenzic/dqsUpdate custom LSP notification."""
+    docs_dir = tmp_path / "docs"
+    docs_dir.mkdir(parents=True, exist_ok=True)
+    in_bounds_md = docs_dir / "index.md"
+    in_bounds_md.write_text("# Docs Index\n[Valid Link](http://example.com)\n")
+
+    server = LanguageServer()
+    server.repo_root = tmp_path
+    out_stream = io.BytesIO()
+    server.stdout = out_stream
+
+    # Build VSM and trigger sync
+    server._build_vsm_sync()
+    server._sync_workspace_and_publish()
+
+    out_stream.seek(0)
+    raw_output = out_stream.read().decode("utf-8")
+    assert "zenzic/dqsUpdate" in raw_output
+
+    # Find the zenzic/dqsUpdate message
+    dqs_msg = None
+    for chunk in raw_output.split("\r\n\r\n"):
+        if "zenzic/dqsUpdate" in chunk:
+            lines = chunk.strip().splitlines()
+            for l in lines:
+                if l.startswith("{"):
+                    dqs_msg = json.loads(l)
+                    break
+
+    assert dqs_msg is not None
+    assert dqs_msg["method"] == "zenzic/dqsUpdate"
+    assert "score" in dqs_msg["params"]
+    assert "base_score" in dqs_msg["params"]
+    assert "penalties" in dqs_msg["params"]
+    assert dqs_msg["params"]["base_score"] == 100
+
+
+
 
