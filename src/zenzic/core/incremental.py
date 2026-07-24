@@ -187,9 +187,11 @@ class IncrementalAnalysisEngine:
                 files_to_process.add(path)
 
             # Process open buffers not already cached (virtual or out-of-bounds)
+            from urllib.parse import unquote
+
             for buf_uri, buf_text in overlay.buffers.items():
                 if buf_uri.startswith("file://"):
-                    buf_path = Path(buf_uri[7:]).resolve()
+                    buf_path = Path(unquote(buf_uri[7:])).resolve()
                     if buf_path.suffix.lower() not in DOC_SUFFIXES:
                         continue
                     if buf_path not in self.md_contents_cache:
@@ -198,10 +200,12 @@ class IncrementalAnalysisEngine:
                         files_to_process.add(buf_path)
         else:
             # Incremental read
+            from urllib.parse import unquote
+
             for uri in changed_uris:
                 if not uri.startswith("file://"):
                     continue
-                path = Path(uri[7:]).resolve()
+                path = Path(unquote(uri[7:])).resolve()
                 if path.suffix.lower() not in DOC_SUFFIXES:
                     continue
                 if uri in overlay.buffers:

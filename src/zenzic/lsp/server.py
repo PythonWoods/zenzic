@@ -284,7 +284,9 @@ class LanguageServer:
                 or not self._is_within_domain(uri)
             ):
                 continue
-            file_path = Path(uri[7:]).resolve()
+            from urllib.parse import unquote
+
+            file_path = Path(unquote(uri[7:])).resolve()
 
             if change_type in (1, 2):  # Created or Changed
                 try:
@@ -491,7 +493,9 @@ class LanguageServer:
 
         docs_root = self.repo_root / self.config.docs_dir
         try:
-            rel = Path(uri[7:]).relative_to(docs_root).as_posix()
+            from urllib.parse import unquote
+
+            rel = Path(unquote(uri[7:])).resolve().relative_to(docs_root.resolve()).as_posix()
         except ValueError:
             self.send_response(msg_id, result=None)
             return
@@ -561,7 +565,9 @@ class LanguageServer:
             content = self.documents.documents[uri]
         elif uri.startswith("file://"):
             try:
-                content = Path(uri[7:]).read_text(encoding="utf-8")
+                from urllib.parse import unquote
+
+                content = Path(unquote(uri[7:])).resolve().read_text(encoding="utf-8")
             except OSError:
                 content = None
 
