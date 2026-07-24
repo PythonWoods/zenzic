@@ -1452,12 +1452,12 @@ class VSMBrokenLinkRule(BaseRule):
         if not path:
             return None
 
-        # ZRT-004: context-aware relative resolution
-        # When source_dir + docs_root are provided and the href has .. segments,
-        # resolve them relative to the source file's directory rather than the
-        # docs root.  Without context (backwards-compatible path), the original
+        # ZRT-004 / LSP-FIX-001: context-aware relative resolution
+        # When source_dir + docs_root are provided and the href is relative (does not start
+        # with /), resolve it relative to the source file's directory rather than the
+        # docs root. Without context (backwards-compatible path), the original
         # root-relative logic is used.
-        if source_dir is not None and docs_root is not None and ".." in path:
+        if source_dir is not None and docs_root is not None and not path.startswith("/"):
             raw_target = os.path.normpath(str(source_dir) + os.sep + path.replace("/", os.sep))
             root_str = str(docs_root)
             if not (raw_target == root_str or raw_target.startswith(root_str + os.sep)):

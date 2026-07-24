@@ -357,11 +357,13 @@ class VirtualBufferOverlay:
 
     def update(self, uri: str, content: str) -> None:
         """Register or refresh an in-memory buffer, updating anchors."""
+        from urllib.parse import unquote
+
         from zenzic.core.validator import anchors_in_file
 
         self.buffers[uri] = content
         if uri.startswith("file://"):
-            path = Path(uri[7:])
+            path = Path(unquote(uri[7:])).resolve()
             self.anchors_cache[path] = anchors_in_file(content)
 
     def register_file_links(self, path: Path, content: str) -> None:
@@ -370,9 +372,11 @@ class VirtualBufferOverlay:
 
     def remove(self, uri: str) -> None:
         """Evict a buffer."""
+        from urllib.parse import unquote
+
         self.buffers.pop(uri, None)
         if uri.startswith("file://"):
-            path = Path(uri[7:])
+            path = Path(unquote(uri[7:])).resolve()
             self.anchors_cache.pop(path, None)
 
     def dependents_of(self, canonical_url: str) -> frozenset[Path]:

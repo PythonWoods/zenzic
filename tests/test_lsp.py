@@ -904,3 +904,44 @@ def test_lsp_dqs_update_notification(tmp_path) -> None:
     assert "base_score" in dqs_msg["params"]
     assert "penalties" in dqs_msg["params"]
     assert dqs_msg["params"]["base_score"] == 100
+
+
+def test_lsp_relative_link_normalization_no_z101(tmp_path) -> None:
+    """Verify LSP analysis of nested file referencing ./relative-link.md does not emit Z101 if target exists in VSM."""
+    docs_dir = tmp_path / "docs"
+    sub_dir = docs_dir / "guide"
+    sub_dir.mkdir(parents=True, exist_ok=True)
+
+    target_md = sub_dir / "target.md"
+    target_md.write_text("# Target Page\nSome content here.\n")
+
+    source_md = sub_dir / "source.md"
+    source_md.write_text("# Source Page\n[Link to target](./target.md)\n")
+
+    server = LanguageServer()
+    server.repo_root = tmp_path
+
+    # Trigger full workspace sync
+    server._build_vsm_sync()
+
+    source_uri = f"file://{source_md.resolve()}"
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "method": "textDocument/didOpen",
+            "params": {
+                "textDocument": {"uri": source_uri, "text": source_md.read_text(encoding="utf-8")}
+            },
+        }
+    )
+
+    assert server.engine is not None
+    assert server.vsm is not None
+    assert server.overlay is not None
+
+    results = server.engine.process_changes(server.vsm, server.overlay, {source_uri})
+    diags = results.get(source_uri, [])
+
+    # Assert no Z101 (broken link) finding was emitted
+    z101_diags = [d for d in diags if d.code == "Z101"]
+    assert len(z101_diags) == 0
