@@ -124,7 +124,7 @@ class HtmlMissingHrefMutation:
                 if tag == "a":
                     new_attrs, changed = fix_missing_or_empty_href(attrs_str, tag)
                     if changed:
-                        new_text += text[last_idx : m.start()] + f"<a {new_attrs}>"
+                        new_text += text[last_idx : m.start()] + f"<a {new_attrs.strip()}>"
                         last_idx = m.end()
                         mutated = True
 

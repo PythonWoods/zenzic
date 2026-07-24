@@ -653,28 +653,34 @@ def test_lsp_drops_non_markdown_did_open(tmp_path) -> None:
     md_uri = f"file://{tmp_path}/docs/index.md"
 
     # Non-markdown files must be dropped
-    server.handle_message({
-        "jsonrpc": "2.0",
-        "method": "textDocument/didOpen",
-        "params": {"textDocument": {"uri": owners_uri, "text": "reviewers:\n- sig-docs\n"}},
-    })
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "method": "textDocument/didOpen",
+            "params": {"textDocument": {"uri": owners_uri, "text": "reviewers:\n- sig-docs\n"}},
+        }
+    )
     assert owners_uri not in server.documents.documents
     assert owners_uri not in server.dirty_documents
 
-    server.handle_message({
-        "jsonrpc": "2.0",
-        "method": "textDocument/didOpen",
-        "params": {"textDocument": {"uri": yaml_uri, "text": "key: value\n"}},
-    })
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "method": "textDocument/didOpen",
+            "params": {"textDocument": {"uri": yaml_uri, "text": "key: value\n"}},
+        }
+    )
     assert yaml_uri not in server.documents.documents
     assert yaml_uri not in server.dirty_documents
 
     # Markdown file must be accepted
-    server.handle_message({
-        "jsonrpc": "2.0",
-        "method": "textDocument/didOpen",
-        "params": {"textDocument": {"uri": md_uri, "text": "# Hello World\n"}},
-    })
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "method": "textDocument/didOpen",
+            "params": {"textDocument": {"uri": md_uri, "text": "# Hello World\n"}},
+        }
+    )
     assert md_uri in server.documents.documents
     assert md_uri in server.dirty_documents
 
@@ -700,7 +706,9 @@ def test_lsp_drops_out_of_bounds_markdown_did_open(tmp_path) -> None:
     docs_dir = tmp_path / "docs"
     docs_dir.mkdir(parents=True, exist_ok=True)
     in_bounds_md = docs_dir / "index.md"
-    in_bounds_md.write_text("# Docs Index\nThis is a valid documentation page with enough content.\n")
+    in_bounds_md.write_text(
+        "# Docs Index\nThis is a valid documentation page with enough content.\n"
+    )
 
     out_bounds_md = tmp_path / "README.md"
     out_bounds_md.write_text("# Root Readme\nShort content.\n")
@@ -712,21 +720,187 @@ def test_lsp_drops_out_of_bounds_markdown_did_open(tmp_path) -> None:
     out_uri = f"file://{out_bounds_md.resolve()}"
 
     # Out-of-bounds .md file must be dropped
-    server.handle_message({
-        "jsonrpc": "2.0",
-        "method": "textDocument/didOpen",
-        "params": {"textDocument": {"uri": out_uri, "text": "# Root Readme\nShort content.\n"}},
-    })
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "method": "textDocument/didOpen",
+            "params": {"textDocument": {"uri": out_uri, "text": "# Root Readme\nShort content.\n"}},
+        }
+    )
     assert out_uri not in server.documents.documents
     assert out_uri not in server.dirty_documents
 
     # In-bounds .md file must be accepted
-    server.handle_message({
-        "jsonrpc": "2.0",
-        "method": "textDocument/didOpen",
-        "params": {"textDocument": {"uri": in_uri, "text": "# Docs Index\nThis is a valid documentation page.\n"}},
-    })
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "method": "textDocument/didOpen",
+            "params": {
+                "textDocument": {
+                    "uri": in_uri,
+                    "text": "# Docs Index\nThis is a valid documentation page.\n",
+                }
+            },
+        }
+    )
     assert in_uri in server.documents.documents
     assert in_uri in server.dirty_documents
 
 
+def test_lsp_code_action_z121(tmp_path) -> None:
+    """Verify textDocument/codeAction returns valid CodeAction WorkspaceEdit for Z121 fix."""
+    server = LanguageServer()
+    out_stream = io.BytesIO()
+    server.stdout = out_stream
+
+    doc_uri = f"file://{tmp_path}/docs/index.md"
+    doc_text = "<a>Link without href</a>\n"
+
+    # Open document
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "method": "textDocument/didOpen",
+            "params": {"textDocument": {"uri": doc_uri, "text": doc_text}},
+        }
+    )
+
+    out_stream.seek(0)
+    out_stream.truncate(0)
+
+    # Request code action for Z121 diagnostic
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "id": 100,
+            "method": "textDocument/codeAction",
+            "params": {
+                "textDocument": {"uri": doc_uri},
+                "range": {
+                    "start": {"line": 0, "character": 0},
+                    "end": {"line": 0, "character": 24},
+                },
+                "context": {
+                    "diagnostics": [
+                        {
+                            "range": {
+                                "start": {"line": 0, "character": 0},
+                                "end": {"line": 0, "character": 24},
+                            },
+                            "code": "Z121",
+                            "source": "Zenzic",
+                            "message": "[Z121] Missing or empty href attribute",
+                        }
+                    ]
+                },
+            },
+        }
+    )
+
+    out_stream.seek(0)
+    raw_output = out_stream.read().decode("utf-8")
+    assert "Content-Length:" in raw_output
+    body_str = raw_output.split("\r\n\r\n")[1]
+    response = json.loads(body_str)
+
+    assert response["id"] == 100
+    actions = response["result"]
+    assert len(actions) == 1
+    action = actions[0]
+    assert action["title"] == 'Fix Z121: Inject placeholder href="#"'
+    assert action["kind"] == "quickfix"
+    assert doc_uri in action["edit"]["changes"]
+    edits = action["edit"]["changes"][doc_uri]
+    assert len(edits) == 1
+    assert '<a href="#">' in edits[0]["newText"]
+
+
+def test_lsp_code_action_unfixable(tmp_path) -> None:
+    """Verify textDocument/codeAction returns empty list for unfixable diagnostics."""
+    server = LanguageServer()
+    out_stream = io.BytesIO()
+    server.stdout = out_stream
+
+    doc_uri = f"file://{tmp_path}/docs/index.md"
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "method": "textDocument/didOpen",
+            "params": {"textDocument": {"uri": doc_uri, "text": "Some text\n"}},
+        }
+    )
+
+    out_stream.seek(0)
+    out_stream.truncate(0)
+
+    # Z120 is unfixable (fixable=False)
+    server.handle_message(
+        {
+            "jsonrpc": "2.0",
+            "id": 101,
+            "method": "textDocument/codeAction",
+            "params": {
+                "textDocument": {"uri": doc_uri},
+                "range": {"start": {"line": 0, "character": 0}, "end": {"line": 0, "character": 9}},
+                "context": {
+                    "diagnostics": [
+                        {
+                            "range": {
+                                "start": {"line": 0, "character": 0},
+                                "end": {"line": 0, "character": 9},
+                            },
+                            "code": "Z120",
+                            "source": "Zenzic",
+                            "message": "[Z120] Relative link error",
+                        }
+                    ]
+                },
+            },
+        }
+    )
+
+    out_stream.seek(0)
+    raw_output = out_stream.read().decode("utf-8")
+    body_str = raw_output.split("\r\n\r\n")[1]
+    response = json.loads(body_str)
+
+    assert response["id"] == 101
+    assert response["result"] == []
+
+
+def test_lsp_dqs_update_notification(tmp_path) -> None:
+    """Verify _sync_workspace_and_publish emits zenzic/dqsUpdate custom LSP notification."""
+    docs_dir = tmp_path / "docs"
+    docs_dir.mkdir(parents=True, exist_ok=True)
+    in_bounds_md = docs_dir / "index.md"
+    in_bounds_md.write_text("# Docs Index\n[Valid Link](http://example.com)\n")
+
+    server = LanguageServer()
+    server.repo_root = tmp_path
+    out_stream = io.BytesIO()
+    server.stdout = out_stream
+
+    # Build VSM and trigger sync
+    server._build_vsm_sync()
+    server._sync_workspace_and_publish()
+
+    out_stream.seek(0)
+    raw_output = out_stream.read().decode("utf-8")
+    assert "zenzic/dqsUpdate" in raw_output
+
+    # Find the zenzic/dqsUpdate message
+    dqs_msg = None
+    for chunk in raw_output.split("\r\n\r\n"):
+        if "zenzic/dqsUpdate" in chunk:
+            lines = chunk.strip().splitlines()
+            for line_str in lines:
+                if line_str.startswith("{"):
+                    dqs_msg = json.loads(line_str)
+                    break
+
+    assert dqs_msg is not None
+    assert dqs_msg["method"] == "zenzic/dqsUpdate"
+    assert "score" in dqs_msg["params"]
+    assert "base_score" in dqs_msg["params"]
+    assert "penalties" in dqs_msg["params"]
+    assert dqs_msg["params"]["base_score"] == 100
