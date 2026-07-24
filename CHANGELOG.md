@@ -11,6 +11,14 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **URI Normalization & Link Resolution (`LSP-FIX-001`)**: Resolved false-positive `Z101` findings in LSP mode by extending `VSMBrokenLinkRule._to_canonical_url` to resolve all relative links (without `".."` requirement) relative to `source_dir`, and adding `urllib.parse.unquote()` percent-decoding to `file://` URIs.
+
+### Added
+
+- **Release Announcement Blog Post (`DOCS-BLOG-001`)**: Added official Zenzic v0.24.0 (*Interactive Intelligence*) release announcement blog post.
+
 ## [0.24.0] - 2026-07-24
 
 ### Added
