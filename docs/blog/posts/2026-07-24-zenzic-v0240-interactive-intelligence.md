@@ -1,7 +1,7 @@
 ---
 title: "Zenzic v0.24.0: Interactive Intelligence"
 slug: zenzic-v0240-interactive-intelligence
-date: 2026-07-25
+date: 2026-07-24
 authors:
   - pythonwoods
 description: >
