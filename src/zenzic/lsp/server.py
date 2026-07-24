@@ -84,7 +84,7 @@ class LanguageServer:
     def send_response(
         self,
         request_id: int | str,
-        result: dict[str, Any] | None = None,
+        result: Any = None,
         error: dict[str, Any] | None = None,
     ) -> None:
         """Send a JSON-RPC response."""
@@ -576,6 +576,7 @@ class LanguageServer:
             DeadSuppressionMutation,
             EmptyLinkTextMutation,
             HtmlMissingHrefMutation,
+            Mutation,
             Mutator,
         )
         from zenzic.core.parser import parse, serialize
@@ -594,7 +595,7 @@ class LanguageServer:
             if not defn or not getattr(defn, "fixable", False):
                 continue
 
-            mutations = []
+            mutations: list[Mutation] = []
             title_desc = ""
 
             if code == "Z121":
@@ -646,4 +647,3 @@ class LanguageServer:
                 code_actions.append(action)
 
         self.send_response(msg_id, result=code_actions)
-
