@@ -172,7 +172,7 @@ VALIDATION_PARALLEL_THRESHOLD = 50
 
 # Stadio 1: cattura atomica <a> e <img> (multilinea, DFA-pure, O(N)).
 # Vincolo: il carattere '>' termina il tag e non è ammesso nei valori degli attributi.
-_RE_POLY_TAG: re.RegexPattern = re.compile(r"(?s)<(a|img)\s+(?P<attrs>[^>]*?)>")
+_RE_POLY_TAG: re.RegexPattern = re.compile(r"(?s)<(a|img)\b(?P<attrs>[^>]*?)>")
 
 # Stadio 2: parsing lineare coppie attributo=valore.
 _RE_POLY_ATTR: re.RegexPattern = re.compile(

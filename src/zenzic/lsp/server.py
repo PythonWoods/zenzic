@@ -329,6 +329,7 @@ class LanguageServer:
                     "capabilities": {
                         "textDocumentSync": 2,  # Incremental sync (Zero-DBT Enforcement)
                         "hoverProvider": True,
+                        "codeActionProvider": True,
                     },
                     "serverInfo": {"name": "Zenzic Language Server", "version": "0.21.0"},
                 },
@@ -385,6 +386,10 @@ class LanguageServer:
                 if self.overlay:
                     self.overlay.update(uri, self.documents.documents[uri])
                 self.dirty_documents[uri] = time.time()
+        elif method == "textDocument/hover":
+            self._handle_hover(params, msg_id)
+        elif method == "textDocument/codeAction":
+            self._handle_code_action(params, msg_id)
         elif method == "textDocument/didClose":
             # Memory Hygiene: purge the document state entirely
             pass
@@ -514,3 +519,109 @@ class LanguageServer:
             msg_id,
             result={"contents": {"kind": "markdown", "value": "\n\n".join(contents)}},
         )
+
+    def _handle_code_action(self, params: dict[str, Any], msg_id: int | str | None) -> None:
+        """Handle textDocument/codeAction JSON-RPC requests by generating CodeActions with WorkspaceEdit."""
+        if msg_id is None:
+            return
+
+        doc = params.get("textDocument", {})
+        uri = doc.get("uri", "")
+        context = params.get("context", {})
+        diagnostics = context.get("diagnostics", [])
+
+        if not uri or not diagnostics:
+            self.send_response(msg_id, result=[])
+            return
+
+        content: str | None = None
+        if uri in self.documents.documents:
+            content = self.documents.documents[uri]
+        elif uri.startswith("file://"):
+            try:
+                content = Path(uri[7:]).read_text(encoding="utf-8")
+            except OSError:
+                content = None
+
+        if content is None:
+            self.send_response(msg_id, result=[])
+            return
+
+        import re
+
+        from zenzic.core.codes import CODE_DEFINITIONS
+        from zenzic.core.mutator import (
+            DeadSuppressionMutation,
+            EmptyLinkTextMutation,
+            HtmlMissingHrefMutation,
+            Mutator,
+        )
+        from zenzic.core.parser import parse, serialize
+
+        code_actions: list[dict[str, Any]] = []
+
+        for diag in diagnostics:
+            raw_code = diag.get("code")
+            code = str(raw_code) if raw_code is not None else ""
+            if not code and "message" in diag:
+                m = re.search(r"\[(Z\d{3})\]", str(diag["message"]))
+                if m:
+                    code = m.group(1)
+
+            defn = CODE_DEFINITIONS.get(code)
+            if not defn or not getattr(defn, "fixable", False):
+                continue
+
+            mutations = []
+            title_desc = ""
+
+            if code == "Z121":
+                mutations.append(HtmlMissingHrefMutation())
+                title_desc = 'Inject placeholder href="#"'
+            elif code == "Z603":
+                line_no = diag.get("range", {}).get("start", {}).get("line", 0) + 1
+                mutations.append(DeadSuppressionMutation({line_no}))
+                title_desc = "Remove dead inline suppression"
+            elif code == "Z108":
+                mutations.append(EmptyLinkTextMutation())
+                title_desc = "Inject placeholder link text"
+            else:
+                continue
+
+            try:
+                ast = parse(content)
+                mutator = Mutator(mutations)
+                new_ast, changed = mutator.mutate(ast)
+            except Exception:
+                changed = False
+
+            if changed:
+                new_content = serialize(new_ast)
+                lines = content.splitlines(keepends=True)
+                total_lines = max(0, len(lines) - 1)
+                last_line_len = len(lines[-1]) if lines else 0
+
+                full_range = {
+                    "start": {"line": 0, "character": 0},
+                    "end": {"line": total_lines, "character": last_line_len},
+                }
+
+                action = {
+                    "title": f"Fix {code}: {title_desc}",
+                    "kind": "quickfix",
+                    "diagnostics": [diag],
+                    "edit": {
+                        "changes": {
+                            uri: [
+                                {
+                                    "range": full_range,
+                                    "newText": new_content,
+                                }
+                            ]
+                        }
+                    },
+                }
+                code_actions.append(action)
+
+        self.send_response(msg_id, result=code_actions)
+

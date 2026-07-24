@@ -11,6 +11,14 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **LSP Code Actions Support (`LSP-FEAT-001-CODE-ACTIONS`)**: Enabled `codeActionProvider` in ZLS server capabilities and implemented `textDocument/codeAction` to expose in-memory Quick Fixes for fixable Z-Codes (e.g. `Z121`, `Z603`).
+
+### Changed
+
+- **Governance Alignment (`GOVERNANCE-001-DUAL-TIER-ALIGNMENT`)**: Synchronized internal prompt table (`0. Priority Table.md`) with public `ROADMAP.md` and added state tracking.
+
 ## [0.23.3] - 2026-07-23
 
 ## [0.23.2] - 2026-07-23

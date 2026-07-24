@@ -730,3 +730,108 @@ def test_lsp_drops_out_of_bounds_markdown_did_open(tmp_path) -> None:
     assert in_uri in server.dirty_documents
 
 
+def test_lsp_code_action_z121(tmp_path) -> None:
+    """Verify textDocument/codeAction returns valid CodeAction WorkspaceEdit for Z121 fix."""
+    server = LanguageServer()
+    out_stream = io.BytesIO()
+    server.stdout = out_stream
+
+    doc_uri = f"file://{tmp_path}/docs/index.md"
+    doc_text = "<a>Link without href</a>\n"
+
+    # Open document
+    server.handle_message({
+        "jsonrpc": "2.0",
+        "method": "textDocument/didOpen",
+        "params": {"textDocument": {"uri": doc_uri, "text": doc_text}},
+    })
+
+    out_stream.seek(0)
+    out_stream.truncate(0)
+
+    # Request code action for Z121 diagnostic
+    server.handle_message({
+        "jsonrpc": "2.0",
+        "id": 100,
+        "method": "textDocument/codeAction",
+        "params": {
+            "textDocument": {"uri": doc_uri},
+            "range": {"start": {"line": 0, "character": 0}, "end": {"line": 0, "character": 24}},
+            "context": {
+                "diagnostics": [
+                    {
+                        "range": {"start": {"line": 0, "character": 0}, "end": {"line": 0, "character": 24}},
+                        "code": "Z121",
+                        "source": "Zenzic",
+                        "message": "[Z121] Missing or empty href attribute",
+                    }
+                ]
+            },
+        },
+    })
+
+    out_stream.seek(0)
+    raw_output = out_stream.read().decode("utf-8")
+    assert "Content-Length:" in raw_output
+    body_str = raw_output.split("\r\n\r\n")[1]
+    response = json.loads(body_str)
+
+    assert response["id"] == 100
+    actions = response["result"]
+    assert len(actions) == 1
+    action = actions[0]
+    assert action["title"] == 'Fix Z121: Inject placeholder href="#"'
+    assert action["kind"] == "quickfix"
+    assert doc_uri in action["edit"]["changes"]
+    edits = action["edit"]["changes"][doc_uri]
+    assert len(edits) == 1
+    assert '<a href="#">' in edits[0]["newText"]
+
+
+def test_lsp_code_action_unfixable(tmp_path) -> None:
+    """Verify textDocument/codeAction returns empty list for unfixable diagnostics."""
+    server = LanguageServer()
+    out_stream = io.BytesIO()
+    server.stdout = out_stream
+
+    doc_uri = f"file://{tmp_path}/docs/index.md"
+    server.handle_message({
+        "jsonrpc": "2.0",
+        "method": "textDocument/didOpen",
+        "params": {"textDocument": {"uri": doc_uri, "text": "Some text\n"}},
+    })
+
+    out_stream.seek(0)
+    out_stream.truncate(0)
+
+    # Z120 is unfixable (fixable=False)
+    server.handle_message({
+        "jsonrpc": "2.0",
+        "id": 101,
+        "method": "textDocument/codeAction",
+        "params": {
+            "textDocument": {"uri": doc_uri},
+            "range": {"start": {"line": 0, "character": 0}, "end": {"line": 0, "character": 9}},
+            "context": {
+                "diagnostics": [
+                    {
+                        "range": {"start": {"line": 0, "character": 0}, "end": {"line": 0, "character": 9}},
+                        "code": "Z120",
+                        "source": "Zenzic",
+                        "message": "[Z120] Relative link error",
+                    }
+                ]
+            },
+        },
+    })
+
+    out_stream.seek(0)
+    raw_output = out_stream.read().decode("utf-8")
+    body_str = raw_output.split("\r\n\r\n")[1]
+    response = json.loads(body_str)
+
+    assert response["id"] == 101
+    assert response["result"] == []
+
+
+
